@@ -40,3 +40,7 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+pocketbase/pocketbase
+pocketbase/**/*.js
+pocketbase/pb_data/
