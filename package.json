@@ -6,8 +6,10 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
+    "turbo": "next dev --turbo",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "startdb": "pocketbase/pocketbase serve"
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.9.2",

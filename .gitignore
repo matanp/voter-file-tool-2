@@ -44,3 +44,5 @@ yarn-error.log*
 pocketbase/pocketbase
 pocketbase/**/*.js
 pocketbase/pb_data/
+
+data/
