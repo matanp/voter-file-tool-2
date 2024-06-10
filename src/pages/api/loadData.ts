@@ -48,7 +48,12 @@ export default async function handler(
         }
       }
 
+      // make this the archives
       await pbClient.collection("Voter_Records").create(voterRecord);
+
+      // check for discrepencies, update Voter_Records with new data
+
+      // update voter history record (take newest data, shouldn't be discrepencies)
     }
 
     return res.status(200).json({
