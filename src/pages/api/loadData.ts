@@ -1,60 +1,180 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { authenticatePb, pbClient } from "~/lib/connect";
-import { readFileSync } from "fs";
+import { createReadStream, readFileSync } from "fs";
+import prisma from "~/lib/prisma";
+import csv from "csv-parser";
+import { VoterRecordArchive } from "@prisma/client";
+import {
+  convertStringToDateTime,
+  delay,
+  exampleVoterRecord,
+  isRecordNewer,
+  voterHasDiscrepancy,
+} from "./lib/utils";
+
+function parseCSV(
+  filePath: string,
+  year: number,
+  recordEntryNumber: number,
+): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const records: any[] = [];
+    const parser = createReadStream(filePath).pipe(
+      csv(Object.keys(exampleVoterRecord)),
+    );
+
+    parser.on("data", async (row: any) => {
+      try {
+        await saveVoterRecord(row, year, recordEntryNumber);
+      } catch (error) {
+        console.error("Error saving voter record:", error);
+      }
+    });
+
+    parser.on("end", () => {
+      console.log("Parsing complete", records.length);
+      resolve(records);
+    });
+
+    parser.on("error", (error) => {
+      throw error;
+    });
+  });
+}
+
+let recordsProcessed = 0;
+
+async function saveVoterRecord(
+  record: any,
+  year: number,
+  recordEntryNumber: number,
+): Promise<void> {
+  const VRCNUM = Number(record["VRCNUM"]);
+  let output = String(VRCNUM);
+
+  if (VRCNUM === undefined) {
+    throw new Error("VRCNUM is undefined");
+  }
+
+  let existingRecord = await prisma.voterRecordArchive.findUnique({
+    where: {
+      VRCNUM_recordEntryYear_recordEntryNumber: {
+        VRCNUM,
+        recordEntryYear: year,
+        recordEntryNumber,
+      },
+    },
+  });
+
+  if (!existingRecord) {
+    output += "-new";
+    let voterRecord = {
+      recordEntryYear: year,
+      recordEntryNumber,
+    };
+
+    for (let key of Object.keys(exampleVoterRecord)) {
+      const value = record[key].trim();
+      if (
+        key === "VRCNUM" ||
+        key === "houseNum" ||
+        key === "electionDistrict"
+      ) {
+        voterRecord = {
+          ...voterRecord,
+          [key]: Number(value ?? -1),
+        };
+      } else if (
+        key === "DOB" ||
+        key === "lastUpdate" ||
+        key === "originalRegDate"
+      ) {
+        voterRecord = {
+          ...voterRecord,
+          [key]: convertStringToDateTime(value ?? ""),
+        };
+      } else {
+        voterRecord = {
+          ...voterRecord,
+          [key]: value ?? "",
+        };
+      }
+    }
+
+    existingRecord = await prisma.voterRecordArchive.create({
+      data: voterRecord as VoterRecordArchive,
+    });
+  }
+
+  const voterRecord = await prisma.voterRecord.findUnique({
+    where: {
+      VRCNUM,
+    },
+  });
+
+  const hasDiscrepancy = await voterHasDiscrepancy(VRCNUM);
+
+  output +=
+    "-" +
+    hasDiscrepancy +
+    "-" +
+    !!voterRecord +
+    "-" +
+    (voterRecord ? isRecordNewer(existingRecord, voterRecord) : "");
+
+  if (!voterRecord || isRecordNewer(existingRecord, voterRecord)) {
+    const { id, recordEntryYear, recordEntryNumber, ...otherRecordFields } =
+      existingRecord;
+    await prisma.voterRecord.upsert({
+      where: {
+        VRCNUM,
+      },
+      create: {
+        ...otherRecordFields,
+        latestRecordEntryNumber: recordEntryNumber,
+        latestRecordEntryYear: year,
+        hasDiscrepancy,
+      },
+      update: {
+        ...otherRecordFields,
+        latestRecordEntryNumber: recordEntryNumber,
+        latestRecordEntryYear: year,
+        hasDiscrepancy,
+      },
+    });
+  }
+
+  // console.log("Saved record", output);
+}
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  await authenticatePb();
-  // if (req.method !== 'POST') {
-  //   return res.status(405).json({
-  //     error: 'Method Not Allowed',
-  //     message: 'Only POST requests are allowed.',
-  //   });
-  // }
-
   try {
-    const fileContent: Buffer = readFileSync("data/CDL_DAT.txt");
+    const filePath = "data/2023-2.txt";
+    const year = 2023;
+    const recordEntryNumber = 2;
 
-    const data = fileContent.toString().split("\n");
+    const files = [
+      "2023-1-partial.txt",
+      "2023-2-partial.txt",
+      "2023-3-partial.txt",
+      "2024-1-partial.txt",
+    ];
+    const years = [2023, 2023, 2023, 2024];
+    const recordEntryNumbers = [1, 2, 3, 1];
 
-    for (let i = 0; i < data.length; i++) {
-      let voterRecord = {};
-      for (let key of Object.keys(testData)) {
-        if (
-          key === "VRCNUM" ||
-          key === "HouseNum" ||
-          key === "ElectionDistrict"
-        ) {
-          voterRecord = {
-            ...voterRecord,
-            [key]: Number(
-              data[i]
-                ?.split(",")
-                [Object.keys(testData).indexOf(key)]?.replace(/"/g, "") ?? -1,
-            ),
-          };
-        } else {
-          voterRecord = {
-            ...voterRecord,
-            [key]: (
-              (data[i] ?? "").split(",")[Object.keys(testData).indexOf(key)] ??
-              ""
-            )
-              .replace(/"/g, "")
-              .trim(),
-          };
-        }
-      }
-
-      // make this the archives
-      await pbClient.collection("Voter_Records").create(voterRecord);
-
-      // check for discrepencies, update Voter_Records with new data
-
-      // update voter history record (take newest data, shouldn't be discrepencies)
+    for (let i = 0; i < files.length; i++) {
+      console.log(files[i] ?? "", years[i] ?? 0, recordEntryNumbers[i] ?? 0);
+      await parseCSV(
+        `data/${files[i]}` ?? "",
+        years[i] ?? 0,
+        recordEntryNumbers[i] ?? 0,
+      );
     }
+    // const records = await parseCSV(filePath, year, recordEntryNumber);
+
+    // console.log("Parsing complete", records.length);
 
     return res.status(200).json({
       success: true,
@@ -70,56 +190,3 @@ export default async function handler(
     });
   }
 }
-
-const testData = {
-  VRCNUM: 123,
-  LastName: "test",
-  FirstName: "test",
-  MiddleInitial: "test",
-  SuffixName: "test",
-  HouseNum: 123,
-  Street: "test",
-  Apartment: "test",
-  HalfAddress: "test",
-  ResAddrLine2: "test",
-  ResAddrLine3: "test",
-  City: "test",
-  State: "test",
-  ZipCode: "test",
-  ZipSuffix: "test",
-  Telephone: "test",
-  Email: "test",
-  MailingAddress1: "test",
-  MailingAddress2: "test",
-  MailingAddress3: "test",
-  MailingAddress4: "test",
-  MailingCity: "test",
-  MailingState: "test",
-  MailingZip: "test",
-  MailingZipSuffix: "test",
-  Party: "test",
-  Gender: "test",
-  DOB: "test",
-  L_T: "test",
-  ElectionDistrict: "test",
-  CountyLegDistrict: "test",
-  StateAssmblyDistrict: "test",
-  StateSenateDistrict: "test",
-  CongressionalDistrict: "test",
-  CC_WD_Village: "test",
-  TownCode: "test",
-  LastUpdate: "test",
-  OriginalRegDate: "test",
-  Statevid: "test",
-  VotingJune19: "test",
-  VotingNov19: "test",
-  VotingApr20: "test",
-  VotingJune20: "test",
-  VotingNov20: "test",
-  VotingJune21: "test",
-  VotingNov21: "test",
-  VotingJune22: "test",
-  VotingNov22: "test",
-  VotingJune23: "test",
-  VotingNov23: "test",
-};

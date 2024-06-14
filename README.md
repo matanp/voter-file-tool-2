@@ -1,2 +1,5 @@
 - [x] connect pocketbase
-- [ ] copy logic over
+- [x] copy logic over
+- [ ] write data input processing
+- [ ] build form for data filtering / viewing
+- [ ] create ui for viewing discrepencies

@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model VoterRecordArchive {
+  id                   Int   @id @default(autoincrement())
+  VRCNUM               Int     
+  recordEntryYear      Int      
+  recordEntryNumber    Int      
+  lastName             String?
+  firstName            String?
+  middleInitial        String?
+  suffixName           String?
+  houseNum             Int?
+  street               String?
+  apartment            String?
+  halfAddress          String?
+  resAddrLine2         String?
+  resAddrLine3         String?
+  city                 String?
+  state                String?
+  zipCode              String?
+  zipSuffix            String?
+  telephone            String?
+  email                String?
+  mailingAddress1      String?
+  mailingAddress2      String?
+  mailingAddress3      String?
+  mailingAddress4      String?
+  mailingCity          String?
+  mailingState         String?
+  mailingZip           String?
+  mailingZipSuffix     String?
+  party                String?
+  gender               String?
+  DOB                  DateTime?
+  L_T                  String?
+  electionDistrict     Int?
+  countyLegDistrict    String?
+  stateAssmblyDistrict String?
+  stateSenateDistrict  String?
+  congressionalDistrict String?
+  CC_WD_Village        String?
+  townCode             String?
+  lastUpdate           DateTime?
+  originalRegDate      DateTime?
+  statevid             String?
+
+  @@unique([VRCNUM, recordEntryYear, recordEntryNumber])
+}
+
+model VoterRecord {
+  VRCNUM               Int      @id
+  votingRecords        VotingHistoryRecord[]
+  latestRecordEntryYear      Int      
+  latestRecordEntryNumber    Int   
+  lastName             String?
+  firstName            String?
+  middleInitial        String?
+  suffixName           String?
+  houseNum             Int?
+  street               String?
+  apartment            String?
+  halfAddress          String?
+  resAddrLine2         String?
+  resAddrLine3         String?
+  city                 String?
+  state                String?
+  zipCode              String?
+  zipSuffix            String?
+  telephone            String?
+  email                String?
+  mailingAddress1      String?
+  mailingAddress2      String?
+  mailingAddress3      String?
+  mailingAddress4      String?
+  mailingCity          String?
+  mailingState         String?
+  mailingZip           String?
+  mailingZipSuffix     String?
+  party                String?
+  gender               String?
+  DOB                  DateTime?
+  L_T                  String?
+  electionDistrict     Int?
+  countyLegDistrict    String?
+  stateAssmblyDistrict String?
+  stateSenateDistrict  String?
+  congressionalDistrict String?
+  CC_WD_Village        String?
+  townCode             String?
+  lastUpdate           DateTime? 
+  originalRegDate      DateTime? 
+  statevid             String?
+  hasDiscrepancy       Boolean?
+}
+
+model VotingHistoryRecord {
+  id          Int   @id @default(autoincrement())
+  voterRecord VoterRecord @relation(fields: [voterRecordId], references: [VRCNUM], onDelete: Cascade)
+  voterRecordId Int
+  date        DateTime
+  value       String
+}
+
