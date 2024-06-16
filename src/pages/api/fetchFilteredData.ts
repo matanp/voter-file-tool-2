@@ -1,29 +1,34 @@
-import { authenticatePb, pbClient } from '@/app/lib/connect';
-import { NextApiRequest, NextApiResponse } from 'next';
-import pb from 'pocketbase';
+import { NextApiRequest, NextApiResponse } from "next";
+import prisma from "~/lib/prisma";
 
 export default async function fetchFilteredData(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
 ) {
   try {
     const { party, district } = req.query;
 
-    await authenticatePb();
+    if (
+      !party ||
+      !district ||
+      typeof party !== "string" ||
+      typeof district !== "string"
+    ) {
+      return res.status(400).json({ error: "Invalid parameters" });
+    }
 
-    const filterString = `Party = "${party}" && ElectionDistrict = ${district}`;
-
-    const records = await pbClient.collection('Voter_Records').getList(1, 100, {
-      filter: pbClient.filter(filterString),
+    const records = await prisma.voterRecord.findMany({
+      where: {
+        party,
+        electionDistrict: Number(district),
+      },
     });
 
-    console.log(records.items[0]);
-
-    const data = records.items;
+    const data = records;
 
     res.status(200).json(data);
   } catch (error) {
     console.log(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 }

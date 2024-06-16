@@ -4,43 +4,51 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    /* Shared Colors */
+    --white: 0 0% 100%;
+    --black: 240 10% 3.9%;
+    --light-gray: 240 4.8% 95.9%;
+    --medium-gray: 240 5.9% 90%;
+    --dark-gray: 240 5.9% 10%;
+
+    /* Custom Colors */
+    --background: var(--white);
+    --foreground: var(--black);
+    --card: var(--white);
+    --card-foreground: var(--black);
+    --popover: var(--white);
+    --popover-foreground: var(--black);
     --primary: 142.1 76.2% 36.3%;
     --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
+    --secondary: var(--light-gray);
+    --secondary-foreground: var(--dark-gray);
+    --muted: var(--light-gray);
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --accent: var(--light-gray);
+    --accent-foreground: var(--dark-gray);
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
+    --border: var(--medium-gray);
+    --input: var(--medium-gray);
     --ring: 142.1 76.2% 36.3%;
     --radius: 0.5rem;
   }
 
   .dark {
     --background: 20 14.3% 4.1%;
-    --foreground: 0 0% 95%;
+    --foreground: var(--white);
     --card: 24 9.8% 10%;
-    --card-foreground: 0 0% 95%;
+    --card-foreground: var(--white);
     --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 95%;
+    --popover-foreground: var(--white);
     --primary: 142.1 70.6% 45.3%;
     --primary-foreground: 144.9 80.4% 10%;
     --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary-foreground: var(--white);
     --muted: 0 0% 15%;
     --muted-foreground: 240 5% 64.9%;
     --accent: 12 6.5% 15.1%;
-    --accent-foreground: 0 0% 98%;
+    --accent-foreground: var(--white);
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 85.7% 97.3%;
     --border: 240 3.7% 15.9%;

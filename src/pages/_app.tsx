@@ -19,11 +19,11 @@ const MyApp: AppType = ({ Component, pageProps }) => {
         enableSystem
         disableTransitionOnChange
       >
-        <nav>
+        {/* <nav>
           <ThemeToggle />
-        </nav>
+        </nav> */}
         <main
-          className={`bg-background min-h-screen font-sans antialiased ${inter.variable}`}
+          className={`bg-background min-h-screen font-sans antialiased ${inter.variable} m-10`}
         >
           <Component {...pageProps} />
         </main>
