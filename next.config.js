@@ -17,6 +17,15 @@ const config = {
     locales: ["en"],
     defaultLocale: "en",
   },
+  redirects: async () => {
+    return [
+      {
+        source: "/",
+        destination: "/recordsearch",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default config;
