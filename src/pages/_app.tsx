@@ -9,6 +9,8 @@ import Link from "next/link";
 import "~/styles/globals.css";
 import { Session } from "inspector";
 import { SessionProvider } from "next-auth/react";
+import { Sign } from "crypto";
+import { SignInButton } from "~/components/ui/signInButton";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -47,6 +49,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
                   Committee List
                 </Button>
               </Link>
+              <SignInButton />
             </div>
           </nav>
           <main

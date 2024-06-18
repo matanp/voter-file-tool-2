@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { SignIn } from "./signInButton";
+import { SignInButton } from "./signInButton";
 
 export default function AuthCheck({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -11,6 +11,6 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
   } else if (status === "loading") {
     return <h1>Loading...</h1>;
   } else {
-    return <SignIn />;
+    return <SignInButton />;
   }
 }
