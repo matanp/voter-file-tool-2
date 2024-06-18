@@ -1,4 +1,7 @@
 import React from "react";
+import { auth } from "~/auth";
+import AuthCheck from "~/components/ui/authcheck";
+import { SignIn } from "~/components/ui/signInButton";
 
 const colors = [
   { name: "background", className: "bg-background text-foreground" },
@@ -39,13 +42,15 @@ const colors = [
 
 const ColorReference: React.FC = () => {
   return (
-    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-3">
-      {colors.map((color) => (
-        <div key={color.name} className={`rounded-md p-4 ${color.className}`}>
-          <p>{color.name}</p>
-        </div>
-      ))}
-    </div>
+    <AuthCheck>
+      <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-3">
+        {colors.map((color) => (
+          <div key={color.name} className={`rounded-md p-4 ${color.className}`}>
+            <p>{color.name}</p>
+          </div>
+        ))}
+      </div>
+    </AuthCheck>
   );
 };
 

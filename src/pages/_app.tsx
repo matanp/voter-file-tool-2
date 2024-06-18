@@ -7,6 +7,8 @@ import { ThemeToggle } from "~/components/ui/themeToggle";
 import Link from "next/link";
 
 import "~/styles/globals.css";
+import { Session } from "inspector";
+import { SessionProvider } from "next-auth/react";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,37 +23,39 @@ const MyApp: AppType = ({ Component, pageProps }) => {
   const tabStyleInactive = "bg-muted-foreground";
   return (
     <>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <nav>
-          <div className="flex-gap border-bottom m-1 flex items-center justify-center gap-2 border-2 border-solid bg-accent py-2">
-            {/* <ThemeToggle className="mr-auto" /> */}
-            <Link href="/recordsearch">
-              <Button
-                className={`${sharedTabStyle} ${router.asPath.includes("record") ? tabStyleActive : tabStyleInactive}`}
-              >
-                Record Search
-              </Button>
-            </Link>
-            <Link href="/committees">
-              <Button
-                className={`${sharedTabStyle} ${router.asPath.includes("committee") ? tabStyleActive : tabStyleInactive}`}
-              >
-                Committee List
-              </Button>
-            </Link>
-          </div>
-        </nav>
-        <main
-          className={`min-h-screen bg-background font-sans antialiased ${inter.variable} m-10`}
+      <SessionProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
         >
-          <Component {...pageProps} />
-        </main>
-      </ThemeProvider>
+          <nav>
+            <div className="flex-gap border-bottom m-1 flex items-center justify-center gap-2 border-2 border-solid bg-accent py-2">
+              {/* <ThemeToggle className="mr-auto" /> */}
+              <Link href="/recordsearch">
+                <Button
+                  className={`${sharedTabStyle} ${router.asPath.includes("record") ? tabStyleActive : tabStyleInactive}`}
+                >
+                  Record Search
+                </Button>
+              </Link>
+              <Link href="/committees">
+                <Button
+                  className={`${sharedTabStyle} ${router.asPath.includes("committee") ? tabStyleActive : tabStyleInactive}`}
+                >
+                  Committee List
+                </Button>
+              </Link>
+            </div>
+          </nav>
+          <main
+            className={`min-h-screen bg-background font-sans antialiased ${inter.variable} m-10`}
+          >
+            <Component {...pageProps} />
+          </main>
+        </ThemeProvider>
+      </SessionProvider>
     </>
   );
 };
