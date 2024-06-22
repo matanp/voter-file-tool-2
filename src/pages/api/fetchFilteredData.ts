@@ -1,30 +1,61 @@
+import { VoterRecord } from "@prisma/client";
 import { NextApiRequest, NextApiResponse } from "next";
 import prisma from "~/lib/prisma";
+
+function isKeyOfVoterRecord(key: string): key is keyof VoterRecord {
+  // return [
+  //   "firstName",
+  //   "lastName",
+  //   "party",
+  //   "gender",
+  //   "DOB",
+  //   "telephone",
+  //   "email",
+  //   "houseNum",
+  //   "street",
+  //   "city",
+  //   "state",
+  //   "zipCode",
+  //   "countyLegDistrict",
+  //   "address",
+  //   "phone",
+  // ].includes(key);
+
+  // :OHNO: do this for real
+  return true;
+}
 
 export default async function fetchFilteredData(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
   try {
-    const { party, district } = req.query;
+    const searchQuery = req.body;
 
-    if (
-      !party ||
-      !district ||
-      typeof party !== "string" ||
-      typeof district !== "string"
-    ) {
-      return res.status(400).json({ error: "Invalid parameters" });
+    let query: Partial<VoterRecord> = {};
+
+    for (const field of searchQuery) {
+      if (field.value !== "" && field.value !== null) {
+        let fieldField = field.field;
+        if (isKeyOfVoterRecord(fieldField)) {
+          query[fieldField] = field.value;
+        }
+      }
+    }
+
+    console.log(query);
+    if (!searchQuery) {
+      console.log("searchQuery is empty");
+      return res.status(400).json({ error: "Missing search query" });
     }
 
     const records = await prisma.voterRecord.findMany({
-      where: {
-        party,
-        electionDistrict: Number(district),
-      },
+      where: query,
     });
 
-    const data = records;
+    console.log(records.length);
+
+    const data = records.slice(0, 10);
 
     res.status(200).json(data);
   } catch (error) {

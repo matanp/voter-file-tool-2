@@ -1,15 +1,32 @@
 "use client";
 import React from "react";
-import PartyForm from "./PartyForm";
+import VoterRecordSearch, {
+  BaseSearchField,
+  SearchField,
+} from "./VoterRecordSearch";
 import { VoterRecord } from "@prisma/client";
 
 export const RecordsList: React.FC = () => {
   const [records, setRecords] = React.useState<any[]>([]);
 
-  const handleSubmit = async (party: string, electionDistrict: string) => {
-    const response = await fetch(
-      `/api/fetchFilteredData?party=${party}&district=${electionDistrict}`,
-    );
+  const handleSubmit = async (searchQuery: SearchField[]) => {
+    const flattenedQuery = searchQuery
+      .reduce((acc: BaseSearchField[], curr: SearchField) => {
+        if (curr.compoundType) {
+          return [...acc, ...curr.fields];
+        } else {
+          return [...acc, curr];
+        }
+      }, [])
+      .map((field) => ({ field: field.name, value: field.value }));
+
+    const response = await fetch(`/api/fetchFilteredData`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(flattenedQuery),
+    });
 
     const data = await response.json();
 
@@ -18,7 +35,7 @@ export const RecordsList: React.FC = () => {
 
   return (
     <div>
-      <PartyForm handleSubmit={handleSubmit} />
+      <VoterRecordSearch handleSubmit={handleSubmit} />
       <h1 className="text-foreground">Voter Records</h1>
       {records.length > 0 &&
         records.map((record: VoterRecord, id: any) => {
