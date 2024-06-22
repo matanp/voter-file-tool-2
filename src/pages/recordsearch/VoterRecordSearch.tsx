@@ -195,19 +195,29 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log(searchRows);
-    props.handleSubmit(searchRows);
+    const filteredRows = searchRows
+      .map((row) => {
+        if (row.compoundType) {
+          return {
+            ...row,
+            fields: row.fields.filter((field) => field.value),
+          };
+        }
+        return row;
+      })
+      .filter((row) => row.compoundType || row.value);
+    props.handleSubmit(filteredRows);
   };
 
   return (
-    <div className="mx-auto max-w-md">
+    <div className="mx-auto max-w-lg">
       <form onSubmit={handleSubmit} className="w-max">
         {searchRows.map((row, index) => (
           <div key={`outer-key-${index}`} className="pb-4">
             <div className="flex gap-2">
-              <div className="border-2 border-secondary">
+              <div className="flex flex-row items-center">
                 <select
-                  className="form-select h-10"
+                  className="form-select h-10 border-2 border-secondary"
                   value={row.name}
                   onChange={(e) => handleChangeField(index, e.target.value)}
                 >
@@ -246,7 +256,10 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                 {row.compoundType &&
                   row.fields.map((field, subIdx) => {
                     return (
-                      <div key={`sub-index-${index}-${subIdx}`}>
+                      <div
+                        key={`sub-index-${index}-${subIdx}`}
+                        className="flex gap-2 pb-2"
+                      >
                         <label>{field.displayName}</label>
                         {field.type === "DateTime" && (
                           <DatePicker
