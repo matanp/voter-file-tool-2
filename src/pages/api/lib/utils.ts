@@ -97,7 +97,7 @@ export function convertStringToDateTime(dateString: string): Date {
   return jsDate;
 }
 
-export const exampleVoterRecord = {
+export const exampleVoterRecord: Partial<VoterRecordArchive> = {
   VRCNUM: 12345,
   lastName: "Doe",
   firstName: "John",

@@ -133,6 +133,8 @@ model VoterRecordArchive {
 model VoterRecord {
   VRCNUM               Int      @id
   votingRecords        VotingHistoryRecord[]
+  committee           ElectionDistrict? @relation(fields: [committeeId], references: [electionDistrict])
+  committeeId         Int?
   latestRecordEntryYear      Int      
   latestRecordEntryNumber    Int   
   lastName             String?
@@ -182,5 +184,10 @@ model VotingHistoryRecord {
   voterRecordId Int
   date        DateTime
   value       String
+}
+
+model ElectionDistrict {
+  electionDistrict Int @id
+  committeeMemberList      VoterRecord[]
 }
 

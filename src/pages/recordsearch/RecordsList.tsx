@@ -45,7 +45,7 @@ export const RecordsList: React.FC = () => {
   );
 };
 
-const VoterCard = ({ record }: { record: VoterRecord }) => {
+export const VoterCard = ({ record }: { record: VoterRecord }) => {
   return (
     <div className="bg-card p-6">
       <h2 className="mb-4 text-lg font-bold">{`${record.firstName} ${record.lastName}`}</h2>

@@ -1,5 +1,8 @@
 - [x] connect pocketbase
 - [x] copy logic over
-- [ ] write data input processing
-- [ ] build form for data filtering / viewing
+- [x] write data input processing
+- [ ] make data input processing include voter history
+- [x] build form for data filtering / viewing
 - [ ] create ui for viewing discrepencies
+- [ ] build committee member list
+- [ ] upgrade Tailwind (security issue with braces 3.0.2)

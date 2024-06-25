@@ -5,7 +5,6 @@ import csv from "csv-parser";
 import { VoterRecordArchive } from "@prisma/client";
 import {
   convertStringToDateTime,
-  delay,
   exampleVoterRecord,
   isRecordNewer,
   voterHasDiscrepancy,
@@ -41,15 +40,12 @@ function parseCSV(
   });
 }
 
-let recordsProcessed = 0;
-
 async function saveVoterRecord(
   record: any,
   year: number,
   recordEntryNumber: number,
 ): Promise<void> {
   const VRCNUM = Number(record["VRCNUM"]);
-  let output = String(VRCNUM);
 
   if (VRCNUM === undefined) {
     throw new Error("VRCNUM is undefined");
@@ -65,15 +61,30 @@ async function saveVoterRecord(
     },
   });
 
+  if (record.electionDistrict) {
+    let committeeList = await prisma.electionDistrict.findUnique({
+      where: {
+        electionDistrict: Number(record.electionDistrict),
+      },
+    });
+
+    if (!committeeList) {
+      await prisma.electionDistrict.create({
+        data: {
+          electionDistrict: Number(record.electionDistrict),
+        },
+      });
+    }
+  }
+
   if (!existingRecord) {
-    output += "-new";
     let voterRecord = {
       recordEntryYear: year,
       recordEntryNumber,
     };
 
     for (let key of Object.keys(exampleVoterRecord)) {
-      const value = record[key].trim();
+      const value = record[key]?.trim();
       if (
         key === "VRCNUM" ||
         key === "houseNum" ||
@@ -113,14 +124,6 @@ async function saveVoterRecord(
 
   const hasDiscrepancy = await voterHasDiscrepancy(VRCNUM);
 
-  output +=
-    "-" +
-    hasDiscrepancy +
-    "-" +
-    !!voterRecord +
-    "-" +
-    (voterRecord ? isRecordNewer(existingRecord, voterRecord) : "");
-
   if (!voterRecord || isRecordNewer(existingRecord, voterRecord)) {
     const { id, recordEntryYear, recordEntryNumber, ...otherRecordFields } =
       existingRecord;
@@ -142,8 +145,6 @@ async function saveVoterRecord(
       },
     });
   }
-
-  // console.log("Saved record", output);
 }
 
 export default async function handler(
@@ -172,9 +173,8 @@ export default async function handler(
         recordEntryNumbers[i] ?? 0,
       );
     }
-    // const records = await parseCSV(filePath, year, recordEntryNumber);
 
-    // console.log("Parsing complete", records.length);
+    console.log("Parsing complete");
 
     return res.status(200).json({
       success: true,

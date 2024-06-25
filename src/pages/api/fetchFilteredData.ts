@@ -38,14 +38,16 @@ export default async function fetchFilteredData(
       if (field.value !== "" && field.value !== null) {
         let fieldField = field.field;
         if (isKeyOfVoterRecord(fieldField)) {
-          query[fieldField] = field.value;
+          if (fieldField === "firstName" || fieldField === "lastName") {
+            query[fieldField] = field.value.toUpperCase();
+          } else {
+            query[fieldField] = field.value;
+          }
         }
       }
     }
 
-    console.log(query);
     if (!searchQuery) {
-      console.log("searchQuery is empty");
       return res.status(400).json({ error: "Missing search query" });
     }
 
