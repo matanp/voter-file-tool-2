@@ -1,16 +1,19 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import prisma from "~/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+// const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+export async function POST(req: NextRequest) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const { electionDistrict, memberId } = req.body;
+  // const { electionDistrict, memberId } = req.body;
+  const { electionDistrict, memberId } = await req.json();
 
   if (!electionDistrict || !memberId) {
-    return res.status(400).json({ error: "Invalid request" });
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   try {
@@ -32,11 +35,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       },
     });
 
-    res.status(200).json(updatedCommittee);
+    return NextResponse.json(updatedCommittee, { status: 200 });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
-};
-
-export default handler;
+}

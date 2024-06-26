@@ -1,5 +1,6 @@
 import { VoterRecord } from "@prisma/client";
 import { NextApiRequest, NextApiResponse } from "next";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 
 function isKeyOfVoterRecord(key: string): key is keyof VoterRecord {
@@ -25,12 +26,9 @@ function isKeyOfVoterRecord(key: string): key is keyof VoterRecord {
   return true;
 }
 
-export default async function fetchFilteredData(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
+export async function POST(req: NextRequest) {
   try {
-    const searchQuery = req.body;
+    const searchQuery = await req.json();
 
     let query: Partial<VoterRecord> = {};
 
@@ -48,7 +46,10 @@ export default async function fetchFilteredData(
     }
 
     if (!searchQuery) {
-      return res.status(400).json({ error: "Missing search query" });
+      return NextResponse.json(
+        { error: "Missing search query" },
+        { status: 400 },
+      );
     }
 
     const records = await prisma.voterRecord.findMany({
@@ -59,9 +60,12 @@ export default async function fetchFilteredData(
 
     const data = records.slice(0, 10);
 
-    res.status(200).json(data);
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

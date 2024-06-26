@@ -1,16 +1,13 @@
-import { ElectionDistrict } from "@prisma/client";
-import { NextApiRequest, NextApiResponse } from "next";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { electionDistrict, memberId } = req.body;
+// const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+export async function POST(req: NextRequest) {
+  // const { electionDistrict, memberId } = req.body;
+  const { electionDistrict, memberId } = await req.json();
 
   if (!electionDistrict || !memberId) {
-    return res.status(400).json({ error: "Invalid request" });
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   try {
@@ -38,7 +35,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     });
 
     if (!existingElectionDistrict) {
-      return res.status(404).json({ error: "Committee not found" });
+      return NextResponse.json(
+        { error: "Committee not found" },
+        { status: 404 },
+      );
     }
 
     const voterRecord = await prisma.voterRecord.update({
@@ -48,11 +48,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       },
     });
 
-    res.status(200).json("success");
+    return NextResponse.json("success", { status: 200 });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
-};
-
-export default handler;
+}

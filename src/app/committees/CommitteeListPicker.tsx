@@ -4,7 +4,7 @@ import React, { useState } from "react";
 
 import { ElectionDistrict, VoterRecord } from "@prisma/client";
 import { Button } from "~/components/ui/button";
-import { VoterCard } from "~/pages/recordsearch/RecordsList";
+import { VoterCard } from "~/app/recordsearch/RecordsList";
 
 interface CommitteeMember {
   VRCNUM: number;
