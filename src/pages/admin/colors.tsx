@@ -1,7 +1,5 @@
 import React from "react";
-import { auth } from "~/auth";
 import AuthCheck from "~/components/ui/authcheck";
-import { SignIn } from "~/components/ui/signInButton";
 
 const colors = [
   { name: "background", className: "bg-background text-foreground" },
