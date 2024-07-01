@@ -1,13 +1,13 @@
 "use client";
 import React from "react";
 import VoterRecordSearch, {
-  BaseSearchField,
-  SearchField,
+  type BaseSearchField,
+  type SearchField,
 } from "./VoterRecordSearch";
-import { VoterRecord } from "@prisma/client";
+import { type VoterRecord } from "@prisma/client";
 
 export const RecordsList: React.FC = () => {
-  const [records, setRecords] = React.useState<any[]>([]);
+  const [records, setRecords] = React.useState<VoterRecord[]>([]);
 
   const handleSubmit = async (searchQuery: SearchField[]) => {
     const flattenedQuery = searchQuery
@@ -28,9 +28,9 @@ export const RecordsList: React.FC = () => {
       body: JSON.stringify(flattenedQuery),
     });
 
-    const data = await response.json();
+    const data: unknown = await response.json();
 
-    setRecords(data);
+    setRecords(data as VoterRecord[]);
   };
 
   return (
@@ -38,7 +38,7 @@ export const RecordsList: React.FC = () => {
       <VoterRecordSearch handleSubmit={handleSubmit} />
       <h1 className="text-foreground">Voter Records</h1>
       {records.length > 0 &&
-        records.map((record: VoterRecord, id: any) => {
+        records.map((record: VoterRecord, id: number) => {
           return <VoterCard key={id} record={record} />;
         })}
     </div>

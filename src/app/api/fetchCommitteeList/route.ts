@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import { parse } from "path";
+import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 
 export async function GET(req: NextRequest) {
@@ -8,7 +7,7 @@ export async function GET(req: NextRequest) {
   if (
     !electionDistrict ||
     Array.isArray(electionDistrict) ||
-    !parseInt(electionDistrict as string)
+    !parseInt(electionDistrict)
   ) {
     return NextResponse.json(
       { error: "Invalid election district" },

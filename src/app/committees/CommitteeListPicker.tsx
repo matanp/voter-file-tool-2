@@ -2,7 +2,7 @@
 "use client";
 import React, { useState } from "react";
 
-import { ElectionDistrict, VoterRecord } from "@prisma/client";
+import { type ElectionDistrict, type VoterRecord } from "@prisma/client";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 
@@ -30,7 +30,9 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
   ) => {
     const district = parseInt(event.target.value);
     setSelectedDistrict(district);
-    fetchCommitteeList(district);
+    fetchCommitteeList(district).catch((error) => {
+      console.error("Error fetching committee list:", error);
+    });
   };
 
   const fetchCommitteeList = async (district: number) => {
@@ -40,8 +42,8 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
         `/api/fetchCommitteeList/?electionDistrict=${district}`,
       );
       if (response.ok) {
-        const data = await response.json();
-        setCommitteeList(data.committeeMemberList || []);
+        const data: unknown = await response.json();
+        setCommitteeList((data as { committeeMemberList: VoterRecord[] }).committeeMemberList || []);
       } else {
         setCommitteeList([]);
       }
@@ -70,7 +72,9 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
       }),
     });
 
-    fetchCommitteeList(selectedDistrict);
+    fetchCommitteeList(selectedDistrict).catch((error) => {
+      console.error("Error fetching committee list:", error);
+    });
   };
 
   return (
@@ -133,7 +137,7 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [voterId, setVoterId] = useState<number | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
-  const [records, setRecords] = useState<any[]>([]);
+  const [records, setRecords] = useState<VoterRecord[]>([]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -159,16 +163,15 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       body: JSON.stringify(query),
     });
 
-    const data = await response.json();
+    const data: unknown = await response.json();
 
-    setRecords(data);
+    setRecords(data as VoterRecord[]);
   };
 
   const handleAddCommitteeMember = async (
     event: React.FormEvent<HTMLButtonElement>,
     vrcnum: number,
   ) => {
-    console.log("uhhhhhh");
     event.preventDefault();
 
     const response = await fetch(`/api/committee/add`, {
@@ -181,8 +184,6 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         memberId: vrcnum,
       }),
     });
-
-    console.log(response);
 
     onAdd(committeeNumber);
   };
@@ -211,9 +212,9 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         <Button type="submit">Find Members to Add</Button>
       </form>
       {records.length > 0 &&
-        records.map((record: VoterRecord, id: any) => {
+        records.map((record: VoterRecord, id: number) => {
           return (
-            <div className="flex flex-row items-center gap-2" key={id}>
+            <div className="flex flex-row items-center gap-2" key={`records-${id}`}>
               <VoterCard record={record} />
               {record.countyLegDistrict === `${committeeNumber}` ? (
                 <p>eligible</p>

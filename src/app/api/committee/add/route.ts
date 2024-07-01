@@ -1,7 +1,10 @@
-import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import prisma from "~/lib/prisma";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+
+interface CommitteeData {
+  electionDistrict: string;
+  memberId: string;
+}
 
 // const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 export async function POST(req: NextRequest) {
@@ -9,25 +12,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  // const { electionDistrict, memberId } = req.body;
-  const { electionDistrict, memberId } = await req.json();
+  const { electionDistrict, memberId }: CommitteeData = await req.json() as CommitteeData;
 
-  if (!electionDistrict || !memberId) {
+  if (!electionDistrict || !memberId || !Number.isInteger(electionDistrict) || !Number.isInteger(memberId)) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   try {
     const updatedCommittee = await prisma.electionDistrict.upsert({
-      where: { electionDistrict: parseInt(electionDistrict, 10) },
+      where: { electionDistrict: Number(electionDistrict) },
       update: {
         committeeMemberList: {
-          connect: { VRCNUM: parseInt(memberId, 10) },
+          connect: { VRCNUM: Number(memberId) },
         },
       },
       create: {
-        electionDistrict: parseInt(electionDistrict, 10),
+        electionDistrict: Number(electionDistrict),
         committeeMemberList: {
-          connect: { VRCNUM: parseInt(memberId, 10) },
+          connect: { VRCNUM: Number(memberId) },
         },
       },
       include: {

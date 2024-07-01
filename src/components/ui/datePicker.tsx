@@ -25,7 +25,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
     if (date) {
       onChange(date);
     }
-  }, [date]);
+  }, [date, onChange]);
 
   return (
     <Popover>

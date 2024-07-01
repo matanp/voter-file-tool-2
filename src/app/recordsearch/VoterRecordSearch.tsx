@@ -147,7 +147,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
   const handleChangeField = (index: number, field: string) => {
     const updatedRows = [...searchRows];
-    let updatedRow = updatedRows[index];
+    let updatedRow: SearchField | undefined = updatedRows[index];
     if (updatedRow) {
       updatedRow = SEARCH_FIELDS.find(
         (searchField) => searchField.name === field,
@@ -177,8 +177,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
       updatedRow.value = updatedRow.type === "number" ? Number(value) : value;
       updatedRows[index] = updatedRow;
     } else if (
-      updatedRow &&
-      updatedRow.compoundType &&
+      updatedRow?.compoundType &&
       compoundIndex !== undefined
     ) {
       const updatedField = updatedRow.fields[compoundIndex];
@@ -206,7 +205,9 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         return row;
       })
       .filter((row) => row.compoundType || row.value);
-    props.handleSubmit(filteredRows);
+    props.handleSubmit(filteredRows).catch((error) => {
+      console.error("Error submitting search:", error);
+    });
   };
 
   return (

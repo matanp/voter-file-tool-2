@@ -1,47 +1,24 @@
-import { VoterRecord } from "@prisma/client";
-import { NextApiRequest, NextApiResponse } from "next";
-import { NextRequest, NextResponse } from "next/server";
+import { type VoterRecord } from "@prisma/client";
+import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-
-function isKeyOfVoterRecord(key: string): key is keyof VoterRecord {
-  // return [
-  //   "firstName",
-  //   "lastName",
-  //   "party",
-  //   "gender",
-  //   "DOB",
-  //   "telephone",
-  //   "email",
-  //   "houseNum",
-  //   "street",
-  //   "city",
-  //   "state",
-  //   "zipCode",
-  //   "countyLegDistrict",
-  //   "address",
-  //   "phone",
-  // ].includes(key);
-
-  // :OHNO: do this for real
-  return true;
-}
+import { searchQueryFieldSchema } from "../lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
-    const searchQuery = await req.json();
+    const requestBody: unknown = await req.json();
+
+    const searchQuery = searchQueryFieldSchema.parse(requestBody);
 
     let query: Partial<VoterRecord> = {};
 
     for (const field of searchQuery) {
       if (field.value !== "" && field.value !== null) {
-        let fieldField = field.field;
-        if (isKeyOfVoterRecord(fieldField)) {
+        const fieldField = field.field;
           if (fieldField === "firstName" || fieldField === "lastName") {
-            query[fieldField] = field.value.toUpperCase();
+            query = { ...query, ...{ [fieldField]: field.value.toUpperCase() } };
           } else {
-            query[fieldField] = field.value;
+            query = { ...query, ...{ [fieldField]: field.value } };
           }
-        }
       }
     }
 

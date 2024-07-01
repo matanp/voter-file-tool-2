@@ -7,9 +7,11 @@
     "build": "next build",
     "dev": "next dev",
     "turbo": "next dev --turbo",
-    "lint": "next lint",
     "start": "next start",
-    "dbconnect": "psql -h localhost -U matanAdmin -d postgres1"
+    "dbconnect": "psql -h localhost -U matanAdmin -d postgres1",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "prettier --write \"./**/*.{js,jsx,ts,tsx,json,css,md}\""
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.2.0",

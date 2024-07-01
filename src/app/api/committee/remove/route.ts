@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
+
+interface CommitteeData {
+  electionDistrict: string;
+  memberId: string;
+}
 
 // const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 export async function POST(req: NextRequest) {
   // const { electionDistrict, memberId } = req.body;
-  const { electionDistrict, memberId } = await req.json();
+  const { electionDistrict, memberId }: CommitteeData = await req.json() as CommitteeData;
 
   if (!electionDistrict || !memberId) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -41,7 +46,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const voterRecord = await prisma.voterRecord.update({
+     await prisma.voterRecord.update({
       where: { VRCNUM: parseInt(memberId) },
       data: {
         committeeId: null,

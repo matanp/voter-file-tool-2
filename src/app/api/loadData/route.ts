@@ -1,51 +1,64 @@
-import { NextApiRequest, NextApiResponse } from "next";
-import { createReadStream, readFileSync } from "fs";
+import { type NextApiRequest, type NextApiResponse } from "next";
+import { createReadStream } from "fs";
 import prisma from "~/lib/prisma";
 import csv from "csv-parser";
-import { VoterRecordArchive } from "@prisma/client";
+import { type VoterRecordArchive } from "@prisma/client";
 import {
   convertStringToDateTime,
   exampleVoterRecord,
+  fieldEnum,
   isRecordNewer,
   voterHasDiscrepancy,
-} from "./lib/utils";
+} from "../lib/utils";
+import { NextRequest, NextResponse } from "next/server";
+
+type VoterRecordArchiveStrings = {
+  [K in keyof VoterRecordArchive]: string | null;
+};
 
 function parseCSV(
   filePath: string,
   year: number,
   recordEntryNumber: number,
-): Promise<any[]> {
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const records: any[] = [];
     const parser = createReadStream(filePath).pipe(
       csv(Object.keys(exampleVoterRecord)),
     );
 
-    parser.on("data", async (row: any) => {
-      try {
-        await saveVoterRecord(row, year, recordEntryNumber);
-      } catch (error) {
-        console.error("Error saving voter record:", error);
+    const processRow = async (row: VoterRecordArchiveStrings) => {
+      if(row) {
+        parser.pause();
+        await saveVoterRecord(row, year, recordEntryNumber).catch(reject);
+        parser.resume();
       }
+    };
+
+    parser.on("data",  (row: VoterRecordArchiveStrings) => {
+         processRow(row).catch((error) => {
+           console.error("Error processing row:", error);
+           reject(error);
+         });
     });
 
     parser.on("end", () => {
-      console.log("Parsing complete", records.length);
-      resolve(records);
+      console.log("Parsing complete");
+      resolve();
     });
 
     parser.on("error", (error) => {
-      throw error;
+      // throw error;
+      reject(error)
     });
   });
 }
 
 async function saveVoterRecord(
-  record: any,
+  record: VoterRecordArchiveStrings,
   year: number,
   recordEntryNumber: number,
 ): Promise<void> {
-  const VRCNUM = Number(record["VRCNUM"]);
+  const VRCNUM = Number(record.VRCNUM);
 
   if (VRCNUM === undefined) {
     throw new Error("VRCNUM is undefined");
@@ -62,7 +75,7 @@ async function saveVoterRecord(
   });
 
   if (record.electionDistrict) {
-    let committeeList = await prisma.electionDistrict.findUnique({
+    const committeeList = await prisma.electionDistrict.findUnique({
       where: {
         electionDistrict: Number(record.electionDistrict),
       },
@@ -83,8 +96,18 @@ async function saveVoterRecord(
       recordEntryNumber,
     };
 
-    for (let key of Object.keys(exampleVoterRecord)) {
-      const value = record[key]?.trim();
+    for (const key of Object.keys(exampleVoterRecord)) {
+
+      const parseKey = fieldEnum.safeParse(key);
+      if(!parseKey.success) {
+        console.log("Error parsing field", key);
+        continue;
+      } 
+
+      const value = record[parseKey.data];
+
+      // const value = record[key];
+      // const value = record[key]?.trim();
       if (
         key === "VRCNUM" ||
         key === "houseNum" ||
@@ -147,14 +170,12 @@ async function saveVoterRecord(
   }
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
+export async function GET(req: NextRequest) {
+
   try {
-    const filePath = "data/2023-2.txt";
-    const year = 2023;
-    const recordEntryNumber = 2;
+    // const filePath = "data/2023-2.txt";
+    // const year = 2023;
+    // const recordEntryNumber = 2;
 
     const files = [
       "2023-1-partial.txt",
@@ -176,17 +197,17 @@ export default async function handler(
 
     console.log("Parsing complete");
 
-    return res.status(200).json({
+    return NextResponse.json({
       success: true,
       message: "Data loaded successfully.",
       result: "",
-    });
+    }, { status: 200 });
   } catch (error) {
     console.error("Error loading data:", error);
-    return res.status(500).json({
+    return NextResponse.json({
       success: false,
       error: "Internal Server Error",
       message: "Failed to load data.",
-    });
+    }, { status: 500 });
   }
 }

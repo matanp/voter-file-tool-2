@@ -1,4 +1,5 @@
-import { VoterRecord, VoterRecordArchive } from "@prisma/client";
+import { type VoterRecord, type VoterRecordArchive } from "@prisma/client";
+import { z } from "zod";
 import prisma from "~/lib/prisma";
 
 export function isRecordNewer(
@@ -23,7 +24,7 @@ export function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function isDate(value: any): value is Date {
+export function isDate(value: unknown): value is Date {
   return value instanceof Date && !isNaN(value.getTime());
 }
 
@@ -41,9 +42,8 @@ export async function voterHasDiscrepancy(VRCNUM: number): Promise<boolean> {
   }
 
   for (const recordArchive of recordArchives) {
-    let ignoreFields = ["id", "recordEntryYear", "recordEntryNumber"];
-    let dateFields = ["DOB", "originalRegDate", "lastUpdate"];
-    for (let field of Object.keys(
+    const ignoreFields = ["id", "recordEntryYear", "recordEntryNumber"];
+    for (const field of Object.keys(
       recordArchive,
     ) as (keyof VoterRecordArchive)[]) {
       if (ignoreFields.includes(field)) continue;
@@ -51,23 +51,23 @@ export async function voterHasDiscrepancy(VRCNUM: number): Promise<boolean> {
       const compareValue = recordArchive[field];
       if (isDate(compareValue) && isDate(previousValue)) {
         if (compareValue.getTime() !== previousValue.getTime()) {
-          console.log(
-            "Discrepancy found for VRCNUM via date comparison",
-            VRCNUM,
-            field,
-            recordArchive[field],
-            firstRecord[field],
-          );
+          // console.log(
+          //   "Discrepancy found for VRCNUM via date comparison",
+          //   VRCNUM,
+          //   field,
+          //   recordArchive[field],
+          //   firstRecord[field],
+          // );
           return true;
         }
       } else if (recordArchive[field] !== firstRecord[field]) {
-        console.log(
-          "Discrepancy found for VRCNUM",
-          VRCNUM,
-          field,
-          recordArchive[field],
-          firstRecord[field],
-        );
+        // console.log(
+        //   "Discrepancy found for VRCNUM",
+        //   VRCNUM,
+        //   field,
+        //   recordArchive[field],
+        //   firstRecord[field],
+        // );
         return true;
       }
     }
@@ -138,3 +138,50 @@ export const exampleVoterRecord: Partial<VoterRecordArchive> = {
   originalRegDate: new Date("2000-01-01"),
   statevid: "NY123456789",
 };
+
+export const fieldEnum = z.enum([
+  "VRCNUM",
+  "lastName",
+  "firstName",
+  "middleInitial",
+  "suffixName",
+  "houseNum",
+  "street",
+  "apartment",
+  "halfAddress",
+  "resAddrLine2",
+  "resAddrLine3",
+  "city",
+  "state",
+  "zipCode",
+  "zipSuffix",
+  "telephone",
+  "email",
+  "mailingAddress1",
+  "mailingAddress2",
+  "mailingAddress3",
+  "mailingAddress4",
+  "mailingCity",
+  "mailingState",
+  "mailingZip",
+  "mailingZipSuffix",
+  "party",
+  "gender",
+  "DOB",
+  "L_T",
+  "electionDistrict",
+  "countyLegDistrict",
+  "stateAssmblyDistrict",
+  "stateSenateDistrict",
+  "congressionalDistrict",
+  "CC_WD_Village",
+  "townCode",
+  "lastUpdate",
+  "originalRegDate",
+  "statevid",
+]);
+
+export const searchQueryFieldSchema = z.array(z.object({
+  field: fieldEnum,
+  value: z.string().nullable(),
+}));
