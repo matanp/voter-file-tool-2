@@ -16,6 +16,8 @@ type VoterRecordArchiveStrings = {
   [K in keyof VoterRecordArchive]: string | null;
 };
 
+let count = 0;
+
 function parseCSV(
   filePath: string,
   year: number,
@@ -30,6 +32,10 @@ function parseCSV(
       if(row) {
         parser.pause();
         await saveVoterRecord(row, year, recordEntryNumber).catch(reject);
+        count++;
+        if(count % 100 === 0) {
+          console.log("Saved", count, "records");
+        }
         parser.resume();
       }
     };
@@ -170,21 +176,32 @@ async function saveVoterRecord(
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function POST(req: Request) {
+
+  const body = await req.json();
+
+  console.log(body);
 
   try {
     // const filePath = "data/2023-2.txt";
     // const year = 2023;
     // const recordEntryNumber = 2;
 
-    const files = [
-      "2023-1-partial.txt",
-      "2023-2-partial.txt",
-      "2023-3-partial.txt",
-      "2024-1-partial.txt",
-    ];
-    const years = [2023, 2023, 2023, 2024];
-    const recordEntryNumbers = [1, 2, 3, 1];
+    // const files = [
+    //   "2023-1-partial.txt",
+    //   "2023-2-partial.txt",
+    //   "2023-3-partial.txt",
+    //   "2024-1-partial.txt",
+    // ];
+
+    // const years = [2023, 2023, 2023, 2024];
+    // const recordEntryNumbers = [1, 2, 3, 1];
+
+    const files = ["2024-1-partial.txt"];
+
+    const years = [2024];
+    const recordEntryNumbers = [1];
+
 
     for (let i = 0; i < files.length; i++) {
       console.log(files[i] ?? "", years[i] ?? 0, recordEntryNumbers[i] ?? 0);
