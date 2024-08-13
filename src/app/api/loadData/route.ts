@@ -178,9 +178,9 @@ async function saveVoterRecord(
 
 export async function POST(req: Request) {
 
-  const body = await req.json();
+  // const body: Request = await req.json();
 
-  console.log(body);
+  // console.log(body);
 
   try {
     // const filePath = "data/2023-2.txt";
