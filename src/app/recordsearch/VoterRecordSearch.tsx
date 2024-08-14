@@ -38,6 +38,13 @@ const SEARCH_FIELDS: SearchField[] = [
   //   type: "String",
   // },
   {
+    name: "empty",
+    displayName: "Select a field",
+    value: "",
+    compoundType: false,
+    type: "String",
+  },
+  {
     name: "VRCNUM",
     displayName: "Voter Registration Number",
     compoundType: false,
