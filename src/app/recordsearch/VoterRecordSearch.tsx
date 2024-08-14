@@ -270,7 +270,11 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                   onChange={(e) => handleChangeField(index, e.target.value)}
                 >
                   <optgroup>
-                    {SEARCH_FIELDS.map((field, idx) => (
+                    {SEARCH_FIELDS.filter(
+                      (field) =>
+                        searchRows.find((row) => row.name === field.name) ===
+                          undefined || row.name === field.name,
+                    ).map((field, idx) => (
                       <option value={field.name} key={`fiield-${idx}`}>
                         {field.displayName}
                       </option>
