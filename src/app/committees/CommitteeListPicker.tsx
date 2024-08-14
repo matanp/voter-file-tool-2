@@ -99,7 +99,7 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
             <ul>
               {committeeList.map((member) => (
                 <li key={member.VRCNUM}>
-                  <VoterCard record={member as VoterRecord} />
+                  <VoterCard record={member} />
                   <Button
                     onClick={(e) =>
                       handleRemoveCommitteeMember(e, member.VRCNUM)
