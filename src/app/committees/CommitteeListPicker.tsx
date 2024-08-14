@@ -1,18 +1,10 @@
 // components/ElectionDistrictSelector.tsx
 "use client";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 
 import { type ElectionDistrict, type VoterRecord } from "@prisma/client";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
-
-interface CommitteeMember {
-  VRCNUM: number;
-  lastName: string | null;
-  firstName: string | null;
-  middleInitial: string | null;
-  // Add other fields as needed
-}
 
 interface ElectionDistrictSelectorProps {
   electionDistricts: ElectionDistrict[];
@@ -22,7 +14,7 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
   electionDistricts,
 }) => {
   const [selectedDistrict, setSelectedDistrict] = useState<number>(1);
-  const [committeeList, setCommitteeList] = useState<CommitteeMember[]>([]);
+  const [committeeList, setCommitteeList] = useState<VoterRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleDistrictChange = (
@@ -35,25 +27,31 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
     });
   };
 
-  const fetchCommitteeList = async (district: number) => {
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `/api/fetchCommitteeList/?electionDistrict=${district}`,
-      );
-      if (response.ok) {
-        const data: unknown = await response.json();
-        setCommitteeList((data as { committeeMemberList: VoterRecord[] }).committeeMemberList || []);
-      } else {
+  const fetchCommitteeList = useCallback(
+    async (district: number) => {
+      setLoading(true);
+      try {
+        const response = await fetch(
+          `/api/fetchCommitteeList/?electionDistrict=${district}`,
+        );
+        if (response.ok) {
+          const data: unknown = await response.json();
+          setCommitteeList(
+            (data as { committeeMemberList: VoterRecord[] })
+              .committeeMemberList || [],
+          );
+        } else {
+          setCommitteeList([]);
+        }
+      } catch (error) {
+        console.error("Error fetching committee list:", error);
         setCommitteeList([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching committee list:", error);
-      setCommitteeList([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [setLoading, setCommitteeList],
+  );
 
   const handleRemoveCommitteeMember = async (
     event: React.FormEvent<HTMLButtonElement>,
@@ -117,6 +115,7 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
           )}
           <AddCommitteeForm
             committeeNumber={selectedDistrict}
+            committeeList={committeeList}
             onAdd={fetchCommitteeList}
           />
         </div>
@@ -127,11 +126,13 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
 
 interface AddCommitteeFormProps {
   committeeNumber: number;
+  committeeList: VoterRecord[];
   onAdd: (district: number) => void;
 }
 
 const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   committeeNumber,
+  committeeList,
   onAdd,
 }) => {
   const [voterId, setVoterId] = useState<number | null>(null);
@@ -214,7 +215,10 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       {records.length > 0 &&
         records.map((record: VoterRecord, id: number) => {
           return (
-            <div className="flex flex-row items-center gap-2" key={`records-${id}`}>
+            <div
+              className="flex flex-row items-center gap-2"
+              key={`records-${id}`}
+            >
               <VoterCard record={record} />
               {record.countyLegDistrict === `${committeeNumber}` ? (
                 <p>eligible</p>
@@ -223,8 +227,25 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
               )}
               <Button
                 onClick={(e) => handleAddCommitteeMember(e, record.VRCNUM)}
+                disabled={
+                  committeeList.find(
+                    (member) => member.VRCNUM === record.VRCNUM,
+                  ) !== undefined || committeeList.length >= 4
+                }
               >
-                Add to Committee
+                {committeeList.find(
+                  (member) => member.VRCNUM === record.VRCNUM,
+                ) !== undefined && "Already in Committee"}
+                {committeeList.find(
+                  (member) => member.VRCNUM === record.VRCNUM,
+                ) === undefined &&
+                  committeeList.length >= 4 &&
+                  "Committee Full"}
+                {committeeList.find(
+                  (member) => member.VRCNUM === record.VRCNUM,
+                ) === undefined &&
+                  committeeList.length < 4 &&
+                  "Add to Committee"}
               </Button>
             </div>
           );
