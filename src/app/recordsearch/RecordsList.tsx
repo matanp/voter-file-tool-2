@@ -8,8 +8,10 @@ import { type VoterRecord } from "@prisma/client";
 
 export const RecordsList: React.FC = () => {
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
+  const [loading, setLoading] = React.useState(false);
 
   const handleSubmit = async (searchQuery: SearchField[]) => {
+    setLoading(true);
     const flattenedQuery = searchQuery
       .reduce((acc: BaseSearchField[], curr: SearchField) => {
         if (curr.compoundType) {
@@ -31,12 +33,16 @@ export const RecordsList: React.FC = () => {
     const data: unknown = await response.json();
 
     setRecords(data as VoterRecord[]);
+    setLoading(false);
   };
 
   return (
     <div>
       <VoterRecordSearch handleSubmit={handleSubmit} />
-      <h1 className="text-foreground">Voter Records</h1>
+      <div className="flex">
+        <h1 className="text-foreground">Voter Records</h1>
+        {loading && <div>...loading...</div>}
+      </div>
       {records.length > 0 &&
         records.map((record: VoterRecord, id: number) => {
           return <VoterCard key={id} record={record} />;
