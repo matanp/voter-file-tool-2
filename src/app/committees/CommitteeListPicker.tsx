@@ -139,6 +139,7 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
   const [records, setRecords] = useState<VoterRecord[]>([]);
+  const [hasSearched, setHasSearched] = useState<boolean>(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -167,6 +168,7 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     const data: unknown = await response.json();
 
     setRecords(data as VoterRecord[]);
+    setHasSearched(true);
   };
 
   const handleAddCommitteeMember = async (
@@ -250,6 +252,7 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
             </div>
           );
         })}
+      {records.length === 0 && hasSearched && <p>No results found.</p>}
     </div>
   );
 };

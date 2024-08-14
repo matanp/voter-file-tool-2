@@ -41,7 +41,7 @@ export const RecordsList: React.FC = () => {
       <VoterRecordSearch handleSubmit={handleSubmit} />
       <div className="flex">
         <h1 className="text-foreground">Voter Records</h1>
-        {loading && <div>...loading...</div>}
+        {loading && <div>{"   "}...loading...</div>}
       </div>
       {records.length > 0 &&
         records.map((record: VoterRecord, id: number) => {
