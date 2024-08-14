@@ -26,6 +26,13 @@ export type SearchField =
 
 const SEARCH_FIELDS: SearchField[] = [
   {
+    name: "empty",
+    displayName: "Select a field",
+    value: "",
+    compoundType: false,
+    type: "String",
+  },
+  {
     name: "VRCNUM",
     displayName: "Voter Registration Number",
     compoundType: false,
@@ -50,26 +57,37 @@ const SEARCH_FIELDS: SearchField[] = [
       },
     ],
   },
-  { name: "city", displayName: "City", compoundType: false, type: "String" },
-  { name: "state", displayName: "State", compoundType: false, type: "String" },
   {
-    name: "zip",
-    displayName: "Zip Code",
+    name: "address",
+    displayName: "Address",
     compoundType: true,
     fields: [
       {
-        name: "zipCode",
-        displayName: "Zip Code",
+        name: "houseNum",
+        displayName: "House Number",
         compoundType: false,
-        type: "String",
+        type: "number",
       },
       {
-        name: "zipSuffix",
-        displayName: "Zip Suffix",
+        name: "street",
+        displayName: "Street",
         compoundType: false,
         type: "String",
       },
     ],
+  },
+  {
+    name: "city",
+    displayName: "City / Town",
+    compoundType: false,
+    type: "String",
+  },
+  // { name: "state", displayName: "State", compoundType: false, type: "String" },
+  {
+    name: "zipCode",
+    displayName: "Zip Code",
+    compoundType: false,
+    type: "String",
   },
   {
     name: "DOB",
@@ -82,12 +100,6 @@ const SEARCH_FIELDS: SearchField[] = [
     displayName: "District",
     compoundType: true,
     fields: [
-      {
-        name: "electionDistrict",
-        displayName: "Election District",
-        compoundType: false,
-        type: "number",
-      },
       {
         name: "countyLegDistrict",
         displayName: "County Leg District",
@@ -106,12 +118,12 @@ const SEARCH_FIELDS: SearchField[] = [
         compoundType: false,
         type: "String",
       },
-      {
-        name: "congressionalDistrict",
-        displayName: "Congressional District",
-        compoundType: false,
-        type: "String",
-      },
+      // {
+      //   name: "congressionalDistrict",
+      //   displayName: "Congressional District",
+      //   compoundType: false,
+      //   type: "String",
+      // },
       {
         name: "CC_WD_Village",
         displayName: "CC WD Village",
@@ -125,11 +137,17 @@ const SEARCH_FIELDS: SearchField[] = [
         type: "String",
       },
       {
-        name: "statevid",
-        displayName: "Statevid",
+        name: "electionDistrict",
+        displayName: "Election District",
         compoundType: false,
-        type: "String",
+        type: "number",
       },
+      // {
+      //   name: "statevid",
+      //   displayName: "Statevid",
+      //   compoundType: false,
+      //   type: "String",
+      // },
     ],
   },
 ];
@@ -137,11 +155,42 @@ const SEARCH_FIELDS: SearchField[] = [
 const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   const [searchRows, setSearchRows] = useState<SearchField[]>([
     {
-      name: "",
-      displayName: "Pick a field",
-      value: "",
-      compoundType: false,
-      type: "String",
+      name: "name",
+      displayName: "Name",
+      compoundType: true,
+      fields: [
+        {
+          name: "firstName",
+          displayName: "First Name",
+          compoundType: false,
+          type: "String",
+        },
+        {
+          name: "lastName",
+          displayName: "Last Name",
+          compoundType: false,
+          type: "String",
+        },
+      ],
+    },
+    {
+      name: "address",
+      displayName: "Address",
+      compoundType: true,
+      fields: [
+        {
+          name: "houseNum",
+          displayName: "House Number",
+          compoundType: false,
+          type: "number",
+        },
+        {
+          name: "street",
+          displayName: "Street",
+          compoundType: false,
+          type: "String",
+        },
+      ],
     },
   ]);
 
@@ -176,10 +225,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
     if (updatedRow && !updatedRow.compoundType) {
       updatedRow.value = updatedRow.type === "number" ? Number(value) : value;
       updatedRows[index] = updatedRow;
-    } else if (
-      updatedRow?.compoundType &&
-      compoundIndex !== undefined
-    ) {
+    } else if (updatedRow?.compoundType && compoundIndex !== undefined) {
       const updatedField = updatedRow.fields[compoundIndex];
 
       if (updatedField) {
@@ -189,6 +235,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         updatedRows[index] = updatedRow;
       }
     }
+
     setSearchRows(updatedRows);
   };
 
@@ -223,7 +270,6 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                   onChange={(e) => handleChangeField(index, e.target.value)}
                 >
                   <optgroup>
-                    <option value="">Select a field</option>
                     {SEARCH_FIELDS.map((field, idx) => (
                       <option value={field.name} key={`fiield-${idx}`}>
                         {field.displayName}
@@ -233,7 +279,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                 </select>
               </div>
               <div className="col-sm-4">
-                {!row.compoundType && (
+                {!row.compoundType && row.name !== "empty" && (
                   <>
                     {row.type === "DateTime" && (
                       <DatePicker
@@ -246,7 +292,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                       <input
                         type={row.type}
                         className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-                        placeholder={`Enter ${row.name}`}
+                        placeholder={`Enter ${row.displayName}`}
                         onChange={(e) =>
                           handleChangeValue(index, e.target.value)
                         }
@@ -273,7 +319,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                           <input
                             type={field.type}
                             className="form-control"
-                            placeholder={`Enter ${row.name}`}
+                            placeholder={`Enter ${field.displayName}`}
                             onChange={(e) =>
                               handleChangeValue(index, e.target.value, subIdx)
                             }
@@ -301,8 +347,8 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             setSearchRows([
               ...searchRows,
               {
-                name: "",
-                displayName: "Pick a field",
+                name: "empty",
+                displayName: "Select a field",
                 value: "",
                 compoundType: false,
                 type: "String",

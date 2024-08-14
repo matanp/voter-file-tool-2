@@ -181,7 +181,23 @@ export const fieldEnum = z.enum([
   "statevid",
 ]);
 
-export const searchQueryFieldSchema = z.array(z.object({
-  field: fieldEnum,
-  value: z.string().nullable(),
-}));
+export const searchQueryFieldSchema = z
+  .array(
+    z.object({
+      field: fieldEnum,
+      value: z.union([z.string().nullable(), z.number().nullable()]),
+    }),
+  )
+  .refine(
+    (data) => {
+      return data.every((item) => {
+        if (item.field === "VRCNUM" || item.field === "houseNum") {
+          return typeof item.value === "number" || item.value === null;
+        }
+        return typeof item.value === "string" || item.value === null;
+      });
+    },
+    {
+      message: "Invalid value type for the specified field.",
+    },
+  );
