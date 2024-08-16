@@ -17,7 +17,7 @@ type VoterRecordArchiveStrings = {
 };
 
 let count = 0;
-let PRINT_COUNT = 250;
+const PRINT_COUNT = 250;
 
 function parseCSV(
   filePath: string,

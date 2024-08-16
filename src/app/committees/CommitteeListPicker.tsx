@@ -2,16 +2,16 @@
 "use client";
 import React, { useCallback, useState } from "react";
 
-import { type ElectionDistrict, type VoterRecord } from "@prisma/client";
+import { type CommitteeList, type VoterRecord } from "@prisma/client";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 
-interface ElectionDistrictSelectorProps {
-  electionDistricts: ElectionDistrict[];
+interface CommitteeListSelectorProps {
+  commiitteeLists: CommitteeList[];
 }
 
-const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
-  electionDistricts,
+const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
+  commiitteeLists,
 }) => {
   const [selectedDistrict, setSelectedDistrict] = useState<number>(1);
   const [committeeList, setCommitteeList] = useState<VoterRecord[]>([]);
@@ -79,11 +79,11 @@ const ElectionDistrictSelector: React.FC<ElectionDistrictSelectorProps> = ({
     <div>
       <label htmlFor="district-select">Select Election District:</label>
       <select id="district-select" onChange={handleDistrictChange}>
-        {electionDistricts
+        {commiitteeLists
           .sort((a, b) => a.electionDistrict - b.electionDistrict)
           .map((district) => (
             <option
-              key={district.electionDistrict}
+              key={`${district.electionDistrict}-${district.cityTown}-${district.legDistrict}`}
               value={district.electionDistrict}
             >
               {district.electionDistrict}
@@ -256,4 +256,4 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     </div>
   );
 };
-export default ElectionDistrictSelector;
+export default CommitteeListSelector;

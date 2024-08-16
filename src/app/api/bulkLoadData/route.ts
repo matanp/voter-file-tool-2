@@ -34,8 +34,8 @@ const cleanupDB = async (year: number, recordEntryNumber: number) => {
 };
 
 let count = 0;
-let PRINT_COUNT = 1000;
-let BUFFER_SIZE = 5000;
+const PRINT_COUNT = 50000;
+const BUFFER_SIZE = 25000;
 
 async function parseCSV(
   filePath: string,
@@ -79,9 +79,11 @@ async function parseCSV(
       console.log("Parsing complete");
       count = 0;
 
-      bulkSaveAll().then(() => {
-        resolve();
-      });
+      bulkSaveAll()
+        .then(() => {
+          resolve();
+        })
+        .catch(reject);
     });
 
     parser.on("error", (error) => {
@@ -185,7 +187,7 @@ async function saveVoterRecord(
 
 const bulkSaveAll = async () => {
   console.log("Bulk saving");
-  bulkSaveCommitteeLists();
+  await bulkSaveCommitteeLists();
   bulkSaveCityTowns();
 
   if (voterRercordArchiveBuffer.length > 0) {
@@ -197,14 +199,14 @@ const bulkSaveVoterRecords = async () => {
   console.log("Bulk saving voter records", voterRercordArchiveBuffer.length);
   console.time("bulkSaveVoterRecords");
   if (voterRercordArchiveBuffer.length > 0) {
-    console.time("bulkSaveVoterArchiveRecords");
+    // console.time("bulkSaveVoterArchiveRecords");
     await prisma.voterRecordArchive.createMany({
       data: voterRercordArchiveBuffer,
     });
-    console.timeEnd("bulkSaveVoterArchiveRecords");
+    // console.timeEnd("bulkSaveVoterArchiveRecords");
   }
 
-  console.time("findVoterRecords");
+  // console.time("findVoterRecords");
   const existingRecords = await prisma.voterRecord.findMany({
     where: {
       VRCNUM: {
@@ -212,16 +214,20 @@ const bulkSaveVoterRecords = async () => {
       },
     },
   });
-  console.timeEnd("findVoterRecords");
 
-  let voterCreateTransactions: Prisma.VoterRecordCreateManyInput[] = [];
-  let voterUpdateTransactions: Prisma.VoterRecordUpdateManyArgs[] = [];
+  const existingRecordMap = new Map(
+    existingRecords.map((record) => [record.VRCNUM, record]),
+  );
 
-  console.time("processingRecords");
-  for (let record of voterRercordArchiveBuffer) {
-    const existingRecord = existingRecords.find(
-      (existingRecord) => existingRecord.VRCNUM === record.VRCNUM,
-    );
+  // console.timeEnd("findVoterRecords");
+
+  const voterCreateTransactions: Prisma.VoterRecordCreateManyInput[] = [];
+  const voterUpdateTransactions: Prisma.VoterRecordUpdateManyArgs[] = [];
+
+  // console.log("Processing records", voterRercordArchiveBuffer.length);
+  // console.time("processingRecords");
+  for (const record of voterRercordArchiveBuffer) {
+    const existingRecord = existingRecordMap.get(record.VRCNUM);
 
     const {
       id,
@@ -253,23 +259,27 @@ const bulkSaveVoterRecords = async () => {
       });
     }
   }
-  console.timeEnd("processingRecords");
+  // console.timeEnd("processingRecords");
 
-  console.log("Voter update transactions", voterUpdateTransactions.length);
-  console.time("update many voter records");
+  // console.log(
+  //   "update:",
+  //   voterUpdateTransactions.length,
+  //   "create:",
+  //   voterCreateTransactions.length,
+  // );
+  // console.time("update many voter records");
   const voterUpdateMany = voterUpdateTransactions.map((transaction) => {
     return prisma.voterRecord.updateMany(transaction);
   });
 
   await Promise.all(voterUpdateMany);
-  console.timeEnd("update many voter records");
+  // console.timeEnd("update many voter records");
 
-  console.log("Voter create transactions", voterCreateTransactions.length);
-  console.time("create many voter records");
+  // console.time("create many voter records");
   await prisma.voterRecord.createMany({
     data: voterCreateTransactions,
   });
-  console.timeEnd("create many voter records");
+  // console.timeEnd("create many voter records");
 
   console.timeEnd("bulkSaveVoterRecords");
   voterRercordArchiveBuffer = [];
@@ -297,7 +307,7 @@ export async function POST(req: Request) {
     // const years = [2023, 2023, 2023, 2024];
     // const recordEntryNumbers = [1, 2, 3, 1];
 
-    const files = ["2024-1-partial.txt"];
+    const files = ["2024-1-partial-5000.txt"];
 
     const years = [2024];
     const recordEntryNumbers = [1];
