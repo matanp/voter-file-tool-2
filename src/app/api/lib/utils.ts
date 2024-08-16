@@ -1,9 +1,13 @@
-import { type VoterRecord, type VoterRecordArchive } from "@prisma/client";
+import {
+  Prisma,
+  type VoterRecord,
+  type VoterRecordArchive,
+} from "@prisma/client";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
 
 export function isRecordNewer(
-  recordArchive: VoterRecordArchive,
+  recordArchive: Prisma.VoterRecordArchiveCreateManyInput,
   voterRecord: VoterRecord,
 ): boolean {
   if (recordArchive.recordEntryYear > voterRecord.latestRecordEntryYear) {
