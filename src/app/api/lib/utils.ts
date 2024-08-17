@@ -6,6 +6,25 @@ import {
 import { z } from "zod";
 import prisma from "~/lib/prisma";
 
+export const dropdownItems = [
+  "city",
+  "zipCode",
+  "street",
+  "countyLegDistrict",
+  "stateAssmblyDistrict",
+  "stateSenateDistrict",
+  "congressionalDistrict",
+  "townCode",
+  "electionDistrict",
+  "party",
+] as const;
+
+export type DropdownItem = (typeof dropdownItems)[number];
+
+export function isDropdownItem(value: string): value is DropdownItem {
+  return dropdownItems.includes(value as DropdownItem);
+}
+
 export function isRecordNewer(
   recordArchive: Prisma.VoterRecordArchiveCreateManyInput,
   voterRecord: VoterRecord,
@@ -195,7 +214,11 @@ export const searchQueryFieldSchema = z
   .refine(
     (data) => {
       return data.every((item) => {
-        if (item.field === "VRCNUM" || item.field === "houseNum") {
+        if (
+          item.field === "VRCNUM" ||
+          item.field === "houseNum" ||
+          item.field === "electionDistrict"
+        ) {
           return typeof item.value === "number" || item.value === null;
         }
         return typeof item.value === "string" || item.value === null;

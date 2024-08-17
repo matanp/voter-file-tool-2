@@ -4,6 +4,8 @@ import csv from "csv-parser";
 import { Prisma, type VoterRecordArchive } from "@prisma/client";
 import {
   convertStringToDateTime,
+  DropdownItem,
+  dropdownItems,
   exampleVoterRecord,
   fieldEnum,
   isRecordNewer,
@@ -13,6 +15,12 @@ import { NextResponse } from "next/server";
 type VoterRecordArchiveStrings = {
   [K in keyof VoterRecordArchive]: string | null;
 };
+
+function isKeyOfVoterRecordArchiveStrings(
+  key: string,
+): key is keyof VoterRecordArchive {
+  return key in exampleVoterRecord;
+}
 
 const cleanupDB = async (year: number, recordEntryNumber: number) => {
   // :TODO: Implement early exit if deleting records
@@ -95,6 +103,24 @@ async function parseCSV(
 
 let voterRercordArchiveBuffer: Prisma.VoterRecordArchiveCreateManyInput[] = [];
 let committeeLists: Prisma.CommitteeListCreateManyInput[] = [];
+let dropdownLists = new Map<DropdownItem, Set<string>>();
+
+function processRecordForDropdownLists(record: VoterRecordArchiveStrings) {
+  for (const key of dropdownItems) {
+    if (!isKeyOfVoterRecordArchiveStrings(key)) {
+      continue;
+    }
+    if (record[key]) {
+      if (!dropdownLists.get(key)) {
+        dropdownLists.set(key, new Set());
+      }
+
+      if (!dropdownLists.get(key)?.has(record[key])) {
+        dropdownLists.set(key, dropdownLists.get(key)!.add(record[key]));
+      }
+    }
+  }
+}
 
 function hasRequiredVoterArchiveFields(
   record: Partial<Prisma.VoterRecordArchiveCreateManyInput>,
@@ -178,6 +204,8 @@ async function saveVoterRecord(
     ) {
       committeeLists.push(committeeList);
     }
+
+    processRecordForDropdownLists(record);
   }
 
   if (voterRercordArchiveBuffer.length >= BUFFER_SIZE) {
@@ -188,7 +216,7 @@ async function saveVoterRecord(
 const bulkSaveAll = async () => {
   console.log("Bulk saving");
   await bulkSaveCommitteeLists();
-  bulkSaveCityTowns();
+  await bulkSaveDropdownLists();
 
   if (voterRercordArchiveBuffer.length > 0) {
     await bulkSaveVoterRecords();
@@ -307,7 +335,7 @@ export async function POST(req: Request) {
     // const years = [2023, 2023, 2023, 2024];
     // const recordEntryNumbers = [1, 2, 3, 1];
 
-    const files = ["2024-1-partial-5000.txt"];
+    const files = ["2024-1.txt"];
 
     const years = [2024];
     const recordEntryNumbers = [1];
@@ -344,9 +372,69 @@ export async function POST(req: Request) {
     );
   }
 }
-function bulkSaveCityTowns() {
-  return;
-  throw new Error("Function not implemented.");
+
+async function bulkSaveDropdownLists() {
+  const existingDropdownLists = await prisma.dropdownLists.findMany();
+
+  if (existingDropdownLists.length > 1) {
+    throw new Error("More than one dropdown list exists");
+  }
+
+  const existingLists = existingDropdownLists[0];
+
+  if (existingLists) {
+    for (const [key, values] of dropdownLists.entries()) {
+      if (existingLists[key]) {
+        const existingValues = new Set(existingLists[key]);
+
+        dropdownLists.set(key, new Set([...existingValues, ...values]));
+      }
+    }
+  }
+
+  await prisma.dropdownLists.upsert({
+    where: {
+      id: existingLists?.id ?? 1,
+    },
+    create: {
+      city: Array.from(dropdownLists.get("city")!).sort(),
+      zipCode: Array.from(dropdownLists.get("zipCode")!).sort(),
+      street: Array.from(dropdownLists.get("street")!).sort(),
+      countyLegDistrict: Array.from(
+        dropdownLists.get("countyLegDistrict")!,
+      ).sort(),
+      stateAssmblyDistrict: Array.from(
+        dropdownLists.get("stateAssmblyDistrict")!,
+      ).sort(),
+      stateSenateDistrict: Array.from(
+        dropdownLists.get("stateSenateDistrict")!,
+      ).sort(),
+      congressionalDistrict: Array.from(
+        dropdownLists.get("congressionalDistrict")!,
+      ).sort(),
+      townCode: Array.from(dropdownLists.get("townCode")!).sort(),
+      electionDistrict: Array.from(dropdownLists.get("electionDistrict")!),
+      party: Array.from(dropdownLists.get("party")!).sort(),
+    },
+    update: {
+      city: Array.from(dropdownLists.get("city")!),
+      zipCode: Array.from(dropdownLists.get("zipCode")!),
+      street: Array.from(dropdownLists.get("street")!),
+      countyLegDistrict: Array.from(dropdownLists.get("countyLegDistrict")!),
+      stateAssmblyDistrict: Array.from(
+        dropdownLists.get("stateAssmblyDistrict")!,
+      ),
+      stateSenateDistrict: Array.from(
+        dropdownLists.get("stateSenateDistrict")!,
+      ),
+      congressionalDistrict: Array.from(
+        dropdownLists.get("congressionalDistrict")!,
+      ),
+      townCode: Array.from(dropdownLists.get("townCode")!),
+      electionDistrict: Array.from(dropdownLists.get("electionDistrict")!),
+      party: Array.from(dropdownLists.get("party")!),
+    },
+  });
 }
 
 async function bulkSaveCommitteeLists() {

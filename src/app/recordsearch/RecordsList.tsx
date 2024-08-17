@@ -4,9 +4,12 @@ import VoterRecordSearch, {
   type BaseSearchField,
   type SearchField,
 } from "./VoterRecordSearch";
-import { type VoterRecord } from "@prisma/client";
+import { DropdownLists, type VoterRecord } from "@prisma/client";
 
-export const RecordsList: React.FC = () => {
+interface RecordsListProps {
+  dropdownList: DropdownLists;
+}
+export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
   const [loading, setLoading] = React.useState(false);
 
@@ -38,7 +41,10 @@ export const RecordsList: React.FC = () => {
 
   return (
     <div>
-      <VoterRecordSearch handleSubmit={handleSubmit} />
+      <VoterRecordSearch
+        handleSubmit={handleSubmit}
+        dropdownList={dropdownList}
+      />
       <div className="flex">
         <h1 className="text-foreground">Voter Records</h1>
         {loading && <div>{"   "}...loading...</div>}
