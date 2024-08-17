@@ -14,11 +14,19 @@ export async function POST(req: NextRequest) {
     for (const field of searchQuery) {
       if (field.value !== "" && field.value !== null) {
         const fieldField = field.field;
-          if (fieldField === "firstName" || fieldField === "lastName") {
-            query = { ...query, ...{ [fieldField]: field.value.toUpperCase() } };
-          } else {
-            query = { ...query, ...{ [fieldField]: field.value } };
-          }
+        if (fieldField === "firstName" || fieldField === "lastName") {
+          query = {
+            ...query,
+            ...{
+              [fieldField]:
+                typeof field.value === "string"
+                  ? field.value.toUpperCase()
+                  : field.value,
+            },
+          };
+        } else {
+          query = { ...query, ...{ [fieldField]: field.value } };
+        }
       }
     }
 

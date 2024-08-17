@@ -4,12 +4,17 @@ import VoterRecordSearch, {
   type BaseSearchField,
   type SearchField,
 } from "./VoterRecordSearch";
-import { type VoterRecord } from "@prisma/client";
+import { DropdownLists, type VoterRecord } from "@prisma/client";
 
-export const RecordsList: React.FC = () => {
+interface RecordsListProps {
+  dropdownList: DropdownLists;
+}
+export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
+  const [loading, setLoading] = React.useState(false);
 
   const handleSubmit = async (searchQuery: SearchField[]) => {
+    setLoading(true);
     const flattenedQuery = searchQuery
       .reduce((acc: BaseSearchField[], curr: SearchField) => {
         if (curr.compoundType) {
@@ -31,12 +36,19 @@ export const RecordsList: React.FC = () => {
     const data: unknown = await response.json();
 
     setRecords(data as VoterRecord[]);
+    setLoading(false);
   };
 
   return (
     <div>
-      <VoterRecordSearch handleSubmit={handleSubmit} />
-      <h1 className="text-foreground">Voter Records</h1>
+      <VoterRecordSearch
+        handleSubmit={handleSubmit}
+        dropdownList={dropdownList}
+      />
+      <div className="flex">
+        <h1 className="text-foreground">Voter Records</h1>
+        {loading && <div>{"   "}...loading...</div>}
+      </div>
       {records.length > 0 &&
         records.map((record: VoterRecord, id: number) => {
           return <VoterCard key={id} record={record} />;
