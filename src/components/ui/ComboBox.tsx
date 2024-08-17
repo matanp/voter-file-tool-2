@@ -21,17 +21,36 @@ import {
 
 interface ComboboxDropdownProps {
   items: { value: string; label: string }[];
+  initialValue?: string;
   displayLabel: string;
   onSelect: (value: string) => void;
 }
 
 export function ComboboxDropdown({
   items,
+  initialValue,
   displayLabel,
   onSelect,
 }: ComboboxDropdownProps) {
   const [open, setOpen] = React.useState(false);
-  const [value, setValue] = React.useState("");
+  const [value, setValue] = React.useState(initialValue ?? "");
+
+  // these next 2 effects seem to solve some issues
+  // this one handles the case where the items dynamically change and the current value is not in the list
+  React.useEffect(() => {
+    if (items.find((item) => item.value === value) === undefined) {
+      setValue("");
+    }
+  }, [items]);
+
+  // this allows initial values to be set, but ensuring that the value is in the list
+  React.useEffect(() => {
+    if (items.find((item) => item.value === initialValue) === undefined) {
+      setValue("");
+    } else {
+      setValue(initialValue ?? "");
+    }
+  }, [initialValue]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

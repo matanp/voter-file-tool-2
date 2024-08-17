@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     !electionDistrict ||
     !memberId ||
     !Number.isInteger(electionDistrict) ||
-    !Number.isInteger(legDistrict) ||
+    !Number(legDistrict) ||
     !Number.isInteger(memberId)
   ) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
