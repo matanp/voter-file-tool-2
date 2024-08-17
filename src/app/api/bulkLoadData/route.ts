@@ -337,7 +337,7 @@ export async function POST(req: Request) {
     // const years = [2023, 2023, 2023, 2024];
     // const recordEntryNumbers = [1, 2, 3, 1];
 
-    const files = ["2024-1-partial-5000.txt"];
+    const files = ["2024-1.txt"];
 
     const years = [2024];
     const recordEntryNumbers = [1];
