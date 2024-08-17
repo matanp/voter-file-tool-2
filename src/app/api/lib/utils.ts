@@ -1,9 +1,32 @@
-import { type VoterRecord, type VoterRecordArchive } from "@prisma/client";
+import {
+  Prisma,
+  type VoterRecord,
+  type VoterRecordArchive,
+} from "@prisma/client";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
 
+export const dropdownItems = [
+  "city",
+  "zipCode",
+  "street",
+  "countyLegDistrict",
+  "stateAssmblyDistrict",
+  "stateSenateDistrict",
+  "congressionalDistrict",
+  "townCode",
+  "electionDistrict",
+  "party",
+] as const;
+
+export type DropdownItem = (typeof dropdownItems)[number];
+
+export function isDropdownItem(value: string): value is DropdownItem {
+  return dropdownItems.includes(value as DropdownItem);
+}
+
 export function isRecordNewer(
-  recordArchive: VoterRecordArchive,
+  recordArchive: Prisma.VoterRecordArchiveCreateManyInput,
   voterRecord: VoterRecord,
 ): boolean {
   if (recordArchive.recordEntryYear > voterRecord.latestRecordEntryYear) {
@@ -181,7 +204,27 @@ export const fieldEnum = z.enum([
   "statevid",
 ]);
 
-export const searchQueryFieldSchema = z.array(z.object({
-  field: fieldEnum,
-  value: z.string().nullable(),
-}));
+export const searchQueryFieldSchema = z
+  .array(
+    z.object({
+      field: fieldEnum,
+      value: z.union([z.string().nullable(), z.number().nullable()]),
+    }),
+  )
+  .refine(
+    (data) => {
+      return data.every((item) => {
+        if (
+          item.field === "VRCNUM" ||
+          item.field === "houseNum" ||
+          item.field === "electionDistrict"
+        ) {
+          return typeof item.value === "number" || item.value === null;
+        }
+        return typeof item.value === "string" || item.value === null;
+      });
+    },
+    {
+      message: "Invalid value type for the specified field.",
+    },
+  );

@@ -3,9 +3,12 @@ import prisma from "~/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const electionDistrict = req.nextUrl.searchParams.get("electionDistrict");
+  const cityTown = req.nextUrl.searchParams.get("cityTown");
+  const legDistrict = req.nextUrl.searchParams.get("legDistrict");
 
   if (
     !electionDistrict ||
+    !cityTown ||
     Array.isArray(electionDistrict) ||
     !parseInt(electionDistrict)
   ) {
@@ -16,9 +19,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const committee = await prisma.electionDistrict.findUnique({
+    const committee = await prisma.committeeList.findUnique({
       where: {
-        electionDistrict: parseInt(electionDistrict),
+        cityTown_legDistrict_electionDistrict: {
+          cityTown: cityTown,
+          legDistrict: legDistrict ? Number(legDistrict) : -1,
+          electionDistrict: parseInt(electionDistrict),
+        },
       },
       include: {
         committeeMemberList: true,
