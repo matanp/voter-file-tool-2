@@ -1,41 +1,34 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-
-interface CommitteeData {
-  electionDistrict: string;
-  memberId: string;
-}
+import { CommitteeData } from "../add/route";
 
 // const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 export async function POST(req: NextRequest) {
   // const { electionDistrict, memberId } = req.body;
-  const { electionDistrict, memberId }: CommitteeData = await req.json() as CommitteeData;
+  const { cityTown, legDistrict, electionDistrict, memberId }: CommitteeData =
+    (await req.json()) as CommitteeData;
 
-  if (!electionDistrict || !memberId) {
+  if (
+    !cityTown ||
+    !legDistrict ||
+    !electionDistrict ||
+    !memberId ||
+    !Number.isInteger(electionDistrict) ||
+    !Number.isInteger(legDistrict) ||
+    !Number.isInteger(memberId)
+  ) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   try {
-    // const updatedCommittee = await prisma.electionDistrict.upsert({
-    //   where: { electionDistrict: parseInt(electionDistrict, 10) },
-    //   update: {
-    //     committeeMemberList: {
-    //       connect: { VRCNUM: parseInt(memberId, 10) },
-    //     },
-    //   },
-    //   create: {
-    //     electionDistrict: parseInt(electionDistrict, 10),
-    //     committeeMemberList: {
-    //       connect: { VRCNUM: parseInt(memberId, 10) },
-    //     },
-    //   },
-    //   include: {
-    //     committeeMemberList: true,
-    //   },
-    // });
-
-    const existingElectionDistrict = await prisma.electionDistrict.findUnique({
-      where: { electionDistrict: parseInt(electionDistrict) },
+    const existingElectionDistrict = await prisma.committeeList.findUnique({
+      where: {
+        cityTown_legDistrict_electionDistrict: {
+          cityTown: cityTown,
+          legDistrict: parseInt(legDistrict, 10),
+          electionDistrict: parseInt(electionDistrict, 10),
+        },
+      },
       include: { committeeMemberList: true },
     });
 
@@ -46,7 +39,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-     await prisma.voterRecord.update({
+    await prisma.voterRecord.update({
       where: { VRCNUM: parseInt(memberId) },
       data: {
         committeeId: null,

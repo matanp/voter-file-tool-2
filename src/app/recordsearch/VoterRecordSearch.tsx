@@ -1,10 +1,15 @@
 "use client";
+import { DropdownLists } from "@prisma/client";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
+import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { DatePicker } from "~/components/ui/datePicker";
+import { isDropdownItem } from "../api/lib/utils";
+import { Input } from "~/components/ui/input";
 
 interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
+  dropdownList: DropdownLists;
 }
 
 export interface BaseSearchField {
@@ -25,13 +30,13 @@ export type SearchField =
     };
 
 const SEARCH_FIELDS: SearchField[] = [
-  {
-    name: "empty",
-    displayName: "Select a field",
-    value: "",
-    compoundType: false,
-    type: "String",
-  },
+  // {
+  //   name: "empty",
+  //   displayName: "Select a field",
+  //   value: "",
+  //   compoundType: false,
+  //   type: "String",
+  // },
   {
     name: "VRCNUM",
     displayName: "Voter Registration Number",
@@ -72,7 +77,7 @@ const SEARCH_FIELDS: SearchField[] = [
         name: "street",
         displayName: "Street",
         compoundType: false,
-        type: "String",
+        type: "Dropdown",
       },
     ],
   },
@@ -80,14 +85,14 @@ const SEARCH_FIELDS: SearchField[] = [
     name: "city",
     displayName: "City / Town",
     compoundType: false,
-    type: "String",
+    type: "Dropdown",
   },
   // { name: "state", displayName: "State", compoundType: false, type: "String" },
   {
     name: "zipCode",
     displayName: "Zip Code",
     compoundType: false,
-    type: "String",
+    type: "Dropdown",
   },
   {
     name: "DOB",
@@ -104,19 +109,19 @@ const SEARCH_FIELDS: SearchField[] = [
         name: "countyLegDistrict",
         displayName: "County Leg District",
         compoundType: false,
-        type: "String",
+        type: "Dropdown",
       },
       {
         name: "stateAssmblyDistrict",
         displayName: "State Assembly District",
         compoundType: false,
-        type: "String",
+        type: "Dropdown",
       },
       {
         name: "stateSenateDistrict",
         displayName: "State Senate District",
         compoundType: false,
-        type: "String",
+        type: "Dropdown",
       },
       // {
       //   name: "congressionalDistrict",
@@ -134,7 +139,7 @@ const SEARCH_FIELDS: SearchField[] = [
         name: "townCode",
         displayName: "Town Code",
         compoundType: false,
-        type: "String",
+        type: "Dropdown",
       },
       {
         name: "electionDistrict",
@@ -149,6 +154,12 @@ const SEARCH_FIELDS: SearchField[] = [
       //   type: "String",
       // },
     ],
+  },
+  {
+    name: "party",
+    displayName: "Party",
+    compoundType: false,
+    type: "Dropdown",
   },
 ];
 
@@ -188,7 +199,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           name: "street",
           displayName: "Street",
           compoundType: false,
-          type: "String",
+          type: "Dropdown",
         },
       ],
     },
@@ -264,23 +275,55 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           <div key={`outer-key-${index}`} className="pb-4">
             <div className="flex gap-2">
               <div className="flex flex-row items-center">
-                <select
+                {/* <select
                   className="form-select h-10 border-2 border-secondary"
                   value={row.name}
                   onChange={(e) => handleChangeField(index, e.target.value)}
                 >
                   <optgroup>
-                    {SEARCH_FIELDS.map((field, idx) => (
+                    {SEARCH_FIELDS.filter(
+                      (field) =>
+                        searchRows.find((row) => row.name === field.name) ===
+                          undefined || row.name === field.name,
+                    ).map((field, idx) => (
                       <option value={field.name} key={`fiield-${idx}`}>
                         {field.displayName}
                       </option>
                     ))}
                   </optgroup>
-                </select>
+                </select> */}
+                <ComboboxDropdown
+                  items={SEARCH_FIELDS.filter(
+                    (field) =>
+                      searchRows.find((row) => row.name === field.name) ===
+                        undefined || row.name === field.name,
+                  ).map((field, idx) => ({
+                    label: field.displayName,
+                    value: field.name,
+                  }))}
+                  displayLabel={row.displayName}
+                  onSelect={(value) => {
+                    handleChangeField(index, value);
+                  }}
+                />
               </div>
               <div className="col-sm-4">
                 {!row.compoundType && row.name !== "empty" && (
                   <>
+                    {row.type === "Dropdown" && isDropdownItem(row.name) && (
+                      <ComboboxDropdown
+                        items={props.dropdownList[row.name].map(
+                          (item: string) => ({
+                            label: item,
+                            value: item,
+                          }),
+                        )}
+                        displayLabel={`Select ${row.displayName}`}
+                        onSelect={(value) => {
+                          handleChangeValue(index, value);
+                        }}
+                      />
+                    )}
                     {row.type === "DateTime" && (
                       <DatePicker
                         onChange={(date) => {
@@ -288,11 +331,18 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                         }}
                       />
                     )}
-                    {row.type !== "DateTime" && (
-                      <input
+                    {row.type !== "DateTime" && row.type !== "Dropdown" && (
+                      // <input
+                      //   type={row.type}
+                      //   className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
+                      //   placeholder={`Enter ${row.displayName}`}
+                      //   onChange={(e) =>
+                      //     handleChangeValue(index, e.target.value)
+                      //   }
+                      // />
+                      <Input
                         type={row.type}
-                        className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-                        placeholder={`Enter ${row.displayName}`}
+                        placeholder={`Enter ${row.displayName} aaaaa`}
                         onChange={(e) =>
                           handleChangeValue(index, e.target.value)
                         }
@@ -305,9 +355,24 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                     return (
                       <div
                         key={`sub-index-${index}-${subIdx}`}
-                        className="flex gap-2 pb-2"
+                        className="flex flex-col gap-2 pb-2"
                       >
-                        <label>{field.displayName}</label>
+                        <label className="pl-4">{field.displayName}</label>
+                        {field.type === "Dropdown" &&
+                          isDropdownItem(field.name) && (
+                            <ComboboxDropdown
+                              items={props.dropdownList[field.name].map(
+                                (item: string) => ({
+                                  label: item,
+                                  value: item,
+                                }),
+                              )}
+                              displayLabel={`Select ${field.displayName}`}
+                              onSelect={(value) => {
+                                handleChangeValue(index, value, subIdx);
+                              }}
+                            />
+                          )}
                         {field.type === "DateTime" && (
                           <DatePicker
                             onChange={(date) =>
@@ -315,16 +380,24 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                             }
                           />
                         )}
-                        {field.type !== "DateTime" && (
-                          <input
-                            type={field.type}
-                            className="form-control"
-                            placeholder={`Enter ${field.displayName}`}
-                            onChange={(e) =>
-                              handleChangeValue(index, e.target.value, subIdx)
-                            }
-                          />
-                        )}
+                        {field.type !== "DateTime" &&
+                          field.type !== "Dropdown" && (
+                            // <input
+                            //   type={field.type}
+                            //   className="form-control"
+                            //   placeholder={`Enter ${field.displayName}`}
+                            //   onChange={(e) =>
+                            //     handleChangeValue(index, e.target.value, subIdx)
+                            //   }
+                            // />
+                            <Input
+                              type={field.type}
+                              placeholder={`Enter ${field.displayName}`}
+                              onChange={(e) =>
+                                handleChangeValue(index, e.target.value, subIdx)
+                              }
+                            />
+                          )}
                       </div>
                     );
                   })}
@@ -334,7 +407,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                   className="btn btn-danger"
                   onClick={() => handleRemoveRow(index)}
                 >
-                  Remove
+                  Remove Row
                 </Button>
               </div>
             </div>
