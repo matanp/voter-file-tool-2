@@ -103,20 +103,22 @@ async function parseCSV(
 
 let voterRercordArchiveBuffer: Prisma.VoterRecordArchiveCreateManyInput[] = [];
 let committeeLists: Prisma.CommitteeListCreateManyInput[] = [];
-let dropdownLists = new Map<DropdownItem, Set<string>>();
+const dropdownLists = new Map<DropdownItem, Set<string>>();
 
 function processRecordForDropdownLists(record: VoterRecordArchiveStrings) {
   for (const key of dropdownItems) {
     if (!isKeyOfVoterRecordArchiveStrings(key)) {
       continue;
     }
-    if (record[key]) {
+
+    const value = record[key];
+    if (value) {
       if (!dropdownLists.get(key)) {
         dropdownLists.set(key, new Set());
       }
 
-      if (!dropdownLists.get(key)?.has(record[key])) {
-        dropdownLists.set(key, dropdownLists.get(key)!.add(record[key]));
+      if (!dropdownLists.get(key)?.has(value)) {
+        dropdownLists.set(key, dropdownLists.get(key)!.add(value));
       }
     }
   }
