@@ -11,23 +11,28 @@ const Header: React.FC = () => {
   const tabStyleActive = "bg-primary";
   const tabStyleInactive = "bg-muted-foreground";
   return (
-    <div className="flex-gap border-bottom m-1 flex items-center justify-center gap-2 border-2 border-solid bg-accent py-2">
-      {/* <ThemeToggle className="mr-auto" /> */}
-      <Link href="/recordsearch">
-        <Button
-          className={`${sharedTabStyle} ${pathname?.includes("record") ? tabStyleActive : tabStyleInactive}`}
-        >
-          Record Search
-        </Button>
-      </Link>
-      <Link href="/committees">
-        <Button
-          className={`${sharedTabStyle} ${pathname?.includes("committee") ? tabStyleActive : tabStyleInactive}`}
-        >
-          Committee List
-        </Button>
-      </Link>
-      <SignInButton />
+    <div className="grid grid-cols-header border-bottom m-1 border-2 border-solid bg-accent">
+      <div></div>
+      <div className="flex-gap flex items-center justify-center gap-2 py-2">
+        {/* <ThemeToggle className="mr-auto" /> */}
+        <Link href="/recordsearch">
+          <Button
+            className={`${sharedTabStyle} ${pathname?.includes("record") ? tabStyleActive : tabStyleInactive}`}
+          >
+            Record Search
+          </Button>
+        </Link>
+        <Link href="/committees">
+          <Button
+            className={`${sharedTabStyle} ${pathname?.includes("committee") ? tabStyleActive : tabStyleInactive}`}
+          >
+            Committee List
+          </Button>
+        </Link>
+      </div>
+      <div className="flex-gap flex items-center justify-center gap-2 py-2">
+        <SignInButton />
+      </div>
     </div>
   );
 };
