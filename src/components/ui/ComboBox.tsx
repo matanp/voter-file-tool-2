@@ -41,7 +41,7 @@ export function ComboboxDropdown({
     if (items.find((item) => item.value === value) === undefined) {
       setValue("");
     }
-  }, [items]);
+  }, [items, value]);
 
   // this allows initial values to be set, but ensuring that the value is in the list
   React.useEffect(() => {
