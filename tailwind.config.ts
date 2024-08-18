@@ -20,6 +20,9 @@ const config = {
       },
     },
     extend: {
+      gridTemplateColumns: {
+        header: "150px 1fr 150px",
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
