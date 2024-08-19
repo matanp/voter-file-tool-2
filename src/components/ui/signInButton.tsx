@@ -2,6 +2,7 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Button } from "./button";
+import { ManageProfileButton } from "./manageProfile";
 
 export function SignInButton() {
   const { data: session, status } = useSession();
@@ -11,7 +12,7 @@ export function SignInButton() {
   }
 
   if (status === "authenticated") {
-    return <SignOutButton />;
+    return <ManageProfileButton session={session} />;
   }
 
   return <Button onClick={() => signIn()}>Sign In</Button>;
