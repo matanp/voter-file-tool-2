@@ -4,6 +4,7 @@ import "~/styles/globals.css";
 import { SessionProvider } from "next-auth/react";
 import Header from "./components/header";
 import { GlobalContextProvider } from "~/components/providers/GlobalContext";
+import { Toaster } from "~/components/ui/toaster";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,7 +31,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
             >
               {children}
             </main>
-            {/* </ThemeProvider> */}
+            <Toaster />
           </GlobalContextProvider>
         </SessionProvider>
       </body>
