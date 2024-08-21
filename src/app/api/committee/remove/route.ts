@@ -1,10 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { CommitteeData } from "../add/route";
+import { PrivilegeLevel } from "@prisma/client";
+import { auth } from "~/auth";
+import { hasPermissionFor } from "~/lib/utils";
 
 // const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 export async function POST(req: NextRequest) {
   // const { electionDistrict, memberId } = req.body;
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  }
+
   const { cityTown, legDistrict, electionDistrict, memberId }: CommitteeData =
     (await req.json()) as CommitteeData;
 
