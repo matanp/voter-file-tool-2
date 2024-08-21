@@ -1,5 +1,8 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
+import { PrivilegeLevel } from "@prisma/client";
+import { auth } from "~/auth";
+import { hasPermissionFor } from "~/lib/utils";
 
 export interface CommitteeData {
   cityTown: string;
@@ -10,6 +13,16 @@ export interface CommitteeData {
 
 // const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 export async function POST(req: NextRequest) {
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  }
+
   if (req.method !== "POST") {
     return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
   }

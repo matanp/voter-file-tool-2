@@ -1,15 +1,21 @@
 // components/ElectionDistrictSelector.tsx
 "use client";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useContext, useState } from "react";
 
 import {
   DropdownLists,
+  PrivilegeLevel,
   type CommitteeList,
   type VoterRecord,
 } from "@prisma/client";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
+import { GlobalContext } from "~/components/providers/GlobalContext";
+import { hasPermissionFor } from "~/lib/utils";
+import { useToast } from "~/components/ui/use-toast";
+import RecordSearchForm from "../components/RecordSearchForm";
+import CommitteeRequestForm from "./CommitteeRequestForm";
 
 interface CommitteeListSelectorProps {
   commiitteeLists: CommitteeList[];
@@ -20,11 +26,15 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
   commiitteeLists,
   dropdownLists,
 }) => {
+  const { actingPermissions } = useContext(GlobalContext);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedLegDistrict, setSelectedLegDistrict] = useState<string>("");
   const [useLegDistrict, setUseLegDistrict] = useState<boolean>(false);
   const [selectedDistrict, setSelectedDistrict] = useState<number>(-1);
   const [committeeList, setCommitteeList] = useState<VoterRecord[]>([]);
+  const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
+  const [requestRemoveRecord, setRequestRemoveRecord] =
+    useState<VoterRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleDistrictChange = (districtString: string) => {
@@ -105,7 +115,7 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
       },
       body: JSON.stringify({
         cityTown: selectedCity,
-        legDistrict: selectedLegDistrict,
+        legDistrict: selectedLegDistrict === "" ? "-1" : selectedLegDistrict,
         electionDistrict: selectedDistrict,
         memberId: vrcnum,
       }),
@@ -118,6 +128,16 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
     ).catch((error) => {
       console.error("Error fetching committee list:", error);
     });
+  };
+
+  const handleRequestRemove = async (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    record: VoterRecord,
+  ): Promise<void> => {
+    e.preventDefault();
+
+    setShowConfirmForm(true);
+    setRequestRemoveRecord(record);
   };
 
   return (
@@ -171,13 +191,23 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
               {committeeList.map((member) => (
                 <li key={member.VRCNUM}>
                   <VoterCard record={member} />
-                  <Button
-                    onClick={(e) =>
-                      handleRemoveCommitteeMember(e, member.VRCNUM)
-                    }
-                  >
-                    Remove from Committee
-                  </Button>
+                  {hasPermissionFor(
+                    actingPermissions,
+                    PrivilegeLevel.Admin,
+                  ) && (
+                    <Button
+                      onClick={(e) =>
+                        handleRemoveCommitteeMember(e, member.VRCNUM)
+                      }
+                    >
+                      Remove from Committee
+                    </Button>
+                  )}
+                  {actingPermissions === PrivilegeLevel.RequestAccess && (
+                    <Button onClick={(e) => handleRequestRemove(e, member)}>
+                      Remove or Replace Member
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -192,6 +222,18 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
             onAdd={fetchCommitteeList}
           />
         </div>
+      )}
+      {showConfirmForm && requestRemoveRecord !== null && (
+        <CommitteeRequestForm
+          city={selectedCity}
+          legDistrict={selectedLegDistrict}
+          electionDistrict={selectedDistrict}
+          removeMember={requestRemoveRecord}
+          defaultOpen={showConfirmForm}
+          onOpenChange={setShowConfirmForm}
+          committeeList={committeeList}
+          onSubmit={() => setShowConfirmForm(false)}
+        />
       )}
     </div>
   );
@@ -212,127 +254,122 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   committeeList,
   onAdd,
 }) => {
-  const [voterId, setVoterId] = useState<number | null>(null);
-  const [firstName, setFirstName] = useState<string | null>(null);
-  const [lastName, setLastName] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { actingPermissions } = useContext(GlobalContext);
   const [records, setRecords] = useState<VoterRecord[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
+  const [showConfirm, setShowConfirm] = useState<boolean>(false);
+  const [requestedRecord, setRequestedRecord] = useState<VoterRecord | null>(
+    null,
+  );
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const query = [];
-
-    if (voterId) {
-      query.push({ field: "VRCNUM", value: voterId });
-    }
-
-    if (firstName) {
-      query.push({ field: "firstName", value: firstName });
-    }
-
-    if (lastName) {
-      query.push({ field: "lastName", value: lastName });
-    }
-
-    const response = await fetch(`/api/fetchFilteredData`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(query),
-    });
-
-    const data: unknown = await response.json();
-
-    setRecords(data as VoterRecord[]);
-    setHasSearched(true);
-  };
+  const validCommittee =
+    ((city !== "ROCHESTER" && legDistrict === "") ||
+      (city === "ROCHESTER" && legDistrict !== "")) &&
+    electionDistrict !== -1 &&
+    city !== "";
 
   const handleAddCommitteeMember = async (
     event: React.FormEvent<HTMLButtonElement>,
-    vrcnum: number,
+    record: VoterRecord,
   ) => {
     event.preventDefault();
 
-    const response = await fetch(`/api/committee/add`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cityTown: city,
-        legDistrict: legDistrict,
-        electionDistrict: electionDistrict,
-        memberId: vrcnum,
-      }),
-    });
+    if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+      const response = await fetch(`/api/committee/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cityTown: city,
+          legDistrict: legDistrict === "" ? "-1" : legDistrict,
+          electionDistrict: electionDistrict,
+          memberId: record.VRCNUM,
+        }),
+      });
 
-    onAdd(city, electionDistrict, legDistrict);
+      if (response.ok) {
+        onAdd(city, electionDistrict, legDistrict);
+        toast({
+          title: "Success",
+          description: `Added ${record.firstName} ${record.lastName} to committee`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Something went wrong with your request",
+        });
+      }
+    } else {
+      setShowConfirm(true);
+      setRequestedRecord(record);
+    }
   };
 
+  if (actingPermissions === PrivilegeLevel.ReadAccess) {
+    return null;
+  }
+
   return (
-    <div className="flex flex-col gap-2">
-      <form onSubmit={handleSubmit}>
-        <input
-          type="number"
-          className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-          placeholder={`Enter Voter ID`}
-          onChange={(e) => setVoterId(Number(e.target.value))}
+    <>
+      <div className="flex flex-col gap-2">
+        <RecordSearchForm
+          handleResults={(results) => {
+            setRecords(results);
+            setHasSearched(true);
+          }}
         />
-        <input
-          type="string"
-          className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-          placeholder={`Enter First Name`}
-          onChange={(e) => setFirstName(e.target.value)}
-        />
-        <input
-          type="string"
-          className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-          placeholder={`Enter Last Name`}
-          onChange={(e) => setLastName(e.target.value)}
-        />
-        <Button type="submit">Find Members to Add</Button>
-      </form>
-      {records.length > 0 &&
-        records.map((record: VoterRecord, id: number) => {
-          return (
-            <div
-              className="flex flex-row items-center gap-2"
-              key={`records-${id}`}
-            >
-              <VoterCard record={record} />
-              {record.countyLegDistrict === `${electionDistrict}` ? (
-                <p>eligible</p>
-              ) : (
-                <p>ineligible</p>
-              )}
-              <Button
-                onClick={(e) => handleAddCommitteeMember(e, record.VRCNUM)}
-                disabled={
-                  committeeList.find(
-                    (member) => member.VRCNUM === record.VRCNUM,
-                  ) !== undefined || committeeList.length >= 4
-                }
+        {records.length > 0 &&
+          records.map((record: VoterRecord, id: number) => {
+            return (
+              <div
+                className="flex flex-row items-center gap-2"
+                key={`records-${id}`}
               >
-                {committeeList.find(
-                  (member) => member.VRCNUM === record.VRCNUM,
-                ) !== undefined && "Already in Committee"}
-                {committeeList.find(
-                  (member) => member.VRCNUM === record.VRCNUM,
-                ) === undefined &&
-                  committeeList.length >= 4 &&
-                  "Committee Full"}
-                {committeeList.find(
-                  (member) => member.VRCNUM === record.VRCNUM,
-                ) === undefined &&
-                  committeeList.length < 4 &&
-                  "Add to Committee"}
-              </Button>
-            </div>
-          );
-        })}
-      {records.length === 0 && hasSearched && <p>No results found.</p>}
-    </div>
+                <VoterCard record={record} />
+                <Button
+                  onClick={(e) => handleAddCommitteeMember(e, record)}
+                  disabled={
+                    committeeList.find(
+                      (member) => member.VRCNUM === record.VRCNUM,
+                    ) !== undefined ||
+                    committeeList.length >= 4 ||
+                    !validCommittee
+                  }
+                >
+                  {committeeList.find(
+                    (member) => member.VRCNUM === record.VRCNUM,
+                  ) !== undefined && "Already in Committee"}
+                  {committeeList.find(
+                    (member) => member.VRCNUM === record.VRCNUM,
+                  ) === undefined &&
+                    committeeList.length >= 4 &&
+                    "Committee Full"}
+                  {committeeList.find(
+                    (member) => member.VRCNUM === record.VRCNUM,
+                  ) === undefined &&
+                    committeeList.length < 4 &&
+                    "Add to Committee"}
+                </Button>
+              </div>
+            );
+          })}
+        {records.length === 0 && hasSearched && <p>No results found.</p>}
+      </div>
+      {showConfirm && requestedRecord !== null && (
+        <CommitteeRequestForm
+          city={city}
+          legDistrict={legDistrict}
+          electionDistrict={electionDistrict}
+          defaultOpen={showConfirm}
+          committeeList={committeeList}
+          onOpenChange={(open) => setShowConfirm(open)}
+          addMember={requestedRecord}
+          onSubmit={() => setShowConfirm(false)}
+        />
+      )}
+    </>
   );
 };
 export default CommitteeListSelector;
