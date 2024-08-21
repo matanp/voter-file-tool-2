@@ -70,6 +70,7 @@ export const VoterCard = ({ record }: { record: VoterRecord }) => {
           </p>
           <p>Telephone: {record.telephone}</p>
           <p>Email: {record.email}</p>
+          <p>Voter Id: {record.VRCNUM}</p>
         </div>
         <div>
           <p>Address: {`${record.houseNum} ${record.street}`}</p>
