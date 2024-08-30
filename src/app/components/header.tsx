@@ -24,7 +24,7 @@ const Header: React.FC = () => {
         </Link>
         <Link href="/committees">
           <Button
-            className={`${sharedTabStyle} ${pathname?.includes("committee") ? tabStyleActive : tabStyleInactive}`}
+            className={`${sharedTabStyle} ${pathname?.endsWith("committees") ? tabStyleActive : tabStyleInactive}`}
           >
             Committee List
           </Button>
