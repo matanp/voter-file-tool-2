@@ -1,13 +1,10 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
-import { Button } from "./button";
 import {
   SheetTrigger,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
   Sheet,
 } from "./sheet";
 import { Session } from "next-auth";
@@ -32,7 +29,8 @@ export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
   return (
     <Sheet>
       <SheetTrigger>
-        <Button>View Profile</Button>
+        View Profile
+        {/* <Button>View Profile</Button> */}
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
