@@ -186,34 +186,36 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
         <p>Loading...</p>
       ) : (
         <div>
-          {committeeList.length > 0 ? (
-            <ul>
-              {committeeList.map((member) => (
-                <li key={member.VRCNUM}>
-                  <VoterCard record={member} />
-                  {hasPermissionFor(
-                    actingPermissions,
-                    PrivilegeLevel.Admin,
-                  ) && (
-                    <Button
-                      onClick={(e) =>
-                        handleRemoveCommitteeMember(e, member.VRCNUM)
-                      }
-                    >
-                      Remove from Committee
-                    </Button>
-                  )}
-                  {actingPermissions === PrivilegeLevel.RequestAccess && (
-                    <Button onClick={(e) => handleRequestRemove(e, member)}>
-                      Remove or Replace Member
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No committee members found.</p>
-          )}
+          <div className="pt-2 pb-4">
+            {committeeList.length > 0 ? (
+              <ul>
+                {committeeList.map((member) => (
+                  <li key={member.VRCNUM}>
+                    <VoterCard record={member} />
+                    {hasPermissionFor(
+                      actingPermissions,
+                      PrivilegeLevel.Admin,
+                    ) && (
+                      <Button
+                        onClick={(e) =>
+                          handleRemoveCommitteeMember(e, member.VRCNUM)
+                        }
+                      >
+                        Remove from Committee
+                      </Button>
+                    )}
+                    {actingPermissions === PrivilegeLevel.RequestAccess && (
+                      <Button onClick={(e) => handleRequestRemove(e, member)}>
+                        Remove or Replace Member
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No committee members found.</p>
+            )}
+          </div>
           <AddCommitteeForm
             electionDistrict={selectedDistrict}
             city={selectedCity}
