@@ -1,11 +1,13 @@
 "use client";
-import { DropdownLists } from "@prisma/client";
-import { useState } from "react";
+import type { DropdownLists } from "@prisma/client";
+import { useState, useCallback } from "react";
 import { Button } from "~/components/ui/button";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { DatePicker } from "~/components/ui/datePicker";
 import { isDropdownItem } from "../api/lib/utils";
 import { Input } from "~/components/ui/input";
+import { Select, SelectItem, SelectTrigger } from "~/components/ui/select";
+import { SelectContent, SelectValue } from "@radix-ui/react-select";
 
 interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
@@ -233,29 +235,30 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
     setSearchRows(updatedRows);
   };
 
-  const handleChangeValue = (
-    index: number,
-    value: string | Date,
-    compoundIndex?: number,
-  ) => {
-    const updatedRows = [...searchRows];
-    const updatedRow = updatedRows[index];
-    if (updatedRow && !updatedRow.compoundType) {
-      updatedRow.value = updatedRow.type === "number" ? Number(value) : value;
-      updatedRows[index] = updatedRow;
-    } else if (updatedRow?.compoundType && compoundIndex !== undefined) {
-      const updatedField = updatedRow.fields[compoundIndex];
+  const handleChangeValue = useCallback(
+    (index: number, value: string | Date, compoundIndex?: number) => {
+      const updatedRows = [...searchRows];
+      const updatedRow = updatedRows[index];
 
-      if (updatedField) {
-        updatedField.value =
-          updatedField.type === "number" ? Number(value) : value;
-        updatedRow.fields[compoundIndex] = updatedField;
+      if (updatedRow && !updatedRow.compoundType) {
+        if (updatedRow.value === value) return;
+        updatedRow.value = updatedRow.type === "number" ? Number(value) : value;
         updatedRows[index] = updatedRow;
-      }
-    }
+      } else if (updatedRow?.compoundType && compoundIndex !== undefined) {
+        const updatedField = updatedRow.fields[compoundIndex];
 
-    setSearchRows(updatedRows);
-  };
+        if (updatedField && updatedField.value !== value) {
+          updatedField.value =
+            updatedField.type === "number" ? Number(value) : value;
+          updatedRow.fields[compoundIndex] = updatedField;
+          updatedRows[index] = updatedRow;
+        }
+      }
+
+      setSearchRows(updatedRows);
+    },
+    [searchRows],
+  );
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -333,9 +336,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                     )}
                     {row.type === "DateTime" && (
                       <DatePicker
-                        onChange={(date) => {
-                          handleChangeValue(index, date);
-                        }}
+                        onChange={(date) => handleChangeValue(index, date)}
                       />
                     )}
                     {row.type !== "DateTime" && row.type !== "Dropdown" && (
