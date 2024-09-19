@@ -59,7 +59,13 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
         <Calendar
           mode="single"
           selected={date}
-          onSelect={setDate}
+          onSelect={(newDay) => {
+            setDate((currentDate) => {
+              const newDate = currentDate ? new Date(currentDate) : new Date();
+              newDate.setDate(newDay ? newDay.getDate() : newDate.getDate());
+              return newDate;
+            });
+          }}
           initialFocus
           components={{
             Caption: ({ displayMonth }) => {
