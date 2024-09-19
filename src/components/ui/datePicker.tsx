@@ -59,6 +59,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
         <Calendar
           mode="single"
           selected={date}
+          month={date}
           onSelect={(newDay) => {
             setDate((currentDate) => {
               const newDate = currentDate ? new Date(currentDate) : new Date();
