@@ -12,14 +12,28 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./select";
 
 interface DatePickerProps {
   onChange: (date: Date) => void;
 }
 
-// export function DatePicker() {
 export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
   const [date, setDate] = React.useState<Date>();
+  const years = Array.from(
+    { length: 125 },
+    (_, i) => new Date().getFullYear() - 125 + i,
+  );
+
+  const months = Array.from({ length: 12 }, (_, i) =>
+    new Date(0, i).toLocaleString("default", { month: "long" }),
+  );
 
   React.useEffect(() => {
     if (date) {
@@ -47,6 +61,68 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
           selected={date}
           onSelect={setDate}
           initialFocus
+          components={{
+            Caption: ({ displayMonth }) => {
+              const currentYear = date
+                ? date.getFullYear().toString()
+                : displayMonth.getFullYear().toString();
+
+              const currentMonth = date
+                ? date.getMonth()
+                : displayMonth.getMonth();
+
+              return (
+                <div className="flex justify-center gap-2 py-2">
+                  <Select
+                    value={months[currentMonth]}
+                    onValueChange={(newMonth) => {
+                      setDate((currentDate) => {
+                        const newDate = currentDate
+                          ? new Date(currentDate)
+                          : new Date(displayMonth);
+                        newDate.setMonth(months.indexOf(newMonth));
+                        return newDate;
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue>{months[currentMonth]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {months.map((month, index) => (
+                        <SelectItem key={index} value={month}>
+                          {month}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={currentYear}
+                    onValueChange={(newYear) => {
+                      setDate((currentDate) => {
+                        const newDate = currentDate
+                          ? new Date(currentDate)
+                          : new Date(displayMonth);
+                        newDate.setFullYear(parseInt(newYear));
+                        return newDate;
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue>{currentYear}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {years.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            },
+          }}
         />
       </PopoverContent>
     </Popover>
