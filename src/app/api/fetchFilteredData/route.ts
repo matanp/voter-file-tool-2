@@ -1,13 +1,14 @@
 import { type VoterRecord } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { searchQueryFieldSchema } from "../lib/utils";
+import { fetchFilteredDataSchema, searchQueryFieldSchema } from "../lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
     const requestBody: unknown = await req.json();
 
-    const searchQuery = searchQueryFieldSchema.parse(requestBody);
+    const { searchQuery, pageSize, page } =
+      fetchFilteredDataSchema.parse(requestBody);
 
     let query: Partial<VoterRecord> = {};
 
@@ -37,15 +38,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // use cursor based pagination if performance becomes a problem
     const records = await prisma.voterRecord.findMany({
+      where: query,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    const totalRecords = await prisma.voterRecord.count({
       where: query,
     });
 
-    console.log(records.length);
-
-    const data = records.slice(0, 10);
-
-    return NextResponse.json(data, { status: 200 });
+    return NextResponse.json(
+      { data: records, totalRecords: totalRecords },
+      { status: 200 },
+    );
   } catch (error) {
     console.log(error);
     return NextResponse.json(
