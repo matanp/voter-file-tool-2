@@ -4,17 +4,29 @@ import VoterRecordSearch, {
   type BaseSearchField,
   type SearchField,
 } from "./VoterRecordSearch";
-import { DropdownLists, type VoterRecord } from "@prisma/client";
+import { type DropdownLists, type VoterRecord } from "@prisma/client";
+import { VoterRecordTable } from "./VoterRecordTable";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
 }
 export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
+  const [totalRecords, setTotalRecords] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState<
+    {
+      field: string;
+      value: string | number | Date | undefined;
+    }[]
+  >([]);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(100);
 
   const handleSubmit = async (searchQuery: SearchField[]) => {
     setLoading(true);
+    setPage(1);
+    setPageSize(100);
     const flattenedQuery = searchQuery
       .reduce((acc: BaseSearchField[], curr: SearchField) => {
         if (curr.compoundType) {
@@ -25,18 +37,47 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       }, [])
       .map((field) => ({ field: field.name, value: field.value }));
 
+    setSearchQuery(flattenedQuery);
+
     const response = await fetch(`/api/fetchFilteredData`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(flattenedQuery),
+      body: JSON.stringify({
+        searchQuery: flattenedQuery,
+        pageSize: 100,
+        page: 1,
+      }),
     });
 
-    const data: unknown = await response.json();
+    const { data, totalRecords } = (await response.json()) as {
+      data: VoterRecord[];
+      totalRecords: number;
+    };
 
-    setRecords(data as VoterRecord[]);
+    setTotalRecords(totalRecords);
+    setRecords(data);
     setLoading(false);
+  };
+
+  const handleLoadMore = async () => {
+    const response = await fetch(`/api/fetchFilteredData`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        searchQuery,
+        pageSize,
+        page: page + 1,
+      }),
+    });
+    const { data } = (await response.json()) as {
+      data: VoterRecord[];
+    };
+    setRecords((prevRecords) => [...prevRecords, ...data]);
+    setPage((prevPage) => prevPage + 1);
   };
 
   return (
@@ -45,14 +86,22 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         handleSubmit={handleSubmit}
         dropdownList={dropdownList}
       />
-      <div className="flex">
-        <h1 className="text-foreground">Voter Records</h1>
+      <div className="flex m-10">
+        <h1 className="text-foreground text-lg">Voter Records</h1>
         {loading && <div>{"   "}...loading...</div>}
       </div>
-      {records.length > 0 &&
-        records.map((record: VoterRecord, id: number) => {
-          return <VoterCard key={id} record={record} />;
-        })}
+      {records.length > 0 && (
+        // records.map((record: VoterRecord, id: number) => {
+        //   return <VoterCard key={id} record={record} />;
+        // })}
+        <div className="m-10">
+          <VoterRecordTable
+            records={records}
+            loadMore={handleLoadMore}
+            totalRecords={totalRecords}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -27,7 +27,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
               <Header />
             </nav>
             <main
-              className={`min-h-screen bg-background font-sans antialiased ${inter.variable} m-10`}
+              className={`min-h-screen bg-background font-sans antialiased ${inter.variable}`}
             >
               {children}
             </main>
