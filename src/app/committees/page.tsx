@@ -7,6 +7,8 @@ import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
+import GeneratePetitionButton from "./GeneratePetition2";
+import GeneratePetitionButton3 from "./GeneratePetition3";
 
 const CommitteeLists: React.FC = async () => {
   const permissions = await auth();
@@ -40,6 +42,7 @@ const CommitteeLists: React.FC = async () => {
           </Link>
         </div>
       )}
+      <GeneratePetitionButton3 />
       <CommitteeListSelector
         commiitteeLists={committeeLists}
         dropdownLists={dropdownLists}

@@ -6,11 +6,16 @@ import VoterRecordSearch, {
 } from "./VoterRecordSearch";
 import { type DropdownLists, type VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
+// import VoterRecordPDF from "./ExportVoters";
+import { Button } from "~/components/ui/button";
+import { VoterRecordsContext } from "~/components/providers/VoterRecordsContext";
+import { useRouter } from "next/navigation";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
 }
 export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
+  const router = useRouter();
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
@@ -22,6 +27,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   >([]);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(100);
+
+  const { setVoterRecords } = React.useContext(VoterRecordsContext);
 
   const handleSubmit = async (searchQuery: SearchField[]) => {
     setLoading(true);
@@ -80,6 +87,12 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     setPage((prevPage) => prevPage + 1);
   };
 
+  const onGenerateReport = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setVoterRecords(records);
+    await router.push("/recordsearch/export");
+  };
+
   return (
     <div>
       <VoterRecordSearch
@@ -95,11 +108,13 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         //   return <VoterCard key={id} record={record} />;
         // })}
         <div className="m-10">
+          <Button onClick={onGenerateReport}>Generate Voter Report</Button>
           <VoterRecordTable
             records={records}
             loadMore={handleLoadMore}
             totalRecords={totalRecords}
           />
+          {/* <VoterRecordPDF voterRecords={records} /> */}
         </div>
       )}
     </div>

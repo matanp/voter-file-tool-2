@@ -1,0 +1,41 @@
+[x] Default to having First, Last Name fields + address
+
+[x] include house number and street address
+
+[x] more dropdowns,
+
+[x] get rid of state option for now
+
+[x] city -> city / town (dropdown)
+
+CC_WD_VIllage display name "City Council - Greece Town Wards" - Avi spell this logic out
+
+[x] Statevid -> get rid of
+
+[x] Election District display at the bottom (it's a 'subsection')
+
+[x] get rid of Congressional District
+
+[x] get rid of Zip Suffix
+
+[x] ADD LOADING STATE FOR SEARCH
+
+## Export Capability
+
+Avi get me examples of walk lists
+
+Excel file in the voter file format
+
+https://monroedemocrats.com/city-town-leaders
+
+Add Monroe County Young Democrats as a committee list
+
+[x] Limit to 4 people per committee
+
+### Permission Types
+
+can search records
+can submit requests to add to committees
+can approve committee requests
+
+Future - permission type to edit certain fields, or 'notes' (someone says they live somewhere else)
