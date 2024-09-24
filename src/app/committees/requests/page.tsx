@@ -72,14 +72,20 @@ const CommitteeLists: React.FC = async () => {
     });
 
   const groupedRequests = groupByCommitteeId(committeeRequests);
+  const committeListIds = Object.keys(groupedRequests);
+  const firstCommitteeListId = committeListIds[0];
+  const defaultOpenItems =
+    firstCommitteeListId && committeListIds.length === 1
+      ? [firstCommitteeListId]
+      : [];
 
-  if (Object.keys(groupedRequests).length === 0) {
+  if (committeListIds.length === 0) {
     return <div>No requests found</div>;
   }
 
   return (
     <div className="w-96">
-      <Accordion type="multiple">
+      <Accordion type="multiple" defaultValue={defaultOpenItems}>
         {Object.keys(groupedRequests).map((committeeListId) => {
           const requests = groupedRequests[committeeListId];
 
