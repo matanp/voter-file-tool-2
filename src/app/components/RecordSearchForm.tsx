@@ -32,7 +32,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({ handleResults }) => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(query),
+      body: JSON.stringify({ searchQuery: query, page: 1, pageSize: 100 }),
     });
 
     // :TODO: does this need to be validated?
