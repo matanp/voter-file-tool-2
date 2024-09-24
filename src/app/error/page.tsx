@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function ErrorPage() {
+function ErrorPage() {
   const searchParams = useSearchParams();
   const error = searchParams?.get("error");
 
@@ -17,5 +17,13 @@ export default function ErrorPage() {
       <p>{error ? `Error: ${error}` : "An unknown error occurred."}</p>
       <a href="/">Go back to the home page</a>
     </div>
+  );
+}
+
+export default function ErrorPageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ErrorPage />
+    </Suspense>
   );
 }
