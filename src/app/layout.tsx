@@ -1,4 +1,5 @@
 import { Inter } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import "~/styles/globals.css";
 import { SessionProvider } from "next-auth/react";
@@ -30,6 +31,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
               className={`min-h-screen bg-background font-sans antialiased ${inter.variable}`}
             >
               {children}
+              <SpeedInsights />
             </main>
             <Toaster />
           </GlobalContextProvider>
