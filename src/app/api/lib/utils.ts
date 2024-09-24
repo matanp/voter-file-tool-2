@@ -228,3 +228,9 @@ export const searchQueryFieldSchema = z
       message: "Invalid value type for the specified field.",
     },
   );
+
+export const fetchFilteredDataSchema = z.object({
+  searchQuery: searchQueryFieldSchema,
+  pageSize: z.number().min(1).max(100),
+  page: z.number().min(1),
+});
