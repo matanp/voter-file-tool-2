@@ -6,6 +6,7 @@ await import("./src/env.js");
 
 /** @type {import("next").NextConfig} */
 const config = {
+  // :OHNO: look into this
   output: "standalone" /* for docker hosting */,
   reactStrictMode: true,
 
