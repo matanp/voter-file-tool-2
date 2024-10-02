@@ -8,8 +8,15 @@ export async function POST(req: NextRequest) {
   try {
     const requestBody: unknown = await req.json();
 
-    const { names, office, address, extraNames, party, electionDate } =
-      generatePdfDataSchema.parse(requestBody);
+    const {
+      names,
+      office,
+      address,
+      extraNames,
+      party,
+      electionDate,
+      numPages,
+    } = generatePdfDataSchema.parse(requestBody);
 
     const response = await fetch(PDF_API_URL, {
       method: "POST",
@@ -23,6 +30,7 @@ export async function POST(req: NextRequest) {
         extraNames,
         party,
         electionDate,
+        numPages,
       }),
     });
 

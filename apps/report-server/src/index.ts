@@ -21,22 +21,27 @@ const generateHTML = (
   address: string,
   extraNames: string[],
   party: string,
-  electionDate: string
+  electionDate: string,
+  numPages: number
 ) => {
   // Make sure the path to your built Tailwind CSS is correct
   const tailwindCSS =
     '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
-  const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(PetitionForm, {
-      sheetNumber: 1,
-      names: names,
-      office: office,
-      address: address,
-      extraNames: extraNames,
-      party: party,
-      electionDate: electionDate,
-    })
-  );
+  const html = Array.from({ length: numPages }, (_, i) => i + 1)
+    .map((sheetNum) =>
+      ReactDOMServer.renderToStaticMarkup(
+        React.createElement(PetitionForm, {
+          sheetNumber: sheetNum,
+          names: names,
+          office: office,
+          address: address,
+          extraNames: extraNames,
+          party: party,
+          electionDate: electionDate,
+        })
+      )
+    )
+    .join('');
   return `<!DOCTYPE html>
       <html>
         <head>
@@ -66,6 +71,7 @@ async function generatePDF(htmlContent: string): Promise<Buffer> {
 
   const buffer = Buffer.from(pdfBuffer);
 
+  // for debugging with the puppeetteer launched
   // await sleep(999999);
   // setTimeout(() => {
   //   browser.close();
@@ -77,7 +83,8 @@ async function generatePDF(htmlContent: string): Promise<Buffer> {
 
 // API endpoint to generate PDF from HTML
 app.post('/generate-pdf', async (req: Request, res: Response) => {
-  const { names, office, address, extraNames, party, electionDate } = req.body;
+  const { names, office, address, extraNames, party, electionDate, numPages } =
+    req.body;
 
   const html = generateHTML(
     names,
@@ -85,7 +92,8 @@ app.post('/generate-pdf', async (req: Request, res: Response) => {
     address,
     extraNames,
     party,
-    electionDate
+    electionDate,
+    numPages
   );
 
   try {
