@@ -4,7 +4,7 @@ import { useState } from "react";
 import GeneratePetitionForm from "./GeneratePetitionForm";
 import { Button } from "~/components/ui/button";
 
-export const GeneratePetitionButton = () => {
+export const GeneratePetitionButton = ({ parties }: { parties: string[] }) => {
   const [showForm, setShowForm] = useState<boolean>(false);
 
   return (
@@ -14,6 +14,7 @@ export const GeneratePetitionButton = () => {
         <GeneratePetitionForm
           defaultOpen={showForm}
           onOpenChange={setShowForm}
+          parties={parties}
         />
       )}
     </>

@@ -242,4 +242,5 @@ export const generatePdfDataSchema = z.object({
   extraNames: z.array(z.string()).min(1),
   party: z.string().min(1),
   electionDate: z.string().min(1),
+  numPages: z.number().min(1),
 });
