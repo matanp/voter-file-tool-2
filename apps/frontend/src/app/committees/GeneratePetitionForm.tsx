@@ -11,6 +11,7 @@ import { DatePicker } from "~/components/ui/datePicker";
 import * as z from "zod";
 import { Input } from "~/components/ui/input";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
+import { toast } from "~/components/ui/use-toast";
 
 type GeneratePetitionFormProps = {
   defaultOpen: boolean;
@@ -66,6 +67,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   onOpenChange,
   parties,
 }) => {
+  const [open, setOpen] = useState<boolean>(defaultOpen);
   const [names, setNames] = useState<string[]>([]);
   const [office, setOffice] = useState<string>("");
   const [address, setAddress] = useState<string>("");
@@ -103,6 +105,13 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
     setErrors({});
 
+    toast({
+      description: "Generating PDF, your report will download soon",
+      duration: 3000,
+    });
+    setOpen(false);
+    onOpenChange(false);
+
     const response = await fetch(`/api/generatePdf`, {
       method: "POST",
       headers: {
@@ -115,6 +124,10 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     });
 
     if (!response.ok) {
+      toast({
+        description: "Error generating PDF",
+        duration: 5000,
+      });
       return;
     }
 
@@ -132,7 +145,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   };
 
   return (
-    <Dialog defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
+    <Dialog defaultOpen={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Generate Designated Petition</DialogTitle>
