@@ -2,7 +2,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { generatePdfDataSchema } from "../lib/utils";
 
-const PDF_API_URL = "http://localhost:8080/generate-pdf";
+const PDF_API_URL = process.env.PDF_SERVER_URL
+  ? process.env.PDF_SERVER_URL
+  : "http://localhost:8080/generate-pdf";
 
 export async function POST(req: NextRequest) {
   try {
