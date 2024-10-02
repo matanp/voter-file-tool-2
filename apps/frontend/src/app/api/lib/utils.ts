@@ -234,3 +234,13 @@ export const fetchFilteredDataSchema = z.object({
   pageSize: z.number().min(1).max(100),
   page: z.number().min(1),
 });
+
+export const generatePdfDataSchema = z.object({
+  names: z.array(z.string()).min(1),
+  office: z.string().min(1),
+  address: z.string().min(1),
+  extraNames: z.array(z.string()).min(1),
+  party: z.string().min(1),
+  electionDate: z.string().min(1),
+  numPages: z.number().min(1),
+});

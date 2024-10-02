@@ -15,13 +15,33 @@ app.use(express.json());
 console.log(__dirname);
 app.use(express.static(path.join(__dirname, '../public')));
 
-const generateHTML = () => {
+const generateHTML = (
+  names: string[],
+  office: string,
+  address: string,
+  extraNames: string[],
+  party: string,
+  electionDate: string,
+  numPages: number
+) => {
   // Make sure the path to your built Tailwind CSS is correct
   const tailwindCSS =
     '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
-  const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(PetitionForm)
-  );
+  const html = Array.from({ length: numPages }, (_, i) => i + 1)
+    .map((sheetNum) =>
+      ReactDOMServer.renderToStaticMarkup(
+        React.createElement(PetitionForm, {
+          sheetNumber: sheetNum,
+          names: names,
+          office: office,
+          address: address,
+          extraNames: extraNames,
+          party: party,
+          electionDate: electionDate,
+        })
+      )
+    )
+    .join('');
   return `<!DOCTYPE html>
       <html>
         <head>
@@ -34,11 +54,10 @@ const generateHTML = () => {
       </html>`;
 };
 
-// PDF generation function
 async function generatePDF(htmlContent: string): Promise<Buffer> {
   const browser = await puppeteer.launch({
-    headless: false,
-    defaultViewport: null, // Optional: this allows the browser to open at the default size
+    headless: true,
+    defaultViewport: null,
     args: ['--start-maximized'],
   });
   const page = await browser.newPage();
@@ -52,27 +71,30 @@ async function generatePDF(htmlContent: string): Promise<Buffer> {
 
   const buffer = Buffer.from(pdfBuffer);
 
-  await sleep(999999);
-  setTimeout(() => {
-    browser.close();
-  }, 10000);
+  // for debugging with the puppeetteer launched
+  // await sleep(999999);
+  // setTimeout(() => {
+  //   browser.close();
+  // }, 10000);
   await browser.close();
 
   return buffer;
 }
 
 // API endpoint to generate PDF from HTML
-app.get('/generate-pdf', async (req: Request, res: Response) => {
-  console.log('generating pdf');
-  //   const { html } = req.body;
+app.post('/generate-pdf', async (req: Request, res: Response) => {
+  const { names, office, address, extraNames, party, electionDate, numPages } =
+    req.body;
 
-  //   if (!html) {
-  //     return res.status(400).json({ error: 'HTML content is required' });
-  //   }
-
-  const html = generateHTML();
-
-  //   console.log(html);
+  const html = generateHTML(
+    names,
+    office,
+    address,
+    extraNames,
+    party,
+    electionDate,
+    numPages
+  );
 
   try {
     const pdfBuffer = await generatePDF(html);
@@ -91,10 +113,10 @@ app.get('/generate-pdf', async (req: Request, res: Response) => {
   }
 });
 
-// Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
 function sleep(arg0: number) {
   return new Promise((resolve) => setTimeout(resolve, arg0));
 }

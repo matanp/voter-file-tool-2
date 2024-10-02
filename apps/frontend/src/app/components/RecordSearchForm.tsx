@@ -36,9 +36,12 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({ handleResults }) => {
     });
 
     // :TODO: does this need to be validated?
-    const data: unknown = await response.json();
+    const { data } = (await response.json()) as {
+      data: VoterRecord[];
+      totalRecords: number;
+    };
 
-    handleResults(data as VoterRecord[]);
+    handleResults(data);
   };
   return (
     <form onSubmit={handleSubmit}>

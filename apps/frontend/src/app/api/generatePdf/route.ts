@@ -1,16 +1,37 @@
 // app/api/generate-pdf/route.ts
 import { type NextRequest, NextResponse } from "next/server";
+import { generatePdfDataSchema } from "../lib/utils";
 
 const PDF_API_URL = "http://localhost:8080/generate-pdf";
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
+    const requestBody: unknown = await req.json();
+
+    const {
+      names,
+      office,
+      address,
+      extraNames,
+      party,
+      electionDate,
+      numPages,
+    } = generatePdfDataSchema.parse(requestBody);
+
     const response = await fetch(PDF_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        names,
+        office,
+        address,
+        extraNames,
+        party,
+        electionDate,
+        numPages,
+      }),
     });
 
     if (!response.ok) {
@@ -18,12 +39,14 @@ export async function GET(req: NextRequest) {
     }
 
     const pdfBuffer = await response.arrayBuffer();
+    const pdfNodeBuffer = Buffer.from(pdfBuffer);
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfNodeBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "attachment; filename=output.pdf",
+        "Content-Length": pdfNodeBuffer.length.toString(),
       },
     });
   } catch (error) {
