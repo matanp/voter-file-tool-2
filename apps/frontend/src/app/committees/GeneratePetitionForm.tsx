@@ -119,7 +119,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       },
       body: JSON.stringify({
         ...formData,
-        electionDate: validationResult.data.electionDate.toLocaleDateString(
+        electionDate: validationResult.data.electionDate?.toLocaleDateString(
           "en-US",
           {
             year: "numeric",
