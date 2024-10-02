@@ -33,7 +33,9 @@ const PetitionForm = React.forwardRef<
       party ? party : '____________________'
     } Party.`;
     const witnessResidence = `I now reside at (residence address) ________________________________________________________________________.`;
-    const witnessResidences2 = `Each of the individuals whose names are subscribed to this petition sheet containing (fill in number) __________ signatures, subscribed the same in my presence on the dates above indicated and identified himself or herself to be the individual who signed this sheet.`;
+    const witnessResidences2 = `Each of the individuals whose names are subscribed to this petition sheet containing ${
+      NUM_SIGNATURES ? NUM_SIGNATURES : `(fill in number) __________`
+    } signatures, subscribed the same in my presence on the dates above indicated and identified himself or herself to be the individual who signed this sheet.`;
     const witnessUnderstanding = `I understand that this statement will be accepted for all purposes as the equivalent of an affidavit and, if it contains a material false statement, shall subject me to the same penalties as if I had been duly sworn.`;
     const witnessIdHeader = `Witness Identification Information:`;
     const witnessIdInfo = `The following information for the witness named above must be completed prior to filing with the board of elections in order for this petition to be valid.`;
