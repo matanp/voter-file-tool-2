@@ -119,6 +119,14 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       },
       body: JSON.stringify({
         ...formData,
+        electionDate: validationResult.data.electionDate.toLocaleDateString(
+          "en-US",
+          {
+            year: "numeric",
+            month: "long",
+            day: "2-digit",
+          },
+        ),
         party: PRINT_PARTY_MAP[formData.party as PartyCode],
       }),
     });
