@@ -76,7 +76,7 @@ async function generatePDF(htmlContent: string): Promise<Buffer> {
 }
 
 // API endpoint to generate PDF from HTML
-app.get('/generate-pdf', async (req: Request, res: Response) => {
+app.post('/generate-pdf', async (req: Request, res: Response) => {
   const { names, office, address, extraNames, party, electionDate } = req.body;
 
   const html = generateHTML(
