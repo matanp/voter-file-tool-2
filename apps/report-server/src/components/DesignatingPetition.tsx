@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowRight } from '../icons/arrowRight';
 
 const NUM_SIGNATURES = 5;
 
@@ -151,8 +152,8 @@ const PetitionForm = React.forwardRef<
                     ></td>
                   </tr>
                   <tr className={i % 2 === 1 ? 'border-b-2 border-black' : ''}>
-                    <td className="border border-black h-8 p-1 text-[9px] text-right">
-                      {'Printed Name ->'}
+                    <td className="border border-black h-8 p-1 text-[9px] text-right flex gap-1 items-center justify-end">
+                      {'Printed Name '} <ArrowRight />
                     </td>
                   </tr>
                 </React.Fragment>
