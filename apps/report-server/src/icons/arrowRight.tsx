@@ -1,3 +1,6 @@
+// https://heroicons.com
+
+// mini arrow-long-right
 export const ArrowRight = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
