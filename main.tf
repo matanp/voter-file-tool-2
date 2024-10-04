@@ -25,6 +25,7 @@ resource "aws_lightsail_instance" "nodejs_server" {
               # Update and install necessary packages
               sudo apt-get update -y
               sudo apt-get install -y git curl
+              sudo apt-get install -y libnss3 libatk-bridge2.0-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libgtk-3-0 libasound2
 
               if [ ! -f /root/.bashrc ]; then
                 touch /root/.bashrc
@@ -45,31 +46,6 @@ resource "aws_lightsail_instance" "nodejs_server" {
 
               npm install -g pnpm
 
-              # sudo su bitnami
-
-              # Set up SSH key
-              mkdir -p /home/bitnami/.ssh
-
-              # Write the private key to id_rsa
-              # echo "${var.ssh_private_key}"
-              echo "${var.ssh_private_key}" > /home/bitnami/.ssh/id_rsa
-              sudo chmod 600 /home/bitnami/.ssh/id_rsa  # Set the correct permissions for the private key
-              whoami
-              echo $(whoami)
-
-              # Check if the public key exists; if not, create it from the private key
-              # if [ ! -f /home/bitnami/.ssh/id_rsa ]; then
-                  # ssh-keygen -y -f /home/bitnami/.ssh/id_rsa > /home/bitnami/.ssh/id_rsa.pub
-                  # chmod 644 /home/bitnami/.ssh/id_rsa.pub  # Set the correct permissions for the public key
-              # fi
-
-              # Add GitHub to known hosts
-              # ssh-keyscan -H github.com >> /home/bitnami/.ssh/known_hosts
-              # chmod 644 /home/bitnami/.ssh/known_hosts  # Set the correct permissions for known_hosts
-
-              # Test SSH connection
-              # ssh -T -i /home/bitnami/.ssh/id_rsa git@github.com
-
               # Clone the repository
               git clone https://matanp:${var.github_token}@github.com/matanp/voter-file-tool-2.git /home/bitnami/your-project || {
                 echo "Git clone failed"
@@ -77,10 +53,12 @@ resource "aws_lightsail_instance" "nodejs_server" {
               }
 
               # Navigate to the cloned project directory
-              cd /home/ubuntu/your-project/apps/report-server || {
+              cd /home/bitnami/your-project/apps/report-server || {
                 echo "Failed to navigate to project directory"
                 exit 1
               }
+
+              touch .env
 
               # Install dependencies
               pnpm install || {
@@ -96,20 +74,50 @@ resource "aws_lightsail_instance" "nodejs_server" {
               EOF
 }
 
+resource "aws_lightsail_instance_public_ports" "public_ports" {
+  instance_name = aws_lightsail_instance.nodejs_server.name
+
+  port_info {
+    protocol  = "tcp"
+    from_port = 80
+    to_port   = 80
+  }
+
+  port_info {
+    protocol = "tcp"
+    from_port = 443
+    to_port = 443
+  }
+
+  port_info {
+    protocol = "tcp"
+    from_port = 8080
+    to_port = 8080
+  }
+
+  port_info {
+    protocol = "tcp"
+    from_port = 22
+    to_port = 22
+  }
+}
+
+resource "aws_lightsail_static_ip" "nodejs-report-server-ip" {
+  name = "nodejs-report-server-ip"
+}
+
+resource "aws_lightsail_static_ip_attachment" "nodejs-report-server-ip-attachment" {
+  static_ip_name = aws_lightsail_static_ip.nodejs-report-server-ip.name
+  instance_name  = aws_lightsail_instance.nodejs_server.name
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 # Output the public IP of the Lightsail instance
 output "nodejs_server_ip" {
   value = aws_lightsail_instance.nodejs_server.public_ip_address
-}
-
-
-variable "sshkey" {
-  description = "Public ssh key for git operations"
-  type        = string
-}
-
-variable "ssh_private_key" {
-  type        = string
-  description = "Private SSH key for Git operations"
 }
 
 variable "github_token" {
