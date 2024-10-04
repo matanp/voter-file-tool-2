@@ -55,11 +55,12 @@ const generateHTML = (
 };
 
 async function generatePDF(htmlContent: string): Promise<Buffer> {
-  const browser = await puppeteer.launch({
+  const puppeteerOptions = {
     headless: true,
-    defaultViewport: null,
-    args: ['--start-maximized'],
-  });
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  };
+
+  const browser = await puppeteer.launch(puppeteerOptions);
   const page = await browser.newPage();
 
   await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
