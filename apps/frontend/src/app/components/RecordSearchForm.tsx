@@ -7,7 +7,7 @@ type RecordSearchProps = {
 };
 
 const RecordSearchForm: React.FC<RecordSearchProps> = ({ handleResults }) => {
-  const [voterId, setVoterId] = useState<number | null>(null);
+  const [voterId, setVoterId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
 
@@ -49,7 +49,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({ handleResults }) => {
         type="number"
         className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
         placeholder={`Enter Voter ID`}
-        onChange={(e) => setVoterId(Number(e.target.value))}
+        onChange={(e) => setVoterId(e.target.value)}
       />
       <input
         type="string"

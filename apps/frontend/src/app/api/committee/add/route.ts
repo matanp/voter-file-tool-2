@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       },
       update: {
         committeeMemberList: {
-          connect: { VRCNUM: Number(memberId) },
+          connect: { VRCNUM: memberId },
         },
       },
       create: {

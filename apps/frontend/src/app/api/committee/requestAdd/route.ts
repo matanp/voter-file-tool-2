@@ -74,10 +74,8 @@ export async function POST(req: NextRequest) {
     const committeeRequest = await prisma.committeeRequest.create({
       data: {
         committeeListId: committeeRequested.id,
-        addVoterRecordId: addMemberId ? Number(addMemberId) : undefined,
-        removeVoterRecordId: removeMemberId
-          ? Number(removeMemberId)
-          : undefined,
+        addVoterRecordId: addMemberId ? addMemberId : undefined,
+        removeVoterRecordId: removeMemberId ? removeMemberId : undefined,
         requestNotes: requestNotes,
       },
     });

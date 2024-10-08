@@ -214,11 +214,7 @@ export const searchQueryFieldSchema = z
   .refine(
     (data) => {
       return data.every((item) => {
-        if (
-          item.field === "VRCNUM" ||
-          item.field === "houseNum" ||
-          item.field === "electionDistrict"
-        ) {
+        if (item.field === "houseNum" || item.field === "electionDistrict") {
           return typeof item.value === "number" || item.value === null;
         }
         return typeof item.value === "string" || item.value === null;
