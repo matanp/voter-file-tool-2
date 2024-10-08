@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "path": "apps/frontend",
+      "name": "Frontend"
+    },
+    {
+      "path": "apps/report-server",
+      "name": "Backend"
+    }
+  ],
+  "settings": {}
+}
