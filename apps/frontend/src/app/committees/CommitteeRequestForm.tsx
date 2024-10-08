@@ -82,12 +82,17 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 
   const removeMemberForm = (
     <div>
-      <div className="flex gap-2 items-center">
-        <h2 className="py-2">
-          Would you like to remove a member from the committee?
-        </h2>
-        <Switch checked={removeFormOpen} onCheckedChange={setRemoveFormOpen} />
-      </div>
+      {committeeList.length > 0 && (
+        <div className="flex gap-2 items-center">
+          <h2 className="py-2">
+            Would you like to remove a member from the committee?
+          </h2>
+          <Switch
+            checked={removeFormOpen}
+            onCheckedChange={setRemoveFormOpen}
+          />
+        </div>
+      )}
       {removeFormOpen && (
         <>
           {committeeList
