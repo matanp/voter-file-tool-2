@@ -50,7 +50,7 @@ export function ComboboxDropdown({
     } else {
       setValue(initialValue ?? "");
     }
-  }, [initialValue]);
+  }, [initialValue, items]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
