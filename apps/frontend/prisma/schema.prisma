@@ -11,7 +11,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url = env("POSTGRES_PRISMA_URL") // uses connection pooling
-  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
 }
 
 enum PrivilegeLevel {
@@ -94,7 +93,7 @@ model Authenticator {
 
 model VoterRecordArchive {
   id                    Int       @id @default(autoincrement())
-  VRCNUM                Int
+  VRCNUM                String
   recordEntryYear       Int
   recordEntryNumber     Int
   lastName              String?
@@ -140,7 +139,7 @@ model VoterRecordArchive {
 }
 
 model VoterRecord {
-  VRCNUM                  Int                   @id
+  VRCNUM                  String                   @id
   votingRecords           VotingHistoryRecord[]
   committee               CommitteeList?        @relation(fields: [committeeId], references: [id])
   committeeId             Int?
@@ -192,7 +191,7 @@ model VoterRecord {
 model VotingHistoryRecord {
   id            Int         @id @default(autoincrement())
   voterRecord   VoterRecord @relation(fields: [voterRecordId], references: [VRCNUM], onDelete: Cascade)
-  voterRecordId Int
+  voterRecordId String
   date          DateTime
   value         String
 }
@@ -213,9 +212,9 @@ model CommitteeRequest {
   committeList    CommitteeList @relation(fields: [committeeListId], references: [id])
   committeeListId Int
   addVoterRecord  VoterRecord?   @relation(name: "addToCommitteeRequest", fields: [addVoterRecordId], references: [VRCNUM], onDelete: Cascade)
-  addVoterRecordId Int?
+  addVoterRecordId String?
   removeVoterRecord VoterRecord? @relation(name: "removeFromCommitteeRequest", fields: [removeVoterRecordId], references: [VRCNUM], onDelete: Cascade)
-  removeVoterRecordId Int?
+  removeVoterRecordId String?
   requestNotes    String?
 }
 
