@@ -3,7 +3,7 @@
 import React, { useCallback, useContext, useState } from "react";
 
 import {
-  DropdownLists,
+  type DropdownLists,
   PrivilegeLevel,
   type CommitteeList,
   type VoterRecord,
@@ -16,6 +16,7 @@ import { hasPermissionFor } from "~/lib/utils";
 import { useToast } from "~/components/ui/use-toast";
 import RecordSearchForm from "../components/RecordSearchForm";
 import CommitteeRequestForm from "./CommitteeRequestForm";
+import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 
 interface CommitteeListSelectorProps {
   commiitteeLists: CommitteeList[];
@@ -104,7 +105,7 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
 
   const handleRemoveCommitteeMember = async (
     event: React.FormEvent<HTMLButtonElement>,
-    vrcnum: number,
+    vrcnum: string,
   ) => {
     event.preventDefault();
 
@@ -322,14 +323,12 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
             setHasSearched(true);
           }}
         />
-        {records.length > 0 &&
-          records.map((record: VoterRecord, id: number) => {
-            return (
-              <div
-                className="flex flex-row items-center gap-2"
-                key={`records-${id}`}
-              >
-                <VoterCard record={record} />
+        {records.length > 0 && (
+          <VoterRecordTable
+            records={records}
+            paginated={false}
+            extraContent={(record) => (
+              <>
                 <Button
                   onClick={(e) => handleAddCommitteeMember(e, record)}
                   disabled={
@@ -354,9 +353,10 @@ const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                     committeeList.length < 4 &&
                     "Add to Committee"}
                 </Button>
-              </div>
-            );
-          })}
+              </>
+            )}
+          />
+        )}
         {records.length === 0 && hasSearched && <p>No results found.</p>}
       </div>
       {showConfirm && requestedRecord !== null && (
