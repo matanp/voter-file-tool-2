@@ -139,7 +139,7 @@ async function saveVoterRecord(
   year: number,
   recordEntryNumber: number,
 ): Promise<void> {
-  const VRCNUM = Number(record.VRCNUM);
+  const VRCNUM = record.VRCNUM;
 
   if (VRCNUM === undefined) {
     throw new Error("VRCNUM is undefined");

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { CommitteeData } from "../add/route";
+import type { CommitteeData } from "../add/route";
 import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
@@ -27,8 +27,7 @@ export async function POST(req: NextRequest) {
     !electionDistrict ||
     !memberId ||
     !Number.isInteger(electionDistrict) ||
-    !Number(legDistrict) ||
-    !Number.isInteger(memberId)
+    !Number(legDistrict)
   ) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
@@ -53,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     await prisma.voterRecord.update({
-      where: { VRCNUM: parseInt(memberId) },
+      where: { VRCNUM: memberId },
       data: {
         committeeId: null,
       },
