@@ -16,11 +16,28 @@ import {
 } from "~/components/ui/table";
 import { VoterCard } from "./RecordsList";
 
-export const VoterRecordTable: React.FC<{
+interface BaseVoterRecordTableProps {
   records: VoterRecord[];
+  extraContent?: (record: VoterRecord) => React.ReactNode;
+}
+
+interface PaginationProps {
   totalRecords: number;
   loadMore: () => void;
-}> = ({ records, totalRecords, loadMore }) => {
+}
+
+type VoterRecordTableProps =
+  | (BaseVoterRecordTableProps & { paginated: false })
+  | (BaseVoterRecordTableProps & { paginated: true } & PaginationProps);
+
+export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
+  records,
+  extraContent,
+  paginated,
+  ...paginationProps
+}) => {
+  const { totalRecords, loadMore } = paginationProps as PaginationProps;
+
   const jumpToTop = () => {
     const tableElement = document.getElementById("voter-record-table");
     if (tableElement) {
@@ -60,6 +77,7 @@ export const VoterRecordTable: React.FC<{
                 {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
               </TableCell>
               <TableCell>{record.telephone}</TableCell>
+              {extraContent && <TableCell>{extraContent(record)}</TableCell>}
               <TableCell className="text-right">
                 <Popover>
                   <PopoverTrigger asChild>
@@ -73,23 +91,25 @@ export const VoterRecordTable: React.FC<{
             </TableRow>
           ))}
         </TableBody>
-        <TableFooter id="table-footer">
-          <TableRow>
-            <TableCell>
-              {records.length < totalRecords && (
-                <Button onClick={loadMore}>Load More</Button>
-              )}
-            </TableCell>
-            <TableCell>
-              <Button onClick={jumpToTop} variant={"outline"}>
-                Jump to Top
-              </Button>
-            </TableCell>
-            <TableCell className="text-right" colSpan={2}>
-              Showing {records.length} records of {totalRecords} total
-            </TableCell>
-          </TableRow>
-        </TableFooter>
+        {paginated && (
+          <TableFooter id="table-footer">
+            <TableRow>
+              <TableCell>
+                {records.length < totalRecords && (
+                  <Button onClick={loadMore}>Load More</Button>
+                )}
+              </TableCell>
+              <TableCell>
+                <Button onClick={jumpToTop} variant={"outline"}>
+                  Jump to Top
+                </Button>
+              </TableCell>
+              <TableCell className="text-right" colSpan={2}>
+                Showing {records.length} records of {totalRecords} total
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     </div>
   );
