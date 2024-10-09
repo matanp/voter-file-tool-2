@@ -66,9 +66,9 @@ async function saveVoterRecord(
   year: number,
   recordEntryNumber: number,
 ): Promise<void> {
-  const VRCNUM = Number(record.VRCNUM);
+  const VRCNUM = record.VRCNUM;
 
-  if (VRCNUM === undefined) {
+  if (VRCNUM === undefined || VRCNUM === "" || !VRCNUM) {
     throw new Error("VRCNUM is undefined");
   }
 
@@ -121,11 +121,7 @@ async function saveVoterRecord(
 
       // const value = record[key];
       // const value = record[key]?.trim();
-      if (
-        key === "VRCNUM" ||
-        key === "houseNum" ||
-        key === "electionDistrict"
-      ) {
+      if (key === "houseNum" || key === "electionDistrict") {
         voterRecord = {
           ...voterRecord,
           [key]: Number(value ?? -1),
