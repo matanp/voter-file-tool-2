@@ -94,34 +94,38 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
             records={records}
             paginated={false}
             fieldsList={[]}
-            extraContent={(record) => (
-              <>
-                <Button
-                  onClick={(e) => handleAddCommitteeMember(e, record)}
-                  disabled={
-                    committeeList.find(
-                      (member) => member.VRCNUM === record.VRCNUM,
-                    ) !== undefined ||
-                    committeeList.length >= 4 ||
-                    !validCommittee
-                  }
-                >
-                  {committeeList.find(
-                    (member) => member.VRCNUM === record.VRCNUM,
-                  ) !== undefined && "Already in Committee"}
-                  {committeeList.find(
-                    (member) => member.VRCNUM === record.VRCNUM,
-                  ) === undefined &&
-                    committeeList.length >= 4 &&
-                    "Committee Full"}
-                  {committeeList.find(
-                    (member) => member.VRCNUM === record.VRCNUM,
-                  ) === undefined &&
-                    committeeList.length < 4 &&
-                    "Add to Committee"}
-                </Button>
-              </>
-            )}
+            extraContent={(record: VoterRecord) => {
+              const member = committeeList.find(
+                (member) => member.VRCNUM === record.VRCNUM,
+              );
+
+              const getMessage = () => {
+                if (member) {
+                  return "Already in this committee";
+                } else if (!!record.committeeId) {
+                  return "Already in a different committee";
+                } else if (committeeList.length >= 4) {
+                  return "Committee Full";
+                } else {
+                  return "Add to Committee";
+                }
+              };
+              return (
+                <>
+                  <Button
+                    onClick={(e) => handleAddCommitteeMember(e, record)}
+                    disabled={
+                      !!member ||
+                      committeeList.length >= 4 ||
+                      !validCommittee ||
+                      !!record.committeeId
+                    }
+                  >
+                    {getMessage()}
+                  </Button>
+                </>
+              );
+            }}
           />
         )}
         {records.length === 0 && hasSearched && <p>No results found.</p>}
