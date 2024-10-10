@@ -11,6 +11,7 @@ import { Textarea } from "~/components/ui/textarea";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { Switch } from "~/components/ui/switch";
 import { toast } from "~/components/ui/use-toast";
+import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 
 type CommitteeRequestFormProps = {
   city: string;
@@ -82,12 +83,17 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 
   const removeMemberForm = (
     <div>
-      <div className="flex gap-2 items-center">
-        <h2 className="py-2">
-          Would you like to remove a member from the committee?
-        </h2>
-        <Switch checked={removeFormOpen} onCheckedChange={setRemoveFormOpen} />
-      </div>
+      {committeeList.length > 0 && (
+        <div className="flex gap-2 items-center">
+          <h2 className="py-2">
+            Would you like to remove a member from the committee?
+          </h2>
+          <Switch
+            checked={removeFormOpen}
+            onCheckedChange={setRemoveFormOpen}
+          />
+        </div>
+      )}
       {removeFormOpen && (
         <>
           {committeeList
@@ -127,23 +133,46 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       {addMemberFormOpen && (
         <>
           <RecordSearchForm handleResults={setAddFormRecords} />
-          {addFormRecords
-            .filter(
-              (member) =>
-                committeeList.find((m) => m.VRCNUM === member.VRCNUM) ===
-                undefined,
-            )
-            .slice(0, 4)
-            .map((member) => (
-              <div key={member.VRCNUM} className="flex gap-2 items-center py-1">
-                <p className="">
-                  {member.firstName} {member.lastName}
-                </p>
-                <Button onClick={() => setRequestAddMember(member)}>
-                  Add to committee
-                </Button>
-              </div>
-            ))}
+          {
+            <VoterRecordTable
+              records={addFormRecords.slice(0, 4)}
+              paginated={false}
+              fieldsList={[]}
+              extraContent={(record: VoterRecord) => {
+                const member = committeeList.find(
+                  (member) => member.VRCNUM === record.VRCNUM,
+                );
+
+                const getMessage = () => {
+                  if (member) {
+                    return "Already in this committee";
+                  } else if (!!record.committeeId) {
+                    return "Already in a different committee";
+                  } else if (committeeList.length >= 4) {
+                    return "Committee Full";
+                  } else {
+                    return "Add to Committee";
+                  }
+                };
+                return (
+                  <>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => setRequestAddMember(record)}
+                        disabled={
+                          !!member ||
+                          committeeList.length >= 4 ||
+                          !!record.committeeId
+                        }
+                      >
+                        {getMessage()}
+                      </Button>
+                    </div>
+                  </>
+                );
+              }}
+            />
+          }
         </>
       )}
     </div>

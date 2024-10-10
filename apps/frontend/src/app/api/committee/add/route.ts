@@ -36,8 +36,7 @@ export async function POST(req: NextRequest) {
     !electionDistrict ||
     !memberId ||
     !Number.isInteger(electionDistrict) ||
-    !Number(legDistrict) ||
-    !Number.isInteger(memberId)
+    !Number(legDistrict)
   ) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
@@ -53,7 +52,7 @@ export async function POST(req: NextRequest) {
       },
       update: {
         committeeMemberList: {
-          connect: { VRCNUM: Number(memberId) },
+          connect: { VRCNUM: memberId },
         },
       },
       create: {
@@ -61,7 +60,7 @@ export async function POST(req: NextRequest) {
         legDistrict: Number(legDistrict),
         electionDistrict: Number(electionDistrict),
         committeeMemberList: {
-          connect: { VRCNUM: Number(memberId) },
+          connect: { VRCNUM: memberId },
         },
       },
       include: {

@@ -97,6 +97,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         <div className="m-10">
           <VoterRecordTable
             records={records}
+            fieldsList={["DOB", "Telephone"]}
+            paginated={true}
             loadMore={handleLoadMore}
             totalRecords={totalRecords}
           />
