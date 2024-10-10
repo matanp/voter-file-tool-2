@@ -84,7 +84,7 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
       <Table id="voter-record-table" className="min-w-[800px] max-w-[80vw]">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[100px]">Name</TableHead>
+            <TableHead className="w-[200px]">Name</TableHead>
             {fieldsList.map((feildName: string) => {
               const feild = fields.find((feild) => feild.name === feildName);
               if (!feild) {
