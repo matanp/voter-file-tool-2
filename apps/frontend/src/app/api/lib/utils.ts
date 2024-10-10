@@ -51,7 +51,7 @@ export function isDate(value: unknown): value is Date {
   return value instanceof Date && !isNaN(value.getTime());
 }
 
-export async function voterHasDiscrepancy(VRCNUM: number): Promise<boolean> {
+export async function voterHasDiscrepancy(VRCNUM: string): Promise<boolean> {
   const recordArchives = await prisma.voterRecordArchive.findMany({
     where: {
       VRCNUM,
@@ -121,7 +121,7 @@ export function convertStringToDateTime(dateString: string): Date {
 }
 
 export const exampleVoterRecord: Partial<VoterRecordArchive> = {
-  VRCNUM: 12345,
+  VRCNUM: "12345",
   lastName: "Doe",
   firstName: "John",
   middleInitial: "M",
@@ -214,11 +214,7 @@ export const searchQueryFieldSchema = z
   .refine(
     (data) => {
       return data.every((item) => {
-        if (
-          item.field === "VRCNUM" ||
-          item.field === "houseNum" ||
-          item.field === "electionDistrict"
-        ) {
+        if (item.field === "houseNum" || item.field === "electionDistrict") {
           return typeof item.value === "number" || item.value === null;
         }
         return typeof item.value === "string" || item.value === null;

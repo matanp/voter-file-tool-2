@@ -1,10 +1,10 @@
 import { createReadStream } from "fs";
 import prisma from "~/lib/prisma";
 import csv from "csv-parser";
-import { Prisma, type VoterRecordArchive } from "@prisma/client";
+import type { Prisma, VoterRecordArchive } from "@prisma/client";
 import {
   convertStringToDateTime,
-  DropdownItem,
+  type DropdownItem,
   dropdownItems,
   exampleVoterRecord,
   fieldEnum,
@@ -128,7 +128,7 @@ function hasRequiredVoterArchiveFields(
   record: Partial<Prisma.VoterRecordArchiveCreateManyInput>,
 ): record is Prisma.VoterRecordArchiveCreateManyInput {
   return (
-    typeof record.VRCNUM === "number" &&
+    typeof record.VRCNUM === "string" &&
     typeof record.recordEntryYear === "number" &&
     typeof record.recordEntryNumber === "number"
   );
@@ -139,7 +139,7 @@ async function saveVoterRecord(
   year: number,
   recordEntryNumber: number,
 ): Promise<void> {
-  const VRCNUM = Number(record.VRCNUM);
+  const VRCNUM = record.VRCNUM;
 
   if (VRCNUM === undefined) {
     throw new Error("VRCNUM is undefined");
@@ -159,7 +159,7 @@ async function saveVoterRecord(
 
     const value = record[parseKey.data];
 
-    if (key === "VRCNUM" || key === "houseNum" || key === "electionDistrict") {
+    if (key === "houseNum" || key === "electionDistrict") {
       voterRecord = {
         ...voterRecord,
         [key]: Number(value ?? -1),
@@ -259,13 +259,8 @@ const bulkSaveVoterRecords = async () => {
   for (const record of voterRercordArchiveBuffer) {
     const existingRecord = existingRecordMap.get(record.VRCNUM);
 
-    const {
-      id,
-      recordEntryYear,
-      recordEntryNumber,
-      VRCNUM,
-      ...otherRecordFields
-    } = record;
+    const { recordEntryYear, recordEntryNumber, VRCNUM, ...otherRecordFields } =
+      record;
 
     if (existingRecord && isRecordNewer(record, existingRecord)) {
       voterUpdateTransactions.push({
@@ -338,7 +333,7 @@ export async function POST(req: Request) {
     // const recordEntryNumbers = [1, 2, 3, 1];
 
     // const files = ["2024_4_voter_records-partial5000.txt"];
-    const files = ["2024_1_voter_records-partial5000.txt"];
+    const files = ["2024_1_voter_records.txt"];
 
     const years = [2024];
     const recordEntryNumbers = [1];

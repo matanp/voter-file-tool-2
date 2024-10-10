@@ -16,11 +16,49 @@ import {
 } from "~/components/ui/table";
 import { VoterCard } from "./RecordsList";
 
-export const VoterRecordTable: React.FC<{
+interface BaseVoterRecordTableProps {
   records: VoterRecord[];
+  fieldsList: Array<(typeof fields)[number]["name"]>;
+  extraContent?: (record: VoterRecord) => React.ReactNode;
+}
+
+interface PaginationProps {
   totalRecords: number;
   loadMore: () => void;
-}> = ({ records, totalRecords, loadMore }) => {
+}
+
+const fields = [
+  {
+    name: "DOB",
+    head: "DOB",
+    cell: (record: VoterRecord) => {
+      return (
+        <TableCell>
+          {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
+        </TableCell>
+      );
+    },
+  },
+  {
+    name: "Telephone",
+    head: "Telephone",
+    cell: (record: VoterRecord) => <TableCell>{record.telephone}</TableCell>,
+  },
+] as const;
+
+type VoterRecordTableProps =
+  | (BaseVoterRecordTableProps & { paginated: false })
+  | (BaseVoterRecordTableProps & { paginated: true } & PaginationProps);
+
+export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
+  records,
+  extraContent,
+  fieldsList,
+  paginated,
+  ...paginationProps
+}) => {
+  const { totalRecords, loadMore } = paginationProps as PaginationProps;
+
   const jumpToTop = () => {
     const tableElement = document.getElementById("voter-record-table");
     if (tableElement) {
@@ -46,9 +84,14 @@ export const VoterRecordTable: React.FC<{
       <Table id="voter-record-table" className="min-w-[800px] max-w-[80vw]">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[100px]">Name</TableHead>
-            <TableHead>DOB</TableHead>
-            <TableHead>Telephone</TableHead>
+            <TableHead className="w-[200px]">Name</TableHead>
+            {fieldsList.map((feildName: string) => {
+              const feild = fields.find((feild) => feild.name === feildName);
+              if (!feild) {
+                return null;
+              }
+              return <TableHead key={feild.name}>{feild.head}</TableHead>;
+            })}
             <TableHead className="text-right"></TableHead>
           </TableRow>
         </TableHeader>
@@ -56,10 +99,14 @@ export const VoterRecordTable: React.FC<{
           {records.map((record) => (
             <TableRow key={record.VRCNUM}>
               <TableCell className="font-medium">{`${record.firstName} ${record.lastName}`}</TableCell>
-              <TableCell>
-                {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
-              </TableCell>
-              <TableCell>{record.telephone}</TableCell>
+              {fieldsList.map((fieldName: string) => {
+                const field = fields.find((field) => field.name === fieldName);
+                if (!field) {
+                  return null;
+                }
+                return field.cell(record);
+              })}
+              {extraContent && <TableCell>{extraContent(record)}</TableCell>}
               <TableCell className="text-right">
                 <Popover>
                   <PopoverTrigger asChild>
@@ -73,23 +120,25 @@ export const VoterRecordTable: React.FC<{
             </TableRow>
           ))}
         </TableBody>
-        <TableFooter id="table-footer">
-          <TableRow>
-            <TableCell>
-              {records.length < totalRecords && (
-                <Button onClick={loadMore}>Load More</Button>
-              )}
-            </TableCell>
-            <TableCell>
-              <Button onClick={jumpToTop} variant={"outline"}>
-                Jump to Top
-              </Button>
-            </TableCell>
-            <TableCell className="text-right" colSpan={2}>
-              Showing {records.length} records of {totalRecords} total
-            </TableCell>
-          </TableRow>
-        </TableFooter>
+        {paginated && (
+          <TableFooter id="table-footer">
+            <TableRow>
+              <TableCell>
+                {records.length < totalRecords && (
+                  <Button onClick={loadMore}>Load More</Button>
+                )}
+              </TableCell>
+              <TableCell>
+                <Button onClick={jumpToTop} variant={"outline"}>
+                  Jump to Top
+                </Button>
+              </TableCell>
+              <TableCell className="text-right" colSpan={2}>
+                Showing {records.length} records of {totalRecords} total
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     </div>
   );

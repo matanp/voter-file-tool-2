@@ -8,8 +8,8 @@ type CommitteeRequestData = {
   cityTown: string;
   legDistrict: string;
   electionDistrict: number;
-  addMemberId: number;
-  removeMemberId: number;
+  addMemberId: string;
+  removeMemberId: string;
   requestNotes: string;
 };
 export async function POST(req: NextRequest) {
@@ -37,15 +37,6 @@ export async function POST(req: NextRequest) {
     removeMemberId,
     requestNotes,
   } = (await req.json()) as CommitteeRequestData;
-
-  console.log(
-    cityTown,
-    legDistrict,
-    electionDistrict,
-    addMemberId,
-    removeMemberId,
-    requestNotes,
-  );
   if (
     !cityTown ||
     !legDistrict ||
@@ -71,13 +62,11 @@ export async function POST(req: NextRequest) {
       throw new Error("Committee not found");
     }
 
-    const committeeRequest = await prisma.committeeRequest.create({
+    await prisma.committeeRequest.create({
       data: {
         committeeListId: committeeRequested.id,
-        addVoterRecordId: addMemberId ? Number(addMemberId) : undefined,
-        removeVoterRecordId: removeMemberId
-          ? Number(removeMemberId)
-          : undefined,
+        addVoterRecordId: addMemberId ? addMemberId : undefined,
+        removeVoterRecordId: removeMemberId ? removeMemberId : undefined,
         requestNotes: requestNotes,
       },
     });

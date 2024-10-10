@@ -50,7 +50,7 @@ const SEARCH_FIELDS: SearchField[] = [
     name: "VRCNUM",
     displayName: "Voter Registration Number",
     compoundType: false,
-    type: "number",
+    type: "String",
   },
   {
     name: "name",
