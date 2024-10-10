@@ -30,7 +30,7 @@ const CommitteeLists: React.FC = async () => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full p-4">
       <GeneratePetitionButton parties={dropdownLists.party} />
       {committeeRequests.length > 0 && (
         <div className="flex gap-2 items-center pb-4">
