@@ -18,6 +18,7 @@ import { VoterCard } from "./RecordsList";
 
 interface BaseVoterRecordTableProps {
   records: VoterRecord[];
+  fieldsList: Array<(typeof fields)[number]["name"]>;
   extraContent?: (record: VoterRecord) => React.ReactNode;
 }
 
@@ -26,6 +27,25 @@ interface PaginationProps {
   loadMore: () => void;
 }
 
+const fields = [
+  {
+    name: "DOB",
+    head: "DOB",
+    cell: (record: VoterRecord) => {
+      return (
+        <TableCell>
+          {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
+        </TableCell>
+      );
+    },
+  },
+  {
+    name: "Telephone",
+    head: "Telephone",
+    cell: (record: VoterRecord) => <TableCell>{record.telephone}</TableCell>,
+  },
+] as const;
+
 type VoterRecordTableProps =
   | (BaseVoterRecordTableProps & { paginated: false })
   | (BaseVoterRecordTableProps & { paginated: true } & PaginationProps);
@@ -33,6 +53,7 @@ type VoterRecordTableProps =
 export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
   records,
   extraContent,
+  fieldsList,
   paginated,
   ...paginationProps
 }) => {
@@ -64,8 +85,13 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[100px]">Name</TableHead>
-            <TableHead>DOB</TableHead>
-            <TableHead>Telephone</TableHead>
+            {fieldsList.map((feildName: string) => {
+              const feild = fields.find((feild) => feild.name === feildName);
+              if (!feild) {
+                return null;
+              }
+              return <TableHead key={feild.name}>{feild.head}</TableHead>;
+            })}
             <TableHead className="text-right"></TableHead>
           </TableRow>
         </TableHeader>
@@ -73,10 +99,13 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
           {records.map((record) => (
             <TableRow key={record.VRCNUM}>
               <TableCell className="font-medium">{`${record.firstName} ${record.lastName}`}</TableCell>
-              <TableCell>
-                {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
-              </TableCell>
-              <TableCell>{record.telephone}</TableCell>
+              {fieldsList.map((fieldName: string) => {
+                const field = fields.find((field) => field.name === fieldName);
+                if (!field) {
+                  return null;
+                }
+                return field.cell(record);
+              })}
               {extraContent && <TableCell>{extraContent(record)}</TableCell>}
               <TableCell className="text-right">
                 <Popover>

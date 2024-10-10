@@ -93,6 +93,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
           <VoterRecordTable
             records={records}
             paginated={false}
+            fieldsList={[]}
             extraContent={(record) => (
               <>
                 <Button
