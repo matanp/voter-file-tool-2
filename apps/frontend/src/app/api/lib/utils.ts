@@ -231,12 +231,48 @@ export const fetchFilteredDataSchema = z.object({
   page: z.number().min(1),
 });
 
+const partyCodes = [
+  "BLK",
+  "CON",
+  "IND",
+  "LBT",
+  "GRE",
+  "DEM",
+  "REP",
+  "OTH",
+  "WEP",
+  "SAM",
+  "WOR",
+] as const;
+
 export const generatePdfDataSchema = z.object({
-  names: z.array(z.string()).min(1),
-  office: z.string().min(1),
-  address: z.string().min(1),
-  extraNames: z.array(z.string()).min(1),
-  party: z.string().min(1),
-  electionDate: z.string().min(1),
-  numPages: z.number().min(1),
+  candidates: z
+    .array(
+      z.object({
+        name: z.string(),
+        office: z.string(),
+        address: z.string(),
+      }),
+    )
+    .min(1, { message: "At least one candidate is required" }),
+  vacancyAppointments: z
+    .array(
+      z.object({
+        name: z.string(),
+        address: z.string(),
+      }),
+    )
+    .min(1, { message: "At least one vacancy appointment is required" }),
+  party: z.enum(partyCodes, {
+    errorMap: () => ({ message: "Party is required" }),
+  }),
+  electionDate: z.string().refine((date) => date !== "", {
+    message: "Election date is required",
+  }),
+  numPages: z
+    .number()
+    .min(1, { message: "Minimum 1 page" })
+    .max(25, { message: "No more than 25 pages allowed" }),
 });
+
+export type GeneratePdfData = z.infer<typeof generatePdfDataSchema>;

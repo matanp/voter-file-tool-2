@@ -4,9 +4,13 @@ import { Button } from "~/components/ui/button";
 
 type RecordSearchProps = {
   handleResults: (results: VoterRecord[]) => void;
+  submitButtonText: string;
 };
 
-const RecordSearchForm: React.FC<RecordSearchProps> = ({ handleResults }) => {
+const RecordSearchForm: React.FC<RecordSearchProps> = ({
+  handleResults,
+  submitButtonText,
+}) => {
   const [voterId, setVoterId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
@@ -63,7 +67,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({ handleResults }) => {
         placeholder={`Enter Last Name`}
         onChange={(e) => setLastName(e.target.value)}
       />
-      <Button type="submit">Find Members to Add</Button>
+      <Button type="submit">{submitButtonText}</Button>
     </form>
   );
 };

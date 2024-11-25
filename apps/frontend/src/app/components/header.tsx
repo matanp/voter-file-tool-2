@@ -29,6 +29,13 @@ const Header: React.FC = () => {
             Committee List
           </Button>
         </Link>
+        <Link href="/reports">
+          <Button
+            className={`${sharedTabStyle} ${pathname?.endsWith("reports") ? tabStyleActive : tabStyleInactive}`}
+          >
+            Reports
+          </Button>
+        </Link>
       </div>
       <div className="flex-gap flex items-center justify-center gap-2 py-2">
         <SignInButton />

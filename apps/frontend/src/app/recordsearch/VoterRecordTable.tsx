@@ -15,10 +15,14 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { VoterCard } from "./RecordsList";
+import { EllipsisVertical } from "~/components/icons/ellipsisVertical";
 
 interface BaseVoterRecordTableProps {
   records: VoterRecord[];
   fieldsList: Array<(typeof fields)[number]["name"]>;
+  fullWidth?: boolean;
+  compactView?: boolean;
+  extraHeaders?: Array<string>;
   extraContent?: (record: VoterRecord) => React.ReactNode;
 }
 
@@ -44,6 +48,13 @@ const fields = [
     head: "Telephone",
     cell: (record: VoterRecord) => <TableCell>{record.telephone}</TableCell>,
   },
+  {
+    name: "Address",
+    head: "Address",
+    cell: (record: VoterRecord) => (
+      <TableCell>{`${record.houseNum} ${record.street}`}</TableCell>
+    ),
+  },
 ] as const;
 
 type VoterRecordTableProps =
@@ -54,7 +65,10 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
   records,
   extraContent,
   fieldsList,
+  fullWidth,
+  compactView,
   paginated,
+  extraHeaders,
   ...paginationProps
 }) => {
   const { totalRecords, loadMore } = paginationProps as PaginationProps;
@@ -81,7 +95,10 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
       {/* <Button onClick={jumpToBottom} className="mb-2">
         Jump to Bottom
       </Button> */}
-      <Table id="voter-record-table" className="min-w-[800px] max-w-[80vw]">
+      <Table
+        id="voter-record-table"
+        className={`${!fullWidth && "max-w-[80vw] min-w-[800px]"}`}
+      >
         <TableHeader>
           <TableRow>
             <TableHead className="w-[200px]">Name</TableHead>
@@ -92,6 +109,9 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
               }
               return <TableHead key={feild.name}>{feild.head}</TableHead>;
             })}
+            {extraHeaders?.map((header: string) => (
+              <TableHead key={header}>{header}</TableHead>
+            ))}
             <TableHead className="text-right"></TableHead>
           </TableRow>
         </TableHeader>
@@ -110,7 +130,13 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
               <TableCell className="text-right">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline">See more details</Button>
+                    {compactView ? (
+                      <Button variant={"outline"}>
+                        <EllipsisVertical />
+                      </Button>
+                    ) : (
+                      <Button variant="outline">See more details</Button>
+                    )}
                   </PopoverTrigger>
                   <PopoverContent className="mr-2 w-max shadow-lg">
                     <VoterCard record={record} />
