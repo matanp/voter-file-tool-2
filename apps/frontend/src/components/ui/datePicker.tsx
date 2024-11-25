@@ -26,6 +26,8 @@ interface DatePickerProps {
 
 export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
   const [date, setDate] = React.useState<Date>();
+  const [isOpen, setIsOpen] = React.useState(false);
+
   const years = Array.from(
     { length: 125 },
     (_, i) => new Date().getFullYear() - 125 + i,
@@ -42,7 +44,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
   }, [date, onChange]);
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
@@ -66,6 +68,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
               newDate.setDate(newDay ? newDay.getDate() : newDate.getDate());
               return newDate;
             });
+            setIsOpen(false);
           }}
           initialFocus
           components={{
