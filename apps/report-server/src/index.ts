@@ -16,10 +16,8 @@ console.log(__dirname);
 app.use(express.static(path.join(__dirname, '../public')));
 
 const generateHTML = (
-  names: string[],
-  office: string,
-  address: string,
-  extraNames: string[],
+  candidates: { name: string; address: string; office: string }[],
+  vacancyAppointments: { name: string; address: string }[],
   party: string,
   electionDate: string,
   numPages: number
@@ -32,10 +30,8 @@ const generateHTML = (
       ReactDOMServer.renderToStaticMarkup(
         React.createElement(PetitionForm, {
           sheetNumber: sheetNum,
-          names: names,
-          office: office,
-          address: address,
-          extraNames: extraNames,
+          candidates: candidates,
+          vacancyAppointments: vacancyAppointments,
           party: party,
           electionDate: electionDate,
         })
@@ -84,20 +80,20 @@ async function generatePDF(htmlContent: string): Promise<Buffer> {
 
 // API endpoint to generate PDF from HTML
 app.post('/generate-pdf', async (req: Request, res: Response) => {
-  const { names, office, address, extraNames, party, electionDate, numPages } =
+  const { candidates, vacancyAppointments, party, electionDate, numPages } =
     req.body;
 
   const html = generateHTML(
-    names,
-    office,
-    address,
-    extraNames,
+    candidates,
+    vacancyAppointments,
     party,
     electionDate,
     numPages
   );
 
   try {
+    // const pdfBuffer = await generatePDF('');
+
     const pdfBuffer = await generatePDF(html);
 
     res.set({

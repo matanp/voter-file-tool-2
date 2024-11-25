@@ -88,6 +88,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
             setRecords(results);
             setHasSearched(true);
           }}
+          submitButtonText="Find Members to Add"
         />
         {records.length > 0 && (
           <VoterRecordTable

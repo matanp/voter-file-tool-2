@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import GeneratePetitionForm from "./GeneratePetitionForm";
 import { Button } from "~/components/ui/button";
+import GeneratePetitionForm from "./GeneratePetitionForm";
 
 export const GeneratePetitionButton = ({ parties }: { parties: string[] }) => {
   const [showForm, setShowForm] = useState<boolean>(false);

@@ -7,16 +7,14 @@ const PetitionForm = React.forwardRef<
   HTMLDivElement,
   {
     sheetNumber: number;
-    names?: string[];
-    office?: string;
-    address?: string;
-    extraNames?: string[];
+    candidates: { name: string; address: string; office: string }[];
+    vacancyAppointments: { name: string; address: string }[];
     party?: string;
     electionDate?: string;
   }
 >(
   (
-    { sheetNumber, names, office, address, extraNames, party, electionDate },
+    { sheetNumber, candidates, vacancyAppointments, party, electionDate },
     ref
   ) => {
     const title = 'Designating Petition';
@@ -84,25 +82,27 @@ const PetitionForm = React.forwardRef<
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td className="border border-black h-8">
-                <p className="p-1">{names?.join(', ')}</p>
-              </td>
-              <td className="border border-black h-8">
-                {office && <div className="p-1">{office}</div>}
-              </td>
-              <td className="border border-black h-8">
-                {address && <div className="p-1">{address}</div>}
-              </td>
-            </tr>
+            {candidates.map((candidate) => (
+              <tr key={candidate.name}>
+                <td className="border border-black h-8 p-1">
+                  {candidate.name}
+                </td>
+                <td className="border border-black h-8 p-1">
+                  {candidate.office}
+                </td>
+                <td className="border border-black h-8 p-1">
+                  {candidate.address}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
 
         <p className="text-[11px] my-2">
           {committeeAppointment} <i>{committeeAppointment2}</i>
         </p>
-        <div className="border border-black h-16 mt-1">
-          <p className="p-1 text-xs">{extraNames?.join(', ')}</p>
+        <div className="border border-black h-16 mt-1 text-[11px]">
+          {vacancyAppointments.map((v) => `${v.name}, ${v.address}`).join('; ')}
         </div>
 
         <p className="text-xs mt-2">{witnessStatementIntro}</p>
