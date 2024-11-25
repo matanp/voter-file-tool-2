@@ -259,7 +259,7 @@ export const NewGeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
                       )
                     }
                   >
-                    {verySmallScreen ? "X" : "Remove VacancyAppointment"}
+                    {verySmallScreen ? "X" : "Remove Vacancy Appointment"}
                   </Button>
                 </div>
               );
