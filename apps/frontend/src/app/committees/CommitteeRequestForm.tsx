@@ -132,7 +132,10 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       </div>
       {addMemberFormOpen && (
         <>
-          <RecordSearchForm handleResults={setAddFormRecords} />
+          <RecordSearchForm
+            handleResults={setAddFormRecords}
+            submitButtonText="Find Members to Add"
+          />
           {
             <VoterRecordTable
               records={addFormRecords.slice(0, 4)}

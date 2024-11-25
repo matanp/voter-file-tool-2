@@ -1,6 +1,10 @@
 // app/api/generate-pdf/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { generatePdfDataSchema } from "../lib/utils";
+import {
+  PartyCode,
+  PRINT_PARTY_MAP,
+} from "~/app/reports/NewGeneratePetitionForm";
 
 const PDF_API_URL = process.env.PDF_SERVER_URL
   ? process.env.PDF_SERVER_URL
@@ -10,15 +14,8 @@ export async function POST(req: NextRequest) {
   try {
     const requestBody: unknown = await req.json();
 
-    const {
-      names,
-      office,
-      address,
-      extraNames,
-      party,
-      electionDate,
-      numPages,
-    } = generatePdfDataSchema.parse(requestBody);
+    const { candidates, vacancyAppointments, party, electionDate, numPages } =
+      generatePdfDataSchema.parse(requestBody);
 
     const response = await fetch(PDF_API_URL, {
       method: "POST",
@@ -26,11 +23,9 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        names,
-        office,
-        address,
-        extraNames,
-        party,
+        candidates,
+        vacancyAppointments,
+        party: PRINT_PARTY_MAP[party as PartyCode],
         electionDate,
         numPages,
       }),
