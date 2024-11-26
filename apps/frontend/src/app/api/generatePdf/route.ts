@@ -1,10 +1,20 @@
 // app/api/generate-pdf/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { generatePdfDataSchema } from "../lib/utils";
-import {
-  PartyCode,
-  PRINT_PARTY_MAP,
-} from "~/app/reports/NewGeneratePetitionForm";
+
+const PRINT_PARTY_MAP = {
+  BLK: "Blank",
+  CON: "Congressional",
+  IND: "Independent",
+  LBT: "Libertarian",
+  GRE: "Green",
+  DEM: "Democratic",
+  REP: "Republican",
+  OTH: "Other",
+  WEP: "We the People",
+  SAM: "Save America Movement",
+  WOR: "Working Families Party",
+} as const;
 
 const PDF_API_URL = process.env.PDF_SERVER_URL
   ? process.env.PDF_SERVER_URL

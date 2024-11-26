@@ -12,7 +12,6 @@ const PORT = process.env.PORT || 8080;
 // Middleware to parse JSON requests
 app.use(express.json());
 
-console.log(__dirname);
 app.use(express.static(path.join(__dirname, '../public')));
 
 const generateHTML = (
@@ -92,8 +91,6 @@ app.post('/generate-pdf', async (req: Request, res: Response) => {
   );
 
   try {
-    // const pdfBuffer = await generatePDF('');
-
     const pdfBuffer = await generatePDF(html);
 
     res.set({
