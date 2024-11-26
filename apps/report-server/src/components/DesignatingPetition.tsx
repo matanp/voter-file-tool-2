@@ -90,7 +90,7 @@ const PetitionForm = React.forwardRef<
                 <td className="border border-black h-8 p-1">
                   {candidate.office}
                 </td>
-                <td className="border border-black h-8 p-1">
+                <td className="border border-black h-8 p-1 text-[9px]">
                   {candidate.address}
                 </td>
               </tr>
@@ -101,7 +101,7 @@ const PetitionForm = React.forwardRef<
         <p className="text-[11px] my-2">
           {committeeAppointment} <i>{committeeAppointment2}</i>
         </p>
-        <div className="border border-black h-16 mt-1 text-[11px]">
+        <div className="border border-black h-16 mt-1 text-[11px] p-1">
           {vacancyAppointments.map((v) => `${v.name}, ${v.address}`).join('; ')}
         </div>
 

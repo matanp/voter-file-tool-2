@@ -42,7 +42,7 @@ resource "aws_lightsail_instance" "nodejs_server" {
               export NVM_DIR="$HOME/.nvm"
               [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
               
-              nvm install 20
+              nvm install 22
 
               npm install -g pnpm
 
