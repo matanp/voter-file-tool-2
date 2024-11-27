@@ -37,7 +37,7 @@ const fields = [
     head: "DOB",
     cell: (record: VoterRecord) => {
       return (
-        <TableCell>
+        <TableCell key={`${record.VRCNUM}-dob`}>
           {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
         </TableCell>
       );
@@ -46,13 +46,19 @@ const fields = [
   {
     name: "Telephone",
     head: "Telephone",
-    cell: (record: VoterRecord) => <TableCell>{record.telephone}</TableCell>,
+    cell: (record: VoterRecord) => (
+      <TableCell key={`${record.VRCNUM}-telephone`}>
+        {record.telephone}
+      </TableCell>
+    ),
   },
   {
     name: "Address",
     head: "Address",
     cell: (record: VoterRecord) => (
-      <TableCell>{`${record.houseNum} ${record.street}`}</TableCell>
+      <TableCell key={`${record.VRCNUM}-address`}>
+        {`${record.houseNum} ${record.street}`}
+      </TableCell>
     ),
   },
 ] as const;
