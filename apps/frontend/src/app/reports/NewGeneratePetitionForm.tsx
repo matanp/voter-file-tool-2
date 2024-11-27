@@ -343,8 +343,8 @@ export const NewGeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           className="w-24"
           onChange={(e) => setNumPages(Number(e.target.value))}
           onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-            const inputValue = e.target.value; // Access the input's current value as a string
-            const cleanedValue = parseInt(inputValue, 10) || 0; // Remove leading zeros, default to 0
+            const inputValue = e.target.value;
+            const cleanedValue = parseInt(inputValue, 10) || 0;
             setNumPages(cleanedValue);
             e.target.value = cleanedValue.toString();
           }}
@@ -354,6 +354,9 @@ export const NewGeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
       <div className="pt-4">
         <Button onClick={(e) => handleSubmit(e)}>Generate Petition</Button>
+        {Object.keys(errors).length > 0 && (
+          <p className="text-red-500">Please fill out all required fields</p>
+        )}
       </div>
     </div>
   );

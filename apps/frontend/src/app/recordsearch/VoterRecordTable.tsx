@@ -37,7 +37,7 @@ const fields = [
     head: "DOB",
     cell: (record: VoterRecord) => {
       return (
-        <TableCell>
+        <TableCell key={`${record.VRCNUM}-dob`}>
           {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
         </TableCell>
       );
@@ -46,13 +46,19 @@ const fields = [
   {
     name: "Telephone",
     head: "Telephone",
-    cell: (record: VoterRecord) => <TableCell>{record.telephone}</TableCell>,
+    cell: (record: VoterRecord) => (
+      <TableCell key={`${record.VRCNUM}-telephone`}>
+        {record.telephone}
+      </TableCell>
+    ),
   },
   {
     name: "Address",
     head: "Address",
     cell: (record: VoterRecord) => (
-      <TableCell>{`${record.houseNum} ${record.street}`}</TableCell>
+      <TableCell key={`${record.VRCNUM}-address`}>
+        {`${record.houseNum} ${record.street}`}
+      </TableCell>
     ),
   },
 ] as const;
@@ -102,12 +108,12 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[200px]">Name</TableHead>
-            {fieldsList.map((feildName: string) => {
-              const feild = fields.find((feild) => feild.name === feildName);
-              if (!feild) {
+            {fieldsList.map((fieldName: string) => {
+              const field = fields.find((field) => field.name === fieldName);
+              if (!field) {
                 return null;
               }
-              return <TableHead key={feild.name}>{feild.head}</TableHead>;
+              return <TableHead key={field.name}>{field.head}</TableHead>;
             })}
             {extraHeaders?.map((header: string) => (
               <TableHead key={header}>{header}</TableHead>
