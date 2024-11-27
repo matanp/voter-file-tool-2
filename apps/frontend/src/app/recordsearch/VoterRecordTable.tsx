@@ -102,12 +102,12 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[200px]">Name</TableHead>
-            {fieldsList.map((feildName: string) => {
-              const feild = fields.find((feild) => feild.name === feildName);
-              if (!feild) {
+            {fieldsList.map((fieldName: string) => {
+              const field = fields.find((field) => field.name === fieldName);
+              if (!field) {
                 return null;
               }
-              return <TableHead key={feild.name}>{feild.head}</TableHead>;
+              return <TableHead key={field.name}>{field.head}</TableHead>;
             })}
             {extraHeaders?.map((header: string) => (
               <TableHead key={header}>{header}</TableHead>
