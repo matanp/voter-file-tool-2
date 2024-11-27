@@ -10,9 +10,6 @@ const RecordSearch: React.FC = async () => {
 
   return (
     <div className="w-full">
-      {/* <h1 className="text-center">Admin Page</h1>
-      <Input type="file" />
-      <Button>helllllo world</Button> */}
       <RecordsList dropdownList={dropdownList} />
     </div>
   );

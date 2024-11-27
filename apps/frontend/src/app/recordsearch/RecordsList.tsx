@@ -91,9 +91,6 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         {loading && <div>{"   "}...loading...</div>}
       </div>
       {records.length > 0 && (
-        // records.map((record: VoterRecord, id: number) => {
-        //   return <VoterCard key={id} record={record} />;
-        // })}
         <div className="m-10">
           <VoterRecordTable
             records={records}
