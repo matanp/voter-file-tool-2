@@ -14,7 +14,11 @@ const CommitteeLists: React.FC = async () => {
   return (
     <AuthCheck>
       <div className="w-full p-4">
-        <NewGeneratePetitionForm parties={dropdownLists.party} />
+        <NewGeneratePetitionForm
+          parties={dropdownLists.party.filter(
+            (p) => p !== "BLK" && p !== "OTH",
+          )}
+        />
       </div>
     </AuthCheck>
   );
