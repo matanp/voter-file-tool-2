@@ -71,7 +71,12 @@ export function ComboboxDropdown({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">
-        <Command>
+        <Command
+          shouldFilter={true}
+          filter={(value, search) =>
+            value.toLowerCase().startsWith(search.toLowerCase()) ? 1 : 0
+          }
+        >
           <CommandInput placeholder={displayLabel} className="h-9" />
           <CommandList>
             <CommandEmpty>Nothing found</CommandEmpty>
