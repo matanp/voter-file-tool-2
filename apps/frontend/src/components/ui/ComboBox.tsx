@@ -74,7 +74,12 @@ export function ComboboxDropdown({
         <Command
           shouldFilter={true}
           filter={(value, search) =>
-            value.toLowerCase().startsWith(search.toLowerCase()) ? 1 : 0
+            items
+              .find((item) => item.value === value)
+              ?.label.toLowerCase()
+              .startsWith(search.toLowerCase())
+              ? 1
+              : 0
           }
         >
           <CommandInput placeholder={displayLabel} className="h-9" />
