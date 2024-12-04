@@ -40,7 +40,7 @@ const SEARCH_FIELDS: SearchField[] = [
   },
   {
     name: "VRCNUM",
-    displayName: "Voter Registration Number",
+    displayName: "Voter ID",
     compoundType: false,
     type: "String",
   },
@@ -352,7 +352,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                         // />
                         <Input
                           type={row.type}
-                          placeholder={`Enter ${row.displayName} aaaaa`}
+                          placeholder={`Enter ${row.displayName}`}
                           onChange={(e) =>
                             handleChangeValue(index, e.target.value)
                           }
