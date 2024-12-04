@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
             ...{
               [fieldField]:
                 typeof field.value === "string"
-                  ? field.value.toUpperCase()
+                  ? field.value.trim().toUpperCase()
                   : field.value,
             },
           };

@@ -11,6 +11,7 @@ const PRINT_PARTY_MAP = {
   DEM: "Democratic",
   REP: "Republican",
   OTH: "Other",
+  REF: "Reform",
   WEP: "We the People",
   SAM: "Save America Movement",
   WOR: "Working Families Party",

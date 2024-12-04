@@ -24,6 +24,7 @@ export const PRINT_PARTY_MAP = {
   GRE: "Green",
   DEM: "Democratic",
   REP: "Republican",
+  REF: "Reform",
   OTH: "Other",
   WEP: "We the People",
   SAM: "Save America Movement",

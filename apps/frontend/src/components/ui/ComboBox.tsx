@@ -52,6 +52,8 @@ export function ComboboxDropdown({
       setValue("");
     } else if (initialValue) {
       setValue(initialValue);
+    } else if (!initialValue) {
+      setValue("");
     }
   }, [initialValue, items]);
 
@@ -71,7 +73,17 @@ export function ComboboxDropdown({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">
-        <Command>
+        <Command
+          shouldFilter={true}
+          filter={(value, search) =>
+            items
+              .find((item) => item.value === value)
+              ?.label.toLowerCase()
+              .startsWith(search.toLowerCase())
+              ? 1
+              : 0
+          }
+        >
           <CommandInput placeholder={displayLabel} className="h-9" />
           <CommandList>
             <CommandEmpty>Nothing found</CommandEmpty>
