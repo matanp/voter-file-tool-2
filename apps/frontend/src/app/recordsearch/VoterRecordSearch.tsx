@@ -6,8 +6,7 @@ import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { DatePicker } from "~/components/ui/datePicker";
 import { isDropdownItem } from "../api/lib/utils";
 import { Input } from "~/components/ui/input";
-import { Select, SelectItem, SelectTrigger } from "~/components/ui/select";
-import { SelectContent, SelectValue } from "@radix-ui/react-select";
+import { StreetSearch } from "./StreetSearch";
 
 interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
@@ -32,13 +31,6 @@ export type SearchField =
     };
 
 const SEARCH_FIELDS: SearchField[] = [
-  // {
-  //   name: "empty",
-  //   displayName: "Select a field",
-  //   value: "",
-  //   compoundType: false,
-  //   type: "String",
-  // },
   {
     name: "empty",
     displayName: "Select a field",
@@ -86,7 +78,7 @@ const SEARCH_FIELDS: SearchField[] = [
         name: "street",
         displayName: "Street",
         compoundType: false,
-        type: "Dropdown",
+        type: "Street",
       },
     ],
   },
@@ -208,7 +200,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           name: "street",
           displayName: "Street",
           compoundType: false,
-          type: "Dropdown",
+          type: "Street",
         },
       ],
     },
@@ -339,23 +331,33 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                         onChange={(date) => handleChangeValue(index, date)}
                       />
                     )}
-                    {row.type !== "DateTime" && row.type !== "Dropdown" && (
-                      // <input
-                      //   type={row.type}
-                      //   className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-                      //   placeholder={`Enter ${row.displayName}`}
-                      //   onChange={(e) =>
-                      //     handleChangeValue(index, e.target.value)
-                      //   }
-                      // />
-                      <Input
-                        type={row.type}
-                        placeholder={`Enter ${row.displayName} aaaaa`}
-                        onChange={(e) =>
-                          handleChangeValue(index, e.target.value)
-                        }
+                    {row.type === "Street" && (
+                      <StreetSearch
+                        streets={props.dropdownList.street}
+                        onChange={(value) => {
+                          handleChangeValue(index, value);
+                        }}
                       />
                     )}
+                    {row.type !== "DateTime" &&
+                      row.type !== "Dropdown" &&
+                      row.type !== "Street" && (
+                        // <input
+                        //   type={row.type}
+                        //   className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
+                        //   placeholder={`Enter ${row.displayName}`}
+                        //   onChange={(e) =>
+                        //     handleChangeValue(index, e.target.value)
+                        //   }
+                        // />
+                        <Input
+                          type={row.type}
+                          placeholder={`Enter ${row.displayName} aaaaa`}
+                          onChange={(e) =>
+                            handleChangeValue(index, e.target.value)
+                          }
+                        />
+                      )}
                   </>
                 )}
                 {row.compoundType &&
@@ -388,16 +390,17 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                             }
                           />
                         )}
+                        {field.type === "Street" && (
+                          <StreetSearch
+                            streets={props.dropdownList.street}
+                            onChange={(value) => {
+                              handleChangeValue(index, value, subIdx);
+                            }}
+                          />
+                        )}
                         {field.type !== "DateTime" &&
-                          field.type !== "Dropdown" && (
-                            // <input
-                            //   type={field.type}
-                            //   className="form-control"
-                            //   placeholder={`Enter ${field.displayName}`}
-                            //   onChange={(e) =>
-                            //     handleChangeValue(index, e.target.value, subIdx)
-                            //   }
-                            // />
+                          field.type !== "Dropdown" &&
+                          field.type !== "Street" && (
                             <Input
                               type={field.type}
                               placeholder={`Enter ${field.displayName}`}
