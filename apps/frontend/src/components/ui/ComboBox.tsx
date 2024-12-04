@@ -52,6 +52,8 @@ export function ComboboxDropdown({
       setValue("");
     } else if (initialValue) {
       setValue(initialValue);
+    } else if (!initialValue) {
+      setValue("");
     }
   }, [initialValue, items]);
 
