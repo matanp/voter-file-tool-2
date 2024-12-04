@@ -2,6 +2,7 @@ import React from "react";
 
 import prisma from "~/lib/prisma";
 import NewGeneratePetitionForm from "./NewGeneratePetitionForm";
+import AuthCheck from "~/components/ui/authcheck";
 
 const CommitteeLists: React.FC = async () => {
   const dropdownLists = await prisma.dropdownLists.findFirst({});
@@ -11,9 +12,15 @@ const CommitteeLists: React.FC = async () => {
   }
 
   return (
-    <div className="w-full p-4">
-      <NewGeneratePetitionForm parties={dropdownLists.party} />
-    </div>
+    <AuthCheck>
+      <div className="w-full p-4">
+        <NewGeneratePetitionForm
+          parties={dropdownLists.party.filter(
+            (p) => p !== "BLK" && p !== "OTH",
+          )}
+        />
+      </div>
+    </AuthCheck>
   );
 };
 

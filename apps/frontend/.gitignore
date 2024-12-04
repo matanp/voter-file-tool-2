@@ -47,5 +47,8 @@ pocketbase/**/*.js
 pocketbase/pb_data/
 
 data/
+!src/app/admin/data/
+!src/app/admin/data/**
+
 
 certs/
