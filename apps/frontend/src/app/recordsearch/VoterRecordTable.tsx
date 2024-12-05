@@ -167,7 +167,7 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
                   </Button>
                 )}
               </TableCell>
-              <TableCell className="text-right" colSpan={2}>
+              <TableCell className="text-right pr-2" colSpan={2}>
                 Showing {records.length} records of {totalRecords} total
               </TableCell>
             </TableRow>
