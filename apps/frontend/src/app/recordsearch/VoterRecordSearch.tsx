@@ -427,17 +427,19 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                     );
                   })}
               </div>
-              <div className="col-sm-2 flex flex-row items-center">
-                <Button
-                  className="btn btn-danger"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleRemoveRow(index);
-                  }}
-                >
-                  Remove Row
-                </Button>
-              </div>
+              {(searchRows.length > 1 || searchRows[0]?.name !== "empty") && (
+                <div className="col-sm-2 flex flex-row items-center">
+                  <Button
+                    className="btn btn-danger"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleRemoveRow(index);
+                    }}
+                  >
+                    {searchRows.length === 1 ? "Clear Row" : "Remove Row"}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         ))}
