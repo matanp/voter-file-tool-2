@@ -436,7 +436,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                       handleRemoveRow(index);
                     }}
                   >
-                    {searchRows.length === 1 ? "Clear Row" : "Remove Row"}
+                    Remove Row
                   </Button>
                 </div>
               )}
