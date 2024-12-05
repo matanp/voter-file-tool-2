@@ -24,14 +24,16 @@ interface DatePickerProps {
   onChange: (date: Date) => void;
 }
 
+const NUM_YEARS = 125;
+
 export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
   const [date, setDate] = React.useState<Date>();
   const [isOpen, setIsOpen] = React.useState(false);
 
   const years = Array.from(
-    { length: 125 },
-    (_, i) => new Date().getFullYear() - 125 + i,
-  );
+    { length: NUM_YEARS },
+    (_, i) => new Date().getFullYear() - NUM_YEARS + i,
+  ).reverse();
 
   const months = Array.from({ length: 12 }, (_, i) =>
     new Date(0, i).toLocaleString("default", { month: "long" }),
