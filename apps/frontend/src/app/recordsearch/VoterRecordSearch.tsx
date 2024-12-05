@@ -222,6 +222,19 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   };
 
   const handleRemoveRow = (index: number) => {
+    if (searchRows.length === 1) {
+      setSearchRows([
+        {
+          name: "empty",
+          displayName: "Select a field",
+          value: "",
+          compoundType: false,
+          type: "String",
+        },
+      ]);
+      return;
+    }
+
     const updatedRows = [...searchRows];
     updatedRows.splice(index, 1);
     setSearchRows(updatedRows);
@@ -416,7 +429,10 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
               <div className="col-sm-2 flex flex-row items-center">
                 <Button
                   className="btn btn-danger"
-                  onClick={() => handleRemoveRow(index)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleRemoveRow(index);
+                  }}
                 >
                   Remove Row
                 </Button>
@@ -440,7 +456,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             ])
           }
         >
-          Add Row
+          Add Search Criteria
         </Button>
 
         <div className="py-2">
