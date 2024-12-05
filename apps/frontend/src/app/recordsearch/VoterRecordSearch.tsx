@@ -316,6 +316,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                     label: field.displayName,
                     value: field.name,
                   }))}
+                  initialValue={row.name}
                   displayLabel={row.displayName}
                   onSelect={(value) => {
                     handleChangeField(index, value);
