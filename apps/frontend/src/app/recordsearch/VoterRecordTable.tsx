@@ -161,11 +161,13 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
                 )}
               </TableCell>
               <TableCell>
-                <Button onClick={jumpToTop} variant={"outline"}>
-                  Jump to Top
-                </Button>
+                {records.length > 10 && (
+                  <Button onClick={jumpToTop} variant={"outline"}>
+                    Jump to Top
+                  </Button>
+                )}
               </TableCell>
-              <TableCell className="text-right" colSpan={2}>
+              <TableCell className="text-right pr-2" colSpan={2}>
                 Showing {records.length} records of {totalRecords} total
               </TableCell>
             </TableRow>
