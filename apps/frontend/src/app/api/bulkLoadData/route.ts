@@ -494,7 +494,7 @@ export async function loadCommitteeLists() {
   let count = 0;
   let found = 0;
   let foundDiscrepancy = 0;
-  let discrepanciesMap = new Map<string, Discrepancy>();
+  const discrepanciesMap = new Map<string, Discrepancy>();
 
   for (const row of committeeExportData) {
     const city = row["LT Description"]?.includes("City")
