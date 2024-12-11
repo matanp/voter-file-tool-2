@@ -15,6 +15,7 @@ import {
   isRecordNewer,
 } from "../lib/utils";
 import { NextResponse } from "next/server";
+import path from "path";
 
 type VoterRecordArchiveStrings = {
   [K in keyof VoterRecordArchive]: string | null;
@@ -472,9 +473,10 @@ async function bulkSaveCommitteeLists() {
 }
 
 export async function loadCommitteeLists() {
-  const filePath = "data/DemocraticCommitteeExport.xlsx";
+  const filePath = path.resolve("public/data/DemocraticCommitteeExport.xlsx");
 
   const fileBuffer = fs.readFileSync(filePath);
+
   const workbook: xlsx.WorkBook = xlsx.read(fileBuffer);
 
   const committeeExportSheet: xlsx.WorkSheet | undefined =

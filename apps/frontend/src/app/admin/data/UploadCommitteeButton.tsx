@@ -127,8 +127,6 @@ export const UploadCommittee: React.FC = () => {
             extraContent={(record: VoterRecord) => {
               const discrepancies = discrepanciesMap[record.VRCNUM];
 
-              console.log(discrepancies);
-
               if (!discrepancies) {
                 return <p>No discrepancies found</p>;
               }
