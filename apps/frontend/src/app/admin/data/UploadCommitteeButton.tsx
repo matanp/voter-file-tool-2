@@ -94,7 +94,10 @@ export const UploadCommittee: React.FC = () => {
         method: "POST",
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as {
+        recordsWithDiscrepancies: VoterRecord[];
+        discrepanciesMap: [string, Discrepancy][];
+      };
 
       setRecordsWithDiscrepancies(data.recordsWithDiscrepancies);
 
