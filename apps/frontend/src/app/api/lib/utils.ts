@@ -99,6 +99,46 @@ export async function voterHasDiscrepancy(VRCNUM: string): Promise<boolean> {
   return false;
 }
 
+const getAddress = (record: VoterRecord) => {
+  return `${record.houseNum} ${record.street}${record.apartment ? ` APT ${record.apartment}` : ""}`;
+};
+
+const DISCREPENCY_FIELDS = [
+  { incomingField: "firstname", existingField: "firstName" },
+  { incomingField: "lastname", existingField: "lastName" },
+  { incomingField: "Add1", existingField: getAddress },
+  { incomingField: "City", existingField: "city" },
+  { incomingField: "res state", existingField: "state" },
+  { incomingField: "Zip", existingField: "zipCode" },
+] as const;
+
+export type Discrepancy = Record<
+  string,
+  { incoming: string; existing: string }
+>;
+
+export function findDiscrepancies(
+  incomingRecord: Record<string, string>,
+  existingRecord: VoterRecord,
+): Discrepancy {
+  const discrepancies: Discrepancy = {};
+  for (const field of DISCREPENCY_FIELDS) {
+    const incomingValue = incomingRecord[field.incomingField];
+    const existingValue =
+      typeof field.existingField === "string"
+        ? existingRecord[field.existingField]
+        : field.existingField(existingRecord);
+    if (incomingValue !== existingValue) {
+      discrepancies[field.incomingField] = {
+        incoming: incomingValue ?? "",
+        existing: existingValue ?? "",
+      };
+    }
+  }
+
+  return discrepancies;
+}
+
 export function convertStringToDateTime(dateString: string): Date {
   const parts: string[] = dateString.replace(/"/g, "").split("/");
   if (parts.length !== 3) {

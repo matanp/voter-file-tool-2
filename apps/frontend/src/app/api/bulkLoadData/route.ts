@@ -1,13 +1,17 @@
 import { createReadStream } from "fs";
 import prisma from "~/lib/prisma";
 import csv from "csv-parser";
+import * as xlsx from "xlsx";
+import * as fs from "fs";
 import type { Prisma, VoterRecordArchive } from "@prisma/client";
 import {
   convertStringToDateTime,
+  Discrepancy,
   type DropdownItem,
   dropdownItems,
   exampleVoterRecord,
   fieldEnum,
+  findDiscrepancies,
   isRecordNewer,
 } from "../lib/utils";
 import { NextResponse } from "next/server";
@@ -42,7 +46,7 @@ const cleanupDB = async (year: number, recordEntryNumber: number) => {
 };
 
 let count = 0;
-const PRINT_COUNT = 50000;
+const PRINT_COUNT = 100000;
 const BUFFER_SIZE = 25000;
 
 async function parseCSV(
@@ -103,6 +107,7 @@ async function parseCSV(
 
 let voterRercordArchiveBuffer: Prisma.VoterRecordArchiveCreateManyInput[] = [];
 let committeeLists: Prisma.CommitteeListCreateManyInput[] = [];
+let committeeLists2: Prisma.CommitteeListCreateManyInput[] = [];
 const dropdownLists = new Map<DropdownItem, Set<string>>();
 
 function processRecordForDropdownLists(record: VoterRecordArchiveStrings) {
@@ -111,7 +116,7 @@ function processRecordForDropdownLists(record: VoterRecordArchiveStrings) {
       continue;
     }
 
-    const value = record[key];
+    const value = record[key]?.trim();
     if (value) {
       if (!dropdownLists.get(key)) {
         dropdownLists.set(key, new Set());
@@ -176,7 +181,7 @@ async function saveVoterRecord(
     } else {
       voterRecord = {
         ...voterRecord,
-        [key]: value ?? "",
+        [key]: value?.trim() ?? "",
       };
     }
   }
@@ -216,8 +221,7 @@ async function saveVoterRecord(
 }
 
 const bulkSaveAll = async () => {
-  console.log("Bulk saving");
-  await bulkSaveCommitteeLists();
+  // await bulkSaveCommitteeLists();
   await bulkSaveDropdownLists();
 
   if (voterRercordArchiveBuffer.length > 0) {
@@ -226,7 +230,7 @@ const bulkSaveAll = async () => {
 };
 
 const bulkSaveVoterRecords = async () => {
-  console.log("Bulk saving voter records", voterRercordArchiveBuffer.length);
+  // console.log("Bulk saving voter records", voterRercordArchiveBuffer.length);
   console.time("bulkSaveVoterRecords");
   if (voterRercordArchiveBuffer.length > 0) {
     // console.time("bulkSaveVoterArchiveRecords");
@@ -333,7 +337,10 @@ export async function POST(req: Request) {
     // const recordEntryNumbers = [1, 2, 3, 1];
 
     // const files = ["2024_4_voter_records-partial5000.txt"];
-    const files = ["2024_1_voter_records.txt"];
+    // const files = ["2024_1_voter_records.txt"];
+    // const files = ["2024_5_1_voter_records.txt"];
+    // const files = ["2024_1_voter_records-partial100k.txt"];
+    const files: string[] = [];
 
     const years = [2024];
     const recordEntryNumbers = [1];
@@ -341,7 +348,7 @@ export async function POST(req: Request) {
     for (let i = 0; i < files.length; i++) {
       console.log(files[i] ?? "", years[i] ?? 0, recordEntryNumbers[i] ?? 0);
       await parseCSV(
-        `data/${files[i]}` ?? "",
+        `data/${files[i]}`,
         years[i] ?? 0,
         recordEntryNumbers[i] ?? 0,
       );
@@ -349,6 +356,8 @@ export async function POST(req: Request) {
 
     console.log("Parsing complete");
     console.timeEnd("loadData");
+
+    await loadCommitteeLists();
 
     return NextResponse.json(
       {
@@ -460,4 +469,104 @@ async function bulkSaveCommitteeLists() {
   console.timeEnd("bulkSaveCommitteeLists");
 
   return committeeDBResults.length;
+}
+
+export async function loadCommitteeLists() {
+  const filePath = "data/DemocraticCommitteeExport.xlsx";
+
+  const fileBuffer = fs.readFileSync(filePath);
+  const workbook: xlsx.WorkBook = xlsx.read(fileBuffer);
+
+  const committeeExportSheet: xlsx.WorkSheet | undefined =
+    workbook.Sheets.Export_to_Excel;
+
+  if (!committeeExportSheet) {
+    throw new Error("Committee export sheet not found");
+  }
+
+  const unkownCommitteeData: unknown[] =
+    xlsx.utils.sheet_to_json(committeeExportSheet);
+
+  const committeeExportData = unkownCommitteeData as Record<string, string>[];
+
+  console.log("processing committees");
+
+  let count = 0;
+  let found = 0;
+  let foundDiscrepancy = 0;
+  let discrepanciesMap = new Map<string, Discrepancy>();
+
+  for (const row of committeeExportData) {
+    const city = row["LT Description"]?.includes("City")
+      ? "Rochester"
+      : row["LT Description"];
+
+    const legDistrict = Number(row.LT);
+    const electionDistrict = Number(row.ED);
+
+    const VRCNUM = row["voter id"];
+
+    if (!VRCNUM) {
+      throw new Error("VRCNUM is undefined");
+    }
+
+    const recordExists = await prisma.voterRecord.findUnique({
+      where: {
+        VRCNUM,
+      },
+    });
+
+    count++;
+    if (recordExists) {
+      found++;
+      const discrepancies = findDiscrepancies(row, recordExists);
+
+      if (discrepancies && Object.keys(discrepancies).length > 0) {
+        discrepanciesMap.set(VRCNUM, discrepancies);
+        foundDiscrepancy++;
+      }
+    } else {
+      discrepanciesMap.set(VRCNUM, {
+        VRCNUM: { incoming: VRCNUM, existing: "" },
+      });
+    }
+
+    if (
+      city &&
+      legDistrict &&
+      electionDistrict &&
+      !committeeLists2.find(
+        (list) =>
+          list.cityTown === city &&
+          list.legDistrict === legDistrict &&
+          list.electionDistrict === electionDistrict,
+      )
+    ) {
+      committeeLists2.push({
+        cityTown: city,
+        legDistrict: legDistrict,
+        electionDistrict: electionDistrict,
+      });
+    }
+  }
+
+  const committeeDBTransactions = committeeLists2.map((committeeList) => {
+    return prisma.committeeList.upsert({
+      where: {
+        cityTown_legDistrict_electionDistrict: {
+          cityTown: committeeList.cityTown,
+          legDistrict: committeeList.legDistrict,
+          electionDistrict: committeeList.electionDistrict,
+        },
+      },
+      create: committeeList,
+      update: committeeList,
+    });
+  });
+
+  const committeeDBResults = await prisma.$transaction(committeeDBTransactions);
+
+  committeeLists2 = [];
+
+  return discrepanciesMap;
 }

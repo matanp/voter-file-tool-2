@@ -22,6 +22,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   >([]);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(100);
+  const [hasSearched, setHasSearched] = React.useState(false);
 
   const handleSubmit = async (searchQuery: SearchField[]) => {
     setLoading(true);
@@ -59,6 +60,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     setTotalRecords(totalRecords);
     setRecords(data);
     setLoading(false);
+    setHasSearched(true);
   };
 
   const handleLoadMore = async () => {
@@ -100,6 +102,9 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
             totalRecords={totalRecords}
           />
         </div>
+      )}
+      {!records.length && hasSearched && (
+        <p className="ml-10">No results found.</p>
       )}
     </div>
   );
