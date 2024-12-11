@@ -49,6 +49,7 @@ pocketbase/pb_data/
 data/
 !src/app/admin/data/
 !src/app/admin/data/**
+!public/data/
 
 
 certs/
