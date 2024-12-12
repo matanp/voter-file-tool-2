@@ -33,8 +33,8 @@ model User {
   // Optional for WebAuthn support
   Authenticator  Authenticator[]
 
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Account {
@@ -140,53 +140,53 @@ model VoterRecordArchive {
 }
 
 model VoterRecord {
-  VRCNUM                  String                   @id
-  votingRecords           VotingHistoryRecord[]
-  committee               CommitteeList?        @relation(fields: [committeeId], references: [id])
-  committeeId             Int?
-  latestRecordEntryYear   Int
-  latestRecordEntryNumber Int
-  lastName                String?
-  firstName               String?
-  middleInitial           String?
-  suffixName              String?
-  houseNum                Int?
-  street                  String?
-  apartment               String?
-  halfAddress             String?
-  resAddrLine2            String?
-  resAddrLine3            String?
-  city                    String?
-  state                   String?
-  zipCode                 String?
-  zipSuffix               String?
-  telephone               String?
-  email                   String?
-  mailingAddress1         String?
-  mailingAddress2         String?
-  mailingAddress3         String?
-  mailingAddress4         String?
-  mailingCity             String?
-  mailingState            String?
-  mailingZip              String?
-  mailingZipSuffix        String?
-  party                   String?
-  gender                  String?
-  DOB                     DateTime?
-  L_T                     String?
-  electionDistrict        Int?
-  countyLegDistrict       String?
-  stateAssmblyDistrict    String?
-  stateSenateDistrict     String?
-  congressionalDistrict   String?
-  CC_WD_Village           String?
-  townCode                String?
-  lastUpdate              DateTime?
-  originalRegDate         DateTime?
-  statevid                String?
-  hasDiscrepancy          Boolean?
-  addToCommitteeRequest        CommitteeRequest[] @relation(name: "addToCommitteeRequest")
-  removeFromCommitteeRequest   CommitteeRequest[] @relation(name: "removeFromCommitteeRequest")
+  VRCNUM                     String                @id
+  votingRecords              VotingHistoryRecord[]
+  committee                  CommitteeList?        @relation(fields: [committeeId], references: [id])
+  committeeId                Int?
+  latestRecordEntryYear      Int
+  latestRecordEntryNumber    Int
+  lastName                   String?
+  firstName                  String?
+  middleInitial              String?
+  suffixName                 String?
+  houseNum                   Int?
+  street                     String?
+  apartment                  String?
+  halfAddress                String?
+  resAddrLine2               String?
+  resAddrLine3               String?
+  city                       String?
+  state                      String?
+  zipCode                    String?
+  zipSuffix                  String?
+  telephone                  String?
+  email                      String?
+  mailingAddress1            String?
+  mailingAddress2            String?
+  mailingAddress3            String?
+  mailingAddress4            String?
+  mailingCity                String?
+  mailingState               String?
+  mailingZip                 String?
+  mailingZipSuffix           String?
+  party                      String?
+  gender                     String?
+  DOB                        DateTime?
+  L_T                        String?
+  electionDistrict           Int?
+  countyLegDistrict          String?
+  stateAssmblyDistrict       String?
+  stateSenateDistrict        String?
+  congressionalDistrict      String?
+  CC_WD_Village              String?
+  townCode                   String?
+  lastUpdate                 DateTime?
+  originalRegDate            DateTime?
+  statevid                   String?
+  hasDiscrepancy             Boolean?
+  addToCommitteeRequest      CommitteeRequest[]    @relation(name: "addToCommitteeRequest")
+  removeFromCommitteeRequest CommitteeRequest[]    @relation(name: "removeFromCommitteeRequest")
 }
 
 model VotingHistoryRecord {
@@ -209,14 +209,14 @@ model CommitteeList {
 }
 
 model CommitteeRequest {
-  id              Int           @id @default(autoincrement())
-  committeList    CommitteeList @relation(fields: [committeeListId], references: [id])
-  committeeListId Int
-  addVoterRecord  VoterRecord?   @relation(name: "addToCommitteeRequest", fields: [addVoterRecordId], references: [VRCNUM], onDelete: Cascade)
-  addVoterRecordId String?
-  removeVoterRecord VoterRecord? @relation(name: "removeFromCommitteeRequest", fields: [removeVoterRecordId], references: [VRCNUM], onDelete: Cascade)
+  id                  Int           @id @default(autoincrement())
+  committeList        CommitteeList @relation(fields: [committeeListId], references: [id])
+  committeeListId     Int
+  addVoterRecord      VoterRecord?  @relation(name: "addToCommitteeRequest", fields: [addVoterRecordId], references: [VRCNUM], onDelete: Cascade)
+  addVoterRecordId    String?
+  removeVoterRecord   VoterRecord?  @relation(name: "removeFromCommitteeRequest", fields: [removeVoterRecordId], references: [VRCNUM], onDelete: Cascade)
   removeVoterRecordId String?
-  requestNotes    String?
+  requestNotes        String?
 }
 
 model DropdownLists {
@@ -231,4 +231,10 @@ model DropdownLists {
   townCode              String[]
   electionDistrict      String[]
   party                 String[]
+}
+
+model CommitteeUploadDiscrepancy {
+  id          String @id @default(cuid())
+  VRCNUM      String
+  discrepancy Json
 }

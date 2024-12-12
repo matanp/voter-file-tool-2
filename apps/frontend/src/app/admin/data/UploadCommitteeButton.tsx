@@ -90,7 +90,7 @@ export const UploadCommittee: React.FC = () => {
     setIsUploading(true);
 
     try {
-      const response = await fetch("/api/committee/bulkLoad", {
+      const response = await fetch("/api/committee/fetchLoaded", {
         method: "POST",
       });
 
@@ -126,8 +126,6 @@ export const UploadCommittee: React.FC = () => {
             paginated={false}
             extraContent={(record: VoterRecord) => {
               const discrepancies = discrepanciesMap[record.VRCNUM];
-
-              console.log(discrepancies);
 
               if (!discrepancies) {
                 return <p>No discrepancies found</p>;
