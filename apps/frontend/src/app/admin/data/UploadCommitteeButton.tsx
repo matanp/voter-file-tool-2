@@ -90,7 +90,7 @@ export const UploadCommittee: React.FC = () => {
     setIsUploading(true);
 
     try {
-      const response = await fetch("/api/committee/bulkLoad", {
+      const response = await fetch("/api/committee/fetchLoaded", {
         method: "POST",
       });
 
