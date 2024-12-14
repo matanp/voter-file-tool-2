@@ -491,8 +491,6 @@ export async function loadCommitteeLists() {
 
   const committeeExportData = unkownCommitteeData as Record<string, string>[];
 
-  console.log("processing committees");
-
   let count = 0;
   let found = 0;
   let foundDiscrepancy = 0;
@@ -529,7 +527,7 @@ export async function loadCommitteeLists() {
       }
     } else {
       discrepanciesMap.set(VRCNUM, {
-        VRCNUM: { incoming: VRCNUM, existing: "" },
+        VRCNUM: { incoming: VRCNUM, existing: "", fullRow: row },
       });
     }
 
