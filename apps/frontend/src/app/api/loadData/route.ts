@@ -49,7 +49,7 @@ function parseCSV(
     });
 
     parser.on("end", () => {
-      console.log("Parsing complete");
+      console.log("Parsing complete, saved", count, "records total");
       count = 0;
       resolve();
     });
@@ -208,11 +208,8 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < files.length; i++) {
       console.log(files[i] ?? "", years[i] ?? 0, recordEntryNumbers[i] ?? 0);
-      await parseCSV(
-        `data/${files[i]}` ?? "",
-        years[i] ?? 0,
-        recordEntryNumbers[i] ?? 0,
-      );
+      const filePath = `data/${files[i]}` || "";
+      await parseCSV(filePath, years[i] ?? 0, recordEntryNumbers[i] ?? 0);
     }
 
     console.log("Parsing complete");

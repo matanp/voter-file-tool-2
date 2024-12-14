@@ -5,6 +5,9 @@ import { useState } from "react";
 import { Discrepancy } from "~/app/api/lib/utils";
 import { VoterRecordTable } from "~/app/recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
+import DiscrepancyRecordsTable, {
+  CommitteeUploadRecords,
+} from "./DiscrepancyTable";
 
 const discrepanciesPrintMap = {
   Add1: "Address",
@@ -19,6 +22,9 @@ export const UploadCommittee: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [recordsWithDiscrepancies, setRecordsWithDiscrepancies] = useState<
     VoterRecord[]
+  >([]);
+  const [recordsWithoutSavedRecord, setRecordsWithoutSavedRecord] = useState<
+    CommitteeUploadRecords[]
   >([]);
   const [discrepanciesMap, setDiscrepanciesMap] = useState<
     Record<string, Discrepancy>
@@ -101,10 +107,34 @@ export const UploadCommittee: React.FC = () => {
 
       setRecordsWithDiscrepancies(data.recordsWithDiscrepancies);
 
-      const discrepanciesRecord: Record<string, Discrepancy> =
-        Object.fromEntries(data.discrepanciesMap);
+      const discrepancyMap: Record<string, Discrepancy> = Object.fromEntries(
+        data.discrepanciesMap,
+      );
 
-      setDiscrepanciesMap(discrepanciesRecord);
+      if (discrepancyMap && Object.keys(discrepancyMap).length > 0) {
+        const recordsWithoutSavedRecord = data.discrepanciesMap.reduce(
+          (prev, [key, discrepancy]): CommitteeUploadRecords[] => {
+            if (discrepancy.VRCNUM) {
+              if (!discrepancy.VRCNUM.fullRow) {
+                throw new Error("Discrepancy has no full row");
+              }
+              return [
+                ...prev,
+                {
+                  VRCNUM: key,
+                  fullRow: discrepancy.VRCNUM.fullRow,
+                } as CommitteeUploadRecords,
+              ];
+            }
+            return prev;
+          },
+          [] as CommitteeUploadRecords[],
+        );
+
+        setRecordsWithoutSavedRecord(recordsWithoutSavedRecord);
+      }
+
+      setDiscrepanciesMap(discrepancyMap);
     } catch (error) {
       console.error("Error uploading committee list:", error);
     } finally {
@@ -138,12 +168,14 @@ export const UploadCommittee: React.FC = () => {
                       const value = discrepancies[key];
                       return (
                         <li key={key}>
-                          {
-                            discrepanciesPrintMap[
-                              key as keyof typeof discrepanciesPrintMap
-                            ]
-                          }
-                          : {value?.incoming} vs {value?.existing}
+                          <span className="font-bold">
+                            {
+                              discrepanciesPrintMap[
+                                key as keyof typeof discrepanciesPrintMap
+                              ]
+                            }
+                          </span>
+                          : {value?.incoming} vs {value?.existing ?? "NO VALUE"}
                         </li>
                       );
                     })}
@@ -152,6 +184,12 @@ export const UploadCommittee: React.FC = () => {
               );
             }}
           />
+        </div>
+      )}
+      {recordsWithoutSavedRecord.length > 0 && (
+        <div className="mt-4">
+          <h2>Records with no Voter ID in this system</h2>
+          <DiscrepancyRecordsTable records={recordsWithoutSavedRecord} />
         </div>
       )}
     </div>

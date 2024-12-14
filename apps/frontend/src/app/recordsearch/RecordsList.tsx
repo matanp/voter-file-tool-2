@@ -6,6 +6,7 @@ import VoterRecordSearch, {
 } from "./VoterRecordSearch";
 import { type DropdownLists, type VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
+import { getAddress } from "../api/lib/utils";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
@@ -126,7 +127,7 @@ export const VoterCard = ({ record }: { record: VoterRecord }) => {
           <p>Voter Id: {record.VRCNUM}</p>
         </div>
         <div>
-          <p>Address: {`${record.houseNum} ${record.street}`}</p>
+          <p>Address: {getAddress(record)}</p>
           <p>City: {record.city}</p>
           <p>State: {record.state}</p>
           <p>Zip Code: {record.zipCode}</p>

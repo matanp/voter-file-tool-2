@@ -74,23 +74,9 @@ export async function voterHasDiscrepancy(VRCNUM: string): Promise<boolean> {
       const compareValue = recordArchive[field];
       if (isDate(compareValue) && isDate(previousValue)) {
         if (compareValue.getTime() !== previousValue.getTime()) {
-          // console.log(
-          //   "Discrepancy found for VRCNUM via date comparison",
-          //   VRCNUM,
-          //   field,
-          //   recordArchive[field],
-          //   firstRecord[field],
-          // );
           return true;
         }
       } else if (recordArchive[field] !== firstRecord[field]) {
-        // console.log(
-        //   "Discrepancy found for VRCNUM",
-        //   VRCNUM,
-        //   field,
-        //   recordArchive[field],
-        //   firstRecord[field],
-        // );
         return true;
       }
     }
@@ -99,7 +85,7 @@ export async function voterHasDiscrepancy(VRCNUM: string): Promise<boolean> {
   return false;
 }
 
-const getAddress = (record: VoterRecord) => {
+export const getAddress = (record: VoterRecord) => {
   return `${record.houseNum} ${record.street}${record.apartment ? ` APT ${record.apartment}` : ""}`;
 };
 
@@ -114,7 +100,7 @@ const DISCREPENCY_FIELDS = [
 
 export type Discrepancy = Record<
   string,
-  { incoming: string; existing: string }
+  { incoming: string; existing: string; fullRow?: Record<string, string> }
 >;
 
 export function findDiscrepancies(
