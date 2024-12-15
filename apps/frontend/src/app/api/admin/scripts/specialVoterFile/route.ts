@@ -25,13 +25,15 @@ async function filterCsvRows(): Promise<void> {
   const rows = csvData.split("\n");
   const filteredRows = rows.filter((row) => {
     const columns = row.split(",");
-    return stringsToMatch.has(columns[0].replace(/"/g, ""));
+    if (columns[0]) {
+      return stringsToMatch.has(columns[0].replace(/"/g, ""));
+    }
   });
 
   fs.writeFileSync(outputFile, filteredRows.join("\n"));
 }
 
-export async function POST(req: NextApiRequest, res: NextApiResponse) {
+export async function POST(req: Request) {
   try {
     await filterCsvRows();
     return NextResponse.json(
