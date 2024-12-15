@@ -84,7 +84,7 @@ const CommitteeLists: React.FC = async () => {
   }
 
   return (
-    <div className="w-96">
+    <div className="w-96 m-4">
       <Accordion type="multiple" defaultValue={defaultOpenItems}>
         {Object.keys(groupedRequests).map((committeeListId) => {
           const requests = groupedRequests[committeeListId];
