@@ -14,6 +14,7 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
+import { Card, CardContent, CardFooter } from "~/components/ui/card";
 
 interface CommitteeListSelectorProps {
   commiitteeLists: CommitteeList[];
@@ -67,11 +68,11 @@ const CommitteeListSelector2: React.FC<CommitteeListSelectorProps> = ({
           .filter((list) => list.cityTown === city)
           .map((list) => String(list.legDistrict)),
       ),
-    );
+    ).sort((a, b) => Number(a) - Number(b));
 
     setLegDistricts(legDistricts);
 
-    if (legDistricts[0]) {
+    if (legDistricts[0] && legDistricts.length === 1) {
       setSelectedLegDistrict(legDistricts[0]);
     }
 
@@ -210,30 +211,38 @@ const CommitteeListSelector2: React.FC<CommitteeListSelectorProps> = ({
         <div>
           <div className="pt-2 pb-4">
             {committeeList.length > 0 ? (
-              <ul>
+              <div className="flex flex-col gap-4 w-max">
                 {committeeList.map((member) => (
-                  <li key={member.VRCNUM}>
-                    <VoterCard record={member} />
-                    {hasPermissionFor(
-                      actingPermissions,
-                      PrivilegeLevel.Admin,
-                    ) && (
-                      <Button
-                        onClick={(e) =>
-                          handleRemoveCommitteeMember(e, member.VRCNUM)
-                        }
-                      >
-                        Remove from Committee
-                      </Button>
-                    )}
-                    {actingPermissions === PrivilegeLevel.RequestAccess && (
-                      <Button onClick={(e) => handleRequestRemove(e, member)}>
-                        Remove or Replace Member
-                      </Button>
-                    )}
-                  </li>
+                  <div key={member.VRCNUM}>
+                    <Card className="min-w-max w-full">
+                      <CardContent>
+                        <VoterCard record={member} />
+                      </CardContent>
+                      <CardFooter>
+                        {hasPermissionFor(
+                          actingPermissions,
+                          PrivilegeLevel.Admin,
+                        ) && (
+                          <Button
+                            onClick={(e) =>
+                              handleRemoveCommitteeMember(e, member.VRCNUM)
+                            }
+                          >
+                            Remove from Committee
+                          </Button>
+                        )}
+                        {actingPermissions === PrivilegeLevel.RequestAccess && (
+                          <Button
+                            onClick={(e) => handleRequestRemove(e, member)}
+                          >
+                            Remove or Replace Member
+                          </Button>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : (
               <p>No committee members found.</p>
             )}
