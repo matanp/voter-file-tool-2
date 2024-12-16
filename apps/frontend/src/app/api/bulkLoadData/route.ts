@@ -107,6 +107,10 @@ async function parseCSV(
 
 let voterRercordArchiveBuffer: Prisma.VoterRecordArchiveCreateManyInput[] = [];
 let committeeLists: Prisma.CommitteeListCreateManyInput[] = [];
+let committeeData: Map<
+  string,
+  { data: Prisma.CommitteeListCreateManyInput; committeeMembers: string[] }
+> = new Map();
 let committeeLists2: Prisma.CommitteeListCreateManyInput[] = [];
 const dropdownLists = new Map<DropdownItem, Set<string>>();
 
@@ -338,7 +342,7 @@ export async function POST(req: Request) {
 
     // const files = ["2024_4_voter_records-partial5000.txt"];
     // const files = ["2024_1_voter_records.txt"];
-    // const files = ["2024_5_1_voter_records.txt"];
+    // const files = ["2024_5_2_voter_records.txt"];
     // const files = ["2024_1_voter_records-partial100k.txt"];
     const files: string[] = [];
 
@@ -508,20 +512,22 @@ export async function loadCommitteeLists() {
       throw new Error("VRCNUM is undefined");
     }
 
-    const recordExists = await prisma.voterRecord.findUnique({
+    const existingRecord = await prisma.voterRecord.findUnique({
       where: {
         VRCNUM,
       },
     });
 
     count++;
-    if (recordExists) {
+    let recordHasDiscrepancies = false;
+    if (existingRecord) {
       found++;
-      const discrepancies = findDiscrepancies(row, recordExists);
+      const discrepancies = findDiscrepancies(row, existingRecord);
 
       if (discrepancies && Object.keys(discrepancies).length > 0) {
         discrepanciesMap.set(VRCNUM, discrepancies);
         foundDiscrepancy++;
+        recordHasDiscrepancies = true;
       }
     } else {
       discrepanciesMap.set(VRCNUM, {
@@ -529,27 +535,30 @@ export async function loadCommitteeLists() {
       });
     }
 
-    if (
-      city &&
-      legDistrict &&
-      electionDistrict &&
-      !committeeLists2.find(
-        (list) =>
-          list.cityTown === city &&
-          list.legDistrict === legDistrict &&
-          list.electionDistrict === electionDistrict,
-      )
-    ) {
-      committeeLists2.push({
-        cityTown: city,
-        legDistrict: legDistrict,
-        electionDistrict: electionDistrict,
+    const mapKey = `${city}-${legDistrict}-${electionDistrict}`;
+
+    if (!city || !legDistrict || !electionDistrict) {
+      throw new Error("Invalid committee data");
+    }
+
+    if (committeeData.has(mapKey) && !recordHasDiscrepancies) {
+      committeeData.get(mapKey)?.committeeMembers.push(VRCNUM);
+    } else {
+      committeeData.set(mapKey, {
+        data: {
+          cityTown: city,
+          legDistrict: legDistrict,
+          electionDistrict: electionDistrict,
+        },
+        committeeMembers: recordHasDiscrepancies ? [VRCNUM] : [],
       });
     }
   }
 
-  const committeeDBTransactions = committeeLists2.map((committeeList) => {
-    return prisma.committeeList.upsert({
+  for (const [key, value] of committeeData.entries()) {
+    const committeeList = value.data;
+
+    const committee = await prisma.committeeList.upsert({
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: committeeList.cityTown,
@@ -560,9 +569,18 @@ export async function loadCommitteeLists() {
       create: committeeList,
       update: committeeList,
     });
-  });
 
-  const committeeDBResults = await prisma.$transaction(committeeDBTransactions);
+    await prisma.voterRecord.updateMany({
+      where: {
+        VRCNUM: {
+          in: value.committeeMembers,
+        },
+      },
+      data: {
+        committeeId: committee.id,
+      },
+    });
+  }
 
   committeeLists2 = [];
 
