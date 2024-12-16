@@ -7,10 +7,16 @@ import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
+import CommitteeListSelector2 from "./CommitteeListSelector2";
 
 const CommitteeLists: React.FC = async () => {
   const permissions = await auth();
-  const committeeLists = await prisma.committeeList.findMany({});
+  const committeeLists = await prisma.committeeList.findMany({
+    include: {
+      committeeMemberList: true,
+    },
+  });
+
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
   let committeeRequests = [];
@@ -40,10 +46,7 @@ const CommitteeLists: React.FC = async () => {
           </Link>
         </div>
       )}
-      <CommitteeListSelector
-        commiitteeLists={committeeLists}
-        dropdownLists={dropdownLists}
-      />
+      <CommitteeListSelector2 commiitteeLists={committeeLists} />
     </div>
   );
 };
