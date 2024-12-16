@@ -107,10 +107,10 @@ async function parseCSV(
 
 let voterRercordArchiveBuffer: Prisma.VoterRecordArchiveCreateManyInput[] = [];
 let committeeLists: Prisma.CommitteeListCreateManyInput[] = [];
-let committeeData: Map<
+const committeeData = new Map<
   string,
   { data: Prisma.CommitteeListCreateManyInput; committeeMembers: string[] }
-> = new Map();
+>();
 let committeeLists2: Prisma.CommitteeListCreateManyInput[] = [];
 const dropdownLists = new Map<DropdownItem, Set<string>>();
 
