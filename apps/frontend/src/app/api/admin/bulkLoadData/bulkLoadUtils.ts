@@ -1,20 +1,9 @@
-import { createReadStream } from "fs";
 import prisma from "~/lib/prisma";
-import csv from "csv-parser";
 import * as xlsx from "xlsx";
 import * as fs from "fs";
-import type { Prisma, VoterRecordArchive } from "@prisma/client";
-import {
-  convertStringToDateTime,
-  DiscrepanciesAndCommittee,
-  type DropdownItem,
-  dropdownItems,
-  exampleVoterRecord,
-  fieldEnum,
-  findDiscrepancies,
-  isRecordNewer,
-} from "../lib/utils";
-import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
+
+import { DiscrepanciesAndCommittee, findDiscrepancies } from "../../lib/utils";
 
 const committeeData = new Map<
   string,
