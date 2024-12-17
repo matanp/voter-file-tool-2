@@ -6,7 +6,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
-import CommitteeListSelector2 from "./CommitteeListSelector2";
+import CommitteeSelector from "./CommitteeSelector";
 
 const CommitteeLists: React.FC = async () => {
   const permissions = await auth();
@@ -45,7 +45,7 @@ const CommitteeLists: React.FC = async () => {
           </Link>
         </div>
       )}
-      <CommitteeListSelector2 commiitteeLists={committeeLists} />
+      <CommitteeSelector commiitteeLists={committeeLists} />
     </div>
   );
 };

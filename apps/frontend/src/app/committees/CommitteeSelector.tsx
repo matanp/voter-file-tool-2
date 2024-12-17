@@ -2,7 +2,6 @@
 import React, { useCallback, useContext, useState } from "react";
 
 import {
-  type DropdownLists,
   PrivilegeLevel,
   type CommitteeList,
   type VoterRecord,
@@ -14,15 +13,14 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
+import { Card, CardContent, CardFooter } from "~/components/ui/card";
 
-interface CommitteeListSelectorProps {
+interface CommitteeSelectorProps {
   commiitteeLists: CommitteeList[];
-  dropdownLists: DropdownLists;
 }
 
-const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
+const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   commiitteeLists,
-  dropdownLists,
 }) => {
   const { actingPermissions } = useContext(GlobalContext);
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -34,6 +32,9 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
   const [requestRemoveRecord, setRequestRemoveRecord] =
     useState<VoterRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [legDistricts, setLegDistricts] = useState<string[]>([]);
+
+  const cities = new Set(commiitteeLists.map((list) => list.cityTown));
 
   const handleDistrictChange = (districtString: string) => {
     const district = parseInt(districtString);
@@ -54,10 +55,24 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
       setSelectedDistrict(-1);
       setSelectedLegDistrict("");
     }
-    if (city === "ROCHESTER") {
+    if (city.toUpperCase() === "ROCHESTER") {
       setUseLegDistrict(true);
     } else {
       setUseLegDistrict(false);
+    }
+
+    const legDistricts = Array.from(
+      new Set(
+        commiitteeLists
+          .filter((list) => list.cityTown === city)
+          .map((list) => String(list.legDistrict)),
+      ),
+    ).sort((a, b) => Number(a) - Number(b));
+
+    setLegDistricts(legDistricts);
+
+    if (legDistricts[0] && legDistricts.length === 1) {
+      setSelectedLegDistrict(legDistricts[0]);
     }
 
     setCommitteeList([]);
@@ -138,11 +153,18 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
     setRequestRemoveRecord(record);
   };
 
+  const noContentMessage =
+    selectedCity && selectedLegDistrict && selectedDistrict >= 0
+      ? "No committee members found."
+      : "Select a committee to view members.";
+
   return (
     <div>
-      <label htmlFor="district-select">Select Election District:</label>
+      <label htmlFor="district-select" className="pr-2">
+        Select Committee:
+      </label>
       <ComboboxDropdown
-        items={dropdownLists.city.map((city) => ({
+        items={Array.from(cities).map((city) => ({
           label: city,
           value: city,
         }))}
@@ -151,10 +173,14 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
       />
       {useLegDistrict && (
         <ComboboxDropdown
-          items={dropdownLists.countyLegDistrict.map((legDistrict) => ({
-            label: legDistrict,
-            value: legDistrict,
-          }))}
+          items={Array.from(
+            new Set(
+              legDistricts.map((legDistrict) => ({
+                label: legDistrict,
+                value: legDistrict,
+              })),
+            ),
+          )}
           displayLabel={"Select Leg District"}
           onSelect={handleLegChange}
         />
@@ -162,18 +188,22 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
       {selectedCity !== "" &&
         (!useLegDistrict || selectedLegDistrict !== "") && (
           <ComboboxDropdown
-            items={commiitteeLists
-              .filter(
-                (list) =>
-                  list.cityTown === selectedCity &&
-                  (!useLegDistrict ||
-                    list.legDistrict === Number(selectedLegDistrict)),
-              )
-              .sort((a, b) => a.electionDistrict - b.electionDistrict)
-              .map((list) => ({
-                label: `${list.electionDistrict}`,
-                value: `${list.electionDistrict}`,
-              }))}
+            items={Array.from(
+              new Set(
+                commiitteeLists
+                  .filter(
+                    (list) =>
+                      list.cityTown === selectedCity &&
+                      (!useLegDistrict ||
+                        list.legDistrict === Number(selectedLegDistrict)),
+                  )
+                  .sort((a, b) => a.electionDistrict - b.electionDistrict)
+                  .map((list) => ({
+                    label: `${list.electionDistrict}`,
+                    value: `${list.electionDistrict}`,
+                  })),
+              ),
+            )}
             initialValue={`${selectedDistrict}`}
             displayLabel={"Select Election District"}
             onSelect={handleDistrictChange}
@@ -186,32 +216,40 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
         <div>
           <div className="pt-2 pb-4">
             {committeeList.length > 0 ? (
-              <ul>
+              <div className="flex flex-col gap-4 w-max">
                 {committeeList.map((member) => (
-                  <li key={member.VRCNUM}>
-                    <VoterCard record={member} />
-                    {hasPermissionFor(
-                      actingPermissions,
-                      PrivilegeLevel.Admin,
-                    ) && (
-                      <Button
-                        onClick={(e) =>
-                          handleRemoveCommitteeMember(e, member.VRCNUM)
-                        }
-                      >
-                        Remove from Committee
-                      </Button>
-                    )}
-                    {actingPermissions === PrivilegeLevel.RequestAccess && (
-                      <Button onClick={(e) => handleRequestRemove(e, member)}>
-                        Remove or Replace Member
-                      </Button>
-                    )}
-                  </li>
+                  <div key={member.VRCNUM}>
+                    <Card className="min-w-max w-full">
+                      <CardContent>
+                        <VoterCard record={member} committee={true} />
+                      </CardContent>
+                      <CardFooter>
+                        {hasPermissionFor(
+                          actingPermissions,
+                          PrivilegeLevel.Admin,
+                        ) && (
+                          <Button
+                            onClick={(e) =>
+                              handleRemoveCommitteeMember(e, member.VRCNUM)
+                            }
+                          >
+                            Remove from Committee
+                          </Button>
+                        )}
+                        {actingPermissions === PrivilegeLevel.RequestAccess && (
+                          <Button
+                            onClick={(e) => handleRequestRemove(e, member)}
+                          >
+                            Remove or Replace Member
+                          </Button>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : (
-              <p>No committee members found.</p>
+              <p>{noContentMessage}</p>
             )}
           </div>
           <AddCommitteeForm
@@ -239,4 +277,4 @@ const CommitteeListSelector: React.FC<CommitteeListSelectorProps> = ({
   );
 };
 
-export default CommitteeListSelector;
+export default CommitteeSelector;
