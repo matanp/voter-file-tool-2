@@ -1,7 +1,7 @@
 import React from "react";
 
 import prisma from "~/lib/prisma";
-import NewGeneratePetitionForm from "./NewGeneratePetitionForm";
+import GeneratePetitionForm from "./GeneratePetitionForm";
 import AuthCheck from "~/components/ui/authcheck";
 
 const CommitteeLists: React.FC = async () => {
@@ -14,7 +14,7 @@ const CommitteeLists: React.FC = async () => {
   return (
     <AuthCheck>
       <div className="w-full p-4">
-        <NewGeneratePetitionForm
+        <GeneratePetitionForm
           parties={dropdownLists.party.filter(
             (p) => p !== "BLK" && p !== "OTH",
           )}

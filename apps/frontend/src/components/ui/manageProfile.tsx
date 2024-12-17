@@ -7,7 +7,7 @@ import {
   SheetTitle,
   Sheet,
 } from "./sheet";
-import { Session } from "next-auth";
+import type { Session } from "next-auth";
 import React from "react";
 import { GlobalContext } from "../providers/GlobalContext";
 import { ComboboxDropdown } from "./ComboBox";

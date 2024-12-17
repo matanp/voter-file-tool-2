@@ -3,7 +3,10 @@ import * as xlsx from "xlsx";
 import * as fs from "fs";
 import type { Prisma } from "@prisma/client";
 
-import { DiscrepanciesAndCommittee, findDiscrepancies } from "../../lib/utils";
+import {
+  type DiscrepanciesAndCommittee,
+  findDiscrepancies,
+} from "../../lib/utils";
 
 const committeeData = new Map<
   string,
@@ -112,7 +115,7 @@ export async function loadCommitteeLists() {
     }
   }
 
-  for (const [key, value] of committeeData.entries()) {
+  for (const [, value] of committeeData.entries()) {
     const committeeList = value.data;
 
     const committee = await prisma.committeeList.upsert({
@@ -138,6 +141,17 @@ export async function loadCommitteeLists() {
       },
     });
   }
+
+  console.log(
+    "Loaded",
+    count,
+    "records and found",
+    found,
+    "alread saved. Found discrepancies:",
+    foundDiscrepancy,
+    "discrepancies:",
+    discrepanciesMap.size,
+  );
 
   return discrepanciesMap;
 }

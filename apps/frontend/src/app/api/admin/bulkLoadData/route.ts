@@ -6,7 +6,7 @@ import type { Prisma, VoterRecordArchive } from "@prisma/client";
 import { NextResponse } from "next/server";
 import {
   exampleVoterRecord,
-  DropdownItem,
+  type DropdownItem,
   dropdownItems,
   fieldEnum,
   convertStringToDateTime,
@@ -290,7 +290,7 @@ const bulkSaveVoterRecords = async () => {
   voterRercordArchiveBuffer = [];
 };
 
-export async function POST(req: Request) {
+export async function POST() {
   console.log("Loading data BULK");
   console.time("loadData");
 

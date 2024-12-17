@@ -8,7 +8,7 @@ import {
   CardContent,
   CardFooter,
 } from "~/components/ui/card";
-import { CommitteeRequestWithDetails } from "./page";
+import type { CommitteeRequestWithDetails } from "./page";
 import { toast } from "~/components/ui/use-toast";
 import { startTransition } from "react";
 import { useRouter } from "next/navigation";

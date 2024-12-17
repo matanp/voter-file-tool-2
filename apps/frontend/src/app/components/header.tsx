@@ -9,7 +9,7 @@ import { hasPermissionFor } from "~/lib/utils";
 
 const Header: React.FC = () => {
   const pathname = usePathname();
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
 
   const showDataTab = hasPermissionFor(
     session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,

@@ -1,8 +1,8 @@
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
-import { loadCommitteeLists } from "../bulkLoadData/bulkLoadUtils";
+import { loadCommitteeLists } from "./bulkLoadUtils";
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const discrepanciesMap = await loadCommitteeLists();
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
     const recordsWithDiscrepancies = await prisma.voterRecord.findMany({
       where: {
-        OR: Array.from(discrepanciesMap.entries()).map(([key, value]) => ({
+        OR: Array.from(discrepanciesMap.entries()).map(([key]) => ({
           VRCNUM: key,
         })),
       },
