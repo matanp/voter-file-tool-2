@@ -499,9 +499,11 @@ export async function loadCommitteeLists() {
   const discrepanciesMap = new Map<string, Discrepancy>();
 
   for (const row of committeeExportData) {
-    const city = row["LT Description"]?.includes("City")
+    let city = row["LT Description"]?.includes("City")
       ? "Rochester"
       : row["LT Description"];
+
+    city = city?.toUpperCase();
 
     const legDistrict = Number(row.LT);
     const electionDistrict = Number(row.ED);

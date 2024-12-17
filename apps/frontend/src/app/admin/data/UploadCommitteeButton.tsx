@@ -154,6 +154,10 @@ export const UploadCommittee: React.FC = () => {
             records={recordsWithDiscrepancies}
             fieldsList={[]}
             paginated={false}
+            seeMoreDetailsText="Saved Voter Record Details"
+            extraHeaders={[
+              "Discrepancies: Committee List Upload value vs. Voter Record value",
+            ]}
             extraContent={(record: VoterRecord) => {
               const discrepancies = discrepanciesMap[record.VRCNUM];
 
