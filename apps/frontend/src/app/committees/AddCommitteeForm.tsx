@@ -33,10 +33,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   );
 
   const validCommittee =
-    ((city !== "ROCHESTER" && legDistrict === "") ||
-      (city === "ROCHESTER" && legDistrict !== "")) &&
-    electionDistrict !== -1 &&
-    city !== "";
+    city !== "" && legDistrict !== "" && electionDistrict !== -1;
 
   const handleAddCommitteeMember = async (
     event: React.FormEvent<HTMLButtonElement>,
@@ -111,6 +108,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                   return "Add to Committee";
                 }
               };
+
               return (
                 <>
                   <Button
