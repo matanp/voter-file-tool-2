@@ -1,5 +1,6 @@
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
+import { CommitteeList } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
         string,
         {
           discrepancies: { incoming: string; existing: string };
-          committee: any;
+          committee: CommitteeList;
         }
       >
     >((acc, { VRCNUM, discrepancy, committee }) => {
