@@ -80,14 +80,17 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   return (
     <>
       <div className="flex flex-col gap-2">
-        <RecordSearchForm
-          handleResults={(results) => {
-            setRecords(results);
-            setHasSearched(true);
-          }}
-          submitButtonText="Find Members to Add"
-        />
-        {records.length > 0 && (
+        {validCommittee && (
+          <RecordSearchForm
+            handleResults={(results) => {
+              setRecords(results);
+              setHasSearched(true);
+            }}
+            extraSearchQuery={[]}
+            submitButtonText="Find Members to Add"
+          />
+        )}
+        {records.length > 0 && validCommittee && (
           <VoterRecordTable
             records={records}
             paginated={false}

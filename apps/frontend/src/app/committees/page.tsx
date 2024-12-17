@@ -1,5 +1,4 @@
 import React from "react";
-import CommitteeListSelector from "./CommitteeListPicker";
 
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
