@@ -25,7 +25,7 @@ const discrepanciesPrintMap = {
   lastname: "Last Name",
 };
 
-export const UploadCommittee: React.FC = () => {
+export const CommitteeUploadDiscrepancies: React.FC = () => {
   const [recordsWithDiscrepancies, setRecordsWithDiscrepancies] = useState<
     VoterRecord[]
   >([]);
