@@ -1,17 +1,13 @@
 import { createReadStream } from "fs";
 import prisma from "~/lib/prisma";
 import csv from "csv-parser";
-import * as xlsx from "xlsx";
-import * as fs from "fs";
 import type { Prisma, VoterRecordArchive } from "@prisma/client";
 import {
   convertStringToDateTime,
-  DiscrepanciesAndCommittee,
   type DropdownItem,
   dropdownItems,
   exampleVoterRecord,
   fieldEnum,
-  findDiscrepancies,
   isRecordNewer,
 } from "../lib/utils";
 import { NextResponse } from "next/server";
@@ -99,19 +95,13 @@ async function parseCSV(
     });
 
     parser.on("error", (error) => {
-      // throw error;
       reject(error);
     });
   });
 }
 
 let voterRercordArchiveBuffer: Prisma.VoterRecordArchiveCreateManyInput[] = [];
-let committeeLists: Prisma.CommitteeListCreateManyInput[] = [];
-const committeeData = new Map<
-  string,
-  { data: Prisma.CommitteeListCreateManyInput; committeeMembers: string[] }
->();
-let committeeLists2: Prisma.CommitteeListCreateManyInput[] = [];
+
 const dropdownLists = new Map<DropdownItem, Set<string>>();
 
 function processRecordForDropdownLists(record: VoterRecordArchiveStrings) {
@@ -198,24 +188,6 @@ async function saveVoterRecord(
   }
 
   if (record.city) {
-    const committeeList = {
-      cityTown: record.city,
-      legDistrict:
-        record.city === "ROCHESTER" ? Number(record.countyLegDistrict) : -1,
-      electionDistrict: Number(record.electionDistrict),
-    };
-
-    if (
-      committeeLists.find(
-        (list) =>
-          list.cityTown === committeeList.cityTown &&
-          list.electionDistrict === committeeList.electionDistrict &&
-          list.legDistrict === committeeList.legDistrict,
-      ) === undefined
-    ) {
-      committeeLists.push(committeeList);
-    }
-
     processRecordForDropdownLists(record);
   }
 
@@ -225,7 +197,6 @@ async function saveVoterRecord(
 }
 
 const bulkSaveAll = async () => {
-  // await bulkSaveCommitteeLists();
   await bulkSaveDropdownLists();
 
   if (voterRercordArchiveBuffer.length > 0) {
@@ -321,29 +292,9 @@ const bulkSaveVoterRecords = async () => {
 export async function POST(req: Request) {
   console.log("Loading data BULK");
   console.time("loadData");
-  // const body: Request = await req.json();
-
-  // console.log(body);
 
   try {
-    // const filePath = "data/2023-2.txt";
-    // const year = 2023;
-    // const recordEntryNumber = 2;
-
-    // const files = [
-    //   "2023-1-partial.txt",
-    //   "2023-2-partial.txt",
-    //   "2023-3-partial.txt",
-    //   "2024-1-partial.txt",
-    // ];
-
-    // const years = [2023, 2023, 2023, 2024];
-    // const recordEntryNumbers = [1, 2, 3, 1];
-
-    // const files = ["2024_4_voter_records-partial5000.txt"];
-    // const files = ["2024_1_voter_records.txt"];
     // const files = ["2024_5_2_voter_records.txt"];
-    // const files = ["2024_1_voter_records-partial100k.txt"];
     const files: string[] = [];
 
     const years = [2024];
@@ -360,8 +311,6 @@ export async function POST(req: Request) {
 
     console.log("Parsing complete");
     console.timeEnd("loadData");
-
-    // await loadCommitteeLists();
 
     return NextResponse.json(
       {
@@ -446,165 +395,4 @@ async function bulkSaveDropdownLists() {
       party: Array.from(dropdownLists.get("party")!),
     },
   });
-}
-
-async function bulkSaveCommitteeLists() {
-  console.log("Bulk saving committee lists");
-  console.time("bulkSaveCommitteeLists");
-  const committeeDBTransactions = committeeLists.map((committeeList) => {
-    return prisma.committeeList.upsert({
-      where: {
-        cityTown_legDistrict_electionDistrict: {
-          cityTown: committeeList.cityTown,
-          legDistrict: committeeList.legDistrict,
-          electionDistrict: committeeList.electionDistrict,
-        },
-      },
-      create: committeeList,
-      update: committeeList,
-    });
-  });
-
-  const committeeDBResults = await prisma.$transaction(committeeDBTransactions);
-
-  committeeLists = [];
-
-  console.log("Committee DB results", committeeDBResults.length);
-  console.timeEnd("bulkSaveCommitteeLists");
-
-  return committeeDBResults.length;
-}
-
-export async function loadCommitteeLists() {
-  const filePath = "data/DemocraticCommitteeExport.xlsx";
-
-  const fileBuffer = fs.readFileSync(filePath);
-  const workbook: xlsx.WorkBook = xlsx.read(fileBuffer);
-
-  const committeeExportSheet: xlsx.WorkSheet | undefined =
-    workbook.Sheets.Export_to_Excel;
-
-  if (!committeeExportSheet) {
-    throw new Error("Committee export sheet not found");
-  }
-
-  const unkownCommitteeData: unknown[] =
-    xlsx.utils.sheet_to_json(committeeExportSheet);
-
-  const committeeExportData = unkownCommitteeData as Record<string, string>[];
-
-  let count = 0;
-  let found = 0;
-  let foundDiscrepancy = 0;
-  const discrepanciesMap = new Map<string, DiscrepanciesAndCommittee>();
-
-  for (const row of committeeExportData) {
-    let city = row["LT Description"]?.includes("City")
-      ? "Rochester"
-      : row["LT Description"];
-
-    city = city?.toUpperCase();
-
-    const legDistrict = Number(row.LT);
-    const electionDistrict = Number(row.ED);
-
-    const VRCNUM = row["voter id"];
-
-    if (!VRCNUM) {
-      throw new Error("VRCNUM is undefined");
-    }
-
-    if (!city || !legDistrict || !electionDistrict) {
-      throw new Error("Invalid committee data");
-    }
-
-    const existingRecord = await prisma.voterRecord.findUnique({
-      where: {
-        VRCNUM,
-      },
-    });
-
-    count++;
-    let recordHasDiscrepancies = false;
-    if (existingRecord) {
-      found++;
-      const discrepancies = findDiscrepancies(row, existingRecord);
-
-      if (discrepancies && Object.keys(discrepancies).length > 0) {
-        discrepanciesMap.set(VRCNUM, {
-          discrepancies,
-          committee: {
-            id: 0,
-            cityTown: city,
-            legDistrict,
-            electionDistrict,
-          },
-        });
-        foundDiscrepancy++;
-        recordHasDiscrepancies = true;
-      }
-    } else {
-      discrepanciesMap.set(VRCNUM, {
-        discrepancies: {
-          VRCNUM: { incoming: VRCNUM, existing: "", fullRow: row },
-        },
-        committee: {
-          id: 0,
-          cityTown: city,
-          legDistrict,
-          electionDistrict,
-        },
-      });
-    }
-
-    const mapKey = `${city}-${legDistrict}-${electionDistrict}`;
-
-    if (!city || !legDistrict || !electionDistrict) {
-      throw new Error("Invalid committee data");
-    }
-
-    if (committeeData.has(mapKey) && !recordHasDiscrepancies) {
-      committeeData.get(mapKey)?.committeeMembers.push(VRCNUM);
-    } else {
-      committeeData.set(mapKey, {
-        data: {
-          cityTown: city,
-          legDistrict: legDistrict,
-          electionDistrict: electionDistrict,
-        },
-        committeeMembers: recordHasDiscrepancies ? [] : [VRCNUM],
-      });
-    }
-  }
-
-  for (const [key, value] of committeeData.entries()) {
-    const committeeList = value.data;
-
-    const committee = await prisma.committeeList.upsert({
-      where: {
-        cityTown_legDistrict_electionDistrict: {
-          cityTown: committeeList.cityTown,
-          legDistrict: committeeList.legDistrict,
-          electionDistrict: committeeList.electionDistrict,
-        },
-      },
-      create: committeeList,
-      update: committeeList,
-    });
-
-    await prisma.voterRecord.updateMany({
-      where: {
-        VRCNUM: {
-          in: value.committeeMembers,
-        },
-      },
-      data: {
-        committeeId: committee.id,
-      },
-    });
-  }
-
-  committeeLists2 = [];
-
-  return discrepanciesMap;
 }

@@ -1,6 +1,6 @@
 import prisma from "~/lib/prisma";
-import { loadCommitteeLists } from "../../bulkLoadData/route";
 import { NextResponse } from "next/server";
+import { loadCommitteeLists } from "../../bulkLoadData/bulkLoadUtils";
 
 export async function POST(req: Request) {
   try {
