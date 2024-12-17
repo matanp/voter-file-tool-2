@@ -64,7 +64,7 @@ export const UploadCommittee: React.FC = () => {
           { discrepanciesAncCommittee: item, VRCNUM: key },
         ];
       } else {
-        grouped[committeeKey].push({
+        grouped[committeeKey]?.push({
           discrepanciesAncCommittee: item,
           VRCNUM: key,
         });
@@ -126,7 +126,9 @@ export const UploadCommittee: React.FC = () => {
   };
 
   useEffect(() => {
-    handleUploadCommittee();
+    handleUploadCommittee().catch((err) => {
+      console.error("Error uploading committee list:", err);
+    });
   }, []);
 
   const discrepancyKeys = Object.keys(groupedDiscrepancies);

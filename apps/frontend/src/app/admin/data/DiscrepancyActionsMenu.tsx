@@ -12,6 +12,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useToast } from "~/components/ui/use-toast";
+import { CommitteeList } from "@prisma/client";
 
 export function DiscrepanciesActionsMenu({
   VRCNUM,
@@ -39,13 +40,15 @@ export function DiscrepanciesActionsMenu({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = (await response.json()) as { error: string };
         toast({
           title: "Error",
           description: `Error: ${errorData.error}`,
         });
       } else {
-        const successData = await response.json();
+        const successData = (await response.json()) as {
+          committee: CommitteeList;
+        };
         onAction(accept);
         toast({
           title: "Success",
