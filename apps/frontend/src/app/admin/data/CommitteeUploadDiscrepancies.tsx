@@ -1,11 +1,11 @@
 "use client";
 
-import { VoterRecord } from "@prisma/client";
+import type { VoterRecord } from "@prisma/client";
 import { useEffect, useState } from "react";
-import { DiscrepanciesAndCommittee } from "~/app/api/lib/utils";
+import type { DiscrepanciesAndCommittee } from "~/app/api/lib/utils";
 import { VoterRecordTable } from "~/app/recordsearch/VoterRecordTable";
 import DiscrepancyRecordsTable, {
-  CommitteeUploadRecords,
+  type CommitteeUploadRecords,
 } from "./DiscrepancyTable";
 import { DiscrepanciesActionsMenu } from "./DiscrepancyActionsMenu";
 import {
@@ -14,7 +14,6 @@ import {
   AccordionTrigger,
 } from "~/components/ui/accordion";
 import { AccordionContent } from "@radix-ui/react-accordion";
-import { set } from "date-fns";
 
 const discrepanciesPrintMap = {
   Add1: "Address",

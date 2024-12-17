@@ -121,7 +121,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   ) => {
     event.preventDefault();
 
-    const response = await fetch(`/api/committee/remove`, {
+    await fetch(`/api/committee/remove`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

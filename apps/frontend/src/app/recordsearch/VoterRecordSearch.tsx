@@ -312,7 +312,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                     (field) =>
                       searchRows.find((row) => row.name === field.name) ===
                         undefined || row.name === field.name,
-                  ).map((field, idx) => ({
+                  ).map((field) => ({
                     label: field.displayName,
                     value: field.name,
                   }))}
