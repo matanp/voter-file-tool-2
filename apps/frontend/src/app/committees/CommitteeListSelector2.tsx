@@ -93,7 +93,6 @@ const CommitteeListSelector2: React.FC<CommitteeListSelectorProps> = ({
   const fetchCommitteeList = useCallback(
     async (city: string, district: number, legDistrict?: string) => {
       setLoading(true);
-      console.log("legDistrict", legDistrict);
       try {
         const response = await fetch(
           `/api/fetchCommitteeList/?cityTown=${city}${legDistrict ? `&legDistrict=${legDistrict}` : ""}&electionDistrict=${district}`,
@@ -155,9 +154,16 @@ const CommitteeListSelector2: React.FC<CommitteeListSelectorProps> = ({
     setRequestRemoveRecord(record);
   };
 
+  const noContentMessage =
+    selectedCity && selectedLegDistrict && selectedDistrict >= 0
+      ? "No committee members found."
+      : "Select a committee to view members.";
+
   return (
     <div>
-      <label htmlFor="district-select">Select Election District:</label>
+      <label htmlFor="district-select" className="pr-2">
+        Select Committee:
+      </label>
       <ComboboxDropdown
         items={Array.from(cities).map((city) => ({
           label: city,
@@ -216,7 +222,7 @@ const CommitteeListSelector2: React.FC<CommitteeListSelectorProps> = ({
                   <div key={member.VRCNUM}>
                     <Card className="min-w-max w-full">
                       <CardContent>
-                        <VoterCard record={member} />
+                        <VoterCard record={member} committee={true} />
                       </CardContent>
                       <CardFooter>
                         {hasPermissionFor(
@@ -244,7 +250,7 @@ const CommitteeListSelector2: React.FC<CommitteeListSelectorProps> = ({
                 ))}
               </div>
             ) : (
-              <p>No committee members found.</p>
+              <p>{noContentMessage}</p>
             )}
           </div>
           <AddCommitteeForm

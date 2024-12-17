@@ -28,7 +28,6 @@ type DiscrepancyRecordsTableProps = {
 const DiscrepancyRecordsTable: React.FC<DiscrepancyRecordsTableProps> = ({
   records,
 }) => {
-  console.log(records[0]);
   return (
     <Table>
       <TableHeader>

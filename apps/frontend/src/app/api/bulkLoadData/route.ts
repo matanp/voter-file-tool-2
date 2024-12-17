@@ -6,7 +6,7 @@ import * as fs from "fs";
 import type { Prisma, VoterRecordArchive } from "@prisma/client";
 import {
   convertStringToDateTime,
-  Discrepancy,
+  DiscrepanciesAndCommittee,
   type DropdownItem,
   dropdownItems,
   exampleVoterRecord,
@@ -361,7 +361,7 @@ export async function POST(req: Request) {
     console.log("Parsing complete");
     console.timeEnd("loadData");
 
-    await loadCommitteeLists();
+    // await loadCommitteeLists();
 
     return NextResponse.json(
       {
@@ -496,7 +496,7 @@ export async function loadCommitteeLists() {
   let count = 0;
   let found = 0;
   let foundDiscrepancy = 0;
-  const discrepanciesMap = new Map<string, Discrepancy>();
+  const discrepanciesMap = new Map<string, DiscrepanciesAndCommittee>();
 
   for (const row of committeeExportData) {
     let city = row["LT Description"]?.includes("City")
@@ -514,6 +514,10 @@ export async function loadCommitteeLists() {
       throw new Error("VRCNUM is undefined");
     }
 
+    if (!city || !legDistrict || !electionDistrict) {
+      throw new Error("Invalid committee data");
+    }
+
     const existingRecord = await prisma.voterRecord.findUnique({
       where: {
         VRCNUM,
@@ -527,13 +531,29 @@ export async function loadCommitteeLists() {
       const discrepancies = findDiscrepancies(row, existingRecord);
 
       if (discrepancies && Object.keys(discrepancies).length > 0) {
-        discrepanciesMap.set(VRCNUM, discrepancies);
+        discrepanciesMap.set(VRCNUM, {
+          discrepancies,
+          committee: {
+            id: 0,
+            cityTown: city,
+            legDistrict,
+            electionDistrict,
+          },
+        });
         foundDiscrepancy++;
         recordHasDiscrepancies = true;
       }
     } else {
       discrepanciesMap.set(VRCNUM, {
-        VRCNUM: { incoming: VRCNUM, existing: "", fullRow: row },
+        discrepancies: {
+          VRCNUM: { incoming: VRCNUM, existing: "", fullRow: row },
+        },
+        committee: {
+          id: 0,
+          cityTown: city,
+          legDistrict,
+          electionDistrict,
+        },
       });
     }
 
@@ -552,7 +572,7 @@ export async function loadCommitteeLists() {
           legDistrict: legDistrict,
           electionDistrict: electionDistrict,
         },
-        committeeMembers: recordHasDiscrepancies ? [VRCNUM] : [],
+        committeeMembers: recordHasDiscrepancies ? [] : [VRCNUM],
       });
     }
   }
