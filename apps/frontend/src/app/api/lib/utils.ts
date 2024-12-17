@@ -1,4 +1,5 @@
 import {
+  CommitteeList,
   Prisma,
   type VoterRecord,
   type VoterRecordArchive,
@@ -85,7 +86,10 @@ export async function voterHasDiscrepancy(VRCNUM: string): Promise<boolean> {
   return false;
 }
 
-export const getAddress = (record: VoterRecord) => {
+export const getAddress = (record: VoterRecord, committee?: boolean) => {
+  if (record.addressForCommittee && committee) {
+    return record.addressForCommittee;
+  }
   return `${record.houseNum} ${record.street}${record.apartment ? ` APT ${record.apartment}` : ""}`;
 };
 
@@ -102,6 +106,11 @@ export type Discrepancy = Record<
   string,
   { incoming: string; existing: string; fullRow?: Record<string, string> }
 >;
+
+export type DiscrepanciesAndCommittee = {
+  discrepancies: Discrepancy;
+  committee: CommitteeList;
+};
 
 export function findDiscrepancies(
   incomingRecord: Record<string, string>,

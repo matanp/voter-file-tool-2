@@ -111,7 +111,13 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   );
 };
 
-export const VoterCard = ({ record }: { record: VoterRecord }) => {
+export const VoterCard = ({
+  record,
+  committee,
+}: {
+  record: VoterRecord;
+  committee?: boolean;
+}) => {
   return (
     <div className="bg-card p-6">
       <h2 className="mb-4 text-lg font-bold">{`${record.firstName} ${record.lastName}`}</h2>
@@ -127,7 +133,7 @@ export const VoterCard = ({ record }: { record: VoterRecord }) => {
           <p>Voter Id: {record.VRCNUM}</p>
         </div>
         <div>
-          <p>Address: {getAddress(record)}</p>
+          <p>Address: {getAddress(record, committee)}</p>
           <p>City: {record.city}</p>
           <p>State: {record.state}</p>
           <p>Zip Code: {record.zipCode}</p>

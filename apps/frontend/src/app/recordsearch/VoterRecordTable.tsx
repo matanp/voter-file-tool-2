@@ -23,6 +23,7 @@ interface BaseVoterRecordTableProps {
   fullWidth?: boolean;
   compactView?: boolean;
   extraHeaders?: Array<string>;
+  seeMoreDetailsText?: string;
   extraContent?: (record: VoterRecord) => React.ReactNode;
 }
 
@@ -75,6 +76,7 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
   compactView,
   paginated,
   extraHeaders,
+  seeMoreDetailsText,
   ...paginationProps
 }) => {
   const { totalRecords, loadMore } = paginationProps as PaginationProps;
@@ -141,7 +143,9 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
                         <EllipsisVertical />
                       </Button>
                     ) : (
-                      <Button variant="outline">See more details</Button>
+                      <Button variant="outline">
+                        {seeMoreDetailsText ?? "See more details"}
+                      </Button>
                     )}
                   </PopoverTrigger>
                   <PopoverContent className="mr-2 w-max shadow-lg">

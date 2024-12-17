@@ -15,6 +15,7 @@ export type CommitteeUploadRecords = {
     ED: string;
     LT: string;
     Add1: string;
+    Zip: string;
     name: string;
     [key: string]: string; // Additional fields not directly used here
   };
@@ -27,7 +28,6 @@ type DiscrepancyRecordsTableProps = {
 const DiscrepancyRecordsTable: React.FC<DiscrepancyRecordsTableProps> = ({
   records,
 }) => {
-  console.log(records[0]);
   return (
     <Table>
       <TableHeader>
@@ -37,6 +37,7 @@ const DiscrepancyRecordsTable: React.FC<DiscrepancyRecordsTableProps> = ({
           <TableHead>ED</TableHead>
           <TableHead>LT</TableHead>
           <TableHead>Add1</TableHead>
+          <TableHead>Zip</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -47,6 +48,7 @@ const DiscrepancyRecordsTable: React.FC<DiscrepancyRecordsTableProps> = ({
             <TableCell>{record.fullRow.ED}</TableCell>
             <TableCell>{record.fullRow.LT}</TableCell>
             <TableCell>{record.fullRow.Add1}</TableCell>
+            <TableCell>{record.fullRow.Zip}</TableCell>
           </TableRow>
         ))}
       </TableBody>

@@ -10,8 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = env("POSTGRES_PRISMA_URL") // uses connection pooling
-  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+  url      = env("POSTGRES_PRISMA_URL") // uses connection pooling
 }
 
 enum PrivilegeLevel {
@@ -144,6 +143,7 @@ model VoterRecord {
   votingRecords              VotingHistoryRecord[]
   committee                  CommitteeList?        @relation(fields: [committeeId], references: [id])
   committeeId                Int?
+  addressForCommittee        String?
   latestRecordEntryYear      Int
   latestRecordEntryNumber    Int
   lastName                   String?
@@ -204,6 +204,7 @@ model CommitteeList {
   electionDistrict    Int
   committeeMemberList VoterRecord[]
   CommitteeRequest    CommitteeRequest[]
+  CommitteeDiscrepancyRecords CommitteeUploadDiscrepancy[]
 
   @@unique([cityTown, legDistrict, electionDistrict])
 }
@@ -235,6 +236,8 @@ model DropdownLists {
 
 model CommitteeUploadDiscrepancy {
   id          String @id @default(cuid())
-  VRCNUM      String
+  VRCNUM      String @unique
+  committee   CommitteeList @relation(fields: [committeeId], references: [id])
+  committeeId Int
   discrepancy Json
 }
