@@ -2,15 +2,16 @@ import { createReadStream } from "fs";
 import prisma from "~/lib/prisma";
 import csv from "csv-parser";
 import type { Prisma, VoterRecordArchive } from "@prisma/client";
-import {
-  convertStringToDateTime,
-  type DropdownItem,
-  dropdownItems,
-  exampleVoterRecord,
-  fieldEnum,
-  isRecordNewer,
-} from "../lib/utils";
+
 import { NextResponse } from "next/server";
+import {
+  exampleVoterRecord,
+  DropdownItem,
+  dropdownItems,
+  fieldEnum,
+  convertStringToDateTime,
+  isRecordNewer,
+} from "../../lib/utils";
 
 type VoterRecordArchiveStrings = {
   [K in keyof VoterRecordArchive]: string | null;
@@ -294,8 +295,8 @@ export async function POST(req: Request) {
   console.time("loadData");
 
   try {
-    // const files = ["2024_5_2_voter_records.txt"];
-    const files: string[] = [];
+    const files = ["2024_5_2_voter_records.txt"];
+    // const files: string[] = [];
 
     const years = [2024];
     const recordEntryNumbers = [1];
