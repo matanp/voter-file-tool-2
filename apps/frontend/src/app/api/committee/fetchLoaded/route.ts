@@ -3,12 +3,23 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const discrepanciesMap = await prisma.committeeUploadDiscrepancy.findMany();
+    const discrepanciesMap = await prisma.committeeUploadDiscrepancy.findMany({
+      include: { committee: true },
+    });
 
     const discrepanciesMapProcessed = discrepanciesMap.reduce<
-      Record<string, { incoming: string; existing: string }>
-    >((acc, { VRCNUM, discrepancy }) => {
-      acc[VRCNUM] = discrepancy as { incoming: string; existing: string };
+      Record<
+        string,
+        {
+          discrepancies: { incoming: string; existing: string };
+          committee: any;
+        }
+      >
+    >((acc, { VRCNUM, discrepancy, committee }) => {
+      acc[VRCNUM] = {
+        discrepancies: discrepancy as { incoming: string; existing: string },
+        committee,
+      };
       return acc;
     }, {});
 

@@ -1,13 +1,20 @@
 "use client";
 
 import { VoterRecord } from "@prisma/client";
-import { useState } from "react";
-import { Discrepancy } from "~/app/api/lib/utils";
+import { useEffect, useState } from "react";
+import { DiscrepanciesAndCommittee } from "~/app/api/lib/utils";
 import { VoterRecordTable } from "~/app/recordsearch/VoterRecordTable";
-import { Button } from "~/components/ui/button";
 import DiscrepancyRecordsTable, {
   CommitteeUploadRecords,
 } from "./DiscrepancyTable";
+import { DiscrepanciesActionsMenu } from "./DiscrepancyActionsMenu";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+} from "~/components/ui/accordion";
+import { AccordionContent } from "@radix-ui/react-accordion";
+import { set } from "date-fns";
 
 const discrepanciesPrintMap = {
   Add1: "Address",
@@ -19,7 +26,6 @@ const discrepanciesPrintMap = {
 };
 
 export const UploadCommittee: React.FC = () => {
-  const [isUploading, setIsUploading] = useState(false);
   const [recordsWithDiscrepancies, setRecordsWithDiscrepancies] = useState<
     VoterRecord[]
   >([]);
@@ -27,73 +33,53 @@ export const UploadCommittee: React.FC = () => {
     CommitteeUploadRecords[]
   >([]);
   const [discrepanciesMap, setDiscrepanciesMap] = useState<
-    Record<string, Discrepancy>
+    Record<string, DiscrepanciesAndCommittee>
   >({});
 
-  //   const handleUploadCommittee = async (
-  //     e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-  //   ) => {
-  //     e.preventDefault();
+  const [acceptedDiscrepancies, setAcceptedDiscrepancies] = useState<string[]>(
+    [],
+  );
 
-  //     const input = document.createElement("input");
-  //     input.type = "file";
-  //     input.accept = ".xlsx";
+  const [rejectedDiscrepancies, setRejectedDiscrepancies] = useState<string[]>(
+    [],
+  );
 
-  //     input.onchange = async (event) => {
-  //       const file = (event.target as HTMLInputElement).files?.[0];
-  //       if (!file) return;
+  const groupByCommittee = (map: Record<string, DiscrepanciesAndCommittee>) => {
+    const grouped: Record<
+      string,
+      { VRCNUM: string; discrepanciesAncCommittee: DiscrepanciesAndCommittee }[]
+    > = {};
 
-  //       // 5MB limit
-  //       if (file.size > 5 * 1024 * 1024) {
-  //         toast({
-  //           title: "Error",
-  //           description: "File too large. Maximum size is 5MB.",
-  //         });
-  //         return;
-  //       }
+    Object.keys(map).forEach((key) => {
+      const item = map[key];
 
-  //       const formData = new FormData();
-  //       formData.append("file", file);
+      if (!item) {
+        return;
+      }
+      const { cityTown, legDistrict, electionDistrict } = item.committee;
+      const committeeKey = `${cityTown}: LD-${legDistrict}, ED-${electionDistrict}`;
 
-  //       try {
-  //         setIsUploading(true);
-  //         const response = await fetch("/api/committees/upload", {
-  //           method: "POST",
-  //           body: formData,
-  //         });
+      if (!grouped[committeeKey]) {
+        grouped[committeeKey] = [
+          { discrepanciesAncCommittee: item, VRCNUM: key },
+        ];
+      } else {
+        grouped[committeeKey].push({
+          discrepanciesAncCommittee: item,
+          VRCNUM: key,
+        });
+      }
+    });
 
-  //         if (!response.ok) {
-  //           const errorData = (await response.json()) as { message: string };
-  //           toast({
-  //             title: "Error",
-  //             description: errorData.message || "Upload failed",
-  //           });
-  //           return;
-  //         }
+    return grouped;
+  };
 
-  //         // const result = await response.json();
-  //         toast({ title: "Success", description: "Uploaded" });
-  //       } catch (error) {
-  //         console.error("Upload error:", error);
-  //         toast({ title: "Error", description: "An unexpected error occurred" });
-  //       } finally {
-  //         setIsUploading(false);
-  //         document.body.removeChild(input);
-  //       }
-  //     };
-
-  //     input.oncancel = () => {
-  //       document.body.removeChild(input);
-  //     };
-
-  //     input.click();
-  //   };
+  const groupedDiscrepancies = groupByCommittee(discrepanciesMap);
 
   const handleUploadCommittee = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    e?: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
-    e.preventDefault();
-    setIsUploading(true);
+    e?.preventDefault();
 
     try {
       const response = await fetch("/api/committee/fetchLoaded", {
@@ -102,27 +88,26 @@ export const UploadCommittee: React.FC = () => {
 
       const data = (await response.json()) as {
         recordsWithDiscrepancies: VoterRecord[];
-        discrepanciesMap: [string, Discrepancy][];
+        discrepanciesMap: [string, DiscrepanciesAndCommittee][];
       };
 
       setRecordsWithDiscrepancies(data.recordsWithDiscrepancies);
 
-      const discrepancyMap: Record<string, Discrepancy> = Object.fromEntries(
-        data.discrepanciesMap,
-      );
+      const discrepancyMap: Record<string, DiscrepanciesAndCommittee> =
+        Object.fromEntries(data.discrepanciesMap);
 
       if (discrepancyMap && Object.keys(discrepancyMap).length > 0) {
         const recordsWithoutSavedRecord = data.discrepanciesMap.reduce(
-          (prev, [key, discrepancy]): CommitteeUploadRecords[] => {
-            if (discrepancy.VRCNUM) {
-              if (!discrepancy.VRCNUM.fullRow) {
+          (prev, [key, { discrepancies }]): CommitteeUploadRecords[] => {
+            if (discrepancies.VRCNUM) {
+              if (!discrepancies.VRCNUM.fullRow) {
                 throw new Error("Discrepancy has no full row");
               }
               return [
                 ...prev,
                 {
                   VRCNUM: key,
-                  fullRow: discrepancy.VRCNUM.fullRow,
+                  fullRow: discrepancies.VRCNUM.fullRow,
                 } as CommitteeUploadRecords,
               ];
             }
@@ -137,53 +122,143 @@ export const UploadCommittee: React.FC = () => {
       setDiscrepanciesMap(discrepancyMap);
     } catch (error) {
       console.error("Error uploading committee list:", error);
-    } finally {
-      setIsUploading(false);
     }
   };
 
+  useEffect(() => {
+    handleUploadCommittee();
+  }, []);
+
+  const discrepancyKeys = Object.keys(groupedDiscrepancies);
+
   return (
     <div>
-      <Button onClick={handleUploadCommittee} disabled={isUploading}>
-        {isUploading ? "Uploading..." : "Upload bulk committee list"}
-      </Button>
       {recordsWithDiscrepancies.length > 0 && (
         <div className="mt-4">
           <h2>Records with discrepancies</h2>
-          <VoterRecordTable
-            records={recordsWithDiscrepancies}
-            fieldsList={[]}
-            paginated={false}
-            extraContent={(record: VoterRecord) => {
-              const discrepancies = discrepanciesMap[record.VRCNUM];
+          {discrepancyKeys.length > 0 && (
+            <Accordion type="multiple" className="w-max">
+              {discrepancyKeys.map((key) => {
+                const discrepancies = groupedDiscrepancies[key];
 
-              if (!discrepancies) {
-                return <p>No discrepancies found</p>;
-              }
+                if (!discrepancies) {
+                  return null;
+                }
 
-              return (
-                <div className="flex gap-2 items-center">
-                  <ul>
-                    {Object.keys(discrepancies).map((key) => {
-                      const value = discrepancies[key];
-                      return (
-                        <li key={key}>
-                          <span className="font-bold">
-                            {
-                              discrepanciesPrintMap[
-                                key as keyof typeof discrepanciesPrintMap
-                              ]
+                const records = recordsWithDiscrepancies.filter((record) => {
+                  return discrepancies.find((item) => {
+                    return item?.VRCNUM === record.VRCNUM;
+                  });
+                });
+
+                if (!records.length) {
+                  return null;
+                }
+
+                return (
+                  <AccordionItem key={key} value={key}>
+                    <AccordionTrigger>
+                      <h1 className="text-base font-semibold">{key}</h1>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div key={key} className="m-4 w-max">
+                        <VoterRecordTable
+                          records={records}
+                          fieldsList={[]}
+                          paginated={false}
+                          seeMoreDetailsText="Saved Voter Record Details"
+                          extraHeaders={[
+                            "Discrepancies: Committee List Upload value vs. Voter Record value",
+                          ]}
+                          extraContent={(record: VoterRecord) => {
+                            const discrepancies =
+                              discrepanciesMap[record.VRCNUM];
+
+                            if (!discrepancies) {
+                              return <p>No discrepancies found</p>;
                             }
-                          </span>
-                          : {value?.incoming} vs {value?.existing ?? "NO VALUE"}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              );
-            }}
-          />
+
+                            return (
+                              <div className="flex gap-2 items-center">
+                                <ul>
+                                  {Object.keys(discrepancies.discrepancies).map(
+                                    (key) => {
+                                      const value =
+                                        discrepancies.discrepancies[key];
+                                      return (
+                                        <li key={key}>
+                                          <span className="font-bold">
+                                            {
+                                              discrepanciesPrintMap[
+                                                key as keyof typeof discrepanciesPrintMap
+                                              ]
+                                            }
+                                          </span>
+                                          : {value?.incoming} vs{" "}
+                                          {value?.existing
+                                            ? value.existing
+                                            : "NO VALUE"}
+                                        </li>
+                                      );
+                                    },
+                                  )}
+                                </ul>
+                                {acceptedDiscrepancies.includes(
+                                  record.VRCNUM,
+                                ) && (
+                                  <p className="text-green-500">
+                                    Accepted, record saved to committee
+                                  </p>
+                                )}
+                                {rejectedDiscrepancies.includes(
+                                  record.VRCNUM,
+                                ) && (
+                                  <p className="text-red-500">
+                                    Rejected, record not saved to committee
+                                  </p>
+                                )}
+                                {!acceptedDiscrepancies.includes(
+                                  record.VRCNUM,
+                                ) &&
+                                  !rejectedDiscrepancies.includes(
+                                    record.VRCNUM,
+                                  ) && (
+                                    <DiscrepanciesActionsMenu
+                                      VRCNUM={record.VRCNUM}
+                                      showAddressOption={
+                                        discrepancies.discrepancies.Add1 !==
+                                        undefined
+                                      }
+                                      onAction={(accept) => {
+                                        if (accept) {
+                                          setAcceptedDiscrepancies((prev) => [
+                                            ...prev,
+                                            record.VRCNUM,
+                                          ]);
+                                        } else {
+                                          setRejectedDiscrepancies((prev) => [
+                                            ...prev,
+                                            record.VRCNUM,
+                                          ]);
+                                        }
+                                      }}
+                                      address={
+                                        discrepancies.discrepancies.Add1
+                                          ?.incoming ?? ""
+                                      }
+                                    />
+                                  )}
+                              </div>
+                            );
+                          }}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          )}
         </div>
       )}
       {recordsWithoutSavedRecord.length > 0 && (

@@ -7,11 +7,21 @@ export async function POST(req: Request) {
     const discrepanciesMap = await loadCommitteeLists();
 
     const transactionOperations = Array.from(discrepanciesMap.entries()).map(
-      ([voterId, discrepancy]) =>
+      ([voterId, discrepancyAndCommittee]) =>
         prisma.committeeUploadDiscrepancy.create({
           data: {
             VRCNUM: voterId,
-            discrepancy,
+            discrepancy: discrepancyAndCommittee.discrepancies,
+            committee: {
+              connect: {
+                cityTown_legDistrict_electionDistrict: {
+                  cityTown: discrepancyAndCommittee.committee.cityTown,
+                  legDistrict: discrepancyAndCommittee.committee.legDistrict,
+                  electionDistrict:
+                    discrepancyAndCommittee.committee.electionDistrict,
+                },
+              },
+            },
           },
         }),
     );
