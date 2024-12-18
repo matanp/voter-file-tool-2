@@ -12,7 +12,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useToast } from "~/components/ui/use-toast";
-import { CommitteeList } from "@prisma/client";
+import type { CommitteeList } from "@prisma/client";
 
 export function DiscrepanciesActionsMenu({
   VRCNUM,
