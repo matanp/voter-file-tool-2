@@ -7,7 +7,7 @@ import { accountPermissions } from "accountPermissions";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   callbacks: {
-    async session({ session, token, user }) {
+    async session({ session, user }) {
       session.privilegeLevel = user.privilegeLevel;
       return session;
     },

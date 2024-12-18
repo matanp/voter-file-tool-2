@@ -1,8 +1,8 @@
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
-import { CommitteeList } from "@prisma/client";
+import type { CommitteeList } from "@prisma/client";
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const discrepanciesMap = await prisma.committeeUploadDiscrepancy.findMany({
       include: { committee: true },

@@ -1,6 +1,5 @@
 import fs from "fs";
 import readline from "readline";
-import { NextApiRequest, NextApiResponse } from "next";
 import { NextResponse } from "next/server";
 
 async function filterCsvRows(): Promise<void> {
@@ -33,7 +32,7 @@ async function filterCsvRows(): Promise<void> {
   fs.writeFileSync(outputFile, filteredRows.join("\n"));
 }
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     await filterCsvRows();
     return NextResponse.json(

@@ -1,8 +1,8 @@
-import {
+import type {
   CommitteeList,
   Prisma,
-  type VoterRecord,
-  type VoterRecordArchive,
+  VoterRecord,
+  VoterRecordArchive,
 } from "@prisma/client";
 import { z } from "zod";
 import prisma from "~/lib/prisma";

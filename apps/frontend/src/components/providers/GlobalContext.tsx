@@ -12,7 +12,7 @@ type GlobalContextType = {
 
 export const GlobalContext = React.createContext<GlobalContextType>({
   actingPermissions: PrivilegeLevel.ReadAccess,
-  setActingPermissions: (privilegeLevel: PrivilegeLevel) => {
+  setActingPermissions: () => {
     throw new Error("Function not implemented.");
   },
 });

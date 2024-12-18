@@ -3,10 +3,10 @@ import React from "react";
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
 import {
-  CommitteeList,
-  CommitteeRequest,
+  type CommitteeList,
+  type CommitteeRequest,
   PrivilegeLevel,
-  VoterRecord,
+  type VoterRecord,
 } from "@prisma/client";
 import { auth } from "~/auth";
 import {
