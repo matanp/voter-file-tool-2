@@ -4,3 +4,5 @@
 terraform.tfstate*
 
 **/.env
+
+**/node_modules
