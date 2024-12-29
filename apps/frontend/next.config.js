@@ -4,6 +4,9 @@
  */
 await import("./src/env.js");
 
+const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const POSTHOG_ASSETS_HOST = process.env.NEXT_PUBLIC_POSTHOG_ASSETS_HOST;
+
 /** @type {import("next").NextConfig} */
 const config = {
   // :OHNO: look into this
@@ -25,6 +28,22 @@ const config = {
         source: "/",
         destination: "/recordsearch",
         permanent: true,
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: `${POSTHOG_ASSETS_HOST}/static/:path*`,
+      },
+      {
+        source: "/ingest/:path*",
+        destination: `${POSTHOG_HOST}/:path*`,
+      },
+      {
+        source: "/ingest/decide",
+        destination: `${POSTHOG_HOST}/decide`,
       },
     ];
   },
