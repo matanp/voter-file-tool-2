@@ -62,7 +62,6 @@ model Session {
   userId          String
   expires         DateTime
   user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  privilegeStatus PrivilegeLevel @default(ReadAccess)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
