@@ -1,6 +1,8 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect, Suspense } from "react";
+
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +19,7 @@ function ErrorPage() {
   const error = searchParams?.get("error");
 
   useEffect(() => {
+    Sentry.captureException(error);
     console.error("Global error:", error);
   }, [error]);
 
