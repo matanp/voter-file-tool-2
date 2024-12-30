@@ -1,7 +1,9 @@
 // GLOBAL ERROR FALLBACK, NOT THE /ERROR PAGE
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { Button } from "~/components/ui/button";
 
 export default function GlobalError({
   error,
@@ -11,20 +13,21 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error); // Log the error to an error tracking service
+    Sentry.captureException(error);
+    console.error(error);
   }, [error]);
 
   return (
     <div role="alert">
       <h2>Something went wrong!</h2>
       <p>{error.message}</p>
-      <button
+      <Button
         onClick={() => {
           reset();
         }}
       >
         Try again
-      </button>
+      </Button>
     </div>
   );
 }
