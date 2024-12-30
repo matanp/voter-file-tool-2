@@ -17,8 +17,8 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
       <body className={`font-sans ${inter.variable} flex flex-col gap-4`}>
-        <CSPostHogProvider>
-          <SessionProvider>
+        <SessionProvider>
+          <CSPostHogProvider>
             <GlobalContextProvider>
               {/* <ThemeProvider
             attribute="class"
@@ -37,8 +37,8 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
               </main>
               <Toaster />
             </GlobalContextProvider>
-          </SessionProvider>
-        </CSPostHogProvider>
+          </CSPostHogProvider>
+        </SessionProvider>
       </body>
     </html>
   );
