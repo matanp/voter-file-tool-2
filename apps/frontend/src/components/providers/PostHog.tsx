@@ -41,6 +41,7 @@ export function CSPostHogProvider({ children }: PostHogProviderProps) {
         name,
         email,
         privilegeLevel: session.privilegeLevel,
+        devMode: process.env.NODE_ENV === "development",
       });
     }
   }, [session, status]);
