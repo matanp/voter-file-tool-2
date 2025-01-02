@@ -13,6 +13,11 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
+export const metadata = {
+  title: "Voter File Tool",
+  description: "A tool for managing voter files",
+};
+
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
