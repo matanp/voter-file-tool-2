@@ -4,7 +4,7 @@ import { CommitteeUploadDiscrepancies } from "./CommitteeUploadDiscrepancies";
 
 const AdminDataPage: React.FC = () => {
   return (
-    <AuthCheck>
+    <AuthCheck privilegeLevel="Admin">
       <div className="w-full m-1">
         <CommitteeUploadDiscrepancies />
       </div>
