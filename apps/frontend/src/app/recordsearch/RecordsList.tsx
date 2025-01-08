@@ -135,6 +135,7 @@ export const VoterCard = ({
         <div>
           <p>Address: {getAddress(record, committee)}</p>
           <p>City: {record.city}</p>
+          <p>Town: {record.CC_WD_Village}</p>
           <p>State: {record.state}</p>
           <p>Zip Code: {record.zipCode}</p>
           <p>County Leg District: {record.countyLegDistrict}</p>
