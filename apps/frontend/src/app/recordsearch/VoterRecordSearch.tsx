@@ -7,6 +7,7 @@ import { DatePicker } from "~/components/ui/datePicker";
 import { isDropdownItem } from "../api/lib/utils";
 import { Input } from "~/components/ui/input";
 import { StreetSearch } from "./StreetSearch";
+import { CityTownSearch } from "./CityTownSearch";
 
 interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
@@ -83,11 +84,25 @@ const SEARCH_FIELDS: SearchField[] = [
     ],
   },
   {
-    name: "city",
+    name: "cityTown",
     displayName: "City / Town",
-    compoundType: false,
-    type: "Dropdown",
+    compoundType: true,
+    fields: [
+      {
+        name: "city",
+        displayName: "City",
+        compoundType: false,
+        type: "CityTown",
+      },
+      {
+        name: "CC_WD_Village",
+        displayName: "CC WD Village",
+        compoundType: false,
+        type: "Hidden",
+      },
+    ],
   },
+
   // { name: "state", displayName: "State", compoundType: false, type: "String" },
   {
     name: "zipCode",
@@ -130,18 +145,18 @@ const SEARCH_FIELDS: SearchField[] = [
       //   compoundType: false,
       //   type: "String",
       // },
-      {
-        name: "CC_WD_Village",
-        displayName: "CC WD Village",
-        compoundType: false,
-        type: "String",
-      },
-      {
-        name: "townCode",
-        displayName: "Town Code",
-        compoundType: false,
-        type: "Dropdown",
-      },
+      // {
+      //   name: "CC_WD_Village",
+      //   displayName: "CC WD Village",
+      //   compoundType: false,
+      //   type: "String",
+      // },
+      // {
+      //   name: "townCode",
+      //   displayName: "Town Code",
+      //   compoundType: false,
+      //   type: "Dropdown",
+      // },
       {
         name: "electionDistrict",
         displayName: "Election District",
@@ -310,8 +325,10 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                 <ComboboxDropdown
                   items={SEARCH_FIELDS.filter(
                     (field) =>
-                      searchRows.find((row) => row.name === field.name) ===
-                        undefined || row.name === field.name,
+                      ((field.compoundType || field.type !== "Hidden") &&
+                        searchRows.find((row) => row.name === field.name) ===
+                          undefined) ||
+                      row.name === field.name,
                   ).map((field) => ({
                     label: field.displayName,
                     value: field.name,
@@ -353,29 +370,29 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                         }}
                       />
                     )}
-                    {row.type !== "DateTime" &&
-                      row.type !== "Dropdown" &&
-                      row.type !== "Street" && (
-                        // <input
-                        //   type={row.type}
-                        //   className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-                        //   placeholder={`Enter ${row.displayName}`}
-                        //   onChange={(e) =>
-                        //     handleChangeValue(index, e.target.value)
-                        //   }
-                        // />
-                        <Input
-                          type={row.type}
-                          placeholder={`Enter ${row.displayName}`}
-                          onChange={(e) =>
-                            handleChangeValue(index, e.target.value)
-                          }
-                        />
-                      )}
+                    {(row.type === "String" || row.type === "number") && (
+                      // <input
+                      //   type={row.type}
+                      //   className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
+                      //   placeholder={`Enter ${row.displayName}`}
+                      //   onChange={(e) =>
+                      //     handleChangeValue(index, e.target.value)
+                      //   }
+                      // />
+                      <Input
+                        type={row.type}
+                        placeholder={`Enter ${row.displayName}`}
+                        onChange={(e) =>
+                          handleChangeValue(index, e.target.value)
+                        }
+                      />
+                    )}
                   </>
                 )}
                 {row.compoundType &&
                   row.fields.map((field, subIdx) => {
+                    if (field.type === "Hidden") return null;
+
                     return (
                       <div
                         key={`sub-index-${index}-${subIdx}`}
@@ -404,6 +421,15 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                             }
                           />
                         )}
+                        {field.type === "CityTown" && (
+                          <CityTownSearch
+                            cities={props.dropdownList.city}
+                            onChange={(city, town) => {
+                              handleChangeValue(index, city, subIdx);
+                              handleChangeValue(index, town, subIdx + 1);
+                            }}
+                          />
+                        )}
                         {field.type === "Street" && (
                           <StreetSearch
                             streets={props.dropdownList.street}
@@ -412,17 +438,16 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                             }}
                           />
                         )}
-                        {field.type !== "DateTime" &&
-                          field.type !== "Dropdown" &&
-                          field.type !== "Street" && (
-                            <Input
-                              type={field.type}
-                              placeholder={`Enter ${field.displayName}`}
-                              onChange={(e) =>
-                                handleChangeValue(index, e.target.value, subIdx)
-                              }
-                            />
-                          )}
+                        {(field.type === "String" ||
+                          field.type === "number") && (
+                          <Input
+                            type={field.type}
+                            placeholder={`Enter ${field.displayName}`}
+                            onChange={(e) =>
+                              handleChangeValue(index, e.target.value, subIdx)
+                            }
+                          />
+                        )}
                       </div>
                     );
                   })}
