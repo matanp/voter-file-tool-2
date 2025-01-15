@@ -403,11 +403,11 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                       return (
                         <div
                           key={`sub-index-${index}-${subIdx}`}
-                          className="flex flex-col pb-2"
+                          className="flex flex-col"
                         >
                           {field.name !== "city" &&
                             field.displayName.length < 15 && (
-                              <label className="pl-4 font-light">
+                              <label className="pl-4 font-light pt-2">
                                 {field.displayName}
                               </label>
                             )}
