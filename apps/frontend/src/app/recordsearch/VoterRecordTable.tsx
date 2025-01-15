@@ -143,7 +143,7 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
                         <EllipsisVertical />
                       </Button>
                     ) : (
-                      <Button variant="outline">
+                      <Button variant="outline" className="font-light">
                         {seeMoreDetailsText ?? "See more details"}
                       </Button>
                     )}
@@ -160,18 +160,18 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
           <TableFooter id="table-footer">
             <TableRow>
               <TableCell>
-                {records.length < totalRecords && (
-                  <Button onClick={loadMore}>Load More</Button>
-                )}
+                <div className="flex gap-2">
+                  {records.length < totalRecords && (
+                    <Button onClick={loadMore}>Load More</Button>
+                  )}
+                  {records.length > 10 && (
+                    <Button onClick={jumpToTop} variant={"outline"}>
+                      Jump to Top
+                    </Button>
+                  )}
+                </div>
               </TableCell>
-              <TableCell>
-                {records.length > 10 && (
-                  <Button onClick={jumpToTop} variant={"outline"}>
-                    Jump to Top
-                  </Button>
-                )}
-              </TableCell>
-              <TableCell className="text-right pr-2" colSpan={2}>
+              <TableCell className="text-right pr-6 font-light" colSpan={3}>
                 Showing {records.length} records of {totalRecords} total
               </TableCell>
             </TableRow>

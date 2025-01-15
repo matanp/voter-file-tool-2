@@ -85,14 +85,26 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
 
   return (
     <div>
-      <VoterRecordSearch
-        handleSubmit={handleSubmit}
-        dropdownList={dropdownList}
-      />
-      <div className="flex m-10">
-        <h1 className="text-foreground text-lg">Voter Records</h1>
-        {loading && <div>{"   "}...loading...</div>}
+      <div className="bg-primary-foreground pt-2">
+        <div className="w-full flex justify-center text-2xl text-primary font-bold">
+          <h1>Record Search</h1>
+        </div>
+        <div className="border-grey-400 border-b-2">
+          <VoterRecordSearch
+            handleSubmit={handleSubmit}
+            dropdownList={dropdownList}
+          />
+        </div>
       </div>
+      <div className="w-full flex justify-center text-2xl text-primary font-bold">
+        <h1>Voter Records</h1>
+      </div>
+      {loading && (
+        <div className="w-full flex justify-center text-lg text-primary font-semibold">
+          <h1>Loading Records...</h1>
+        </div>
+      )}
+
       {records.length > 0 && (
         <div className="m-10">
           <VoterRecordTable
@@ -119,26 +131,51 @@ export const VoterCard = ({
   committee?: boolean;
 }) => {
   return (
-    <div className="bg-card p-6">
-      <h2 className="mb-4 text-lg font-bold">{`${record.firstName} ${record.lastName}`}</h2>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="text-foreground">
-          <p>Party: {record.party}</p>
-          <p>Gender: {record.gender}</p>
+    <div className="max-w-lg mx-auto bg-white shadow-md rounded-lg p-6 border border-gray-200">
+      <h2 className="text-xl font-medium text-gray-800 mb-4">
+        {`${record.firstName} ${record.lastName}`}
+      </h2>
+      <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm text-gray-600 [&>*>p>span]:font-light">
+        <div>
           <p>
-            DOB: {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
+            <span>Party:</span> {record.party}
           </p>
-          <p>Telephone: {record.telephone}</p>
-          <p>Email: {record.email}</p>
-          <p>Voter Id: {record.VRCNUM}</p>
+          <p>
+            <span>Gender:</span> {record.gender}
+          </p>
+          <p>
+            <span>DOB:</span>{" "}
+            {record.DOB ? new Date(record.DOB).toLocaleDateString() : "-"}
+          </p>
+          <p>
+            <span>Telephone:</span> {record.telephone ?? "-"}
+          </p>
+          <p className="break-words">
+            <span>Email:</span> {record.email ?? "-"}
+          </p>
+          <p>
+            <span>Voter Id:</span> {record.VRCNUM}
+          </p>
         </div>
         <div>
-          <p>Address: {getAddress(record, committee)}</p>
-          <p>City: {record.city}</p>
-          <p>Town: {record.CC_WD_Village}</p>
-          <p>State: {record.state}</p>
-          <p>Zip Code: {record.zipCode}</p>
-          <p>County Leg District: {record.countyLegDistrict}</p>
+          <p>
+            <span>Address:</span> {getAddress(record, committee)}
+          </p>
+          <p>
+            <span>City:</span> {record.city}
+          </p>
+          <p>
+            <span>Town:</span> {record.CC_WD_Village ?? "-"}
+          </p>
+          <p>
+            <span>State:</span> {record.state}
+          </p>
+          <p>
+            <span>Zip Code:</span> {record.zipCode}
+          </p>
+          <p>
+            <span>County Leg District:</span> {record.countyLegDistrict}
+          </p>
         </div>
       </div>
     </div>
