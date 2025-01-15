@@ -197,7 +197,7 @@ export const CityTownSearch: React.FC<{
       />
       {townInfo && (
         <>
-          <p>{townInfo.info.name}</p>
+          <p className="pl-4 pt-2 font-light">{townInfo.info.name}</p>
           <ComboboxDropdown
             items={townInfo.info.towns.map((town) => {
               return { label: town.name, value: town.code };

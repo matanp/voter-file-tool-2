@@ -299,13 +299,20 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   };
 
   return (
-    <div className="mx-auto max-w-lg">
-      <form onSubmit={handleSubmit} className="w-max">
+    <div className="flex justify-center">
+      <form
+        onSubmit={handleSubmit}
+        className="w-max flex flex-col items-center gap-4"
+      >
         {searchRows.map((row, index) => (
-          <div key={`outer-key-${index}`} className="pb-4">
-            <div className="flex gap-2">
-              <div className="flex flex-row items-center">
-                {/* <select
+          <div
+            key={`outer-key-${index}`}
+            className="flex gap-2 shadow-md p-4 bg-background"
+          >
+            <div className="m-2">
+              <div className="flex gap-2">
+                <div className="flex flex-row items-center">
+                  {/* <select
                   className="form-select h-10 border-2 border-secondary"
                   value={row.name}
                   onChange={(e) => handleChangeField(index, e.target.value)}
@@ -322,178 +329,192 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                     ))}
                   </optgroup>
                 </select> */}
-                <ComboboxDropdown
-                  items={SEARCH_FIELDS.filter(
-                    (field) =>
-                      ((field.compoundType || field.type !== "Hidden") &&
-                        searchRows.find((row) => row.name === field.name) ===
-                          undefined) ||
-                      row.name === field.name,
-                  ).map((field) => ({
-                    label: field.displayName,
-                    value: field.name,
-                  }))}
-                  initialValue={row.name}
-                  displayLabel={row.displayName}
-                  onSelect={(value) => {
-                    handleChangeField(index, value);
-                  }}
-                />
-              </div>
-              <div className="col-sm-4">
-                {!row.compoundType && row.name !== "empty" && (
-                  <>
-                    {row.type === "Dropdown" && isDropdownItem(row.name) && (
-                      <ComboboxDropdown
-                        items={props.dropdownList[row.name].map(
-                          (item: string) => ({
-                            label: item,
-                            value: item,
-                          }),
-                        )}
-                        displayLabel={`Select ${row.displayName}`}
-                        onSelect={(value) => {
-                          handleChangeValue(index, value);
-                        }}
-                      />
-                    )}
-                    {row.type === "DateTime" && (
-                      <DatePicker
-                        onChange={(date) => handleChangeValue(index, date)}
-                      />
-                    )}
-                    {row.type === "Street" && (
-                      <StreetSearch
-                        streets={props.dropdownList.street}
-                        onChange={(value) => {
-                          handleChangeValue(index, value);
-                        }}
-                      />
-                    )}
-                    {(row.type === "String" || row.type === "number") && (
-                      // <input
-                      //   type={row.type}
-                      //   className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-                      //   placeholder={`Enter ${row.displayName}`}
-                      //   onChange={(e) =>
-                      //     handleChangeValue(index, e.target.value)
-                      //   }
-                      // />
-                      <Input
-                        type={row.type}
-                        placeholder={`Enter ${row.displayName}`}
-                        onChange={(e) =>
-                          handleChangeValue(index, e.target.value)
-                        }
-                      />
-                    )}
-                  </>
-                )}
-                {row.compoundType &&
-                  row.fields.map((field, subIdx) => {
-                    if (field.type === "Hidden") return null;
+                  <ComboboxDropdown
+                    items={SEARCH_FIELDS.filter(
+                      (field) =>
+                        ((field.compoundType || field.type !== "Hidden") &&
+                          searchRows.find((row) => row.name === field.name) ===
+                            undefined) ||
+                        row.name === field.name,
+                    ).map((field) => ({
+                      label: field.displayName,
+                      value: field.name,
+                    }))}
+                    initialValue={row.name}
+                    displayLabel={row.displayName}
+                    onSelect={(value) => {
+                      handleChangeField(index, value);
+                    }}
+                  />
+                </div>
+                <div className="col-sm-4">
+                  {!row.compoundType && row.name !== "empty" && (
+                    <>
+                      {row.type === "Dropdown" && isDropdownItem(row.name) && (
+                        <ComboboxDropdown
+                          items={props.dropdownList[row.name].map(
+                            (item: string) => ({
+                              label: item,
+                              value: item,
+                            }),
+                          )}
+                          displayLabel={`Select ${row.displayName}`}
+                          onSelect={(value) => {
+                            handleChangeValue(index, value);
+                          }}
+                        />
+                      )}
+                      {row.type === "DateTime" && (
+                        <DatePicker
+                          onChange={(date) => handleChangeValue(index, date)}
+                        />
+                      )}
+                      {row.type === "Street" && (
+                        <StreetSearch
+                          streets={props.dropdownList.street}
+                          onChange={(value) => {
+                            handleChangeValue(index, value);
+                          }}
+                        />
+                      )}
+                      {(row.type === "String" || row.type === "number") && (
+                        // <input
+                        //   type={row.type}
+                        //   className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
+                        //   placeholder={`Enter ${row.displayName}`}
+                        //   onChange={(e) =>
+                        //     handleChangeValue(index, e.target.value)
+                        //   }
+                        // />
+                        <Input
+                          type={row.type}
+                          placeholder={`Enter ${row.displayName}`}
+                          onChange={(e) =>
+                            handleChangeValue(index, e.target.value)
+                          }
+                        />
+                      )}
+                    </>
+                  )}
+                  {row.compoundType &&
+                    row.fields.map((field, subIdx) => {
+                      if (field.type === "Hidden") return null;
 
-                    return (
-                      <div
-                        key={`sub-index-${index}-${subIdx}`}
-                        className="flex flex-col gap-2 pb-2"
-                      >
-                        <label className="pl-4">{field.displayName}</label>
-                        {field.type === "Dropdown" &&
-                          isDropdownItem(field.name) && (
-                            <ComboboxDropdown
-                              items={props.dropdownList[field.name].map(
-                                (item: string) => ({
-                                  label: item,
-                                  value: item,
-                                }),
-                              )}
-                              displayLabel={`Select ${field.displayName}`}
-                              onSelect={(value) => {
+                      return (
+                        <div
+                          key={`sub-index-${index}-${subIdx}`}
+                          className="flex flex-col pb-2"
+                        >
+                          {field.name !== "city" &&
+                            field.displayName.length < 10 && (
+                              <label className="pl-4 font-light">
+                                {field.displayName}
+                              </label>
+                            )}
+                          {field.type === "Dropdown" &&
+                            isDropdownItem(field.name) && (
+                              <ComboboxDropdown
+                                items={props.dropdownList[field.name].map(
+                                  (item: string) => ({
+                                    label: item,
+                                    value: item,
+                                  }),
+                                )}
+                                displayLabel={
+                                  field.displayName.length < 10
+                                    ? `Select ${field.displayName}`
+                                    : field.displayName
+                                }
+                                s
+                                onSelect={(value) => {
+                                  handleChangeValue(index, value, subIdx);
+                                }}
+                              />
+                            )}
+                          {field.type === "DateTime" && (
+                            <DatePicker
+                              onChange={(date) =>
+                                handleChangeValue(index, date, subIdx)
+                              }
+                            />
+                          )}
+                          {field.type === "CityTown" && (
+                            <CityTownSearch
+                              cities={props.dropdownList.city}
+                              onChange={(city, town) => {
+                                handleChangeValue(index, city, subIdx);
+                                handleChangeValue(index, town, subIdx + 1);
+                              }}
+                            />
+                          )}
+                          {field.type === "Street" && (
+                            <StreetSearch
+                              streets={props.dropdownList.street}
+                              onChange={(value) => {
                                 handleChangeValue(index, value, subIdx);
                               }}
                             />
                           )}
-                        {field.type === "DateTime" && (
-                          <DatePicker
-                            onChange={(date) =>
-                              handleChangeValue(index, date, subIdx)
-                            }
-                          />
-                        )}
-                        {field.type === "CityTown" && (
-                          <CityTownSearch
-                            cities={props.dropdownList.city}
-                            onChange={(city, town) => {
-                              handleChangeValue(index, city, subIdx);
-                              handleChangeValue(index, town, subIdx + 1);
-                            }}
-                          />
-                        )}
-                        {field.type === "Street" && (
-                          <StreetSearch
-                            streets={props.dropdownList.street}
-                            onChange={(value) => {
-                              handleChangeValue(index, value, subIdx);
-                            }}
-                          />
-                        )}
-                        {(field.type === "String" ||
-                          field.type === "number") && (
-                          <Input
-                            type={field.type}
-                            placeholder={`Enter ${field.displayName}`}
-                            onChange={(e) =>
-                              handleChangeValue(index, e.target.value, subIdx)
-                            }
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-              {(searchRows.length > 1 || searchRows[0]?.name !== "empty") && (
-                <div className="col-sm-2 flex flex-row items-center">
-                  <Button
-                    className="btn btn-danger"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleRemoveRow(index);
-                    }}
-                  >
-                    Remove Search Criteria
-                  </Button>
+                          {(field.type === "String" ||
+                            field.type === "number") && (
+                            <Input
+                              type={field.type}
+                              placeholder={`Enter ${field.displayName}`}
+                              onChange={(e) =>
+                                handleChangeValue(index, e.target.value, subIdx)
+                              }
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
-              )}
+              </div>
             </div>
+            {(searchRows.length > 1 || searchRows[0]?.name !== "empty") && (
+              <div className="col-sm-2 flex flex-row items-center">
+                <Button
+                  variant="destructive"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleRemoveRow(index);
+                  }}
+                  title="Remove Search Criteria"
+                >
+                  X
+                </Button>
+              </div>
+            )}
           </div>
         ))}
 
-        <Button
-          type="button"
-          onClick={() =>
-            setSearchRows([
-              ...searchRows,
-              {
-                name: "empty",
-                displayName: "Select a field",
-                value: "",
-                compoundType: false,
-                type: "String",
-              },
-            ])
-          }
-        >
-          Add Search Criteria
-        </Button>
-
-        <div className="py-2">
+        <div className="flex items-center gap-2 pt-2 pb-6">
           <Button
-            type="submit"
-            className="hover:bg-primary-700 w-full rounded-md border border-transparent bg-primary px-4 py-2 text-primary-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            type="button"
+            onClick={() =>
+              setSearchRows([
+                ...searchRows,
+                {
+                  name: "empty",
+                  displayName: "Select a field",
+                  value: "",
+                  compoundType: false,
+                  type: "String",
+                },
+              ])
+            }
           >
-            Submit
+            Add Search Criteria
           </Button>
+
+          <div className="py-2">
+            <Button
+              type="submit"
+              className="hover:bg-primary-700 w-full rounded-md border border-transparent bg-primary px-4 py-2 text-primary-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            >
+              Submit
+            </Button>
+          </div>
         </div>
       </form>
     </div>
