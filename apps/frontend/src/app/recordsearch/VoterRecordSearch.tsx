@@ -406,7 +406,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                           className="flex flex-col pb-2"
                         >
                           {field.name !== "city" &&
-                            field.displayName.length < 10 && (
+                            field.displayName.length < 15 && (
                               <label className="pl-4 font-light">
                                 {field.displayName}
                               </label>
