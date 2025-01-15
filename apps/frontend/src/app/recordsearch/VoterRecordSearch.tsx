@@ -425,7 +425,6 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                                     ? `Select ${field.displayName}`
                                     : field.displayName
                                 }
-                                s
                                 onSelect={(value) => {
                                   handleChangeValue(index, value, subIdx);
                                 }}
