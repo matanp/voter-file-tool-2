@@ -36,6 +36,7 @@ const fields = [
   {
     name: "DOB",
     head: "DOB",
+    size: "w-[20ch]",
     cell: (record: VoterRecord) => {
       return (
         <TableCell key={`${record.VRCNUM}-dob`}>
@@ -47,6 +48,7 @@ const fields = [
   {
     name: "Telephone",
     head: "Telephone",
+    size: "w-[18ch]",
     cell: (record: VoterRecord) => (
       <TableCell key={`${record.VRCNUM}-telephone`}>
         {record.telephone}
@@ -56,6 +58,8 @@ const fields = [
   {
     name: "Address",
     head: "Address",
+    size: "w-[35ch]",
+
     cell: (record: VoterRecord) => (
       <TableCell key={`${record.VRCNUM}-address`}>
         {`${record.houseNum} ${record.street}`}
@@ -105,17 +109,21 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
       </Button> */}
       <Table
         id="voter-record-table"
-        className={`${!fullWidth && "max-w-[80vw] min-w-[800px]"}`}
+        className={`${!fullWidth && "max-w-[80vw] min-w-[800px] table-fixed"}`}
       >
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[200px]">Name</TableHead>
+            <TableHead className="w-[24ch]">Name</TableHead>
             {fieldsList.map((fieldName: string) => {
               const field = fields.find((field) => field.name === fieldName);
               if (!field) {
                 return null;
               }
-              return <TableHead key={field.name}>{field.head}</TableHead>;
+              return (
+                <TableHead key={field.name} className={field.size}>
+                  {field.head}
+                </TableHead>
+              );
             })}
             {extraHeaders?.map((header: string) => (
               <TableHead key={header}>{header}</TableHead>
