@@ -55,6 +55,10 @@ export function ComboboxDropdown({
     }
   }, [initialValue, items]);
 
+  const valueDisplayText = value
+    ? items.find((item) => item.value === value)?.label
+    : displayLabel;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -62,11 +66,9 @@ export function ComboboxDropdown({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[185px] justify-between"
+          className={`w-[185px] justify-between ${valueDisplayText && valueDisplayText.length > 22 ? "text-xs font-semibold" : ""}`}
         >
-          {value
-            ? items.find((item) => item.value === value)?.label
-            : displayLabel}
+          {valueDisplayText}
           <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
