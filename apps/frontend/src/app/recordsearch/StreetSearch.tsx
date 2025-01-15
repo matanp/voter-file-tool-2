@@ -42,7 +42,7 @@ export const StreetSearch: React.FC<{
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-[185px] max-w-md mx-auto">
       <Input
         placeholder="Enter Street"
         value={search}
@@ -55,9 +55,14 @@ export const StreetSearch: React.FC<{
         <div className="space-y-2">
           {matches.map((match, index) => (
             <div key={index} className="flex items-center gap-2">
-              <span className="text-gray-700">{match}</span>
+              <span className="text-gray-700 ml-3">{match}</span>
               <Button
-                onClick={() => setSearch(match)}
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                  e.preventDefault();
+                  setSearch(match);
+                  setDebouncedSearch("");
+                  onChange(match);
+                }}
               >{`Fill${index === 0 ? " (Tab)" : ""}`}</Button>
             </div>
           ))}

@@ -62,7 +62,7 @@ export function ComboboxDropdown({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[200px] justify-between"
+          className="w-[185px] justify-between"
         >
           {value
             ? items.find((item) => item.value === value)?.label
