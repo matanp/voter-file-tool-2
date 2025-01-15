@@ -487,7 +487,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           </div>
         ))}
 
-        <div className="flex items-center gap-2 pt-2 pb-6">
+        <div className="flex items-center gap-2 pb-8">
           <Button
             type="button"
             onClick={() =>
