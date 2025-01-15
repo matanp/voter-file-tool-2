@@ -7,6 +7,7 @@ import VoterRecordSearch, {
 import { type DropdownLists, type VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { getAddress } from "../api/lib/utils";
+import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
@@ -96,17 +97,15 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           />
         </div>
       </div>
-      <div className="w-full flex justify-center text-2xl text-primary font-bold">
+      <div className="w-full flex justify-center text-2xl text-primary font-bold pt-2">
         <h1>Voter Records</h1>
       </div>
-      {loading && (
-        <div className="w-full flex justify-center text-lg text-primary font-semibold">
-          <h1>Loading Records...</h1>
-        </div>
-      )}
+      <div className="m-10">
+        {loading && (
+          <VoterRecordTableSkeleton fieldsList={["DOB", "Telephone"]} />
+        )}
 
-      {records.length > 0 && (
-        <div className="m-10">
+        {records.length > 0 && !loading && (
           <VoterRecordTable
             records={records}
             fieldsList={["DOB", "Telephone"]}
@@ -114,8 +113,9 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
             loadMore={handleLoadMore}
             totalRecords={totalRecords}
           />
-        </div>
-      )}
+        )}
+      </div>
+
       {!records.length && hasSearched && (
         <p className="ml-10">No results found.</p>
       )}
@@ -181,3 +181,6 @@ export const VoterCard = ({
     </div>
   );
 };
+function sleep(arg0: number) {
+  return new Promise((resolve) => setTimeout(resolve, arg0));
+}
