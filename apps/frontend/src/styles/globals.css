@@ -56,3 +56,9 @@
     --ring: 142.4 71.8% 29.2%;
   }
 }
+
+@layer utilities {
+  .primary-header {
+    @apply text-2xl text-primary font-bold;
+  }
+}
