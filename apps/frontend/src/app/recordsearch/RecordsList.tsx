@@ -131,7 +131,7 @@ export const VoterCard = ({
   committee?: boolean;
 }) => {
   return (
-    <div className="max-w-lg mx-auto bg-white shadow-md rounded-lg p-6 border border-gray-200">
+    <div className="max-w-lg mx-auto bg-white rounded-lg p-4">
       <h2 className="text-xl font-medium text-gray-800 mb-4">
         {`${record.firstName} ${record.lastName}`}
       </h2>
