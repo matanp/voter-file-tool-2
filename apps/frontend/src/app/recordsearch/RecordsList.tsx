@@ -119,6 +119,9 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       {!records.length && hasSearched && (
         <p className="ml-10">No results found.</p>
       )}
+      {!records.length && !hasSearched && (
+        <p className="ml-10">Sumbit a search query to see results.</p>
+      )}
     </div>
   );
 };
@@ -181,6 +184,3 @@ export const VoterCard = ({
     </div>
   );
 };
-function sleep(arg0: number) {
-  return new Promise((resolve) => setTimeout(resolve, arg0));
-}

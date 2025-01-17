@@ -160,55 +160,71 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   return (
     <div>
-      <label htmlFor="district-select" className="pr-2">
-        Select Committee:
+      <label htmlFor="district-select" className="primary-header">
+        Committee Selector
       </label>
-      <ComboboxDropdown
-        items={Array.from(cities).map((city) => ({
-          label: city,
-          value: city,
-        }))}
-        displayLabel={"Select City"}
-        onSelect={handleCityChange}
-      />
-      {useLegDistrict && (
-        <ComboboxDropdown
-          items={Array.from(
-            new Set(
-              legDistricts.map((legDistrict) => ({
-                label: legDistrict,
-                value: legDistrict,
-              })),
-            ),
-          )}
-          displayLabel={"Select Leg District"}
-          onSelect={handleLegChange}
-        />
-      )}
-      {selectedCity !== "" &&
-        (!useLegDistrict || selectedLegDistrict !== "") && (
+      <Card className="bg-primary-foreground p-2 w-max flex gap-2">
+        <div className="flex flex-col">
+          <label className="font-extralight text-sm pl-1">City</label>
           <ComboboxDropdown
-            items={Array.from(
-              new Set(
-                commiitteeLists
-                  .filter(
-                    (list) =>
-                      list.cityTown === selectedCity &&
-                      (!useLegDistrict ||
-                        list.legDistrict === Number(selectedLegDistrict)),
-                  )
-                  .sort((a, b) => a.electionDistrict - b.electionDistrict)
-                  .map((list) => ({
-                    label: `${list.electionDistrict}`,
-                    value: `${list.electionDistrict}`,
-                  })),
-              ),
-            )}
-            initialValue={`${selectedDistrict}`}
-            displayLabel={"Select Election District"}
-            onSelect={handleDistrictChange}
+            items={Array.from(cities).map((city) => ({
+              label: city,
+              value: city,
+            }))}
+            displayLabel={"Select City"}
+            onSelect={handleCityChange}
           />
+        </div>
+        {useLegDistrict && (
+          <div className="flex flex-col">
+            <label className="font-extralight text-sm pl-1">
+              Legislative District
+            </label>
+            <ComboboxDropdown
+              items={Array.from(
+                new Set(
+                  legDistricts.map((legDistrict) => ({
+                    label: legDistrict,
+                    value: legDistrict,
+                  })),
+                ),
+              )}
+              displayLabel={"Select Leg District"}
+              onSelect={handleLegChange}
+            />
+          </div>
         )}
+        {selectedCity !== "" &&
+          (!useLegDistrict || selectedLegDistrict !== "") && (
+            <div className="flex flex-col">
+              <label className="font-extralight text-sm pl-1">
+                Election District
+              </label>
+              <ComboboxDropdown
+                items={Array.from(
+                  new Set(
+                    commiitteeLists
+                      .filter(
+                        (list) =>
+                          list.cityTown === selectedCity &&
+                          (!useLegDistrict ||
+                            list.legDistrict === Number(selectedLegDistrict)),
+                      )
+                      .sort((a, b) => a.electionDistrict - b.electionDistrict)
+                      .map((list) => ({
+                        label: `${list.electionDistrict}`,
+                        value: `${list.electionDistrict}`,
+                      })),
+                  ),
+                )}
+                initialValue={`${selectedDistrict}`}
+                displayLabel={"Select Election District"}
+                onSelect={handleDistrictChange}
+              />
+            </div>
+          )}
+      </Card>
+      <h1 className="primary-header pt-2">Committee List</h1>
 
       {loading ? (
         <p>Loading...</p>
