@@ -47,6 +47,9 @@ const config = {
       borderRadius: {
         custom: "var(--radius)",
       },
+      boxShadow: {
+        "button-select": "0px 0px 4px rgba(0, 0, 0, 0.25)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
