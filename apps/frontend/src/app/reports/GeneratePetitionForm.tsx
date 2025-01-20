@@ -158,7 +158,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
   return (
     <div className="w-full">
-      <h1 className="text-2xl py-2">Generate Designated Petition</h1>
+      <h1 className="primary-header py-2">Generate Designated Petition</h1>
       <div className="py-2">
         <h2 className="text-xl py-2">Candidates for the Petition</h2>
         {candidates.length > 0 && (
