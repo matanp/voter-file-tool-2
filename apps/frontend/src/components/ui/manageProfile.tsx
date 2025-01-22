@@ -13,6 +13,7 @@ import { GlobalContext } from "../providers/GlobalContext";
 import { ComboboxDropdown } from "./ComboBox";
 import { PrivilegeLevel } from "@prisma/client";
 import { SignOutButton } from "./signInButton";
+import { Button } from "./button";
 
 type ManageProfileButtonProps = {
   session: Session;
@@ -29,25 +30,24 @@ export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
   return (
     <Sheet>
       <SheetTrigger>
-        View Profile
-        {/* <Button>View Profile</Button> */}
+        <Button variant={"outline"}>View Profile</Button>
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Your Profile</SheetTitle>
+          <SheetTitle>{session.user?.name ?? "No Name"}</SheetTitle>
           <h1 className={textStyles}>
-            Name: {session.user?.name ?? "No Name"}
+            <span className="font-light">Email:</span>{" "}
+            {session.user?.email ?? "No Email"}
           </h1>
           <h1 className={textStyles}>
-            Email: {session.user?.email ?? "No Email"}
-          </h1>
-          <h1 className={textStyles}>
-            Privilege Level: {session.privilegeLevel}
+            <span className="font-light">Privilege Level:</span>{" "}
+            {session.privilegeLevel}
           </h1>
           {session.privilegeLevel === "Developer" && (
             <>
               <h1 className={textStyles}>
-                Acting Privilege Level: {actingPermissions}
+                <span className="font-light">Acting Privilege Level:</span>{" "}
+                {actingPermissions}
               </h1>
               <ComboboxDropdown
                 items={Object.values(PrivilegeLevel).map((privilege) => {
