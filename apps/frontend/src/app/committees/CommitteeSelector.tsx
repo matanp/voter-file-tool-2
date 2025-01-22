@@ -158,6 +158,18 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       ? "No committee members found."
       : "Select a committee to view members.";
 
+  const getCommitteeListHeader = () => {
+    if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
+      return "Committee List";
+    }
+
+    if (!useLegDistrict) {
+      return `Committee List: ${selectedCity} - Election District ${selectedDistrict}`;
+    }
+
+    return `Committee List: ${selectedCity} - LD - ${selectedLegDistrict}, ED - ${selectedDistrict}`;
+  };
+
   return (
     <div>
       <label htmlFor="district-select" className="primary-header">
@@ -224,7 +236,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             </div>
           )}
       </Card>
-      <h1 className="primary-header pt-2">Committee List</h1>
+      <h1 className="primary-header pt-2">{getCommitteeListHeader()}</h1>
 
       {loading ? (
         <p>Loading...</p>
