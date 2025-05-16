@@ -30,7 +30,8 @@ export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
   return (
     <Sheet>
       <SheetTrigger>
-        <Button variant={"outline"}>View Profile</Button>
+        <h1>View Profile</h1>
+        {/* <Button variant={"outline"}>View Profile</Button> */}
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>

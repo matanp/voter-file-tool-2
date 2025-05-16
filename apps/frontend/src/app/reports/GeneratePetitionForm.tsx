@@ -143,7 +143,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "output.pdf");
+    link.setAttribute("download", "Designated Petition.pdf");
     document.body.appendChild(link);
     link.click();
 
