@@ -5,6 +5,7 @@ import type {
   VoterRecordArchive,
 } from "@prisma/client";
 import { z } from "zod";
+import { defaultCustomPartyName } from "~/app/reports/GeneratePetitionForm";
 import prisma from "~/lib/prisma";
 
 export const dropdownItems = [
@@ -280,6 +281,8 @@ const partyCodes = [
   "WOR",
 ] as const;
 
+const allowedParties = ["Democratic", "Custom"];
+
 export const generatePdfDataSchema = z.object({
   candidates: z
     .array(
@@ -298,9 +301,11 @@ export const generatePdfDataSchema = z.object({
       }),
     )
     .min(1, { message: "At least one vacancy appointment is required" }),
-  party: z.enum(partyCodes, {
-    errorMap: () => ({ message: "Party is required" }),
-  }),
+  party: z
+    .string()
+    .refine((val) => val.trim() !== "" && val !== defaultCustomPartyName, {
+      message: "Party is required",
+    }),
   electionDate: z.string().refine((date) => date !== "", {
     message: "Election date is required",
   }),

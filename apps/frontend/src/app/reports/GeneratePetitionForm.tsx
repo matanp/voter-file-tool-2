@@ -33,12 +33,17 @@ export const PRINT_PARTY_MAP = {
 
 export type PartyCode = keyof typeof PRINT_PARTY_MAP;
 
+export const defaultCustomPartyName = "Enter Party Name";
+
 export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   parties,
 }) => {
   const [smallScreen, setSmallScreen] = useState<boolean>(false);
   const [verySmallScreen, setVerySmallScreen] = useState<boolean>(false);
   const [party, setParty] = useState<string>("");
+  const [customParty, setCustomParty] = useState<string>(
+    defaultCustomPartyName,
+  );
   const [electionDate, setElectionDate] = useState<Date | null>(null);
   const [numPages, setNumPages] = useState<number>(1);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -76,7 +81,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     const formData = {
       candidates: candidatesData,
       vacancyAppointments: vacancyAppointmentsData,
-      party,
+      party: party === "Custom" ? customParty : party,
       electionDate:
         electionDate?.toLocaleDateString("en-US", {
           year: "numeric",
@@ -312,19 +317,36 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       <div className="flex gap-2 items-center py-2">
         <label htmlFor="party">Party:</label>
         <ComboboxDropdown
-          items={parties
-            .filter((party) => party !== "" && party !== "OTH")
-            .map((party) => {
-              return {
-                label: PRINT_PARTY_MAP[party as PartyCode],
-                value: party,
-              };
-            })}
+          items={["Democratic", "Custom"].map((party) => {
+            return {
+              label: party,
+              value: party,
+            };
+          })}
           displayLabel={"Select Party"}
           onSelect={(party) => {
             setParty(party);
           }}
         />
+        {party === "Custom" && (
+          <Input
+            value={customParty}
+            onChange={(e) => {
+              e.preventDefault();
+              setCustomParty(e.target.value);
+            }}
+            onFocus={(e) => {
+              if (customParty === defaultCustomPartyName) {
+                setCustomParty("");
+              }
+            }}
+            onBlur={(e) => {
+              if (customParty === "") {
+                setCustomParty(defaultCustomPartyName);
+              }
+            }}
+          />
+        )}
       </div>
       {errors.party && <p className="text-red-500">{errors.party}</p>}
 
