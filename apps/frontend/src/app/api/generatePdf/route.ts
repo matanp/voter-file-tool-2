@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         candidates,
         vacancyAppointments,
-        party: PRINT_PARTY_MAP[party],
+        party,
         electionDate,
         numPages,
       }),
