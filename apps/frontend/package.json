@@ -13,7 +13,8 @@
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"./**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "db_migrate": "prisma migrate dev",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prismaLint": "prisma format"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.2.0",
