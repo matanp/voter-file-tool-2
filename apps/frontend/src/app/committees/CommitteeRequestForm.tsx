@@ -183,7 +183,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 
   return (
     <Dialog defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-[90vw] w-fit min-w-[50vw]">
         <DialogHeader>
           <DialogTitle>Committee Change Request</DialogTitle>
           <h1 className="pt-2">City: {city}</h1>
