@@ -10,7 +10,7 @@ const PetitionForm = React.forwardRef<
     candidates: { name: string; address: string; office: string }[];
     vacancyAppointments: { name: string; address: string }[];
     party?: string;
-    electionDate?: string;
+    electionDate?: string; // assumed to be in Month Day, Year format
   }
 >(
   (
@@ -139,7 +139,7 @@ const PetitionForm = React.forwardRef<
                 <React.Fragment key={i}>
                   <tr className={i % 2 === 1 ? 'border-t-2 border-black' : ''}>
                     <td className="border border-black h-5 p-1">
-                      {i + 1}. __/__/20__
+                      {i + 1}. __/__/{electionDate?.split(',')[1].trim()}
                     </td>
                     <td className="border border-black h-8 p-1"></td>
                     <td
@@ -152,7 +152,7 @@ const PetitionForm = React.forwardRef<
                     ></td>
                   </tr>
                   <tr className={i % 2 === 1 ? 'border-b-2 border-black' : ''}>
-                    <td className="border border-black h-8 p-1 text-[9px] text-right flex gap-1 items-center justify-end">
+                    <td className="border-r border-black h-8 p-1 text-[9px] text-right flex gap-1 items-center justify-end">
                       {'Printed Name '} <ArrowRight />
                     </td>
                   </tr>
@@ -193,7 +193,7 @@ const PetitionForm = React.forwardRef<
               <p>
                 <b>
                   <u>{witnessIdHeader}</u>
-                </b>{' '}
+                </b>
                 {witnessIdInfo}
               </p>
             </div>

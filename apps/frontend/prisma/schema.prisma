@@ -58,12 +58,12 @@ model Account {
 }
 
 model Session {
-  sessionToken    String         @unique
-  userId          String
-  expires         DateTime
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model VerificationToken {
@@ -197,12 +197,12 @@ model VotingHistoryRecord {
 }
 
 model CommitteeList {
-  id                  Int                @id @default(autoincrement())
-  cityTown            String
-  legDistrict         Int
-  electionDistrict    Int
-  committeeMemberList VoterRecord[]
-  CommitteeRequest    CommitteeRequest[]
+  id                          Int                          @id @default(autoincrement())
+  cityTown                    String
+  legDistrict                 Int
+  electionDistrict            Int
+  committeeMemberList         VoterRecord[]
+  CommitteeRequest            CommitteeRequest[]
   CommitteeDiscrepancyRecords CommitteeUploadDiscrepancy[]
 
   @@unique([cityTown, legDistrict, electionDistrict])
@@ -234,9 +234,14 @@ model DropdownLists {
 }
 
 model CommitteeUploadDiscrepancy {
-  id          String @id @default(cuid())
-  VRCNUM      String @unique
+  id          String        @id @default(cuid())
+  VRCNUM      String        @unique
   committee   CommitteeList @relation(fields: [committeeId], references: [id])
   committeeId Int
   discrepancy Json
+}
+
+model ElectionDate {
+  id   Int      @id @default(autoincrement())
+  date DateTime
 }
