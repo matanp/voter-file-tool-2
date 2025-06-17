@@ -4,10 +4,9 @@ import { z } from "zod";
 
 export async function GET() {
   try {
-    const dates = await prisma.electionDate.findMany({
-      orderBy: { date: "asc" },
-    });
-    return NextResponse.json(dates);
+    const officeNames = await prisma.officeName.findMany();
+
+    return NextResponse.json(officeNames);
   } catch (error) {
     console.error("Error fetching election dates:", error);
     return NextResponse.json(
@@ -17,29 +16,22 @@ export async function GET() {
   }
 }
 
-const createDateSchema = z.object({
-  date: z.string().refine(
-    (val) => {
-      return !isNaN(Date.parse(val));
-    },
-    {
-      message: "Invalid date string",
-    },
-  ),
+const createOfficeSchema = z.object({
+  name: z.string(),
 });
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as unknown;
-    const parsed = createDateSchema.parse(body);
+    const parsed = createOfficeSchema.parse(body);
 
-    const newDate = await prisma.electionDate.create({
-      data: { date: new Date(parsed.date) },
+    const newDate = await prisma.officeName.create({
+      data: { officeName: parsed.name },
     });
 
     return NextResponse.json(newDate, { status: 201 });
   } catch (error) {
-    console.error("Error creating election date:", error);
+    console.error("Error creating election office:", error);
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 }

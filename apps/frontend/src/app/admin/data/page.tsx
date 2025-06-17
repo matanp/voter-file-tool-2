@@ -3,10 +3,12 @@ import AuthCheck from "~/components/ui/authcheck";
 import { CommitteeUploadDiscrepancies } from "./CommitteeUploadDiscrepancies";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ElectionDates } from "../dashboard/ElectionDates";
+import { ElectionOffices } from "../dashboard/ElectionOffices";
 import prisma from "~/lib/prisma";
 
 const AdminDataPage: React.FC = async () => {
   const electionDates = await prisma.electionDate.findMany();
+  const officeNames = await prisma.officeName.findMany();
 
   return (
     <AuthCheck privilegeLevel="Admin">
@@ -17,12 +19,16 @@ const AdminDataPage: React.FC = async () => {
               Committee Upload Discrepancies
             </TabsTrigger>
             <TabsTrigger value="election-dates">Election Dates</TabsTrigger>
+            <TabsTrigger value="election-offices">Office Names</TabsTrigger>
           </TabsList>
           <TabsContent value="discrepancies">
             <CommitteeUploadDiscrepancies />
           </TabsContent>
           <TabsContent value="election-dates">
             <ElectionDates electionDates={electionDates} />
+          </TabsContent>
+          <TabsContent value="election-offices">
+            <ElectionOffices officeNames={officeNames} />
           </TabsContent>
         </Tabs>
       </div>
