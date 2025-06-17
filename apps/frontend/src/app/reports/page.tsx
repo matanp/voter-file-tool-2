@@ -6,6 +6,7 @@ import AuthCheck from "~/components/ui/authcheck";
 
 const CommitteeLists: React.FC = async () => {
   const dropdownLists = await prisma.dropdownLists.findFirst({});
+  const electionDates = await prisma.electionDate.findMany();
 
   if (!dropdownLists) {
     return <div>Something went wrong</div>;
@@ -18,6 +19,7 @@ const CommitteeLists: React.FC = async () => {
           parties={dropdownLists.party.filter(
             (p) => p !== "BLK" && p !== "OTH",
           )}
+          electionDates={electionDates}
         />
       </div>
     </AuthCheck>

@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { DatePicker } from "~/components/ui/datePicker";
 import { Input } from "~/components/ui/input";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { toast } from "~/components/ui/use-toast";
@@ -10,11 +9,13 @@ import type { VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
 import { generatePdfDataSchema } from "../api/lib/utils";
+import type { ElectionDate } from "prisma/prisma-client";
 
 // :OHNO: add login check
 
 type GeneratePetitionFormProps = {
   parties: string[];
+  electionDates: ElectionDate[];
 };
 export const PRINT_PARTY_MAP = {
   BLK: "Blank",
@@ -31,14 +32,37 @@ export const PRINT_PARTY_MAP = {
   WOR: "Working Families Party",
 } as const;
 
+function formatDate(date: Date, withOrdinal: boolean): string {
+  const day = date.getDate();
+  const ordinal =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+        ? "nd"
+        : day % 10 === 3 && day !== 13
+          ? "rd"
+          : "th";
+
+  const month = date.toLocaleString("en-US", { month: "long" });
+  const year = date.getFullYear();
+
+  return `${month} ${day}${withOrdinal ? ordinal : ""}, ${year}`;
+}
+
 export type PartyCode = keyof typeof PRINT_PARTY_MAP;
+
+export const defaultCustomPartyName = "Enter Party Name";
 
 export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   parties,
+  electionDates,
 }) => {
   const [smallScreen, setSmallScreen] = useState<boolean>(false);
   const [verySmallScreen, setVerySmallScreen] = useState<boolean>(false);
   const [party, setParty] = useState<string>("");
+  const [customParty, setCustomParty] = useState<string>(
+    defaultCustomPartyName,
+  );
   const [electionDate, setElectionDate] = useState<Date | null>(null);
   const [numPages, setNumPages] = useState<number>(1);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -76,7 +100,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     const formData = {
       candidates: candidatesData,
       vacancyAppointments: vacancyAppointmentsData,
-      party,
+      party: party === "Custom" ? customParty : party,
       electionDate:
         electionDate?.toLocaleDateString("en-US", {
           year: "numeric",
@@ -138,7 +162,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "output.pdf");
+    link.setAttribute("download", "Designated Petition.pdf");
     document.body.appendChild(link);
     link.click();
 
@@ -211,6 +235,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
         {showCandidateSearch && (
           <RecordSearchForm
             handleResults={setSearchCandidates}
+            optionalExtraSearch="Show Eligible Candidates Only"
             submitButtonText="Find Candidates"
           />
         )}
@@ -312,25 +337,65 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       <div className="flex gap-2 items-center py-2">
         <label htmlFor="party">Party:</label>
         <ComboboxDropdown
-          items={parties
-            .filter((party) => party !== "" && party !== "OTH")
-            .map((party) => {
-              return {
-                label: PRINT_PARTY_MAP[party as PartyCode],
-                value: party,
-              };
-            })}
+          items={["Democratic", "Custom"].map((party) => {
+            return {
+              label: party,
+              value: party,
+            };
+          })}
           displayLabel={"Select Party"}
           onSelect={(party) => {
             setParty(party);
           }}
         />
+        {party === "Custom" && (
+          <Input
+            value={customParty}
+            onChange={(e) => {
+              e.preventDefault();
+              setCustomParty(e.target.value);
+            }}
+            onFocus={(e) => {
+              if (customParty === defaultCustomPartyName) {
+                setCustomParty("");
+              }
+            }}
+            onBlur={(e) => {
+              if (customParty === "") {
+                setCustomParty(defaultCustomPartyName);
+              }
+            }}
+          />
+        )}
       </div>
       {errors.party && <p className="text-red-500">{errors.party}</p>}
 
       <div className="flex gap-2 items-center py-2">
         <label htmlFor="electionDate">Election Date</label>
-        <DatePicker onChange={(date) => setElectionDate(date)} />
+        {/** <DatePicker onChange={(date) => setElectionDate(date)} /> **/}
+        <ComboboxDropdown
+          items={electionDates
+            .sort(
+              (a: ElectionDate, b: ElectionDate) =>
+                a.date.getTime() - b.date.getTime(),
+            )
+            .map((ed) => {
+              const date = formatDate(ed.date, true);
+              if (!date) return null;
+
+              return {
+                label: date,
+                value: formatDate(ed.date, false),
+              };
+            })
+            .filter(
+              (ed): ed is { label: string; value: string } => ed !== null,
+            )}
+          displayLabel="Select Election Date"
+          onSelect={(date) => {
+            setElectionDate(new Date(date));
+          }}
+        />
       </div>
       {errors.electionDate && (
         <p className="text-red-500">{errors.electionDate}</p>
