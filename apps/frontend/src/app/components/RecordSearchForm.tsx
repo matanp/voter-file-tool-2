@@ -2,6 +2,7 @@ import type { VoterRecord } from "@prisma/client";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Checkbox } from "~/components/ui/checkbox";
 
 type RecordSearchProps = {
   handleResults: (results: VoterRecord[]) => void;
@@ -11,6 +12,7 @@ type RecordSearchProps = {
     value: string | number | Date | undefined;
   }[];
   headerText?: string;
+  optionalExtraSearch?: string;
 };
 
 const RecordSearchForm: React.FC<RecordSearchProps> = ({
@@ -18,14 +20,22 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   submitButtonText,
   extraSearchQuery,
   headerText,
+  optionalExtraSearch,
 }) => {
   const [voterId, setVoterId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [useOptionalExtaSearch, setUseOptionalExtraSearch] =
+    useState<boolean>(true);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const query = [...(extraSearchQuery ?? [])];
+    setLoading(true);
+    const query =
+      optionalExtraSearch && !useOptionalExtaSearch
+        ? []
+        : [...(extraSearchQuery ?? [])];
 
     if (voterId) {
       query.push({ field: "VRCNUM", value: voterId });
@@ -53,6 +63,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
       totalRecords: number;
     };
 
+    setLoading(false);
     handleResults(data);
   };
   return (
@@ -78,8 +89,22 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             placeholder={`Enter Last Name`}
             onChange={(e) => setLastName(e.target.value)}
           />
-          <Button type="submit">{submitButtonText}</Button>
+          <Button type="submit">
+            {loading ? "Loading..." : submitButtonText}
+          </Button>
         </div>
+        {optionalExtraSearch && extraSearchQuery && (
+          <div className="flex items-center gap-2 mt-2">
+            <Checkbox
+              id="eligible-candidates"
+              checked={useOptionalExtaSearch}
+              onCheckedChange={(value) => {
+                setUseOptionalExtraSearch(value === true);
+              }}
+            />
+            <label htmlFor="eligible-candidates">{optionalExtraSearch}</label>
+          </div>
+        )}
       </form>
     </>
   );

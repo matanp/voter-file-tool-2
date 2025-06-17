@@ -240,3 +240,8 @@ model CommitteeUploadDiscrepancy {
   committeeId Int
   discrepancy Json
 }
+
+model ElectionDate {
+  id   Int      @id @default(autoincrement())
+  date DateTime
+}
