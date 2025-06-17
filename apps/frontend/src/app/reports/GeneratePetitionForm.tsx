@@ -9,13 +9,14 @@ import type { VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
 import { generatePdfDataSchema } from "../api/lib/utils";
-import type { ElectionDate } from "prisma/prisma-client";
+import type { ElectionDate, OfficeName } from "prisma/prisma-client";
 
 // :OHNO: add login check
 
 type GeneratePetitionFormProps = {
   parties: string[];
   electionDates: ElectionDate[];
+  officeNames: OfficeName[];
 };
 export const PRINT_PARTY_MAP = {
   BLK: "Blank",
@@ -56,6 +57,7 @@ export const defaultCustomPartyName = "Enter Party Name";
 export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   parties,
   electionDates,
+  officeNames,
 }) => {
   const [smallScreen, setSmallScreen] = useState<boolean>(false);
   const [verySmallScreen, setVerySmallScreen] = useState<boolean>(false);
@@ -198,7 +200,30 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             extraContent={(record: VoterRecord) => {
               return (
                 <div className="flex gap-2 items-center">
-                  <Input
+                  <ComboboxDropdown
+                    items={officeNames.map((o) => {
+                      return { label: o.officeName, value: o.officeName };
+                    })}
+                    initialValue={
+                      candidates.find((c) => c.VRCNUM === record.VRCNUM)?.office
+                    }
+                    displayLabel="Select Office"
+                    onSelect={(office) => {
+                      setCandidates((candidates) => {
+                        const updated = candidates.find(
+                          (c) => c.VRCNUM === record.VRCNUM,
+                        );
+
+                        if (updated) {
+                          updated.office = office;
+                        }
+
+                        return [...candidates];
+                      });
+                    }}
+                  />
+
+                  {/** <Input
                     onChange={(e) => {
                       setCandidates((candidates) => {
                         const updated = candidates.find(
@@ -210,7 +235,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
                         return [...candidates];
                       });
                     }}
-                  />
+                  /> **/}
                   <Button
                     variant={"destructive"}
                     title="Remove Candidate"
@@ -250,7 +275,13 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
               return (
                 <Button
                   onClick={() => {
-                    setCandidates([...candidates, { ...record, office: "" }]);
+                    setCandidates([
+                      ...candidates,
+                      {
+                        ...record,
+                        office: candidates[candidates.length - 1]?.office ?? "",
+                      },
+                    ]);
                     setShowCandidateSearch(false);
                     setSearchCandidates([]);
                   }}
