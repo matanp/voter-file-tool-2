@@ -245,3 +245,8 @@ model ElectionDate {
   id   Int      @id @default(autoincrement())
   date DateTime
 }
+
+model OfficeName {
+  id         Int    @id @default(autoincrement())
+  officeName String
+}
