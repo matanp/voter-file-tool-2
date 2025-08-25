@@ -77,6 +77,12 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     return null;
   }
 
+  const extraSearchQuery = [
+    { field: "city", value: city },
+    { field: "L_T", value: legDistrict },
+    { field: "electionDistrict", value: electionDistrict },
+  ];
+
   return (
     <>
       <div className="flex flex-col gap-2">
