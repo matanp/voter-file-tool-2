@@ -206,10 +206,17 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           {!requestRemoveMember && removeMemberForm}
         </DialogHeader>
         <div>
-          <label>Notes about this request:</label>
-          <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
+          <div className="max-w-[85vw]">
+            <label>Notes about this request:</label>
+            <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
+          </div>
+          <Button
+            className="w-full max-w-[85vw]"
+            onClick={(e) => handleSubmit(e)}
+          >
+            Submit Request
+          </Button>
         </div>
-        <Button onClick={(e) => handleSubmit(e)}>Submit Request</Button>
       </DialogContent>
     </Dialog>
   );

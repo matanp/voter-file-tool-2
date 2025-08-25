@@ -109,7 +109,7 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
       </Button> */}
       <Table
         id="voter-record-table"
-        className={`${!fullWidth && "max-w-[80vw] min-w-[800px] table-fixed"}`}
+        className={`${!fullWidth && "max-w-[80vw]  table-fixed"}`}
       >
         <TableHeader>
           <TableRow>
