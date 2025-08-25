@@ -1,8 +1,10 @@
+"use client";
 import type { VoterRecord } from "@prisma/client";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
+import { useWindowSize } from "~/hooks/useWindowSize";
 
 type RecordSearchProps = {
   handleResults: (results: VoterRecord[]) => void;
@@ -22,6 +24,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   headerText,
   optionalExtraSearch,
 }) => {
+  const { width } = useWindowSize();
   const [voterId, setVoterId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
@@ -69,24 +72,27 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   return (
     <>
       {headerText && <h1 className="primary-header">{headerText}</h1>}
-      <form onSubmit={handleSubmit} className="w-max bg-primary-foreground p-4">
+      <form
+        onSubmit={handleSubmit}
+        className="lg:w-max w-[80vw] bg-primary-foreground p-4"
+      >
         <div className="flex gap-2 items-center">
           <Input
             type="string"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-            placeholder={`Enter Voter ID`}
+            placeholder={width > 760 ? `Enter Voter ID` : "Voter ID"}
             onChange={(e) => setVoterId(e.target.value)}
           />
           <Input
             type="string"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-            placeholder={`Enter First Name`}
+            placeholder={width > 760 ? `Enter First Name` : "First Name"}
             onChange={(e) => setFirstName(e.target.value)}
           />
           <Input
             type="string"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-            placeholder={`Enter Last Name`}
+            placeholder={width > 760 ? `Enter Last Name` : "Last Name"}
             onChange={(e) => setLastName(e.target.value)}
           />
           <Button type="submit">
