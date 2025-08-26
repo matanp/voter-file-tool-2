@@ -77,6 +77,12 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     return null;
   }
 
+  const extraSearchQuery = [
+    { field: "city", value: city },
+    { field: "L_T", value: legDistrict },
+    { field: "electionDistrict", value: electionDistrict },
+  ];
+
   return (
     <>
       <div className="flex flex-col gap-2">
@@ -86,7 +92,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
               setRecords(results);
               setHasSearched(true);
             }}
-            extraSearchQuery={[]}
+            extraSearchQuery={extraSearchQuery}
+            optionalExtraSearch="Only Eligible Candidates"
             submitButtonText="Find Members to Add"
             headerText="Add Committee Member"
           />
