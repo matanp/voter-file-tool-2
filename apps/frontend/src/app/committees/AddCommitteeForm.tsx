@@ -92,7 +92,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
               setRecords(results);
               setHasSearched(true);
             }}
-            extraSearchQuery={[]}
+            extraSearchQuery={extraSearchQuery}
+            optionalExtraSearch="Only Eligible Candidates"
             submitButtonText="Find Members to Add"
             headerText="Add Committee Member"
           />
