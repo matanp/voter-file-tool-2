@@ -4,7 +4,7 @@ import prisma from "~/lib/prisma";
 import GeneratePetitionForm from "./GeneratePetitionForm";
 import AuthCheck from "~/components/ui/authcheck";
 
-const CommitteeLists: React.FC = async () => {
+const PetitionsPage: React.FC = async () => {
   const dropdownLists = await prisma.dropdownLists.findFirst({});
   const electionDates = await prisma.electionDate.findMany();
   const officeNames = await prisma.officeName.findMany();
@@ -28,4 +28,4 @@ const CommitteeLists: React.FC = async () => {
   );
 };
 
-export default CommitteeLists;
+export default PetitionsPage;

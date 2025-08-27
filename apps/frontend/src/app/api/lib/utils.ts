@@ -5,7 +5,7 @@ import type {
   VoterRecordArchive,
 } from "@prisma/client";
 import { z } from "zod";
-import { defaultCustomPartyName } from "~/app/reports/GeneratePetitionForm";
+import { defaultCustomPartyName } from "~/app/petitions/GeneratePetitionForm";
 import prisma from "~/lib/prisma";
 
 export const dropdownItems = [

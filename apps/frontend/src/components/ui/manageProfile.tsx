@@ -30,7 +30,9 @@ export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
   return (
     <Sheet>
       <SheetTrigger>
-        <h1>View Profile</h1>
+        <h1 className="bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center align-items">
+          View Profile
+        </h1>
         {/* <Button variant={"outline"}>View Profile</Button> */}
       </SheetTrigger>
       <SheetContent>
