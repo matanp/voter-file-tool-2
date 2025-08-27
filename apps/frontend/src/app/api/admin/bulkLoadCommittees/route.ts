@@ -4,6 +4,10 @@ import { loadCommitteeLists } from "./bulkLoadUtils";
 
 export async function POST() {
   try {
+    if (process.env.VERCEL) {
+      return NextResponse.json({ error: "Not available in this environment" });
+    }
+
     const discrepanciesMap = await loadCommitteeLists();
 
     const transactionOperations = Array.from(discrepanciesMap.entries()).map(

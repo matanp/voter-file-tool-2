@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { parseCSV } from "./bulkLoadUtils";
 
 export async function POST() {
+  if (process.env.VERCEL) {
+    return NextResponse.json({ error: "Not available in this environment" });
+  }
+
   console.log("Loading data BULK");
   console.time("loadData");
 
