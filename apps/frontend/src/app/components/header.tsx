@@ -21,43 +21,45 @@ const Header: React.FC = () => {
   const tabStyleActive = "bg-primary";
   const tabStyleInactive = "bg-muted-foreground";
   return (
-    <div className="grid grid-cols-header border-bottom p-1 border-2 border-solid bg-accent">
-      <div></div>
-      <div className="flex-gap flex items-center justify-center gap-2 py-2">
-        {/* <ThemeToggle className="mr-auto" /> */}
-        <Link href="/recordsearch">
-          <Button
-            className={`${sharedTabStyle} ${pathname?.includes("record") ? tabStyleActive : tabStyleInactive}`}
-          >
-            Record Search
-          </Button>
-        </Link>
-        <Link href="/committees">
-          <Button
-            className={`${sharedTabStyle} ${pathname?.endsWith("committees") ? tabStyleActive : tabStyleInactive}`}
-          >
-            Committee List
-          </Button>
-        </Link>
-        <Link href="/reports">
-          <Button
-            className={`${sharedTabStyle} ${pathname?.endsWith("reports") ? tabStyleActive : tabStyleInactive}`}
-          >
-            Reports
-          </Button>
-        </Link>
-        {showDataTab && (
-          <Link href="/admin/data">
+    <div className="overflow-x-auto bg-accent border-b-2 border-solid">
+      <div className="grid grid-cols-header border- p-1 min-w-full">
+        <div></div>
+        <div className="flex-gap flex items-center justify-center gap-2 py-2">
+          {/* <ThemeToggle className="mr-auto" /> */}
+          <Link href="/recordsearch">
             <Button
-              className={`${sharedTabStyle} ${pathname?.endsWith("admin/data") ? tabStyleActive : tabStyleInactive}`}
+              className={`${sharedTabStyle} ${pathname?.includes("record") ? tabStyleActive : tabStyleInactive}`}
             >
-              Data
+              Record Search
             </Button>
           </Link>
-        )}
-      </div>
-      <div className="flex-gap flex items-center justify-center gap-2 py-2">
-        <SignInButton />
+          <Link href="/committees">
+            <Button
+              className={`${sharedTabStyle} ${pathname?.endsWith("committees") ? tabStyleActive : tabStyleInactive}`}
+            >
+              Committee List
+            </Button>
+          </Link>
+          <Link href="/petitions">
+            <Button
+              className={`${sharedTabStyle} ${pathname?.endsWith("petitions") ? tabStyleActive : tabStyleInactive}`}
+            >
+              Petitions
+            </Button>
+          </Link>
+          {showDataTab && (
+            <Link href="admin/data">
+              <Button
+                className={`${sharedTabStyle} ${pathname?.endsWith("admin/data") ? tabStyleActive : tabStyleInactive}`}
+              >
+                Data
+              </Button>
+            </Link>
+          )}
+        </div>
+        <div className="flex-gap flex items-center justify-center gap-2 py-2">
+          <SignInButton />
+        </div>
       </div>
     </div>
   );
