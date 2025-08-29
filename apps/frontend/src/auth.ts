@@ -11,16 +11,38 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.privilegeLevel = user.privilegeLevel;
       return session;
     },
+    async signIn({ user }) {
+      if (!user.email) return false;
+
+      const privileged = await prisma.privilegedUser.findUnique({
+        where: { email: user.email },
+      });
+
+      if (privileged && user.privilegeLevel !== privileged.privilegeLevel) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { privilegeLevel: privileged.privilegeLevel },
+        });
+
+        user.privilegeLevel = privileged.privilegeLevel; // update in memory object so the correct privilege level is maintained even before the next call to the db
+      }
+
+      return true;
+    },
   },
   events: {
     async createUser({ user }) {
       if (!user.email) return;
 
-      if (accountPermissions.developer.includes(user.email)) {
+      const privilegedUser = await prisma.privilegedUser.findUnique({
+        where: { email: user.email },
+      });
+
+      if (privilegedUser) {
         await prisma.user.update({
           where: { id: user.id },
           data: {
-            privilegeLevel: "Developer",
+            privilegeLevel: privilegedUser.privilegeLevel,
           },
         });
       }
