@@ -29,8 +29,8 @@ const PDF_API_URL = PDF_API_BASE + "/generate-pdf";
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session || !session.user || !session.user.privilegeLevel) {
-      return NextRequest.json({ error: "please log in" });
+    if (!session?.user?.privilegeLevel) {
+      return NextResponse.json({ error: "please log in" });
     }
     if (
       !hasPermissionFor(
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         PrivilegeLevel.RequestAccess,
       )
     ) {
-      return NextRequest.json({
+      return NextResponse.json({
         error: "user does not have sufficient privilege",
       });
     }
