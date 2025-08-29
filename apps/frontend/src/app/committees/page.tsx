@@ -2,20 +2,26 @@ import React from "react";
 
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
-import { PrivilegeLevel } from "@prisma/client";
+import { CommitteeList, PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
+import { mapCommiteesToReportShape } from "./committeeUtils";
 
 const CommitteeLists: React.FC = async () => {
   const permissions = await auth();
-  const committeeLists = await prisma.committeeList.findMany({
+  const committeeLists: CommitteeList[] = await prisma.committeeList.findMany({
     include: {
       committeeMemberList: true,
     },
   });
 
+  // console.log(JSON.stringify(committeeLists.slice(100, 102)));
+
+  console.log(
+    JSON.stringify(mapCommiteesToReportShape(committeeLists.slice(0, 10))),
+  );
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
   let committeeRequests = [];
