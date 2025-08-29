@@ -3,6 +3,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import prisma from "~/lib/prisma";
 import { accountPermissions } from "accountPermissions";
+import { PrivilegeLevel } from "@prisma/client";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -25,6 +26,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         user.privilegeLevel = privileged.privilegeLevel; // update in memory object so the correct privilege level is maintained even before the next call to the db
+      }
+
+      if (!privileged && user.privilegeLevel !== PrivilegeLevel.ReadAccess) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { privilegeLevel: PrivilegeLevel.ReadAccess },
+        });
+
+        user.privilegeLevel = PrivilegeLevel.ReadAccess;
       }
 
       return true;
