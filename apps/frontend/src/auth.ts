@@ -2,7 +2,6 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import prisma from "~/lib/prisma";
-import { accountPermissions } from "accountPermissions";
 import { PrivilegeLevel } from "@prisma/client";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
