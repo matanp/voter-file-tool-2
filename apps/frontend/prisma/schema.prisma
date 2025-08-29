@@ -66,6 +66,12 @@ model Session {
   updatedAt    DateTime @updatedAt
 }
 
+model PrivilegedUser {
+  id             Int            @id @default(autoincrement())
+  email          String         @unique
+  privilegeLevel PrivilegeLevel
+}
+
 model VerificationToken {
   identifier String
   token      String
