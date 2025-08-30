@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import PetitionForm from './components/DesignatingPetition';
+import CommitteeReport from './components/CommitteeReport';
 import puppeteer from 'puppeteer';
 
 export const generateHTML = (
@@ -65,6 +66,28 @@ export async function generatePDF(htmlContent: string): Promise<Buffer> {
 
   return buffer;
 }
+
+export const generateCommitteeReportHTML = (
+  groupedCommittees: any[]
+) => {
+  const tailwindCSS =
+    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(CommitteeReport, {
+      groupedCommittees: groupedCommittees,
+    })
+  );
+  return `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Committee Report</title>
+          ${tailwindCSS}
+        </head>
+        <body>
+          ${html}
+        </body>
+      </html>`;
+};
 
 function sleep(arg0: number) {
   return new Promise((resolve) => setTimeout(resolve, arg0));
