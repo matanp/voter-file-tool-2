@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { DatePicker } from "~/components/ui/datePicker";
 import type { ElectionDate } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
 interface ElectionDateProps {
   electionDates: ElectionDate[];
@@ -50,6 +51,7 @@ export const ElectionDates = ({
         const created: ElectionDate = (await res.json()) as ElectionDate;
         setElectionDates([...electionDates, created]);
         setNewDate(null);
+        revalidatePath("/petitions");
       }
     } catch (err) {
       console.error("Failed to add election date", err);
