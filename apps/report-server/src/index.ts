@@ -3,7 +3,7 @@ import express, { Request, Response } from 'express';
 import zlib from 'zlib';
 
 import path from 'path';
-import { generateHTML, generatePDF } from './utils';
+import { generateHTML, generatePDF, generateCommitteeReportHTML } from './utils';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -62,8 +62,15 @@ app.post(
 
       console.log('Number of committees:', groupedCommittees.length);
 
-      // TODO: generate PDF or other processing
-      res.status(200).json({ ok: true });
+      const html = generateCommitteeReportHTML(groupedCommittees);
+      const pdfBuffer = await generatePDF(html);
+
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=committee_report.pdf',
+      });
+
+      res.send(pdfBuffer);
     } catch (err) {
       console.error('Failed to parse gzipped JSON:', err);
       res.status(400).json({ error: 'Invalid gzipped JSON' });
