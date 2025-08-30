@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
   try {
@@ -36,6 +37,8 @@ export async function POST(request: Request) {
     const newDate = await prisma.electionDate.create({
       data: { date: new Date(parsed.date) },
     });
+
+    revalidatePath("/petitions");
 
     return NextResponse.json(newDate, { status: 201 });
   } catch (error) {
