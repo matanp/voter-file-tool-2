@@ -26,12 +26,12 @@ const CommitteeLists: React.FC = async () => {
 
   let committeeRequests = [];
 
-  if (
-    hasPermissionFor(
-      permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
-      PrivilegeLevel.Admin,
-    )
-  ) {
+  const isAdminUser = hasPermissionFor(
+    permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+    PrivilegeLevel.Admin,
+  );
+
+  if (isAdminUser) {
     committeeRequests = await prisma.committeeRequest.findMany({});
   }
 
@@ -41,14 +41,19 @@ const CommitteeLists: React.FC = async () => {
 
   return (
     <div className="w-full p-4">
-      {committeeRequests.length > 0 && (
-        <div className="flex gap-2 items-center pb-4">
-          <h1>
-            There are {committeeRequests.length} pending committee requests
-          </h1>
-          <Link href="/committees/requests">
-            <Button>View Requests</Button>
-          </Link>
+      {isAdminUser && (
+        <div className="flex gap-4 mb-4">
+          {committeeRequests.length > 0 && (
+            <div className="flex gap-2 items-center pb-4">
+              <h1>
+                There are {committeeRequests.length} pending committee requests
+              </h1>
+              <Link href="/committees/requests">
+                <Button>View Requests</Button>
+              </Link>
+            </div>
+          )}
+          <Button>Hello world</Button>
         </div>
       )}
       <CommitteeSelector commiitteeLists={committeeLists} />
