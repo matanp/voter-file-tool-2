@@ -1,8 +1,11 @@
 // src/index.ts
 import express, { Request, Response } from 'express';
+import { PrismaClient } from "database/generated/client";
 
 import path from 'path';
 import { generateHTML, generatePDF } from './utils';
+
+const prisma = new PrismaClient();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -39,6 +42,16 @@ app.post('/generate-pdf', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to generate PDF' });
   } finally {
     console.log('finished');
+  }
+});
+
+app.get('/api/test-prisma', async (req: Request, res: Response) => {
+  try {
+    const users = await prisma.user.findMany();
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 

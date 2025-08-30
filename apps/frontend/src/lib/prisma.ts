@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "database/generated/client";
 
 // Extending the global interface directly
 declare global {

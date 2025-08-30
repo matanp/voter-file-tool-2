@@ -5,7 +5,11 @@
     "module": "commonjs",
     "jsx": "react-jsx",
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "database/generated/client": ["../packages/database/generated/client"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
