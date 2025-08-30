@@ -9,6 +9,11 @@ const PetitionsPage: React.FC = async () => {
   const electionDates = await prisma.electionDate.findMany();
   const officeNames = await prisma.officeName.findMany();
 
+  console.log("---Petitions Page Debug-----");
+  console.log(electionDates);
+  console.log(officeNames);
+  console.log("debug end -------");
+
   if (!dropdownLists) {
     return <div>Something went wrong</div>;
   }
