@@ -22,7 +22,11 @@ if (typeof window !== "undefined") {
     capture_pageleave: true,
   });
 }
-export function CSPostHogProvider({ children }: PostHogProviderProps) {
+interface CSPostHogProviderProps {
+  children: React.ReactNode;
+}
+
+export function CSPostHogProvider({ children }: CSPostHogProviderProps) {
   const { data: session, status } = useSession();
 
   useEffect(() => {

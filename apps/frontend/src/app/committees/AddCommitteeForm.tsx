@@ -1,4 +1,4 @@
-import { PrivilegeLevel, type VoterRecord } from "@prisma/client";
+import { PrivilegeLevel, type VoterRecord } from "database/generated/client";
 import { useContext, useState } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { useToast } from "~/components/ui/use-toast";

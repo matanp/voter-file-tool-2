@@ -1,4 +1,4 @@
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "database/generated/client";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 

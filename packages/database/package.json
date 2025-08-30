@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "generate": "prisma generate",
+    "postinstall": "pnpm generate",
     "push": "prisma db push",
     "studio": "prisma studio"
   },

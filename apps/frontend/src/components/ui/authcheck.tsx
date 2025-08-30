@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { SignInButton } from "./signInButton";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "database/generated/client";
 import { hasPermissionFor } from "~/lib/utils";
 
 export default function AuthCheck({

@@ -1,5 +1,5 @@
 "use client";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "database/generated/client";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

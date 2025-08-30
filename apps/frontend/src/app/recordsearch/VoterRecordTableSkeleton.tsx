@@ -1,4 +1,4 @@
-import { type VoterRecord } from "@prisma/client";
+import { type VoterRecord } from "database/generated/client";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
 import {

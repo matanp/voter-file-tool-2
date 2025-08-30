@@ -5,11 +5,11 @@ import { Input } from "~/components/ui/input";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { toast } from "~/components/ui/use-toast";
 import RecordSearchForm from "../components/RecordSearchForm";
-import type { VoterRecord } from "@prisma/client";
+import type { VoterRecord } from "database/generated/client";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
 import { generatePdfDataSchema } from "../api/lib/utils";
-import type { ElectionDate, OfficeName } from "prisma/prisma-client";
+import type { ElectionDate, OfficeName } from "database/generated/client";
 
 // :OHNO: add login check
 

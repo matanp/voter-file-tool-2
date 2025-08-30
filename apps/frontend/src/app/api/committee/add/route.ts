@@ -1,6 +1,6 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "database/generated/client";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
 

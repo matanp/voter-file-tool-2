@@ -1,7 +1,7 @@
 import prisma from "~/lib/prisma";
 import * as xlsx from "xlsx";
 import * as fs from "fs";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "database/generated/client";
 
 import {
   type DiscrepanciesAndCommittee,

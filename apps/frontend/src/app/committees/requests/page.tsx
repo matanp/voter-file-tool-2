@@ -3,11 +3,11 @@ import React from "react";
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
 import {
-  type CommitteeList,
-  type CommitteeRequest,
+  CommitteeRequest,
+  CommitteeList,
+  VoterRecord,
   PrivilegeLevel,
-  type VoterRecord,
-} from "@prisma/client";
+} from "database/generated/client";
 import { auth } from "~/auth";
 import {
   Accordion,

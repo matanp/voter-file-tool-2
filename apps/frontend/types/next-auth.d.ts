@@ -1,4 +1,4 @@
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "database/generated/client";
 import NextAuth, { DefaultSession, DefaultUser } from "next-auth";
 
 declare module "next-auth" {

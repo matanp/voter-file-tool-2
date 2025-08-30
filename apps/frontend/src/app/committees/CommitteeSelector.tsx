@@ -1,11 +1,7 @@
 "use client";
 import React, { useCallback, useContext, useState } from "react";
 
-import {
-  PrivilegeLevel,
-  type CommitteeList,
-  type VoterRecord,
-} from "@prisma/client";
+import { CommitteeList, VoterRecord, PrivilegeLevel } from "database/generated/client";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";

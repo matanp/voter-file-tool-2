@@ -1,5 +1,5 @@
 "use client";
-import type { DropdownLists } from "@prisma/client";
+import type { DropdownLists } from "database/generated/client";
 import { useState, useCallback } from "react";
 import { Button } from "~/components/ui/button";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";

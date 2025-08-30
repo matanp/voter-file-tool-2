@@ -1,0 +1,14 @@
+{
+  "name": "voter-file-tool-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "pnpm": {
+    "overrides": {
+      "@auth/core": "0.32.0"
+    }
+  }
+}

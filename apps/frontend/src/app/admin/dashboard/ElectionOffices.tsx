@@ -1,6 +1,6 @@
 "use client";
 
-import type { OfficeName } from "@prisma/client";
+import type { OfficeName } from "database/generated/client";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";

@@ -1,7 +1,7 @@
 import { createReadStream } from "fs";
 import prisma from "~/lib/prisma";
 import csv from "csv-parser";
-import type { Prisma, VoterRecordArchive } from "@prisma/client";
+import type { Prisma, VoterRecordArchive } from "database/generated/client";
 
 import {
   exampleVoterRecord,

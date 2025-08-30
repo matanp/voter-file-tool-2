@@ -3,7 +3,7 @@ import type {
   Prisma,
   VoterRecord,
   VoterRecordArchive,
-} from "@prisma/client";
+} from "database/generated/client";
 import { z } from "zod";
 import { defaultCustomPartyName } from "~/app/petitions/GeneratePetitionForm";
 import prisma from "~/lib/prisma";

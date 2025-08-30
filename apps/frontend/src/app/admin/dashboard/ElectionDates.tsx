@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { DatePicker } from "~/components/ui/datePicker";
-import type { ElectionDate } from "@prisma/client";
+import type { ElectionDate } from "database/generated/client";
 
 interface ElectionDateProps {
   electionDates: ElectionDate[];
