@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
   try {
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
       data: { officeName: parsed.name },
     });
 
+    revalidatePath("/petitions");
     return NextResponse.json(newDate, { status: 201 });
   } catch (error) {
     console.error("Error creating election office:", error);
