@@ -10,5 +10,8 @@
     "overrides": {
       "@auth/core": "0.32.0"
     }
+  },
+  "dependencies": {
+    "prisma": "5.15.0"
   }
 }

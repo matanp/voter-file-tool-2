@@ -9,7 +9,11 @@ overrides:
 
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      prisma:
+        specifier: 5.15.0
+        version: 5.15.0
 
   apps/frontend:
     dependencies:
@@ -156,7 +160,7 @@ importers:
         specifier: ^3.4.1
         version: 3.4.17(ts-node@10.9.2)
       typescript:
-        specifier: ^5.4.5
+        specifier: ^5.9.2
         version: 5.9.2
 
   apps/report-server:
@@ -208,7 +212,7 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0
       typescript:
-        specifier: ^5.6.2
+        specifier: ^5.9.2
         version: 5.9.2
 
   packages/database:
@@ -5476,7 +5480,7 @@ packages:
     resolution: {integrity: sha512-7vuh85V5cdDofPyxn58nrPjBktZo0u9x1g8WtjQol+jZDaE+fhN+cIvTj11GndBnMnyfrUOG1sZQxCdjKh+DKg==}
     engines: {node: '>= 10.13.0'}
     dependencies:
-      '@types/node': 22.18.0
+      '@types/node': 20.19.11
       merge-stream: 2.0.0
       supports-color: 8.1.1
     dev: false
