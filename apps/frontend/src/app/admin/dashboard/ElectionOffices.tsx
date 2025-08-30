@@ -4,6 +4,7 @@ import type { OfficeName } from "@prisma/client";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { revalidatePath } from "next/cache";
 
 interface ElectionOfficesProps {
   officeNames: OfficeName[];
@@ -49,6 +50,7 @@ export const ElectionOffices = ({
         const created = (await res.json()) as OfficeName;
         setOfficeNames([...officeNames, created]);
         setNewOffice("");
+        revalidatePath("/petitions");
       }
     } catch (err) {
       console.error("Failed to add office", err);

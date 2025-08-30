@@ -59,10 +59,6 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   electionDates,
   officeNames,
 }) => {
-  console.log("generate petition form debug");
-  console.log(electionDates);
-  console.log(officeNames);
-  console.log("END generate petition form debug");
   const [smallScreen, setSmallScreen] = useState<boolean>(false);
   const [verySmallScreen, setVerySmallScreen] = useState<boolean>(false);
   const [party, setParty] = useState<string>("");
