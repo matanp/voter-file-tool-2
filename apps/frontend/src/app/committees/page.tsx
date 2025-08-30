@@ -8,6 +8,8 @@ import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
 import { mapCommiteesToReportShape } from "./committeeUtils";
+import { ldCommitteeArraySchema } from "~/lib/validators/ldCommittees";
+import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
 
 const CommitteeLists: React.FC = async () => {
   const permissions = await auth();
@@ -19,9 +21,10 @@ const CommitteeLists: React.FC = async () => {
 
   // console.log(JSON.stringify(committeeLists.slice(100, 102)));
 
-  console.log(
-    JSON.stringify(mapCommiteesToReportShape(committeeLists.slice(0, 10))),
-  );
+  // console.log(
+  //   JSON.stringify(mapCommiteesToReportShape(committeeLists.slice(0, 10))),
+  // );
+
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
   let committeeRequests = [];
@@ -53,7 +56,9 @@ const CommitteeLists: React.FC = async () => {
               </Link>
             </div>
           )}
-          <Button>Hello world</Button>
+          <GenerateCommitteeReportButton
+            committeeLists={committeeLists.slice(0, 10000)}
+          />
         </div>
       )}
       <CommitteeSelector commiitteeLists={committeeLists} />
