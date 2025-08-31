@@ -7,8 +7,6 @@ import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
-import { mapCommiteesToReportShape } from "./committeeUtils";
-import { ldCommitteeArraySchema } from "~/lib/validators/ldCommittees";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
 
 const CommitteeLists: React.FC = async () => {
