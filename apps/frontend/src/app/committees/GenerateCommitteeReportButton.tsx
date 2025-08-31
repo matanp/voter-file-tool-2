@@ -23,11 +23,7 @@ export const GenerateCommitteeReportButton: React.FC<
 
     const committeeData = mapCommiteesToReportShape(committeeLists);
 
-    console.log(committeeData.slice(0, 3));
-
     const validationResult = ldCommitteesArraySchema.safeParse(committeeData);
-
-    console.log(validationResult);
 
     if (!validationResult.success) {
       const fieldErrors: Partial<Record<string, string>> = {};

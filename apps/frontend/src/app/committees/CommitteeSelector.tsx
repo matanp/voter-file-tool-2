@@ -247,7 +247,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               <div className="flex gap-4 w-full flex-wrap min-h-66 h-max">
                 {committeeList.map((member) => (
                   <div key={member.VRCNUM}>
-                    <Card className="min-w-max w-full min-w-[600px] h-full flex flex-col">
+                    <Card className="w-full min-w-[600px] h-full flex flex-col">
                       <CardContent className="flex-1">
                         <VoterCard record={member} committee={true} />
                       </CardContent>

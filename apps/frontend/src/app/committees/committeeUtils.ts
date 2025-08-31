@@ -1,5 +1,8 @@
-import { CommitteeList, VoterRecord } from "@prisma/client";
-import { LDCommittees } from "~/lib/validators/ldCommittee";
+import type { CommitteeList, VoterRecord } from "@prisma/client";
+import type {
+  CommitteeMember,
+  LDCommittees,
+} from "~/lib/validators/ldCommittees";
 
 const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
   const name = [
@@ -14,8 +17,7 @@ const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
   const addressParts = [
     voter.houseNum ? voter.houseNum.toString() : null,
     voter.street,
-    voter.apartment ? `Apt ${voter.apartment}` : null,
-    voter.halfAddress,
+    voter.apartment ? `APT ${voter.apartment}` : null,
     voter.resAddrLine2,
     voter.resAddrLine3,
   ]

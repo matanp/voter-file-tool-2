@@ -191,17 +191,23 @@ export const CommitteeUploadDiscrepancies: React.FC = () => {
                                         discrepancies.discrepancies[key];
                                       return (
                                         <li key={key}>
-                                          <span className="font-bold">
+                                          {/* <span className="font-bold">
                                             {
                                               discrepanciesPrintMap[
                                                 key as keyof typeof discrepanciesPrintMap
                                               ]
                                             }
+                                          </span> */}
+                                          Incoming{" "}
+                                          <span className="font-semibold">
+                                            {value?.incoming}
+                                          </span>{" "}
+                                          {"doesn't match saved: "}{" "}
+                                          <span className="font-semibold">
+                                            {value?.existing
+                                              ? value.existing
+                                              : "NO VALUE"}
                                           </span>
-                                          : {value?.incoming} vs{" "}
-                                          {value?.existing
-                                            ? value.existing
-                                            : "NO VALUE"}
                                         </li>
                                       );
                                     })}

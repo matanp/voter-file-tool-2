@@ -3,7 +3,11 @@ import express, { Request, Response } from 'express';
 import zlib from 'zlib';
 
 import path from 'path';
-import { generateHTML, generatePDF, generateCommitteeReportHTML } from './utils';
+import {
+  generateHTML,
+  generatePDF,
+  generateCommitteeReportHTML,
+} from './utils';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -31,7 +35,7 @@ app.post('/generate-pdf', async (req: Request, res: Response) => {
   );
 
   try {
-    const pdfBuffer = await generatePDF(html);
+    const pdfBuffer = await generatePDF(html, false);
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -63,7 +67,7 @@ app.post(
       console.log('Number of committees:', groupedCommittees.length);
 
       const html = generateCommitteeReportHTML(groupedCommittees);
-      const pdfBuffer = await generatePDF(html);
+      const pdfBuffer = await generatePDF(html, true);
 
       res.set({
         'Content-Type': 'application/pdf',

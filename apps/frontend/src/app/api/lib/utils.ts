@@ -94,13 +94,25 @@ export const getAddress = (record: VoterRecord, committee?: boolean) => {
   return `${record.houseNum} ${record.street}${record.apartment ? ` APT ${record.apartment}` : ""}`;
 };
 
+export const getName = (record: VoterRecord) => {
+  return `${record.firstName} ${record.middleInitial} ${record.lastName}`;
+};
+
+// const DISCREPENCY_FIELDS = [
+//   { incomingField: "firstname", existingField: "firstName" },
+//   { incomingField: "lastname", existingField: "lastName" },
+//   { incomingField: "Add1", existingField: getAddress },
+//   { incomingField: "City", existingField: "city" },
+//   { incomingField: "res state", existingField: "state" },
+//   { incomingField: "Zip", existingField: "zipCode" },
+// ] as const;
+
 const DISCREPENCY_FIELDS = [
-  { incomingField: "firstname", existingField: "firstName" },
-  { incomingField: "lastname", existingField: "lastName" },
-  { incomingField: "Add1", existingField: getAddress },
-  { incomingField: "City", existingField: "city" },
+  { incomingField: "name", existingField: getName },
+  { incomingField: "res address1", existingField: getAddress },
+  { incomingField: "res city", existingField: "city" },
   { incomingField: "res state", existingField: "state" },
-  { incomingField: "Zip", existingField: "zipCode" },
+  { incomingField: "res zip", existingField: "zipCode" },
 ] as const;
 
 export type Discrepancy = Record<

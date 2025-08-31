@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import prisma from "~/lib/prisma";
 import * as xlsx from "xlsx";
 import * as fs from "fs";
@@ -14,13 +15,17 @@ const committeeData = new Map<
 >();
 
 export async function loadCommitteeLists() {
-  const filePath = "data/DemocraticCommitteeExport.xlsx";
+  const filePath = "data/Committee-File-2025-05-15.xlsx";
+  // const filePath = "data/DemocraticCommitteeExport.xlsx";
 
   const fileBuffer = fs.readFileSync(filePath);
   const workbook: xlsx.WorkBook = xlsx.read(fileBuffer);
 
+  // const committeeExportSheet: xlsx.WorkSheet | undefined =
+  //   workbook.Sheets.Export_to_Excel;
+
   const committeeExportSheet: xlsx.WorkSheet | undefined =
-    workbook.Sheets.Export_to_Excel;
+    workbook.Sheets[workbook.SheetNames[0]];
 
   if (!committeeExportSheet) {
     throw new Error("Committee export sheet not found");
@@ -37,15 +42,20 @@ export async function loadCommitteeLists() {
   const discrepanciesMap = new Map<string, DiscrepanciesAndCommittee>();
 
   for (const row of committeeExportData) {
-    let city = row["LT Description"]?.includes("City")
-      ? "Rochester"
-      : row["LT Description"];
+    // let city = row["LT Description"]?.includes("City")
+    //   ? "Rochester"
+    //   : row["LT Description"];
+
+    // city = city?.toUpperCase();
+
+    // const legDistrict = Number(row.LT);
+    // const electionDistrict = Number(row.ED);
+    let city = row.Committee?.includes("LD ") ? "Rochester" : row.Committee;
 
     city = city?.toUpperCase();
 
-    const legDistrict = Number(row.LT);
-    const electionDistrict = Number(row.ED);
-
+    const legDistrict = Number(row["Serve LT"]);
+    const electionDistrict = Number(row["Serve ED"]);
     const VRCNUM = row["voter id"];
 
     if (!VRCNUM) {
@@ -114,6 +124,8 @@ export async function loadCommitteeLists() {
       });
     }
   }
+
+  await prisma.committeeList.deleteMany({});
 
   for (const [, value] of committeeData.entries()) {
     const committeeList = value.data;

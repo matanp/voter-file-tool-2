@@ -146,7 +146,7 @@ model VoterRecordArchive {
 model VoterRecord {
   VRCNUM                     String                @id
   votingRecords              VotingHistoryRecord[]
-  committee                  CommitteeList?        @relation(fields: [committeeId], references: [id])
+  committee                  CommitteeList?        @relation(fields: [committeeId], references: [id], onDelete: SetNull)
   committeeId                Int?
   addressForCommittee        String?
   latestRecordEntryYear      Int
@@ -216,7 +216,7 @@ model CommitteeList {
 
 model CommitteeRequest {
   id                  Int           @id @default(autoincrement())
-  committeList        CommitteeList @relation(fields: [committeeListId], references: [id])
+  committeList        CommitteeList @relation(fields: [committeeListId], references: [id], onDelete: Cascade)
   committeeListId     Int
   addVoterRecord      VoterRecord?  @relation(name: "addToCommitteeRequest", fields: [addVoterRecordId], references: [VRCNUM], onDelete: Cascade)
   addVoterRecordId    String?
@@ -242,7 +242,7 @@ model DropdownLists {
 model CommitteeUploadDiscrepancy {
   id          String        @id @default(cuid())
   VRCNUM      String        @unique
-  committee   CommitteeList @relation(fields: [committeeId], references: [id])
+  committee   CommitteeList @relation(fields: [committeeId], references: [id], onDelete: Cascade)
   committeeId Int
   discrepancy Json
 }

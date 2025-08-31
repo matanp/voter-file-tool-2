@@ -10,6 +10,8 @@ const committeeMemberSchema = z.object({
   phone: z.string(),
 });
 
+export type CommitteeMember = z.infer<typeof committeeMemberSchema>;
+
 // LDCommittees schema
 export const ldCommitteesSchema = z.object({
   cityTown: z.string(),
