@@ -1,6 +1,7 @@
 // src/index.ts
 import express, { Request, Response } from 'express';
 import zlib from 'zlib';
+import { config } from 'dotenv';
 
 import path from 'path';
 import {
@@ -8,12 +9,16 @@ import {
   generatePDF,
   generateCommitteeReportHTML,
 } from './utils';
+import { getPresignedReadUrl, uploadPdfToR2 } from './s3Utils';
+
+config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 // Middleware to parse JSON requests
 // app.use(express.json());
+
 app.use((req, res, next) => {
   if (req.path === '/generate-committee-report') return next();
   express.json({ limit: '1mb' })(req, res, next);
@@ -47,7 +52,7 @@ app.post('/generate-pdf', async (req: Request, res: Response) => {
     console.error(error);
     res.status(500).json({ error: 'Failed to generate PDF' });
   } finally {
-    console.log('finished');
+    console.log('finished generating pdf');
   }
 });
 
@@ -62,12 +67,16 @@ app.post(
 
       const groupedCommittees = JSON.parse(jsonString);
 
-      console.log(groupedCommittees.slice(0, 50));
+      // console.log(groupedCommittees.slice(0, 50));
 
       console.log('Number of committees:', groupedCommittees.length);
 
-      const html = generateCommitteeReportHTML(groupedCommittees);
+      const html = generateCommitteeReportHTML(groupedCommittees.slice(0, 1));
       const pdfBuffer = await generatePDF(html, true);
+
+      const url = await uploadPdfToR2(pdfBuffer);
+
+      console.log(await getPresignedReadUrl(url, 3600));
 
       res.set({
         'Content-Type': 'application/pdf',
@@ -75,9 +84,9 @@ app.post(
       });
 
       res.send(pdfBuffer);
-    } catch (err) {
-      console.error('Failed to parse gzipped JSON:', err);
-      res.status(400).json({ error: 'Invalid gzipped JSON' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to generate PDF' });
     }
   }
 );
