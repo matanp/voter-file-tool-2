@@ -1,7 +1,6 @@
 // app/api/generate-pdf/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
-import { generatePdfDataSchema } from "../lib/utils";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
 

@@ -5,11 +5,15 @@ import { Input } from "~/components/ui/input";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { toast } from "~/components/ui/use-toast";
 import RecordSearchForm from "../components/RecordSearchForm";
-import type { VoterRecord } from "@prisma/client";
+import type { VoterRecord, JobStatus } from "@prisma/client";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
-import { generatePdfDataSchema } from "../api/lib/utils";
 import type { ElectionDate, OfficeName } from "prisma/prisma-client";
+import { defaultCustomPartyName } from "~/lib/validators/designatedPetition";
+import {
+  type GenerateReportData,
+  generateReportSchema,
+} from "~/lib/validators/generateReport";
 
 // :OHNO: add login check
 
@@ -52,8 +56,6 @@ function formatDate(date: Date, withOrdinal: boolean): string {
 
 export type PartyCode = keyof typeof PRINT_PARTY_MAP;
 
-export const defaultCustomPartyName = "Enter Party Name";
-
 export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   parties,
   electionDates,
@@ -82,6 +84,9 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   const [showVacancyAppointmentsSearch, setShowVacancyAppointmentsSearch] =
     useState<boolean>(true);
 
+  const [reportJobId, setReportJobId] = useState<string>("");
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
+
   const handleSubmit = async (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
@@ -99,20 +104,23 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       return { name: candidateName, address: addreess };
     });
 
-    const formData = {
-      candidates: candidatesData,
-      vacancyAppointments: vacancyAppointmentsData,
-      party: party === "Custom" ? customParty : party,
-      electionDate:
-        electionDate?.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "2-digit",
-        }) ?? "",
-      numPages,
+    const formData: GenerateReportData = {
+      type: "designatedPetition",
+      payload: {
+        candidates: candidatesData,
+        vacancyAppointments: vacancyAppointmentsData,
+        party: party === "Custom" ? customParty : party,
+        electionDate:
+          electionDate?.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "2-digit",
+          }) ?? "",
+        numPages,
+      },
     };
 
-    const validationResult = generatePdfDataSchema.safeParse(formData);
+    const validationResult = generateReportSchema.safeParse(formData);
 
     if (!validationResult.success) {
       const fieldErrors: Partial<Record<string, string>> = {};
@@ -143,7 +151,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       duration: 3000,
     });
 
-    const response = await fetch(`/api/generatePdf`, {
+    const response = await fetch(`/api/generateReport`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -159,17 +167,13 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       return;
     }
 
-    const blob = await response.blob();
+    const responseData = (await response.json()) as unknown as {
+      jobId: string;
+    };
 
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "Designated Petition.pdf");
-    document.body.appendChild(link);
-    link.click();
+    console.log(responseData);
 
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    setReportJobId(responseData?.jobId);
   };
 
   useEffect(() => {
@@ -181,6 +185,47 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(
+          `/api/getReportStatus?jobId=${reportJobId}`,
+        );
+        if (!response.ok) throw new Error("Failed to fetch job status");
+
+        const data = (await response.json()) as unknown as {
+          status: JobStatus;
+          url: string | undefined;
+        };
+
+        if (!isMounted) return;
+
+        if (data.status === "COMPLETED" && data.url) {
+          setReportUrl(data.url);
+        } else if (data.status !== "COMPLETED" && data.status !== "FAILED") {
+          // Wait 2 seconds and check again
+          setTimeout(checkStatus, 2000);
+        }
+
+        // HANDLE FAILED EXPLICITLY
+      } catch (err) {
+        console.error(err);
+        // Retry after a delay if needed
+        setTimeout(checkStatus, 5000);
+      }
+    };
+
+    if (reportJobId !== "") {
+      checkStatus();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [reportJobId]);
 
   return (
     <div className="w-full">
@@ -455,6 +500,12 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           <p className="text-red-500">Please fill out all required fields</p>
         )}
       </div>
+      {reportUrl && (
+        <iframe
+          className="w-full h-[100vh] max-w-[800px] max-h-[1200px]"
+          src={reportUrl}
+        ></iframe>
+      )}
     </div>
   );
 };

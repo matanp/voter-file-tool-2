@@ -6,6 +6,10 @@ import { mapCommiteesToReportShape } from "./committeeUtils";
 import { ldCommitteesArraySchema } from "~/lib/validators/ldCommittees";
 import { useToast } from "~/components/ui/use-toast";
 import { type CommitteeList } from "@prisma/client";
+import {
+  GenerateReportData,
+  generateReportSchema,
+} from "~/lib/validators/generateReport";
 
 interface GenerateCommitteeReportButtonProps {
   committeeLists: CommitteeList[];
@@ -23,7 +27,12 @@ export const GenerateCommitteeReportButton: React.FC<
 
     const committeeData = mapCommiteesToReportShape(committeeLists);
 
-    const validationResult = ldCommitteesArraySchema.safeParse(committeeData);
+    const formData: GenerateReportData = {
+      type: "ldCommittees",
+      payload: committeeData,
+    };
+
+    const validationResult = generateReportSchema.safeParse(formData);
 
     if (!validationResult.success) {
       const fieldErrors: Partial<Record<string, string>> = {};
@@ -47,7 +56,7 @@ export const GenerateCommitteeReportButton: React.FC<
       duration: 3000,
     });
 
-    const response = await fetch(`/api/committee/generateCommitteeReport`, {
+    const response = await fetch(`/api/generateReport`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -65,17 +74,17 @@ export const GenerateCommitteeReportButton: React.FC<
       return;
     }
 
-    const blob = await response.blob();
+    // const blob = await response.blob();
 
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "Committee Report.pdf");
-    document.body.appendChild(link);
-    link.click();
+    // const url = window.URL.createObjectURL(blob);
+    // const link = document.createElement("a");
+    // link.href = url;
+    // link.setAttribute("download", "Committee Report.pdf");
+    // document.body.appendChild(link);
+    // link.click();
 
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    // document.body.removeChild(link);
+    // window.URL.revokeObjectURL(url);
   };
 
   return (

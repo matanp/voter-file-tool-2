@@ -2,6 +2,7 @@
 import express, { Request, Response } from 'express';
 import zlib from 'zlib';
 import { config } from 'dotenv';
+import { randomUUID } from 'crypto';
 
 import path from 'path';
 import {
@@ -9,87 +10,103 @@ import {
   generatePDF,
   generateCommitteeReportHTML,
 } from './utils';
-import { getPresignedReadUrl, uploadPdfToR2 } from './s3Utils';
+import { uploadPdfToR2 } from './s3Utils';
 
 config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Middleware to parse JSON requests
-// app.use(express.json());
+const CALLBACK_URL =
+  process.env.CALLBACK_URL || 'http://localhost:3000/api/reportComplete';
 
 app.use((req, res, next) => {
-  if (req.path === '/generate-committee-report') return next();
+  if (req.path === '/start-job') return next();
   express.json({ limit: '1mb' })(req, res, next);
 });
 
 app.use(express.static(path.join(__dirname, '../public')));
 
-// API endpoint to generate PDF from HTML
-app.post('/generate-pdf', async (req: Request, res: Response) => {
-  const { candidates, vacancyAppointments, party, electionDate, numPages } =
-    req.body;
-
-  const html = generateHTML(
-    candidates,
-    vacancyAppointments,
-    party,
-    electionDate,
-    numPages
-  );
-
-  try {
-    const pdfBuffer = await generatePDF(html, false);
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename=output.pdf',
-    });
-
-    res.send(pdfBuffer);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to generate PDF' });
-  } finally {
-    console.log('finished generating pdf');
-  }
-});
-
 app.post(
-  '/generate-committee-report',
-  express.raw({ type: 'application/json', limit: '1mb' }),
+  '/start-job',
+  express.raw({ type: 'application/json', limit: '2mb' }), // gzipped data comes in as raw
   async (req: Request, res: Response) => {
     try {
+      // Decompress the gzipped request body
+      console.log('received request');
       const decompressedBuffer = zlib.gunzipSync(req.body);
-
+      console.log('decompressed gzip');
       const jsonString = decompressedBuffer.toString('utf-8');
+      const requestData = JSON.parse(jsonString);
 
-      const groupedCommittees = JSON.parse(jsonString);
+      // console.log('Received job data:', requestData);
 
-      // console.log(groupedCommittees.slice(0, 50));
+      console.log(`Started job`);
 
-      console.log('Number of committees:', groupedCommittees.length);
-
-      const html = generateCommitteeReportHTML(groupedCommittees.slice(0, 1));
-      const pdfBuffer = await generatePDF(html, true);
-
-      const url = await uploadPdfToR2(pdfBuffer);
-
-      console.log(await getPresignedReadUrl(url, 3600));
-
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename=committee_report.pdf',
+      res.status(200).json({
+        success: true,
+        message: 'Job started successfully',
       });
 
-      res.send(pdfBuffer);
+      processJob(requestData);
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to generate PDF' });
+      console.error('Error handling /start-job request:', error);
+      res.status(500).json({ error: 'Failed to start job' });
     }
   }
 );
+
+async function processJob(jobData: any) {
+  try {
+    let pdfBuffer: Buffer;
+    const { type, reportAuthor, jobId, payload } = jobData;
+
+    let fileName = reportAuthor;
+
+    if (type === 'ldCommittees') {
+      fileName += '/committeeReport/' + randomUUID() + '.pdf';
+      console.log('Processing committee report...');
+      const html = generateCommitteeReportHTML(payload);
+      pdfBuffer = await generatePDF(html, true);
+    } else if (type === 'designatedPetition') {
+      fileName += '/designatedPetition/' + randomUUID() + '.pdf';
+      console.log('Processing designated petition form...');
+      const { candidates, vacancyAppointments, party, electionDate, numPages } =
+        payload;
+
+      const html = generateHTML(
+        candidates,
+        vacancyAppointments,
+        party,
+        electionDate,
+        numPages
+      );
+      pdfBuffer = await generatePDF(html, false);
+    } else {
+      throw new Error('Unknown job type');
+    }
+
+    await uploadPdfToR2(pdfBuffer, fileName);
+
+    await fetch(CALLBACK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: true,
+        type: type,
+        url: fileName,
+        jobId,
+      }),
+    });
+  } catch (error) {
+    console.error('Error processing job:', error);
+    await fetch(CALLBACK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: (error as Error).message }),
+    });
+  }
+}
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
