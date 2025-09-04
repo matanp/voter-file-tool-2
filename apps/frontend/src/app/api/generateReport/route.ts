@@ -3,7 +3,7 @@ import { generateReportSchema } from "~/lib/validators/generateReport";
 import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
 import { PrivilegeLevel } from "@prisma/client";
-import type { Session } from "@auth/core/types";
+import type { Session } from "next-auth";
 import zlib from "zlib";
 
 const PDF_API_BASE = process.env.PDF_SERVER_URL
