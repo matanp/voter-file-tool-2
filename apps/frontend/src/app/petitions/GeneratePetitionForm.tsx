@@ -188,6 +188,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
   useEffect(() => {
     let isMounted = true;
+    let timer: NodeJS.Timeout;
 
     const checkStatus = async () => {
       try {
@@ -207,23 +208,24 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           setReportUrl(data.url);
         } else if (data.status !== "COMPLETED" && data.status !== "FAILED") {
           // Wait 2 seconds and check again
-          setTimeout(checkStatus, 2000);
+          timer = setTimeout(() => void checkStatus, 2000);
         }
 
         // HANDLE FAILED EXPLICITLY
       } catch (err) {
         console.error(err);
         // Retry after a delay if needed
-        setTimeout(checkStatus, 5000);
+        timer = setTimeout(() => void checkStatus, 5000);
       }
     };
 
     if (reportJobId !== "") {
-      checkStatus();
+      void checkStatus();
     }
 
     return () => {
       isMounted = false;
+      if (timer) clearTimeout(timer);
     };
   }, [reportJobId]);
 
@@ -495,7 +497,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       {errors.numPages && <p className="text-red-500">{errors.numPages}</p>}
 
       <div className="pt-4">
-        <Button onClick={(e) => handleSubmit(e)}>Generate Petition</Button>
+        <Button onClick={(e) => void handleSubmit(e)}>Generate Petition</Button>
         {Object.keys(errors).length > 0 && (
           <p className="text-red-500">Please fill out all required fields</p>
         )}

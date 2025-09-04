@@ -25,7 +25,7 @@ export async function loadCommitteeLists() {
   //   workbook.Sheets.Export_to_Excel;
 
   const committeeExportSheet: xlsx.WorkSheet | undefined =
-    workbook.Sheets[workbook.SheetNames[0]];
+    workbook.Sheets[workbook.SheetNames[0]!];
 
   if (!committeeExportSheet) {
     throw new Error("Committee export sheet not found");

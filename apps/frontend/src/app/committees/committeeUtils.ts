@@ -34,8 +34,12 @@ const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
   };
 };
 
+export type CommitteeWithMembers = CommitteeList & {
+  committeeMemberList: VoterRecord[];
+};
+
 export const mapCommiteesToReportShape = (
-  committees: CommitteeList[],
+  committees: CommitteeWithMembers[],
 ): LDCommittees[] => {
   const result: LDCommittees[] = [];
 
@@ -62,7 +66,7 @@ export const mapCommiteesToReportShape = (
     if (!group.committees[committee.electionDistrict]) {
       group.committees[committee.electionDistrict] = [];
     }
-    group.committees[committee.electionDistrict].push(...members);
+    group.committees[committee.electionDistrict]?.push(...members);
   }
 
   // cleanup: drop empty EDs and then drop groups with no EDs

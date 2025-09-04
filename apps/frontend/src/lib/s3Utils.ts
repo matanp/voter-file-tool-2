@@ -46,7 +46,7 @@ export async function uploadPdfToR2(
  */
 export async function getPresignedReadUrl(
   key: string,
-  expiresIn: number = 3600,
+  expiresIn = 3600,
 ): Promise<string> {
   console.log("getting presigned for ", key);
   const command = new GetObjectCommand({

@@ -2,17 +2,18 @@
 
 import React from "react";
 import { Button } from "~/components/ui/button";
-import { mapCommiteesToReportShape } from "./committeeUtils";
-import { ldCommitteesArraySchema } from "~/lib/validators/ldCommittees";
-import { useToast } from "~/components/ui/use-toast";
-import { type CommitteeList } from "@prisma/client";
 import {
-  GenerateReportData,
+  type CommitteeWithMembers,
+  mapCommiteesToReportShape,
+} from "./committeeUtils";
+import { useToast } from "~/components/ui/use-toast";
+import {
+  type GenerateReportData,
   generateReportSchema,
 } from "~/lib/validators/generateReport";
 
 interface GenerateCommitteeReportButtonProps {
-  committeeLists: CommitteeList[];
+  committeeLists: CommitteeWithMembers[];
 }
 
 export const GenerateCommitteeReportButton: React.FC<
