@@ -1,4 +1,4 @@
-import type { Session } from "@auth/core/types";
+import type { Session } from "next-auth";
 import type { PrivilegeLevel } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "~/auth";
