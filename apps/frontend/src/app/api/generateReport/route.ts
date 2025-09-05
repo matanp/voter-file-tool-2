@@ -33,10 +33,11 @@ export const POST = withPrivilege(
         throw new Error("Error getting user from session");
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const reportJob = await prisma.reportJob.create({
         data: {
           requestedById: session.user.id,
+          name: reportData.name,
+          description: reportData.description,
         },
       });
 

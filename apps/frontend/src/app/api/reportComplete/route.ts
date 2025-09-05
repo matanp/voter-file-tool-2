@@ -39,6 +39,9 @@ export const POST = async (req: NextRequest) => {
               ? ReportType.CommitteeReport
               : ReportType.DesignatedPetition,
           fileKey: url,
+          title: (reportJob as { name?: string }).name ?? null,
+          description:
+            (reportJob as { description?: string }).description ?? null,
         },
       });
 
