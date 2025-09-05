@@ -11,7 +11,7 @@ This is a Next.js application that serves as the primary user interface for the 
 -   **Framework:** [Next.js](https://nextjs.org/)
 -   **Language:** [TypeScript](https://www.typescriptlang.org/)
 -   **UI Library:** [React](https://reactjs.org/)
--   **Styling:** [Tailwind CSS](https://tailwindcss.com/) with [shadcn/ui](https.ui.shadcn.com) components
+-   **Styling:** [Tailwind CSS](https://tailwindcss.com/) with [shadcn/ui](https://ui.shadcn.com) components
 -   **Database ORM:** [Prisma](https://www.prisma.io/)
 -   **Authentication:** [NextAuth.js](https://next-auth.js.org/) (with Google Provider)
 -   **State Management:** React Hooks and Context API
