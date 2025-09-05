@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "next build",
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "turbo": "next dev --turbo",
     "start": "next start",
     "dbconnect": "psql -h localhost -U matanAdmin -d postgres1",

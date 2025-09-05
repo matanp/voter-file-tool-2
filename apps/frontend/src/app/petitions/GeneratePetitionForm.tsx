@@ -171,8 +171,6 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       jobId: string;
     };
 
-    console.log(responseData);
-
     setReportJobId(responseData?.jobId);
   };
 
@@ -208,14 +206,15 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           setReportUrl(data.url);
         } else if (data.status !== "COMPLETED" && data.status !== "FAILED") {
           // Wait 2 seconds and check again
-          timer = setTimeout(() => void checkStatus, 2000);
+
+          timer = setTimeout(() => void checkStatus(), 2000);
         }
 
         // HANDLE FAILED EXPLICITLY
       } catch (err) {
         console.error(err);
         // Retry after a delay if needed
-        timer = setTimeout(() => void checkStatus, 5000);
+        timer = setTimeout(() => void checkStatus(), 5000);
       }
     };
 

@@ -268,6 +268,7 @@ model Report {
   title         String?
   description   String?
   fileType      String?
+  public        Boolean    @default(false)
 
   createdAt DateTime   @default(now())
   job       ReportJob?
