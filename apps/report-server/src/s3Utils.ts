@@ -9,9 +9,22 @@ import { config } from 'dotenv';
 
 config();
 
+const REQUIRED_ENV = [
+  'R2_ENDPOINT',
+  'R2_BUCKET_NAME',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+] as const;
+for (const k of REQUIRED_ENV) {
+  if (!process.env[k]) {
+    throw new Error(`Missing required env: ${k}`);
+  }
+}
+
 const s3 = new S3Client({
   region: 'auto', // Cloudflare R2 doesn't care about region
   endpoint: process.env.R2_ENDPOINT,
+  forcePathStyle: true, // Required/recommended for R2
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
