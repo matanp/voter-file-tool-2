@@ -24,8 +24,14 @@ export async function POST(req: NextRequest) {
     }
     const requestBody: unknown = await req.json();
 
-    const ldCommitteesArray = ldCommitteesArraySchema.parse(requestBody);
-
+    const parsed = ldCommitteesArraySchema.safeParse(requestBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid payload", details: parsed.error.format() },
+        { status: 400 },
+      );
+    }
+    const ldCommitteesArray = parsed.data;
     console.log(
       "Num characters: ",
       JSON.stringify({ groupedCommittees: ldCommitteesArray }).length,
