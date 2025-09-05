@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { toast } from "~/components/ui/use-toast";
 import RecordSearchForm from "../components/RecordSearchForm";
@@ -69,6 +70,8 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   );
   const [electionDate, setElectionDate] = useState<Date | null>(null);
   const [numPages, setNumPages] = useState<number>(1);
+  const [reportName, setReportName] = useState<string>("");
+  const [reportDescription, setReportDescription] = useState<string>("");
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [searchCandidates, setSearchCandidates] = useState<VoterRecord[]>([]);
   const [candidates, setCandidates] = useState<
@@ -106,6 +109,8 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
     const formData: GenerateReportData = {
       type: "designatedPetition",
+      name: reportName.trim() || undefined,
+      description: reportDescription.trim() || undefined,
       payload: {
         candidates: candidatesData,
         vacancyAppointments: vacancyAppointmentsData,
@@ -495,6 +500,35 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       </div>
       {errors.numPages && <p className="text-red-500">{errors.numPages}</p>}
 
+      <div className="py-2">
+        <label htmlFor="reportName" className="block text-sm font-medium mb-2">
+          Petition Name (Optional)
+        </label>
+        <Input
+          id="reportName"
+          value={reportName}
+          onChange={(e) => setReportName(e.target.value)}
+          placeholder="Enter a name for this petition"
+          className="max-w-md"
+        />
+      </div>
+
+      <div className="py-2">
+        <label
+          htmlFor="reportDescription"
+          className="block text-sm font-medium mb-2"
+        >
+          Petition Description (Optional)
+        </label>
+        <Textarea
+          id="reportDescription"
+          value={reportDescription}
+          onChange={(e) => setReportDescription(e.target.value)}
+          placeholder="Enter a description for this petition"
+          className="max-w-md min-h-[80px]"
+        />
+      </div>
+
       <div className="pt-4">
         <Button onClick={(e) => void handleSubmit(e)}>Generate Petition</Button>
         {Object.keys(errors).length > 0 && (
@@ -502,10 +536,21 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
         )}
       </div>
       {reportUrl && (
-        <iframe
-          className="w-full h-[100vh] max-w-[800px] max-h-[1200px]"
-          src={reportUrl}
-        ></iframe>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 py-2">
+            <p className="font-medium">Petition generated successfully!</p>
+            <a
+              href="/reports"
+              className="text-blue-600 hover:text-blue-800 underline font-medium"
+            >
+              View in Reports Dashboard
+            </a>
+          </div>
+          <iframe
+            className="w-full h-[100vh] max-w-[800px] max-h-[1200px]"
+            src={reportUrl}
+          ></iframe>
+        </div>
       )}
     </div>
   );

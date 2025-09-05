@@ -6,6 +6,8 @@ const baseApiSchema = z.object({
   //   requestId: z.string().uuid(),
   //   timestamp: z.string().datetime(),
   //   requestedBy: z.string(),
+  name: z.string().optional(),
+  description: z.string().optional(),
 });
 
 export const generateReportSchema = z.discriminatedUnion("type", [

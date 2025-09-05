@@ -23,10 +23,16 @@ export const GET = async (req: NextRequest) => {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    let url;
+    let url: string | undefined;
 
     if (job.status === JobStatus.COMPLETED && job.report?.fileKey) {
-      url = await getPresignedReadUrl(job.report?.fileKey);
+      try {
+        const presignedUrl = await getPresignedReadUrl(job.report.fileKey);
+        url = presignedUrl;
+      } catch (error) {
+        console.error("Error generating presigned URL:", error);
+        url = undefined;
+      }
     }
 
     return NextResponse.json({ status: job.status, url });

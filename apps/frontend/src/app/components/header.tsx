@@ -22,9 +22,12 @@ const Header: React.FC = () => {
   const tabStyleInactive = "bg-muted-foreground";
   return (
     <div className="overflow-x-auto bg-accent border-b-2 border-solid">
-      <div className="grid grid-cols-header border- p-1 min-w-full">
-        <div></div>
-        <div className="flex-gap flex items-center justify-center gap-2 py-2">
+      <div className="flex items-center justify-between p-1 min-w-full">
+        {/* Left spacer - hidden on small screens when content overflows */}
+        <div className="hidden lg:block w-[150px]"></div>
+
+        {/* Navigation tabs - centered on large screens, left-aligned on small screens */}
+        <div className="flex items-center justify-center lg:justify-center gap-2 py-2 flex-1 lg:flex-none">
           {/* <ThemeToggle className="mr-auto" /> */}
           <Link href="/recordsearch">
             <Button
@@ -47,6 +50,13 @@ const Header: React.FC = () => {
               Petitions
             </Button>
           </Link>
+          <Link href="/reports">
+            <Button
+              className={`${sharedTabStyle} ${pathname?.endsWith("reports") ? tabStyleActive : tabStyleInactive}`}
+            >
+              Reports
+            </Button>
+          </Link>
           {showDataTab && (
             <Link href="admin/data">
               <Button
@@ -57,7 +67,14 @@ const Header: React.FC = () => {
             </Link>
           )}
         </div>
-        <div className="flex-gap flex items-center justify-center gap-2 py-2">
+
+        {/* Right spacer - hidden on small screens when content overflows */}
+        <div className="hidden lg:block w-[150px] flex items-center justify-center">
+          <SignInButton />
+        </div>
+
+        {/* Sign in button for small screens */}
+        <div className="lg:hidden flex items-center gap-2 py-2">
           <SignInButton />
         </div>
       </div>

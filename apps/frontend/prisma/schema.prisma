@@ -286,6 +286,8 @@ model ReportJob {
   reportId      String?   @unique
   requestedBy   User      @relation(fields: [requestedById], references: [id])
   requestedById String
+  name          String?
+  description   String?
   createdAt     DateTime  @default(now())
   completedAt   DateTime?
 }
