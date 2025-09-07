@@ -3,7 +3,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { ldCommitteesArraySchema } from "~/lib/validators/ldCommittees";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
-import zlib from "zlib";
+import { gzipSync } from "node:zlib";
 
 const PDF_API_BASE = process.env.PDF_SERVER_URL
   ? process.env.PDF_SERVER_URL
@@ -15,12 +15,15 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.privilegeLevel) {
-      return NextResponse.json({ error: "please log in" });
+      return NextResponse.json({ error: "please log in" }, { status: 401 });
     }
     if (!hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)) {
-      return NextResponse.json({
-        error: "user does not have sufficient privilege",
-      });
+      return NextResponse.json(
+        {
+          error: "user does not have sufficient privilege",
+        },
+        { status: 403 },
+      );
     }
     const requestBody: unknown = await req.json();
 
@@ -32,7 +35,7 @@ export async function POST(req: NextRequest) {
     );
 
     const jsonPayload = JSON.stringify(ldCommitteesArray);
-    const compressedPayload = zlib.gzipSync(jsonPayload);
+    const compressedPayload = gzipSync(jsonPayload);
 
     console.log(
       "Compressed: ",

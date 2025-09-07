@@ -1,6 +1,6 @@
 // src/index.ts
 import express, { Request, Response } from 'express';
-import zlib from 'zlib';
+import { gunzipSync } from 'node:zlib';
 import { config } from 'dotenv';
 import { randomUUID } from 'crypto';
 
@@ -11,6 +11,27 @@ import {
   generateCommitteeReportHTML,
 } from './utils';
 import { uploadPdfToR2 } from './s3Utils';
+import { createWebhookSignature } from './webhookUtils';
+
+// Function to sanitize reportAuthor for safe S3 key usage
+function sanitizeReportAuthor(author: string): string {
+  if (!author || typeof author !== 'string') {
+    return randomUUID();
+  }
+
+  // Remove or replace unsafe characters for S3 keys
+  // Replace slashes, spaces, and other problematic characters with hyphens
+  // Convert to lowercase and remove any remaining special characters
+  const sanitized = author
+    .toLowerCase()
+    .replace(/[\/\\\s]+/g, '-') // Replace slashes, backslashes, and whitespace with hyphens
+    .replace(/[^a-z0-9\-_]/g, '') // Remove any remaining special characters except hyphens and underscores
+    .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+  // If sanitization resulted in empty string, fallback to UUID
+  return sanitized || randomUUID();
+}
 
 config();
 
@@ -34,7 +55,7 @@ app.post(
     try {
       // Decompress the gzipped request body
       console.log('received request');
-      const decompressedBuffer = zlib.gunzipSync(req.body);
+      const decompressedBuffer = gunzipSync(req.body);
       console.log('decompressed gzip');
       const jsonString = decompressedBuffer.toString('utf-8');
       const requestData = JSON.parse(jsonString);
@@ -59,17 +80,20 @@ app.post(
 async function processJob(jobData: any) {
   try {
     let pdfBuffer: Buffer;
+    let fileName: string;
     const { type, reportAuthor, jobId, payload } = jobData;
 
-    let fileName = reportAuthor;
+    // Sanitize reportAuthor for safe S3 key usage
+    const sanitizedAuthor = sanitizeReportAuthor(reportAuthor);
 
     if (type === 'ldCommittees') {
-      fileName += '/committeeReport/' + randomUUID() + '.pdf';
+      fileName = sanitizedAuthor + '/committeeReport/' + randomUUID() + '.pdf';
       console.log('Processing committee report...');
       const html = generateCommitteeReportHTML(payload);
       pdfBuffer = await generatePDF(html, true);
     } else if (type === 'designatedPetition') {
-      fileName += '/designatedPetition/' + randomUUID() + '.pdf';
+      fileName =
+        sanitizedAuthor + '/designatedPetition/' + randomUUID() + '.pdf';
       console.log('Processing designated petition form...');
       const { candidates, vacancyAppointments, party, electionDate, numPages } =
         payload;
@@ -88,22 +112,58 @@ async function processJob(jobData: any) {
 
     await uploadPdfToR2(pdfBuffer, fileName);
 
+    // Create callback payload
+    const callbackPayload = JSON.stringify({
+      success: true,
+      type: type,
+      url: fileName,
+      jobId,
+    });
+
+    // Create new webhook signature for the callback payload
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    const callbackSignature = webhookSecret
+      ? createWebhookSignature(callbackPayload, webhookSecret)
+      : undefined;
+
+    const callbackHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (callbackSignature) {
+      callbackHeaders['x-webhook-signature'] = callbackSignature;
+    }
+
     await fetch(CALLBACK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        success: true,
-        type: type,
-        url: fileName,
-        jobId,
-      }),
+      headers: callbackHeaders,
+      body: callbackPayload,
     });
   } catch (error) {
     console.error('Error processing job:', error);
+
+    // Create error callback payload
+    const errorCallbackPayload = JSON.stringify({
+      success: false,
+      error: (error as Error).message,
+    });
+
+    // Create new webhook signature for the error callback payload
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    const errorCallbackSignature = webhookSecret
+      ? createWebhookSignature(errorCallbackPayload, webhookSecret)
+      : undefined;
+
+    const errorCallbackHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (errorCallbackSignature) {
+      errorCallbackHeaders['x-webhook-signature'] = errorCallbackSignature;
+    }
+
     await fetch(CALLBACK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: false, error: (error as Error).message }),
+      headers: errorCallbackHeaders,
+      body: errorCallbackPayload,
     });
   }
 }

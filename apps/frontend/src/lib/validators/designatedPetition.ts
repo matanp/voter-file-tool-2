@@ -22,10 +22,14 @@ export const generateDesignatedPetitionDataSchema = z.object({
     .min(1, { message: "At least one vacancy appointment is required" }),
   party: z
     .string()
-    .refine((val) => val.trim() !== "" && val !== defaultCustomPartyName, {
-      message: "Party is required",
-    }),
-  electionDate: z.string().refine((date) => date !== "", {
+    .refine(
+      (val) =>
+        val.trim() !== "" && val.trim() !== defaultCustomPartyName.trim(),
+      {
+        message: "Party is required",
+      },
+    ),
+  electionDate: z.string().refine((val) => val.trim() !== "", {
     message: "Election date is required",
   }),
   numPages: z
@@ -34,6 +38,6 @@ export const generateDesignatedPetitionDataSchema = z.object({
     .max(25, { message: "No more than 25 pages allowed" }),
 });
 
-export type GenerateDeisnatedPetitionData = z.infer<
+export type GenerateDesignatedPetitionData = z.infer<
   typeof generateDesignatedPetitionDataSchema
 >;

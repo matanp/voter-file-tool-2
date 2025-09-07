@@ -18,7 +18,8 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { JobStatus, type Report } from "@prisma/client";
+// Local type-safe DTOs to avoid Prisma client bundling
+type JobStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
 interface PendingJobsIndicatorProps {
   initialJobs?: Report[];
@@ -27,7 +28,7 @@ interface PendingJobsIndicatorProps {
 const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   initialJobs = [],
 }) => {
-  const [jobs, setJobs] = useState<Report[]>(initialJobs);
+  const [jobs, setJobs] = useState<ReportJob[]>(initialJobs);
   const [loading, setLoading] = useState(false);
   const [deletingJobs, setDeletingJobs] = useState<Set<string>>(new Set());
 
@@ -55,13 +56,13 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
 
   const getStatusIcon = (status: JobStatus) => {
     switch (status) {
-      case JobStatus.PENDING:
+      case "PENDING":
         return <Clock className="h-4 w-4 text-yellow-500" />;
-      case JobStatus.PROCESSING:
+      case "PROCESSING":
         return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
-      case JobStatus.COMPLETED:
+      case "COMPLETED":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case JobStatus.FAILED:
+      case "FAILED":
         return <XCircle className="h-4 w-4 text-red-500" />;
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
@@ -70,20 +71,20 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
 
   const getStatusColor = (status: JobStatus) => {
     switch (status) {
-      case JobStatus.PENDING:
+      case "PENDING":
         return "bg-yellow-100 text-yellow-800";
-      case JobStatus.PROCESSING:
+      case "PROCESSING":
         return "bg-blue-100 text-blue-800";
-      case JobStatus.COMPLETED:
+      case "COMPLETED":
         return "bg-green-100 text-green-800";
-      case JobStatus.FAILED:
+      case "FAILED":
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: string) => {
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
@@ -122,9 +123,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
 
   const pendingJobs = jobs.filter(
     (job) =>
-      job.status === JobStatus.PENDING ||
-      job.status === JobStatus.PROCESSING ||
-      job.status === JobStatus.FAILED,
+      job.status === "PENDING" ||
+      job.status === "PROCESSING" ||
+      job.status === "FAILED",
   );
 
   if (pendingJobs.length === 0) {
@@ -187,7 +188,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
               <Badge className={getStatusColor(job.status)} hoverable={false}>
                 {job.status.toLowerCase()}
               </Badge>
-              {job.status === JobStatus.FAILED && (
+              {job.status === "FAILED" && (
                 <Button
                   size="sm"
                   variant="ghost"

@@ -16,11 +16,11 @@ import { AddCommitteeForm } from "./AddCommitteeForm";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 
 interface CommitteeSelectorProps {
-  commiitteeLists: CommitteeList[];
+  committeeLists: CommitteeList[];
 }
 
 const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
-  commiitteeLists,
+  committeeLists,
 }) => {
   const { actingPermissions } = useContext(GlobalContext);
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -34,7 +34,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [legDistricts, setLegDistricts] = useState<string[]>([]);
 
-  const cities = new Set(commiitteeLists.map((list) => list.cityTown));
+  const cities = new Set(committeeLists.map((list) => list.cityTown));
 
   const handleDistrictChange = (districtString: string) => {
     const district = parseInt(districtString);
@@ -63,7 +63,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
     const legDistricts = Array.from(
       new Set(
-        commiitteeLists
+        committeeLists
           .filter((list) => list.cityTown === city)
           .map((list) => String(list.legDistrict)),
       ),
@@ -215,7 +215,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               <ComboboxDropdown
                 items={Array.from(
                   new Set(
-                    commiitteeLists
+                    committeeLists
                       .filter(
                         (list) =>
                           list.cityTown === selectedCity &&

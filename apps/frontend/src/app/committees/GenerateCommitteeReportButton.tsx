@@ -57,35 +57,71 @@ export const GenerateCommitteeReportButton: React.FC<
       duration: 3000,
     });
 
-    const response = await fetch(`/api/generateReport`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(validationResult.data),
-    });
+    try {
+      const response = await fetch(`/api/generateReport`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(validationResult.data),
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Error generating PDF: ${response.status} ${response.statusText}`,
+          duration: 5000,
+        });
+        return;
+      }
+
+      // Parse response and validate success payload
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (parseError) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Invalid response format from server",
+          duration: 5000,
+        });
+        return;
+      }
+
+      // Validate expected success payload structure
+      if (!responseData || typeof responseData !== 'object' || !responseData.reportId) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Unexpected response format from server",
+          duration: 5000,
+        });
+        return;
+      }
+
+      // Success path - show success toast and trigger job-based flow
+      toast({
+        title: "Success",
+        description: "Committee report generation started successfully. You can track progress in the Reports section.",
+        duration: 5000,
+      });
+
+      // The job-based flow will be handled by the PendingJobsIndicator component
+      // which polls for job status updates. The reportId is now in the database
+      // and will be picked up by the polling system.
+
+    } catch (networkError) {
+      // Handle network errors (fetch failures, timeouts, etc.)
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Error generating PDF",
+        title: "Network Error",
+        description: `Failed to generate report: ${networkError instanceof Error ? networkError.message : 'Unknown network error'}`,
         duration: 5000,
       });
       return;
     }
-
-    // const blob = await response.blob();
-
-    // const url = window.URL.createObjectURL(blob);
-    // const link = document.createElement("a");
-    // link.href = url;
-    // link.setAttribute("download", "Committee Report.pdf");
-    // document.body.appendChild(link);
-    // link.click();
-
-    // document.body.removeChild(link);
-    // window.URL.revokeObjectURL(url);
   };
 
   return (

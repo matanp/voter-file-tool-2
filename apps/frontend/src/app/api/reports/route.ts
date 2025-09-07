@@ -13,8 +13,20 @@ export const GET = async (req: NextRequest) => {
 
     const url = new URL(req.url);
     const type = url.searchParams.get("type"); // "public", "my-reports", or "all"
-    const page = parseInt(url.searchParams.get("page") ?? "1");
-    const pageSize = parseInt(url.searchParams.get("pageSize") ?? "10");
+
+    // Parse and validate pagination parameters
+    const MAX_PAGE_SIZE = 100;
+    const pageParam = url.searchParams.get("page") ?? "1";
+    const pageSizeParam = url.searchParams.get("pageSize") ?? "10";
+
+    const parsedPage = parseInt(pageParam, 10);
+    const parsedPageSize = parseInt(pageSizeParam, 10);
+
+    // Validate and clamp values to prevent invalid pagination
+    const page = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+    const pageSize = Number.isNaN(parsedPageSize)
+      ? 10
+      : Math.min(MAX_PAGE_SIZE, Math.max(1, parsedPageSize));
 
     let whereClause: {
       deleted: boolean;
