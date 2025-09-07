@@ -102,6 +102,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             (data as { committeeMemberList: VoterRecord[] })
               .committeeMemberList || [],
           );
+        } else if (response.status === 403) {
+          // User doesn't have permission to view member data
+          setCommitteeList([]);
         } else {
           setCommitteeList([]);
         }
@@ -153,10 +156,17 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setRequestRemoveRecord(record);
   };
 
-  const noContentMessage =
-    selectedCity && selectedLegDistrict && selectedDistrict >= 0
-      ? "No committee members found."
-      : "Select a committee to view members.";
+  const noContentMessage = () => {
+    if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
+      return "Select a committee to view members.";
+    }
+
+    if (!hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+      return "You don't have permission to view committee member details. Contact an administrator for access.";
+    }
+
+    return "No committee members found.";
+  };
 
   const getCommitteeListHeader = () => {
     if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
@@ -280,7 +290,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                 ))}
               </div>
             ) : (
-              <p>{noContentMessage}</p>
+              <p>{noContentMessage()}</p>
             )}
           </div>
           <AddCommitteeForm

@@ -62,9 +62,24 @@ const ReportCard: React.FC<ReportCardProps> = ({
       return;
     }
 
+    // Extract file extension from presignedUrl, fallback to "pdf"
+    const getFileExtension = (url: string): string => {
+      try {
+        const pathname = new URL(url).pathname;
+        const lastDotIndex = pathname.lastIndexOf(".");
+        if (lastDotIndex !== -1 && lastDotIndex < pathname.length - 1) {
+          return pathname.substring(lastDotIndex + 1);
+        }
+      } catch (error) {
+        console.warn("Failed to parse URL for file extension:", error);
+      }
+      return "pdf";
+    };
+
+    const fileExtension = getFileExtension(report.presignedUrl);
     const link = document.createElement("a");
     link.href = report.presignedUrl;
-    link.download = `${report.title ?? "report"}.${report.fileType ?? "pdf"}`;
+    link.download = `${report.title ?? "report"}.${fileExtension}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

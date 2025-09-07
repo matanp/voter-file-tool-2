@@ -28,20 +28,36 @@ export function verifyWebhookSignature(
   signature: string,
   secret: string,
 ): boolean {
-  try {
-    const expectedSignature = createHmac("sha256", secret)
-      .update(payload, "utf8")
-      .digest("hex");
-
-    const providedSignature = signature.replace("sha256=", "");
-
-    // Use timing-safe comparison to prevent timing attacks
-    return timingSafeEqual(
-      Buffer.from(expectedSignature, "hex"),
-      Buffer.from(providedSignature, "hex"),
-    );
-  } catch (error) {
-    console.error("Error verifying webhook signature:", error);
+  // Validate signature format - must start with "sha256="
+  if (!signature.startsWith("sha256=")) {
     return false;
   }
+
+  // Strip the prefix and validate the remaining string
+  const providedSignature = signature.slice(7); // Remove "sha256=" prefix
+
+  // Validate that the remaining string is a 64-character hex string
+  if (
+    providedSignature.length !== 64 ||
+    !/^[0-9a-fA-F]{64}$/.test(providedSignature)
+  ) {
+    return false;
+  }
+
+  // Compute the expected HMAC
+  const expectedSignature = createHmac("sha256", secret)
+    .update(payload, "utf8")
+    .digest("hex");
+
+  // Convert both to Buffers
+  const expectedBuffer = Buffer.from(expectedSignature, "hex");
+  const providedBuffer = Buffer.from(providedSignature, "hex");
+
+  // Ensure both buffers are the same length before calling timingSafeEqual
+  if (expectedBuffer.length !== providedBuffer.length) {
+    return false;
+  }
+
+  // Use timing-safe comparison to prevent timing attacks
+  return timingSafeEqual(expectedBuffer, providedBuffer);
 }

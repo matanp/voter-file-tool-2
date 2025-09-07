@@ -47,6 +47,7 @@ export const PATCH = async (
       where: {
         id: reportId,
         generatedById: session.user.id,
+        deleted: false,
       },
     });
 
@@ -90,9 +91,26 @@ export const PATCH = async (
       );
     }
 
-    const updatedReport = await prisma.report.update({
-      where: { id: reportId },
+    // Use updateMany for atomic update that will affect zero rows if deleted is true
+    const updateResult = await prisma.report.updateMany({
+      where: {
+        id: reportId,
+        generatedById: session.user.id,
+        deleted: false,
+      },
       data: updatePayload,
+    });
+
+    if (updateResult.count === 0) {
+      return NextResponse.json(
+        { error: "Report not found or access denied" },
+        { status: 404 },
+      );
+    }
+
+    // Fetch the updated record
+    const updatedReport = await prisma.report.findUnique({
+      where: { id: reportId },
       include: {
         generatedBy: {
           select: {
@@ -103,6 +121,13 @@ export const PATCH = async (
         },
       },
     });
+
+    if (!updatedReport) {
+      return NextResponse.json(
+        { error: "Report not found or access denied" },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json({ report: updatedReport });
   } catch (error) {
@@ -137,6 +162,7 @@ export const DELETE = async (
       where: {
         id: reportId,
         generatedById: session.user.id,
+        deleted: false,
       },
     });
 
@@ -148,10 +174,22 @@ export const DELETE = async (
     }
 
     // Mark the report as deleted instead of actually deleting it
-    await prisma.report.update({
-      where: { id: reportId },
+    // Use updateMany for atomic update that will affect zero rows if already deleted
+    const updateResult = await prisma.report.updateMany({
+      where: {
+        id: reportId,
+        generatedById: session.user.id,
+        deleted: false,
+      },
       data: { deleted: true },
     });
+
+    if (updateResult.count === 0) {
+      return NextResponse.json(
+        { error: "Report not found or access denied" },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

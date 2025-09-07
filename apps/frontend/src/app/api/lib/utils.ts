@@ -94,7 +94,11 @@ export const getAddress = (record: VoterRecord, committee?: boolean) => {
 };
 
 export const getName = (record: VoterRecord) => {
-  return `${record.firstName} ${record.middleInitial} ${record.lastName}`;
+  const nameParts = [record.firstName, record.middleInitial, record.lastName]
+    .filter((part) => part != null && part !== "")
+    .map((part) => (part === record.middleInitial && part ? `${part}.` : part));
+
+  return nameParts.join(" ").trim();
 };
 
 // const DISCREPENCY_FIELDS = [

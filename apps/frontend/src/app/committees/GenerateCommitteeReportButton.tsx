@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
   type CommitteeWithMembers,
@@ -11,6 +11,10 @@ import {
   type GenerateReportData,
   generateReportSchema,
 } from "~/lib/validators/generateReport";
+import { useReportJobStatus } from "~/hooks/useReportJobStatus";
+import { JobStatus } from "@prisma/client";
+import { useRouter } from "next/navigation";
+import { ToastAction } from "~/components/ui/toast";
 
 interface GenerateCommitteeReportButtonProps {
   committeeLists: CommitteeWithMembers[];
@@ -20,11 +24,59 @@ export const GenerateCommitteeReportButton: React.FC<
   GenerateCommitteeReportButtonProps
 > = ({ committeeLists }) => {
   const { toast } = useToast();
+  const router = useRouter();
+  const [reportJobId, setReportJobId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Use the polling hook to track job status
+  const { status, url, isLoading, error } = useReportJobStatus(reportJobId, {
+    onComplete: (downloadUrl) => {
+      // Auto-navigate to reports page when complete
+      router.push("/reports");
+      toast({
+        title: "Report Ready!",
+        description: "Your committee report has been generated successfully.",
+        action: (
+          <ToastAction
+            altText="Download report"
+            onClick={() => window.open(downloadUrl, "_blank")}
+          >
+            Download
+          </ToastAction>
+        ),
+        duration: 10000,
+      });
+      setReportJobId(null);
+      setIsGenerating(false);
+    },
+    onError: (errorMessage) => {
+      toast({
+        variant: "destructive",
+        title: "Report Generation Failed",
+        description: errorMessage,
+        action: (
+          <ToastAction
+            altText="View reports"
+            onClick={() => router.push("/reports")}
+          >
+            View Reports
+          </ToastAction>
+        ),
+        duration: 10000,
+      });
+      setReportJobId(null);
+      setIsGenerating(false);
+    },
+  });
 
   const handleSubmit = async (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     event.preventDefault();
+
+    if (isGenerating) {
+      return; // Prevent multiple submissions
+    }
 
     const committeeData = mapCommiteesToReportShape(committeeLists);
 
@@ -52,10 +104,7 @@ export const GenerateCommitteeReportButton: React.FC<
       return;
     }
 
-    toast({
-      description: "Generating PDF, your report will download soon",
-      duration: 3000,
-    });
+    setIsGenerating(true);
 
     try {
       const response = await fetch(`/api/generateReport`, {
@@ -73,6 +122,7 @@ export const GenerateCommitteeReportButton: React.FC<
           description: `Error generating PDF: ${response.status} ${response.statusText}`,
           duration: 5000,
         });
+        setIsGenerating(false);
         return;
       }
 
@@ -87,46 +137,63 @@ export const GenerateCommitteeReportButton: React.FC<
           description: "Invalid response format from server",
           duration: 5000,
         });
+        setIsGenerating(false);
         return;
       }
 
       // Validate expected success payload structure
-      if (!responseData || typeof responseData !== 'object' || !responseData.reportId) {
+      if (
+        !responseData ||
+        typeof responseData !== "object" ||
+        !responseData.reportId
+      ) {
         toast({
           variant: "destructive",
           title: "Error",
           description: "Unexpected response format from server",
           duration: 5000,
         });
+        setIsGenerating(false);
         return;
       }
 
-      // Success path - show success toast and trigger job-based flow
+      // Start tracking the job
+      setReportJobId(responseData.reportId);
+
+      // Show initial toast with tracking info
       toast({
-        title: "Success",
-        description: "Committee report generation started successfully. You can track progress in the Reports section.",
-        duration: 5000,
+        title: "Report Generation Started",
+        description:
+          "Your committee report is being generated. You'll be notified when it's ready.",
+        action: (
+          <ToastAction
+            altText="View report status"
+            onClick={() => router.push("/reports")}
+          >
+            View Status
+          </ToastAction>
+        ),
+        duration: 8000,
       });
-
-      // The job-based flow will be handled by the PendingJobsIndicator component
-      // which polls for job status updates. The reportId is now in the database
-      // and will be picked up by the polling system.
-
     } catch (networkError) {
       // Handle network errors (fetch failures, timeouts, etc.)
       toast({
         variant: "destructive",
         title: "Network Error",
-        description: `Failed to generate report: ${networkError instanceof Error ? networkError.message : 'Unknown network error'}`,
+        description: `Failed to generate report: ${networkError instanceof Error ? networkError.message : "Unknown network error"}`,
         duration: 5000,
       });
+      setIsGenerating(false);
       return;
     }
   };
 
+  // Show loading state while generating or polling
+  const isProcessing = isGenerating || (reportJobId && isLoading);
+
   return (
-    <Button onClick={(e) => handleSubmit(e)}>
-      Generate Committee List Report
+    <Button onClick={(e) => handleSubmit(e)} disabled={isProcessing}>
+      {isProcessing ? "Generating Report..." : "Generate Committee List Report"}
     </Button>
   );
 };

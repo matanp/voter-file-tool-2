@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
 
-export async function GET(req: NextRequest) {
+async function getCommitteeList(req: NextRequest) {
   const electionDistrict = req.nextUrl.searchParams.get("electionDistrict");
   const cityTown = req.nextUrl.searchParams.get("cityTown");
   const legDistrict = req.nextUrl.searchParams.get("legDistrict");
@@ -48,3 +50,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withPrivilege(PrivilegeLevel.Admin, getCommitteeList);

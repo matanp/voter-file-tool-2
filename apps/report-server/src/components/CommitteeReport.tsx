@@ -146,6 +146,8 @@ export function paginateCommittees(
   const pages: Page[] = [];
 
   for (const ld of groupedCommittees) {
+    // Track the starting page index for this LD
+    const ldStartPageIndex = pages.length;
     let currentGroups: CommitteeGroup[] = [];
     let memberCount = 0;
     let currentCount = 0; // members + groups headers cost
@@ -203,6 +205,7 @@ export function paginateCommittees(
       }
     }
 
+    // Handle remaining groups or ensure final page is marked correctly
     if (currentGroups.length > 0) {
       pages.push({
         cityTown: ld.cityTown,
@@ -211,6 +214,20 @@ export function paginateCommittees(
         lastPage: true,
         totalRecords: memberCount,
       });
+    } else {
+      // All groups were chunked, need to mark the final page for this LD
+      const ldEndPageIndex = pages.length;
+      if (ldEndPageIndex > ldStartPageIndex) {
+        // Mark the last page for this LD as the final page with subtotal
+        const lastPageIndex = ldEndPageIndex - 1;
+        if (memberCount > 0) {
+          pages[lastPageIndex] = {
+            ...pages[lastPageIndex],
+            lastPage: true,
+            totalRecords: memberCount,
+          };
+        }
+      }
     }
   }
 
