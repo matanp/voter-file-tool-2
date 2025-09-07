@@ -7,7 +7,7 @@ import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { toast } from "~/components/ui/use-toast";
 import RecordSearchForm from "../components/RecordSearchForm";
 import type { VoterRecord } from "@prisma/client";
-import { JobStatus } from "@prisma/client";
+
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
 import type { ElectionDate, OfficeName } from "prisma/prisma-client";
@@ -194,7 +194,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
 
     const checkStatus = async () => {
       try {
@@ -202,25 +202,22 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
         if (!response.ok) throw new Error("Failed to fetch job status");
 
         const data = (await response.json()) as unknown as {
-          status: JobStatus;
+          status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
           url: string | undefined;
         };
 
         if (!isMounted) return;
 
-        if (data.status === JobStatus.COMPLETED && data.url) {
+        if (data.status === "COMPLETED" && data.url) {
           setReportUrl(data.url);
           setGenerationError(null); // Clear any previous errors
-        } else if (data.status === JobStatus.FAILED) {
+        } else if (data.status === "FAILED") {
           // Handle failed status explicitly
           if (timer) clearTimeout(timer);
           setGenerationError(
             "Generation failed: The petition generation process encountered an error",
           );
-        } else if (
-          data.status === JobStatus.PENDING ||
-          data.status === JobStatus.PROCESSING
-        ) {
+        } else if (data.status === "PENDING" || data.status === "PROCESSING") {
           // Wait 2 seconds and check again
           timer = setTimeout(() => void checkStatus(), 2000);
         }

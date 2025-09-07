@@ -35,7 +35,7 @@ const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
 };
 
 export type CommitteeWithMembers = CommitteeList & {
-  committeeMemberList: VoterRecord[];
+  committeeMemberList?: VoterRecord[];
 };
 
 export const mapCommiteesToReportShape = (
@@ -47,7 +47,7 @@ export const mapCommiteesToReportShape = (
   for (const committee of committees) {
     // Create stable group key from cityTown + legDistrict
     const groupKey = `${committee.cityTown}|${committee.legDistrict}`;
-    
+
     // Get or create group
     let group = groupMap.get(groupKey);
     if (!group) {
@@ -59,11 +59,12 @@ export const mapCommiteesToReportShape = (
       groupMap.set(groupKey, group);
     }
 
-    const members = committee.committeeMemberList.map(mapVoterRecordToMember);
+    const members =
+      committee.committeeMemberList?.map(mapVoterRecordToMember) ?? [];
 
     // Create stable election district key, sanitizing externalId
-    const electionDistrictKey = String(committee.externalId ?? committee.id);
-    
+    const electionDistrictKey = String(committee.id);
+
     // Initialize election district array if it doesn't exist
     if (!group.committees[electionDistrictKey]) {
       group.committees[electionDistrictKey] = [];

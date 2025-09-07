@@ -6,7 +6,7 @@ import prisma from "~/lib/prisma";
 import { JobStatus } from "@prisma/client";
 import { auth } from "~/auth";
 
-const ReportsPage: React.FC = async () => {
+export default async function ReportsPage() {
   const session = await auth();
 
   // Fetch initial pending reports for the indicator
@@ -66,6 +66,4 @@ const ReportsPage: React.FC = async () => {
       </div>
     </AuthCheck>
   );
-};
-
-export default ReportsPage;
+}

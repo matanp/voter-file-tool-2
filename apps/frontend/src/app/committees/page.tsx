@@ -12,11 +12,20 @@ import type { CommitteeWithMembers } from "./committeeUtils";
 
 const CommitteeLists = async () => {
   const permissions = await auth();
+
+  const isAdminUser = hasPermissionFor(
+    permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+    PrivilegeLevel.Admin,
+  );
+
+  // Only include PII data for admin users
   const committeeLists: CommitteeWithMembers[] =
     await prisma.committeeList.findMany({
-      include: {
-        committeeMemberList: true,
-      },
+      include: isAdminUser
+        ? {
+            committeeMemberList: true,
+          }
+        : {},
     });
 
   // console.log(JSON.stringify(committeeLists.slice(100, 102)));
@@ -28,11 +37,6 @@ const CommitteeLists = async () => {
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
   let committeeRequests = [];
-
-  const isAdminUser = hasPermissionFor(
-    permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
-    PrivilegeLevel.Admin,
-  );
 
   if (isAdminUser) {
     committeeRequests = await prisma.committeeRequest.findMany({});

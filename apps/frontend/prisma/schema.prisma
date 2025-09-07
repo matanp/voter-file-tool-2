@@ -272,6 +272,13 @@ model Report {
   requestedAt   DateTime   @default(now())
   completedAt   DateTime?
   deleted       Boolean   @default(false)
+
+  @@index([generatedById])
+  @@index([status])
+  @@index([public])
+  @@index([requestedAt])
+  @@index([generatedById, status])
+  @@index([public, status])
 }
 
 enum ReportType {

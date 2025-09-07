@@ -76,15 +76,24 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
+    // Only process updates if the report is in PROCESSING status
+    // This prevents regressing terminal statuses and makes the endpoint idempotent
     if (existingReport.status !== JobStatus.PROCESSING) {
       console.warn(
-        `Report ${jobId} is not in PROCESSING status (current: ${existingReport.status})`,
+        `Report ${jobId} is not in PROCESSING status (current: ${existingReport.status}), skipping update`,
+      );
+      return NextResponse.json(
+        { received: true, skipped: true },
+        { status: 200 },
       );
     }
 
     if (success) {
       if (!url) {
-        throw new Error("successful job but no url");
+        return NextResponse.json(
+          { error: "missing url for successful job" },
+          { status: 400 },
+        );
       }
 
       await prisma.report.update({

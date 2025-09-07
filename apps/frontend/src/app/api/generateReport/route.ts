@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { generateReportSchema } from "~/lib/validators/generateReport";
 import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, ReportType, JobStatus } from "@prisma/client";
 import type { Session } from "next-auth";
 import { gzipSync } from "node:zlib";
 import { createWebhookSignature } from "~/lib/webhookUtils";
@@ -41,11 +41,11 @@ export const POST = withPrivilege(
           generatedById: session.user.id,
           ReportType:
             reportData.type === "ldCommittees"
-              ? "CommitteeReport"
-              : "DesignatedPetition",
+              ? ReportType.CommitteeReport
+              : ReportType.DesignatedPetition,
           title: reportData.name,
           description: reportData.description,
-          status: "PENDING",
+          status: JobStatus.PENDING,
         },
       });
 
@@ -83,7 +83,7 @@ export const POST = withPrivilege(
       if (response.ok) {
         await prisma.report.update({
           where: { id: reportId },
-          data: { status: "PROCESSING" },
+          data: { status: JobStatus.PROCESSING },
         });
 
         return NextResponse.json({ reportId }, { status: 200 });
@@ -91,7 +91,7 @@ export const POST = withPrivilege(
         await prisma.report.update({
           where: { id: reportId },
           data: {
-            status: "FAILED",
+            status: JobStatus.FAILED,
             completedAt: new Date(),
           },
         });
@@ -106,7 +106,7 @@ export const POST = withPrivilege(
           await prisma.report.update({
             where: { id: reportId },
             data: {
-              status: "FAILED",
+              status: JobStatus.FAILED,
               completedAt: new Date(),
             },
           });
