@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import {
   Card,
   CardContent,
@@ -17,13 +17,14 @@ import {
   ChevronRight,
 } from "lucide-react";
 import ReportCard from "./ReportCard";
-import { type Report } from "@prisma/client";
+import { type Report, PrivilegeLevel } from "@prisma/client";
+import { GlobalContext } from "~/components/providers/GlobalContext";
+import { hasPermissionFor } from "~/lib/utils";
 
 interface ReportsListProps {
   type: "public" | "my-reports";
   title: string;
   description: string;
-  isAdmin?: boolean;
 }
 
 interface ReportsResponse {
@@ -45,8 +46,9 @@ const ReportsList: React.FC<ReportsListProps> = ({
   type,
   title,
   description,
-  isAdmin = false,
 }) => {
+  const { actingPermissions } = useContext(GlobalContext);
+  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const [reports, setReports] = useState<ReportsResponse["reports"]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
