@@ -16,10 +16,12 @@ export const GET = async (req: NextRequest) => {
     const pageSize = parseInt(url.searchParams.get("pageSize") ?? "10");
 
     const whereClause: {
-      requestedById: string;
+      generatedById: string;
+      deleted: boolean;
       status?: JobStatus | { in: JobStatus[] };
     } = {
-      requestedById: session.user.id,
+      generatedById: session.user.id,
+      deleted: false,
     };
 
     if (status && status !== "all") {
@@ -30,32 +32,31 @@ export const GET = async (req: NextRequest) => {
         statusValues.length === 1 ? statusValues[0] : { in: statusValues };
     }
 
-    const [jobs, totalCount] = await Promise.all([
-      prisma.reportJob.findMany({
+    const [reports, totalCount] = await Promise.all([
+      prisma.report.findMany({
         where: whereClause,
-        include: {
-          report: {
-            select: {
-              id: true,
-              title: true,
-              description: true,
-              ReportType: true,
-              fileType: true,
-              public: true,
-            },
-          },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          ReportType: true,
+          fileType: true,
+          public: true,
+          status: true,
+          requestedAt: true,
+          completedAt: true,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { requestedAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.reportJob.count({
+      prisma.report.count({
         where: whereClause,
       }),
     ]);
 
     return NextResponse.json({
-      jobs,
+      reports,
       totalCount,
       page,
       pageSize,

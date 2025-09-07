@@ -14,16 +14,17 @@ const ReportsPage: React.FC = async () => {
     ? hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)
     : false;
 
-  // Fetch initial pending jobs for the indicator
-  const initialPendingJobs = session?.user?.id
-    ? await prisma.reportJob.findMany({
+  // Fetch initial pending reports for the indicator
+  const initialPendingReports = session?.user?.id
+    ? await prisma.report.findMany({
         where: {
-          requestedById: session.user.id,
+          generatedById: session.user.id,
+          deleted: false,
           status: {
-            in: [JobStatus.PENDING, JobStatus.PROCESSING],
+            in: [JobStatus.PENDING, JobStatus.PROCESSING, JobStatus.FAILED],
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { requestedAt: "desc" },
         take: 5,
       })
     : [];
@@ -44,7 +45,7 @@ const ReportsPage: React.FC = async () => {
 
         <div className="space-y-6">
           {/* Report Jobs - Always at the top */}
-          <PendingJobsIndicator initialJobs={initialPendingJobs} />
+          <PendingJobsIndicator initialJobs={initialPendingReports} />
 
           {/* Reports Lists - Side by side with responsive layout */}
           <div className="flex flex-col xl:flex-row gap-6 overflow-hidden">

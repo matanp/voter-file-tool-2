@@ -10,25 +10,35 @@ import {
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Clock, CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
-import { JobStatus, type ReportJob } from "@prisma/client";
+import {
+  Clock,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
+import { JobStatus, type Report } from "@prisma/client";
 
 interface PendingJobsIndicatorProps {
-  initialJobs?: ReportJob[];
+  initialJobs?: Report[];
 }
 
 const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   initialJobs = [],
 }) => {
-  const [jobs, setJobs] = useState<ReportJob[]>(initialJobs);
+  const [jobs, setJobs] = useState<Report[]>(initialJobs);
   const [loading, setLoading] = useState(false);
+  const [deletingJobs, setDeletingJobs] = useState<Set<string>>(new Set());
 
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/reportJobs?status=pending,processing");
+      const response = await fetch(
+        "/api/reportJobs?status=pending,processing,failed",
+      );
       const data = await response.json();
-      setJobs(data.jobs || []);
+      setJobs(data.reports || []);
     } catch (error) {
       console.error("Error fetching pending jobs:", error);
     } finally {
@@ -82,9 +92,39 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
     }).format(new Date(date));
   };
 
+  const handleDeleteJob = async (jobId: string) => {
+    if (!confirm("Are you sure you want to delete this failed report?")) {
+      return;
+    }
+
+    setDeletingJobs((prev) => new Set(prev).add(jobId));
+    try {
+      const response = await fetch(`/api/reports/${jobId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete report");
+      }
+
+      // Remove the job from the list
+      setJobs((prev) => prev.filter((job) => job.id !== jobId));
+    } catch (error) {
+      console.error("Error deleting report:", error);
+    } finally {
+      setDeletingJobs((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(jobId);
+        return newSet;
+      });
+    }
+  };
+
   const pendingJobs = jobs.filter(
     (job) =>
-      job.status === JobStatus.PENDING || job.status === JobStatus.PROCESSING,
+      job.status === JobStatus.PENDING ||
+      job.status === JobStatus.PROCESSING ||
+      job.status === JobStatus.FAILED,
   );
 
   if (pendingJobs.length === 0) {
@@ -139,13 +179,27 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
               <div>
                 <p className="text-sm font-medium">Job #{job.id.slice(-8)}</p>
                 <p className="text-xs text-gray-500">
-                  Started {formatDate(job.createdAt)}
+                  Started {formatDate(job.requestedAt)}
                 </p>
               </div>
             </div>
-            <Badge className={getStatusColor(job.status)} hoverable={false}>
-              {job.status.toLowerCase()}
-            </Badge>
+            <div className="flex items-center space-x-2">
+              <Badge className={getStatusColor(job.status)} hoverable={false}>
+                {job.status.toLowerCase()}
+              </Badge>
+              {job.status === JobStatus.FAILED && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleDeleteJob(job.id)}
+                  disabled={deletingJobs.has(job.id)}
+                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  title="Delete failed report"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         ))}
       </CardContent>

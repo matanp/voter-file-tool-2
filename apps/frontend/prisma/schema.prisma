@@ -35,7 +35,6 @@ model User {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   Report    Report[]
-  ReportJob ReportJob[]
 }
 
 model Account {
@@ -264,14 +263,15 @@ model Report {
   generatedById String
   generatedBy   User       @relation(fields: [generatedById], references: [id])
   ReportType    ReportType
-  fileKey       String
+  fileKey       String?
   title         String?
   description   String?
   fileType      String?
   public        Boolean    @default(false)
-
-  createdAt DateTime   @default(now())
-  job       ReportJob?
+  status        JobStatus  @default(PENDING)
+  requestedAt   DateTime   @default(now())
+  completedAt   DateTime?
+  deleted       Boolean   @default(false)
 }
 
 enum ReportType {
@@ -279,18 +279,6 @@ enum ReportType {
   DesignatedPetition
 }
 
-model ReportJob {
-  id            String    @id @default(cuid())
-  status        JobStatus @default(PENDING)
-  report        Report?   @relation(fields: [reportId], references: [id])
-  reportId      String?   @unique
-  requestedBy   User      @relation(fields: [requestedById], references: [id])
-  requestedById String
-  name          String?
-  description   String?
-  createdAt     DateTime  @default(now())
-  completedAt   DateTime?
-}
 
 enum JobStatus {
   PENDING
