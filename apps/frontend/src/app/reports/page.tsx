@@ -3,16 +3,11 @@ import AuthCheck from "~/components/ui/authcheck";
 import ReportsList from "~/components/reports/ReportsList";
 import PendingJobsIndicator from "~/components/reports/PendingJobsIndicator";
 import prisma from "~/lib/prisma";
-import { JobStatus, PrivilegeLevel } from "@prisma/client";
+import { JobStatus } from "@prisma/client";
 import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
 
 const ReportsPage: React.FC = async () => {
   const session = await auth();
-
-  const isAdmin = session?.user?.privilegeLevel
-    ? hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)
-    : false;
 
   // Fetch initial pending reports for the indicator
   const initialPendingReports = session?.user?.id
@@ -54,7 +49,6 @@ const ReportsPage: React.FC = async () => {
                 type="my-reports"
                 title="My Reports"
                 description="Reports you have generated"
-                isAdmin={isAdmin}
               />
             </div>
 
@@ -63,7 +57,6 @@ const ReportsPage: React.FC = async () => {
                 type="public"
                 title="Public Reports"
                 description="Publicly available reports"
-                isAdmin={isAdmin}
               />
             </div>
           </div>
