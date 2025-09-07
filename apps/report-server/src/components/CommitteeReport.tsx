@@ -59,32 +59,32 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                 </h3>
 
                 <table className="w-full text-sm">
+                  <thead>
+                    <tr className="">
+                      <th className="border border-gray-400 px-2 py-1 text-left">
+                        Serve ED
+                      </th>
+                      <th className="border border-gray-400 px-2 py-1 text-left">
+                        Name
+                      </th>
+                      <th className="border border-gray-400 px-2 py-1 text-left">
+                        Address
+                      </th>
+                      <th className="border border-gray-400 px-2 py-1 text-left">
+                        City
+                      </th>
+                      <th className="border border-gray-400 px-2 py-1 text-left">
+                        State
+                      </th>
+                      <th className="border border-gray-400 px-2 py-1 text-left">
+                        Zip
+                      </th>
+                      <th className="border border-gray-400 px-2 py-1 text-left">
+                        Phone
+                      </th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    <thead>
-                      <tr className="">
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          Serve ED
-                        </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          Name
-                        </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          Address
-                        </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          City
-                        </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          State
-                        </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          Zip
-                        </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          Phone
-                        </th>
-                      </tr>
-                    </thead>
                     {page.groups.map((group, groupIndex) => (
                       <React.Fragment key={groupIndex}>
                         {group.members.map((member, memberIndex) => (
@@ -154,6 +154,7 @@ export function paginateCommittees(
       const costToAdd = members.length + 1; // +1 for header
       memberCount += members.length;
 
+      // Check if this group would overflow the page
       if (currentCount + costToAdd > pageSize && currentGroups.length > 0) {
         // Finish current page
         pages.push({
@@ -168,8 +169,38 @@ export function paginateCommittees(
         currentCount = 0;
       }
 
-      currentGroups.push({ electionDistrict, members });
-      currentCount += costToAdd;
+      // Check if this single group is too large for a page
+      if (costToAdd > pageSize) {
+        // If there are existing groups, finish the current page first
+        if (currentGroups.length > 0) {
+          pages.push({
+            cityTown: ld.cityTown,
+            legDistrict: ld.legDistrict,
+            groups: currentGroups,
+            lastPage: false,
+          });
+          currentGroups = [];
+          currentCount = 0;
+        }
+
+        // Split the oversized group into chunks
+        const maxMembersPerChunk = pageSize - 1; // -1 for header
+        for (let i = 0; i < members.length; i += maxMembersPerChunk) {
+          const chunk = members.slice(i, i + maxMembersPerChunk);
+          const chunkGroup = { electionDistrict, members: chunk };
+
+          pages.push({
+            cityTown: ld.cityTown,
+            legDistrict: ld.legDistrict,
+            groups: [chunkGroup],
+            lastPage: false,
+          });
+        }
+      } else {
+        // Group fits on current page
+        currentGroups.push({ electionDistrict, members });
+        currentCount += costToAdd;
+      }
     }
 
     if (currentGroups.length > 0) {

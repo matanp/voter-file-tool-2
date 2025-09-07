@@ -4,7 +4,8 @@ import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
 import { PrivilegeLevel } from "@prisma/client";
 import type { Session } from "next-auth";
-import zlib from "zlib";
+import { gzipSync } from "node:zlib";
+import { createWebhookSignature } from "~/lib/webhookUtils";
 
 const PDF_API_BASE = process.env.PDF_SERVER_URL
   ? process.env.PDF_SERVER_URL
@@ -56,12 +57,25 @@ export const POST = withPrivilege(
         jobId: reportId,
       };
 
-      const gzippedBuffer = zlib.gzipSync(JSON.stringify(enrichedReportData));
+      const gzippedBuffer = gzipSync(JSON.stringify(enrichedReportData));
+
+      // Get webhook secret for HMAC signing
+      const webhookSecret = process.env.WEBHOOK_SECRET;
+      if (!webhookSecret) {
+        throw new Error("WEBHOOK_SECRET environment variable is not set");
+      }
+
+      // Create HMAC signature for the gzipped payload
+      const signature = createWebhookSignature(
+        gzippedBuffer.toString("binary"),
+        webhookSecret,
+      );
 
       const response = await fetch(PDF_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-webhook-signature": signature,
         },
         body: gzippedBuffer,
       });

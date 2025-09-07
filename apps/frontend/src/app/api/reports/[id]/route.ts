@@ -22,7 +22,20 @@ export const PATCH = async (
     }
 
     const reportId = params.id;
-    const body = (await req.json()) as unknown;
+
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      return NextResponse.json(
+        { error: "Content-Type must be application/json" },
+        { status: 400 },
+      );
+    }
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
     const validatedData = updateReportSchema.parse(body);
 
     const isAdmin = hasPermissionFor(
@@ -52,19 +65,34 @@ export const PATCH = async (
       );
     }
 
+    // Build the update payload
+    const updatePayload: {
+      title?: string;
+      description?: string;
+      public?: boolean;
+    } = {};
+
+    if (validatedData.title !== undefined) {
+      updatePayload.title = validatedData.title;
+    }
+    if (validatedData.description !== undefined) {
+      updatePayload.description = validatedData.description;
+    }
+    if (validatedData.public !== undefined) {
+      updatePayload.public = validatedData.public;
+    }
+
+    // Check if there are any fields to update
+    if (Object.keys(updatePayload).length === 0) {
+      return NextResponse.json(
+        { error: "No updatable fields provided" },
+        { status: 400 },
+      );
+    }
+
     const updatedReport = await prisma.report.update({
       where: { id: reportId },
-      data: {
-        ...(validatedData.title !== undefined && {
-          title: validatedData.title,
-        }),
-        ...(validatedData.description !== undefined && {
-          description: validatedData.description,
-        }),
-        ...(validatedData.public !== undefined && {
-          public: validatedData.public,
-        }),
-      },
+      data: updatePayload,
       include: {
         generatedBy: {
           select: {

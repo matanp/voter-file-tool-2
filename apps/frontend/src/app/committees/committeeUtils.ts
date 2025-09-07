@@ -41,36 +41,38 @@ export type CommitteeWithMembers = CommitteeList & {
 export const mapCommiteesToReportShape = (
   committees: CommitteeWithMembers[],
 ): LDCommittees[] => {
-  const result: LDCommittees[] = [];
+  // Create a Map keyed by group identifier (cityTown + legDistrict) for O(1) lookup
+  const groupMap = new Map<string, LDCommittees>();
 
   for (const committee of committees) {
-    // find existing group (cityTown + legDistrict)
-    let group = result.find(
-      (g) =>
-        g.cityTown === committee.cityTown &&
-        g.legDistrict === committee.legDistrict,
-    );
-
+    // Create stable group key from cityTown + legDistrict
+    const groupKey = `${committee.cityTown}|${committee.legDistrict}`;
+    
+    // Get or create group
+    let group = groupMap.get(groupKey);
     if (!group) {
       group = {
         cityTown: committee.cityTown,
         legDistrict: committee.legDistrict,
         committees: {},
       };
-      result.push(group);
+      groupMap.set(groupKey, group);
     }
 
     const members = committee.committeeMemberList.map(mapVoterRecordToMember);
 
-    // assign to electionDistrict key
-    if (!group.committees[committee.electionDistrict]) {
-      group.committees[committee.electionDistrict] = [];
+    // Create stable election district key, sanitizing externalId
+    const electionDistrictKey = String(committee.externalId ?? committee.id);
+    
+    // Initialize election district array if it doesn't exist
+    if (!group.committees[electionDistrictKey]) {
+      group.committees[electionDistrictKey] = [];
     }
-    group.committees[committee.electionDistrict]?.push(...members);
+    group.committees[electionDistrictKey]?.push(...members);
   }
 
-  // cleanup: drop empty EDs and then drop groups with no EDs
-  return result
+  // Convert Map values to array and cleanup: drop empty EDs and then drop groups with no EDs
+  return Array.from(groupMap.values())
     .map((group) => ({
       ...group,
       committees: Object.fromEntries(

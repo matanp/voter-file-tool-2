@@ -40,7 +40,9 @@ const ReportsPage: React.FC = async () => {
 
         <div className="space-y-6">
           {/* Report Jobs - Always at the top */}
-          <PendingJobsIndicator initialJobs={initialPendingReports} />
+          <PendingJobsIndicator
+            initialJobs={initialPendingReports as unknown as Report[]}
+          />
 
           {/* Reports Lists - Side by side with responsive layout */}
           <div className="flex flex-col xl:flex-row gap-6 overflow-hidden">

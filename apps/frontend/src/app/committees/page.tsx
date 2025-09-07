@@ -56,12 +56,10 @@ const CommitteeLists = async () => {
               </Link>
             </div>
           )}
-          <GenerateCommitteeReportButton
-            committeeLists={committeeLists.slice(0, 10000)}
-          />
+          <GenerateCommitteeReportButton committeeLists={committeeLists} />
         </div>
       )}
-      <CommitteeSelector commiitteeLists={committeeLists} />
+      <CommitteeSelector committeeLists={committeeLists} />
     </div>
   );
 };

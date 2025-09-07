@@ -6,7 +6,8 @@ import { Textarea } from "~/components/ui/textarea";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { toast } from "~/components/ui/use-toast";
 import RecordSearchForm from "../components/RecordSearchForm";
-import type { VoterRecord, JobStatus } from "@prisma/client";
+import type { VoterRecord } from "@prisma/client";
+import { JobStatus } from "@prisma/client";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
 import type { ElectionDate, OfficeName } from "prisma/prisma-client";
@@ -89,6 +90,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
   const [reportId, setReportId] = useState<string>("");
   const [reportUrl, setReportUrl] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const handleSubmit = async (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -177,6 +179,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     };
 
     setReportId(responseData?.reportId);
+    setGenerationError(null); // Clear any previous errors when starting new generation
   };
 
   useEffect(() => {
@@ -205,19 +208,29 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
         if (!isMounted) return;
 
-        if (data.status === "COMPLETED" && data.url) {
+        if (data.status === JobStatus.COMPLETED && data.url) {
           setReportUrl(data.url);
-        } else if (data.status !== "COMPLETED" && data.status !== "FAILED") {
+          setGenerationError(null); // Clear any previous errors
+        } else if (data.status === JobStatus.FAILED) {
+          // Handle failed status explicitly
+          if (timer) clearTimeout(timer);
+          setGenerationError(
+            "Generation failed: The petition generation process encountered an error",
+          );
+        } else if (
+          data.status === JobStatus.PENDING ||
+          data.status === JobStatus.PROCESSING
+        ) {
           // Wait 2 seconds and check again
-
           timer = setTimeout(() => void checkStatus(), 2000);
         }
-
-        // HANDLE FAILED EXPLICITLY
       } catch (err) {
         console.error(err);
-        // Retry after a delay if needed
-        timer = setTimeout(() => void checkStatus(), 5000);
+        // Clear timer and set error state instead of retrying
+        if (timer) clearTimeout(timer);
+        setGenerationError(
+          `Generation failed: ${err instanceof Error ? err.message : "Unknown error occurred"}`,
+        );
       }
     };
 
@@ -548,6 +561,14 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             className="w-full h-[100vh] max-w-[800px] max-h-[1200px]"
             src={reportUrl}
           ></iframe>
+        </div>
+      )}
+      {generationError && (
+        <div className="py-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-800 font-medium">Generation Error</p>
+            <p className="text-red-700 mt-1">{generationError}</p>
+          </div>
         </div>
       )}
     </div>
