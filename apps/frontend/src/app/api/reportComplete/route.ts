@@ -15,46 +15,42 @@ export const POST = async (req: NextRequest) => {
       error?: string;
     };
 
+    const existingReport = await prisma.report.findUnique({
+      where: { id: jobId },
+      select: { status: true },
+    });
+
+    if (!existingReport) {
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    }
+
+    if (existingReport.status !== JobStatus.PROCESSING) {
+      console.warn(
+        `Report ${jobId} is not in PROCESSING status (current: ${existingReport.status})`,
+      );
+    }
+
     if (success) {
       if (!url) {
         throw new Error("successful job but no url");
       }
 
-      // maybe make these atomic later
-      const reportJob = await prisma.reportJob.update({
+      await prisma.report.update({
         where: {
           id: jobId,
         },
         data: {
           status: JobStatus.COMPLETED,
           completedAt: new Date(),
-        },
-      });
-
-      const report = await prisma.report.create({
-        data: {
-          generatedById: reportJob.requestedById,
-          ReportType:
-            type === "ldCommittees"
-              ? ReportType.CommitteeReport
-              : ReportType.DesignatedPetition,
           fileKey: url,
-          title: (reportJob as { name?: string }).name ?? null,
-          description:
-            (reportJob as { description?: string }).description ?? null,
         },
-      });
-
-      await prisma.reportJob.update({
-        where: { id: jobId },
-        data: { reportId: report.id },
       });
 
       return NextResponse.json({ received: true }, { status: 200 });
     } else {
       console.error("Job failed:", error);
 
-      await prisma.reportJob.update({
+      await prisma.report.update({
         where: {
           id: jobId,
         },

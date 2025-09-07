@@ -119,9 +119,10 @@ export const DELETE = async (
       );
     }
 
-    // Delete the report
-    await prisma.report.delete({
+    // Mark the report as deleted instead of actually deleting it
+    await prisma.report.update({
       where: { id: reportId },
+      data: { deleted: true },
     });
 
     return NextResponse.json({ success: true });

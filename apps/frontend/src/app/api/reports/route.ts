@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { auth } from "~/auth";
 import { getPresignedReadUrl } from "~/lib/s3Utils";
+import { JobStatus } from "@prisma/client";
 
 export const GET = async (req: NextRequest) => {
   try {
@@ -15,14 +16,23 @@ export const GET = async (req: NextRequest) => {
     const page = parseInt(url.searchParams.get("page") ?? "1");
     const pageSize = parseInt(url.searchParams.get("pageSize") ?? "10");
 
-    let whereClause = {};
+    let whereClause: {
+      deleted: boolean;
+      public?: boolean;
+      generatedById?: string;
+      status?: JobStatus;
+    } = { deleted: false };
 
     if (type === "public") {
-      whereClause = { public: true };
+      whereClause = { ...whereClause, public: true };
     } else if (type === "my-reports") {
-      whereClause = { generatedById: session.user.id };
+      whereClause = {
+        ...whereClause,
+        generatedById: session.user.id,
+        status: JobStatus.COMPLETED, // Only show completed reports in My Reports
+      };
     }
-    // If type is "all" or not specified, we don't add any where clause
+    // If type is "all" or not specified, we don't add any additional filters beyond deleted: false
 
     const [reports, totalCount] = await Promise.all([
       prisma.report.findMany({
@@ -36,7 +46,7 @@ export const GET = async (req: NextRequest) => {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { requestedAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -49,7 +59,9 @@ export const GET = async (req: NextRequest) => {
     const reportsWithUrls = await Promise.all(
       reports.map(async (report) => {
         try {
-          const presignedUrl = await getPresignedReadUrl(report.fileKey);
+          const presignedUrl = report.fileKey
+            ? await getPresignedReadUrl(report.fileKey)
+            : null;
           return {
             ...report,
             presignedUrl,

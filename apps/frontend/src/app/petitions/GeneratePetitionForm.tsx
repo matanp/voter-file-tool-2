@@ -87,7 +87,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   const [showVacancyAppointmentsSearch, setShowVacancyAppointmentsSearch] =
     useState<boolean>(true);
 
-  const [reportJobId, setReportJobId] = useState<string>("");
+  const [reportId, setReportId] = useState<string>("");
   const [reportUrl, setReportUrl] = useState<string | null>(null);
 
   const handleSubmit = async (
@@ -173,10 +173,10 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     }
 
     const responseData = (await response.json()) as unknown as {
-      jobId: string;
+      reportId: string;
     };
 
-    setReportJobId(responseData?.jobId);
+    setReportId(responseData?.reportId);
   };
 
   useEffect(() => {
@@ -195,9 +195,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
     const checkStatus = async () => {
       try {
-        const response = await fetch(
-          `/api/getReportStatus?jobId=${reportJobId}`,
-        );
+        const response = await fetch(`/api/getReportStatus?jobId=${reportId}`);
         if (!response.ok) throw new Error("Failed to fetch job status");
 
         const data = (await response.json()) as unknown as {
@@ -223,7 +221,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       }
     };
 
-    if (reportJobId !== "") {
+    if (reportId !== "") {
       void checkStatus();
     }
 
@@ -231,7 +229,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       isMounted = false;
       if (timer) clearTimeout(timer);
     };
-  }, [reportJobId]);
+  }, [reportId]);
 
   return (
     <div className="w-full">

@@ -15,6 +15,8 @@ const PDF_API_URL = PDF_API_BASE + "/start-job";
 export const POST = withPrivilege(
   PrivilegeLevel.RequestAccess,
   async (req: NextRequest, session: Session) => {
+    let reportId: string | undefined;
+
     try {
       const requestBody: unknown = await req.json();
 
@@ -33,20 +35,25 @@ export const POST = withPrivilege(
         throw new Error("Error getting user from session");
       }
 
-      const reportJob = await prisma.reportJob.create({
+      const report = await prisma.report.create({
         data: {
-          requestedById: session.user.id,
-          name: reportData.name,
+          generatedById: session.user.id,
+          ReportType:
+            reportData.type === "ldCommittees"
+              ? "CommitteeReport"
+              : "DesignatedPetition",
+          title: reportData.name,
           description: reportData.description,
+          status: "PENDING",
         },
       });
 
-      const reportJobId: string = reportJob.id;
+      reportId = report.id;
 
       const enrichedReportData = {
         ...reportData,
         reportAuthor: session.user.id,
-        jobId: reportJobId,
+        jobId: reportId,
       };
 
       const gzippedBuffer = zlib.gzipSync(JSON.stringify(enrichedReportData));
@@ -60,12 +67,43 @@ export const POST = withPrivilege(
       });
 
       if (response.ok) {
-        return NextResponse.json({ jobId: reportJobId }, { status: 200 });
+        await prisma.report.update({
+          where: { id: reportId },
+          data: { status: "PROCESSING" },
+        });
+
+        return NextResponse.json({ reportId }, { status: 200 });
       } else {
+        await prisma.report.update({
+          where: { id: reportId },
+          data: {
+            status: "FAILED",
+            completedAt: new Date(),
+          },
+        });
+
         throw new Error(`Failed to start report job: ${response.statusText}`);
       }
     } catch (error) {
       console.error(error);
+
+      if (reportId) {
+        try {
+          await prisma.report.update({
+            where: { id: reportId },
+            data: {
+              status: "FAILED",
+              completedAt: new Date(),
+            },
+          });
+        } catch (updateError) {
+          console.error(
+            "Failed to update report status to FAILED:",
+            updateError,
+          );
+        }
+      }
+
       return NextResponse.json(
         { error: "Internal Server Error", message: error },
         { status: 500 },

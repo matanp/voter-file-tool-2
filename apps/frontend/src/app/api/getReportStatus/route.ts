@@ -14,20 +14,19 @@ export const GET = async (req: NextRequest) => {
       );
     }
 
-    const job = await prisma.reportJob.findUnique({
+    const report = await prisma.report.findUnique({
       where: { id: jobId },
-      include: { report: true },
     });
 
-    if (!job) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    if (!report) {
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     let url: string | undefined;
 
-    if (job.status === JobStatus.COMPLETED && job.report?.fileKey) {
+    if (report.status === JobStatus.COMPLETED && report.fileKey) {
       try {
-        const presignedUrl = await getPresignedReadUrl(job.report.fileKey);
+        const presignedUrl = await getPresignedReadUrl(report.fileKey);
         url = presignedUrl;
       } catch (error) {
         console.error("Error generating presigned URL:", error);
@@ -35,7 +34,7 @@ export const GET = async (req: NextRequest) => {
       }
     }
 
-    return NextResponse.json({ status: job.status, url });
+    return NextResponse.json({ status: report.status, url });
   } catch (err) {
     console.error("Error fetching job status:", err);
     return NextResponse.json(

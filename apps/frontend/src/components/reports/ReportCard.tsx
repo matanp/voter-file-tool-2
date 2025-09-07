@@ -274,7 +274,9 @@ const ReportCard: React.FC<ReportCardProps> = ({
           </div>
           <div className="flex items-center space-x-1">
             <Calendar className="h-4 w-4" />
-            <span>{formatDate(report.createdAt)}</span>
+            {report.completedAt && (
+              <span>{formatDate(report.completedAt)}</span>
+            )}
           </div>
         </div>
 
