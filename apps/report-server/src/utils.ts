@@ -3,6 +3,8 @@ import ReactDOMServer from 'react-dom/server';
 import PetitionForm from './components/DesignatingPetition';
 import CommitteeReport from './components/CommitteeReport';
 import puppeteer from 'puppeteer';
+import { uploadPDFToR2 } from './s3Utils';
+import { Readable } from 'stream';
 
 export const generateHTML = (
   candidates: { name: string; address: string; office: string }[],
@@ -39,13 +41,20 @@ export const generateHTML = (
       </html>`;
 };
 
-export async function generatePDF(
+export async function generatePDFAndUpload(
   htmlContent: string,
-  useLandscape: boolean
-): Promise<Buffer> {
+  useLandscape: boolean,
+  fileName: string
+): Promise<void> {
   const puppeteerOptions = {
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--single-process',
+    ],
   };
 
   console.log('generating pdf');
@@ -56,14 +65,20 @@ export async function generatePDF(
   await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
   console.log('page content set');
-  const pdfBuffer = await page.pdf({
+  const pdfStream = (await page.createPDFStream({
     format: useLandscape ? 'Letter' : 'Legal',
     landscape: useLandscape,
     printBackground: true,
-  });
-  console.log('received pdf buffer');
+  })) as unknown as Readable;
+  console.log('started upload via stream');
 
-  const buffer = Buffer.from(pdfBuffer);
+  const successfulUpload = await uploadPDFToR2(pdfStream, fileName);
+
+  if (!successfulUpload) {
+    throw new Error('failed to upload pdf to file storage');
+  }
+
+  // const buffer = Buffer.from(pdfBuffer);
 
   // for debugging with the puppeetteer launched
   // await sleep(999999);
@@ -71,9 +86,6 @@ export async function generatePDF(
   //   browser.close();
   // }, 10000);
   await browser.close();
-
-  console.log('return buffer');
-  return buffer;
 }
 
 export const generateCommitteeReportHTML = (groupedCommittees: any[]) => {
