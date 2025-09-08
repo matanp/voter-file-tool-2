@@ -81,7 +81,7 @@ export function useReportJobStatus(
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const data: JobStatusResponse = await response.json();
+        const data = (await response.json()) as unknown as JobStatusResponse;
 
         if (!isMountedRef.current) return;
 
@@ -154,11 +154,9 @@ export function useReportJobStatus(
       }
     };
 
-    // Start polling immediately
     void pollStatus();
 
-    // Set up interval for continued polling
-    intervalRef.current = setInterval(pollStatus, pollInterval);
+    intervalRef.current = setInterval(() => void pollStatus(), pollInterval);
 
     return () => {
       if (intervalRef.current) {

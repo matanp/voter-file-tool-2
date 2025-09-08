@@ -295,18 +295,18 @@ export const fetchFilteredDataSchema = z.object({
   page: z.number().min(1),
 });
 
-const partyCodes = [
-  "BLK",
-  "CON",
-  "IND",
-  "LBT",
-  "GRE",
-  "DEM",
-  "REP",
-  "OTH",
-  "WEP",
-  "SAM",
-  "WOR",
-] as const;
+// const partyCodes = [
+//   "BLK",
+//   "CON",
+//   "IND",
+//   "LBT",
+//   "GRE",
+//   "DEM",
+//   "REP",
+//   "OTH",
+//   "WEP",
+//   "SAM",
+//   "WOR",
+// ] as const;
 
-const allowedParties = ["Democratic", "Custom"];
+// const allowedParties = ["Democratic", "Custom"];
