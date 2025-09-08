@@ -48,16 +48,20 @@ export async function generatePDF(
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   };
 
+  console.log('generating pdf');
   const browser = await puppeteer.launch(puppeteerOptions);
   const page = await browser.newPage();
 
+  page.setDefaultTimeout(120 * 1000);
   await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
+  console.log('page content set');
   const pdfBuffer = await page.pdf({
     format: useLandscape ? 'Letter' : 'Legal',
     landscape: useLandscape,
     printBackground: true,
   });
+  console.log('received pdf buffer');
 
   const buffer = Buffer.from(pdfBuffer);
 
@@ -68,6 +72,7 @@ export async function generatePDF(
   // }, 10000);
   await browser.close();
 
+  console.log('return buffer');
   return buffer;
 }
 
