@@ -42,15 +42,17 @@ resource "aws_lightsail_instance" "nodejs_server" {
               export NVM_DIR="$HOME/.nvm"
               [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
               
-              nvm install 22
+              nvm install 20
 
               npm install -g pnpm
 
-              # Clone the repository
-              git clone https://matanp:${var.github_token}@github.com/matanp/voter-file-tool-2.git /home/bitnami/your-project || {
-                echo "Git clone failed"
-                exit 1
-              }
+              if [ -d "/home/bitnami/your-project/.git" ]; then
+                cd /home/bitnami/your-project
+                git reset --hard
+                git pull origin main
+              else
+                git clone https://matanp:${var.github_token}@github.com/matanp/voter-file-tool-2.git /home/bitnami/your-project
+              fi
 
               # Navigate to the cloned project directory
               cd /home/bitnami/your-project/apps/report-server || {
