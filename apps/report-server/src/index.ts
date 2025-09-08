@@ -7,10 +7,9 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import {
   generateHTML,
-  generatePDF,
+  generatePDFAndUpload,
   generateCommitteeReportHTML,
 } from './utils';
-import { uploadPdfToR2 } from './s3Utils';
 import { createWebhookSignature } from './webhookUtils';
 
 // Function to sanitize reportAuthor for safe S3 key usage
@@ -90,7 +89,7 @@ async function processJob(jobData: any) {
       fileName = sanitizedAuthor + '/committeeReport/' + randomUUID() + '.pdf';
       console.log('Processing committee report...');
       const html = generateCommitteeReportHTML(payload);
-      pdfBuffer = await generatePDF(html, true);
+      await generatePDFAndUpload(html, true, fileName);
     } else if (type === 'designatedPetition') {
       fileName =
         sanitizedAuthor + '/designatedPetition/' + randomUUID() + '.pdf';
@@ -105,14 +104,10 @@ async function processJob(jobData: any) {
         electionDate,
         numPages
       );
-      pdfBuffer = await generatePDF(html, false);
+      await generatePDFAndUpload(html, false, fileName);
     } else {
       throw new Error('Unknown job type');
     }
-
-    console.log('generated, uploading to R2');
-    await uploadPdfToR2(pdfBuffer, fileName);
-    console.log('sucessfully uploaded to R2');
 
     // Create callback payload
     const callbackPayload = JSON.stringify({
