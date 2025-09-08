@@ -96,7 +96,7 @@ export const getAddress = (record: VoterRecord, committee?: boolean) => {
 export const getName = (record: VoterRecord) => {
   const nameParts = [record.firstName, record.middleInitial, record.lastName]
     .filter((part) => part != null && part !== "")
-    .map((part) => (part === record.middleInitial && part ? `${part}.` : part));
+    .map((part) => (part === record.middleInitial && part ? `${part}` : part));
 
   return nameParts.join(" ").trim();
 };
@@ -134,11 +134,24 @@ export function findDiscrepancies(
 ): Discrepancy {
   const discrepancies: Discrepancy = {};
   for (const field of DISCREPENCY_FIELDS) {
-    const incomingValue = incomingRecord[field.incomingField];
+    const incomingValue = incomingRecord[field.incomingField]
+      ?.split(" ")
+      .filter((part) => part !== "")
+      .join(" ");
     const existingValue =
       typeof field.existingField === "string"
         ? existingRecord[field.existingField]
         : field.existingField(existingRecord);
+
+    // if (
+    //   existingValue?.includes("SANFILIPPO") ||
+    //   existingValue?.includes("FAGER")
+    // ) {
+    //   console.log("abc", incomingRecord[field.incomingField]?.split(" "));
+    //   console.log("incomingValue", incomingValue);
+    //   console.log("existingValue", existingValue);
+    //   console.log("discrepancy", incomingValue !== existingValue);
+    // }
     if (incomingValue !== existingValue) {
       discrepancies[field.incomingField] = {
         incoming: incomingValue ?? "",

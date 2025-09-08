@@ -8,6 +8,8 @@ export async function POST() {
       return NextResponse.json({ error: "Not available in this environment" });
     }
 
+    await prisma.committeeUploadDiscrepancy.deleteMany({});
+
     const discrepanciesMap = await loadCommitteeLists();
 
     const transactionOperations = Array.from(discrepanciesMap.entries()).map(
