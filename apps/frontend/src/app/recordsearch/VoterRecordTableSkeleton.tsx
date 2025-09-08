@@ -1,11 +1,9 @@
 import { type VoterRecord } from "@prisma/client";
-import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
 import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -58,12 +56,9 @@ const fields = [
 type VoterRecordTableProps = BaseVoterRecordTableProps;
 
 export const VoterRecordTableSkeleton: React.FC<VoterRecordTableProps> = ({
-  extraContent,
   fieldsList,
   fullWidth,
-  compactView,
   extraHeaders,
-  seeMoreDetailsText,
 }) => {
   return (
     <div>

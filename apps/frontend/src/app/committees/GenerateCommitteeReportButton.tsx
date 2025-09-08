@@ -12,7 +12,6 @@ import {
   generateReportSchema,
 } from "~/lib/validators/generateReport";
 import { useReportJobStatus } from "~/hooks/useReportJobStatus";
-import { JobStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { ToastAction } from "~/components/ui/toast";
 
@@ -29,7 +28,7 @@ export const GenerateCommitteeReportButton: React.FC<
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Use the polling hook to track job status
-  const { status, url, isLoading, error } = useReportJobStatus(reportJobId, {
+  const { isLoading } = useReportJobStatus(reportJobId, {
     onComplete: (downloadUrl) => {
       // Auto-navigate to reports page when complete
       router.push("/reports");
@@ -129,7 +128,9 @@ export const GenerateCommitteeReportButton: React.FC<
       // Parse response and validate success payload
       let responseData;
       try {
-        responseData = await response.json();
+        responseData = (await response.json()) as unknown as {
+          reportId: string;
+        };
       } catch (parseError) {
         toast({
           variant: "destructive",
@@ -189,7 +190,7 @@ export const GenerateCommitteeReportButton: React.FC<
   };
 
   // Show loading state while generating or polling
-  const isProcessing = isGenerating || (reportJobId && isLoading);
+  const isProcessing = isGenerating || (!!reportJobId && isLoading);
 
   return (
     <Button onClick={(e) => handleSubmit(e)} disabled={isProcessing}>

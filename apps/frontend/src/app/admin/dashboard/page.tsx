@@ -4,7 +4,6 @@ import prisma from "~/lib/prisma";
 import { ElectionDates } from "./ElectionDates";
 
 const AdminDashboardPage: React.FC = async () => {
-  const dropdownLists = await prisma.dropdownLists.findFirst({});
   const electionDates = await prisma.electionDate.findMany();
 
   return (

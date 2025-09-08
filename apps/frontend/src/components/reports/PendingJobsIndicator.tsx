@@ -37,7 +37,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       const response = await fetch(
         "/api/reportJobs?status=pending,processing,failed",
       );
-      const data = await response.json();
+      const data = (await response.json()) as unknown as {
+        reports: Report[];
+      };
       setJobs(data.reports || []);
     } catch (error) {
       console.error("Error fetching pending jobs:", error);
@@ -47,9 +49,10 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   };
 
   useEffect(() => {
-    fetchJobs();
-    // Poll every 30 seconds for updates
-    const interval = setInterval(fetchJobs, 30000);
+    void fetchJobs();
+    const interval = setInterval(() => {
+      void fetchJobs();
+    }, 15 * 1000);
     return () => clearInterval(interval);
   }, []);
 
