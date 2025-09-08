@@ -18,8 +18,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-// Local type-safe DTOs to avoid Prisma client bundling
-type JobStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+import { type Report, JobStatus } from "@prisma/client";
 
 interface PendingJobsIndicatorProps {
   initialJobs?: Report[];
@@ -28,7 +27,7 @@ interface PendingJobsIndicatorProps {
 const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   initialJobs = [],
 }) => {
-  const [jobs, setJobs] = useState<ReportJob[]>(initialJobs);
+  const [jobs, setJobs] = useState<Report[]>(initialJobs);
   const [loading, setLoading] = useState(false);
   const [deletingJobs, setDeletingJobs] = useState<Set<string>>(new Set());
 
@@ -84,7 +83,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
     }
   };
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: Date | string) => {
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
