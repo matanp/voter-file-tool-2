@@ -2,14 +2,20 @@
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { toast } from "~/components/ui/use-toast";
 import RecordSearchForm from "../components/RecordSearchForm";
 import type { VoterRecord } from "@prisma/client";
+
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
-import { generatePdfDataSchema } from "../api/lib/utils";
 import type { ElectionDate, OfficeName } from "prisma/prisma-client";
+import { defaultCustomPartyName } from "~/lib/validators/designatedPetition";
+import {
+  type GenerateReportData,
+  generateReportSchema,
+} from "~/lib/validators/generateReport";
 
 // :OHNO: add login check
 
@@ -52,8 +58,6 @@ function formatDate(date: Date, withOrdinal: boolean): string {
 
 export type PartyCode = keyof typeof PRINT_PARTY_MAP;
 
-export const defaultCustomPartyName = "Enter Party Name";
-
 export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   parties,
   electionDates,
@@ -67,6 +71,8 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   );
   const [electionDate, setElectionDate] = useState<Date | null>(null);
   const [numPages, setNumPages] = useState<number>(1);
+  const [reportName, setReportName] = useState<string>("");
+  const [reportDescription, setReportDescription] = useState<string>("");
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [searchCandidates, setSearchCandidates] = useState<VoterRecord[]>([]);
   const [candidates, setCandidates] = useState<
@@ -81,6 +87,10 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   );
   const [showVacancyAppointmentsSearch, setShowVacancyAppointmentsSearch] =
     useState<boolean>(true);
+
+  const [reportId, setReportId] = useState<string>("");
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const handleSubmit = async (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -99,20 +109,25 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       return { name: candidateName, address: addreess };
     });
 
-    const formData = {
-      candidates: candidatesData,
-      vacancyAppointments: vacancyAppointmentsData,
-      party: party === "Custom" ? customParty : party,
-      electionDate:
-        electionDate?.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "2-digit",
-        }) ?? "",
-      numPages,
+    const formData: GenerateReportData = {
+      type: "designatedPetition",
+      name: reportName.trim() || undefined,
+      description: reportDescription.trim() || undefined,
+      payload: {
+        candidates: candidatesData,
+        vacancyAppointments: vacancyAppointmentsData,
+        party: party === "Custom" ? customParty : party,
+        electionDate:
+          electionDate?.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "2-digit",
+          }) ?? "",
+        numPages,
+      },
     };
 
-    const validationResult = generatePdfDataSchema.safeParse(formData);
+    const validationResult = generateReportSchema.safeParse(formData);
 
     if (!validationResult.success) {
       const fieldErrors: Partial<Record<string, string>> = {};
@@ -143,7 +158,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       duration: 3000,
     });
 
-    const response = await fetch(`/api/generatePdf`, {
+    const response = await fetch(`/api/generateReport`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -159,17 +174,12 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       return;
     }
 
-    const blob = await response.blob();
+    const responseData = (await response.json()) as unknown as {
+      reportId: string;
+    };
 
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "Designated Petition.pdf");
-    document.body.appendChild(link);
-    link.click();
-
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    setReportId(responseData?.reportId);
+    setGenerationError(null); // Clear any previous errors when starting new generation
   };
 
   useEffect(() => {
@@ -181,6 +191,55 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
 
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(`/api/getReportStatus?jobId=${reportId}`);
+        if (!response.ok) throw new Error("Failed to fetch job status");
+
+        const data = (await response.json()) as unknown as {
+          status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+          url: string | undefined;
+        };
+
+        if (!isMounted) return;
+
+        if (data.status === "COMPLETED" && data.url) {
+          setReportUrl(data.url);
+          setGenerationError(null); // Clear any previous errors
+        } else if (data.status === "FAILED") {
+          // Handle failed status explicitly
+          if (timer) clearTimeout(timer);
+          setGenerationError(
+            "Generation failed: The petition generation process encountered an error",
+          );
+        } else if (data.status === "PENDING" || data.status === "PROCESSING") {
+          // Wait 2 seconds and check again
+          timer = setTimeout(() => void checkStatus(), 2000);
+        }
+      } catch (err) {
+        console.error(err);
+        // Clear timer and set error state instead of retrying
+        if (timer) clearTimeout(timer);
+        setGenerationError(
+          `Generation failed: ${err instanceof Error ? err.message : "Unknown error occurred"}`,
+        );
+      }
+    };
+
+    if (reportId !== "") {
+      void checkStatus();
+    }
+
+    return () => {
+      isMounted = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [reportId]);
 
   return (
     <div className="w-full">
@@ -449,12 +508,66 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       </div>
       {errors.numPages && <p className="text-red-500">{errors.numPages}</p>}
 
+      <div className="py-2">
+        <label htmlFor="reportName" className="block text-sm font-medium mb-2">
+          Petition Name (Optional)
+        </label>
+        <Input
+          id="reportName"
+          value={reportName}
+          onChange={(e) => setReportName(e.target.value)}
+          placeholder="Enter a name for this petition"
+          className="max-w-md"
+        />
+      </div>
+
+      <div className="py-2">
+        <label
+          htmlFor="reportDescription"
+          className="block text-sm font-medium mb-2"
+        >
+          Petition Description (Optional)
+        </label>
+        <Textarea
+          id="reportDescription"
+          value={reportDescription}
+          onChange={(e) => setReportDescription(e.target.value)}
+          placeholder="Enter a description for this petition"
+          className="max-w-md min-h-[80px]"
+        />
+      </div>
+
       <div className="pt-4">
-        <Button onClick={(e) => handleSubmit(e)}>Generate Petition</Button>
+        <Button onClick={(e) => void handleSubmit(e)}>Generate Petition</Button>
         {Object.keys(errors).length > 0 && (
           <p className="text-red-500">Please fill out all required fields</p>
         )}
       </div>
+      {reportUrl && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 py-2">
+            <p className="font-medium">Petition generated successfully!</p>
+            <a
+              href="/reports"
+              className="text-blue-600 hover:text-blue-800 underline font-medium"
+            >
+              View in Reports Dashboard
+            </a>
+          </div>
+          <iframe
+            className="w-full h-[100vh] max-w-[800px] max-h-[1200px]"
+            src={reportUrl}
+          ></iframe>
+        </div>
+      )}
+      {generationError && (
+        <div className="py-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-800 font-medium">Generation Error</p>
+            <p className="text-red-700 mt-1">{generationError}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

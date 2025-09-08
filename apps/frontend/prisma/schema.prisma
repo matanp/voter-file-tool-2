@@ -32,8 +32,9 @@ model User {
   // Optional for WebAuthn support
   Authenticator  Authenticator[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  Report    Report[]
 }
 
 model Account {
@@ -146,7 +147,7 @@ model VoterRecordArchive {
 model VoterRecord {
   VRCNUM                     String                @id
   votingRecords              VotingHistoryRecord[]
-  committee                  CommitteeList?        @relation(fields: [committeeId], references: [id])
+  committee                  CommitteeList?        @relation(fields: [committeeId], references: [id], onDelete: SetNull)
   committeeId                Int?
   addressForCommittee        String?
   latestRecordEntryYear      Int
@@ -216,7 +217,7 @@ model CommitteeList {
 
 model CommitteeRequest {
   id                  Int           @id @default(autoincrement())
-  committeList        CommitteeList @relation(fields: [committeeListId], references: [id])
+  committeList        CommitteeList @relation(fields: [committeeListId], references: [id], onDelete: Cascade)
   committeeListId     Int
   addVoterRecord      VoterRecord?  @relation(name: "addToCommitteeRequest", fields: [addVoterRecordId], references: [VRCNUM], onDelete: Cascade)
   addVoterRecordId    String?
@@ -242,7 +243,7 @@ model DropdownLists {
 model CommitteeUploadDiscrepancy {
   id          String        @id @default(cuid())
   VRCNUM      String        @unique
-  committee   CommitteeList @relation(fields: [committeeId], references: [id])
+  committee   CommitteeList @relation(fields: [committeeId], references: [id], onDelete: Cascade)
   committeeId Int
   discrepancy Json
 }
@@ -255,4 +256,40 @@ model ElectionDate {
 model OfficeName {
   id         Int    @id @default(autoincrement())
   officeName String
+}
+
+model Report {
+  id            String     @id @default(cuid())
+  generatedById String
+  generatedBy   User       @relation(fields: [generatedById], references: [id])
+  ReportType    ReportType
+  fileKey       String?
+  title         String?
+  description   String?
+  fileType      String?
+  public        Boolean    @default(false)
+  status        JobStatus  @default(PENDING)
+  requestedAt   DateTime   @default(now())
+  completedAt   DateTime?
+  deleted       Boolean   @default(false)
+
+  @@index([generatedById])
+  @@index([status])
+  @@index([public])
+  @@index([requestedAt])
+  @@index([generatedById, status])
+  @@index([public, status])
+}
+
+enum ReportType {
+  CommitteeReport
+  DesignatedPetition
+}
+
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }

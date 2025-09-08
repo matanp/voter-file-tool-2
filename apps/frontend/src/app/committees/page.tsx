@@ -7,25 +7,38 @@ import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
+import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
+import type { CommitteeWithMembers } from "./committeeUtils";
 
-const CommitteeLists: React.FC = async () => {
+const CommitteeLists = async () => {
   const permissions = await auth();
-  const committeeLists = await prisma.committeeList.findMany({
-    include: {
-      committeeMemberList: true,
-    },
-  });
+
+  const isAdminUser = hasPermissionFor(
+    permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+    PrivilegeLevel.Admin,
+  );
+
+  // Only include PII data for admin users
+  const committeeLists: CommitteeWithMembers[] =
+    await prisma.committeeList.findMany({
+      include: isAdminUser
+        ? {
+            committeeMemberList: true,
+          }
+        : {},
+    });
+
+  // console.log(JSON.stringify(committeeLists.slice(100, 102)));
+
+  // console.log(
+  //   JSON.stringify(mapCommiteesToReportShape(committeeLists.slice(0, 10))),
+  // );
 
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
   let committeeRequests = [];
 
-  if (
-    hasPermissionFor(
-      permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
-      PrivilegeLevel.Admin,
-    )
-  ) {
+  if (isAdminUser) {
     committeeRequests = await prisma.committeeRequest.findMany({});
   }
 
@@ -35,17 +48,22 @@ const CommitteeLists: React.FC = async () => {
 
   return (
     <div className="w-full p-4">
-      {committeeRequests.length > 0 && (
-        <div className="flex gap-2 items-center pb-4">
-          <h1>
-            There are {committeeRequests.length} pending committee requests
-          </h1>
-          <Link href="/committees/requests">
-            <Button>View Requests</Button>
-          </Link>
+      {isAdminUser && (
+        <div className="flex gap-4 mb-4">
+          {committeeRequests.length > 0 && (
+            <div className="flex gap-2 items-center pb-4">
+              <h1>
+                There are {committeeRequests.length} pending committee requests
+              </h1>
+              <Link href="/committees/requests">
+                <Button>View Requests</Button>
+              </Link>
+            </div>
+          )}
+          <GenerateCommitteeReportButton committeeLists={committeeLists} />
         </div>
       )}
-      <CommitteeSelector commiitteeLists={committeeLists} />
+      <CommitteeSelector committeeLists={committeeLists} />
     </div>
   );
 };

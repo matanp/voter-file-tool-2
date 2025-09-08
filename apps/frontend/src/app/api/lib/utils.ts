@@ -5,7 +5,6 @@ import type {
   VoterRecordArchive,
 } from "@prisma/client";
 import { z } from "zod";
-import { defaultCustomPartyName } from "~/app/petitions/GeneratePetitionForm";
 import prisma from "~/lib/prisma";
 
 export const dropdownItems = [
@@ -94,13 +93,29 @@ export const getAddress = (record: VoterRecord, committee?: boolean) => {
   return `${record.houseNum} ${record.street}${record.apartment ? ` APT ${record.apartment}` : ""}`;
 };
 
+export const getName = (record: VoterRecord) => {
+  const nameParts = [record.firstName, record.middleInitial, record.lastName]
+    .filter((part) => part != null && part !== "")
+    .map((part) => (part === record.middleInitial && part ? `${part}` : part));
+
+  return nameParts.join(" ").trim();
+};
+
+// const DISCREPENCY_FIELDS = [
+//   { incomingField: "firstname", existingField: "firstName" },
+//   { incomingField: "lastname", existingField: "lastName" },
+//   { incomingField: "Add1", existingField: getAddress },
+//   { incomingField: "City", existingField: "city" },
+//   { incomingField: "res state", existingField: "state" },
+//   { incomingField: "Zip", existingField: "zipCode" },
+// ] as const;
+
 const DISCREPENCY_FIELDS = [
-  { incomingField: "firstname", existingField: "firstName" },
-  { incomingField: "lastname", existingField: "lastName" },
-  { incomingField: "Add1", existingField: getAddress },
-  { incomingField: "City", existingField: "city" },
+  { incomingField: "name", existingField: getName },
+  { incomingField: "res address1", existingField: getAddress },
+  { incomingField: "res city", existingField: "city" },
   { incomingField: "res state", existingField: "state" },
-  { incomingField: "Zip", existingField: "zipCode" },
+  { incomingField: "res zip", existingField: "zipCode" },
 ] as const;
 
 export type Discrepancy = Record<
@@ -119,11 +134,24 @@ export function findDiscrepancies(
 ): Discrepancy {
   const discrepancies: Discrepancy = {};
   for (const field of DISCREPENCY_FIELDS) {
-    const incomingValue = incomingRecord[field.incomingField];
+    const incomingValue = incomingRecord[field.incomingField]
+      ?.split(" ")
+      .filter((part) => part !== "")
+      .join(" ");
     const existingValue =
       typeof field.existingField === "string"
         ? existingRecord[field.existingField]
         : field.existingField(existingRecord);
+
+    // if (
+    //   existingValue?.includes("SANFILIPPO") ||
+    //   existingValue?.includes("FAGER")
+    // ) {
+    //   console.log("abc", incomingRecord[field.incomingField]?.split(" "));
+    //   console.log("incomingValue", incomingValue);
+    //   console.log("existingValue", existingValue);
+    //   console.log("discrepancy", incomingValue !== existingValue);
+    // }
     if (incomingValue !== existingValue) {
       discrepancies[field.incomingField] = {
         incoming: incomingValue ?? "",
@@ -282,37 +310,3 @@ const partyCodes = [
 ] as const;
 
 const allowedParties = ["Democratic", "Custom"];
-
-export const generatePdfDataSchema = z.object({
-  candidates: z
-    .array(
-      z.object({
-        name: z.string(),
-        office: z.string(),
-        address: z.string(),
-      }),
-    )
-    .min(1, { message: "At least one candidate is required" }),
-  vacancyAppointments: z
-    .array(
-      z.object({
-        name: z.string(),
-        address: z.string(),
-      }),
-    )
-    .min(1, { message: "At least one vacancy appointment is required" }),
-  party: z
-    .string()
-    .refine((val) => val.trim() !== "" && val !== defaultCustomPartyName, {
-      message: "Party is required",
-    }),
-  electionDate: z.string().refine((date) => date !== "", {
-    message: "Election date is required",
-  }),
-  numPages: z
-    .number()
-    .min(1, { message: "Minimum 1 page" })
-    .max(25, { message: "No more than 25 pages allowed" }),
-});
-
-export type GeneratePdfData = z.infer<typeof generatePdfDataSchema>;
