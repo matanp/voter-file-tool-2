@@ -3,9 +3,11 @@ import {
   PutObjectCommand,
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import { config } from 'dotenv';
+import { Readable } from 'stream';
 
 config();
 
@@ -20,24 +22,6 @@ const s3 = new S3Client({
   },
   forcePathStyle: true,
 });
-
-export async function uploadPdfToR2(
-  pdfBuffer: Buffer,
-  fileName?: string
-): Promise<string> {
-  const key = fileName || `${randomUUID()}.pdf`;
-
-  const command = new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME!,
-    Key: key,
-    Body: pdfBuffer,
-    ContentType: 'application/pdf',
-  });
-
-  await s3.send(command);
-
-  return `${key}`;
-}
 
 /**
  * Generate a presigned URL for reading a file from R2.
@@ -55,4 +39,28 @@ export async function getPresignedReadUrl(
   });
 
   return await getSignedUrl(s3, command, { expiresIn });
+}
+
+export async function uploadPDFToR2(
+  pdfStream: Readable,
+  key: string
+): Promise<boolean> {
+  try {
+    const upload = new Upload({
+      client: s3,
+      params: {
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: key,
+        Body: pdfStream,
+        ContentType: 'application/pdf',
+      },
+    });
+
+    await upload.done();
+    console.log('Upload successful');
+    return true;
+  } catch (err) {
+    console.error('Upload failed', err);
+    return false;
+  }
 }
