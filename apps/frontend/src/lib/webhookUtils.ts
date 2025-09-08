@@ -10,9 +10,13 @@ export function createWebhookSignature(
   payload: string | Buffer,
   secret: string,
 ): string {
-  const signature = createHmac("sha256", secret)
-    .update(payload, typeof payload === "string" ? "utf8" : undefined)
-    .digest("hex");
+  const hmac = createHmac("sha256", secret);
+  if (typeof payload === "string") {
+    hmac.update(payload, "utf8");
+  } else {
+    hmac.update(payload);
+  }
+  const signature = hmac.digest("hex");
   return `sha256=${signature}`;
 }
 

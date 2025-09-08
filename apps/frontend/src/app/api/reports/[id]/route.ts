@@ -13,7 +13,7 @@ const updateReportSchema = z.object({
 
 export const PATCH = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
     const session = await auth();
@@ -21,9 +21,9 @@ export const PATCH = async (
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const reportId = params.id;
+    const { id: reportId } = await params;
 
-    const contentType = req.headers.get("content-type") || "";
+    const contentType = req.headers.get("content-type") ?? "";
     if (!contentType.includes("application/json")) {
       return NextResponse.json(
         { error: "Content-Type must be application/json" },
@@ -147,7 +147,7 @@ export const PATCH = async (
 
 export const DELETE = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
     const session = await auth();
@@ -155,7 +155,7 @@ export const DELETE = async (
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const reportId = params.id;
+    const { id: reportId } = await params;
 
     // Check if the report exists and belongs to the user
     const existingReport = await prisma.report.findFirst({
