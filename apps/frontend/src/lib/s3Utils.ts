@@ -9,7 +9,6 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Validate required environment variables
 const requiredEnvVars = {
-  R2_ENDPOINT: process.env.R2_ENDPOINT,
   R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
   R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
 };
@@ -20,10 +19,12 @@ for (const [key, value] of Object.entries(requiredEnvVars)) {
   }
 }
 
+const R2_ENDPOINT = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+
 // Initialize S3 client for R2
 const s3 = new S3Client({
   region: "auto", // R2 doesn't require a real AWS region
-  endpoint: process.env.R2_ENDPOINT,
+  endpoint: R2_ENDPOINT,
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
