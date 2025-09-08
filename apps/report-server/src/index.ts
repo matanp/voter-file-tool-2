@@ -110,7 +110,9 @@ async function processJob(jobData: any) {
       throw new Error('Unknown job type');
     }
 
+    console.log('generated, uploading to R2');
     await uploadPdfToR2(pdfBuffer, fileName);
+    console.log('sucessfully uploaded to R2');
 
     // Create callback payload
     const callbackPayload = JSON.stringify({
@@ -132,12 +134,14 @@ async function processJob(jobData: any) {
     if (callbackSignature) {
       callbackHeaders['x-webhook-signature'] = callbackSignature;
     }
+    console.log('calling callback url for report comple');
 
     await fetch(CALLBACK_URL, {
       method: 'POST',
       headers: callbackHeaders,
       body: callbackPayload,
     });
+    console.log('done');
   } catch (error) {
     console.error('Error processing job:', error);
 
@@ -160,11 +164,13 @@ async function processJob(jobData: any) {
       errorCallbackHeaders['x-webhook-signature'] = errorCallbackSignature;
     }
 
+    console.log('calling callback url on error: ', errorCallbackPayload);
     await fetch(CALLBACK_URL, {
       method: 'POST',
       headers: errorCallbackHeaders,
       body: errorCallbackPayload,
     });
+    console.log('done');
   }
 }
 
