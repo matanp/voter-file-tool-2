@@ -16,11 +16,11 @@ import { AddCommitteeForm } from "./AddCommitteeForm";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 
 interface CommitteeSelectorProps {
-  commiitteeLists: CommitteeList[];
+  committeeLists: CommitteeList[];
 }
 
 const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
-  commiitteeLists,
+  committeeLists,
 }) => {
   const { actingPermissions } = useContext(GlobalContext);
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -34,7 +34,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [legDistricts, setLegDistricts] = useState<string[]>([]);
 
-  const cities = new Set(commiitteeLists.map((list) => list.cityTown));
+  const cities = new Set(committeeLists.map((list) => list.cityTown));
 
   const handleDistrictChange = (districtString: string) => {
     const district = parseInt(districtString);
@@ -63,7 +63,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
     const legDistricts = Array.from(
       new Set(
-        commiitteeLists
+        committeeLists
           .filter((list) => list.cityTown === city)
           .map((list) => String(list.legDistrict)),
       ),
@@ -102,6 +102,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             (data as { committeeMemberList: VoterRecord[] })
               .committeeMemberList || [],
           );
+        } else if (response.status === 403) {
+          // User doesn't have permission to view member data
+          setCommitteeList([]);
         } else {
           setCommitteeList([]);
         }
@@ -153,10 +156,17 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setRequestRemoveRecord(record);
   };
 
-  const noContentMessage =
-    selectedCity && selectedLegDistrict && selectedDistrict >= 0
-      ? "No committee members found."
-      : "Select a committee to view members.";
+  const noContentMessage = () => {
+    if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
+      return "Select a committee to view members.";
+    }
+
+    if (!hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+      return "You don't have permission to view committee member details. Contact an administrator for access.";
+    }
+
+    return "No committee members found.";
+  };
 
   const getCommitteeListHeader = () => {
     if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
@@ -215,7 +225,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               <ComboboxDropdown
                 items={Array.from(
                   new Set(
-                    commiitteeLists
+                    committeeLists
                       .filter(
                         (list) =>
                           list.cityTown === selectedCity &&
@@ -247,7 +257,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               <div className="flex gap-4 w-full flex-wrap min-h-66 h-max">
                 {committeeList.map((member) => (
                   <div key={member.VRCNUM}>
-                    <Card className="min-w-max w-full min-w-[600px] h-full flex flex-col">
+                    <Card className="w-full min-w-[600px] h-full flex flex-col">
                       <CardContent className="flex-1">
                         <VoterCard record={member} committee={true} />
                       </CardContent>
@@ -280,7 +290,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                 ))}
               </div>
             ) : (
-              <p>{noContentMessage}</p>
+              <p>{noContentMessage()}</p>
             )}
           </div>
           <AddCommitteeForm

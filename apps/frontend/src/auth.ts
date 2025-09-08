@@ -14,13 +14,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async signIn({ user }) {
       if (!user.email) return false;
 
+      const existingUser = await prisma.user.findUnique({
+        where: { email: user.email },
+      });
+
+      if (!existingUser) return true;
+
       const privileged = await prisma.privilegedUser.findUnique({
         where: { email: user.email },
       });
 
       if (privileged && user.privilegeLevel !== privileged.privilegeLevel) {
         await prisma.user.update({
-          where: { id: user.id },
+          where: { id: existingUser.id },
           data: { privilegeLevel: privileged.privilegeLevel },
         });
 
@@ -29,7 +35,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (!privileged && user.privilegeLevel !== PrivilegeLevel.ReadAccess) {
         await prisma.user.update({
-          where: { id: user.id },
+          where: { id: existingUser.id },
           data: { privilegeLevel: PrivilegeLevel.ReadAccess },
         });
 
