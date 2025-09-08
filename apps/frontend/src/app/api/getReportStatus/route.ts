@@ -41,7 +41,7 @@ export const GET = withPrivilege(
       }
 
       return NextResponse.json({
-        status: report.status as JobStatus,
+        status: report.status,
         url: url ?? null,
       });
     } catch (err) {

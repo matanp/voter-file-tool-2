@@ -40,9 +40,7 @@ export default async function ReportsPage() {
 
         <div className="space-y-6">
           {/* Report Jobs - Always at the top */}
-          <PendingJobsIndicator
-            initialJobs={initialPendingReports as unknown as Report[]}
-          />
+          <PendingJobsIndicator initialJobs={initialPendingReports} />
 
           {/* Reports Lists - Side by side with responsive layout */}
           <div className="flex flex-col xl:flex-row gap-6 overflow-hidden">
