@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import { gunzipSync } from 'node:zlib';
 import { config } from 'dotenv';
 import { randomUUID } from 'crypto';
+import async from 'async';
 
 import path from 'path';
 import {
@@ -34,6 +35,12 @@ function sanitizeReportAuthor(author: string): string {
 
 config();
 
+const QUEUE_CONCURRENCY = 2;
+
+const q = async.queue(async (requestData) => {
+  await processJob(requestData);
+}, QUEUE_CONCURRENCY);
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -61,14 +68,15 @@ app.post(
 
       // console.log('Received job data:', requestData);
 
-      console.log(`Started job`);
+      const jobsAhead = q.length();
+
+      q.push(requestData);
 
       res.status(200).json({
         success: true,
         message: 'Job started successfully',
+        numJobs: jobsAhead,
       });
-
-      processJob(requestData);
     } catch (error) {
       console.error('Error handling /start-job request:', error);
       res.status(500).json({ error: 'Failed to start job' });
