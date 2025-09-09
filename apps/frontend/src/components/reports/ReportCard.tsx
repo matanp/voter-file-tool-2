@@ -23,6 +23,7 @@ import {
 import { ReportType, type Report } from "@prisma/client";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
+import { formatReportType } from "./reportUtils";
 
 interface ReportCardProps {
   report: Report & {
@@ -212,7 +213,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
               className={getReportTypeColor(report.ReportType)}
               hoverable={false}
             >
-              {report.ReportType.replace(/([A-Z])/g, " $1").trim()}
+              {formatReportType(report.ReportType)}
             </Badge>
             {canTogglePublic && (
               <Button
