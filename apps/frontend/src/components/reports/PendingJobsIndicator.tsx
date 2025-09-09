@@ -182,7 +182,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
           </Button>
         </div>
         <CardDescription>
-          {`${numPending} job${numPending !== 1 ? "s" : ""} in progress.${numFailed > 0 ? ` ${numFailed} reports have failed.` : ""}`}
+          {`${numPending} report${numPending !== 1 ? "s" : ""} in progress.${numFailed > 0 ? ` ${numFailed} reports have failed.` : ""}`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -195,7 +195,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
               {getStatusIcon(job.status)}
               <div>
                 <p className="text-sm font-medium">
-                  Pending report: {getJobName(job)}
+                  {`${job.status === "FAILED" ? "Failed" : job.status === "PROCESSING" ? "Processing" : "Pending"} report: ${getJobName(job)}`}
                 </p>
                 <p className="text-xs text-gray-500">
                   Started {formatDate(job.requestedAt)}
