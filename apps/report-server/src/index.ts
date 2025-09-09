@@ -38,7 +38,11 @@ config();
 const QUEUE_CONCURRENCY = 2;
 
 const q = async.queue(async (requestData) => {
-  await processJob(requestData);
+  try {
+    await processJob(requestData);
+  } catch (error) {
+    console.error('Queue worker error:', error);
+  }
 }, QUEUE_CONCURRENCY);
 
 const app = express();
