@@ -3,6 +3,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
 import { verifyWebhookSignature } from "~/lib/webhookUtils";
+import * as Ably from "ably";
+import { getPresignedReadUrl } from "~/lib/s3Utils";
 
 // Schema for webhook payload validation
 const webhookPayloadSchema = z.object({
@@ -14,6 +16,22 @@ const webhookPayloadSchema = z.object({
 });
 
 export const POST = async (req: NextRequest) => {
+  if (!process.env.ABLY_API_KEY) {
+    return NextResponse.json(
+      {
+        errorMessage: `Missing ABLY_API_KEY environment variable.
+        If you're running locally, please ensure you have a ./.env file with a value for ABLY_API_KEY=your-key.
+        If you're running in Netlify, make sure you've configured env variable ABLY_API_KEY. 
+        Please see README.md for more details on configuring your Ably API Key.`,
+      },
+      {
+        status: 500,
+        headers: new Headers({
+          "content-type": "application/json",
+        }),
+      },
+    );
+  }
   try {
     // Get the raw body for HMAC verification
     const rawBody = await req.text();
@@ -87,6 +105,22 @@ export const POST = async (req: NextRequest) => {
         { status: 200 },
       );
     }
+    const client = new Ably.Rest(process.env.ABLY_API_KEY);
+    const channel = client.channels.get(`report-status-${jobId}`);
+
+    let signedUrl;
+    if (url) {
+      signedUrl = await getPresignedReadUrl(url);
+    }
+
+    const ablyMessage = {
+      jobId,
+      status: success ? JobStatus.COMPLETED : JobStatus.FAILED,
+      ...(success ? { url: signedUrl } : { error }),
+      timestamp: new Date().toISOString(),
+    };
+
+    await channel.publish("report", ablyMessage);
 
     if (success) {
       if (!url) {
