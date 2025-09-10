@@ -56,7 +56,7 @@ Located at `packages/shared-validators/`, this package provides:
 
 #### `/api/generateReport`
 
-- **Type Safety**: Full TypeScript typing with `GenerateReportResponse | ErrorResponse`
+- **Type Safety**: Full TypeScript typing with `GenerateReportFrontendResponse | ErrorResponse`
 - **Validation**: Uses `generateReportSchema` for request validation
 - **Error Handling**: Structured error responses with detailed validation messages
 - **Response Types**: Properly typed success and error responses
@@ -123,7 +123,7 @@ Located at `packages/shared-validators/`, this package provides:
 import {
   generateReportSchema,
   type GenerateReportData,
-  type GenerateReportResponse,
+  type GenerateReportFrontendResponse,
 } from '@voter-file-tool/shared-validators';
 
 // Validate request data

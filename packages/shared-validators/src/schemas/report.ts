@@ -51,6 +51,13 @@ export const reportCompleteWebhookPayloadSchema = z.object({
 
 // API response schemas
 export const generateReportResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  numJobs: z.number().int().min(0, 'Number of jobs must be non-negative'),
+});
+
+// Frontend transformed response schema
+export const generateReportFrontendResponseSchema = z.object({
   reportId: z.string().cuid('Report ID must be a valid CUID'),
   jobsAhead: z.number().int().min(0, 'Jobs ahead must be non-negative'),
 });
@@ -76,6 +83,9 @@ export type ReportCompleteWebhookPayload = z.infer<
 >;
 export type GenerateReportResponse = z.infer<
   typeof generateReportResponseSchema
+>;
+export type GenerateReportFrontendResponse = z.infer<
+  typeof generateReportFrontendResponseSchema
 >;
 export type ReportCompleteResponse = z.infer<
   typeof reportCompleteResponseSchema
