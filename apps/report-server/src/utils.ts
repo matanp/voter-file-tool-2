@@ -127,8 +127,11 @@ export async function generateXLSXAndUpload(
   for (const ld of groupedCommittees) {
     const worksheetData: any[] = [];
 
-    // Add header row
-    worksheetData.push([
+    // Get allowed fields from the first LD (they should all be the same)
+    const allowedFields = ld.allowedFields || [];
+
+    // Create header row with base fields and additional fields
+    const baseHeaders = [
       'Election District',
       'Name',
       'Address',
@@ -136,12 +139,18 @@ export async function generateXLSXAndUpload(
       'State',
       'ZIP',
       'Phone',
-    ]);
+    ];
+
+    // Add additional field headers
+    const additionalHeaders = allowedFields.map((field) => field);
+    const allHeaders = [...baseHeaders, ...additionalHeaders];
+
+    worksheetData.push(allHeaders);
 
     // Add committee members data
     for (const [electionDistrict, members] of Object.entries(ld.committees)) {
       for (const member of members) {
-        worksheetData.push([
+        const baseData = [
           electionDistrict.padStart(3, '0'),
           member.name,
           member.address,
@@ -149,15 +158,35 @@ export async function generateXLSXAndUpload(
           member.state,
           member.zip,
           member.phone || '',
-        ]);
+        ];
+
+        // Add additional field data
+        const additionalData = allowedFields.map((field) => {
+          const value = member[field as keyof typeof member];
+          if (value !== null && value !== undefined) {
+            // Special formatting for DOB field
+            if (field === 'DOB' && value instanceof Date) {
+              return value.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+              });
+            }
+            return String(value);
+          }
+          return '';
+        });
+
+        const allData = [...baseData, ...additionalData];
+        worksheetData.push(allData);
       }
     }
 
     // Create worksheet
     const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
-    // Set column widths
-    const columnWidths = [
+    // Set column widths - base fields + dynamic widths for additional fields
+    const baseColumnWidths = [
       { wch: 15 }, // Election District
       { wch: 25 }, // Name
       { wch: 30 }, // Address
@@ -166,7 +195,12 @@ export async function generateXLSXAndUpload(
       { wch: 10 }, // ZIP
       { wch: 15 }, // Phone
     ];
-    worksheet['!cols'] = columnWidths;
+
+    // Add widths for additional fields (default to 15 characters)
+    const additionalColumnWidths = allowedFields.map(() => ({ wch: 15 }));
+    const allColumnWidths = [...baseColumnWidths, ...additionalColumnWidths];
+
+    worksheet['!cols'] = allColumnWidths;
 
     // Add worksheet to workbook with a descriptive name
     const sheetName =

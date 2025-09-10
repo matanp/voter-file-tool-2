@@ -8,42 +8,36 @@ export const baseApiSchema = z.object({
   description: z.string().optional(),
 });
 
-// Generate Report Schema - discriminated union for different report types
-export const generateReportSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('designatedPetition'),
-    ...baseApiSchema.shape,
-    payload: generateDesignatedPetitionDataSchema,
-  }),
-  z.object({
-    type: z.literal('ldCommittees'),
-    ...baseApiSchema.shape,
-    format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
-    payload: ldCommitteesArraySchema,
-  }),
-]);
-
 // Additional fields for enriched report data
 const enrichedFieldsSchema = z.object({
   reportAuthor: z.string().min(1, 'Report author is required'),
   jobId: z.string().cuid('Job ID must be a valid CUID'),
 });
 
+// Base schemas for each report type
+const designatedPetitionBaseSchema = z.object({
+  type: z.literal('designatedPetition'),
+  ...baseApiSchema.shape,
+  payload: generateDesignatedPetitionDataSchema,
+});
+
+const ldCommitteesBaseSchema = z.object({
+  type: z.literal('ldCommittees'),
+  ...baseApiSchema.shape,
+  format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
+  payload: ldCommitteesArraySchema,
+});
+
+// Generate Report Schema - discriminated union for different report types
+export const generateReportSchema = z.discriminatedUnion('type', [
+  designatedPetitionBaseSchema,
+  ldCommitteesBaseSchema,
+]);
+
 // Enriched report data that extends the generate report schema with additional fields
 export const enrichedReportDataSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('designatedPetition'),
-    ...baseApiSchema.shape,
-    ...enrichedFieldsSchema.shape,
-    payload: generateDesignatedPetitionDataSchema,
-  }),
-  z.object({
-    type: z.literal('ldCommittees'),
-    ...baseApiSchema.shape,
-    ...enrichedFieldsSchema.shape,
-    format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
-    payload: ldCommitteesArraySchema,
-  }),
+  designatedPetitionBaseSchema.extend(enrichedFieldsSchema.shape),
+  ldCommitteesBaseSchema.extend(enrichedFieldsSchema.shape),
 ]);
 
 // Report complete webhook payload schema
