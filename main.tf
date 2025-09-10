@@ -7,7 +7,7 @@ resource "aws_lightsail_instance" "nodejs_server" {
   name              = "nodejs-report-server"
   availability_zone = "us-west-2a"
   blueprint_id      = "nodejs"
-  bundle_id         = "nano_2_0"  # Smallest instance size, adjust as needed
+  bundle_id         = "micro_3_0"  # Smallest instance size, adjust as needed
 
 
   # these are needed for puppetteer

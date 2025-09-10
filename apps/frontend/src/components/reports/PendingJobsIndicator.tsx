@@ -18,7 +18,8 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { type Report, JobStatus } from "@prisma/client";
+import { type Report, type JobStatus } from "@prisma/client";
+import { formatReportType } from "./reportUtils";
 
 interface PendingJobsIndicatorProps {
   initialJobs?: Report[];
@@ -35,7 +36,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
     setLoading(true);
     try {
       const response = await fetch(
-        "/api/reportJobs?status=pending,processing,failed",
+        "/api/reportJobs?status=pending,processing,failed&page=1&pageSize=5",
       );
       const data = (await response.json()) as unknown as {
         reports: Report[];
@@ -83,6 +84,14 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getJobName = (job: Report) => {
+    if (job.title) {
+      return job.title;
+    } else {
+      return `Unnamed ${formatReportType(job.ReportType)}`;
     }
   };
 
@@ -136,13 +145,19 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <CheckCircle className="h-5 w-5 text-green-500" />
-            <span>Report Jobs</span>
+            <span>Pending Reports</span>
           </CardTitle>
-          <CardDescription>No pending report jobs</CardDescription>
+          <CardDescription>No pending reports</CardDescription>
         </CardHeader>
       </Card>
     );
   }
+
+  const numPending = pendingJobs.filter(
+    (job) => job.status === "PENDING" || job.status === "PROCESSING",
+  ).length;
+
+  const numFailed = pendingJobs.filter((job) => job.status === "FAILED").length;
 
   return (
     <Card>
@@ -167,8 +182,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
           </Button>
         </div>
         <CardDescription>
-          {pendingJobs.length} job{pendingJobs.length !== 1 ? "s" : ""} in
-          progress
+          {`${numPending} report${numPending !== 1 ? "s" : ""} in progress.${numFailed > 0 ? ` ${numFailed} reports have failed.` : ""}`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -180,7 +194,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
             <div className="flex items-center space-x-3">
               {getStatusIcon(job.status)}
               <div>
-                <p className="text-sm font-medium">Job #{job.id.slice(-8)}</p>
+                <p className="text-sm font-medium">
+                  {`${job.status === "FAILED" ? "Failed" : job.status === "PROCESSING" ? "Processing" : "Pending"} report: ${getJobName(job)}`}
+                </p>
                 <p className="text-xs text-gray-500">
                   Started {formatDate(job.requestedAt)}
                 </p>
