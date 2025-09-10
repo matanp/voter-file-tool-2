@@ -113,15 +113,6 @@ export const POST = async (req: NextRequest) => {
       signedUrl = await getPresignedReadUrl(url);
     }
 
-    const ablyMessage = {
-      jobId,
-      status: success ? JobStatus.COMPLETED : JobStatus.FAILED,
-      ...(success ? { url: signedUrl } : { error }),
-      timestamp: new Date().toISOString(),
-    };
-
-    await channel.publish("report", ablyMessage);
-
     if (success) {
       if (!url) {
         return NextResponse.json(
@@ -140,8 +131,6 @@ export const POST = async (req: NextRequest) => {
           fileKey: url,
         },
       });
-
-      return NextResponse.json({ received: true }, { status: 200 });
     } else {
       console.error("Job failed:", error);
 
@@ -155,6 +144,15 @@ export const POST = async (req: NextRequest) => {
         },
       });
     }
+
+    const ablyMessage = {
+      jobId,
+      status: success ? JobStatus.COMPLETED : JobStatus.FAILED,
+      ...(success ? { url: signedUrl } : { error }),
+      timestamp: new Date().toISOString(),
+    };
+
+    await channel.publish("report", ablyMessage);
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err) {
