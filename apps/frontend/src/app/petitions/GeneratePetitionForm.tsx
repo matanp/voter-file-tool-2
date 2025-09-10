@@ -11,11 +11,11 @@ import type { VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
 import type { ElectionDate, OfficeName } from "prisma/prisma-client";
-import { defaultCustomPartyName } from "~/lib/validators/designatedPetition";
 import {
+  defaultCustomPartyName,
   type GenerateReportData,
   generateReportSchema,
-} from "~/lib/validators/generateReport";
+} from "@voter-file-tool/shared-validators";
 import { ReportStatusTracker } from "../components/ReportStatusTracker";
 
 type GeneratePetitionFormProps = {

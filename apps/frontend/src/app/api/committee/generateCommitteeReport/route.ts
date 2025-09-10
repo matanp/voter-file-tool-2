@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
-import { ldCommitteesArraySchema } from "~/lib/validators/ldCommittees";
+import { ldCommitteesArraySchema } from "@voter-file-tool/shared-validators";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
 import { gzipSync } from "node:zlib";
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: compressedPayload,
+      body: new Uint8Array(compressedPayload),
     });
 
     if (!response.ok) {
