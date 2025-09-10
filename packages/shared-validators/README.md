@@ -98,12 +98,10 @@ All schemas include comprehensive validation rules:
 
 The package provides structured error responses with detailed validation messages:
 
-```typescript
 const result = schema.safeParse(data);
 if (!result.success) {
   return {
     error: 'Validation failed',
-    details: result.error.errors,
+    details: result.error.issues,
   };
 }
-```
