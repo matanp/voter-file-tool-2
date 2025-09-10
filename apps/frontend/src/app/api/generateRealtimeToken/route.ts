@@ -19,7 +19,14 @@ export async function POST() {
   const clientId = session.user.id;
 
   const ably = new Ably.Rest(process.env.ABLY_API_KEY);
-  const tokenRequest = await ably.auth.createTokenRequest({ clientId });
-
-  return NextResponse.json(tokenRequest);
+  try {
+    const tokenRequest = await ably.auth.createTokenRequest({ clientId });
+    return NextResponse.json(tokenRequest, { status: 200 });
+  } catch (err) {
+    console.error("Ably token creation failed:", err);
+    return NextResponse.json(
+      { error: "Failed to create realtime token" },
+      { status: 502 },
+    );
+  }
 }
