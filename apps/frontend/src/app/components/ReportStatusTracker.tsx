@@ -15,7 +15,6 @@ export function ReportStatusTracker({
   onComplete,
   onError,
 }: ReportStatusTrackerProps) {
-  // Memoize Ably client to avoid recreating it on every render
   const client = useMemo(
     () =>
       new Ably.Realtime({
