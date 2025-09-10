@@ -6,7 +6,90 @@ import puppeteer from 'puppeteer';
 import { uploadFileToR2 } from './s3Utils';
 import { Readable } from 'stream';
 import * as XLSX from 'xlsx';
-import { LDCommitteesArray } from '@voter-file-tool/shared-validators';
+import {
+  LDCommitteesArray,
+  type CommitteeMember,
+} from '@voter-file-tool/shared-validators';
+
+const generateDynamicHeaders = (
+  members: CommitteeMember[],
+  compoundTypes?: any
+): string[] => {
+  if (members.length === 0) return ['Election District'];
+
+  // Get all unique field names from the members
+  const allFields = new Set<string>();
+  for (const member of members) {
+    for (const key of Object.keys(member)) {
+      if (key !== 'electionDistrict') {
+        allFields.add(key);
+      }
+    }
+  }
+
+  // Always start with Election District
+  const headers = ['Election District'];
+
+  // Add other fields in a consistent order
+  const fieldOrder = [
+    'name',
+    'address',
+    'city',
+    'state',
+    'zip',
+    'phone',
+    'firstName',
+    'middleInitial',
+    'lastName',
+    'suffixName',
+    'houseNum',
+    'street',
+    'apartment',
+    'halfAddress',
+    'resAddrLine2',
+    'resAddrLine3',
+    'mailingAddress1',
+    'mailingAddress2',
+    'mailingAddress3',
+    'mailingAddress4',
+    'mailingCity',
+    'mailingState',
+    'mailingZip',
+    'mailingZipSuffix',
+    'telephone',
+    'email',
+    'electionDistrict',
+    'countyLegDistrict',
+    'stateAssmblyDistrict',
+    'stateSenateDistrict',
+    'congressionalDistrict',
+    'CC_WD_Village',
+    'townCode',
+    'VRCNUM',
+    'addressForCommittee',
+    'party',
+    'gender',
+    'DOB',
+    'L_T',
+    'originalRegDate',
+    'statevid',
+  ];
+
+  // Add fields in the preferred order if they exist
+  for (const field of fieldOrder) {
+    if (allFields.has(field)) {
+      headers.push(field);
+      allFields.delete(field);
+    }
+  }
+
+  // Add any remaining fields that weren't in the preferred order
+  for (const field of Array.from(allFields).sort()) {
+    headers.push(field);
+  }
+
+  return headers;
+};
 
 export const generateHTML = (
   candidates: { name: string; address: string; office: string }[],
@@ -127,45 +210,26 @@ export async function generateXLSXAndUpload(
   for (const ld of groupedCommittees) {
     const worksheetData: any[] = [];
 
-    // Get allowed fields from the first LD (they should all be the same)
-    const allowedFields = ld.allowedFields || [];
+    // Collect all members to generate dynamic headers
+    const allMembers = Object.values(ld.committees).flat();
 
-    // Create header row with base fields and additional fields
-    const baseHeaders = [
-      'Election District',
-      'Name',
-      'Address',
-      'City',
-      'State',
-      'ZIP',
-      'Phone',
-    ];
-
-    // Add additional field headers
-    const additionalHeaders = allowedFields.map((field) => field);
-    const allHeaders = [...baseHeaders, ...additionalHeaders];
-
-    worksheetData.push(allHeaders);
+    // Generate dynamic headers based on actual data
+    const headers = generateDynamicHeaders(allMembers, ld.compoundTypes);
+    worksheetData.push(headers);
 
     // Add committee members data
     for (const [electionDistrict, members] of Object.entries(ld.committees)) {
       for (const member of members) {
-        const baseData = [
-          electionDistrict.padStart(3, '0'),
-          member.name,
-          member.address,
-          member.city,
-          member.state,
-          member.zip,
-          member.phone || '',
-        ];
+        // Generate row data based on headers
+        const rowData = headers.map((header: string) => {
+          if (header === 'Election District') {
+            return electionDistrict.padStart(3, '0');
+          }
 
-        // Add additional field data
-        const additionalData = allowedFields.map((field) => {
-          const value = member[field as keyof typeof member];
+          const value = member[header as keyof typeof member];
           if (value !== null && value !== undefined) {
             // Special formatting for DOB field
-            if (field === 'DOB' && value instanceof Date) {
+            if (header === 'DOB' && value instanceof Date) {
               return value.toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: '2-digit',
@@ -177,28 +241,23 @@ export async function generateXLSXAndUpload(
           return '';
         });
 
-        const allData = [...baseData, ...additionalData];
-        worksheetData.push(allData);
+        worksheetData.push(rowData);
       }
     }
 
     // Create worksheet
     const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
-    // Set column widths - base fields + dynamic widths for additional fields
-    const baseColumnWidths = [
-      { wch: 15 }, // Election District
-      { wch: 25 }, // Name
-      { wch: 30 }, // Address
-      { wch: 20 }, // City
-      { wch: 8 }, // State
-      { wch: 10 }, // ZIP
-      { wch: 15 }, // Phone
-    ];
-
-    // Add widths for additional fields (default to 15 characters)
-    const additionalColumnWidths = allowedFields.map(() => ({ wch: 15 }));
-    const allColumnWidths = [...baseColumnWidths, ...additionalColumnWidths];
+    // Set column widths - dynamic widths based on headers
+    const allColumnWidths = headers.map((header: string) => {
+      // Set appropriate widths for different field types
+      if (header === 'Election District') return { wch: 15 };
+      if (header === 'Name' || header === 'Address') return { wch: 25 };
+      if (header === 'City') return { wch: 20 };
+      if (header === 'State') return { wch: 8 };
+      if (header === 'ZIP' || header === 'Phone') return { wch: 12 };
+      return { wch: 15 }; // Default width for other fields
+    });
 
     worksheet['!cols'] = allColumnWidths;
 
