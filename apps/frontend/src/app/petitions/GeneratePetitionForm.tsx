@@ -16,28 +16,13 @@ import {
   type GenerateReportData,
   generateReportSchema,
 } from "~/lib/validators/generateReport";
-
-// :OHNO: add login check
+import { ReportStatusTracker } from "../components/ReportStatusTracker";
 
 type GeneratePetitionFormProps = {
   parties: string[];
   electionDates: ElectionDate[];
   officeNames: OfficeName[];
 };
-export const PRINT_PARTY_MAP = {
-  BLK: "Blank",
-  CON: "Congressional",
-  IND: "Independent",
-  LBT: "Libertarian",
-  GRE: "Green",
-  DEM: "Democratic",
-  REP: "Republican",
-  REF: "Reform",
-  OTH: "Other",
-  WEP: "We the People",
-  SAM: "Save America Movement",
-  WOR: "Working Families Party",
-} as const;
 
 function formatDate(date: Date, withOrdinal: boolean): string {
   const day = date.getDate();
@@ -56,10 +41,7 @@ function formatDate(date: Date, withOrdinal: boolean): string {
   return `${month} ${day}${withOrdinal ? ordinal : ""}, ${year}`;
 }
 
-export type PartyCode = keyof typeof PRINT_PARTY_MAP;
-
 export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
-  parties,
   electionDates,
   officeNames,
 }) => {
@@ -192,55 +174,6 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-    let timer: ReturnType<typeof setTimeout>;
-
-    const checkStatus = async () => {
-      try {
-        const response = await fetch(`/api/getReportStatus?jobId=${reportId}`);
-        if (!response.ok) throw new Error("Failed to fetch job status");
-
-        const data = (await response.json()) as unknown as {
-          status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-          url: string | undefined;
-        };
-
-        if (!isMounted) return;
-
-        if (data.status === "COMPLETED" && data.url) {
-          setReportUrl(data.url);
-          setGenerationError(null); // Clear any previous errors
-        } else if (data.status === "FAILED") {
-          // Handle failed status explicitly
-          if (timer) clearTimeout(timer);
-          setGenerationError(
-            "Generation failed: The petition generation process encountered an error",
-          );
-        } else if (data.status === "PENDING" || data.status === "PROCESSING") {
-          // Wait 2 seconds and check again
-          timer = setTimeout(() => void checkStatus(), 2000);
-        }
-      } catch (err) {
-        console.error(err);
-        // Clear timer and set error state instead of retrying
-        if (timer) clearTimeout(timer);
-        setGenerationError(
-          `Generation failed: ${err instanceof Error ? err.message : "Unknown error occurred"}`,
-        );
-      }
-    };
-
-    if (reportId !== "") {
-      void checkStatus();
-    }
-
-    return () => {
-      isMounted = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [reportId]);
-
   return (
     <div className="w-full">
       <h1 className="primary-header py-2">Generate Designated Petition</h1>
@@ -281,20 +214,6 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
                       });
                     }}
                   />
-
-                  {/** <Input
-                    onChange={(e) => {
-                      setCandidates((candidates) => {
-                        const updated = candidates.find(
-                          (c) => c.VRCNUM === record.VRCNUM,
-                        );
-                        if (updated) {
-                          updated.office = e.target.value;
-                        }
-                        return [...candidates];
-                      });
-                    }}
-                  /> **/}
                   <Button
                     variant={"destructive"}
                     title="Remove Candidate"
@@ -445,12 +364,12 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
               e.preventDefault();
               setCustomParty(e.target.value);
             }}
-            onFocus={(e) => {
+            onFocus={() => {
               if (customParty === defaultCustomPartyName) {
                 setCustomParty("");
               }
             }}
-            onBlur={(e) => {
+            onBlur={() => {
               if (customParty === "") {
                 setCustomParty(defaultCustomPartyName);
               }
@@ -543,6 +462,18 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           <p className="text-red-500">Please fill out all required fields</p>
         )}
       </div>
+      {reportId && (
+        <ReportStatusTracker
+          reportId={reportId}
+          onComplete={(url) => {
+            console.log("complete!", url);
+            setReportUrl(url);
+          }}
+          onError={(error) => {
+            setGenerationError(error);
+          }}
+        />
+      )}
       {reportUrl && (
         <div className="space-y-4">
           <div className="flex items-center gap-4 py-2">

@@ -11,9 +11,9 @@ import {
   type GenerateReportData,
   generateReportSchema,
 } from "~/lib/validators/generateReport";
-import { useReportJobStatus } from "~/hooks/useReportJobStatus";
 import { useRouter } from "next/navigation";
 import { ToastAction } from "~/components/ui/toast";
+import { ReportStatusTracker } from "../components/ReportStatusTracker";
 
 interface GenerateCommitteeReportButtonProps {
   committeeLists: CommitteeWithMembers[];
@@ -24,49 +24,9 @@ export const GenerateCommitteeReportButton: React.FC<
 > = ({ committeeLists }) => {
   const { toast } = useToast();
   const router = useRouter();
-  const [reportJobId, setReportJobId] = useState<string | null>(null);
+  const [reportId, setReportId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // Use the polling hook to track job status
-  const { isLoading } = useReportJobStatus(reportJobId, {
-    onComplete: (downloadUrl) => {
-      // Auto-navigate to reports page when complete
-      router.push("/reports");
-      toast({
-        title: "Report Ready!",
-        description: "Your committee report has been generated successfully.",
-        action: (
-          <ToastAction
-            altText="Download report"
-            onClick={() => window.open(downloadUrl, "_blank")}
-          >
-            Download
-          </ToastAction>
-        ),
-        duration: 10000,
-      });
-      setReportJobId(null);
-      setIsGenerating(false);
-    },
-    onError: (errorMessage) => {
-      toast({
-        variant: "destructive",
-        title: "Report Generation Failed",
-        description: errorMessage,
-        action: (
-          <ToastAction
-            altText="View reports"
-            onClick={() => router.push("/reports")}
-          >
-            View Reports
-          </ToastAction>
-        ),
-        duration: 10000,
-      });
-      setReportJobId(null);
-      setIsGenerating(false);
-    },
-  });
+  const [complete, setComplete] = useState(false);
 
   const handleSubmit = async (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -76,6 +36,8 @@ export const GenerateCommitteeReportButton: React.FC<
     if (isGenerating) {
       return; // Prevent multiple submissions
     }
+
+    setComplete(false);
 
     const committeeData = mapCommiteesToReportShape(committeeLists);
 
@@ -159,7 +121,7 @@ export const GenerateCommitteeReportButton: React.FC<
       }
 
       // Start tracking the job
-      setReportJobId(responseData.reportId);
+      setReportId(responseData.reportId);
 
       // Show initial toast with tracking info
       toast({
@@ -189,13 +151,31 @@ export const GenerateCommitteeReportButton: React.FC<
     }
   };
 
-  // Show loading state while generating or polling
-  const isProcessing = isGenerating || (!!reportJobId && isLoading);
-
   return (
-    <Button onClick={(e) => handleSubmit(e)} disabled={isProcessing}>
-      {isProcessing ? "Generating Report..." : "Generate Committee List Report"}
-    </Button>
+    <>
+      <Button onClick={(e) => handleSubmit(e)} disabled={isGenerating}>
+        {isGenerating
+          ? "Generating Report..."
+          : "Generate Committee List Report"}
+      </Button>
+      {reportId && (
+        <ReportStatusTracker
+          reportId={reportId}
+          onComplete={(url) => {
+            console.log("complete!", url);
+            setComplete(true);
+            setIsGenerating(false);
+          }}
+          onError={(error) => {
+            setComplete(false);
+            setIsGenerating(false);
+          }}
+        />
+      )}
+      {complete && (
+        <div>Your report is ready, go to the reports page to view</div>
+      )}
+    </>
   );
 };
 

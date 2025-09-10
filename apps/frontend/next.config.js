@@ -48,6 +48,13 @@ const nextConfig = {
       },
     ];
   },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Don’t try to bundle ably’s Node deps into the client
+      config.externals.push("keyv", "got", "cacheable-request");
+    }
+    return config;
+  },
 };
 
 const sentryConfig = {

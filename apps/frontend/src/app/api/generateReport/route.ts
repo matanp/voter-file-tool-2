@@ -80,13 +80,22 @@ export const POST = withPrivilege(
         body: gzippedBuffer,
       });
 
-      if (response.ok) {
+      const { success, message, numJobs } = (await response.json()) as {
+        success: boolean;
+        message: string;
+        numJobs: number;
+      };
+
+      if (response.ok && success) {
         await prisma.report.update({
           where: { id: reportId },
           data: { status: JobStatus.PROCESSING },
         });
 
-        return NextResponse.json({ reportId }, { status: 200 });
+        return NextResponse.json(
+          { reportId, jobsAhead: numJobs },
+          { status: 200 },
+        );
       } else {
         await prisma.report.update({
           where: { id: reportId },
