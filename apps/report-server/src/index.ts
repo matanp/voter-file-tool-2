@@ -10,6 +10,7 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
+  generateXLSXAndUpload,
 } from './utils';
 import { createWebhookSignature } from './webhookUtils';
 import {
@@ -120,15 +121,29 @@ async function processJob(jobData: EnrichedReportData) {
     let pdfBuffer: Buffer;
     let fileName: string;
     const { type, reportAuthor, jobId, payload } = jobData;
+    const format =
+      type === 'ldCommittees' && 'format' in jobData ? jobData.format : 'pdf';
 
     // Sanitize reportAuthor for safe S3 key usage
     const sanitizedAuthor = sanitizeReportAuthor(reportAuthor);
 
     if (type === 'ldCommittees') {
-      fileName = sanitizedAuthor + '/committeeReport/' + randomUUID() + '.pdf';
-      console.log('Processing committee report...');
-      const html = generateCommitteeReportHTML(payload);
-      await generatePDFAndUpload(html, true, fileName);
+      const fileExtension = format === 'xlsx' ? 'xlsx' : 'pdf';
+      fileName =
+        sanitizedAuthor +
+        '/committeeReport/' +
+        randomUUID() +
+        '.' +
+        fileExtension;
+
+      if (format === 'xlsx') {
+        console.log('Processing committee report as XLSX...');
+        await generateXLSXAndUpload(payload, fileName);
+      } else {
+        console.log('Processing committee report as PDF...');
+        const html = generateCommitteeReportHTML(payload);
+        await generatePDFAndUpload(html, true, fileName);
+      }
     } else if (type === 'designatedPetition') {
       fileName =
         sanitizedAuthor + '/designatedPetition/' + randomUUID() + '.pdf';
