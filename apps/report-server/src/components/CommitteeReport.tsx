@@ -1,17 +1,134 @@
 import React from 'react';
+import { type CommitteeMember } from '@voter-file-tool/shared-validators';
 
-type CommitteeMember = {
-  name: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  phone: string;
+// Temporary local implementation until the shared package is built
+const generateDynamicHeaders = (
+  members: CommitteeMember[],
+  compoundTypes?: any
+): string[] => {
+  if (members.length === 0) return ['Election District'];
+
+  // Get all unique field names from the members
+  const allFields = new Set<string>();
+  for (const member of members) {
+    for (const key of Object.keys(member)) {
+      if (key !== 'electionDistrict') {
+        allFields.add(key);
+      }
+    }
+  }
+
+  // Always start with Election District
+  const headers = ['Election District'];
+
+  // Add other fields in a consistent order
+  const fieldOrder = [
+    'name',
+    'address',
+    'city',
+    'state',
+    'zip',
+    'phone',
+    'firstName',
+    'middleInitial',
+    'lastName',
+    'suffixName',
+    'houseNum',
+    'street',
+    'apartment',
+    'halfAddress',
+    'resAddrLine2',
+    'resAddrLine3',
+    'mailingAddress1',
+    'mailingAddress2',
+    'mailingAddress3',
+    'mailingAddress4',
+    'mailingCity',
+    'mailingState',
+    'mailingZip',
+    'mailingZipSuffix',
+    'telephone',
+    'email',
+    'electionDistrict',
+    'countyLegDistrict',
+    'stateAssmblyDistrict',
+    'stateSenateDistrict',
+    'congressionalDistrict',
+    'CC_WD_Village',
+    'townCode',
+    'VRCNUM',
+    'addressForCommittee',
+    'party',
+    'gender',
+    'DOB',
+    'L_T',
+    'originalRegDate',
+    'statevid',
+  ];
+
+  // Add fields in the preferred order if they exist
+  for (const field of fieldOrder) {
+    if (allFields.has(field)) {
+      headers.push(field);
+      allFields.delete(field);
+    }
+  }
+
+  // Add any remaining fields that weren't in the preferred order
+  for (const field of Array.from(allFields).sort()) {
+    headers.push(field);
+  }
+
+  return headers;
 };
 
 type CommitteeGroup = {
   electionDistrict: string;
   members: CommitteeMember[];
+};
+
+// Dynamic table component that generates headers and rows based on actual data
+const DynamicCommitteeTable: React.FC<{ groups: CommitteeGroup[] }> = ({
+  groups,
+}) => {
+  // Collect all members to generate dynamic headers
+  const allMembers = groups.flatMap((group) => group.members);
+  const headers = generateDynamicHeaders(allMembers);
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="">
+          {headers.map((header: string, index: number) => (
+            <th
+              key={index}
+              className="border border-gray-400 px-2 py-1 text-left"
+            >
+              {header === 'Election District' ? 'Serve ED' : header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {groups.map((group, groupIndex) => (
+          <React.Fragment key={groupIndex}>
+            {group.members.map((member, memberIndex) => (
+              <tr key={memberIndex} className="align-top">
+                {headers.map((header: string, headerIndex: number) => (
+                  <td key={headerIndex} className="pl-2">
+                    {header === 'Election District'
+                      ? group.electionDistrict.toString().padStart(3, '0')
+                      : String(member[header as keyof typeof member] || '')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            <tr className="h-2"></tr>
+          </React.Fragment>
+        ))}
+      </tbody>
+    </table>
+  );
 };
 
 type Page = {
@@ -58,55 +175,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                     : page.cityTown}
                 </h3>
 
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="">
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Serve ED
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Name
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Address
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        City
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        State
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Zip
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Phone
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {page.groups.map((group, groupIndex) => (
-                      <React.Fragment key={groupIndex}>
-                        {group.members.map((member, memberIndex) => (
-                          <tr key={memberIndex} className="align-top">
-                            <td className="pl-2">
-                              {group.electionDistrict
-                                .toString()
-                                .padStart(3, '0')}
-                            </td>
-                            <td className="pl-2">{member.name}</td>
-                            <td className="pl-2">{member.address}</td>
-                            <td className="pl-2">{member.city}</td>
-                            <td className="pl-2">{member.state}</td>
-                            <td className="pl-2">{member.zip}</td>
-                            <td className="pl-2">{member.phone}</td>
-                          </tr>
-                        ))}
-                        <tr className="h-2"></tr>
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+                <DynamicCommitteeTable groups={page.groups} />
                 {page.lastPage && (
                   <div className="ml-6 font-lg font-semibold">
                     Committee Subtotal: {page.totalRecords}

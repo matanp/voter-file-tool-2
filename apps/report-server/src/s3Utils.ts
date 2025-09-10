@@ -1,11 +1,6 @@
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { randomUUID } from 'crypto';
 import { config } from 'dotenv';
 import { Readable } from 'stream';
 
@@ -41,26 +36,34 @@ export async function getPresignedReadUrl(
   return await getSignedUrl(s3, command, { expiresIn });
 }
 
-export async function uploadPDFToR2(
-  pdfStream: Readable,
-  key: string
+export type FileType = 'pdf' | 'xlsx';
+
+export async function uploadFileToR2(
+  stream: Readable,
+  key: string,
+  fileType: FileType
 ): Promise<boolean> {
   try {
+    const contentType =
+      fileType === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
     const upload = new Upload({
       client: s3,
       params: {
         Bucket: process.env.R2_BUCKET_NAME!,
         Key: key,
-        Body: pdfStream,
-        ContentType: 'application/pdf',
+        Body: stream,
+        ContentType: contentType,
       },
     });
 
     await upload.done();
-    console.log('Upload successful');
+    console.log(`${fileType.toUpperCase()} Upload successful`);
     return true;
   } catch (err) {
-    console.error('Upload failed', err);
+    console.error(`${fileType.toUpperCase()} Upload failed`, err);
     return false;
   }
 }
