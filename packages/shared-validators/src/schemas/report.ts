@@ -18,25 +18,31 @@ export const generateReportSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('ldCommittees'),
     ...baseApiSchema.shape,
+    format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
     payload: ldCommitteesArraySchema,
   }),
 ]);
 
-// Enriched report data that includes additional fields from the API
+// Additional fields for enriched report data
+const enrichedFieldsSchema = z.object({
+  reportAuthor: z.string().min(1, 'Report author is required'),
+  jobId: z.string().cuid('Job ID must be a valid CUID'),
+});
+
+// Enriched report data that extends the generate report schema with additional fields
 export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('designatedPetition'),
     ...baseApiSchema.shape,
+    ...enrichedFieldsSchema.shape,
     payload: generateDesignatedPetitionDataSchema,
-    reportAuthor: z.string().min(1, 'Report author is required'),
-    jobId: z.string().cuid('Job ID must be a valid CUID'),
   }),
   z.object({
     type: z.literal('ldCommittees'),
     ...baseApiSchema.shape,
+    ...enrichedFieldsSchema.shape,
+    format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
     payload: ldCommitteesArraySchema,
-    reportAuthor: z.string().min(1, 'Report author is required'),
-    jobId: z.string().cuid('Job ID must be a valid CUID'),
   }),
 ]);
 
