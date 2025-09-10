@@ -3,7 +3,7 @@ import {
   generateReportSchema,
   type GenerateReportData,
   type EnrichedReportData,
-  type GenerateReportResponse,
+  type GenerateReportFrontendResponse,
   type ErrorResponse,
 } from "@voter-file-tool/shared-validators";
 import { withPrivilege } from "../lib/withPrivilege";
@@ -24,7 +24,7 @@ export const POST = withPrivilege(
   async (
     req: NextRequest,
     session: Session,
-  ): Promise<NextResponse<GenerateReportResponse | ErrorResponse>> => {
+  ): Promise<NextResponse<GenerateReportFrontendResponse | ErrorResponse>> => {
     let reportId: string | undefined;
 
     try {
@@ -102,7 +102,7 @@ export const POST = withPrivilege(
           data: { status: JobStatus.PROCESSING },
         });
 
-        const successResponse: GenerateReportResponse = {
+        const successResponse: GenerateReportFrontendResponse = {
           reportId,
           jobsAhead: responseData.numJobs,
         };
