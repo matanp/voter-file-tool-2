@@ -12,6 +12,13 @@ import {
   generateCommitteeReportHTML,
 } from './utils';
 import { createWebhookSignature } from './webhookUtils';
+import {
+  enrichedReportDataSchema,
+  callbackUrlSchema,
+  type EnrichedReportData,
+  type ReportCompleteWebhookPayload,
+  type CallbackUrl,
+} from '@voter-file-tool/shared-validators';
 
 // Function to sanitize reportAuthor for safe S3 key usage
 function sanitizeReportAuthor(author: string): string {
@@ -37,7 +44,7 @@ config();
 
 const QUEUE_CONCURRENCY = 2;
 
-const q = async.queue(async (requestData) => {
+const q = async.queue(async (requestData: EnrichedReportData) => {
   try {
     await processJob(requestData);
   } catch (error) {
@@ -48,8 +55,16 @@ const q = async.queue(async (requestData) => {
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-const CALLBACK_URL =
-  process.env.CALLBACK_URL || 'http://localhost:3000/api/reportComplete';
+const callbackUrlResult = callbackUrlSchema.safeParse(
+  process.env.CALLBACK_URL || 'http://localhost:3000/api/reportComplete'
+);
+
+if (!callbackUrlResult.success) {
+  console.error('Invalid CALLBACK_URL:', callbackUrlResult.error);
+  process.exit(1);
+}
+
+const CALLBACK_URL: CallbackUrl = callbackUrlResult.data;
 
 app.use((req, res, next) => {
   if (req.path === '/start-job') return next();
@@ -68,7 +83,19 @@ app.post(
       const decompressedBuffer = gunzipSync(req.body);
       console.log('decompressed gzip');
       const jsonString = decompressedBuffer.toString('utf-8');
-      const requestData = JSON.parse(jsonString);
+      const rawRequestData = JSON.parse(jsonString);
+
+      const validationResult =
+        enrichedReportDataSchema.safeParse(rawRequestData);
+      if (!validationResult.success) {
+        console.error('Invalid request data:', validationResult.error);
+        return res.status(400).json({
+          error: 'Invalid request data',
+          details: validationResult.error.errors,
+        });
+      }
+
+      const requestData: EnrichedReportData = validationResult.data;
 
       // console.log('Received job data:', requestData);
 
@@ -88,7 +115,7 @@ app.post(
   }
 );
 
-async function processJob(jobData: any) {
+async function processJob(jobData: EnrichedReportData) {
   try {
     let pdfBuffer: Buffer;
     let fileName: string;
@@ -122,12 +149,13 @@ async function processJob(jobData: any) {
     }
 
     // Create callback payload
-    const callbackPayload = JSON.stringify({
+    const callbackPayloadData: ReportCompleteWebhookPayload = {
       success: true,
       type: type,
       url: fileName,
       jobId,
-    });
+    };
+    const callbackPayload = JSON.stringify(callbackPayloadData);
 
     // Create new webhook signature for the callback payload
     const webhookSecret = process.env.WEBHOOK_SECRET;
@@ -153,10 +181,12 @@ async function processJob(jobData: any) {
     console.error('Error processing job:', error);
 
     // Create error callback payload
-    const errorCallbackPayload = JSON.stringify({
+    const errorCallbackPayloadData: ReportCompleteWebhookPayload = {
       success: false,
       error: (error as Error).message,
-    });
+      jobId: jobData.jobId,
+    };
+    const errorCallbackPayload = JSON.stringify(errorCallbackPayloadData);
 
     // Create new webhook signature for the error callback payload
     const webhookSecret = process.env.WEBHOOK_SECRET;

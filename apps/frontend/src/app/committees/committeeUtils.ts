@@ -2,7 +2,7 @@ import type { CommitteeList, VoterRecord } from "@prisma/client";
 import type {
   CommitteeMember,
   LDCommittees,
-} from "~/lib/validators/ldCommittees";
+} from "@voter-file-tool/shared-validators";
 
 const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
   const name = [

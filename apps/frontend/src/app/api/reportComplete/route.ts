@@ -1,36 +1,32 @@
 import { JobStatus } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import {
+  reportCompleteWebhookPayloadSchema,
+  type ReportCompleteWebhookPayload,
+  type ReportCompleteResponse,
+  type ErrorResponse,
+} from "@voter-file-tool/shared-validators";
 import prisma from "~/lib/prisma";
 import { verifyWebhookSignature } from "~/lib/webhookUtils";
 import * as Ably from "ably";
 import { getPresignedReadUrl } from "~/lib/s3Utils";
 
-// Schema for webhook payload validation
-const webhookPayloadSchema = z.object({
-  success: z.boolean(),
-  jobId: z.string(),
-  type: z.string().optional(),
-  url: z.string().optional(),
-  error: z.string().optional(),
-});
-
-export const POST = async (req: NextRequest) => {
+export const POST = async (
+  req: NextRequest,
+): Promise<NextResponse<ReportCompleteResponse | ErrorResponse>> => {
   if (!process.env.ABLY_API_KEY) {
-    return NextResponse.json(
-      {
-        errorMessage: `Missing ABLY_API_KEY environment variable.
+    const errorResponse: ErrorResponse = {
+      error: `Missing ABLY_API_KEY environment variable.
         If you're running locally, please ensure you have a ./.env file with a value for ABLY_API_KEY=your-key.
         If you're running in Netlify, make sure you've configured env variable ABLY_API_KEY. 
         Please see README.md for more details on configuring your Ably API Key.`,
-      },
-      {
-        status: 500,
-        headers: new Headers({
-          "content-type": "application/json",
-        }),
-      },
-    );
+    };
+    return NextResponse.json(errorResponse, {
+      status: 500,
+      headers: new Headers({
+        "content-type": "application/json",
+      }),
+    });
   }
   try {
     // Get the raw body for HMAC verification
@@ -42,20 +38,26 @@ export const POST = async (req: NextRequest) => {
 
     if (!webhookSecret) {
       console.error("WEBHOOK_SECRET environment variable is not set");
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 },
-      );
+      const errorResponse: ErrorResponse = {
+        error: "Server configuration error",
+      };
+      return NextResponse.json(errorResponse, { status: 500 });
     }
 
     if (!signature) {
       console.warn("Missing webhook signature header");
-      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+      const errorResponse: ErrorResponse = {
+        error: "Missing signature",
+      };
+      return NextResponse.json(errorResponse, { status: 401 });
     }
 
     if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
       console.warn("Invalid webhook signature");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+      const errorResponse: ErrorResponse = {
+        error: "Invalid signature",
+      };
+      return NextResponse.json(errorResponse, { status: 403 });
     }
 
     // Parse and validate the JSON payload
@@ -64,26 +66,25 @@ export const POST = async (req: NextRequest) => {
       body = JSON.parse(rawBody);
     } catch (error) {
       console.error("Invalid JSON payload:", error);
-      return NextResponse.json(
-        { error: "Invalid JSON payload" },
-        { status: 400 },
-      );
+      const errorResponse: ErrorResponse = {
+        error: "Invalid JSON payload",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Validate payload schema
-    const validationResult = webhookPayloadSchema.safeParse(body);
+    const validationResult = reportCompleteWebhookPayloadSchema.safeParse(body);
     if (!validationResult.success) {
       console.error("Payload validation failed:", validationResult.error);
-      return NextResponse.json(
-        {
-          error: "Invalid payload",
-          details: validationResult.error.errors,
-        },
-        { status: 400 },
-      );
+      const errorResponse: ErrorResponse = {
+        error: "Invalid payload",
+        details: validationResult.error.errors,
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
-    const { success, jobId, url, error } = validationResult.data;
+    const { success, jobId, url, error }: ReportCompleteWebhookPayload =
+      validationResult.data;
 
     const existingReport = await prisma.report.findUnique({
       where: { id: jobId },
@@ -91,7 +92,10 @@ export const POST = async (req: NextRequest) => {
     });
 
     if (!existingReport) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      const errorResponse: ErrorResponse = {
+        error: "Report not found",
+      };
+      return NextResponse.json(errorResponse, { status: 404 });
     }
 
     // Only process updates if the report is in PROCESSING status
@@ -100,10 +104,11 @@ export const POST = async (req: NextRequest) => {
       console.warn(
         `Report ${jobId} is not in PROCESSING status (current: ${existingReport.status}), skipping update`,
       );
-      return NextResponse.json(
-        { received: true, skipped: true },
-        { status: 200 },
-      );
+      const response: ReportCompleteResponse = {
+        received: true,
+        skipped: true,
+      };
+      return NextResponse.json(response, { status: 200 });
     }
     const client = new Ably.Rest(process.env.ABLY_API_KEY);
     const channel = client.channels.get(`report-status-${jobId}`);
@@ -115,10 +120,10 @@ export const POST = async (req: NextRequest) => {
 
     if (success) {
       if (!url) {
-        return NextResponse.json(
-          { error: "missing url for successful job" },
-          { status: 400 },
-        );
+        const errorResponse: ErrorResponse = {
+          error: "missing url for successful job",
+        };
+        return NextResponse.json(errorResponse, { status: 400 });
       }
 
       await prisma.report.update({
@@ -154,12 +159,15 @@ export const POST = async (req: NextRequest) => {
 
     await channel.publish("report", ablyMessage);
 
-    return NextResponse.json({ received: true }, { status: 200 });
+    const response: ReportCompleteResponse = {
+      received: true,
+    };
+    return NextResponse.json(response, { status: 200 });
   } catch (err) {
     console.error("Error in report complete endpoint:", err);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    const errorResponse: ErrorResponse = {
+      error: "Internal Server Error",
+    };
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 };
