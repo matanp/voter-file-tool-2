@@ -1,8 +1,8 @@
 "use client";
 
-import * as Ably from "ably";
+import type * as Ably from "ably";
 import { AblyProvider, ChannelProvider, useChannel } from "ably/react";
-import { useMemo } from "react";
+import { getAblyClient } from "~/lib/ably";
 
 interface ReportStatusTrackerProps {
   reportId: string;
@@ -15,14 +15,7 @@ export function ReportStatusTracker({
   onComplete,
   onError,
 }: ReportStatusTrackerProps) {
-  const client = useMemo(
-    () =>
-      new Ably.Realtime({
-        authUrl: "/api/generateRealtimeToken",
-        authMethod: "POST",
-      }),
-    [],
-  );
+  const client = getAblyClient();
 
   // Use a dynamic channel per report
   const channelName = `report-status-${reportId}`;
@@ -58,8 +51,6 @@ function ReportStatusSubscriber({
       url?: string;
       error?: string;
     };
-
-    console.log("Report status message received:", data);
 
     if (data.status === "COMPLETED" && data.url && onComplete) {
       onComplete(data.url);
