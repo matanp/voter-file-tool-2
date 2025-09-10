@@ -1,5 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { generateReportSchema } from "~/lib/validators/generateReport";
+import {
+  generateReportSchema,
+  type GenerateReportData,
+  type EnrichedReportData,
+  type GenerateReportResponse,
+  type ErrorResponse,
+} from "@voter-file-tool/shared-validators";
 import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
 import { PrivilegeLevel, ReportType, JobStatus } from "@prisma/client";
@@ -15,7 +21,10 @@ const PDF_API_URL = PDF_API_BASE + "/start-job";
 
 export const POST = withPrivilege(
   PrivilegeLevel.RequestAccess,
-  async (req: NextRequest, session: Session) => {
+  async (
+    req: NextRequest,
+    session: Session,
+  ): Promise<NextResponse<GenerateReportResponse | ErrorResponse>> => {
     let reportId: string | undefined;
 
     try {
@@ -24,13 +33,14 @@ export const POST = withPrivilege(
       const parsedRequest = generateReportSchema.safeParse(requestBody);
 
       if (!parsedRequest.success) {
-        return NextResponse.json(
-          { error: "Validation failed", issues: parsedRequest.error.issues },
-          { status: 400 },
-        );
+        const errorResponse: ErrorResponse = {
+          error: "Validation failed",
+          issues: parsedRequest.error.issues,
+        };
+        return NextResponse.json(errorResponse, { status: 400 });
       }
 
-      const reportData = parsedRequest.data;
+      const reportData: GenerateReportData = parsedRequest.data;
 
       if (!session?.user?.id) {
         throw new Error("Error getting user from session");
@@ -51,7 +61,7 @@ export const POST = withPrivilege(
 
       reportId = report.id;
 
-      const enrichedReportData = {
+      const enrichedReportData: EnrichedReportData = {
         ...reportData,
         reportAuthor: session.user.id,
         jobId: reportId,
@@ -77,25 +87,26 @@ export const POST = withPrivilege(
           "Content-Type": "application/json",
           "x-webhook-signature": signature,
         },
-        body: gzippedBuffer,
+        body: new Uint8Array(gzippedBuffer),
       });
 
-      const { success, message, numJobs } = (await response.json()) as {
+      const responseData = (await response.json()) as {
         success: boolean;
         message: string;
         numJobs: number;
       };
 
-      if (response.ok && success) {
+      if (response.ok && responseData.success) {
         await prisma.report.update({
           where: { id: reportId },
           data: { status: JobStatus.PROCESSING },
         });
 
-        return NextResponse.json(
-          { reportId, jobsAhead: numJobs },
-          { status: 200 },
-        );
+        const successResponse: GenerateReportResponse = {
+          reportId,
+          jobsAhead: responseData.numJobs,
+        };
+        return NextResponse.json(successResponse, { status: 200 });
       } else {
         await prisma.report.update({
           where: { id: reportId },
@@ -127,10 +138,11 @@ export const POST = withPrivilege(
         }
       }
 
-      return NextResponse.json(
-        { error: "Internal Server Error", message: error },
-        { status: 500 },
-      );
+      const errorResponse: ErrorResponse = {
+        error: "Internal Server Error",
+        message: error,
+      };
+      return NextResponse.json(errorResponse, { status: 500 });
     }
   },
 );

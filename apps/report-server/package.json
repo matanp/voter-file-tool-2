@@ -20,6 +20,7 @@
     "@aws-sdk/lib-storage": "^3.884.0",
     "@aws-sdk/s3-request-presigner": "^3.879.0",
     "@types/async": "^3.2.25",
+    "@voter-file-tool/shared-validators": "workspace:^",
     "async": "^3.2.6",
     "dotenv": "^17.2.1",
     "express": "^4.21.0",

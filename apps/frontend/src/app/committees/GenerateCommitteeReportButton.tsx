@@ -10,7 +10,7 @@ import { useToast } from "~/components/ui/use-toast";
 import {
   type GenerateReportData,
   generateReportSchema,
-} from "~/lib/validators/generateReport";
+} from "@voter-file-tool/shared-validators";
 import { useRouter } from "next/navigation";
 import { ToastAction } from "~/components/ui/toast";
 import { ReportStatusTracker } from "../components/ReportStatusTracker";
