@@ -18,7 +18,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { type Report, JobStatus } from "@prisma/client";
+import { type Report, type JobStatus } from "@prisma/client";
 import { formatReportType } from "./reportUtils";
 
 interface PendingJobsIndicatorProps {
