@@ -8,19 +8,24 @@ export const baseApiSchema = z.object({
   description: z.string().optional(),
 });
 
+// Individual report type schemas
+const designatedPetitionReportSchema = z.object({
+  type: z.literal('designatedPetition'),
+  ...baseApiSchema.shape,
+  payload: generateDesignatedPetitionDataSchema,
+});
+
+const ldCommitteesReportSchema = z.object({
+  type: z.literal('ldCommittees'),
+  ...baseApiSchema.shape,
+  format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
+  payload: ldCommitteesArraySchema,
+});
+
 // Generate Report Schema - discriminated union for different report types
 export const generateReportSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('designatedPetition'),
-    ...baseApiSchema.shape,
-    payload: generateDesignatedPetitionDataSchema,
-  }),
-  z.object({
-    type: z.literal('ldCommittees'),
-    ...baseApiSchema.shape,
-    format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
-    payload: ldCommitteesArraySchema,
-  }),
+  designatedPetitionReportSchema,
+  ldCommitteesReportSchema,
 ]);
 
 // Additional fields for enriched report data
@@ -32,17 +37,12 @@ const enrichedFieldsSchema = z.object({
 // Enriched report data that extends the generate report schema with additional fields
 export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   z.object({
-    type: z.literal('designatedPetition'),
-    ...baseApiSchema.shape,
+    ...designatedPetitionReportSchema.shape,
     ...enrichedFieldsSchema.shape,
-    payload: generateDesignatedPetitionDataSchema,
   }),
   z.object({
-    type: z.literal('ldCommittees'),
-    ...baseApiSchema.shape,
+    ...ldCommitteesReportSchema.shape,
     ...enrichedFieldsSchema.shape,
-    format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
-    payload: ldCommitteesArraySchema,
   }),
 ]);
 
