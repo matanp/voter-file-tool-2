@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { generateDesignatedPetitionDataSchema } from './designatedPetition';
-import { ldCommitteesArraySchema } from './ldCommittees';
+import {
+  ldCommitteesArraySchema,
+  createLDCommitteesArraySchema,
+  type VoterRecordField,
+} from './ldCommittees';
 
 // Base API schema for common fields
 export const baseApiSchema = z.object({
@@ -20,6 +24,8 @@ const ldCommitteesReportSchema = z.object({
   ...baseApiSchema.shape,
   format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
   payload: ldCommitteesArraySchema,
+  // Optional field to specify which VoterRecord fields to include
+  includeFields: z.array(z.string()).optional().default([]),
 });
 
 // Generate Report Schema - discriminated union for different report types
@@ -81,6 +87,34 @@ export const errorResponseSchema = z.object({
   issues: z.array(z.any()).optional(),
 });
 
+// Helper function to create a dynamic LD committees report schema
+export const createLDCommitteesReportSchema = (
+  selectedFields: VoterRecordField[] = []
+) => {
+  const dynamicPayloadSchema = createLDCommitteesArraySchema(selectedFields);
+
+  return z.object({
+    type: z.literal('ldCommittees'),
+    ...baseApiSchema.shape,
+    format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
+    payload: dynamicPayloadSchema,
+    includeFields: z.array(z.string()).optional().default(selectedFields),
+  });
+};
+
+// Helper function to create a dynamic generate report schema
+export const createGenerateReportSchema = (
+  ldCommitteesFields: VoterRecordField[] = []
+) => {
+  const dynamicLDCommitteesSchema =
+    createLDCommitteesReportSchema(ldCommitteesFields);
+
+  return z.discriminatedUnion('type', [
+    designatedPetitionReportSchema,
+    dynamicLDCommitteesSchema,
+  ]);
+};
+
 // Type exports
 export type GenerateReportData = z.infer<typeof generateReportSchema>;
 export type EnrichedReportData = z.infer<typeof enrichedReportDataSchema>;
@@ -97,3 +131,11 @@ export type ReportCompleteResponse = z.infer<
   typeof reportCompleteResponseSchema
 >;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
+
+// Dynamic schema types
+export type DynamicGenerateReportData = z.infer<
+  ReturnType<typeof createGenerateReportSchema>
+>;
+export type DynamicLDCommitteesReportData = z.infer<
+  ReturnType<typeof createLDCommitteesReportSchema>
+>;
