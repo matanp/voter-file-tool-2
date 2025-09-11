@@ -4,9 +4,13 @@
  */
 import { withSentryConfig } from "@sentry/nextjs";
 await import("./src/env.js");
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const POSTHOG_ASSETS_HOST = process.env.NEXT_PUBLIC_POSTHOG_ASSETS_HOST;
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
@@ -54,6 +58,9 @@ const nextConfig = {
       config.externals.push("keyv", "got", "cacheable-request");
     }
     return config;
+  },
+  experimental: {
+    outputFileTracingRoot: join(__dirname, "../.."),
   },
 };
 

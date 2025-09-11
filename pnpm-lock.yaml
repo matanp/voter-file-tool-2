@@ -6,6 +6,8 @@ settings:
 
 importers:
 
+  .: {}
+
   apps/frontend:
     dependencies:
       '@auth/prisma-adapter':
