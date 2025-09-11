@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Individual field schemas for VoterRecord fields that can be optionally included
 export const voterRecordFieldSchemas = {
   // Basic identification fields
-  VRCNUM: z.string().min(1, 'VRCNUM is required'),
+  VRCNUM: z.string().optional(),
   lastName: z.string().optional(),
   firstName: z.string().optional(),
   middleInitial: z.string().optional(),
@@ -23,7 +23,7 @@ export const voterRecordFieldSchemas = {
 
   // Contact information
   telephone: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.string().optional(),
 
   // Mailing address
   mailingAddress1: z.string().optional(),
@@ -38,7 +38,7 @@ export const voterRecordFieldSchemas = {
   // Political information
   party: z.string().optional(),
   gender: z.string().optional(),
-  DOB: z.date().optional(),
+  DOB: z.string().optional(),
   L_T: z.string().optional(),
 
   // District information
@@ -50,7 +50,7 @@ export const voterRecordFieldSchemas = {
   CC_WD_Village: z.string().optional(),
   townCode: z.string().optional(),
 
-  originalRegDate: z.date().optional(),
+  originalRegDate: z.string().optional(),
   statevid: z.string().optional(),
 
   // Committee-specific fields
@@ -70,16 +70,22 @@ export const createCommitteeMemberSchema = (
   // Add selected VoterRecord fields
   const additionalFields = selectedFields.reduce(
     (acc, field) => {
-      acc[field] = voterRecordFieldSchemas[field];
+      if (field in voterRecordFieldSchemas) {
+        acc[field] = voterRecordFieldSchemas[field];
+      }
       return acc;
     },
     {} as Record<string, z.ZodTypeAny>
   );
 
-  return z.object({
-    ...baseSchema,
-    ...additionalFields,
-  });
+  const schema = z
+    .object({
+      ...baseSchema,
+      ...additionalFields,
+    })
+    .passthrough();
+
+  return schema;
 };
 
 // Default CommitteeMember schema (backward compatible)
@@ -91,14 +97,16 @@ export const createLDCommitteesSchema = (
 ) => {
   const memberSchema = createCommitteeMemberSchema(selectedFields);
 
-  return z.object({
-    cityTown: z.string().min(1, 'City/Town is required'),
-    legDistrict: z
-      .number()
-      .int()
-      .positive('Legislative district must be a positive integer'),
-    committees: z.record(z.array(memberSchema)),
-  });
+  return z
+    .object({
+      cityTown: z.string().min(1, 'City/Town is required'),
+      legDistrict: z
+        .number()
+        .int()
+        .positive('Legislative district must be a positive integer'),
+      committees: z.record(z.array(memberSchema)),
+    })
+    .passthrough();
 };
 
 export const ldCommitteesSchema = createLDCommitteesSchema(); //default schema

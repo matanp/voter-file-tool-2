@@ -1,8 +1,8 @@
 import { Readable } from 'stream';
 import * as XLSX from 'xlsx';
 import {
-  LDCommitteesArray,
   type VoterRecordField,
+  type LDCommitteesArrayWithFields,
 } from '@voter-file-tool/shared-validators';
 import { uploadFileToR2 } from './s3Utils';
 
@@ -109,7 +109,7 @@ const FIELD_WIDTHS: Record<string, number> = {
 };
 
 export async function generateXLSXAndUpload(
-  groupedCommittees: LDCommitteesArray,
+  groupedCommittees: LDCommitteesArrayWithFields,
   fileName: string,
   config: XLSXGenerationConfig = {}
 ): Promise<void> {
@@ -159,7 +159,8 @@ export async function generateXLSXAndUpload(
           }
 
           // Handle individual VoterRecord fields
-          return (member as any)[field] || '';
+          const value = (member as any)[field];
+          return value !== undefined && value !== null ? value : '';
         });
 
         worksheetData.push(rowData);
