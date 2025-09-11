@@ -55,9 +55,7 @@ const nextConfig = {
     }
     return config;
   },
-  experimental: {
-    outputFileTracingRoot: join(__dirname, "../.."),
-  },
+  outputFileTracingRoot: join(__dirname, "../.."),
 };
 
 const sentryConfig = {
