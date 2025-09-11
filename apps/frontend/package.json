@@ -14,6 +14,7 @@
     "format": "prettier --write \"./**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "db_migrate": "prisma migrate dev && cd ../../ && pnpm --filter @voter-file-tool/shared-prisma build",
     "prismaLint": "prisma format",
+    "sync-prisma": "node ../../scripts/sync-prisma-models.js",
     "postinstall": "cd ../../ && pnpm --filter @voter-file-tool/shared-validators build && cd apps/frontend && prisma generate"
   },
   "dependencies": {
