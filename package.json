@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "prebuild": "pnpm --filter=@voter-file-tool/shared-validators build"
   },
   "packageManager": "pnpm@8.15.7"
 }
