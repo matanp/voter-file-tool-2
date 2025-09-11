@@ -45,8 +45,11 @@ const nextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Don’t try to bundle ably’s Node deps into the client
+      // Don't try to bundle ably's Node deps into the client
       config.externals.push("keyv", "got", "cacheable-request");
+    } else {
+      // For server-side, ensure Prisma client is properly externalized
+      config.externals.push("@prisma/client");
     }
     return config;
   },
@@ -54,6 +57,13 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/api/**/*": [
       "../../packages/shared-prisma/node_modules/.prisma/client/**/*",
+      "../../packages/shared-prisma/node_modules/@prisma/client/**/*",
+    ],
+  },
+  experimental: {
+    serverComponentsExternalPackages: [
+      "@prisma/client",
+      "@voter-file-tool/shared-prisma",
     ],
   },
 };

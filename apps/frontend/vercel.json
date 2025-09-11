@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "apps/frontend/src/app/api/**/*.ts": {
+      "includeFiles": "packages/shared-prisma/node_modules/.prisma/client/**"
+    }
+  }
+}
