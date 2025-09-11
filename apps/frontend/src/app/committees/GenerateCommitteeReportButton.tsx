@@ -44,6 +44,7 @@ export const GenerateCommitteeReportButton: React.FC<
     const formData: GenerateReportData = {
       type: "ldCommittees",
       payload: committeeData,
+      format: "pdf",
     };
 
     const validationResult = generateReportSchema.safeParse(formData);
