@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   // :OHNO: look into this
-  output: "standalone" /* for docker hosting */,
+  // output: "standalone" /* for docker hosting */,
   reactStrictMode: true,
 
   redirects: async () => {
