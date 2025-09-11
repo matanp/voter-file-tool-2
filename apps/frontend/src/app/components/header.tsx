@@ -57,6 +57,13 @@ const Header: React.FC = () => {
               Reports
             </Button>
           </Link>
+          <Link href="/xlsx-config">
+            <Button
+              className={`${sharedTabStyle} ${pathname?.endsWith("xlsx-config") ? tabStyleActive : tabStyleInactive}`}
+            >
+              Document Config
+            </Button>
+          </Link>
           {showDataTab && (
             <Link href="admin/data">
               <Button
@@ -69,7 +76,7 @@ const Header: React.FC = () => {
         </div>
 
         {/* Right spacer - hidden on small screens when content overflows */}
-        <div className="hidden lg:block w-[150px] flex items-center justify-center">
+        <div className="hidden lg:flex w-[150px] items-center justify-center">
           <SignInButton />
         </div>
 

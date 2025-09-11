@@ -45,6 +45,7 @@ export const GenerateCommitteeReportButton: React.FC<
       type: "ldCommittees",
       payload: committeeData,
       format: "pdf",
+      includeFields: [],
     };
 
     const validationResult = generateReportSchema.safeParse(formData);
@@ -167,7 +168,7 @@ export const GenerateCommitteeReportButton: React.FC<
             setComplete(true);
             setIsGenerating(false);
           }}
-          onError={(error) => {
+          onError={(_error) => {
             setComplete(false);
             setIsGenerating(false);
           }}

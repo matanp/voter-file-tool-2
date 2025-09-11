@@ -116,6 +116,23 @@ export const createLDCommitteesReportSchema = (
     format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
     payload: dynamicPayloadSchema,
     includeFields: z.array(z.string()).optional().default(selectedFields),
+    // XLSX-specific configuration (only applies when format is 'xlsx')
+    xlsxConfig: z
+      .object({
+        // Whether to include compound name and address fields
+        includeCompoundFields: z
+          .object({
+            name: z.boolean().optional().default(true),
+            address: z.boolean().optional().default(true),
+          })
+          .optional()
+          .default({ name: true, address: true }),
+        // Column order (if not specified, uses default order)
+        columnOrder: z.array(z.string()).optional(),
+        // Custom column headers (if not specified, uses field names)
+        columnHeaders: z.record(z.string()).optional(),
+      })
+      .optional(),
   });
 };
 
@@ -130,6 +147,33 @@ export const createGenerateReportSchema = (
     designatedPetitionReportSchema,
     dynamicLDCommitteesSchema,
   ]);
+};
+
+// Helper function to create a dynamic enriched report schema
+export const createEnrichedReportDataSchema = (
+  ldCommitteesFields: VoterRecordField[] = []
+) => {
+  console.log(
+    'Creating dynamic enriched schema with fields:',
+    ldCommitteesFields
+  );
+  const dynamicLDCommitteesSchema =
+    createLDCommitteesReportSchema(ldCommitteesFields);
+  console.log('Dynamic LD committees schema created');
+
+  const schema = z.discriminatedUnion('type', [
+    z.object({
+      ...designatedPetitionReportSchema.shape,
+      ...enrichedFieldsSchema.shape,
+    }),
+    z.object({
+      ...dynamicLDCommitteesSchema.shape,
+      ...enrichedFieldsSchema.shape,
+    }),
+  ]);
+
+  console.log('Dynamic enriched schema created');
+  return schema;
 };
 
 // Type exports
@@ -155,4 +199,7 @@ export type DynamicGenerateReportData = z.infer<
 >;
 export type DynamicLDCommitteesReportData = z.infer<
   ReturnType<typeof createLDCommitteesReportSchema>
+>;
+export type DynamicEnrichedReportData = z.infer<
+  ReturnType<typeof createEnrichedReportDataSchema>
 >;

@@ -17,9 +17,11 @@ import {
   enrichedReportDataSchema,
   callbackUrlSchema,
   type EnrichedReportData,
+  type DynamicEnrichedReportData,
   type ReportCompleteWebhookPayload,
   type CallbackUrl,
   type VoterRecordField,
+  createEnrichedReportDataSchema,
 } from '@voter-file-tool/shared-validators';
 
 // Function to sanitize reportAuthor for safe S3 key usage
@@ -46,13 +48,16 @@ config();
 
 const QUEUE_CONCURRENCY = 2;
 
-const q = async.queue(async (requestData: EnrichedReportData) => {
-  try {
-    await processJob(requestData);
-  } catch (error) {
-    console.error('Queue worker error:', error);
-  }
-}, QUEUE_CONCURRENCY);
+const q = async.queue(
+  async (requestData: EnrichedReportData | DynamicEnrichedReportData) => {
+    try {
+      await processJob(requestData);
+    } catch (error) {
+      console.error('Queue worker error:', error);
+    }
+  },
+  QUEUE_CONCURRENCY
+);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -87,8 +92,44 @@ app.post(
       const jsonString = decompressedBuffer.toString('utf-8');
       const rawRequestData = JSON.parse(jsonString);
 
-      const validationResult =
-        enrichedReportDataSchema.safeParse(rawRequestData);
+      // Debug: Log raw request data for ldCommittees
+      if (rawRequestData.type === 'ldCommittees') {
+        console.log(
+          'Raw request data payload sample:',
+          JSON.stringify(rawRequestData.payload?.[0]?.committees, null, 2)
+        );
+      }
+
+      // For ldCommittees reports, we need to use dynamic schema based on selected fields
+      let validationResult:
+        | {
+            success: true;
+            data: EnrichedReportData | DynamicEnrichedReportData;
+          }
+        | { success: false; error: any };
+
+      if (
+        rawRequestData.type === 'ldCommittees' &&
+        rawRequestData.includeFields
+      ) {
+        const selectedFields =
+          rawRequestData.includeFields as VoterRecordField[];
+        const dynamicEnrichedSchema =
+          createEnrichedReportDataSchema(selectedFields);
+        validationResult = dynamicEnrichedSchema.safeParse(rawRequestData) as
+          | { success: true; data: DynamicEnrichedReportData }
+          | { success: false; error: any };
+        if (!validationResult.success) {
+          console.log('Validation errors:', validationResult.error.errors);
+        }
+      } else {
+        validationResult = enrichedReportDataSchema.safeParse(
+          rawRequestData
+        ) as
+          | { success: true; data: EnrichedReportData }
+          | { success: false; error: any };
+      }
+
       if (!validationResult.success) {
         console.error('Invalid request data:', validationResult.error);
         return res.status(400).json({
@@ -97,9 +138,23 @@ app.post(
         });
       }
 
-      const requestData: EnrichedReportData = validationResult.data;
+      const requestData: EnrichedReportData | DynamicEnrichedReportData =
+        validationResult.data;
 
-      // console.log('Received job data:', requestData);
+      if (
+        requestData.type === 'ldCommittees' &&
+        Array.isArray(requestData.payload)
+      ) {
+        console.log(
+          'Validated request data payload sample:',
+          JSON.stringify(requestData.payload[0]?.committees, null, 2)
+        );
+      } else {
+        console.log(
+          'Validated request data payload:',
+          JSON.stringify(requestData.payload, null, 2)
+        );
+      }
 
       const jobsAhead = q.length();
 
@@ -117,7 +172,9 @@ app.post(
   }
 );
 
-async function processJob(jobData: EnrichedReportData) {
+async function processJob(
+  jobData: EnrichedReportData | DynamicEnrichedReportData
+) {
   try {
     let pdfBuffer: Buffer;
     let fileName: string;
