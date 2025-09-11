@@ -53,12 +53,17 @@ const nextConfig = {
   outputFileTracingRoot: join(__dirname, "../.."),
   outputFileTracingIncludes: {
     "/api/**/*": [
-      "../../packages/shared-prisma/node_modules/.prisma/client/**/*",
-      "../../packages/shared-prisma/node_modules/@prisma/client/**/*",
+      "../../node_modules/.pnpm/**/node_modules/.prisma/client/**/*",
+      "../../node_modules/.pnpm/**/node_modules/@prisma/client/**/*",
     ],
   },
   experimental: {
     serverComponentsExternalPackages: ["@voter-file-tool/shared-prisma"],
+    outputFileTracingIncludes: {
+      "/api/**/*": [
+        "../../node_modules/.pnpm/**/node_modules/.prisma/client/**/*",
+      ],
+    },
   },
 };
 
