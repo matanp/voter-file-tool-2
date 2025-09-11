@@ -56,14 +56,7 @@ const nextConfig = {
       "node_modules/.pnpm/@prisma+client@5.15.0_prisma@5.15.0/node_modules/.prisma/client/**/*",
     ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ["@voter-file-tool/shared-prisma"],
-    outputFileTracingIncludes: {
-      "/api/**/*": [
-        "../../node_modules/.pnpm/**/node_modules/.prisma/client/**/*",
-      ],
-    },
-  },
+  serverComponentsExternalPackages: ["@voter-file-tool/shared-prisma"],
 };
 
 const sentryConfig = {
