@@ -26,6 +26,23 @@ const ldCommitteesReportSchema = z.object({
   payload: ldCommitteesArraySchema,
   // Optional field to specify which VoterRecord fields to include
   includeFields: z.array(z.string()).optional().default([]),
+  // XLSX-specific configuration (only applies when format is 'xlsx')
+  xlsxConfig: z
+    .object({
+      // Whether to include compound name and address fields
+      includeCompoundFields: z
+        .object({
+          name: z.boolean().optional().default(true),
+          address: z.boolean().optional().default(true),
+        })
+        .optional()
+        .default({ name: true, address: true }),
+      // Column order (if not specified, uses default order)
+      columnOrder: z.array(z.string()).optional(),
+      // Custom column headers (if not specified, uses field names)
+      columnHeaders: z.record(z.string()).optional(),
+    })
+    .optional(),
 });
 
 // Generate Report Schema - discriminated union for different report types

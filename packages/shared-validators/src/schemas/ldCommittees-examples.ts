@@ -18,6 +18,184 @@ import {
   type DynamicLDCommitteesReportData,
 } from './report';
 
+// Note: XLSXGenerationConfig is available from the report-server package
+// This is just for documentation purposes
+export interface XLSXGenerationConfig {
+  selectedFields?: VoterRecordField[];
+  includeCompoundFields?: {
+    name?: boolean;
+    address?: boolean;
+  };
+  columnOrder?: string[];
+  columnHeaders?: Record<string, string>;
+}
+
+// XLSX generation examples
+export const xlsxGenerationExamples = {
+  // Example 1: Basic XLSX with default fields (backward compatible)
+  basic: {
+    selectedFields: [] as VoterRecordField[],
+    includeCompoundFields: { name: true, address: true },
+  },
+
+  // Example 2: XLSX with contact information only
+  contactOnly: {
+    selectedFields: [
+      'VRCNUM',
+      'email',
+      'telephone',
+      'party',
+    ] as VoterRecordField[],
+    includeCompoundFields: { name: true, address: false },
+  },
+
+  // Example 3: XLSX with individual name/address fields instead of compound
+  individualFields: {
+    selectedFields: [
+      'VRCNUM',
+      'firstName',
+      'lastName',
+      'middleInitial',
+      'suffixName',
+      'houseNum',
+      'street',
+      'apartment',
+      'city',
+      'state',
+      'zipCode',
+    ] as VoterRecordField[],
+    includeCompoundFields: { name: false, address: false },
+  },
+
+  // Example 4: XLSX with both compound and individual fields
+  hybrid: {
+    selectedFields: [
+      'VRCNUM',
+      'email',
+      'telephone',
+      'party',
+    ] as VoterRecordField[],
+    includeCompoundFields: { name: true, address: true },
+  },
+
+  // Example 5: XLSX with custom column order
+  customOrder: {
+    selectedFields: [
+      'VRCNUM',
+      'email',
+      'telephone',
+      'party',
+      'electionDistrict',
+    ] as VoterRecordField[],
+    includeCompoundFields: { name: true, address: false },
+    columnOrder: [
+      'electionDistrict',
+      'VRCNUM',
+      'name',
+      'email',
+      'telephone',
+      'party',
+    ],
+  },
+
+  // Example 6: Comprehensive XLSX with all available fields
+  comprehensive: {
+    selectedFields: [
+      'VRCNUM',
+      'firstName',
+      'lastName',
+      'middleInitial',
+      'suffixName',
+      'houseNum',
+      'street',
+      'apartment',
+      'city',
+      'state',
+      'zipCode',
+      'telephone',
+      'email',
+      'party',
+      'gender',
+      'DOB',
+      'electionDistrict',
+      'countyLegDistrict',
+      'stateAssmblyDistrict',
+      'stateSenateDistrict',
+      'congressionalDistrict',
+      'originalRegDate',
+      'addressForCommittee',
+    ] as VoterRecordField[],
+    includeCompoundFields: { name: false, address: false },
+  },
+};
+
+// API request examples using the new structure
+export const apiRequestExamples = {
+  // Example 1: Basic XLSX request (backward compatible)
+  basicXLSX: {
+    type: 'ldCommittees' as const,
+    payload: [], // committee data
+    format: 'xlsx' as const,
+    includeFields: [],
+  },
+
+  // Example 2: XLSX with contact fields and custom compound field settings
+  contactXLSX: {
+    type: 'ldCommittees' as const,
+    payload: [], // committee data
+    format: 'xlsx' as const,
+    includeFields: ['VRCNUM', 'email', 'telephone', 'party'],
+    xlsxConfig: {
+      includeCompoundFields: { name: true, address: false },
+    },
+  },
+
+  // Example 3: XLSX with individual fields and custom column order
+  individualFieldsXLSX: {
+    type: 'ldCommittees' as const,
+    payload: [], // committee data
+    format: 'xlsx' as const,
+    includeFields: [
+      'firstName',
+      'lastName',
+      'houseNum',
+      'street',
+      'city',
+      'state',
+    ],
+    xlsxConfig: {
+      includeCompoundFields: { name: false, address: false },
+      columnOrder: [
+        'electionDistrict',
+        'firstName',
+        'lastName',
+        'houseNum',
+        'street',
+        'city',
+        'state',
+      ],
+    },
+  },
+
+  // Example 4: XLSX with custom column headers
+  customHeadersXLSX: {
+    type: 'ldCommittees' as const,
+    payload: [], // committee data
+    format: 'xlsx' as const,
+    includeFields: ['VRCNUM', 'email', 'party'],
+    xlsxConfig: {
+      includeCompoundFields: { name: true, address: true },
+      columnHeaders: {
+        VRCNUM: 'Voter ID',
+        email: 'Email Address',
+        party: 'Political Affiliation',
+        name: 'Full Name',
+        address: 'Full Address',
+      },
+    },
+  },
+};
+
 // Example 1: Basic usage with default fields (backward compatible)
 export const basicCommitteeMemberSchema = createCommitteeMemberSchema();
 export const basicLDCommitteesSchema = createLDCommitteesSchema();
@@ -207,7 +385,33 @@ export const createReportData = (
   };
 };
 
-// Example 13: Get available field names for UI selection
+// Example 13: XLSX report data with full configuration
+export const createXLSXReportData = (
+  fields: VoterRecordField[],
+  committeeData: any,
+  xlsxConfig?: {
+    includeCompoundFields?: { name?: boolean; address?: boolean };
+    columnOrder?: string[];
+    columnHeaders?: Record<string, string>;
+  }
+) => {
+  return {
+    type: 'ldCommittees' as const,
+    payload: committeeData,
+    format: 'xlsx' as const,
+    includeFields: fields,
+    xlsxConfig: {
+      includeCompoundFields: xlsxConfig?.includeCompoundFields || {
+        name: true,
+        address: true,
+      },
+      columnOrder: xlsxConfig?.columnOrder,
+      columnHeaders: xlsxConfig?.columnHeaders,
+    },
+  };
+};
+
+// Example 14: Get available field names for UI selection
 export const getAvailableFieldNames = (): {
   key: VoterRecordField;
   label: string;
