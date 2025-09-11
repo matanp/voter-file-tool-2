@@ -12,7 +12,7 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"./**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "db_migrate": "prisma migrate dev",
+    "db_migrate": "prisma migrate dev && cd ../../ && pnpm --filter @voter-file-tool/shared-prisma build",
     "prismaLint": "prisma format",
     "postinstall": "cd ../../ && pnpm --filter @voter-file-tool/shared-validators build && cd apps/frontend && prisma generate"
   },
