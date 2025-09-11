@@ -6,11 +6,14 @@ import { Textarea } from "~/components/ui/textarea";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { toast } from "~/components/ui/use-toast";
 import RecordSearchForm from "../components/RecordSearchForm";
-import type { VoterRecord } from "@voter-file-tool/shared-prisma";
+import type {
+  ElectionDate,
+  OfficeName,
+  VoterRecord,
+} from "@voter-file-tool/shared-prisma";
 
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import React from "react";
-import type { ElectionDate, OfficeName } from "prisma/prisma-client";
 import {
   defaultCustomPartyName,
   type GenerateReportData,
