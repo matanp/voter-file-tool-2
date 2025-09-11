@@ -1,8 +1,4 @@
 {
-  "builds": [
-    {
-      "src": "apps/frontend/package.json",
-      "use": "@vercel/next"
-    }
-  ]
+  "buildCommand": "cd apps/frontend && pnpm run build",
+  "outputDirectory": "apps/frontend/.next"
 }
