@@ -1,6 +1,6 @@
 "use client";
 
-import type { VoterRecord } from "@prisma/client";
+import type { VoterRecord } from "@voter-file-tool/shared-prisma";
 import { useEffect, useState } from "react";
 import type { DiscrepanciesAndCommittee } from "~/app/api/lib/utils";
 import { VoterRecordTable } from "~/app/recordsearch/VoterRecordTable";

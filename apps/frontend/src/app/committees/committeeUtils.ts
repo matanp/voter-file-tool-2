@@ -1,4 +1,4 @@
-import type { CommitteeList, VoterRecord } from "@prisma/client";
+import type { CommitteeList, VoterRecord } from "@voter-file-tool/shared-prisma";
 import type {
   CommitteeMember,
   LDCommittees,
@@ -31,6 +31,7 @@ const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
     state: voter.state ?? "",
     zip: voter.zipCode ?? "",
     phone: voter.telephone ?? "",
+    electionDistrict: voter.electionDistrict,
   };
 };
 

@@ -3,7 +3,7 @@ import AuthCheck from "~/components/ui/authcheck";
 import ReportsList from "~/components/reports/ReportsList";
 import PendingJobsIndicator from "~/components/reports/PendingJobsIndicator";
 import prisma from "~/lib/prisma";
-import { JobStatus } from "@prisma/client";
+import { JobStatus } from "@voter-file-tool/shared-prisma";
 import { auth } from "~/auth";
 
 export default async function ReportsPage() {

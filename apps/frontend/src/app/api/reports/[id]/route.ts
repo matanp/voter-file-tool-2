@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { auth } from "~/auth";
 import { z } from "zod";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 import { hasPermissionFor } from "~/lib/utils";
 
 const updateReportSchema = z.object({

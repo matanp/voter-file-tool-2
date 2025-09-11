@@ -1,4 +1,4 @@
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 

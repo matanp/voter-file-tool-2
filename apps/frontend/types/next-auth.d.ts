@@ -1,4 +1,4 @@
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 import NextAuth, { DefaultSession, DefaultUser } from "next-auth";
 
 declare module "next-auth" {

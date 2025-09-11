@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { auth } from "~/auth";
-import { JobStatus } from "@prisma/client";
+import { JobStatus } from "@voter-file-tool/shared-prisma";
 
 // Helper function to validate and clamp pagination parameters
 function validatePaginationParams(

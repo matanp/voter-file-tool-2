@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { JobStatus } from "@prisma/client";
+import { JobStatus } from "@voter-file-tool/shared-prisma";
 
 interface JobStatusResponse {
   status: JobStatus;

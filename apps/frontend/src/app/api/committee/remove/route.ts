@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import type { CommitteeData } from "../add/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
 

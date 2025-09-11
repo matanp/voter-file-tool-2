@@ -1,7 +1,7 @@
 import { createReadStream } from "fs";
 import prisma from "~/lib/prisma";
 import csv from "csv-parser";
-import type { Prisma, VoterRecordArchive } from "@prisma/client";
+import type { Prisma, VoterRecordArchive } from "@voter-file-tool/shared-prisma";
 
 import {
   exampleVoterRecord,
@@ -238,6 +238,7 @@ const bulkSaveVoterRecords = async () => {
   for (const record of voterRercordArchiveBuffer) {
     const existingRecord = existingRecordMap.get(record.VRCNUM);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { recordEntryYear, recordEntryNumber, VRCNUM, ...otherRecordFields } =
       record;
 
@@ -247,6 +248,7 @@ const bulkSaveVoterRecords = async () => {
           VRCNUM: record.VRCNUM,
         },
         data: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           ...otherRecordFields,
           latestRecordEntryNumber: recordEntryNumber,
           latestRecordEntryYear: recordEntryYear,
@@ -255,6 +257,7 @@ const bulkSaveVoterRecords = async () => {
       });
     } else if (existingRecord === undefined) {
       voterCreateTransactions.push({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         ...otherRecordFields,
         VRCNUM,
         latestRecordEntryNumber: recordEntryNumber,

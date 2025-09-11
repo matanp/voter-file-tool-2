@@ -1,4 +1,4 @@
-import type { VoterRecord } from "@prisma/client";
+import type { VoterRecord } from "@voter-file-tool/shared-prisma";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import {

@@ -17,7 +17,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import ReportCard from "./ReportCard";
-import { type Report, PrivilegeLevel } from "@prisma/client";
+import { type Report, PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 

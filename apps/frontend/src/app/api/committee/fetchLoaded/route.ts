@@ -1,6 +1,6 @@
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
-import type { CommitteeList } from "@prisma/client";
+import type { CommitteeList } from "@voter-file-tool/shared-prisma";
 
 export async function POST() {
   try {

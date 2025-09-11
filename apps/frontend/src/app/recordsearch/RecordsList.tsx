@@ -4,7 +4,7 @@ import VoterRecordSearch, {
   type BaseSearchField,
   type SearchField,
 } from "./VoterRecordSearch";
-import { type DropdownLists, type VoterRecord } from "@prisma/client";
+import { type DropdownLists, type VoterRecord } from "@voter-file-tool/shared-prisma";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { getAddress } from "../api/lib/utils";
 import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";

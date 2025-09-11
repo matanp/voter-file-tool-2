@@ -8,7 +8,7 @@ import {
 } from "@voter-file-tool/shared-validators";
 import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
-import { PrivilegeLevel, ReportType, JobStatus } from "@prisma/client";
+import { PrivilegeLevel, ReportType, JobStatus } from "@voter-file-tool/shared-prisma";
 import type { Session } from "next-auth";
 import { gzipSync } from "node:zlib";
 import { createWebhookSignature } from "~/lib/webhookUtils";

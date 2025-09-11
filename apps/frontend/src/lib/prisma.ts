@@ -1,20 +1,3 @@
-import { PrismaClient } from "@prisma/client";
-
-// Extending the global interface directly
-declare global {
-  // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
-}
-
-let prisma: PrismaClient;
-
-if (process.env.NODE_ENV === "production") {
-  prisma = new PrismaClient();
-} else {
-  if (!global.prisma) {
-    global.prisma = new PrismaClient();
-  }
-  prisma = global.prisma;
-}
-
-export default prisma;
+// Re-export from shared Prisma package
+export { default as prisma } from "@voter-file-tool/shared-prisma/client";
+export { default } from "@voter-file-tool/shared-prisma/client";

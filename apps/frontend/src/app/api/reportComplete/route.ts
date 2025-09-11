@@ -1,4 +1,4 @@
-import { JobStatus } from "@prisma/client";
+import { JobStatus } from "@voter-file-tool/shared-prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import {
   reportCompleteWebhookPayloadSchema,

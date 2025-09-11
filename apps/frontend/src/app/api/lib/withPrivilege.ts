@@ -1,5 +1,5 @@
 import type { Session } from "next-auth";
-import type { PrivilegeLevel } from "@prisma/client";
+import type { PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";

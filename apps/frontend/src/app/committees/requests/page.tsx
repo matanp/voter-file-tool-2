@@ -7,7 +7,7 @@ import {
   type CommitteeRequest,
   PrivilegeLevel,
   type VoterRecord,
-} from "@prisma/client";
+} from "@voter-file-tool/shared-prisma";
 import { auth } from "~/auth";
 import {
   Accordion,

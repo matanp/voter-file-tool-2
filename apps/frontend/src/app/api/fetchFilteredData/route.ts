@@ -1,4 +1,4 @@
-import { type VoterRecord } from "@prisma/client";
+import { type VoterRecord } from "@voter-file-tool/shared-prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { fetchFilteredDataSchema } from "../lib/utils";

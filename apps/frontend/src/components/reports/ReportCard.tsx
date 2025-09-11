@@ -20,7 +20,7 @@ import {
   Globe,
   Lock,
 } from "lucide-react";
-import { ReportType, type Report } from "@prisma/client";
+import { ReportType, type Report } from "@voter-file-tool/shared-prisma";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { formatReportType } from "./reportUtils";

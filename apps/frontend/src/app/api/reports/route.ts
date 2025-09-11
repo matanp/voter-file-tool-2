@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { auth } from "~/auth";
 import { getPresignedReadUrl } from "~/lib/s3Utils";
-import { JobStatus } from "@prisma/client";
+import { JobStatus } from "@voter-file-tool/shared-prisma";
 
 export const GET = async (req: NextRequest) => {
   try {

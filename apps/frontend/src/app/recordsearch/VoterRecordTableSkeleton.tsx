@@ -1,4 +1,4 @@
-import { type VoterRecord } from "@prisma/client";
+import { type VoterRecord } from "@voter-file-tool/shared-prisma";
 import { Skeleton } from "~/components/ui/skeleton";
 import {
   Table,

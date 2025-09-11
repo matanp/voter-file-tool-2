@@ -1,6 +1,6 @@
 "use client";
 
-import type { OfficeName } from "@prisma/client";
+import type { OfficeName } from "@voter-file-tool/shared-prisma";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";

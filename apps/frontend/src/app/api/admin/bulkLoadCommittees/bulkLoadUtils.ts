@@ -2,7 +2,7 @@
 import prisma from "~/lib/prisma";
 import * as xlsx from "xlsx";
 import * as fs from "fs";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@voter-file-tool/shared-prisma";
 
 import {
   type DiscrepanciesAndCommittee,

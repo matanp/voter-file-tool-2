@@ -11,9 +11,8 @@ import type { Session } from "next-auth";
 import React from "react";
 import { GlobalContext } from "../providers/GlobalContext";
 import { ComboboxDropdown } from "./ComboBox";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 import { SignOutButton } from "./signInButton";
-import { Button } from "./button";
 
 type ManageProfileButtonProps = {
   session: Session;

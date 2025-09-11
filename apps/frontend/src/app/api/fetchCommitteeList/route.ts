@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 
 async function getCommitteeList(req: NextRequest) {
   const electionDistrict = req.nextUrl.searchParams.get("electionDistrict");

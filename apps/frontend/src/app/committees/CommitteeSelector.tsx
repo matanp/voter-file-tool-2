@@ -5,7 +5,7 @@ import {
   PrivilegeLevel,
   type CommitteeList,
   type VoterRecord,
-} from "@prisma/client";
+} from "@voter-file-tool/shared-prisma";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";

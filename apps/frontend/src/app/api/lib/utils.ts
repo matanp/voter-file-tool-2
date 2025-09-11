@@ -3,7 +3,7 @@ import type {
   Prisma,
   VoterRecord,
   VoterRecordArchive,
-} from "@prisma/client";
+} from "@voter-file-tool/shared-prisma";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
 

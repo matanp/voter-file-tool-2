@@ -2,7 +2,7 @@ import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@voter-file-tool/shared-prisma";
 
 type CommitteeRequestData = {
   cityTown: string;
