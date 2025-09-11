@@ -10,8 +10,8 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
-  generateXLSXAndUpload,
 } from './utils';
+import { generateXLSXAndUpload } from './xlsxGenerator';
 import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
@@ -19,6 +19,7 @@ import {
   type EnrichedReportData,
   type ReportCompleteWebhookPayload,
   type CallbackUrl,
+  type VoterRecordField,
 } from '@voter-file-tool/shared-validators';
 
 // Function to sanitize reportAuthor for safe S3 key usage
@@ -138,7 +139,28 @@ async function processJob(jobData: EnrichedReportData) {
 
       if (format === 'xlsx') {
         console.log('Processing committee report as XLSX...');
-        await generateXLSXAndUpload(payload, fileName);
+
+        // Extract XLSX configuration from the report data
+        const xlsxConfig = {
+          selectedFields:
+            'includeFields' in jobData
+              ? (jobData.includeFields as VoterRecordField[])
+              : [],
+          includeCompoundFields:
+            'xlsxConfig' in jobData && jobData.xlsxConfig?.includeCompoundFields
+              ? jobData.xlsxConfig.includeCompoundFields
+              : { name: true, address: true },
+          columnOrder:
+            'xlsxConfig' in jobData && jobData.xlsxConfig?.columnOrder
+              ? jobData.xlsxConfig.columnOrder
+              : undefined,
+          columnHeaders:
+            'xlsxConfig' in jobData && jobData.xlsxConfig?.columnHeaders
+              ? jobData.xlsxConfig.columnHeaders
+              : undefined,
+        };
+
+        await generateXLSXAndUpload(payload, fileName, xlsxConfig);
       } else {
         console.log('Processing committee report as PDF...');
         const html = generateCommitteeReportHTML(payload);

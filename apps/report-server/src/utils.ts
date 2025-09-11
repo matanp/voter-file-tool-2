@@ -5,8 +5,6 @@ import CommitteeReport from './components/CommitteeReport';
 import puppeteer from 'puppeteer';
 import { uploadFileToR2 } from './s3Utils';
 import { Readable } from 'stream';
-import * as XLSX from 'xlsx';
-import { LDCommitteesArray } from '@voter-file-tool/shared-validators';
 
 export const generateHTML = (
   candidates: { name: string; address: string; office: string }[],
@@ -112,85 +110,4 @@ export const generateCommitteeReportHTML = (groupedCommittees: any[]) => {
 
 function sleep(arg0: number) {
   return new Promise((resolve) => setTimeout(resolve, arg0));
-}
-
-export async function generateXLSXAndUpload(
-  groupedCommittees: LDCommitteesArray,
-  fileName: string
-): Promise<void> {
-  console.log('generating xlsx');
-
-  // Create a new workbook
-  const workbook = XLSX.utils.book_new();
-
-  // Process each legislative district
-  for (const ld of groupedCommittees) {
-    const worksheetData: any[] = [];
-
-    // Add header row
-    worksheetData.push([
-      'Election District',
-      'Name',
-      'Address',
-      'City',
-      'State',
-      'ZIP',
-      'Phone',
-    ]);
-
-    // Add committee members data
-    for (const [electionDistrict, members] of Object.entries(ld.committees)) {
-      for (const member of members) {
-        worksheetData.push([
-          electionDistrict.padStart(3, '0'),
-          member.name,
-          member.address,
-          member.city,
-          member.state,
-          member.zip,
-          member.phone || '',
-        ]);
-      }
-    }
-
-    // Create worksheet
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-
-    // Set column widths
-    const columnWidths = [
-      { wch: 15 }, // Election District
-      { wch: 25 }, // Name
-      { wch: 30 }, // Address
-      { wch: 20 }, // City
-      { wch: 8 }, // State
-      { wch: 10 }, // ZIP
-      { wch: 15 }, // Phone
-    ];
-    worksheet['!cols'] = columnWidths;
-
-    // Add worksheet to workbook with a descriptive name
-    const sheetName =
-      ld.cityTown === 'ROCHESTER'
-        ? `LD ${ld.legDistrict.toString().padStart(2, '0')}`
-        : ld.cityTown;
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  }
-
-  // Generate XLSX buffer
-  const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-  console.log('started upload via stream');
-
-  // Convert buffer to stream and upload
-  const stream = new Readable();
-  stream.push(xlsxBuffer);
-  stream.push(null);
-
-  const successfulUpload = await uploadFileToR2(stream, fileName, 'xlsx');
-
-  if (!successfulUpload) {
-    throw new Error('failed to upload xlsx to file storage');
-  }
-
-  console.log('xlsx upload completed');
 }
