@@ -1,27 +1,27 @@
 // Re-export all Prisma types and utilities
 export type {
   // Enums
+  JobStatus,
   PrivilegeLevel,
   ReportType,
-  JobStatus,
 
   // Model types
-  User,
   Account,
-  Session,
-  PrivilegedUser,
-  VerificationToken,
   Authenticator,
-  VoterRecordArchive,
-  VoterRecord,
-  VotingHistoryRecord,
   CommitteeList,
   CommitteeRequest,
-  DropdownLists,
   CommitteeUploadDiscrepancy,
+  DropdownLists,
   ElectionDate,
   OfficeName,
+  PrivilegedUser,
   Report,
+  Session,
+  User,
+  VerificationToken,
+  VoterRecord,
+  VoterRecordArchive,
+  VotingHistoryRecord,
 } from '@prisma/client';
 
 // Re-export PrismaClient class
