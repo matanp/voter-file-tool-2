@@ -180,6 +180,9 @@ importers:
       '@types/async':
         specifier: ^3.2.25
         version: 3.2.25
+      '@voter-file-tool/shared-prisma':
+        specifier: workspace:^
+        version: link:../../packages/shared-prisma
       '@voter-file-tool/shared-validators':
         specifier: workspace:^
         version: link:../../packages/shared-validators
@@ -234,6 +237,16 @@ importers:
         version: 10.9.2(@types/node@22.18.0)(typescript@5.9.2)
       typescript:
         specifier: ^5.6.2
+        version: 5.9.2
+
+  packages/shared-prisma:
+    dependencies:
+      '@prisma/client':
+        specifier: ^5.15.0
+        version: 5.15.0(prisma@5.15.0)
+    devDependencies:
+      typescript:
+        specifier: ^5.4.5
         version: 5.9.2
 
   packages/shared-validators:
