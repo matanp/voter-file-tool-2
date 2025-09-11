@@ -51,6 +51,11 @@ const nextConfig = {
     return config;
   },
   outputFileTracingRoot: join(__dirname, "../.."),
+  outputFileTracingIncludes: {
+    "/api/**/*": [
+      "../../packages/shared-prisma/node_modules/.prisma/client/**/*",
+    ],
+  },
 };
 
 const sentryConfig = {
