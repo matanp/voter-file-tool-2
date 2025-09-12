@@ -6,7 +6,7 @@ import { ElectionDates } from "../dashboard/ElectionDates";
 import { ElectionOffices } from "../dashboard/ElectionOffices";
 import prisma from "~/lib/prisma";
 
-const AdminDataPage: React.FC = async () => {
+const AdminDataPage = async () => {
   const electionDates = await prisma.electionDate.findMany();
   const officeNames = await prisma.officeName.findMany();
 
