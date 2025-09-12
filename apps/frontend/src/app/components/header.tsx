@@ -52,7 +52,7 @@ const Header: React.FC = () => {
           </Link>
           <Link href="/reports">
             <Button
-              className={`${sharedTabStyle} ${pathname?.endsWith("reports") ? tabStyleActive : tabStyleInactive}`}
+              className={`${sharedTabStyle} ${pathname?.endsWith("reports") && !pathname?.endsWith("committee-reports") ? tabStyleActive : tabStyleInactive}`}
             >
               Reports
             </Button>
@@ -69,7 +69,7 @@ const Header: React.FC = () => {
         </div>
 
         {/* Right spacer - hidden on small screens when content overflows */}
-        <div className="hidden lg:block w-[150px] flex items-center justify-center">
+        <div className="hidden lg:flex w-[150px] items-center justify-center">
           <SignInButton />
         </div>
 
