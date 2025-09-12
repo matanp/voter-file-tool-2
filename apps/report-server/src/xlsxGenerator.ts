@@ -3,6 +3,11 @@ import * as XLSX from 'xlsx';
 import {
   type VoterRecordField,
   type LDCommitteesArrayWithFields,
+  type PartialVoterRecordAPI,
+  determineColumnsToInclude,
+  extractFieldValue,
+  applyCompoundFields,
+  type CompoundFieldConfig,
 } from '@voter-file-tool/shared-validators';
 import { uploadFileToR2 } from './s3Utils';
 
@@ -11,10 +16,7 @@ export interface XLSXGenerationConfig {
   // Fields to include from VoterRecord
   selectedFields?: VoterRecordField[];
   // Whether to include compound name and address fields
-  includeCompoundFields?: {
-    name?: boolean;
-    address?: boolean;
-  };
+  includeCompoundFields?: CompoundFieldConfig;
   // Column order (if not specified, uses default order)
   columnOrder?: string[];
   // Custom column headers (if not specified, uses field names)
@@ -144,27 +146,22 @@ export async function generateXLSXAndUpload(
     columnHeaders = DEFAULT_COLUMN_HEADERS,
   } = config;
 
-  // Create a new workbook
   const workbook = XLSX.utils.book_new();
 
-  // Process each legislative district
   for (const ld of groupedCommittees) {
     const worksheetData: any[] = [];
 
-    // Determine which columns to include
     const columnsToInclude = determineColumnsToInclude(
       selectedFields,
       includeCompoundFields,
       columnOrder
     );
 
-    // Add header row
     const headers = columnsToInclude.map(
       (field) => columnHeaders[field] || field
     );
     worksheetData.push(headers);
 
-    // Add committee members data
     for (const [electionDistrict, members] of Object.entries(ld.committees)) {
       for (const member of members) {
         const rowData = columnsToInclude.map((field) => {
@@ -172,33 +169,20 @@ export async function generateXLSXAndUpload(
             return electionDistrict.padStart(3, '0');
           }
 
-          // Handle compound fields
-          if (field === 'name') {
-            return member.name || '';
-          }
-          if (field === 'address') {
-            return member.address || '';
-          }
-
-          // Handle individual VoterRecord fields
-          const value = (member as any)[field];
-          return value !== undefined && value !== null ? value : '';
+          return extractFieldValue(member, field);
         });
 
         worksheetData.push(rowData);
       }
     }
 
-    // Create worksheet
     const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
-    // Set column widths
     const columnWidths = columnsToInclude.map((field) => ({
       wch: FIELD_WIDTHS[field] || 15,
     }));
     worksheet['!cols'] = columnWidths;
 
-    // Add worksheet to workbook with a descriptive name
     const rawSheetName =
       ld.cityTown === 'ROCHESTER'
         ? `LD ${ld.legDistrict.toString().padStart(2, '0')}`
@@ -206,6 +190,83 @@ export async function generateXLSXAndUpload(
     const sheetName = sanitizeWorksheetName(rawSheetName);
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   }
+
+  const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+  console.log('started upload via stream');
+
+  const stream = new Readable();
+  stream.push(xlsxBuffer);
+  stream.push(null);
+
+  const successfulUpload = await uploadFileToR2(stream, fileName, 'xlsx');
+
+  if (!successfulUpload) {
+    throw new Error('failed to upload xlsx to file storage');
+  }
+
+  console.log('xlsx upload completed');
+}
+
+export async function generateVoterListXLSXAndUpload(
+  voterRecords: PartialVoterRecordAPI[],
+  fileName: string,
+  config: XLSXGenerationConfig = {}
+): Promise<void> {
+  console.log('generating voter list xlsx with config:', config);
+
+  const {
+    selectedFields = [],
+    includeCompoundFields = { name: true, address: true },
+    columnOrder = DEFAULT_COLUMN_ORDER,
+    columnHeaders = DEFAULT_COLUMN_HEADERS,
+  } = config;
+
+  // Create a new workbook
+  const workbook = XLSX.utils.book_new();
+  const worksheetData: any[] = [];
+
+  // Determine which columns to include using shared utility
+  const columnsToInclude = determineColumnsToInclude(
+    selectedFields,
+    includeCompoundFields,
+    columnOrder
+  );
+
+  // Add header row
+  const headers = columnsToInclude.map(
+    (field) => columnHeaders[field] || field
+  );
+  worksheetData.push(headers);
+
+  // Add voter records data
+  for (const record of voterRecords) {
+    // Apply compound fields to the record first
+    const recordWithCompoundFields = applyCompoundFields(
+      record,
+      includeCompoundFields
+    );
+
+    const rowData = columnsToInclude.map((field) => {
+      // Use shared utility to extract field value
+      return extractFieldValue(recordWithCompoundFields, field);
+    });
+
+    worksheetData.push(rowData);
+  }
+
+  // Create worksheet
+  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+  // Set column widths
+  const columnWidths = columnsToInclude.map((field) => ({
+    wch: FIELD_WIDTHS[field] || 15,
+  }));
+  worksheet['!cols'] = columnWidths;
+
+  // Add worksheet to workbook
+  const sheetName = sanitizeWorksheetName('Voter List');
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
   // Generate XLSX buffer
   const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
@@ -223,40 +284,7 @@ export async function generateXLSXAndUpload(
     throw new Error('failed to upload xlsx to file storage');
   }
 
-  console.log('xlsx upload completed');
+  console.log('voter list xlsx upload completed');
 }
 
-// Helper function to determine which columns to include
-function determineColumnsToInclude(
-  selectedFields: VoterRecordField[],
-  includeCompoundFields: { name?: boolean; address?: boolean },
-  columnOrder: string[]
-): string[] {
-  const columns: string[] = [];
-
-  // Always include election district
-  columns.push('electionDistrict');
-
-  // Add compound fields if requested
-  if (includeCompoundFields.name) {
-    columns.push('name');
-  }
-  if (includeCompoundFields.address) {
-    columns.push('address');
-  }
-
-  // Add selected VoterRecord fields
-  selectedFields.forEach((field) => {
-    if (!columns.includes(field)) {
-      columns.push(field);
-    }
-  });
-
-  // Apply column ordering
-  const orderedColumns = columnOrder.filter((col) => columns.includes(col));
-
-  // Add any remaining columns that weren't in the order
-  const remainingColumns = columns.filter((col) => !columnOrder.includes(col));
-
-  return [...orderedColumns, ...remainingColumns];
-}
+// Note: Column determination and field extraction utilities are now provided by shared-validators package

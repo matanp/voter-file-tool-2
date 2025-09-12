@@ -105,7 +105,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
               records={records.slice(0, 5)}
               paginated={false}
               fieldsList={[]}
-              extraContent={(record: VoterRecord) => {
+              extraContent={(record) => {
                 const member = committeeList.find(
                   (member) => member.VRCNUM === record.VRCNUM,
                 );

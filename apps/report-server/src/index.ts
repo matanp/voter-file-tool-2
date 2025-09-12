@@ -2,7 +2,6 @@
 import express, { Request, Response } from 'express';
 import { gunzipSync } from 'node:zlib';
 import { config } from 'dotenv';
-import { randomUUID } from 'crypto';
 import async from 'async';
 
 import path from 'path';
@@ -10,54 +9,67 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
+  sanitizeForS3Key,
 } from './utils';
-import { generateXLSXAndUpload } from './xlsxGenerator';
+import {
+  generateXLSXAndUpload,
+  generateVoterListXLSXAndUpload,
+} from './xlsxGenerator';
 import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
   callbackUrlSchema,
   type EnrichedReportData,
-  type DynamicEnrichedReportData,
   type ReportCompleteWebhookPayload,
   type CallbackUrl,
   type VoterRecordField,
-  createEnrichedReportDataSchema,
 } from '@voter-file-tool/shared-validators';
 
-// Function to sanitize reportAuthor for safe S3 key usage
-function sanitizeReportAuthor(author: string): string {
-  if (!author || typeof author !== 'string') {
-    return randomUUID();
-  }
+// Function to generate a descriptive filename
+function generateFilename(
+  reportName: string | undefined,
+  reportType: string,
+  format: string,
+  sanitizedAuthor: string
+): string {
+  const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const time = new Date()
+    .toISOString()
+    .split('T')[1]
+    .split('.')[0]
+    .replace(/:/g, '-'); // HH-MM-SS format
 
-  // Remove or replace unsafe characters for S3 keys
-  // Replace slashes, spaces, and other problematic characters with hyphens
-  // Convert to lowercase and remove any remaining special characters
-  const sanitized = author
-    .toLowerCase()
-    .replace(/[\/\\\s]+/g, '-') // Replace slashes, backslashes, and whitespace with hyphens
-    .replace(/[^a-z0-9\-_]/g, '') // Remove any remaining special characters except hyphens and underscores
-    .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
-    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+  const sanitizedName = reportName ? sanitizeForS3Key(reportName) : '';
 
-  // If sanitization resulted in empty string, fallback to UUID
-  return sanitized || randomUUID();
+  const namePart = sanitizedName ? `${sanitizedName}-` : '';
+  const getTypePart = (reportType: string): string => {
+    switch (reportType) {
+      case 'ldCommittees':
+        return 'committeeReport';
+      case 'voterList':
+        return 'voterList';
+      default:
+        return 'designatedPetition';
+    }
+  };
+
+  const typePart = getTypePart(reportType);
+  const formatPart = format === 'xlsx' ? 'xlsx' : 'pdf';
+
+  return `${sanitizedAuthor}/${typePart}/${namePart}${timestamp}-${time}.${formatPart}`;
 }
 
 config();
 
 const QUEUE_CONCURRENCY = 2;
 
-const q = async.queue(
-  async (requestData: EnrichedReportData | DynamicEnrichedReportData) => {
-    try {
-      await processJob(requestData);
-    } catch (error) {
-      console.error('Queue worker error:', error);
-    }
-  },
-  QUEUE_CONCURRENCY
-);
+const q = async.queue(async (requestData: EnrichedReportData) => {
+  try {
+    await processJob(requestData);
+  } catch (error) {
+    console.error('Queue worker error:', error);
+  }
+}, QUEUE_CONCURRENCY);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -92,34 +104,15 @@ app.post(
       const jsonString = decompressedBuffer.toString('utf-8');
       const rawRequestData = JSON.parse(jsonString);
 
-      // For ldCommittees reports, we need to use dynamic schema based on selected fields
-      let validationResult:
-        | {
-            success: true;
-            data: EnrichedReportData | DynamicEnrichedReportData;
-          }
+      // Validate the request data using the enriched schema
+      const validationResult = enrichedReportDataSchema.safeParse(
+        rawRequestData
+      ) as
+        | { success: true; data: EnrichedReportData }
         | { success: false; error: any };
 
-      if (
-        rawRequestData.type === 'ldCommittees' &&
-        rawRequestData.includeFields
-      ) {
-        const selectedFields =
-          rawRequestData.includeFields as VoterRecordField[];
-        const dynamicEnrichedSchema =
-          createEnrichedReportDataSchema(selectedFields);
-        validationResult = dynamicEnrichedSchema.safeParse(rawRequestData) as
-          | { success: true; data: DynamicEnrichedReportData }
-          | { success: false; error: any };
-        if (!validationResult.success) {
-          console.log('Validation errors:', validationResult.error.errors);
-        }
-      } else {
-        validationResult = enrichedReportDataSchema.safeParse(
-          rawRequestData
-        ) as
-          | { success: true; data: EnrichedReportData }
-          | { success: false; error: any };
+      if (!validationResult.success) {
+        console.log('Validation errors:', validationResult.error.errors);
       }
 
       if (!validationResult.success) {
@@ -130,8 +123,7 @@ app.post(
         });
       }
 
-      const requestData: EnrichedReportData | DynamicEnrichedReportData =
-        validationResult.data;
+      const requestData: EnrichedReportData = validationResult.data;
 
       const jobsAhead = q.length();
 
@@ -149,27 +141,22 @@ app.post(
   }
 );
 
-async function processJob(
-  jobData: EnrichedReportData | DynamicEnrichedReportData
-) {
+async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName: string;
-    const { type, reportAuthor, jobId, payload } = jobData;
+    const { type, reportAuthor, jobId, payload, name } = jobData;
     const format =
-      type === 'ldCommittees' && 'format' in jobData ? jobData.format : 'pdf';
+      (type === 'ldCommittees' || type === 'voterList') && 'format' in jobData
+        ? (jobData as any).format
+        : 'pdf';
 
     // Sanitize reportAuthor for safe S3 key usage
-    const sanitizedAuthor = sanitizeReportAuthor(reportAuthor);
+    const sanitizedAuthor = sanitizeForS3Key(reportAuthor, true);
+
+    // Generate descriptive filename using report name, type, and timestamp
+    fileName = generateFilename(name, type, format, sanitizedAuthor);
 
     if (type === 'ldCommittees') {
-      const fileExtension = format === 'xlsx' ? 'xlsx' : 'pdf';
-      fileName =
-        sanitizedAuthor +
-        '/committeeReport/' +
-        randomUUID() +
-        '.' +
-        fileExtension;
-
       if (format === 'xlsx') {
         console.log('Processing committee report as XLSX...');
 
@@ -199,9 +186,29 @@ async function processJob(
         const html = generateCommitteeReportHTML(payload);
         await generatePDFAndUpload(html, true, fileName);
       }
+    } else if (type === 'voterList') {
+      console.log('Processing voter list report as XLSX...');
+
+      // Extract XLSX configuration from the report data
+      const voterListJobData = jobData as any;
+      const xlsxConfig = {
+        selectedFields: voterListJobData.includeFields
+          ? (voterListJobData.includeFields as VoterRecordField[])
+          : [],
+        includeCompoundFields: voterListJobData.xlsxConfig
+          ?.includeCompoundFields
+          ? voterListJobData.xlsxConfig.includeCompoundFields
+          : { name: true, address: true },
+        columnOrder: voterListJobData.xlsxConfig?.columnOrder
+          ? voterListJobData.xlsxConfig.columnOrder
+          : undefined,
+        columnHeaders: voterListJobData.xlsxConfig?.columnHeaders
+          ? voterListJobData.xlsxConfig.columnHeaders
+          : undefined,
+      };
+
+      await generateVoterListXLSXAndUpload(payload, fileName, xlsxConfig);
     } else if (type === 'designatedPetition') {
-      fileName =
-        sanitizedAuthor + '/designatedPetition/' + randomUUID() + '.pdf';
       console.log('Processing designated petition form...');
       const { candidates, vacancyAppointments, party, electionDate, numPages } =
         payload;

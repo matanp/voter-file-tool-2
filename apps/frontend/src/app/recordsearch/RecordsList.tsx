@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { useRouter } from "next/navigation";
 import VoterRecordSearch, {
   type BaseSearchField,
   type SearchField,
@@ -8,29 +9,36 @@ import { type DropdownLists, type VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { getAddress } from "../api/lib/utils";
 import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
+import { Button } from "~/components/ui/button";
+import { useToast } from "~/components/ui/use-toast";
+import { useVoterSearch } from "~/contexts/VoterSearchContext";
+import { MAX_RECORDS_FOR_EXPORT } from "~/constants/limits";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
 }
 export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { setSearchQuery: setContextSearchQuery } = useVoterSearch();
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState<
     {
       field: string;
-      value: string | number | Date | undefined;
+      value: string | number | boolean | undefined;
     }[]
   >([]);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(100);
   const [hasSearched, setHasSearched] = React.useState(false);
 
-  const handleSubmit = async (searchQuery: SearchField[]) => {
+  const handleSubmit = async (searchQueryParam: SearchField[]) => {
     setLoading(true);
     setPage(1);
     setPageSize(100);
-    const flattenedQuery = searchQuery
+    const flattenedQuery = searchQueryParam
       .reduce((acc: BaseSearchField[], curr: SearchField) => {
         if (curr.compoundType) {
           return [...acc, ...curr.fields];
@@ -38,7 +46,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           return [...acc, curr];
         }
       }, [])
-      .map((field) => ({ field: field.name, value: field.value }));
+      .map((field) => ({
+        field: field.name,
+        value:
+          field.value instanceof Date ? field.value.toISOString() : field.value,
+      }));
 
     setSearchQuery(flattenedQuery);
 
@@ -63,6 +75,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     setRecords(data);
     setLoading(false);
     setHasSearched(true);
+
+    setContextSearchQuery(searchQueryParam, flattenedQuery);
   };
 
   const handleLoadMore = async () => {
@@ -84,6 +98,29 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     setPage((prevPage) => prevPage + 1);
   };
 
+  const handleExport = () => {
+    if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
+      toast({
+        title: "Too Many Records",
+        description: `Cannot export ${totalRecords.toLocaleString()} records. Maximum allowed is ${MAX_RECORDS_FOR_EXPORT.toLocaleString()}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (totalRecords === 0) {
+      toast({
+        title: "No Records",
+        description: "Please search for voter records first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Navigate to voter list report page (search data is already in context)
+    router.push("/voter-list-reports");
+  };
+
   return (
     <div>
       <div className="bg-primary-foreground pt-2">
@@ -100,6 +137,19 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       <div className="w-full flex justify-center text-2xl text-primary font-bold pt-2">
         <h1>Voter Records</h1>
       </div>
+      {hasSearched && totalRecords > 0 && (
+        <div className="w-full flex justify-center pt-4">
+          <Button
+            onClick={handleExport}
+            disabled={totalRecords > MAX_RECORDS_FOR_EXPORT}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {totalRecords > MAX_RECORDS_FOR_EXPORT
+              ? `Export (${totalRecords.toLocaleString()} records - too many)`
+              : `Export ${totalRecords.toLocaleString()} Records`}
+          </Button>
+        </div>
+      )}
       <div className="m-10">
         {loading && (
           <VoterRecordTableSkeleton fieldsList={["DOB", "Telephone"]} />

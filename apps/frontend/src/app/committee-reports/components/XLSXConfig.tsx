@@ -33,11 +33,11 @@ export const XLSXConfig: React.FC<XLSXConfigProps> = ({
       className="bg-white rounded-lg shadow-sm"
     >
       <AccordionTrigger className="primary-header text-left bg-white px-6 py-4">
-        XLSX Configuration
+        Custom Field Names
       </AccordionTrigger>
       <AccordionContent className="space-y-4 bg-white p-6 pt-0 rounded-lg">
         <p className="text-sm text-muted-foreground mb-4">
-          Additional options for XLSX document generation
+          Customize column headers for the selected fields
         </p>
         {/* Column Headers */}
         {formData.includeFields.length > 0 && (

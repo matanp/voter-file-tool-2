@@ -5,6 +5,8 @@ import type { XLSXConfigFormData } from "../types";
 export function useFormValidation(formData: XLSXConfigFormData) {
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [hasUserSubmitted, setHasUserSubmitted] = useState(false);
+  const [hadErrorsSinceLastSubmit, setHadErrorsSinceLastSubmit] =
+    useState(false);
 
   const validateField = useCallback(
     (fieldName: string, value: string | VoterRecordField[]): string | null => {
@@ -14,15 +16,22 @@ export function useFormValidation(formData: XLSXConfigFormData) {
             ? "Report name is required"
             : null;
         case "includeFields":
-          return formData.format === "xlsx" &&
-            (!value || (Array.isArray(value) && value.length === 0))
-            ? "At least one field must be selected for XLSX format"
-            : null;
+          if (formData.format === "xlsx") {
+            const hasRegularFields =
+              value && Array.isArray(value) && value.length > 0;
+            const hasUnifiedFields =
+              formData.includeCompoundFields.name ||
+              formData.includeCompoundFields.address;
+            return !hasRegularFields && !hasUnifiedFields
+              ? "At least one field must be selected for XLSX format"
+              : null;
+          }
+          return null;
         default:
           return null;
       }
     },
-    [formData.format],
+    [formData.format, formData.includeCompoundFields],
   );
 
   const validateForm = (): boolean => {
@@ -32,12 +41,23 @@ export function useFormValidation(formData: XLSXConfigFormData) {
       newErrors.name = "Report name is required";
     }
 
-    if (formData.format === "xlsx" && formData.includeFields.length === 0) {
-      newErrors.includeFields =
-        "At least one field must be selected for XLSX format";
+    if (formData.format === "xlsx") {
+      const hasRegularFields = formData.includeFields.length > 0;
+      const hasUnifiedFields =
+        formData.includeCompoundFields.name ||
+        formData.includeCompoundFields.address;
+      if (!hasRegularFields && !hasUnifiedFields) {
+        newErrors.includeFields =
+          "At least one field must be selected for XLSX format";
+      }
     }
 
     setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      setHadErrorsSinceLastSubmit(true);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -67,7 +87,14 @@ export function useFormValidation(formData: XLSXConfigFormData) {
             (key) => !newErrors[key] && prevErrors[key],
           );
 
-        return hasChanges ? newErrors : prevErrors;
+        if (hasChanges) {
+          if (Object.keys(newErrors).length > 0) {
+            setHadErrorsSinceLastSubmit(true);
+          }
+          return newErrors;
+        }
+
+        return prevErrors;
       });
     }, 100);
 
@@ -75,6 +102,7 @@ export function useFormValidation(formData: XLSXConfigFormData) {
   }, [
     formData.name,
     formData.includeFields,
+    formData.includeCompoundFields,
     formData.format,
     hasUserSubmitted,
     validateField,
@@ -83,6 +111,11 @@ export function useFormValidation(formData: XLSXConfigFormData) {
   const clearErrors = () => {
     setErrors({});
     setHasUserSubmitted(false);
+    setHadErrorsSinceLastSubmit(false);
+  };
+
+  const clearErrorTracking = () => {
+    setHadErrorsSinceLastSubmit(false);
   };
 
   return {
@@ -91,5 +124,7 @@ export function useFormValidation(formData: XLSXConfigFormData) {
     setHasUserSubmitted,
     validateForm,
     clearErrors,
+    clearErrorTracking,
+    hadErrorsSinceLastSubmit,
   };
 }
