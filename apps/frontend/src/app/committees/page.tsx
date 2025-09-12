@@ -60,7 +60,7 @@ const CommitteeLists = async () => {
               </Link>
             </div>
           )}
-          <GenerateCommitteeReportButton committeeLists={committeeLists} />
+          <GenerateCommitteeReportButton />
         </div>
       )}
       <CommitteeSelector committeeLists={committeeLists} />
