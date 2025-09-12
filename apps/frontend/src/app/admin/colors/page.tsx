@@ -38,7 +38,7 @@ const colors = [
   { name: "ring", className: "ring ring-ring" },
 ];
 
-const ColorReference: React.FC = () => {
+const ColorReference = () => {
   return (
     <AuthCheck>
       <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-3">
