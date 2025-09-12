@@ -46,7 +46,7 @@ export async function generatePDFAndUpload(
   useLandscape: boolean,
   fileName: string
 ): Promise<void> {
-  const puppeteerOptions = {
+  const puppeteerOptions: any = {
     headless: true,
     args: [
       '--no-sandbox',
@@ -56,6 +56,11 @@ export async function generatePDFAndUpload(
       '--single-process',
     ],
   };
+
+  // Use system Chrome only in production
+  if (process.env.NODE_ENV === 'production') {
+    puppeteerOptions.executablePath = '/usr/bin/google-chrome-stable';
+  }
 
   console.log('generating pdf');
   const browser = await puppeteer.launch(puppeteerOptions);
