@@ -153,13 +153,8 @@ export const createGenerateReportSchema = (
 export const createEnrichedReportDataSchema = (
   ldCommitteesFields: VoterRecordField[] = []
 ) => {
-  console.log(
-    'Creating dynamic enriched schema with fields:',
-    ldCommitteesFields
-  );
   const dynamicLDCommitteesSchema =
     createLDCommitteesReportSchema(ldCommitteesFields);
-  console.log('Dynamic LD committees schema created');
 
   const schema = z.discriminatedUnion('type', [
     z.object({
@@ -172,7 +167,6 @@ export const createEnrichedReportDataSchema = (
     }),
   ]);
 
-  console.log('Dynamic enriched schema created');
   return schema;
 };
 
