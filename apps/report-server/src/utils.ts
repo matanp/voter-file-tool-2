@@ -6,6 +6,10 @@ import puppeteer from 'puppeteer';
 import { uploadFileToR2 } from './s3Utils';
 import { Readable } from 'stream';
 import { randomUUID } from 'crypto';
+import {
+  createCompoundNameField,
+  createCompoundAddressField,
+} from '@voter-file-tool/shared-validators';
 export const generateHTML = (
   candidates: { name: string; address: string; office: string }[],
   vacancyAppointments: { name: string; address: string }[],
@@ -88,12 +92,40 @@ export async function generatePDFAndUpload(
   await browser.close();
 }
 
+function transformToCommitteeMemberFormat(groupedCommittees: any[]): any[] {
+  return groupedCommittees.map((ld) => ({
+    ...ld,
+    committees: Object.fromEntries(
+      Object.entries(ld.committees).map(([electionDistrict, members]) => [
+        electionDistrict,
+        (members as any[]).map((member: any) => {
+          const name = createCompoundNameField(member);
+          const address = createCompoundAddressField(member);
+
+          return {
+            name: name || member.name || '',
+            address: address || member.address || '',
+            city: member.city || '',
+            state: member.state || '',
+            zip: member.zipCode || '',
+            phone: member.telephone || '',
+          };
+        }),
+      ])
+    ),
+  }));
+}
+
 export const generateCommitteeReportHTML = (groupedCommittees: any[]) => {
   const tailwindCSS =
     '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+
+  const processedCommittees =
+    transformToCommitteeMemberFormat(groupedCommittees);
+
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(CommitteeReport, {
-      groupedCommittees: groupedCommittees,
+      groupedCommittees: processedCommittees,
     })
   );
   return `<!DOCTYPE html>
