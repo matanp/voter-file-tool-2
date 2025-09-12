@@ -14,15 +14,22 @@ export function useFormValidation(formData: XLSXConfigFormData) {
             ? "Report name is required"
             : null;
         case "includeFields":
-          return formData.format === "xlsx" &&
-            (!value || (Array.isArray(value) && value.length === 0))
-            ? "At least one field must be selected for XLSX format"
-            : null;
+          if (formData.format === "xlsx") {
+            const hasRegularFields =
+              value && Array.isArray(value) && value.length > 0;
+            const hasUnifiedFields =
+              formData.includeCompoundFields.name ||
+              formData.includeCompoundFields.address;
+            return !hasRegularFields && !hasUnifiedFields
+              ? "At least one field must be selected for XLSX format"
+              : null;
+          }
+          return null;
         default:
           return null;
       }
     },
-    [formData.format],
+    [formData.format, formData.includeCompoundFields],
   );
 
   const validateForm = (): boolean => {
@@ -32,9 +39,15 @@ export function useFormValidation(formData: XLSXConfigFormData) {
       newErrors.name = "Report name is required";
     }
 
-    if (formData.format === "xlsx" && formData.includeFields.length === 0) {
-      newErrors.includeFields =
-        "At least one field must be selected for XLSX format";
+    if (formData.format === "xlsx") {
+      const hasRegularFields = formData.includeFields.length > 0;
+      const hasUnifiedFields =
+        formData.includeCompoundFields.name ||
+        formData.includeCompoundFields.address;
+      if (!hasRegularFields && !hasUnifiedFields) {
+        newErrors.includeFields =
+          "At least one field must be selected for XLSX format";
+      }
     }
 
     setErrors(newErrors);
@@ -75,6 +88,7 @@ export function useFormValidation(formData: XLSXConfigFormData) {
   }, [
     formData.name,
     formData.includeFields,
+    formData.includeCompoundFields,
     formData.format,
     hasUserSubmitted,
     validateField,
