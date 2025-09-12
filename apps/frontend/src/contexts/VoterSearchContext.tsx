@@ -7,6 +7,8 @@ import React, {
   useMemo,
 } from "react";
 import type { SearchField } from "~/app/recordsearch/VoterRecordSearch";
+import { extractFieldNamesFromSearchQuery } from "~/lib/searchFieldUtils";
+import type { FieldName } from "~/app/recordsearch/fieldsConfig";
 
 interface VoterSearchContextType {
   searchQuery: SearchField[];
@@ -14,6 +16,7 @@ interface VoterSearchContextType {
     field: string;
     value: string | number | boolean | undefined;
   }[];
+  fieldsList: FieldName[];
   setSearchQuery: (
     query: SearchField[],
     flattenedQuery: {
@@ -50,6 +53,7 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
       value: string | number | boolean | undefined;
     }[]
   >([]);
+  const [fieldsList, setFieldsList] = useState<FieldName[]>([]);
 
   const setSearchQuery = useCallback(
     (
@@ -63,6 +67,8 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
       if (query.length > 0 && flattenedQuery.length > 0) {
         setSearchQueryState(query);
         setFlattenedSearchQuery(flattenedQuery);
+        const extractedFields = extractFieldNamesFromSearchQuery(query);
+        setFieldsList(extractedFields);
       }
     },
     [],
@@ -71,16 +77,24 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
   const clearSearchQuery = useCallback(() => {
     setSearchQueryState([]);
     setFlattenedSearchQuery([]);
+    setFieldsList([]);
   }, []);
 
   const value = useMemo(
     () => ({
       searchQuery,
       flattenedSearchQuery,
+      fieldsList,
       setSearchQuery,
       clearSearchQuery,
     }),
-    [clearSearchQuery, flattenedSearchQuery, searchQuery, setSearchQuery],
+    [
+      clearSearchQuery,
+      flattenedSearchQuery,
+      searchQuery,
+      setSearchQuery,
+      fieldsList,
+    ],
   );
 
   return (

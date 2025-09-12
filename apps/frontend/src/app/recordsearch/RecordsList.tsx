@@ -13,6 +13,7 @@ import { Button } from "~/components/ui/button";
 import { useToast } from "~/components/ui/use-toast";
 import { useVoterSearch } from "~/contexts/VoterSearchContext";
 import { MAX_RECORDS_FOR_EXPORT } from "~/constants/limits";
+import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
@@ -20,7 +21,10 @@ interface RecordsListProps {
 export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const router = useRouter();
   const { toast } = useToast();
-  const { setSearchQuery: setContextSearchQuery } = useVoterSearch();
+  const {
+    setSearchQuery: setContextSearchQuery,
+    fieldsList: contextFieldsList,
+  } = useVoterSearch();
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
@@ -33,6 +37,10 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(100);
   const [hasSearched, setHasSearched] = React.useState(false);
+
+  const fieldsList = React.useMemo(() => {
+    return createSmartFieldsList(contextFieldsList);
+  }, [contextFieldsList]);
 
   const handleSubmit = async (searchQueryParam: SearchField[]) => {
     setLoading(true);
@@ -151,14 +159,12 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         </div>
       )}
       <div className="m-10">
-        {loading && (
-          <VoterRecordTableSkeleton fieldsList={["DOB", "Telephone"]} />
-        )}
+        {loading && <VoterRecordTableSkeleton fieldsList={fieldsList} />}
 
         {records.length > 0 && !loading && (
           <VoterRecordTable
             records={records}
-            fieldsList={["DOB", "Telephone"]}
+            fieldsList={fieldsList}
             paginated={true}
             loadMore={handleLoadMore}
             totalRecords={totalRecords}

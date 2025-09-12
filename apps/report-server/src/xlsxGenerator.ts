@@ -132,12 +132,67 @@ function sanitizeWorksheetName(name: string): string {
   return sanitized;
 }
 
-export async function generateXLSXAndUpload(
-  groupedCommittees: LDCommitteesArrayWithFields,
+/**
+ * Creates a worksheet with headers and data
+ * @param data - Array of data rows
+ * @param columnsToInclude - Array of column names to include
+ * @param columnHeaders - Mapping of column names to display headers
+ * @returns XLSX worksheet object
+ */
+function createWorksheet(
+  data: any[][],
+  columnsToInclude: string[],
+  columnHeaders: Record<string, string>
+): XLSX.WorkSheet {
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+  // Set column widths
+  const columnWidths = columnsToInclude.map((field) => ({
+    wch: FIELD_WIDTHS[field] || 15,
+  }));
+  worksheet['!cols'] = columnWidths;
+
+  return worksheet;
+}
+
+/**
+ * Uploads XLSX buffer to R2 storage
+ * @param xlsxBuffer - The XLSX file buffer
+ * @param fileName - The filename for the upload
+ * @returns Promise<boolean> - Success status
+ */
+async function uploadXLSXBuffer(
+  xlsxBuffer: Buffer,
+  fileName: string
+): Promise<boolean> {
+  console.log('started upload via stream');
+
+  const stream = Readable.from(xlsxBuffer);
+  const successfulUpload = await uploadFileToR2(stream, fileName, 'xlsx');
+
+  if (!successfulUpload) {
+    throw new Error('failed to upload xlsx to file storage');
+  }
+
+  console.log('xlsx upload completed');
+  return true;
+}
+
+/**
+ * Unified XLSX generation function that handles both LD committees and voter lists
+ * @param data - The data to process (either LDCommitteesArrayWithFields or PartialVoterRecordAPI[])
+ * @param fileName - The filename for the generated XLSX
+ * @param config - XLSX generation configuration
+ * @param dataType - Type of data being processed ('ldCommittees' or 'voterList')
+ * @returns Promise<void>
+ */
+export async function generateUnifiedXLSXAndUpload(
+  data: LDCommitteesArrayWithFields | PartialVoterRecordAPI[],
   fileName: string,
-  config: XLSXGenerationConfig = {}
+  config: XLSXGenerationConfig = {},
+  dataType: 'ldCommittees' | 'voterList'
 ): Promise<void> {
-  console.log('generating xlsx with config:', config);
+  console.log(`generating ${dataType} xlsx with config:`, config);
 
   const {
     selectedFields = [],
@@ -148,7 +203,52 @@ export async function generateXLSXAndUpload(
 
   const workbook = XLSX.utils.book_new();
 
-  for (const ld of groupedCommittees) {
+  if (dataType === 'ldCommittees') {
+    // Process LD committees data
+    const groupedCommittees = data as LDCommitteesArrayWithFields;
+
+    for (const ld of groupedCommittees) {
+      const worksheetData: any[] = [];
+
+      const columnsToInclude = determineColumnsToInclude(
+        selectedFields,
+        includeCompoundFields,
+        columnOrder
+      );
+
+      const headers = columnsToInclude.map(
+        (field) => columnHeaders[field] || field
+      );
+      worksheetData.push(headers);
+
+      for (const [electionDistrict, members] of Object.entries(ld.committees)) {
+        for (const member of members) {
+          const rowData = columnsToInclude.map((field) => {
+            if (field === 'electionDistrict') {
+              return electionDistrict.padStart(3, '0');
+            }
+            return extractFieldValue(member, field);
+          });
+          worksheetData.push(rowData);
+        }
+      }
+
+      const worksheet = createWorksheet(
+        worksheetData,
+        columnsToInclude,
+        columnHeaders
+      );
+
+      const rawSheetName =
+        ld.cityTown === 'ROCHESTER'
+          ? `LD ${ld.legDistrict.toString().padStart(2, '0')}`
+          : ld.cityTown;
+      const sheetName = sanitizeWorksheetName(rawSheetName);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    }
+  } else {
+    // Process voter list data
+    const voterRecords = data as PartialVoterRecordAPI[];
     const worksheetData: any[] = [];
 
     const columnsToInclude = determineColumnsToInclude(
@@ -162,50 +262,44 @@ export async function generateXLSXAndUpload(
     );
     worksheetData.push(headers);
 
-    for (const [electionDistrict, members] of Object.entries(ld.committees)) {
-      for (const member of members) {
-        const rowData = columnsToInclude.map((field) => {
-          if (field === 'electionDistrict') {
-            return electionDistrict.padStart(3, '0');
-          }
+    for (const record of voterRecords) {
+      const recordWithCompoundFields = applyCompoundFields(
+        record,
+        includeCompoundFields
+      );
 
-          return extractFieldValue(member, field);
-        });
-
-        worksheetData.push(rowData);
-      }
+      const rowData = columnsToInclude.map((field) => {
+        return extractFieldValue(recordWithCompoundFields, field);
+      });
+      worksheetData.push(rowData);
     }
 
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-
-    const columnWidths = columnsToInclude.map((field) => ({
-      wch: FIELD_WIDTHS[field] || 15,
-    }));
-    worksheet['!cols'] = columnWidths;
-
-    const rawSheetName =
-      ld.cityTown === 'ROCHESTER'
-        ? `LD ${ld.legDistrict.toString().padStart(2, '0')}`
-        : ld.cityTown;
-    const sheetName = sanitizeWorksheetName(rawSheetName);
+    const worksheet = createWorksheet(
+      worksheetData,
+      columnsToInclude,
+      columnHeaders
+    );
+    const sheetName = sanitizeWorksheetName('Voter List');
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   }
 
   const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  await uploadXLSXBuffer(xlsxBuffer, fileName);
+}
 
-  console.log('started upload via stream');
-
-  const stream = new Readable();
-  stream.push(xlsxBuffer);
-  stream.push(null);
-
-  const successfulUpload = await uploadFileToR2(stream, fileName, 'xlsx');
-
-  if (!successfulUpload) {
-    throw new Error('failed to upload xlsx to file storage');
-  }
-
-  console.log('xlsx upload completed');
+// Legacy functions - kept for backward compatibility
+// These now delegate to the unified function to reduce code duplication
+export async function generateXLSXAndUpload(
+  groupedCommittees: LDCommitteesArrayWithFields,
+  fileName: string,
+  config: XLSXGenerationConfig = {}
+): Promise<void> {
+  await generateUnifiedXLSXAndUpload(
+    groupedCommittees,
+    fileName,
+    config,
+    'ldCommittees'
+  );
 }
 
 export async function generateVoterListXLSXAndUpload(
@@ -213,78 +307,10 @@ export async function generateVoterListXLSXAndUpload(
   fileName: string,
   config: XLSXGenerationConfig = {}
 ): Promise<void> {
-  console.log('generating voter list xlsx with config:', config);
-
-  const {
-    selectedFields = [],
-    includeCompoundFields = { name: true, address: true },
-    columnOrder = DEFAULT_COLUMN_ORDER,
-    columnHeaders = DEFAULT_COLUMN_HEADERS,
-  } = config;
-
-  // Create a new workbook
-  const workbook = XLSX.utils.book_new();
-  const worksheetData: any[] = [];
-
-  // Determine which columns to include using shared utility
-  const columnsToInclude = determineColumnsToInclude(
-    selectedFields,
-    includeCompoundFields,
-    columnOrder
+  await generateUnifiedXLSXAndUpload(
+    voterRecords,
+    fileName,
+    config,
+    'voterList'
   );
-
-  // Add header row
-  const headers = columnsToInclude.map(
-    (field) => columnHeaders[field] || field
-  );
-  worksheetData.push(headers);
-
-  // Add voter records data
-  for (const record of voterRecords) {
-    // Apply compound fields to the record first
-    const recordWithCompoundFields = applyCompoundFields(
-      record,
-      includeCompoundFields
-    );
-
-    const rowData = columnsToInclude.map((field) => {
-      // Use shared utility to extract field value
-      return extractFieldValue(recordWithCompoundFields, field);
-    });
-
-    worksheetData.push(rowData);
-  }
-
-  // Create worksheet
-  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-
-  // Set column widths
-  const columnWidths = columnsToInclude.map((field) => ({
-    wch: FIELD_WIDTHS[field] || 15,
-  }));
-  worksheet['!cols'] = columnWidths;
-
-  // Add worksheet to workbook
-  const sheetName = sanitizeWorksheetName('Voter List');
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-
-  // Generate XLSX buffer
-  const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-  console.log('started upload via stream');
-
-  // Convert buffer to stream and upload
-  const stream = new Readable();
-  stream.push(xlsxBuffer);
-  stream.push(null);
-
-  const successfulUpload = await uploadFileToR2(stream, fileName, 'xlsx');
-
-  if (!successfulUpload) {
-    throw new Error('failed to upload xlsx to file storage');
-  }
-
-  console.log('voter list xlsx upload completed');
 }
-
-// Note: Column determination and field extraction utilities are now provided by shared-validators package

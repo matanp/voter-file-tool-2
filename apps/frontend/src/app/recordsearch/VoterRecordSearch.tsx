@@ -195,6 +195,12 @@ const SEARCH_FIELDS: SearchField[] = [
         compoundType: false,
         type: "Boolean",
       },
+      {
+        name: "hasPhone",
+        displayName: "Only records with phone number",
+        compoundType: false,
+        type: "Boolean",
+      },
     ],
   },
 ];
@@ -286,7 +292,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           updatedRow.value = Number(value);
         } else if (updatedRow.type === "Boolean") {
           updatedRow.value =
-            typeof value === "boolean" ? value : Boolean(value);
+            typeof value === "boolean" ? value : value === "true";
         } else {
           updatedRow.value = value;
         }
@@ -299,7 +305,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             updatedField.value = Number(value);
           } else if (updatedField.type === "Boolean") {
             updatedField.value =
-              typeof value === "boolean" ? value : Boolean(value);
+              typeof value === "boolean" ? value : value === "true";
           } else {
             updatedField.value = value;
           }

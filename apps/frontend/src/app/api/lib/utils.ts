@@ -268,6 +268,7 @@ export const fieldEnum = z.enum([
   "statevid",
   "hasEmail",
   "hasInvalidEmail",
+  "hasPhone",
 ]);
 
 export const searchQueryFieldSchema = z
@@ -287,7 +288,11 @@ export const searchQueryFieldSchema = z
         if (item.field === "houseNum" || item.field === "electionDistrict") {
           return typeof item.value === "number" || item.value === null;
         }
-        if (item.field === "hasEmail" || item.field === "hasInvalidEmail") {
+        if (
+          item.field === "hasEmail" ||
+          item.field === "hasInvalidEmail" ||
+          item.field === "hasPhone"
+        ) {
           return typeof item.value === "boolean" || item.value === null;
         }
         return typeof item.value === "string" || item.value === null;
