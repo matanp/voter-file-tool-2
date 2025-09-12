@@ -156,7 +156,11 @@ async function saveVoterRecord(
       continue;
     }
 
-    const value = record[parseKey.data as keyof VoterRecordArchiveStrings];
+    if (!isKeyOfVoterRecordArchiveStrings(parseKey.data)) {
+      console.log("Unexpected field", parseKey.data);
+      continue;
+    }
+    const value = record[parseKey.data];
 
     if (key === "houseNum" || key === "electionDistrict") {
       voterRecord = {

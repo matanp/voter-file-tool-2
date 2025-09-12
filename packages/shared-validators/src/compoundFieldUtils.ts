@@ -89,11 +89,20 @@ export function createCompoundAddressField(
   if (resAddrLine2) addressParts.push(resAddrLine2);
   if (resAddrLine3) addressParts.push(resAddrLine3);
 
-  const address = addressParts.join(' ').trim();
-  const cityStateZip = [city, state, zipCode, zipSuffix]
-    .filter(Boolean)
-    .join(' ');
+  // const address = addressParts.join(' ').trim();
+  // const cityStateZip = [city, state, zipCode, zipSuffix]
+  //   .filter(Boolean)
+  //   .join(' ');
 
+  // return [address, cityStateZip].filter(Boolean).join(', ').trim();
+  const address = addressParts.join(' ').trim();
+  const locality = [city, state].filter(Boolean).join(', ');
+  const postal = zipCode
+    ? zipSuffix
+      ? `${zipCode}-${zipSuffix}`
+      : zipCode
+    : '';
+  const cityStateZip = [locality, postal].filter(Boolean).join(' ');
   return [address, cityStateZip].filter(Boolean).join(', ').trim();
 }
 
@@ -235,7 +244,7 @@ function mapVoterRecordFieldsInternal(
 ): PartialVoterRecordAPI | null {
   // Validate that VRCNUM exists and is not empty
   if (!voter.VRCNUM || voter.VRCNUM.trim() === '') {
-    console.warn('Skipping voter record with invalid VRCNUM:', voter);
+    console.warn('Skipping voter record with invalid VRCNUM:');
     return null;
   }
 

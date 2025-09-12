@@ -285,7 +285,8 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         if (updatedRow.type === "number") {
           updatedRow.value = Number(value);
         } else if (updatedRow.type === "Boolean") {
-          updatedRow.value = Boolean(value);
+          updatedRow.value =
+            typeof value === "boolean" ? value : Boolean(value);
         } else {
           updatedRow.value = value;
         }
@@ -297,7 +298,8 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           if (updatedField.type === "number") {
             updatedField.value = Number(value);
           } else if (updatedField.type === "Boolean") {
-            updatedField.value = Boolean(value);
+            updatedField.value =
+              typeof value === "boolean" ? value : Boolean(value);
           } else {
             updatedField.value = value;
           }

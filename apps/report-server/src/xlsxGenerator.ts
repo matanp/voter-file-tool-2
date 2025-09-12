@@ -209,7 +209,7 @@ export async function generateXLSXAndUpload(
 }
 
 export async function generateVoterListXLSXAndUpload(
-  voterRecords: any[],
+  voterRecords: PartialVoterRecordAPI[],
   fileName: string,
   config: XLSXGenerationConfig = {}
 ): Promise<void> {

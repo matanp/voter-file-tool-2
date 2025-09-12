@@ -15,6 +15,7 @@ import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { FieldSelection } from "../committee-reports/components/FieldSelection";
 import { XLSXConfig } from "../committee-reports/components/XLSXConfig";
 import { useFormValidation } from "../committee-reports/hooks/useFormValidation";
+import { ErrorDisplay } from "./components/ErrorDisplay";
 import type { VoterRecord } from "@prisma/client";
 import type { VoterRecordField } from "@voter-file-tool/shared-validators";
 import { mapVoterRecordToMemberWithFields } from "@voter-file-tool/shared-validators";
@@ -42,14 +43,6 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
   const { searchQuery, flattenedSearchQuery, clearSearchQuery } =
     useVoterSearch();
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log("VoterListReportForm - searchQuery:", searchQuery);
-    console.log(
-      "VoterListReportForm - flattenedSearchQuery:",
-      flattenedSearchQuery,
-    );
-  }, [searchQuery, flattenedSearchQuery]);
   const [searchResults, setSearchResults] = useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = useState<number>(0);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -69,7 +62,8 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     columnHeaders: {},
   });
 
-  const { errors, validateForm } = useFormValidation(formData);
+  const { errors, hasUserSubmitted, setHasUserSubmitted, validateForm } =
+    useFormValidation(formData);
 
   const handleFormDataChange = useCallback(
     (updates: Partial<VoterListReportFormData>) => {
@@ -94,6 +88,8 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    setHasUserSubmitted(true);
 
     if (!validateForm()) {
       return;
@@ -229,41 +225,74 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {searchQuery.map((field, index) => (
-                <div key={index} className="space-y-1">
-                  {field.compoundType ? (
-                    // Compound field - show all sub-fields
-                    <div>
-                      <span className="font-medium text-sm">
-                        {field.displayName}:
-                      </span>
-                      <div className="ml-4 space-y-1">
-                        {field.fields.map((subField, subIndex) => (
-                          <div
-                            key={subIndex}
-                            className="flex items-center space-x-2 text-sm"
-                          >
-                            <span className="font-medium">
-                              {subField.displayName}:
-                            </span>
-                            <span className="text-muted-foreground">
-                              {String(subField.value ?? "")}
-                            </span>
-                          </div>
-                        ))}
+              {searchQuery
+                .filter((field) => {
+                  if (field.compoundType) {
+                    // For compound fields, only show if at least one sub-field has a non-empty value
+                    return field.fields.some((subField) => {
+                      const value = subField.value;
+                      return (
+                        value !== null &&
+                        value !== undefined &&
+                        String(value).trim() !== ""
+                      );
+                    });
+                  } else {
+                    // For simple fields, only show if the value is non-empty
+                    const value = field.value;
+                    return (
+                      value !== null &&
+                      value !== undefined &&
+                      String(value).trim() !== ""
+                    );
+                  }
+                })
+                .map((field, index) => (
+                  <div key={index} className="space-y-1">
+                    {field.compoundType ? (
+                      // Compound field - show only sub-fields with non-empty values
+                      <div>
+                        <span className="font-medium text-sm">
+                          {field.displayName}:
+                        </span>
+                        <div className="ml-4 space-y-1">
+                          {field.fields
+                            .filter((subField) => {
+                              const value = subField.value;
+                              return (
+                                value !== null &&
+                                value !== undefined &&
+                                String(value).trim() !== ""
+                              );
+                            })
+                            .map((subField, subIndex) => (
+                              <div
+                                key={subIndex}
+                                className="flex items-center space-x-2 text-sm"
+                              >
+                                <span className="font-medium">
+                                  {subField.displayName}:
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {String(subField.value ?? "")}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    // Simple field
-                    <div className="flex items-center space-x-2 text-sm">
-                      <span className="font-medium">{field.displayName}:</span>
-                      <span className="text-muted-foreground">
-                        {String(field.value ?? "")}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    ) : (
+                      // Simple field
+                      <div className="flex items-center space-x-2 text-sm">
+                        <span className="font-medium">
+                          {field.displayName}:
+                        </span>
+                        <span className="text-muted-foreground">
+                          {String(field.value ?? "")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
             <div className="mt-4 flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
@@ -368,12 +397,9 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
                     }
                     placeholder="Enter report name"
                     className={errors.name ? "border-destructive" : ""}
+                    aria-describedby={errors.name ? "name-error" : undefined}
+                    aria-invalid={!!errors.name}
                   />
-                  {errors.name && (
-                    <p className="text-sm text-destructive mt-1">
-                      {errors.name}
-                    </p>
-                  )}
                 </div>
 
                 <div>
@@ -404,14 +430,25 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
               </Accordion>
 
               {/* Submit Button */}
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={isGenerating || !canExport}
-                  className="min-w-[120px]"
-                >
-                  {isGenerating ? "Generating..." : "Generate Report"}
-                </Button>
+              <div className="space-y-2">
+                <ErrorDisplay
+                  errors={errors}
+                  hasUserSubmitted={hasUserSubmitted}
+                />
+
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    disabled={
+                      isGenerating ||
+                      !canExport ||
+                      (hasUserSubmitted && Object.keys(errors).length > 0)
+                    }
+                    className="min-w-[120px]"
+                  >
+                    {isGenerating ? "Generating..." : "Generate Report"}
+                  </Button>
+                </div>
               </div>
             </form>
           </CardContent>
