@@ -5,6 +5,8 @@ import type { XLSXConfigFormData } from "../types";
 export function useFormValidation(formData: XLSXConfigFormData) {
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [hasUserSubmitted, setHasUserSubmitted] = useState(false);
+  const [hadErrorsSinceLastSubmit, setHadErrorsSinceLastSubmit] =
+    useState(false);
 
   const validateField = useCallback(
     (fieldName: string, value: string | VoterRecordField[]): string | null => {
@@ -51,6 +53,11 @@ export function useFormValidation(formData: XLSXConfigFormData) {
     }
 
     setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      setHadErrorsSinceLastSubmit(true);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -80,7 +87,14 @@ export function useFormValidation(formData: XLSXConfigFormData) {
             (key) => !newErrors[key] && prevErrors[key],
           );
 
-        return hasChanges ? newErrors : prevErrors;
+        if (hasChanges) {
+          if (Object.keys(newErrors).length > 0) {
+            setHadErrorsSinceLastSubmit(true);
+          }
+          return newErrors;
+        }
+
+        return prevErrors;
       });
     }, 100);
 
@@ -97,6 +111,11 @@ export function useFormValidation(formData: XLSXConfigFormData) {
   const clearErrors = () => {
     setErrors({});
     setHasUserSubmitted(false);
+    setHadErrorsSinceLastSubmit(false);
+  };
+
+  const clearErrorTracking = () => {
+    setHadErrorsSinceLastSubmit(false);
   };
 
   return {
@@ -105,5 +124,7 @@ export function useFormValidation(formData: XLSXConfigFormData) {
     setHasUserSubmitted,
     validateForm,
     clearErrors,
+    clearErrorTracking,
+    hadErrorsSinceLastSubmit,
   };
 }

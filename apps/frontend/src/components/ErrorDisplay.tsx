@@ -1,20 +1,24 @@
+"use client";
+
 import * as React from "react";
 
 interface ErrorDisplayProps {
   errors: Partial<Record<string, string>>;
   hasUserSubmitted: boolean;
+  hadErrorsSinceLastSubmit: boolean;
 }
 
 export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   errors,
   hasUserSubmitted,
+  hadErrorsSinceLastSubmit,
 }) => {
   const visibleErrors = Object.entries(errors).filter(
     ([, msg]) => typeof msg === "string" && msg.trim().length > 0,
   );
   const hasErrors = visibleErrors.length > 0;
 
-  if (!hasErrors && !hasUserSubmitted) {
+  if (!hasErrors && (!hasUserSubmitted || !hadErrorsSinceLastSubmit)) {
     return null;
   }
 
