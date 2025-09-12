@@ -4,7 +4,8 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { Switch } from "~/components/ui/switch";
 import {
   Accordion,
   AccordionContent,
@@ -53,6 +54,7 @@ interface VoterListReportFormData {
   };
   columnOrder: string[];
   columnHeaders: Record<string, string>;
+  autoDownload: boolean;
 }
 
 export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
@@ -76,6 +78,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     },
     columnOrder: [],
     columnHeaders: {},
+    autoDownload: true,
   });
 
   const {
@@ -88,13 +91,25 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
   } = useFormValidation(formData);
 
   // Handle report completion
-  const handleReportComplete = (_url: string) => {
+  const handleReportComplete = (url: string) => {
     toast({
-      description:
-        "Document generated successfully! Download will start shortly.",
+      description: formData.autoDownload
+        ? "Document generated successfully! Download will start shortly."
+        : "Document generated successfully! You can download it from the reports page.",
       duration: 5000,
     });
-    window.open(_url, "_blank"); // Trigger download
+
+    if (formData.autoDownload) {
+      // Force direct download for XLSX files
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = ""; // This forces download instead of navigation
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     setIsGenerating(false);
     setReportId(null);
   };
@@ -485,18 +500,52 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
                   hadErrorsSinceLastSubmit={hadErrorsSinceLastSubmit}
                 />
 
-                <div className="flex justify-end">
-                  <Button
-                    type="submit"
-                    disabled={
-                      isGenerating ||
-                      !canExport ||
-                      (hasUserSubmitted && Object.keys(errors).length > 0)
-                    }
-                    className="min-w-[120px]"
-                  >
-                    {isGenerating ? "Generating..." : "Generate Report"}
-                  </Button>
+                <div className="flex items-start justify-between">
+                  <div className="flex flex-col space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="autoDownload"
+                        checked={formData.autoDownload}
+                        onCheckedChange={(checked) =>
+                          handleFormDataChange({ autoDownload: checked })
+                        }
+                      />
+                      <Label
+                        htmlFor="autoDownload"
+                        className="text-sm font-medium"
+                      >
+                        Auto-download
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground ml-6">
+                      {formData.autoDownload ? (
+                        "File will download automatically"
+                      ) : (
+                        <>
+                          Find your report in the{" "}
+                          <a
+                            href="/reports"
+                            className="text-blue-600 hover:text-blue-800 underline"
+                          >
+                            Reports page
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <Button
+                      type="submit"
+                      disabled={
+                        isGenerating ||
+                        !canExport ||
+                        (hasUserSubmitted && Object.keys(errors).length > 0)
+                      }
+                      className="min-w-[120px]"
+                    >
+                      {isGenerating ? "Generating..." : "Generate Report"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </form>

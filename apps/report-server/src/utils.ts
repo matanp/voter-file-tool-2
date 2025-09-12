@@ -152,10 +152,15 @@ function sleep(arg0: number) {
  */
 export function sanitizeForS3Key(
   input: string,
-  fallbackToUUID: boolean = false
+  fallbackToUUID: boolean = true,
+  maxLen: number = 512
 ): string {
   if (!input || typeof input !== 'string') {
-    return fallbackToUUID ? randomUUID() : '';
+    return fallbackToUUID
+      ? typeof randomUUID === 'function'
+        ? randomUUID()
+        : 'unnamed'
+      : '';
   }
 
   // Remove or replace unsafe characters for S3 keys
@@ -168,6 +173,14 @@ export function sanitizeForS3Key(
     .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
 
-  // If sanitization resulted in empty string, fallback to UUID or return empty string
-  return sanitized || (fallbackToUUID ? randomUUID() : '');
+  const trimmed = sanitized.slice(0, Math.max(1, maxLen));
+  // Ensure non-empty; final fallback if needed
+  return (
+    trimmed ||
+    (fallbackToUUID
+      ? typeof randomUUID === 'function'
+        ? randomUUID()
+        : 'unnamed'
+      : '')
+  );
 }

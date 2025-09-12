@@ -175,7 +175,7 @@ export function extractFieldValue(
     return record.address || createCompoundAddressField(record);
   }
 
-  const value = (record as any)[field];
+  const value = record[field as keyof CompoundFieldTarget];
   return value !== undefined && value !== null ? value : '';
 }
 
@@ -278,7 +278,12 @@ function mapVoterRecordFieldsInternal(
   const member: PartialVoterRecordAPI = {};
 
   fieldsToInclude.forEach((field) => {
-    (member as any)[field] = voter[field];
+    fieldsToInclude.forEach((field) => {
+      if (field in voter) {
+        (member as Record<string, any>)[field] =
+          voter[field as keyof VoterRecordAPI];
+      }
+    });
   });
 
   return member;

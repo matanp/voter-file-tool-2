@@ -11,6 +11,7 @@ export interface XLSXConfigFormData {
   };
   columnOrder: string[];
   columnHeaders: Record<string, string>;
+  autoDownload: boolean;
 }
 
 export const DEFAULT_FORM_DATA: XLSXConfigFormData = {
@@ -24,4 +25,5 @@ export const DEFAULT_FORM_DATA: XLSXConfigFormData = {
   },
   columnOrder: [],
   columnHeaders: {},
+  autoDownload: true,
 };

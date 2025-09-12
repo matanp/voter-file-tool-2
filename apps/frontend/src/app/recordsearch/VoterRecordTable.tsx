@@ -69,7 +69,7 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[24ch]">Name</TableHead>
-            {fieldsList.map((fieldName: string) => {
+            {fieldsList.map((fieldName: FieldName) => {
               const field = fields.find((field) => field.name === fieldName);
               if (!field) {
                 return null;
@@ -90,7 +90,7 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
           {records.map((record) => (
             <TableRow key={record.VRCNUM}>
               <TableCell className="font-medium">{`${record.firstName} ${record.lastName}`}</TableCell>
-              {fieldsList.map((fieldName: string) => {
+              {fieldsList.map((fieldName: FieldName) => {
                 const field = fields.find((field) => field.name === fieldName);
                 if (!field) {
                   return null;

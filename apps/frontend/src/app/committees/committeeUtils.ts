@@ -53,6 +53,11 @@ type LDCommitteesWithCompoundFields = {
   committees: Record<string, CompoundFieldTarget[]>;
 };
 
+export type LDCommitteesWithFields = {
+  cityTown: string;
+  legDistrict: number;
+  committees: Record<string, CommitteeMemberWithFields[]>;
+};
 export const mapCommiteesToReportShape = (
   committees: CommitteeWithMembers[],
 ): LDCommitteesWithCompoundFields[] => {
@@ -98,8 +103,8 @@ export const mapCommiteesToReportShape = (
 export const mapCommitteesToReportShapeWithFields = (
   committees: CommitteeWithMembers[],
   includeFields: VoterRecordField[],
-): LDCommitteesWithCompoundFields[] => {
-  const groupMap = new Map<string, LDCommitteesWithCompoundFields>();
+): LDCommitteesWithFields[] => {
+  const groupMap = new Map<string, LDCommitteesWithFields>();
 
   for (const committee of committees) {
     const groupKey = `${committee.cityTown}|${committee.legDistrict}`;

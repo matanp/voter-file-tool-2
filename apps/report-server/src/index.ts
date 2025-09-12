@@ -11,10 +11,7 @@ import {
   generateCommitteeReportHTML,
   sanitizeForS3Key,
 } from './utils';
-import {
-  generateXLSXAndUpload,
-  generateVoterListXLSXAndUpload,
-} from './xlsxGenerator';
+import { generateUnifiedXLSXAndUpload } from './xlsxGenerator';
 import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
@@ -32,12 +29,11 @@ function generateFilename(
   format: string,
   sanitizedAuthor: string
 ): string {
-  const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-  const time = new Date()
-    .toISOString()
-    .split('T')[1]
-    .split('.')[0]
-    .replace(/:/g, '-'); // HH-MM-SS format
+  const now = new Date();
+  const isoString = now.toISOString();
+  const [datePart, timePart] = isoString.split('T');
+  const timestamp = datePart; // YYYY-MM-DD format
+  const time = timePart.split('.')[0].replace(/:/g, '-'); // HH-MM-SS format
 
   const sanitizedName = reportName ? sanitizeForS3Key(reportName) : '';
 
@@ -141,6 +137,32 @@ app.post(
   }
 );
 
+/**
+ * Extracts XLSX configuration from job data
+ * @param jobData - The enriched report data
+ * @returns XLSX configuration object
+ */
+function extractXLSXConfig(jobData: EnrichedReportData) {
+  return {
+    selectedFields:
+      'includeFields' in jobData
+        ? (jobData.includeFields as VoterRecordField[])
+        : [],
+    includeCompoundFields:
+      'xlsxConfig' in jobData && jobData.xlsxConfig?.includeCompoundFields
+        ? jobData.xlsxConfig.includeCompoundFields
+        : { name: true, address: true },
+    columnOrder:
+      'xlsxConfig' in jobData && jobData.xlsxConfig?.columnOrder
+        ? jobData.xlsxConfig.columnOrder
+        : undefined,
+    columnHeaders:
+      'xlsxConfig' in jobData && jobData.xlsxConfig?.columnHeaders
+        ? jobData.xlsxConfig.columnHeaders
+        : undefined,
+  };
+}
+
 async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName: string;
@@ -159,28 +181,13 @@ async function processJob(jobData: EnrichedReportData) {
     if (type === 'ldCommittees') {
       if (format === 'xlsx') {
         console.log('Processing committee report as XLSX...');
-
-        // Extract XLSX configuration from the report data
-        const xlsxConfig = {
-          selectedFields:
-            'includeFields' in jobData
-              ? (jobData.includeFields as VoterRecordField[])
-              : [],
-          includeCompoundFields:
-            'xlsxConfig' in jobData && jobData.xlsxConfig?.includeCompoundFields
-              ? jobData.xlsxConfig.includeCompoundFields
-              : { name: true, address: true },
-          columnOrder:
-            'xlsxConfig' in jobData && jobData.xlsxConfig?.columnOrder
-              ? jobData.xlsxConfig.columnOrder
-              : undefined,
-          columnHeaders:
-            'xlsxConfig' in jobData && jobData.xlsxConfig?.columnHeaders
-              ? jobData.xlsxConfig.columnHeaders
-              : undefined,
-        };
-
-        await generateXLSXAndUpload(payload, fileName, xlsxConfig);
+        const xlsxConfig = extractXLSXConfig(jobData);
+        await generateUnifiedXLSXAndUpload(
+          payload,
+          fileName,
+          xlsxConfig,
+          'ldCommittees'
+        );
       } else {
         console.log('Processing committee report as PDF...');
         const html = generateCommitteeReportHTML(payload);
@@ -188,26 +195,13 @@ async function processJob(jobData: EnrichedReportData) {
       }
     } else if (type === 'voterList') {
       console.log('Processing voter list report as XLSX...');
-
-      // Extract XLSX configuration from the report data
-      const voterListJobData = jobData as any;
-      const xlsxConfig = {
-        selectedFields: voterListJobData.includeFields
-          ? (voterListJobData.includeFields as VoterRecordField[])
-          : [],
-        includeCompoundFields: voterListJobData.xlsxConfig
-          ?.includeCompoundFields
-          ? voterListJobData.xlsxConfig.includeCompoundFields
-          : { name: true, address: true },
-        columnOrder: voterListJobData.xlsxConfig?.columnOrder
-          ? voterListJobData.xlsxConfig.columnOrder
-          : undefined,
-        columnHeaders: voterListJobData.xlsxConfig?.columnHeaders
-          ? voterListJobData.xlsxConfig.columnHeaders
-          : undefined,
-      };
-
-      await generateVoterListXLSXAndUpload(payload, fileName, xlsxConfig);
+      const xlsxConfig = extractXLSXConfig(jobData);
+      await generateUnifiedXLSXAndUpload(
+        payload,
+        fileName,
+        xlsxConfig,
+        'voterList'
+      );
     } else if (type === 'designatedPetition') {
       console.log('Processing designated petition form...');
       const { candidates, vacancyAppointments, party, electionDate, numPages } =
