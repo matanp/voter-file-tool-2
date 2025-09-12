@@ -54,16 +54,68 @@ resource "aws_lightsail_instance" "nodejs_server" {
                 git clone https://matanp:${var.github_token}@github.com/matanp/voter-file-tool-2.git /home/bitnami/your-project
               fi
 
-              # Navigate to the cloned project directory
-              cd /home/bitnami/your-project/apps/report-server || {
+              # Navigate to the project root first
+              cd /home/bitnami/your-project || {
                 echo "Failed to navigate to project directory"
+                exit 1
+              }
+
+              # Install dependencies for shared packages first
+              pnpm --filter @voter-file-tool/shared-prisma install || {
+                echo "Failed to install shared-prisma"
+                exit 1
+              }
+
+              pnpm --filter @voter-file-tool/shared-validators install || {
+                echo "Failed to install shared-validators"
+                exit 1
+              }
+
+              # Install frontend dependencies and generate Prisma client
+              cd apps/frontend || {
+                echo "Failed to navigate to frontend directory"
+                exit 1
+              }
+              
+              # Install frontend dependencies (needed for Prisma) - skip postinstall scripts
+              pnpm install --ignore-scripts || {
+                echo "Failed to install frontend dependencies"
+                exit 1
+              }
+              
+              # Generate Prisma client
+              pnpm exec prisma generate || {
+                echo "Failed to generate Prisma client"
+                exit 1
+              }
+              
+              # Go back to project root
+              cd ../.. || {
+                echo "Failed to navigate back to project root"
+                exit 1
+              }
+
+              # Now build shared packages
+              pnpm --filter @voter-file-tool/shared-prisma build || {
+                echo "Failed to build shared-prisma"
+                exit 1
+              }
+
+              pnpm --filter @voter-file-tool/shared-validators build || {
+                echo "Failed to build shared-validators"
+                exit 1
+              }
+
+              # Navigate to report-server directory
+              cd apps/report-server || {
+                echo "Failed to navigate to report-server directory"
                 exit 1
               }
 
               touch .env
 
-              # Install dependencies
-              pnpm install || {
+              # Install dependencies only for report-server (this will skip frontend)
+              pnpm install --filter ./apps/report-server || {
                 echo "pnpm install failed"
                 exit 1
               }
