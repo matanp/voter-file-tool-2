@@ -195,6 +195,12 @@ const SEARCH_FIELDS: SearchField[] = [
         compoundType: false,
         type: "Boolean",
       },
+      {
+        name: "hasPhone",
+        displayName: "Only records with phone number",
+        compoundType: false,
+        type: "Boolean",
+      },
     ],
   },
 ];

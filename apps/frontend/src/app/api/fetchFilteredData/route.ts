@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { fetchFilteredDataSchema } from "../lib/utils";
 import { convertPrismaVoterRecordToAPI } from "@voter-file-tool/shared-validators";
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
       fetchFilteredDataSchema.parse(requestBody);
 
     let query: Record<string, unknown> = {};
+    const andConditions: Prisma.VoterRecordWhereInput[] = [];
 
     for (const field of searchQuery) {
       if (field.value !== "" && field.value !== null) {
@@ -19,12 +21,15 @@ export async function POST(req: NextRequest) {
         // Handle email search criteria
         if (fieldField === "hasEmail") {
           if (field.value === true) {
-            query.AND = [{ email: { not: null } }, { email: { not: "" } }];
+            andConditions.push(
+              { email: { not: null } },
+              { email: { not: "" } },
+            );
           }
         } else if (fieldField === "hasInvalidEmail") {
           if (field.value === true) {
             // Records that have email but it's invalid (no @ or doesn't end with .com)
-            query.AND = [
+            andConditions.push(
               // First ensure email exists and is not empty
               { email: { not: null } },
               { email: { not: "" } },
@@ -53,7 +58,14 @@ export async function POST(req: NextRequest) {
                   },
                 ],
               },
-            ];
+            );
+          }
+        } else if (fieldField === "hasPhone") {
+          if (field.value === true) {
+            andConditions.push(
+              { telephone: { not: null } },
+              { telephone: { not: "" } },
+            );
           }
         } else if (fieldField === "firstName" || fieldField === "lastName") {
           query = {
@@ -67,6 +79,10 @@ export async function POST(req: NextRequest) {
           query = { ...query, [fieldField]: field.value };
         }
       }
+    }
+
+    if (andConditions.length > 0) {
+      query.AND = andConditions;
     }
 
     if (!searchQuery) {

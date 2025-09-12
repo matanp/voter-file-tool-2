@@ -37,6 +37,13 @@ export function extractFieldNamesFromSearchQuery(
         ) {
           fieldNames.add("email");
         }
+        if (
+          field.name === "additionalCriteria" &&
+          subField.name === "hasPhone" &&
+          subField.value === true
+        ) {
+          fieldNames.add("telephone");
+        }
       });
     } else if (
       field.name &&
