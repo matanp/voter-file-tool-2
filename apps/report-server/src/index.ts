@@ -10,15 +10,18 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
-  generateXLSXAndUpload,
 } from './utils';
+import { generateXLSXAndUpload } from './xlsxGenerator';
 import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
   callbackUrlSchema,
   type EnrichedReportData,
+  type DynamicEnrichedReportData,
   type ReportCompleteWebhookPayload,
   type CallbackUrl,
+  type VoterRecordField,
+  createEnrichedReportDataSchema,
 } from '@voter-file-tool/shared-validators';
 
 // Function to sanitize reportAuthor for safe S3 key usage
@@ -45,13 +48,16 @@ config();
 
 const QUEUE_CONCURRENCY = 2;
 
-const q = async.queue(async (requestData: EnrichedReportData) => {
-  try {
-    await processJob(requestData);
-  } catch (error) {
-    console.error('Queue worker error:', error);
-  }
-}, QUEUE_CONCURRENCY);
+const q = async.queue(
+  async (requestData: EnrichedReportData | DynamicEnrichedReportData) => {
+    try {
+      await processJob(requestData);
+    } catch (error) {
+      console.error('Queue worker error:', error);
+    }
+  },
+  QUEUE_CONCURRENCY
+);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -86,8 +92,36 @@ app.post(
       const jsonString = decompressedBuffer.toString('utf-8');
       const rawRequestData = JSON.parse(jsonString);
 
-      const validationResult =
-        enrichedReportDataSchema.safeParse(rawRequestData);
+      // For ldCommittees reports, we need to use dynamic schema based on selected fields
+      let validationResult:
+        | {
+            success: true;
+            data: EnrichedReportData | DynamicEnrichedReportData;
+          }
+        | { success: false; error: any };
+
+      if (
+        rawRequestData.type === 'ldCommittees' &&
+        rawRequestData.includeFields
+      ) {
+        const selectedFields =
+          rawRequestData.includeFields as VoterRecordField[];
+        const dynamicEnrichedSchema =
+          createEnrichedReportDataSchema(selectedFields);
+        validationResult = dynamicEnrichedSchema.safeParse(rawRequestData) as
+          | { success: true; data: DynamicEnrichedReportData }
+          | { success: false; error: any };
+        if (!validationResult.success) {
+          console.log('Validation errors:', validationResult.error.errors);
+        }
+      } else {
+        validationResult = enrichedReportDataSchema.safeParse(
+          rawRequestData
+        ) as
+          | { success: true; data: EnrichedReportData }
+          | { success: false; error: any };
+      }
+
       if (!validationResult.success) {
         console.error('Invalid request data:', validationResult.error);
         return res.status(400).json({
@@ -96,9 +130,8 @@ app.post(
         });
       }
 
-      const requestData: EnrichedReportData = validationResult.data;
-
-      // console.log('Received job data:', requestData);
+      const requestData: EnrichedReportData | DynamicEnrichedReportData =
+        validationResult.data;
 
       const jobsAhead = q.length();
 
@@ -116,9 +149,10 @@ app.post(
   }
 );
 
-async function processJob(jobData: EnrichedReportData) {
+async function processJob(
+  jobData: EnrichedReportData | DynamicEnrichedReportData
+) {
   try {
-    let pdfBuffer: Buffer;
     let fileName: string;
     const { type, reportAuthor, jobId, payload } = jobData;
     const format =
@@ -138,7 +172,28 @@ async function processJob(jobData: EnrichedReportData) {
 
       if (format === 'xlsx') {
         console.log('Processing committee report as XLSX...');
-        await generateXLSXAndUpload(payload, fileName);
+
+        // Extract XLSX configuration from the report data
+        const xlsxConfig = {
+          selectedFields:
+            'includeFields' in jobData
+              ? (jobData.includeFields as VoterRecordField[])
+              : [],
+          includeCompoundFields:
+            'xlsxConfig' in jobData && jobData.xlsxConfig?.includeCompoundFields
+              ? jobData.xlsxConfig.includeCompoundFields
+              : { name: true, address: true },
+          columnOrder:
+            'xlsxConfig' in jobData && jobData.xlsxConfig?.columnOrder
+              ? jobData.xlsxConfig.columnOrder
+              : undefined,
+          columnHeaders:
+            'xlsxConfig' in jobData && jobData.xlsxConfig?.columnHeaders
+              ? jobData.xlsxConfig.columnHeaders
+              : undefined,
+        };
+
+        await generateXLSXAndUpload(payload, fileName, xlsxConfig);
       } else {
         console.log('Processing committee report as PDF...');
         const html = generateCommitteeReportHTML(payload);

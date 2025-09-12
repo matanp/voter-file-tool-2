@@ -1,6 +1,34 @@
 import { z } from 'zod';
 import { generateDesignatedPetitionDataSchema } from './designatedPetition';
-import { ldCommitteesArraySchema } from './ldCommittees';
+import {
+  ldCommitteesArraySchema,
+  createLDCommitteesArraySchema,
+  type VoterRecordField,
+} from './ldCommittees';
+
+// Shared format enum
+export const reportFormatEnum = z
+  .enum(['pdf', 'xlsx'])
+  .optional()
+  .default('pdf');
+
+// Shared XLSX configuration schema
+export const xlsxConfigSchema = z
+  .object({
+    // Whether to include compound name and address fields
+    includeCompoundFields: z
+      .object({
+        name: z.boolean().optional().default(true),
+        address: z.boolean().optional().default(true),
+      })
+      .optional()
+      .default({ name: true, address: true }),
+    // Column order (if not specified, uses default order)
+    columnOrder: z.array(z.string()).optional(),
+    // Custom column headers (if not specified, uses field names)
+    columnHeaders: z.record(z.string()).optional(),
+  })
+  .optional();
 
 // Base API schema for common fields
 export const baseApiSchema = z.object({
@@ -18,8 +46,12 @@ const designatedPetitionReportSchema = z.object({
 const ldCommitteesReportSchema = z.object({
   type: z.literal('ldCommittees'),
   ...baseApiSchema.shape,
-  format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
+  format: reportFormatEnum,
   payload: ldCommitteesArraySchema,
+  // Optional field to specify which VoterRecord fields to include
+  includeFields: z.array(z.string()).optional().default([]),
+  // XLSX-specific configuration (only applies when format is 'xlsx')
+  xlsxConfig: xlsxConfigSchema,
 });
 
 // Generate Report Schema - discriminated union for different report types
@@ -81,6 +113,57 @@ export const errorResponseSchema = z.object({
   issues: z.array(z.any()).optional(),
 });
 
+// Helper function to create a dynamic LD committees report schema
+export const createLDCommitteesReportSchema = (
+  selectedFields: VoterRecordField[] = []
+) => {
+  const dynamicPayloadSchema = createLDCommitteesArraySchema(selectedFields);
+
+  return z.object({
+    type: z.literal('ldCommittees'),
+    ...baseApiSchema.shape,
+    format: reportFormatEnum,
+    payload: dynamicPayloadSchema,
+    includeFields: z.array(z.string()).optional().default(selectedFields),
+    // XLSX-specific configuration (only applies when format is 'xlsx')
+    xlsxConfig: xlsxConfigSchema,
+  });
+};
+
+// Helper function to create a dynamic generate report schema
+export const createGenerateReportSchema = (
+  ldCommitteesFields: VoterRecordField[] = []
+) => {
+  const dynamicLDCommitteesSchema =
+    createLDCommitteesReportSchema(ldCommitteesFields);
+
+  return z.discriminatedUnion('type', [
+    designatedPetitionReportSchema,
+    dynamicLDCommitteesSchema,
+  ]);
+};
+
+// Helper function to create a dynamic enriched report schema
+export const createEnrichedReportDataSchema = (
+  ldCommitteesFields: VoterRecordField[] = []
+) => {
+  const dynamicLDCommitteesSchema =
+    createLDCommitteesReportSchema(ldCommitteesFields);
+
+  const schema = z.discriminatedUnion('type', [
+    z.object({
+      ...designatedPetitionReportSchema.shape,
+      ...enrichedFieldsSchema.shape,
+    }),
+    z.object({
+      ...dynamicLDCommitteesSchema.shape,
+      ...enrichedFieldsSchema.shape,
+    }),
+  ]);
+
+  return schema;
+};
+
 // Type exports
 export type GenerateReportData = z.infer<typeof generateReportSchema>;
 export type EnrichedReportData = z.infer<typeof enrichedReportDataSchema>;
@@ -97,3 +180,14 @@ export type ReportCompleteResponse = z.infer<
   typeof reportCompleteResponseSchema
 >;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
+
+// Dynamic schema types
+export type DynamicGenerateReportData = z.infer<
+  ReturnType<typeof createGenerateReportSchema>
+>;
+export type DynamicLDCommitteesReportData = z.infer<
+  ReturnType<typeof createLDCommitteesReportSchema>
+>;
+export type DynamicEnrichedReportData = z.infer<
+  ReturnType<typeof createEnrichedReportDataSchema>
+>;
