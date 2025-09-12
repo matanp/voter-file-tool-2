@@ -13,7 +13,6 @@ import { GlobalContext } from "../providers/GlobalContext";
 import { ComboboxDropdown } from "./ComboBox";
 import { PrivilegeLevel } from "@prisma/client";
 import { SignOutButton } from "./signInButton";
-import { Button } from "./button";
 
 type ManageProfileButtonProps = {
   session: Session;
