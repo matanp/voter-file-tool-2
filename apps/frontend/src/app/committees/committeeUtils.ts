@@ -4,6 +4,7 @@ import type {
   LDCommittees,
   VoterRecordField,
 } from "@voter-file-tool/shared-validators";
+import { mapVoterRecordToMemberWithFields as mapVoterRecordToMemberWithFieldsShared } from "@voter-file-tool/shared-validators";
 
 const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
   const name = [
@@ -35,38 +36,20 @@ export type CommitteeWithMembers = CommitteeList & {
   committeeMemberList?: VoterRecord[];
 };
 
-// Dynamic mapping function that includes selected fields
+// Use shared utility function for mapping voter records to members with fields
+// The shared function handles compound fields and basic field mapping
+// We'll extend it here to handle date fields specifically for this use case
 const mapVoterRecordToMemberWithFields = (
   voter: VoterRecord,
   includeFields: VoterRecordField[],
 ): CommitteeMember & Record<string, unknown> => {
-  // Map voter record to member with selected fields
-  const name = [
-    voter.firstName,
-    voter.middleInitial,
-    voter.lastName,
-    voter.suffixName,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // Use shared utility for basic mapping
+  const member = mapVoterRecordToMemberWithFieldsShared(voter, includeFields, {
+    name: true,
+    address: true,
+  });
 
-  const addressParts = [
-    voter.houseNum ? voter.houseNum.toString() : null,
-    voter.street,
-    voter.apartment ? `APT ${voter.apartment}` : null,
-    voter.resAddrLine2,
-    voter.resAddrLine3,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  // Start with base fields
-  const member: CommitteeMember & Record<string, unknown> = {
-    name,
-    address: addressParts,
-  };
-
-  // Add selected fields dynamically
+  // Add selected fields dynamically with date handling
   for (const field of includeFields) {
     const value = voter[field];
 

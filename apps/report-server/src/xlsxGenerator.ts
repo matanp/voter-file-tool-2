@@ -3,6 +3,10 @@ import * as XLSX from 'xlsx';
 import {
   type VoterRecordField,
   type LDCommitteesArrayWithFields,
+  determineColumnsToInclude,
+  extractFieldValue,
+  applyCompoundFields,
+  type CompoundFieldConfig,
 } from '@voter-file-tool/shared-validators';
 import { uploadFileToR2 } from './s3Utils';
 
@@ -11,10 +15,7 @@ export interface XLSXGenerationConfig {
   // Fields to include from VoterRecord
   selectedFields?: VoterRecordField[];
   // Whether to include compound name and address fields
-  includeCompoundFields?: {
-    name?: boolean;
-    address?: boolean;
-  };
+  includeCompoundFields?: CompoundFieldConfig;
   // Column order (if not specified, uses default order)
   columnOrder?: string[];
   // Custom column headers (if not specified, uses field names)
@@ -151,7 +152,7 @@ export async function generateXLSXAndUpload(
   for (const ld of groupedCommittees) {
     const worksheetData: any[] = [];
 
-    // Determine which columns to include
+    // Determine which columns to include using shared utility
     const columnsToInclude = determineColumnsToInclude(
       selectedFields,
       includeCompoundFields,
@@ -172,17 +173,8 @@ export async function generateXLSXAndUpload(
             return electionDistrict.padStart(3, '0');
           }
 
-          // Handle compound fields
-          if (field === 'name') {
-            return member.name || '';
-          }
-          if (field === 'address') {
-            return member.address || '';
-          }
-
-          // Handle individual VoterRecord fields
-          const value = (member as any)[field];
-          return value !== undefined && value !== null ? value : '';
+          // Use shared utility to extract field value
+          return extractFieldValue(member, field);
         });
 
         worksheetData.push(rowData);
@@ -226,37 +218,83 @@ export async function generateXLSXAndUpload(
   console.log('xlsx upload completed');
 }
 
-// Helper function to determine which columns to include
-function determineColumnsToInclude(
-  selectedFields: VoterRecordField[],
-  includeCompoundFields: { name?: boolean; address?: boolean },
-  columnOrder: string[]
-): string[] {
-  const columns: string[] = [];
+export async function generateVoterListXLSXAndUpload(
+  voterRecords: any[],
+  fileName: string,
+  config: XLSXGenerationConfig = {}
+): Promise<void> {
+  console.log('generating voter list xlsx with config:', config);
 
-  // Always include election district
-  columns.push('electionDistrict');
+  const {
+    selectedFields = [],
+    includeCompoundFields = { name: true, address: true },
+    columnOrder = DEFAULT_COLUMN_ORDER,
+    columnHeaders = DEFAULT_COLUMN_HEADERS,
+  } = config;
 
-  // Add compound fields if requested
-  if (includeCompoundFields.name) {
-    columns.push('name');
+  // Create a new workbook
+  const workbook = XLSX.utils.book_new();
+  const worksheetData: any[] = [];
+
+  // Determine which columns to include using shared utility
+  const columnsToInclude = determineColumnsToInclude(
+    selectedFields,
+    includeCompoundFields,
+    columnOrder
+  );
+
+  // Add header row
+  const headers = columnsToInclude.map(
+    (field) => columnHeaders[field] || field
+  );
+  worksheetData.push(headers);
+
+  // Add voter records data
+  for (const record of voterRecords) {
+    // Apply compound fields to the record first
+    const recordWithCompoundFields = applyCompoundFields(
+      record,
+      includeCompoundFields
+    );
+
+    const rowData = columnsToInclude.map((field) => {
+      // Use shared utility to extract field value
+      return extractFieldValue(recordWithCompoundFields, field);
+    });
+
+    worksheetData.push(rowData);
   }
-  if (includeCompoundFields.address) {
-    columns.push('address');
+
+  // Create worksheet
+  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+  // Set column widths
+  const columnWidths = columnsToInclude.map((field) => ({
+    wch: FIELD_WIDTHS[field] || 15,
+  }));
+  worksheet['!cols'] = columnWidths;
+
+  // Add worksheet to workbook
+  const sheetName = sanitizeWorksheetName('Voter List');
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+  // Generate XLSX buffer
+  const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+  console.log('started upload via stream');
+
+  // Convert buffer to stream and upload
+  const stream = new Readable();
+  stream.push(xlsxBuffer);
+  stream.push(null);
+
+  const successfulUpload = await uploadFileToR2(stream, fileName, 'xlsx');
+
+  if (!successfulUpload) {
+    throw new Error('failed to upload xlsx to file storage');
   }
 
-  // Add selected VoterRecord fields
-  selectedFields.forEach((field) => {
-    if (!columns.includes(field)) {
-      columns.push(field);
-    }
-  });
-
-  // Apply column ordering
-  const orderedColumns = columnOrder.filter((col) => columns.includes(col));
-
-  // Add any remaining columns that weren't in the order
-  const remainingColumns = columns.filter((col) => !columnOrder.includes(col));
-
-  return [...orderedColumns, ...remainingColumns];
+  console.log('voter list xlsx upload completed');
 }
+
+// Note: Column determination and field extraction utilities are now provided by shared-validators package
