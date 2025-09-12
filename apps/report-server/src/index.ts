@@ -92,14 +92,6 @@ app.post(
       const jsonString = decompressedBuffer.toString('utf-8');
       const rawRequestData = JSON.parse(jsonString);
 
-      // Debug: Log raw request data for ldCommittees
-      if (rawRequestData.type === 'ldCommittees') {
-        console.log(
-          'Raw request data payload sample:',
-          JSON.stringify(rawRequestData.payload?.[0]?.committees, null, 2)
-        );
-      }
-
       // For ldCommittees reports, we need to use dynamic schema based on selected fields
       let validationResult:
         | {
@@ -140,21 +132,6 @@ app.post(
 
       const requestData: EnrichedReportData | DynamicEnrichedReportData =
         validationResult.data;
-
-      if (
-        requestData.type === 'ldCommittees' &&
-        Array.isArray(requestData.payload)
-      ) {
-        console.log(
-          'Validated request data payload sample:',
-          JSON.stringify(requestData.payload[0]?.committees, null, 2)
-        );
-      } else {
-        console.log(
-          'Validated request data payload:',
-          JSON.stringify(requestData.payload, null, 2)
-        );
-      }
 
       const jobsAhead = q.length();
 

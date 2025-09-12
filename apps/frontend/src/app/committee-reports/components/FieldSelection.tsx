@@ -112,7 +112,7 @@ export const FieldSelection: React.FC<FieldSelectionProps> = ({
                       onFormDataChange({
                         includeCompoundFields: {
                           ...formData.includeCompoundFields,
-                          name: checked as boolean,
+                          name: checked === true,
                         },
                       })
                     }
@@ -134,7 +134,7 @@ export const FieldSelection: React.FC<FieldSelectionProps> = ({
                       onFormDataChange({
                         includeCompoundFields: {
                           ...formData.includeCompoundFields,
-                          address: checked as boolean,
+                          address: checked === true,
                         },
                       })
                     }
@@ -156,7 +156,7 @@ export const FieldSelection: React.FC<FieldSelectionProps> = ({
                     id={`field-${field.key}`}
                     checked={isFieldSelected(field.key)}
                     onCheckedChange={(checked) =>
-                      handleFieldToggle(field.key, checked as boolean)
+                      handleFieldToggle(field.key, checked === true)
                     }
                   />
                   <Label htmlFor={`field-${field.key}`} className="text-sm">
