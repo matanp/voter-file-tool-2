@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -201,6 +201,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   const [reportId, setReportId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
   // Handle report completion
   const handleReportComplete = (_url: string) => {
@@ -228,24 +229,34 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   };
 
   const handleFieldToggle = (fieldKey: VoterRecordField, checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      selectedFields: checked
+    setFormData((prev) => {
+      const newSelectedFields = checked
         ? [...prev.selectedFields, fieldKey]
-        : prev.selectedFields.filter((f) => f !== fieldKey),
-    }));
+        : prev.selectedFields.filter((f) => f !== fieldKey);
+
+      return {
+        ...prev,
+        selectedFields: newSelectedFields,
+      };
+    });
+    setHasUserInteracted(true);
   };
 
   const handleSelectAllInCategory = (category: string, checked: boolean) => {
     const categoryFields = FIELDS_BY_CATEGORY[category] ?? [];
     const fieldKeys = categoryFields.map((f) => f.key);
 
-    setFormData((prev) => ({
-      ...prev,
-      selectedFields: checked
+    setFormData((prev) => {
+      const newSelectedFields = checked
         ? [...new Set([...prev.selectedFields, ...fieldKeys])]
-        : prev.selectedFields.filter((f) => !fieldKeys.includes(f)),
-    }));
+        : prev.selectedFields.filter((f) => !fieldKeys.includes(f));
+
+      return {
+        ...prev,
+        selectedFields: newSelectedFields,
+      };
+    });
+    setHasUserInteracted(true);
   };
 
   const handleColumnHeaderChange = (fieldKey: string, value: string) => {
@@ -273,6 +284,61 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  // Dynamic validation - clear errors as user fixes them
+  const validateField = (fieldName: string, value: any): string | null => {
+    switch (fieldName) {
+      case "name":
+        return !value?.trim() ? "Report name is required" : null;
+      case "selectedFields":
+        return formData.format === "xlsx" && (!value || value.length === 0)
+          ? "At least one field must be selected for XLSX format"
+          : null;
+      default:
+        return null;
+    }
+  };
+
+  // Real-time validation effect with debouncing
+  useEffect(() => {
+    // Only validate after user has interacted with the form
+    if (!hasUserInteracted) return;
+
+    const timeoutId = setTimeout(() => {
+      const newErrors: Partial<Record<string, string>> = {};
+
+      // Validate name field
+      const nameError = validateField("name", formData.name);
+      if (nameError) newErrors.name = nameError;
+
+      // Validate selected fields for XLSX format
+      const fieldsError = validateField(
+        "selectedFields",
+        formData.selectedFields,
+      );
+      if (fieldsError) newErrors.selectedFields = fieldsError;
+
+      // Update errors if they've actually changed
+      setErrors((prevErrors) => {
+        const hasChanges =
+          Object.keys(newErrors).some(
+            (key) => newErrors[key] !== prevErrors[key],
+          ) ||
+          Object.keys(prevErrors).some(
+            (key) => !newErrors[key] && prevErrors[key],
+          );
+
+        return hasChanges ? newErrors : prevErrors;
+      });
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    formData.name,
+    formData.selectedFields,
+    formData.format,
+    hasUserInteracted,
+  ]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -382,9 +448,10 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
+              onChange={(e) => {
+                setFormData((prev) => ({ ...prev, name: e.target.value }));
+                setHasUserInteracted(true);
+              }}
               placeholder="Enter report name"
             />
             {errors.name && (
@@ -412,9 +479,10 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
             <Label htmlFor="format">Format</Label>
             <Select
               value={formData.format}
-              onValueChange={(value: "pdf" | "xlsx") =>
-                setFormData((prev) => ({ ...prev, format: value }))
-              }
+              onValueChange={(value: "pdf" | "xlsx") => {
+                setFormData((prev) => ({ ...prev, format: value }));
+                setHasUserInteracted(true);
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -435,68 +503,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
             <CardTitle>Field Selection</CardTitle>
             <CardDescription>
               Choose which voter record fields to include in the XLSX document
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Object.entries(FIELDS_BY_CATEGORY).map(([category, fields]) => (
-              <div key={category} className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`category-${category}`}
-                    checked={isCategoryFullySelected(category)}
-                    ref={(el) => {
-                      if (el && el instanceof HTMLInputElement) {
-                        el.indeterminate =
-                          isCategoryPartiallySelected(category);
-                      }
-                    }}
-                    onCheckedChange={(checked) =>
-                      handleSelectAllInCategory(category, checked as boolean)
-                    }
-                  />
-                  <Label
-                    htmlFor={`category-${category}`}
-                    className="font-medium"
-                  >
-                    {category}
-                  </Label>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 ml-6">
-                  {fields.map((field) => (
-                    <div
-                      key={field.key}
-                      className="flex items-center space-x-2"
-                    >
-                      <Checkbox
-                        id={`field-${field.key}`}
-                        checked={isFieldSelected(field.key)}
-                        onCheckedChange={(checked) =>
-                          handleFieldToggle(field.key, checked as boolean)
-                        }
-                      />
-                      <Label htmlFor={`field-${field.key}`} className="text-sm">
-                        {field.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-                <Separator />
-              </div>
-            ))}
-            {errors.selectedFields && (
-              <p className="text-sm text-red-500">{errors.selectedFields}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* XLSX Configuration - Only show for XLSX format */}
-      {formData.format === "xlsx" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>XLSX Configuration</CardTitle>
-            <CardDescription>
-              Additional options for XLSX document generation
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -542,6 +548,76 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
               </div>
             </div>
 
+            <Separator />
+
+            {Object.entries(FIELDS_BY_CATEGORY).map(([category, fields]) => (
+              <div key={category} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="font-medium text-base">{category}</Label>
+                  <Button
+                    type="button"
+                    variant={
+                      isCategoryFullySelected(category) ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() =>
+                      handleSelectAllInCategory(
+                        category,
+                        !isCategoryFullySelected(category),
+                      )
+                    }
+                    className={`text-xs font-medium transition-colors ${
+                      isCategoryPartiallySelected(category)
+                        ? "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200"
+                        : ""
+                    }`}
+                  >
+                    {isCategoryFullySelected(category)
+                      ? "Deselect All"
+                      : isCategoryPartiallySelected(category)
+                        ? "Select All"
+                        : "Select All"}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 ml-6">
+                  {fields.map((field) => (
+                    <div
+                      key={field.key}
+                      className="flex items-center space-x-2"
+                    >
+                      <Checkbox
+                        id={`field-${field.key}`}
+                        checked={isFieldSelected(field.key)}
+                        onCheckedChange={(checked) =>
+                          handleFieldToggle(field.key, checked as boolean)
+                        }
+                      />
+                      <Label htmlFor={`field-${field.key}`} className="text-sm">
+                        {field.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+                <Separator />
+              </div>
+            ))}
+            {errors.selectedFields && (
+              <p className="text-sm text-red-500">{errors.selectedFields}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* XLSX Configuration - Only show for XLSX format */}
+      {formData.format === "xlsx" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>XLSX Configuration</CardTitle>
+            <CardDescription>
+              Additional options for XLSX document generation
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             {/* Column Headers */}
             {formData.selectedFields.length > 0 && (
               <div className="space-y-2">
@@ -582,20 +658,87 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
       )}
 
       {/* Submit Button */}
-      <div className="flex justify-end space-x-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-          disabled={isGenerating}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isGenerating}>
-          {isGenerating
-            ? "Generating..."
-            : `Generate ${formData.format.toUpperCase()}`}
-        </Button>
+      <div className="space-y-2">
+        {/* Form Errors Display */}
+        {Object.keys(errors).length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-red-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  Please fix the following errors:
+                </h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <ul className="list-disc list-inside space-y-1">
+                    {Object.entries(errors).map(([key, error]) => (
+                      <li key={key} className="animate-in fade-in duration-200">
+                        {error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success message when all errors are cleared */}
+        {hasUserInteracted && Object.keys(errors).length === 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-green-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-green-800">
+                  All validation errors have been resolved. You can now generate
+                  the report.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end space-x-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+            disabled={isGenerating}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isGenerating || Object.keys(errors).length > 0}
+          >
+            {isGenerating
+              ? "Generating..."
+              : `Generate ${formData.format.toUpperCase()}`}
+          </Button>
+        </div>
       </div>
 
       {/* Status Display */}
