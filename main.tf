@@ -25,11 +25,48 @@ resource "aws_lightsail_instance" "nodejs_server" {
               # Update and install necessary packages
               sudo apt-get update -y
               sudo apt-get install -y git curl wget gnupg
-              sudo apt-get install -y libnss3 libatk-bridge2.0-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libgtk-3-0 libasound2
               
-              # Install Google Chrome
-              wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-              echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+              # Install comprehensive dependencies for Puppeteer/Chrome
+              sudo apt-get install -y \
+                ca-certificates \
+                fonts-liberation \
+                libasound2 \
+                libatk-bridge2.0-0 \
+                libatk1.0-0 \
+                libc6 \
+                libcairo2 \
+                libcups2 \
+                libdbus-1-3 \
+                libexpat1 \
+                libfontconfig1 \
+                libgbm1 \
+                libgcc1 \
+                libglib2.0-0 \
+                libgtk-3-0 \
+                libnspr4 \
+                libnss3 \
+                libpango-1.0-0 \
+                libpangocairo-1.0-0 \
+                libstdc++6 \
+                libx11-6 \
+                libx11-xcb1 \
+                libxcb1 \
+                libxcomposite1 \
+                libxcursor1 \
+                libxdamage1 \
+                libxext6 \
+                libxfixes3 \
+                libxi6 \
+                libxrandr2 \
+                libxrender1 \
+                libxss1 \
+                libxtst6 \
+                lsb-release \
+                xdg-utils
+              
+              # Install Google Chrome (updated method)
+              wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg
+              echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
               sudo apt-get update -y
               sudo apt-get install -y google-chrome-stable
 
@@ -123,6 +160,12 @@ resource "aws_lightsail_instance" "nodejs_server" {
               # Install dependencies only for report-server (this will skip frontend)
               pnpm install --filter ./apps/report-server || {
                 echo "pnpm install failed"
+                exit 1
+              }
+              
+              # Ensure Puppeteer downloads its bundled Chrome
+              npx puppeteer browsers install chrome || {
+                echo "Failed to install Puppeteer Chrome"
                 exit 1
               }
 
