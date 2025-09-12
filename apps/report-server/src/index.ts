@@ -2,7 +2,6 @@
 import express, { Request, Response } from 'express';
 import { gunzipSync } from 'node:zlib';
 import { config } from 'dotenv';
-import { randomUUID } from 'crypto';
 import async from 'async';
 
 import path from 'path';
@@ -10,6 +9,7 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
+  sanitizeForS3Key,
 } from './utils';
 import { generateXLSXAndUpload } from './xlsxGenerator';
 import { createWebhookSignature } from './webhookUtils';
@@ -24,24 +24,28 @@ import {
   createEnrichedReportDataSchema,
 } from '@voter-file-tool/shared-validators';
 
-// Function to sanitize reportAuthor for safe S3 key usage
-function sanitizeReportAuthor(author: string): string {
-  if (!author || typeof author !== 'string') {
-    return randomUUID();
-  }
+// Function to generate a descriptive filename
+function generateFilename(
+  reportName: string | undefined,
+  reportType: string,
+  format: string,
+  sanitizedAuthor: string
+): string {
+  const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const time = new Date()
+    .toISOString()
+    .split('T')[1]
+    .split('.')[0]
+    .replace(/:/g, '-'); // HH-MM-SS format
 
-  // Remove or replace unsafe characters for S3 keys
-  // Replace slashes, spaces, and other problematic characters with hyphens
-  // Convert to lowercase and remove any remaining special characters
-  const sanitized = author
-    .toLowerCase()
-    .replace(/[\/\\\s]+/g, '-') // Replace slashes, backslashes, and whitespace with hyphens
-    .replace(/[^a-z0-9\-_]/g, '') // Remove any remaining special characters except hyphens and underscores
-    .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
-    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+  const sanitizedName = reportName ? sanitizeForS3Key(reportName) : '';
 
-  // If sanitization resulted in empty string, fallback to UUID
-  return sanitized || randomUUID();
+  const namePart = sanitizedName ? `${sanitizedName}-` : '';
+  const typePart =
+    reportType === 'ldCommittees' ? 'committeeReport' : 'designatedPetition';
+  const formatPart = format === 'xlsx' ? 'xlsx' : 'pdf';
+
+  return `${sanitizedAuthor}/${typePart}/${namePart}${timestamp}-${time}.${formatPart}`;
 }
 
 config();
@@ -154,22 +158,17 @@ async function processJob(
 ) {
   try {
     let fileName: string;
-    const { type, reportAuthor, jobId, payload } = jobData;
+    const { type, reportAuthor, jobId, payload, name } = jobData;
     const format =
       type === 'ldCommittees' && 'format' in jobData ? jobData.format : 'pdf';
 
     // Sanitize reportAuthor for safe S3 key usage
-    const sanitizedAuthor = sanitizeReportAuthor(reportAuthor);
+    const sanitizedAuthor = sanitizeForS3Key(reportAuthor, true);
+
+    // Generate descriptive filename using report name, type, and timestamp
+    fileName = generateFilename(name, type, format, sanitizedAuthor);
 
     if (type === 'ldCommittees') {
-      const fileExtension = format === 'xlsx' ? 'xlsx' : 'pdf';
-      fileName =
-        sanitizedAuthor +
-        '/committeeReport/' +
-        randomUUID() +
-        '.' +
-        fileExtension;
-
       if (format === 'xlsx') {
         console.log('Processing committee report as XLSX...');
 
@@ -200,8 +199,6 @@ async function processJob(
         await generatePDFAndUpload(html, true, fileName);
       }
     } else if (type === 'designatedPetition') {
-      fileName =
-        sanitizedAuthor + '/designatedPetition/' + randomUUID() + '.pdf';
       console.log('Processing designated petition form...');
       const { candidates, vacancyAppointments, party, electionDate, numPages } =
         payload;
