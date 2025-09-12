@@ -87,10 +87,9 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
 
     try {
       const committeeData = mapCommitteesToReportShapeWithFields(
-        committeeLists.slice(0, 1),
+        committeeLists,
         formData.selectedFields,
       );
-
       // Send committee data to backend
 
       const reportPayload = {
