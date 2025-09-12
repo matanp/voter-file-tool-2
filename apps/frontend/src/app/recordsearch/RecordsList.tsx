@@ -27,7 +27,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const [searchQuery, setSearchQuery] = React.useState<
     {
       field: string;
-      value: string | number | boolean | Date | undefined;
+      value: string | number | boolean | undefined;
     }[]
   >([]);
   const [page, setPage] = React.useState(1);
@@ -46,7 +46,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           return [...acc, curr];
         }
       }, [])
-      .map((field) => ({ field: field.name, value: field.value }));
+      .map((field) => ({
+        field: field.name,
+        value:
+          field.value instanceof Date ? field.value.toISOString() : field.value,
+      }));
 
     setSearchQuery(flattenedQuery);
 
