@@ -71,7 +71,10 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   };
 
   const handleFormDataChange = (updates: Partial<XLSXConfigFormData>) => {
-    setFormData((prev) => ({ ...prev, ...updates }));
+    setFormData((prev) => {
+      const newData = { ...prev, ...updates };
+      return newData;
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -91,6 +94,15 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         committeeLists,
         formData.includeFields,
       );
+
+      const includeCompoundFields =
+        formData.format === "pdf"
+          ? {
+              name: true,
+              address: true,
+            }
+          : formData.includeCompoundFields;
+
       const reportPayload = {
         type: "ldCommittees" as const,
         name: formData.name,
@@ -98,10 +110,11 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         format: formData.format,
         payload: committeeData,
         includeFields: formData.includeFields,
+        includeCompoundFields,
         xlsxConfig:
           formData.format === "xlsx"
             ? {
-                includeCompoundFields: formData.includeCompoundFields,
+                includeCompoundFields,
                 columnOrder:
                   formData.columnOrder.length > 0
                     ? formData.columnOrder

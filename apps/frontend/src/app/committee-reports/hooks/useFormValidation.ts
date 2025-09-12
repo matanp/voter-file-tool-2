@@ -25,6 +25,13 @@ export function useFormValidation(formData: XLSXConfigFormData) {
             return !hasRegularFields && !hasUnifiedFields
               ? "At least one field must be selected for XLSX format"
               : null;
+          } else if (formData.format === "pdf") {
+            const hasUnifiedFields =
+              formData.includeCompoundFields.name ||
+              formData.includeCompoundFields.address;
+            return !hasUnifiedFields
+              ? "Name and/or Address fields must be selected for PDF format"
+              : null;
           }
           return null;
         default:
@@ -49,6 +56,15 @@ export function useFormValidation(formData: XLSXConfigFormData) {
       if (!hasRegularFields && !hasUnifiedFields) {
         newErrors.includeFields =
           "At least one field must be selected for XLSX format";
+      }
+    } else if (formData.format === "pdf") {
+      // For PDF format, we need at least name and address compound fields
+      const hasUnifiedFields =
+        formData.includeCompoundFields.name ||
+        formData.includeCompoundFields.address;
+      if (!hasUnifiedFields) {
+        newErrors.includeFields =
+          "Name and/or Address fields must be selected for PDF format";
       }
     }
 
