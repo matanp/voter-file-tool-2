@@ -72,15 +72,6 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     setLoading(false);
     setHasSearched(true);
 
-    // Store search query in context for export
-    console.log(
-      "RecordsList - storing in context - searchQueryParam:",
-      searchQueryParam,
-    );
-    console.log(
-      "RecordsList - storing in context - flattenedQuery:",
-      flattenedQuery,
-    );
     setContextSearchQuery(searchQueryParam, flattenedQuery);
   };
 

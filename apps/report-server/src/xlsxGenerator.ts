@@ -146,35 +146,29 @@ export async function generateXLSXAndUpload(
     columnHeaders = DEFAULT_COLUMN_HEADERS,
   } = config;
 
-  // Create a new workbook
   const workbook = XLSX.utils.book_new();
 
-  // Process each legislative district
   for (const ld of groupedCommittees) {
     const worksheetData: any[] = [];
 
-    // Determine which columns to include using shared utility
     const columnsToInclude = determineColumnsToInclude(
       selectedFields,
       includeCompoundFields,
       columnOrder
     );
 
-    // Add header row
     const headers = columnsToInclude.map(
       (field) => columnHeaders[field] || field
     );
     worksheetData.push(headers);
 
-    // Add committee members data
     for (const [electionDistrict, members] of Object.entries(ld.committees)) {
-      for (const member of members as PartialVoterRecordAPI[]) {
+      for (const member of members) {
         const rowData = columnsToInclude.map((field) => {
           if (field === 'electionDistrict') {
             return electionDistrict.padStart(3, '0');
           }
 
-          // Use shared utility to extract field value
           return extractFieldValue(member, field);
         });
 
@@ -182,16 +176,13 @@ export async function generateXLSXAndUpload(
       }
     }
 
-    // Create worksheet
     const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
-    // Set column widths
     const columnWidths = columnsToInclude.map((field) => ({
       wch: FIELD_WIDTHS[field] || 15,
     }));
     worksheet['!cols'] = columnWidths;
 
-    // Add worksheet to workbook with a descriptive name
     const rawSheetName =
       ld.cityTown === 'ROCHESTER'
         ? `LD ${ld.legDistrict.toString().padStart(2, '0')}`
@@ -200,12 +191,10 @@ export async function generateXLSXAndUpload(
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   }
 
-  // Generate XLSX buffer
   const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
   console.log('started upload via stream');
 
-  // Convert buffer to stream and upload
   const stream = new Readable();
   stream.push(xlsxBuffer);
   stream.push(null);
