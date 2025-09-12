@@ -73,7 +73,7 @@ export function createCompoundAddressField(
   const houseNum = record.houseNum || '';
   const street = record.street || '';
   const apartment = record.apartment || '';
-  const halfAddress = record.halfAddress || '';
+  // const halfAddress = record.halfAddress || '';
   const resAddrLine2 = record.resAddrLine2 || '';
   const resAddrLine3 = record.resAddrLine3 || '';
   const city = record.city || '';
@@ -85,7 +85,7 @@ export function createCompoundAddressField(
   if (houseNum) addressParts.push(houseNum.toString());
   if (street) addressParts.push(street);
   if (apartment) addressParts.push(`Apt ${apartment}`);
-  if (halfAddress) addressParts.push(halfAddress);
+  // if (halfAddress) addressParts.push(halfAddress);
   if (resAddrLine2) addressParts.push(resAddrLine2);
   if (resAddrLine3) addressParts.push(resAddrLine3);
 
@@ -159,7 +159,6 @@ export function extractFieldValue(
   record: CompoundFieldTarget,
   field: string
 ): string | number | Date | null | undefined | unknown {
-  // Handle compound fields
   if (field === 'name') {
     return record.name || createCompoundNameField(record);
   }
@@ -167,7 +166,6 @@ export function extractFieldValue(
     return record.address || createCompoundAddressField(record);
   }
 
-  // Handle individual VoterRecordAPI fields
   const value = (record as any)[field];
   return value !== undefined && value !== null ? value : '';
 }

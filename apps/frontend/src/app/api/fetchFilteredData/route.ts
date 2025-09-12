@@ -87,8 +87,6 @@ export async function POST(req: NextRequest) {
       where: query,
     });
 
-    console.log(totalRecords, records.length);
-
     // Convert Prisma records to API format (Date -> string conversion)
     const apiRecords = records.map(convertPrismaVoterRecordToAPI);
 
