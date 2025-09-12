@@ -1,18 +1,24 @@
 "use client";
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import type { SearchField } from "~/app/recordsearch/VoterRecordSearch";
 
 interface VoterSearchContextType {
   searchQuery: SearchField[];
   flattenedSearchQuery: {
     field: string;
-    value: string | number | boolean | Date | undefined;
+    value: string | number | boolean | undefined;
   }[];
   setSearchQuery: (
     query: SearchField[],
     flattenedQuery: {
       field: string;
-      value: string | number | boolean | Date | undefined;
+      value: string | number | boolean | undefined;
     }[],
   ) => void;
   clearSearchQuery: () => void;
@@ -41,7 +47,7 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
   const [flattenedSearchQuery, setFlattenedSearchQuery] = useState<
     {
       field: string;
-      value: string | number | boolean | Date | undefined;
+      value: string | number | boolean | undefined;
     }[]
   >([]);
 
@@ -50,16 +56,11 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
       query: SearchField[],
       flattenedQuery: {
         field: string;
-        value: string | number | boolean | Date | undefined;
+        value: string | number | boolean | undefined;
       }[],
     ) => {
       // Only update if we have actual data, don't overwrite with empty arrays
       if (query.length > 0 && flattenedQuery.length > 0) {
-        console.log("VoterSearchContext - setting search query:", query);
-        console.log(
-          "VoterSearchContext - setting flattened query:",
-          flattenedQuery,
-        );
         setSearchQueryState(query);
         setFlattenedSearchQuery(flattenedQuery);
       }
@@ -72,12 +73,15 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
     setFlattenedSearchQuery([]);
   }, []);
 
-  const value = {
-    searchQuery,
-    flattenedSearchQuery,
-    setSearchQuery,
-    clearSearchQuery,
-  };
+  const value = useMemo(
+    () => ({
+      searchQuery,
+      flattenedSearchQuery,
+      setSearchQuery,
+      clearSearchQuery,
+    }),
+    [clearSearchQuery, flattenedSearchQuery, searchQuery, setSearchQuery],
+  );
 
   return (
     <VoterSearchContext.Provider value={value}>

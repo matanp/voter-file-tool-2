@@ -27,17 +27,12 @@ const mapVoterRecordToMemberWithFields = (
   voter: VoterRecord,
   includeFields: VoterRecordField[],
 ): CommitteeMemberWithFields => {
-  // Start with basic member mapping (includes compound fields)
   const baseMember = mapVoterRecordToMember(voter);
 
-  // const apiRecord = convertPrismaVoterRecordToAPI(voter);
-
-  // Create the result object with proper typing
   const member: CommitteeMemberWithFields = {
     ...baseMember,
   };
 
-  // Add selected fields dynamically
   for (const field of includeFields) {
     const value = baseMember[field];
 
@@ -45,7 +40,6 @@ const mapVoterRecordToMemberWithFields = (
     if (value !== null && value !== undefined) {
       (member as Record<string, unknown>)[field] = value;
     } else {
-      // Add field with empty value so it appears in XLSX
       (member as Record<string, unknown>)[field] = "";
     }
   }
@@ -53,7 +47,6 @@ const mapVoterRecordToMemberWithFields = (
   return member;
 };
 
-// Extended LDCommittees type that includes compound fields
 type LDCommitteesWithCompoundFields = {
   cityTown: string;
   legDistrict: number;
@@ -63,14 +56,11 @@ type LDCommitteesWithCompoundFields = {
 export const mapCommiteesToReportShape = (
   committees: CommitteeWithMembers[],
 ): LDCommitteesWithCompoundFields[] => {
-  // Create a Map keyed by group identifier (cityTown + legDistrict) for O(1) lookup
   const groupMap = new Map<string, LDCommitteesWithCompoundFields>();
 
   for (const committee of committees) {
-    // Create stable group key from cityTown + legDistrict
     const groupKey = `${committee.cityTown}|${committee.legDistrict}`;
 
-    // Get or create group
     let group = groupMap.get(groupKey);
     if (!group) {
       group = {
@@ -84,10 +74,8 @@ export const mapCommiteesToReportShape = (
     const members =
       committee.committeeMemberList?.map(mapVoterRecordToMember) ?? [];
 
-    // Create stable election district key using the actual election district
     const electionDistrictKey = String(committee.electionDistrict);
 
-    // Initialize election district array if it doesn't exist
     if (!group.committees[electionDistrictKey]) {
       group.committees[electionDistrictKey] = [];
     }
@@ -107,19 +95,15 @@ export const mapCommiteesToReportShape = (
     .filter((group) => Object.keys(group.committees).length > 0);
 };
 
-// New function for XLSX configuration with dynamic field selection
 export const mapCommitteesToReportShapeWithFields = (
   committees: CommitteeWithMembers[],
   includeFields: VoterRecordField[],
 ): LDCommitteesWithCompoundFields[] => {
-  // Create a Map keyed by group identifier (cityTown + legDistrict) for O(1) lookup
   const groupMap = new Map<string, LDCommitteesWithCompoundFields>();
 
   for (const committee of committees) {
-    // Create stable group key from cityTown + legDistrict
     const groupKey = `${committee.cityTown}|${committee.legDistrict}`;
 
-    // Get or create group
     let group = groupMap.get(groupKey);
     if (!group) {
       group = {
@@ -135,10 +119,8 @@ export const mapCommitteesToReportShapeWithFields = (
         mapVoterRecordToMemberWithFields(voter, includeFields),
       ) ?? [];
 
-    // Create stable election district key using the actual election district
     const electionDistrictKey = String(committee.electionDistrict);
 
-    // Initialize election district array if it doesn't exist
     if (!group.committees[electionDistrictKey]) {
       group.committees[electionDistrictKey] = [];
     }

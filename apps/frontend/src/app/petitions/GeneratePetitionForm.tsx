@@ -170,7 +170,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       setSmallScreen(window.innerWidth < 1000);
     };
     window.addEventListener("resize", handleResize);
-
+    handleResize();
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
@@ -281,7 +281,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             compactView={smallScreen}
             fullWidth={true}
             fieldsList={["Address"]}
-            extraContent={(record: VoterRecord) => {
+            extraContent={(record) => {
               return (
                 <div className="flex gap-2 items-center">
                   <Button
@@ -324,7 +324,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
                 .slice(0, 4)}
               paginated={false}
               fieldsList={[]}
-              extraContent={(record: VoterRecord) => {
+              extraContent={(record) => {
                 return (
                   <Button
                     onClick={() => {
@@ -361,7 +361,6 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           <Input
             value={customParty}
             onChange={(e) => {
-              e.preventDefault();
               setCustomParty(e.target.value);
             }}
             onFocus={() => {

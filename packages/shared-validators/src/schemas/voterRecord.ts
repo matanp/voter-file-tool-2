@@ -54,53 +54,7 @@ export type VoterRecordSchema = z.infer<typeof voterRecordSchema>;
 // API VoterRecord type with string dates (for API serialization)
 export type VoterRecordAPI = VoterRecordSchema;
 
-// Partial VoterRecord schema for network efficiency - allows undefined values
-export const partialVoterRecordSchema = z.object({
-  VRCNUM: z.string().optional(),
-  committeeId: z.number().nullable().optional(),
-  addressForCommittee: z.string().nullable().optional(),
-  latestRecordEntryYear: z.number().optional(),
-  latestRecordEntryNumber: z.number().optional(),
-  lastName: z.string().nullable().optional(),
-  firstName: z.string().nullable().optional(),
-  middleInitial: z.string().nullable().optional(),
-  suffixName: z.string().nullable().optional(),
-  houseNum: z.number().nullable().optional(),
-  street: z.string().nullable().optional(),
-  apartment: z.string().nullable().optional(),
-  halfAddress: z.string().nullable().optional(),
-  resAddrLine2: z.string().nullable().optional(),
-  resAddrLine3: z.string().nullable().optional(),
-  city: z.string().nullable().optional(),
-  state: z.string().nullable().optional(),
-  zipCode: z.string().nullable().optional(),
-  zipSuffix: z.string().nullable().optional(),
-  telephone: z.string().nullable().optional(),
-  email: z.string().nullable().optional(),
-  mailingAddress1: z.string().nullable().optional(),
-  mailingAddress2: z.string().nullable().optional(),
-  mailingAddress3: z.string().nullable().optional(),
-  mailingAddress4: z.string().nullable().optional(),
-  mailingCity: z.string().nullable().optional(),
-  mailingState: z.string().nullable().optional(),
-  mailingZip: z.string().nullable().optional(),
-  mailingZipSuffix: z.string().nullable().optional(),
-  party: z.string().nullable().optional(),
-  gender: z.string().nullable().optional(),
-  DOB: z.string().nullable().optional(),
-  L_T: z.string().nullable().optional(),
-  electionDistrict: z.number().nullable().optional(),
-  countyLegDistrict: z.string().nullable().optional(),
-  stateAssmblyDistrict: z.string().nullable().optional(),
-  stateSenateDistrict: z.string().nullable().optional(),
-  congressionalDistrict: z.string().nullable().optional(),
-  CC_WD_Village: z.string().nullable().optional(),
-  townCode: z.string().nullable().optional(),
-  lastUpdate: z.string().nullable().optional(),
-  originalRegDate: z.string().nullable().optional(),
-  statevid: z.string().nullable().optional(),
-  hasDiscrepancy: z.boolean().nullable().optional(),
-});
+export const partialVoterRecordSchema = voterRecordSchema.partial();
 
 // Type for partial voter records
 export type PartialVoterRecordAPI = z.infer<typeof partialVoterRecordSchema>;
