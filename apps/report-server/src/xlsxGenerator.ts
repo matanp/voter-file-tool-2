@@ -107,6 +107,29 @@ const FIELD_WIDTHS: Record<string, number> = {
   addressForCommittee: 30,
 };
 
+/**
+ * Sanitizes worksheet names for Excel compatibility
+ * Excel limits worksheet names to 31 characters and disallows: / \ ? * [ ]
+ * @param name - The original worksheet name
+ * @returns Sanitized worksheet name that meets Excel requirements
+ */
+function sanitizeWorksheetName(name: string): string {
+  // Remove or replace disallowed characters
+  let sanitized = name.replace(/[/\\?*[\]]/g, '');
+
+  // Truncate to 31 characters (Excel's limit)
+  if (sanitized.length > 31) {
+    sanitized = sanitized.substring(0, 31);
+  }
+
+  // Ensure the name is not empty after sanitization
+  if (!sanitized.trim()) {
+    sanitized = 'Sheet';
+  }
+
+  return sanitized;
+}
+
 export async function generateXLSXAndUpload(
   groupedCommittees: LDCommitteesArrayWithFields,
   fileName: string,
@@ -176,10 +199,11 @@ export async function generateXLSXAndUpload(
     worksheet['!cols'] = columnWidths;
 
     // Add worksheet to workbook with a descriptive name
-    const sheetName =
+    const rawSheetName =
       ld.cityTown === 'ROCHESTER'
         ? `LD ${ld.legDistrict.toString().padStart(2, '0')}`
         : ld.cityTown;
+    const sheetName = sanitizeWorksheetName(rawSheetName);
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   }
 

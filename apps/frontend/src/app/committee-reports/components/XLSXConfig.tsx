@@ -7,7 +7,7 @@ import {
   AccordionTrigger,
 } from "~/components/ui/accordion";
 import type { XLSXConfigFormData } from "../types";
-import { AVAILABLE_FIELDS } from "../constants";
+import { FIELDS_BY_KEY } from "../constants";
 
 interface XLSXConfigProps {
   formData: XLSXConfigFormData;
@@ -40,19 +40,19 @@ export const XLSXConfig: React.FC<XLSXConfigProps> = ({
           Additional options for XLSX document generation
         </p>
         {/* Column Headers */}
-        {formData.selectedFields.length > 0 && (
+        {formData.includeFields.length > 0 && (
           <div className="space-y-2">
             <Label>Custom Column Headers (Optional)</Label>
             <div className="space-y-2 max-w-2xl">
-              {formData.selectedFields.map((fieldKey) => {
-                const field = AVAILABLE_FIELDS.find((f) => f.key === fieldKey);
+              {formData.includeFields.map((fieldKey) => {
+                const field = FIELDS_BY_KEY[fieldKey];
                 return (
                   <div key={fieldKey} className="flex items-center space-x-2">
                     <Label
                       htmlFor={`header-${fieldKey}`}
                       className="w-32 text-sm flex-shrink-0"
                     >
-                      {field?.label}:
+                      {field?.label ?? fieldKey}:
                     </Label>
                     <Input
                       id={`header-${fieldKey}`}
@@ -60,7 +60,7 @@ export const XLSXConfig: React.FC<XLSXConfigProps> = ({
                       onChange={(e) =>
                         handleColumnHeaderChange(fieldKey, e.target.value)
                       }
-                      placeholder={field?.label}
+                      placeholder={field?.label ?? fieldKey}
                       className="flex-1"
                     />
                   </div>

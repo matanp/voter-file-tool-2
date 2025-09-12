@@ -153,7 +153,6 @@ async function processJob(
   jobData: EnrichedReportData | DynamicEnrichedReportData
 ) {
   try {
-    let pdfBuffer: Buffer;
     let fileName: string;
     const { type, reportAuthor, jobId, payload } = jobData;
     const format =

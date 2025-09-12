@@ -6,6 +6,30 @@ import {
   type VoterRecordField,
 } from './ldCommittees';
 
+// Shared format enum
+export const reportFormatEnum = z
+  .enum(['pdf', 'xlsx'])
+  .optional()
+  .default('pdf');
+
+// Shared XLSX configuration schema
+export const xlsxConfigSchema = z
+  .object({
+    // Whether to include compound name and address fields
+    includeCompoundFields: z
+      .object({
+        name: z.boolean().optional().default(true),
+        address: z.boolean().optional().default(true),
+      })
+      .optional()
+      .default({ name: true, address: true }),
+    // Column order (if not specified, uses default order)
+    columnOrder: z.array(z.string()).optional(),
+    // Custom column headers (if not specified, uses field names)
+    columnHeaders: z.record(z.string()).optional(),
+  })
+  .optional();
+
 // Base API schema for common fields
 export const baseApiSchema = z.object({
   name: z.string().optional(),
@@ -22,27 +46,12 @@ const designatedPetitionReportSchema = z.object({
 const ldCommitteesReportSchema = z.object({
   type: z.literal('ldCommittees'),
   ...baseApiSchema.shape,
-  format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
+  format: reportFormatEnum,
   payload: ldCommitteesArraySchema,
   // Optional field to specify which VoterRecord fields to include
   includeFields: z.array(z.string()).optional().default([]),
   // XLSX-specific configuration (only applies when format is 'xlsx')
-  xlsxConfig: z
-    .object({
-      // Whether to include compound name and address fields
-      includeCompoundFields: z
-        .object({
-          name: z.boolean().optional().default(true),
-          address: z.boolean().optional().default(true),
-        })
-        .optional()
-        .default({ name: true, address: true }),
-      // Column order (if not specified, uses default order)
-      columnOrder: z.array(z.string()).optional(),
-      // Custom column headers (if not specified, uses field names)
-      columnHeaders: z.record(z.string()).optional(),
-    })
-    .optional(),
+  xlsxConfig: xlsxConfigSchema,
 });
 
 // Generate Report Schema - discriminated union for different report types
@@ -113,26 +122,11 @@ export const createLDCommitteesReportSchema = (
   return z.object({
     type: z.literal('ldCommittees'),
     ...baseApiSchema.shape,
-    format: z.enum(['pdf', 'xlsx']).optional().default('pdf'),
+    format: reportFormatEnum,
     payload: dynamicPayloadSchema,
     includeFields: z.array(z.string()).optional().default(selectedFields),
     // XLSX-specific configuration (only applies when format is 'xlsx')
-    xlsxConfig: z
-      .object({
-        // Whether to include compound name and address fields
-        includeCompoundFields: z
-          .object({
-            name: z.boolean().optional().default(true),
-            address: z.boolean().optional().default(true),
-          })
-          .optional()
-          .default({ name: true, address: true }),
-        // Column order (if not specified, uses default order)
-        columnOrder: z.array(z.string()).optional(),
-        // Custom column headers (if not specified, uses field names)
-        columnHeaders: z.record(z.string()).optional(),
-      })
-      .optional(),
+    xlsxConfig: xlsxConfigSchema,
   });
 };
 

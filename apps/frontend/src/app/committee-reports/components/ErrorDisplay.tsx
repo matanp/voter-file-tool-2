@@ -9,7 +9,10 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   errors,
   hasUserSubmitted,
 }) => {
-  const hasErrors = Object.keys(errors).length > 0;
+  const visibleErrors = Object.entries(errors).filter(
+    ([, msg]) => typeof msg === "string" && msg.trim().length > 0,
+  );
+  const hasErrors = visibleErrors.length > 0;
 
   if (!hasErrors && !hasUserSubmitted) {
     return null;
@@ -17,7 +20,11 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 
   if (hasErrors) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200">
+      <div
+        className="bg-red-50 border border-red-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200"
+        role="alert"
+        aria-live="polite"
+      >
         <div className="flex">
           <div className="flex-shrink-0">
             <svg
@@ -38,7 +45,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
             </h3>
             <div className="mt-2 text-sm text-red-700">
               <ul className="list-disc list-inside space-y-1">
-                {Object.entries(errors).map(([key, error]) => (
+                {visibleErrors.map(([key, error]) => (
                   <li key={key} className="animate-in fade-in duration-200">
                     {error}
                   </li>
@@ -53,7 +60,11 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 
   // Success message when all errors are cleared
   return (
-    <div className="bg-green-50 border border-green-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200">
+    <div
+      className="bg-green-50 border border-green-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200"
+      role="status"
+      aria-live="polite"
+    >
       <div className="flex">
         <div className="flex-shrink-0">
           <svg

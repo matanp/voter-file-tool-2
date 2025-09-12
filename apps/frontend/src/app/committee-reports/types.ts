@@ -4,7 +4,7 @@ export interface XLSXConfigFormData {
   name: string;
   description: string;
   format: "pdf" | "xlsx";
-  selectedFields: VoterRecordField[];
+  includeFields: VoterRecordField[];
   includeCompoundFields: {
     name: boolean;
     address: boolean;
@@ -17,7 +17,7 @@ export const DEFAULT_FORM_DATA: XLSXConfigFormData = {
   name: "",
   description: "",
   format: "xlsx",
-  selectedFields: [],
+  includeFields: [],
   includeCompoundFields: {
     name: true,
     address: true,
