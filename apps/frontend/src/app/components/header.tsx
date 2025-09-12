@@ -57,13 +57,6 @@ const Header: React.FC = () => {
               Reports
             </Button>
           </Link>
-          <Link href="/voter-list-reports">
-            <Button
-              className={`${sharedTabStyle} ${pathname?.endsWith("voter-list-reports") ? tabStyleActive : tabStyleInactive}`}
-            >
-              Voter List Reports
-            </Button>
-          </Link>
           {showDataTab && (
             <Link href="admin/data">
               <Button

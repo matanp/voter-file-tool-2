@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
+import { Switch } from "~/components/ui/switch";
+import { Label } from "~/components/ui/label";
 import { useToast } from "~/components/ui/use-toast";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { Accordion } from "~/components/ui/accordion";
@@ -28,6 +30,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     useState<XLSXConfigFormData>(DEFAULT_FORM_DATA);
   const [reportId, setReportId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
 
   const {
     errors,
@@ -40,13 +43,28 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   } = useFormValidation(formData);
 
   // Handle report completion
-  const handleReportComplete = (_url: string) => {
+  const handleReportComplete = (url: string) => {
     toast({
-      description:
-        "Document generated successfully! Download will start shortly.",
+      description: formData.autoDownload
+        ? "Document generated successfully! Download will start shortly."
+        : "Document generated successfully! You can download it from the reports page.",
       duration: 5000,
     });
-    window.open(_url, "_blank"); // Trigger download
+
+    // For PDF reports, show in iframe; for XLSX, respect auto-download setting
+    if (formData.format === "pdf") {
+      setReportUrl(url);
+    } else if (formData.autoDownload) {
+      // Force direct download for XLSX files when auto-download is enabled
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = ""; // This forces download instead of navigation
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     setIsGenerating(false);
     setReportId(null);
   };
@@ -68,10 +86,14 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     clearErrors();
     setReportId(null);
     setIsGenerating(false);
+    setReportUrl(null);
   };
 
   const handleFormDataChange = (updates: Partial<XLSXConfigFormData>) => {
-    setFormData((prev) => ({ ...prev, ...updates }));
+    setFormData((prev) => {
+      const newData = { ...prev, ...updates };
+      return newData;
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -91,6 +113,15 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         committeeLists,
         formData.includeFields,
       );
+
+      const includeCompoundFields =
+        formData.format === "pdf"
+          ? {
+              name: true,
+              address: true,
+            }
+          : formData.includeCompoundFields;
+
       const reportPayload = {
         type: "ldCommittees" as const,
         name: formData.name,
@@ -98,10 +129,11 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         format: formData.format,
         payload: committeeData,
         includeFields: formData.includeFields,
+        includeCompoundFields,
         xlsxConfig:
           formData.format === "xlsx"
             ? {
-                includeCompoundFields: formData.includeCompoundFields,
+                includeCompoundFields,
                 columnOrder:
                   formData.columnOrder.length > 0
                     ? formData.columnOrder
@@ -189,27 +221,62 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
           hadErrorsSinceLastSubmit={hadErrorsSinceLastSubmit}
         />
 
-        <div className="flex justify-end space-x-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={clearForm}
-            disabled={isGenerating}
-          >
-            Clear
-          </Button>
-          <Button
-            type="submit"
-            disabled={
-              isGenerating ||
-              (hasUserSubmitted && Object.keys(errors).length > 0)
-            }
-          >
-            {isGenerating
-              ? "Generating..."
-              : `Generate ${formData.format.toUpperCase()}`}
-          </Button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {formData.format === "xlsx" && (
+              <>
+                <Switch
+                  id="autoDownload"
+                  checked={formData.autoDownload}
+                  onCheckedChange={(checked) =>
+                    handleFormDataChange({ autoDownload: checked })
+                  }
+                />
+                <Label htmlFor="autoDownload" className="text-sm font-medium">
+                  Auto-download
+                </Label>
+              </>
+            )}
+          </div>
+          <div className="flex items-center space-x-2 text-right">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={clearForm}
+              disabled={isGenerating}
+            >
+              Clear
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                isGenerating ||
+                (hasUserSubmitted && Object.keys(errors).length > 0)
+              }
+            >
+              {isGenerating
+                ? "Generating..."
+                : `Generate ${formData.format.toUpperCase()}`}
+            </Button>
+          </div>
         </div>
+        {formData.format === "xlsx" && (
+          <p className="text-xs text-muted-foreground">
+            {formData.autoDownload ? (
+              "File will download automatically"
+            ) : (
+              <>
+                Find your report in the{" "}
+                <a
+                  href="/reports"
+                  className="text-blue-600 hover:text-blue-800 underline"
+                >
+                  Reports page
+                </a>
+              </>
+            )}
+          </p>
+        )}
       </div>
 
       {/* Status Display */}
@@ -229,6 +296,28 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
           onComplete={handleReportComplete}
           onError={handleReportError}
         />
+      )}
+
+      {/* PDF Report Display */}
+      {reportUrl && formData.format === "pdf" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 py-2">
+            <p className="font-medium">PDF report generated successfully!</p>
+            <a
+              href={reportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline font-medium"
+            >
+              Open in New Tab
+            </a>
+          </div>
+          <iframe
+            className="w-full h-[100vh] max-w-[800px] max-h-[1200px] border rounded-lg"
+            src={reportUrl}
+            title="Generated PDF Report"
+          />
+        </div>
       )}
     </form>
   );
