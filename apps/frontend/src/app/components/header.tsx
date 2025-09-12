@@ -52,9 +52,16 @@ const Header: React.FC = () => {
           </Link>
           <Link href="/reports">
             <Button
-              className={`${sharedTabStyle} ${pathname?.endsWith("reports") && !pathname?.endsWith("committee-reports") ? tabStyleActive : tabStyleInactive}`}
+              className={`${sharedTabStyle} ${pathname?.endsWith("reports") && !pathname?.endsWith("committee-reports") && !pathname?.endsWith("voter-list-reports") ? tabStyleActive : tabStyleInactive}`}
             >
               Reports
+            </Button>
+          </Link>
+          <Link href="/voter-list-reports">
+            <Button
+              className={`${sharedTabStyle} ${pathname?.endsWith("voter-list-reports") ? tabStyleActive : tabStyleInactive}`}
+            >
+              Voter List Reports
             </Button>
           </Link>
           {showDataTab && (

@@ -11,7 +11,10 @@ import {
   generateCommitteeReportHTML,
   sanitizeForS3Key,
 } from './utils';
-import { generateXLSXAndUpload } from './xlsxGenerator';
+import {
+  generateXLSXAndUpload,
+  generateVoterListXLSXAndUpload,
+} from './xlsxGenerator';
 import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
@@ -41,8 +44,18 @@ function generateFilename(
   const sanitizedName = reportName ? sanitizeForS3Key(reportName) : '';
 
   const namePart = sanitizedName ? `${sanitizedName}-` : '';
-  const typePart =
-    reportType === 'ldCommittees' ? 'committeeReport' : 'designatedPetition';
+  const getTypePart = (reportType: string): string => {
+    switch (reportType) {
+      case 'ldCommittees':
+        return 'committeeReport';
+      case 'voterList':
+        return 'voterList';
+      default:
+        return 'designatedPetition';
+    }
+  };
+
+  const typePart = getTypePart(reportType);
   const formatPart = format === 'xlsx' ? 'xlsx' : 'pdf';
 
   return `${sanitizedAuthor}/${typePart}/${namePart}${timestamp}-${time}.${formatPart}`;
@@ -96,7 +109,7 @@ app.post(
       const jsonString = decompressedBuffer.toString('utf-8');
       const rawRequestData = JSON.parse(jsonString);
 
-      // For ldCommittees reports, we need to use dynamic schema based on selected fields
+      // For ldCommittees and voterList reports, we need to use dynamic schema based on selected fields
       let validationResult:
         | {
             success: true;
@@ -105,7 +118,8 @@ app.post(
         | { success: false; error: any };
 
       if (
-        rawRequestData.type === 'ldCommittees' &&
+        (rawRequestData.type === 'ldCommittees' ||
+          rawRequestData.type === 'voterList') &&
         rawRequestData.includeFields
       ) {
         const selectedFields =
@@ -160,7 +174,9 @@ async function processJob(
     let fileName: string;
     const { type, reportAuthor, jobId, payload, name } = jobData;
     const format =
-      type === 'ldCommittees' && 'format' in jobData ? jobData.format : 'pdf';
+      (type === 'ldCommittees' || type === 'voterList') && 'format' in jobData
+        ? (jobData as any).format
+        : 'pdf';
 
     // Sanitize reportAuthor for safe S3 key usage
     const sanitizedAuthor = sanitizeForS3Key(reportAuthor, true);
@@ -198,6 +214,28 @@ async function processJob(
         const html = generateCommitteeReportHTML(payload);
         await generatePDFAndUpload(html, true, fileName);
       }
+    } else if (type === 'voterList') {
+      console.log('Processing voter list report as XLSX...');
+
+      // Extract XLSX configuration from the report data
+      const voterListJobData = jobData as any;
+      const xlsxConfig = {
+        selectedFields: voterListJobData.includeFields
+          ? (voterListJobData.includeFields as VoterRecordField[])
+          : [],
+        includeCompoundFields: voterListJobData.xlsxConfig
+          ?.includeCompoundFields
+          ? voterListJobData.xlsxConfig.includeCompoundFields
+          : { name: true, address: true },
+        columnOrder: voterListJobData.xlsxConfig?.columnOrder
+          ? voterListJobData.xlsxConfig.columnOrder
+          : undefined,
+        columnHeaders: voterListJobData.xlsxConfig?.columnHeaders
+          ? voterListJobData.xlsxConfig.columnHeaders
+          : undefined,
+      };
+
+      await generateVoterListXLSXAndUpload(payload, fileName, xlsxConfig);
     } else if (type === 'designatedPetition') {
       console.log('Processing designated petition form...');
       const { candidates, vacancyAppointments, party, electionDate, numPages } =

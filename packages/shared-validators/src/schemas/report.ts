@@ -54,10 +54,22 @@ const ldCommitteesReportSchema = z.object({
   xlsxConfig: xlsxConfigSchema,
 });
 
+const voterListReportSchema = z.object({
+  type: z.literal('voterList'),
+  ...baseApiSchema.shape,
+  format: z.literal('xlsx'), // Only XLSX format allowed for voterList
+  payload: z.array(z.any()), // Array of VoterRecord objects
+  // Optional field to specify which VoterRecord fields to include
+  includeFields: z.array(z.string()).optional().default([]),
+  // XLSX-specific configuration
+  xlsxConfig: xlsxConfigSchema,
+});
+
 // Generate Report Schema - discriminated union for different report types
 export const generateReportSchema = z.discriminatedUnion('type', [
   designatedPetitionReportSchema,
   ldCommitteesReportSchema,
+  voterListReportSchema,
 ]);
 
 // Additional fields for enriched report data
@@ -74,6 +86,10 @@ export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     ...ldCommitteesReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...voterListReportSchema.shape,
     ...enrichedFieldsSchema.shape,
   }),
 ]);
@@ -140,6 +156,7 @@ export const createGenerateReportSchema = (
   return z.discriminatedUnion('type', [
     designatedPetitionReportSchema,
     dynamicLDCommitteesSchema,
+    voterListReportSchema,
   ]);
 };
 
@@ -157,6 +174,10 @@ export const createEnrichedReportDataSchema = (
     }),
     z.object({
       ...dynamicLDCommitteesSchema.shape,
+      ...enrichedFieldsSchema.shape,
+    }),
+    z.object({
+      ...voterListReportSchema.shape,
       ...enrichedFieldsSchema.shape,
     }),
   ]);
