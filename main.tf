@@ -24,8 +24,14 @@ resource "aws_lightsail_instance" "nodejs_server" {
 
               # Update and install necessary packages
               sudo apt-get update -y
-              sudo apt-get install -y git curl
+              sudo apt-get install -y git curl wget gnupg
               sudo apt-get install -y libnss3 libatk-bridge2.0-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libgtk-3-0 libasound2
+              
+              # Install Google Chrome
+              wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+              echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+              sudo apt-get update -y
+              sudo apt-get install -y google-chrome-stable
 
               if [ ! -f /root/.bashrc ]; then
                 touch /root/.bashrc
