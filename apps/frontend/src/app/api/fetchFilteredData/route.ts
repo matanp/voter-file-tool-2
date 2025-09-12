@@ -10,12 +10,52 @@ export async function POST(req: NextRequest) {
     const { searchQuery, pageSize, page } =
       fetchFilteredDataSchema.parse(requestBody);
 
-    let query: Partial<VoterRecord> = {};
+    let query: any = {};
 
     for (const field of searchQuery) {
       if (field.value !== "" && field.value !== null) {
         const fieldField = field.field;
-        if (fieldField === "firstName" || fieldField === "lastName") {
+
+        // Handle email search criteria
+        if (fieldField === "hasEmail") {
+          if (field.value === true) {
+            query.AND = [{ email: { not: null } }, { email: { not: "" } }];
+          }
+        } else if (fieldField === "hasInvalidEmail") {
+          if (field.value === true) {
+            // Records that have email but it's invalid (no @ or doesn't end with .com)
+            query.AND = [
+              // First ensure email exists and is not empty
+              { email: { not: null } },
+              { email: { not: "" } },
+              {
+                OR: [
+                  // Missing @
+                  { email: { not: { contains: "@" } } },
+                  // Starts or ends with @
+                  { email: { startsWith: "@" } },
+                  { email: { endsWith: "@" } },
+                  // Missing dot (no domain part)
+                  { email: { not: { contains: "." } } },
+                  // Starts or ends with dot
+                  { email: { startsWith: "." } },
+                  { email: { endsWith: "." } },
+                  // Contains spaces
+                  { email: { contains: " " } },
+                  // Double @ (should only be one)
+                  { email: { contains: "@@" } },
+                  // Very short strings (less than 5 characters)
+                  {
+                    email: {
+                      // Use a more explicit length check
+                      in: ["", "a", "ab", "abc", "abcd"],
+                    },
+                  },
+                ],
+              },
+            ];
+          }
+        } else if (fieldField === "firstName" || fieldField === "lastName") {
           query = {
             ...query,
             ...{
@@ -48,6 +88,8 @@ export async function POST(req: NextRequest) {
     const totalRecords = await prisma.voterRecord.count({
       where: query,
     });
+
+    console.log(totalRecords, records.length);
 
     return NextResponse.json(
       { data: records, totalRecords: totalRecords },
