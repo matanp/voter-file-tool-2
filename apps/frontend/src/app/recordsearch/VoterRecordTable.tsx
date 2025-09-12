@@ -16,10 +16,11 @@ import {
 } from "~/components/ui/table";
 import { VoterCard } from "./RecordsList";
 import { EllipsisVertical } from "~/components/icons/ellipsisVertical";
+import { fields, type FieldName } from "./fieldsConfig";
 
 interface BaseVoterRecordTableProps {
   records: VoterRecord[];
-  fieldsList: Array<(typeof fields)[number]["name"]>;
+  fieldsList: FieldName[];
   fullWidth?: boolean;
   compactView?: boolean;
   extraHeaders?: Array<string>;
@@ -31,42 +32,6 @@ interface PaginationProps {
   totalRecords: number;
   loadMore: () => void;
 }
-
-const fields = [
-  {
-    name: "DOB",
-    head: "DOB",
-    size: "w-[20ch]",
-    cell: (record: VoterRecord) => {
-      return (
-        <TableCell key={`${record.VRCNUM}-dob`}>
-          {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
-        </TableCell>
-      );
-    },
-  },
-  {
-    name: "Telephone",
-    head: "Telephone",
-    size: "w-[18ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-telephone`}>
-        {record.telephone}
-      </TableCell>
-    ),
-  },
-  {
-    name: "Address",
-    head: "Address",
-    size: "w-[35ch]",
-
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-address`}>
-        {`${record.houseNum} ${record.street}`}
-      </TableCell>
-    ),
-  },
-] as const;
 
 type VoterRecordTableProps =
   | (BaseVoterRecordTableProps & { paginated: false })
@@ -95,18 +60,8 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
     }
   };
 
-  //   const jumpToBottom = () => {
-  //     const footerElement = document.getElementById("table-footer");
-  //     if (footerElement) {
-  //       footerElement.scrollIntoView({ behavior: "smooth" });
-  //     }
-  //   };
-
   return (
     <div>
-      {/* <Button onClick={jumpToBottom} className="mb-2">
-        Jump to Bottom
-      </Button> */}
       <Table
         id="voter-record-table"
         className={`${!fullWidth && "max-w-[80vw]  table-fixed"}`}

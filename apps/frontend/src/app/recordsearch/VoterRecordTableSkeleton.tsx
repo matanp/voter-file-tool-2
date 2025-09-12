@@ -8,50 +8,16 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
+import { fields, type FieldName } from "./fieldsConfig";
 
 interface BaseVoterRecordTableProps {
-  fieldsList: Array<(typeof fields)[number]["name"]>;
+  fieldsList: FieldName[];
   fullWidth?: boolean;
   compactView?: boolean;
   extraHeaders?: Array<string>;
   seeMoreDetailsText?: string;
   extraContent?: (record: VoterRecord) => React.ReactNode;
 }
-
-const fields = [
-  {
-    name: "DOB",
-    head: "DOB",
-    size: "w-[20ch]",
-    cell: (index: number) => {
-      return (
-        <TableCell key={`skeleton-dob-${index}`}>
-          <Skeleton className="h-[1rem] w-[10ch]" />
-        </TableCell>
-      );
-    },
-  },
-  {
-    name: "Telephone",
-    head: "Telephone",
-    size: "w-[18ch]",
-    cell: (index: number) => (
-      <TableCell key={`skeleton-telephone-${index}`}>
-        <Skeleton className="h-[1rem] w-[10ch]" />
-      </TableCell>
-    ),
-  },
-  {
-    name: "Address",
-    head: "Address",
-    size: "w-[35ch]",
-    cell: (index: number) => (
-      <TableCell key={`skeleton-address-${index}`}>
-        <Skeleton className="h-[1rem] w-[35ch]" />
-      </TableCell>
-    ),
-  },
-] as const;
 
 type VoterRecordTableProps = BaseVoterRecordTableProps;
 
@@ -62,9 +28,6 @@ export const VoterRecordTableSkeleton: React.FC<VoterRecordTableProps> = ({
 }) => {
   return (
     <div>
-      {/* <Button onClick={jumpToBottom} className="mb-2">
-        Jump to Bottom
-      </Button> */}
       <Table
         id="voter-record-table"
         className={`${!fullWidth && "max-w-[80vw] min-w-[800px]"}`}
@@ -100,7 +63,7 @@ export const VoterRecordTableSkeleton: React.FC<VoterRecordTableProps> = ({
                 if (!field) {
                   return null;
                 }
-                return field.cell(index);
+                return field.skeletonCell(index);
               })}
               <TableCell className="flex justify-end">
                 <Skeleton className="h-[1rem] w-[140px]" />
