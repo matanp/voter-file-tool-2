@@ -3,6 +3,10 @@ import type { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { fetchFilteredDataSchema } from "../lib/utils";
 import { convertPrismaVoterRecordToAPI } from "@voter-file-tool/shared-validators";
+import {
+  getInvalidEmailConditions,
+  getHasEmailConditions,
+} from "~/lib/emailValidation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,44 +25,11 @@ export async function POST(req: NextRequest) {
         // Handle email search criteria
         if (fieldField === "hasEmail") {
           if (field.value === true) {
-            andConditions.push(
-              { email: { not: null } },
-              { email: { not: "" } },
-            );
+            andConditions.push(getHasEmailConditions());
           }
         } else if (fieldField === "hasInvalidEmail") {
           if (field.value === true) {
-            // Records that have email but it's invalid (no @ or doesn't end with .com)
-            andConditions.push(
-              // First ensure email exists and is not empty
-              { email: { not: null } },
-              { email: { not: "" } },
-              {
-                OR: [
-                  // Missing @
-                  { email: { not: { contains: "@" } } },
-                  // Starts or ends with @
-                  { email: { startsWith: "@" } },
-                  { email: { endsWith: "@" } },
-                  // Missing dot (no domain part)
-                  { email: { not: { contains: "." } } },
-                  // Starts or ends with dot
-                  { email: { startsWith: "." } },
-                  { email: { endsWith: "." } },
-                  // Contains spaces
-                  { email: { contains: " " } },
-                  // Double @ (should only be one)
-                  { email: { contains: "@@" } },
-                  // Very short strings (less than 5 characters)
-                  {
-                    email: {
-                      // Use a more explicit length check
-                      in: ["", "a", "ab", "abc", "abcd"],
-                    },
-                  },
-                ],
-              },
-            );
+            andConditions.push(getInvalidEmailConditions());
           }
         } else if (fieldField === "hasPhone") {
           if (field.value === true) {
