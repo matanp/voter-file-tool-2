@@ -5,6 +5,8 @@ import { PrivilegeLevel } from "@prisma/client";
 import { VoterListReportForm } from "./VoterListReportForm";
 import { Card, CardContent } from "~/components/ui/card";
 
+export const dynamic = "force-dynamic";
+
 const VoterListReportPage = async () => {
   const permissions = await auth();
 
