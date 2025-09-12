@@ -15,7 +15,7 @@ import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { FieldSelection } from "../committee-reports/components/FieldSelection";
 import { XLSXConfig } from "../committee-reports/components/XLSXConfig";
 import { useFormValidation } from "../committee-reports/hooks/useFormValidation";
-import { ErrorDisplay } from "./components/ErrorDisplay";
+import { ErrorDisplay } from "~/components/ErrorDisplay";
 import type {
   VoterRecordField,
   VoterRecordAPI,
@@ -26,6 +26,7 @@ import type { XLSXConfigFormData } from "../committee-reports/types";
 import { useToast } from "~/components/ui/use-toast";
 import { useVoterSearch } from "~/contexts/VoterSearchContext";
 import { MAX_RECORDS_FOR_EXPORT } from "~/constants/limits";
+import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 
 // Utility function to convert API records back to Prisma format for display
 function convertAPIToPrismaRecord(apiRecord: VoterRecordAPI): VoterRecord {
@@ -77,8 +78,37 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     columnHeaders: {},
   });
 
-  const { errors, hasUserSubmitted, setHasUserSubmitted, validateForm } =
-    useFormValidation(formData);
+  const {
+    errors,
+    hasUserSubmitted,
+    setHasUserSubmitted,
+    validateForm,
+    clearErrorTracking,
+    hadErrorsSinceLastSubmit,
+  } = useFormValidation(formData);
+
+  // Handle report completion
+  const handleReportComplete = (_url: string) => {
+    toast({
+      description:
+        "Document generated successfully! Download will start shortly.",
+      duration: 5000,
+    });
+    window.open(_url, "_blank"); // Trigger download
+    setIsGenerating(false);
+    setReportId(null);
+  };
+
+  const handleReportError = (errorMessage: string) => {
+    toast({
+      variant: "destructive",
+      title: "Generation Failed",
+      description: errorMessage || "Failed to generate document",
+      duration: 5000,
+    });
+    setIsGenerating(false);
+    setReportId(null);
+  };
 
   const handleFormDataChange = useCallback(
     (updates: Partial<VoterListReportFormData>) => {
@@ -129,6 +159,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     }
 
     setIsGenerating(true);
+    clearErrorTracking();
 
     try {
       const partialVoterRecords = searchResults
@@ -182,16 +213,18 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     } catch (error) {
       console.error("Error generating report:", error);
       toast({
-        title: "Generation Error",
-        description: "Failed to generate voter list report. Please try again.",
         variant: "destructive",
+        title: "Generation Failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate document",
+        duration: 5000,
       });
-    } finally {
       setIsGenerating(false);
     }
   };
 
-  // If we have search query in context but no search results, fetch them
   React.useEffect(() => {
     if (flattenedSearchQuery.length > 0 && searchResults.length === 0) {
       const fetchSearchResults = async () => {
@@ -449,6 +482,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
                 <ErrorDisplay
                   errors={errors}
                   hasUserSubmitted={hasUserSubmitted}
+                  hadErrorsSinceLastSubmit={hadErrorsSinceLastSubmit}
                 />
 
                 <div className="flex justify-end">
@@ -470,20 +504,24 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
         </Card>
       )}
 
-      {/* Report Status */}
-      {reportId && (
+      {isGenerating && (
         <Card>
-          <CardHeader>
-            <CardTitle>Report Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Report ID: {reportId}</p>
-            <p className="text-sm text-muted-foreground">
-              {`Your report is being generated. You will be notified when it's
-              ready.`}
-            </p>
+          <CardContent className="pt-6">
+            <div className="bg-primary-foreground p-4 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                <span>Generating document...</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
+      )}
+      {reportId && (
+        <ReportStatusTracker
+          reportId={reportId}
+          onComplete={handleReportComplete}
+          onError={handleReportError}
+        />
       )}
     </div>
   );

@@ -11,7 +11,7 @@ import type { CommitteeWithMembers } from "../committees/committeeUtils";
 import type { XLSXConfigFormData } from "./types";
 import { DEFAULT_FORM_DATA } from "./types";
 import { useFormValidation } from "./hooks/useFormValidation";
-import { ErrorDisplay } from "./components/ErrorDisplay";
+import { ErrorDisplay } from "~/components/ErrorDisplay";
 import { ReportInfo } from "./components/ReportInfo";
 import { FieldSelection } from "./components/FieldSelection";
 import { XLSXConfig } from "./components/XLSXConfig";
@@ -35,6 +35,8 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     setHasUserSubmitted,
     validateForm,
     clearErrors,
+    clearErrorTracking,
+    hadErrorsSinceLastSubmit,
   } = useFormValidation(formData);
 
   // Handle report completion
@@ -44,8 +46,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         "Document generated successfully! Download will start shortly.",
       duration: 5000,
     });
-    // Trigger download
-    // window.open(url, "_blank");
+    window.open(_url, "_blank"); // Trigger download
     setIsGenerating(false);
     setReportId(null);
   };
@@ -83,6 +84,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     }
 
     setIsGenerating(true);
+    clearErrorTracking(); // Clear error tracking when report generation starts
 
     try {
       const committeeData = mapCommitteesToReportShapeWithFields(
@@ -181,7 +183,11 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
 
       {/* Submit Button */}
       <div className="space-y-2">
-        <ErrorDisplay errors={errors} hasUserSubmitted={hasUserSubmitted} />
+        <ErrorDisplay
+          errors={errors}
+          hasUserSubmitted={hasUserSubmitted}
+          hadErrorsSinceLastSubmit={hadErrorsSinceLastSubmit}
+        />
 
         <div className="flex justify-end space-x-2">
           <Button
