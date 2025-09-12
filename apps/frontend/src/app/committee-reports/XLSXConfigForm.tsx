@@ -76,7 +76,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    // Mark that user has attempted to submit the form
     setHasUserSubmitted(true);
 
     if (!validateForm()) {
@@ -90,8 +89,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         committeeLists,
         formData.includeFields,
       );
-      // Send committee data to backend
-
       const reportPayload = {
         type: "ldCommittees" as const,
         name: formData.name,
@@ -124,7 +121,10 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
       });
 
       if (!response.ok) {
-        const errorData = (await response.json()) as { error?: string };
+        const errorData = (await response.json()) as {
+          error?: string;
+          issues?: string;
+        };
         throw new Error(errorData.error ?? "Failed to generate report");
       }
 

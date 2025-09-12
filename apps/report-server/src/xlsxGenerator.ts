@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import {
   type VoterRecordField,
   type LDCommitteesArrayWithFields,
+  type PartialVoterRecordAPI,
   determineColumnsToInclude,
   extractFieldValue,
   applyCompoundFields,
@@ -167,7 +168,7 @@ export async function generateXLSXAndUpload(
 
     // Add committee members data
     for (const [electionDistrict, members] of Object.entries(ld.committees)) {
-      for (const member of members) {
+      for (const member of members as PartialVoterRecordAPI[]) {
         const rowData = columnsToInclude.map((field) => {
           if (field === 'electionDistrict') {
             return electionDistrict.padStart(3, '0');

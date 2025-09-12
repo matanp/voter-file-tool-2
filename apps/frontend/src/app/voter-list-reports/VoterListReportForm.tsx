@@ -11,21 +11,19 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "~/components/ui/accordion";
-import { type BaseSearchField } from "../recordsearch/VoterRecordSearch";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { FieldSelection } from "../committee-reports/components/FieldSelection";
 import { XLSXConfig } from "../committee-reports/components/XLSXConfig";
 import { useFormValidation } from "../committee-reports/hooks/useFormValidation";
-import { AVAILABLE_FIELDS } from "../committee-reports/constants";
 import type { VoterRecord } from "@prisma/client";
-import type { DropdownLists } from "@prisma/client";
 import type { VoterRecordField } from "@voter-file-tool/shared-validators";
+import { mapVoterRecordToMemberWithFields } from "@voter-file-tool/shared-validators";
 import type { XLSXConfigFormData } from "../committee-reports/types";
 import { useToast } from "~/components/ui/use-toast";
 import { useVoterSearch } from "~/contexts/VoterSearchContext";
 import { MAX_RECORDS_FOR_EXPORT } from "~/constants/limits";
 
-interface VoterListReportFormProps {}
+type VoterListReportFormProps = Record<string, never>;
 
 interface VoterListReportFormData {
   name: string;
@@ -56,7 +54,6 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
   const [totalRecords, setTotalRecords] = useState<number>(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportId, setReportId] = useState<string | null>(null);
-  const [dropdownList, setDropdownList] = useState<DropdownLists | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState<VoterListReportFormData>({
@@ -123,12 +120,22 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     setIsGenerating(true);
 
     try {
+      const partialVoterRecords = searchResults
+        .map((voter) => {
+          return mapVoterRecordToMemberWithFields(
+            voter,
+            formData.includeFields,
+            formData.includeCompoundFields,
+          );
+        })
+        .filter((record) => record !== null);
+
       const reportPayload = {
         type: "voterList" as const,
         name: formData.name,
         description: formData.description,
         format: "xlsx" as const,
-        payload: searchResults,
+        payload: partialVoterRecords,
         includeFields: formData.includeFields,
         xlsxConfig: {
           includeCompoundFields: formData.includeCompoundFields,
@@ -173,23 +180,6 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     }
   };
 
-  // Load dropdown list on component mount
-  React.useEffect(() => {
-    const loadDropdownList = async () => {
-      try {
-        const response = await fetch("/api/admin/dropdownLists");
-        if (response.ok) {
-          const data = await response.json();
-          setDropdownList(data);
-        }
-      } catch (error) {
-        console.error("Failed to load dropdown list:", error);
-      }
-    };
-
-    loadDropdownList();
-  }, []);
-
   // If we have search query in context but no search results, fetch them
   React.useEffect(() => {
     if (flattenedSearchQuery.length > 0 && searchResults.length === 0) {
@@ -208,7 +198,10 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
           });
 
           if (response.ok) {
-            const data = await response.json();
+            const data = (await response.json()) as {
+              data: VoterRecord[];
+              totalRecords: number;
+            };
             setSearchResults(data.data || []);
             setTotalRecords(data.totalRecords || 0);
           }
@@ -217,7 +210,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
         }
       };
 
-      fetchSearchResults();
+      void fetchSearchResults();
     }
   }, [flattenedSearchQuery, searchResults.length]);
 
@@ -265,7 +258,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
                     <div className="flex items-center space-x-2 text-sm">
                       <span className="font-medium">{field.displayName}:</span>
                       <span className="text-muted-foreground">
-                        {String(field.value || "")}
+                        {String(field.value ?? "")}
                       </span>
                     </div>
                   )}
@@ -434,8 +427,8 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
           <CardContent>
             <p>Report ID: {reportId}</p>
             <p className="text-sm text-muted-foreground">
-              Your report is being generated. You will be notified when it's
-              ready.
+              {`Your report is being generated. You will be notified when it's
+              ready.`}
             </p>
           </CardContent>
         </Card>

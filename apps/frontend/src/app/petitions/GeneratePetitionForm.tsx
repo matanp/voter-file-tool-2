@@ -189,7 +189,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             extraHeaders={[
               "Public Office or Party Position (include district number if applicable)",
             ]}
-            extraContent={(record: VoterRecord) => {
+            extraContent={(record) => {
               return (
                 <div className="flex gap-2 items-center">
                   <ComboboxDropdown
@@ -249,7 +249,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
               .slice(0, 4)}
             paginated={false}
             fieldsList={[]}
-            extraContent={(record: VoterRecord) => {
+            extraContent={(record) => {
               return (
                 <Button
                   onClick={() => {

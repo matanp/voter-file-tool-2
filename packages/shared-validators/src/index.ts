@@ -1,6 +1,7 @@
 // Export all schemas and types
 export * from './schemas/designatedPetition';
 export * from './schemas/ldCommittees';
+export * from './schemas/voterRecord';
 export * from './schemas/report';
 export * from './schemas/api';
 

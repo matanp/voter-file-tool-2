@@ -156,7 +156,7 @@ async function saveVoterRecord(
       continue;
     }
 
-    const value = record[parseKey.data];
+    const value = record[parseKey.data as keyof VoterRecordArchiveStrings];
 
     if (key === "houseNum" || key === "electionDistrict") {
       voterRecord = {

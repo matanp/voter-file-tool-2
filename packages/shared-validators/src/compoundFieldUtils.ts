@@ -1,4 +1,9 @@
 import type { VoterRecordField } from './schemas/ldCommittees';
+import type {
+  VoterRecordAPI,
+  PartialVoterRecordAPI,
+} from './schemas/voterRecord';
+import type { VoterRecord as PrismaVoterRecord } from '@voter-file-tool/shared-prisma';
 
 // Compound field configuration
 export interface CompoundFieldConfig {
@@ -12,15 +17,40 @@ export const DEFAULT_COMPOUND_FIELD_CONFIG: Required<CompoundFieldConfig> = {
   address: true,
 };
 
+/**
+ * Converts a Prisma VoterRecord to VoterRecordAPI by converting Date fields to strings
+ */
+export function convertPrismaVoterRecordToAPI(
+  prismaRecord: PrismaVoterRecord
+): VoterRecordAPI {
+  return {
+    ...prismaRecord,
+    DOB:
+      prismaRecord.DOB && prismaRecord.DOB instanceof Date
+        ? prismaRecord.DOB.toISOString()
+        : null,
+    lastUpdate:
+      prismaRecord.lastUpdate && prismaRecord.lastUpdate instanceof Date
+        ? prismaRecord.lastUpdate.toISOString()
+        : null,
+    originalRegDate:
+      prismaRecord.originalRegDate &&
+      prismaRecord.originalRegDate instanceof Date
+        ? prismaRecord.originalRegDate.toISOString()
+        : null,
+  };
+}
+
 // Interface for objects that can have compound fields applied
-export interface CompoundFieldTarget {
-  [key: string]: any;
+export interface CompoundFieldTarget extends PartialVoterRecordAPI {
+  name?: string;
+  address?: string;
 }
 
 /**
  * Creates a compound name field from individual name components
  */
-export function createCompoundNameField(record: any): string {
+export function createCompoundNameField(record: PartialVoterRecordAPI): string {
   const firstName = record.firstName || '';
   const lastName = record.lastName || '';
   const middleInitial = record.middleInitial || '';
@@ -37,7 +67,9 @@ export function createCompoundNameField(record: any): string {
 /**
  * Creates a compound address field from individual address components
  */
-export function createCompoundAddressField(record: any): string {
+export function createCompoundAddressField(
+  record: PartialVoterRecordAPI
+): string {
   const houseNum = record.houseNum || '';
   const street = record.street || '';
   const apartment = record.apartment || '';
@@ -69,10 +101,10 @@ export function createCompoundAddressField(record: any): string {
  * Applies compound fields to a record based on configuration
  */
 export function applyCompoundFields(
-  record: any,
+  record: PartialVoterRecordAPI,
   config: CompoundFieldConfig = DEFAULT_COMPOUND_FIELD_CONFIG
-): any {
-  const result = { ...record };
+): CompoundFieldTarget {
+  const result: CompoundFieldTarget = { ...record };
 
   if (config.name) {
     result.name = createCompoundNameField(record);
@@ -103,14 +135,12 @@ export function determineColumnsToInclude(
     columns.push('address');
   }
 
-  // Add selected VoterRecord fields
   selectedFields.forEach((field) => {
     if (!columns.includes(field)) {
       columns.push(field);
     }
   });
 
-  // Apply column ordering if provided
   if (columnOrder.length > 0) {
     const orderedColumns = columnOrder.filter((col) => columns.includes(col));
     const remainingColumns = columns.filter(
@@ -125,7 +155,10 @@ export function determineColumnsToInclude(
 /**
  * Extracts field value from a record, handling compound fields
  */
-export function extractFieldValue(record: any, field: string): any {
+export function extractFieldValue(
+  record: CompoundFieldTarget,
+  field: string
+): string | number | Date | null | undefined | unknown {
   // Handle compound fields
   if (field === 'name') {
     return record.name || createCompoundNameField(record);
@@ -134,34 +167,148 @@ export function extractFieldValue(record: any, field: string): any {
     return record.address || createCompoundAddressField(record);
   }
 
-  // Handle individual VoterRecord fields
-  const value = record[field];
+  // Handle individual VoterRecordAPI fields
+  const value = (record as any)[field];
   return value !== undefined && value !== null ? value : '';
+}
+
+/**
+ * Sanitizes a VoterRecordAPI by converting undefined values to null
+ */
+export function sanitizeVoterRecord(
+  voter: PrismaVoterRecord
+): PrismaVoterRecord {
+  return {
+    ...voter,
+    // Convert undefined to null for all nullable fields
+    committeeId: voter.committeeId ?? null,
+    addressForCommittee: voter.addressForCommittee ?? null,
+    latestRecordEntryYear: voter.latestRecordEntryYear ?? 0,
+    latestRecordEntryNumber: voter.latestRecordEntryNumber ?? 0,
+    lastName: voter.lastName ?? null,
+    firstName: voter.firstName ?? null,
+    middleInitial: voter.middleInitial ?? null,
+    suffixName: voter.suffixName ?? null,
+    houseNum: voter.houseNum ?? null,
+    street: voter.street ?? null,
+    apartment: voter.apartment ?? null,
+    halfAddress: voter.halfAddress ?? null,
+    resAddrLine2: voter.resAddrLine2 ?? null,
+    resAddrLine3: voter.resAddrLine3 ?? null,
+    city: voter.city ?? null,
+    state: voter.state ?? null,
+    zipCode: voter.zipCode ?? null,
+    zipSuffix: voter.zipSuffix ?? null,
+    telephone: voter.telephone ?? null,
+    email: voter.email ?? null,
+    mailingAddress1: voter.mailingAddress1 ?? null,
+    mailingAddress2: voter.mailingAddress2 ?? null,
+    mailingAddress3: voter.mailingAddress3 ?? null,
+    mailingAddress4: voter.mailingAddress4 ?? null,
+    mailingCity: voter.mailingCity ?? null,
+    mailingState: voter.mailingState ?? null,
+    mailingZip: voter.mailingZip ?? null,
+    mailingZipSuffix: voter.mailingZipSuffix ?? null,
+    party: voter.party ?? null,
+    gender: voter.gender ?? null,
+    DOB: voter.DOB ?? null,
+    L_T: voter.L_T ?? null,
+    electionDistrict: voter.electionDistrict ?? null,
+    countyLegDistrict: voter.countyLegDistrict ?? null,
+    stateAssmblyDistrict: voter.stateAssmblyDistrict ?? null,
+    stateSenateDistrict: voter.stateSenateDistrict ?? null,
+    congressionalDistrict: voter.congressionalDistrict ?? null,
+    CC_WD_Village: voter.CC_WD_Village ?? null,
+    townCode: voter.townCode ?? null,
+    lastUpdate: voter.lastUpdate ?? null,
+    originalRegDate: voter.originalRegDate ?? null,
+    statevid: voter.statevid ?? null,
+    hasDiscrepancy: voter.hasDiscrepancy ?? null,
+  };
+}
+
+/**
+ * Internal helper function to map voter record fields with compound field support
+ */
+function mapVoterRecordFieldsInternal(
+  voter: VoterRecordAPI,
+  includeFields: VoterRecordField[] = [],
+  compoundFieldConfig: CompoundFieldConfig = DEFAULT_COMPOUND_FIELD_CONFIG
+): PartialVoterRecordAPI | null {
+  // Validate that VRCNUM exists and is not empty
+  if (!voter.VRCNUM || voter.VRCNUM.trim() === '') {
+    console.warn('Skipping voter record with invalid VRCNUM:', voter);
+    return null;
+  }
+
+  // Determine which fields to include based on compound field requirements
+  const fieldsToInclude = new Set<VoterRecordField>(includeFields);
+
+  if (compoundFieldConfig.name) {
+    fieldsToInclude.add('firstName');
+    fieldsToInclude.add('lastName');
+    fieldsToInclude.add('middleInitial');
+    fieldsToInclude.add('suffixName');
+  }
+
+  if (compoundFieldConfig.address) {
+    fieldsToInclude.add('houseNum');
+    fieldsToInclude.add('street');
+    fieldsToInclude.add('apartment');
+    fieldsToInclude.add('halfAddress');
+    fieldsToInclude.add('resAddrLine2');
+    fieldsToInclude.add('resAddrLine3');
+    fieldsToInclude.add('city');
+    fieldsToInclude.add('state');
+    fieldsToInclude.add('zipCode');
+    fieldsToInclude.add('zipSuffix');
+  }
+
+  // Always include VRCNUM as it's required
+  fieldsToInclude.add('VRCNUM');
+
+  // Create filtered member object with only the required fields
+  const member: PartialVoterRecordAPI = {};
+
+  fieldsToInclude.forEach((field) => {
+    (member as any)[field] = voter[field];
+  });
+
+  return member;
 }
 
 /**
  * Maps a VoterRecord to a member object with compound fields applied
  */
 export function mapVoterRecordToMemberWithFields(
-  voter: any,
+  voter: PrismaVoterRecord,
   includeFields: VoterRecordField[] = [],
   compoundFieldConfig: CompoundFieldConfig = DEFAULT_COMPOUND_FIELD_CONFIG
-): any {
-  const member: any = {};
+): PartialVoterRecordAPI | null {
+  // Convert Prisma VoterRecord to API format (Date -> string conversion)
+  const apiVoter = convertPrismaVoterRecordToAPI(voter);
 
-  // Apply compound fields if requested
-  if (compoundFieldConfig.name) {
-    member.name = createCompoundNameField(voter);
-  }
-  if (compoundFieldConfig.address) {
-    member.address = createCompoundAddressField(voter);
-  }
+  // Use the internal helper function
+  return mapVoterRecordFieldsInternal(
+    apiVoter,
+    includeFields,
+    compoundFieldConfig
+  );
+}
 
-  // Add selected individual fields
-  includeFields.forEach((field) => {
-    // Compound fields are handled separately, so we can safely add all fields
-    member[field] = voter[field];
-  });
-
-  return member;
+/**
+ * Maps a VoterRecordAPI to a member object with compound fields applied
+ * This version works with already-converted API records (dates as strings)
+ */
+export function mapVoterRecordAPIToMemberWithFields(
+  voter: VoterRecordAPI,
+  includeFields: VoterRecordField[] = [],
+  compoundFieldConfig: CompoundFieldConfig = DEFAULT_COMPOUND_FIELD_CONFIG
+): PartialVoterRecordAPI | null {
+  // Use the internal helper function directly
+  return mapVoterRecordFieldsInternal(
+    voter,
+    includeFields,
+    compoundFieldConfig
+  );
 }
