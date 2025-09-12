@@ -121,13 +121,17 @@ export const AVAILABLE_FIELDS: {
 ];
 
 // Group fields by category
-export const FIELDS_BY_CATEGORY = AVAILABLE_FIELDS.reduce(
+export const FIELDS_BY_CATEGORY = AVAILABLE_FIELDS.reduce<
+  Record<string, (typeof AVAILABLE_FIELDS)[number][]>
+>((acc, field) => {
+  (acc[field.category] ||= []).push(field);
+  return acc;
+}, {});
+
+export const FIELDS_BY_KEY = AVAILABLE_FIELDS.reduce(
   (acc, field) => {
-    if (!acc[field.category]) {
-      acc[field.category] = [];
-    }
-    acc[field.category]!.push(field);
+    acc[field.key] = field;
     return acc;
   },
-  {} as Record<string, typeof AVAILABLE_FIELDS>,
+  {} as Record<string, (typeof AVAILABLE_FIELDS)[0]>,
 );

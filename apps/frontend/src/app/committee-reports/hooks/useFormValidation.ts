@@ -13,7 +13,7 @@ export function useFormValidation(formData: XLSXConfigFormData) {
           return !value || (typeof value === "string" && !value.trim())
             ? "Report name is required"
             : null;
-        case "selectedFields":
+        case "includeFields":
           return formData.format === "xlsx" &&
             (!value || (Array.isArray(value) && value.length === 0))
             ? "At least one field must be selected for XLSX format"
@@ -32,8 +32,8 @@ export function useFormValidation(formData: XLSXConfigFormData) {
       newErrors.name = "Report name is required";
     }
 
-    if (formData.format === "xlsx" && formData.selectedFields.length === 0) {
-      newErrors.selectedFields =
+    if (formData.format === "xlsx" && formData.includeFields.length === 0) {
+      newErrors.includeFields =
         "At least one field must be selected for XLSX format";
     }
 
@@ -52,10 +52,10 @@ export function useFormValidation(formData: XLSXConfigFormData) {
       if (nameError) newErrors.name = nameError;
 
       const fieldsError = validateField(
-        "selectedFields",
-        formData.selectedFields,
+        "includeFields",
+        formData.includeFields,
       );
-      if (fieldsError) newErrors.selectedFields = fieldsError;
+      if (fieldsError) newErrors.includeFields = fieldsError;
 
       // Update errors if they've actually changed
       setErrors((prevErrors) => {
@@ -74,7 +74,7 @@ export function useFormValidation(formData: XLSXConfigFormData) {
     return () => clearTimeout(timeoutId);
   }, [
     formData.name,
-    formData.selectedFields,
+    formData.includeFields,
     formData.format,
     hasUserSubmitted,
     validateField,

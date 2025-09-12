@@ -23,7 +23,7 @@ const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
     voter.resAddrLine3,
   ]
     .filter(Boolean)
-    .join(" "); // address formatting???
+    .join(" ");
 
   return {
     name,
@@ -38,7 +38,7 @@ export type CommitteeWithMembers = CommitteeList & {
 // Dynamic mapping function that includes selected fields
 const mapVoterRecordToMemberWithFields = (
   voter: VoterRecord,
-  selectedFields: VoterRecordField[],
+  includeFields: VoterRecordField[],
 ): CommitteeMember & Record<string, unknown> => {
   // Map voter record to member with selected fields
   const name = [
@@ -67,7 +67,7 @@ const mapVoterRecordToMemberWithFields = (
   };
 
   // Add selected fields dynamically
-  for (const field of selectedFields) {
+  for (const field of includeFields) {
     const value = voter[field];
 
     // Always add the field, even if null/undefined, so it appears in XLSX
@@ -136,7 +136,7 @@ export const mapCommiteesToReportShape = (
 // New function for XLSX configuration with dynamic field selection
 export const mapCommitteesToReportShapeWithFields = (
   committees: CommitteeWithMembers[],
-  selectedFields: VoterRecordField[],
+  includeFields: VoterRecordField[],
 ): LDCommittees[] => {
   // Create a Map keyed by group identifier (cityTown + legDistrict) for O(1) lookup
   const groupMap = new Map<string, LDCommittees>();
@@ -158,7 +158,7 @@ export const mapCommitteesToReportShapeWithFields = (
 
     const members =
       committee.committeeMemberList?.map((voter) =>
-        mapVoterRecordToMemberWithFields(voter, selectedFields),
+        mapVoterRecordToMemberWithFields(voter, includeFields),
       ) ?? [];
 
     // Create stable election district key using the actual election district

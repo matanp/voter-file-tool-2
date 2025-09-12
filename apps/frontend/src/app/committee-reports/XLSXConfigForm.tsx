@@ -88,7 +88,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     try {
       const committeeData = mapCommitteesToReportShapeWithFields(
         committeeLists,
-        formData.selectedFields,
+        formData.includeFields,
       );
       // Send committee data to backend
 
@@ -98,7 +98,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         description: formData.description,
         format: formData.format,
         payload: committeeData,
-        includeFields: formData.selectedFields,
+        includeFields: formData.includeFields,
         xlsxConfig:
           formData.format === "xlsx"
             ? {
@@ -194,7 +194,10 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
           </Button>
           <Button
             type="submit"
-            disabled={isGenerating || Object.keys(errors).length > 0}
+            disabled={
+              isGenerating ||
+              (hasUserSubmitted && Object.keys(errors).length > 0)
+            }
           >
             {isGenerating
               ? "Generating..."

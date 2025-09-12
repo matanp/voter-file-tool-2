@@ -1,17 +1,13 @@
-"use client";
-
 import React from "react";
+import Link from "next/link";
 import { Button } from "~/components/ui/button";
-import { useRouter } from "next/navigation";
 
 export const GenerateCommitteeReportButton: React.FC = () => {
-  const router = useRouter();
-
-  const handleClick = () => {
-    router.push("/committee-reports");
-  };
-
-  return <Button onClick={handleClick}>Generate Committee Report</Button>;
+  return (
+    <Button asChild>
+      <Link href="/committee-reports">Generate Committee Report</Link>
+    </Button>
+  );
 };
 
 export default GenerateCommitteeReportButton;

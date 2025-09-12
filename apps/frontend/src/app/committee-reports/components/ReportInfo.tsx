@@ -48,8 +48,15 @@ export const ReportInfo: React.FC<ReportInfoProps> = ({
               onFormDataChange({ name: e.target.value });
             }}
             placeholder="Enter report name"
+            required
+            aria-describedby={errors.name ? "name-error" : undefined}
+            aria-invalid={!!errors.name}
           />
-          {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+          {errors.name && (
+            <p id="name-error" className="text-sm text-red-500">
+              {errors.name}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">

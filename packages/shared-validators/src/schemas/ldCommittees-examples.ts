@@ -21,7 +21,7 @@ import {
 // Note: XLSXGenerationConfig is available from the report-server package
 // This is just for documentation purposes
 export interface XLSXGenerationConfig {
-  selectedFields?: VoterRecordField[];
+  includeFields?: VoterRecordField[];
   includeCompoundFields?: {
     name?: boolean;
     address?: boolean;
@@ -34,13 +34,13 @@ export interface XLSXGenerationConfig {
 export const xlsxGenerationExamples = {
   // Example 1: Basic XLSX with default fields (backward compatible)
   basic: {
-    selectedFields: [] as VoterRecordField[],
+    includeFields: [] as VoterRecordField[],
     includeCompoundFields: { name: true, address: true },
   },
 
   // Example 2: XLSX with contact information only
   contactOnly: {
-    selectedFields: [
+    includeFields: [
       'VRCNUM',
       'email',
       'telephone',
@@ -51,7 +51,7 @@ export const xlsxGenerationExamples = {
 
   // Example 3: XLSX with individual name/address fields instead of compound
   individualFields: {
-    selectedFields: [
+    includeFields: [
       'VRCNUM',
       'firstName',
       'lastName',
@@ -69,7 +69,7 @@ export const xlsxGenerationExamples = {
 
   // Example 4: XLSX with both compound and individual fields
   hybrid: {
-    selectedFields: [
+    includeFields: [
       'VRCNUM',
       'email',
       'telephone',
@@ -80,7 +80,7 @@ export const xlsxGenerationExamples = {
 
   // Example 5: XLSX with custom column order
   customOrder: {
-    selectedFields: [
+    includeFields: [
       'VRCNUM',
       'email',
       'telephone',
@@ -100,7 +100,7 @@ export const xlsxGenerationExamples = {
 
   // Example 6: Comprehensive XLSX with all available fields
   comprehensive: {
-    selectedFields: [
+    includeFields: [
       'VRCNUM',
       'firstName',
       'lastName',

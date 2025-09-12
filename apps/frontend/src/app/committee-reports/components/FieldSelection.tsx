@@ -24,26 +24,26 @@ export const FieldSelection: React.FC<FieldSelectionProps> = ({
   errors,
 }) => {
   const handleFieldToggle = (fieldKey: VoterRecordField, checked: boolean) => {
-    const newSelectedFields = checked
-      ? [...formData.selectedFields, fieldKey]
-      : formData.selectedFields.filter((f) => f !== fieldKey);
+    const newIncludeFields = checked
+      ? [...formData.includeFields, fieldKey]
+      : formData.includeFields.filter((f) => f !== fieldKey);
 
-    onFormDataChange({ selectedFields: newSelectedFields });
+    onFormDataChange({ includeFields: newIncludeFields });
   };
 
   const handleSelectAllInCategory = (category: string, checked: boolean) => {
     const categoryFields = FIELDS_BY_CATEGORY[category] ?? [];
     const fieldKeys = categoryFields.map((f) => f.key);
 
-    const newSelectedFields = checked
-      ? [...new Set([...formData.selectedFields, ...fieldKeys])]
-      : formData.selectedFields.filter((f) => !fieldKeys.includes(f));
+    const newIncludeFields = checked
+      ? [...new Set([...formData.includeFields, ...fieldKeys])]
+      : formData.includeFields.filter((f) => !fieldKeys.includes(f));
 
-    onFormDataChange({ selectedFields: newSelectedFields });
+    onFormDataChange({ includeFields: newIncludeFields });
   };
 
   const isFieldSelected = (fieldKey: VoterRecordField) =>
-    formData.selectedFields.includes(fieldKey);
+    formData.includeFields.includes(fieldKey);
 
   const isCategoryFullySelected = (category: string) => {
     const categoryFields = FIELDS_BY_CATEGORY[category] ?? [];
@@ -95,9 +95,7 @@ export const FieldSelection: React.FC<FieldSelectionProps> = ({
               >
                 {isCategoryFullySelected(category)
                   ? "Deselect All"
-                  : isCategoryPartiallySelected(category)
-                    ? "Select All"
-                    : "Select All"}
+                  : "Select All"}
               </Button>
             </div>
 
@@ -168,8 +166,8 @@ export const FieldSelection: React.FC<FieldSelectionProps> = ({
             <Separator />
           </div>
         ))}
-        {errors.selectedFields && (
-          <p className="text-sm text-red-500">{errors.selectedFields}</p>
+        {errors.includeFields && (
+          <p className="text-sm text-red-500">{errors.includeFields}</p>
         )}
       </AccordionContent>
     </AccordionItem>
