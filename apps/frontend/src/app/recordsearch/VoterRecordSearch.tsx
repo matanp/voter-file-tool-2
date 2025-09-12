@@ -6,6 +6,7 @@ import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { DatePicker } from "~/components/ui/datePicker";
 import { isDropdownItem } from "../api/lib/utils";
 import { Input } from "~/components/ui/input";
+import { Checkbox } from "~/components/ui/checkbox";
 import { StreetSearch } from "./StreetSearch";
 import { CityTownSearch } from "./CityTownSearch";
 
@@ -19,7 +20,7 @@ export interface BaseSearchField {
   displayName: string;
   compoundType: false;
   type: string;
-  value?: string | Date | number;
+  value?: string | Date | number | boolean;
 }
 
 export type SearchField =
@@ -177,6 +178,25 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: false,
     type: "Dropdown",
   },
+  {
+    name: "additionalCriteria",
+    displayName: "Additional Criteria",
+    compoundType: true,
+    fields: [
+      {
+        name: "hasEmail",
+        displayName: "Only records with an email",
+        compoundType: false,
+        type: "Boolean",
+      },
+      {
+        name: "hasInvalidEmail",
+        displayName: "Only records with an invalid email",
+        compoundType: false,
+        type: "Boolean",
+      },
+    ],
+  },
 ];
 
 const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
@@ -256,20 +276,31 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   };
 
   const handleChangeValue = useCallback(
-    (index: number, value: string | Date, compoundIndex?: number) => {
+    (index: number, value: string | Date | boolean, compoundIndex?: number) => {
       const updatedRows = [...searchRows];
       const updatedRow = updatedRows[index];
 
       if (updatedRow && !updatedRow.compoundType) {
         if (updatedRow.value === value) return;
-        updatedRow.value = updatedRow.type === "number" ? Number(value) : value;
+        if (updatedRow.type === "number") {
+          updatedRow.value = Number(value);
+        } else if (updatedRow.type === "Boolean") {
+          updatedRow.value = Boolean(value);
+        } else {
+          updatedRow.value = value;
+        }
         updatedRows[index] = updatedRow;
       } else if (updatedRow?.compoundType && compoundIndex !== undefined) {
         const updatedField = updatedRow.fields[compoundIndex];
 
         if (updatedField && updatedField.value !== value) {
-          updatedField.value =
-            updatedField.type === "number" ? Number(value) : value;
+          if (updatedField.type === "number") {
+            updatedField.value = Number(value);
+          } else if (updatedField.type === "Boolean") {
+            updatedField.value = Boolean(value);
+          } else {
+            updatedField.value = value;
+          }
           updatedRow.fields[compoundIndex] = updatedField;
           updatedRows[index] = updatedRow;
         }
@@ -406,6 +437,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                           className="flex flex-col"
                         >
                           {field.name !== "city" &&
+                            field.type !== "Boolean" &&
                             field.displayName.length < 15 && (
                               <label className="font-extralight text-sm pl-1 pt-2">
                                 {field.displayName}
@@ -453,6 +485,27 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                                 handleChangeValue(index, value, subIdx);
                               }}
                             />
+                          )}
+                          {field.type === "Boolean" && (
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`${field.name}-${index}-${subIdx}`}
+                                checked={field.value === true}
+                                onCheckedChange={(checked) =>
+                                  handleChangeValue(
+                                    index,
+                                    checked === true,
+                                    subIdx,
+                                  )
+                                }
+                              />
+                              <label
+                                htmlFor={`${field.name}-${index}-${subIdx}`}
+                                className="text-sm font-medium text-gray-700 cursor-pointer"
+                              >
+                                {field.displayName}
+                              </label>
+                            </div>
                           )}
                           {(field.type === "String" ||
                             field.type === "number") && (
