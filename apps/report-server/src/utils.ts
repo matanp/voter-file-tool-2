@@ -3,7 +3,7 @@ import ReactDOMServer from 'react-dom/server';
 import PetitionForm from './components/DesignatingPetition';
 import CommitteeReport from './components/CommitteeReport';
 import puppeteer from 'puppeteer';
-import { uploadPDFToR2 } from './s3Utils';
+import { uploadFileToR2 } from './s3Utils';
 import { Readable } from 'stream';
 
 export const generateHTML = (
@@ -72,7 +72,7 @@ export async function generatePDFAndUpload(
   })) as unknown as Readable;
   console.log('started upload via stream');
 
-  const successfulUpload = await uploadPDFToR2(pdfStream, fileName);
+  const successfulUpload = await uploadFileToR2(pdfStream, fileName, 'pdf');
 
   if (!successfulUpload) {
     throw new Error('failed to upload pdf to file storage');
