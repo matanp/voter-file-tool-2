@@ -266,13 +266,19 @@ export const fieldEnum = z.enum([
   "lastUpdate",
   "originalRegDate",
   "statevid",
+  "hasEmail",
+  "hasInvalidEmail",
 ]);
 
 export const searchQueryFieldSchema = z
   .array(
     z.object({
       field: fieldEnum,
-      value: z.union([z.string().nullable(), z.number().nullable()]),
+      value: z.union([
+        z.string().nullable(),
+        z.number().nullable(),
+        z.boolean().nullable(),
+      ]),
     }),
   )
   .refine(
@@ -280,6 +286,9 @@ export const searchQueryFieldSchema = z
       return data.every((item) => {
         if (item.field === "houseNum" || item.field === "electionDistrict") {
           return typeof item.value === "number" || item.value === null;
+        }
+        if (item.field === "hasEmail" || item.field === "hasInvalidEmail") {
+          return typeof item.value === "boolean" || item.value === null;
         }
         return typeof item.value === "string" || item.value === null;
       });

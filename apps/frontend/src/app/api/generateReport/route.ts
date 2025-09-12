@@ -52,7 +52,9 @@ export const POST = withPrivilege(
           ReportType:
             reportData.type === "ldCommittees"
               ? ReportType.CommitteeReport
-              : ReportType.DesignatedPetition,
+              : reportData.type === "voterList"
+                ? ReportType.VoterList
+                : ReportType.DesignatedPetition,
           title: reportData.name,
           description: reportData.description,
           status: JobStatus.PENDING,

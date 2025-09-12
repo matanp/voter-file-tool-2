@@ -1,0 +1,1 @@
+export const MAX_RECORDS_FOR_EXPORT = 20000;

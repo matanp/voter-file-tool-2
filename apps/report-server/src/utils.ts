@@ -5,7 +5,7 @@ import CommitteeReport from './components/CommitteeReport';
 import puppeteer from 'puppeteer';
 import { uploadFileToR2 } from './s3Utils';
 import { Readable } from 'stream';
-
+import { randomUUID } from 'crypto';
 export const generateHTML = (
   candidates: { name: string; address: string; office: string }[],
   vacancyAppointments: { name: string; address: string }[],
@@ -110,4 +110,32 @@ export const generateCommitteeReportHTML = (groupedCommittees: any[]) => {
 
 function sleep(arg0: number) {
   return new Promise((resolve) => setTimeout(resolve, arg0));
+}
+
+/**
+ * Sanitizes a string for safe S3 key usage
+ * @param input - The string to sanitize
+ * @param fallbackToUUID - Whether to fallback to UUID if sanitization results in empty string
+ * @returns Sanitized string safe for S3 keys
+ */
+export function sanitizeForS3Key(
+  input: string,
+  fallbackToUUID: boolean = false
+): string {
+  if (!input || typeof input !== 'string') {
+    return fallbackToUUID ? randomUUID() : '';
+  }
+
+  // Remove or replace unsafe characters for S3 keys
+  // Replace slashes, spaces, and other problematic characters with hyphens
+  // Convert to lowercase and remove any remaining special characters
+  const sanitized = input
+    .toLowerCase()
+    .replace(/[\/\\\s]+/g, '-') // Replace slashes, backslashes, and whitespace with hyphens
+    .replace(/[^a-z0-9\-_]/g, '') // Remove any remaining special characters except hyphens and underscores
+    .replace(/-+/g, '-') // Replace multiple consecutive hyphens with single hyphen
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+  // If sanitization resulted in empty string, fallback to UUID or return empty string
+  return sanitized || (fallbackToUUID ? randomUUID() : '');
 }

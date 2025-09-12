@@ -5,6 +5,7 @@ import "~/styles/globals.css";
 import { SessionProvider } from "next-auth/react";
 import Header from "./components/header";
 import { GlobalContextProvider } from "~/components/providers/GlobalContext";
+import { VoterSearchProvider } from "~/contexts/VoterSearchContext";
 import { Toaster } from "~/components/ui/toaster";
 import { CSPostHogProvider } from "~/components/providers/PostHog";
 
@@ -25,22 +26,24 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
         <SessionProvider>
           <CSPostHogProvider>
             <GlobalContextProvider>
-              {/* <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          > */}
-              <nav>
-                <Header />
-              </nav>
-              <main
-                className={`min-h-screen bg-background font-sans antialiased ${inter.variable}`}
-              >
-                {children}
-                <SpeedInsights />
-              </main>
-              <Toaster />
+              <VoterSearchProvider>
+                {/* <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            > */}
+                <nav>
+                  <Header />
+                </nav>
+                <main
+                  className={`min-h-screen bg-background font-sans antialiased ${inter.variable}`}
+                >
+                  {children}
+                  <SpeedInsights />
+                </main>
+                <Toaster />
+              </VoterSearchProvider>
             </GlobalContextProvider>
           </CSPostHogProvider>
         </SessionProvider>

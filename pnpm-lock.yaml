@@ -260,6 +260,9 @@ importers:
 
   packages/shared-validators:
     dependencies:
+      '@voter-file-tool/shared-prisma':
+        specifier: workspace:*
+        version: link:../shared-prisma
       zod:
         specifier: ^3.22.4
         version: 3.25.76
