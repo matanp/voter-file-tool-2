@@ -1,6 +1,5 @@
 "use client";
 import React, { createContext, useContext, useState, useCallback } from "react";
-import type { VoterRecord } from "@prisma/client";
 import type { SearchField } from "~/app/recordsearch/VoterRecordSearch";
 
 interface VoterSearchContextType {

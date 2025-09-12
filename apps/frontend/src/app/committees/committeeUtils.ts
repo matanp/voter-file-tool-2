@@ -1,79 +1,70 @@
 import type { CommitteeList, VoterRecord } from "@prisma/client";
 import type {
-  CommitteeMember,
-  LDCommittees,
   VoterRecordField,
+  CompoundFieldTarget,
 } from "@voter-file-tool/shared-validators";
-import { mapVoterRecordToMemberWithFields as mapVoterRecordToMemberWithFieldsShared } from "@voter-file-tool/shared-validators";
+import {
+  applyCompoundFields,
+  convertPrismaVoterRecordToAPI,
+} from "@voter-file-tool/shared-validators";
 
-const mapVoterRecordToMember = (voter: VoterRecord): CommitteeMember => {
-  const name = [
-    voter.firstName,
-    voter.middleInitial,
-    voter.lastName,
-    voter.suffixName,
-  ]
-    .filter(Boolean)
-    .join(" ");
+const mapVoterRecordToMember = (voter: VoterRecord): CompoundFieldTarget => {
+  // Convert Prisma record to API format first
+  const apiRecord = convertPrismaVoterRecordToAPI(voter);
 
-  const addressParts = [
-    voter.houseNum ? voter.houseNum.toString() : null,
-    voter.street,
-    voter.apartment ? `APT ${voter.apartment}` : null,
-    voter.resAddrLine2,
-    voter.resAddrLine3,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return {
-    name,
-    address: addressParts,
-  };
+  // Apply compound fields (name and address)
+  return applyCompoundFields(apiRecord);
 };
 
 export type CommitteeWithMembers = CommitteeList & {
   committeeMemberList?: VoterRecord[];
 };
 
-// Use shared utility function for mapping voter records to members with fields
-// The shared function handles compound fields and basic field mapping
-// We'll extend it here to handle date fields specifically for this use case
+// Interface for committee members with additional fields
+type CommitteeMemberWithFields = CompoundFieldTarget & Record<string, unknown>;
+
 const mapVoterRecordToMemberWithFields = (
   voter: VoterRecord,
   includeFields: VoterRecordField[],
-): CommitteeMember & Record<string, unknown> => {
-  // Use shared utility for basic mapping
-  const member = mapVoterRecordToMemberWithFieldsShared(voter, includeFields, {
-    name: true,
-    address: true,
-  });
+): CommitteeMemberWithFields => {
+  // Start with basic member mapping (includes compound fields)
+  const baseMember = mapVoterRecordToMember(voter);
 
-  // Add selected fields dynamically with date handling
+  // const apiRecord = convertPrismaVoterRecordToAPI(voter);
+
+  // Create the result object with proper typing
+  const member: CommitteeMemberWithFields = {
+    ...baseMember,
+  };
+
+  // Add selected fields dynamically
   for (const field of includeFields) {
-    const value = voter[field];
+    const value = baseMember[field];
 
     // Always add the field, even if null/undefined, so it appears in XLSX
     if (value !== null && value !== undefined) {
-      // Handle date fields
-      if (field === "DOB" || field === "originalRegDate") {
-        member[field] = value instanceof Date ? value : new Date(value);
-      } else {
-        member[field] = value;
-      }
+      (member as Record<string, unknown>)[field] = value;
     } else {
       // Add field with empty value so it appears in XLSX
-      member[field] = "";
+      (member as Record<string, unknown>)[field] = "";
     }
   }
+
   return member;
+};
+
+// Extended LDCommittees type that includes compound fields
+type LDCommitteesWithCompoundFields = {
+  cityTown: string;
+  legDistrict: number;
+  committees: Record<string, CompoundFieldTarget[]>;
 };
 
 export const mapCommiteesToReportShape = (
   committees: CommitteeWithMembers[],
-): LDCommittees[] => {
+): LDCommitteesWithCompoundFields[] => {
   // Create a Map keyed by group identifier (cityTown + legDistrict) for O(1) lookup
-  const groupMap = new Map<string, LDCommittees>();
+  const groupMap = new Map<string, LDCommitteesWithCompoundFields>();
 
   for (const committee of committees) {
     // Create stable group key from cityTown + legDistrict
@@ -120,9 +111,9 @@ export const mapCommiteesToReportShape = (
 export const mapCommitteesToReportShapeWithFields = (
   committees: CommitteeWithMembers[],
   includeFields: VoterRecordField[],
-): LDCommittees[] => {
+): LDCommitteesWithCompoundFields[] => {
   // Create a Map keyed by group identifier (cityTown + legDistrict) for O(1) lookup
-  const groupMap = new Map<string, LDCommittees>();
+  const groupMap = new Map<string, LDCommitteesWithCompoundFields>();
 
   for (const committee of committees) {
     // Create stable group key from cityTown + legDistrict

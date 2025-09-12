@@ -1,7 +1,7 @@
-import { type VoterRecord } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { fetchFilteredDataSchema } from "../lib/utils";
+import { convertPrismaVoterRecordToAPI } from "@voter-file-tool/shared-validators";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const { searchQuery, pageSize, page } =
       fetchFilteredDataSchema.parse(requestBody);
 
-    let query: any = {};
+    let query: Record<string, unknown> = {};
 
     for (const field of searchQuery) {
       if (field.value !== "" && field.value !== null) {
@@ -58,15 +58,13 @@ export async function POST(req: NextRequest) {
         } else if (fieldField === "firstName" || fieldField === "lastName") {
           query = {
             ...query,
-            ...{
-              [fieldField]:
-                typeof field.value === "string"
-                  ? field.value.trim().toUpperCase()
-                  : field.value,
-            },
+            [fieldField]:
+              typeof field.value === "string"
+                ? field.value.trim().toUpperCase()
+                : field.value,
           };
         } else {
-          query = { ...query, ...{ [fieldField]: field.value } };
+          query = { ...query, [fieldField]: field.value };
         }
       }
     }
@@ -91,8 +89,11 @@ export async function POST(req: NextRequest) {
 
     console.log(totalRecords, records.length);
 
+    // Convert Prisma records to API format (Date -> string conversion)
+    const apiRecords = records.map(convertPrismaVoterRecordToAPI);
+
     return NextResponse.json(
-      { data: records, totalRecords: totalRecords },
+      { data: apiRecords, totalRecords: totalRecords },
       { status: 200 },
     );
   } catch (error) {

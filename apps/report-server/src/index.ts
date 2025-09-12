@@ -20,11 +20,9 @@ import {
   enrichedReportDataSchema,
   callbackUrlSchema,
   type EnrichedReportData,
-  type DynamicEnrichedReportData,
   type ReportCompleteWebhookPayload,
   type CallbackUrl,
   type VoterRecordField,
-  createEnrichedReportDataSchema,
 } from '@voter-file-tool/shared-validators';
 
 // Function to generate a descriptive filename
@@ -65,16 +63,13 @@ config();
 
 const QUEUE_CONCURRENCY = 2;
 
-const q = async.queue(
-  async (requestData: EnrichedReportData | DynamicEnrichedReportData) => {
-    try {
-      await processJob(requestData);
-    } catch (error) {
-      console.error('Queue worker error:', error);
-    }
-  },
-  QUEUE_CONCURRENCY
-);
+const q = async.queue(async (requestData: EnrichedReportData) => {
+  try {
+    await processJob(requestData);
+  } catch (error) {
+    console.error('Queue worker error:', error);
+  }
+}, QUEUE_CONCURRENCY);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -109,35 +104,15 @@ app.post(
       const jsonString = decompressedBuffer.toString('utf-8');
       const rawRequestData = JSON.parse(jsonString);
 
-      // For ldCommittees and voterList reports, we need to use dynamic schema based on selected fields
-      let validationResult:
-        | {
-            success: true;
-            data: EnrichedReportData | DynamicEnrichedReportData;
-          }
+      // Validate the request data using the enriched schema
+      const validationResult = enrichedReportDataSchema.safeParse(
+        rawRequestData
+      ) as
+        | { success: true; data: EnrichedReportData }
         | { success: false; error: any };
 
-      if (
-        (rawRequestData.type === 'ldCommittees' ||
-          rawRequestData.type === 'voterList') &&
-        rawRequestData.includeFields
-      ) {
-        const selectedFields =
-          rawRequestData.includeFields as VoterRecordField[];
-        const dynamicEnrichedSchema =
-          createEnrichedReportDataSchema(selectedFields);
-        validationResult = dynamicEnrichedSchema.safeParse(rawRequestData) as
-          | { success: true; data: DynamicEnrichedReportData }
-          | { success: false; error: any };
-        if (!validationResult.success) {
-          console.log('Validation errors:', validationResult.error.errors);
-        }
-      } else {
-        validationResult = enrichedReportDataSchema.safeParse(
-          rawRequestData
-        ) as
-          | { success: true; data: EnrichedReportData }
-          | { success: false; error: any };
+      if (!validationResult.success) {
+        console.log('Validation errors:', validationResult.error.errors);
       }
 
       if (!validationResult.success) {
@@ -148,8 +123,7 @@ app.post(
         });
       }
 
-      const requestData: EnrichedReportData | DynamicEnrichedReportData =
-        validationResult.data;
+      const requestData: EnrichedReportData = validationResult.data;
 
       const jobsAhead = q.length();
 
@@ -167,9 +141,7 @@ app.post(
   }
 );
 
-async function processJob(
-  jobData: EnrichedReportData | DynamicEnrichedReportData
-) {
+async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName: string;
     const { type, reportAuthor, jobId, payload, name } = jobData;

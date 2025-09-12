@@ -10,7 +10,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "@voter-file-tool/shared-prisma": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.5",
