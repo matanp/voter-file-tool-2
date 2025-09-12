@@ -3,13 +3,6 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
@@ -23,8 +16,13 @@ import {
 } from "~/components/ui/select";
 import { Separator } from "~/components/ui/separator";
 import { useToast } from "~/components/ui/use-toast";
-import { useRouter } from "next/navigation";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "~/components/ui/accordion";
 import type { VoterRecordField } from "@voter-file-tool/shared-validators";
 import { mapCommitteesToReportShapeWithFields } from "../committees/committeeUtils";
 import type { CommitteeWithMembers } from "../committees/committeeUtils";
@@ -41,10 +39,12 @@ const AVAILABLE_FIELDS: {
     label: "Voter Registration Number",
     category: "Identification",
   },
-  { key: "lastName", label: "Last Name", category: "Identification" },
   { key: "firstName", label: "First Name", category: "Identification" },
   { key: "middleInitial", label: "Middle Initial", category: "Identification" },
+  { key: "lastName", label: "Last Name", category: "Identification" },
   { key: "suffixName", label: "Suffix Name", category: "Identification" },
+  { key: "DOB", label: "Date of Birth", category: "Identification" },
+  { key: "gender", label: "Gender", category: "Identification" },
 
   // Address fields
   { key: "houseNum", label: "House Number", category: "Address" },
@@ -102,8 +102,6 @@ const AVAILABLE_FIELDS: {
 
   // Political information
   { key: "party", label: "Party", category: "Political" },
-  { key: "gender", label: "Gender", category: "Political" },
-  { key: "DOB", label: "Date of Birth", category: "Political" },
   { key: "L_T", label: "L_T", category: "Political" },
 
   // District information
@@ -195,13 +193,12 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   committeeLists,
 }) => {
   const { toast } = useToast();
-  const router = useRouter();
   const [formData, setFormData] =
     useState<XLSXConfigFormData>(DEFAULT_FORM_DATA);
   const [reportId, setReportId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
-  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [hasUserSubmitted, setHasUserSubmitted] = useState(false);
 
   // Handle report completion
   const handleReportComplete = (_url: string) => {
@@ -228,6 +225,14 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     setReportId(null);
   };
 
+  const clearForm = () => {
+    setFormData(DEFAULT_FORM_DATA);
+    setErrors({});
+    setHasUserSubmitted(false);
+    setReportId(null);
+    setIsGenerating(false);
+  };
+
   const handleFieldToggle = (fieldKey: VoterRecordField, checked: boolean) => {
     setFormData((prev) => {
       const newSelectedFields = checked
@@ -239,7 +244,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         selectedFields: newSelectedFields,
       };
     });
-    setHasUserInteracted(true);
   };
 
   const handleSelectAllInCategory = (category: string, checked: boolean) => {
@@ -256,7 +260,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         selectedFields: newSelectedFields,
       };
     });
-    setHasUserInteracted(true);
   };
 
   const handleColumnHeaderChange = (fieldKey: string, value: string) => {
@@ -286,32 +289,35 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   };
 
   // Dynamic validation - clear errors as user fixes them
-  const validateField = (fieldName: string, value: any): string | null => {
-    switch (fieldName) {
-      case "name":
-        return !value?.trim() ? "Report name is required" : null;
-      case "selectedFields":
-        return formData.format === "xlsx" && (!value || value.length === 0)
-          ? "At least one field must be selected for XLSX format"
-          : null;
-      default:
-        return null;
-    }
-  };
+  const validateField = React.useCallback(
+    (fieldName: string, value: string | VoterRecordField[]): string | null => {
+      switch (fieldName) {
+        case "name":
+          return !value || (typeof value === "string" && !value.trim())
+            ? "Report name is required"
+            : null;
+        case "selectedFields":
+          return formData.format === "xlsx" &&
+            (!value || (Array.isArray(value) && value.length === 0))
+            ? "At least one field must be selected for XLSX format"
+            : null;
+        default:
+          return null;
+      }
+    },
+    [formData.format],
+  );
 
   // Real-time validation effect with debouncing
   useEffect(() => {
-    // Only validate after user has interacted with the form
-    if (!hasUserInteracted) return;
+    if (!hasUserSubmitted) return;
 
     const timeoutId = setTimeout(() => {
       const newErrors: Partial<Record<string, string>> = {};
 
-      // Validate name field
       const nameError = validateField("name", formData.name);
       if (nameError) newErrors.name = nameError;
 
-      // Validate selected fields for XLSX format
       const fieldsError = validateField(
         "selectedFields",
         formData.selectedFields,
@@ -337,11 +343,15 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     formData.name,
     formData.selectedFields,
     formData.format,
-    hasUserInteracted,
+    hasUserSubmitted,
+    validateField,
   ]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    // Mark that user has attempted to submit the form
+    setHasUserSubmitted(true);
 
     if (!validateForm()) {
       return;
@@ -433,229 +443,258 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Basic Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Report Information</CardTitle>
-          <CardDescription>
-            Basic information about the report to be generated
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Report Name *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => {
-                setFormData((prev) => ({ ...prev, name: e.target.value }));
-                setHasUserInteracted(true);
-              }}
-              placeholder="Enter report name"
-            />
-            {errors.name && (
-              <p className="text-sm text-red-500">{errors.name}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              placeholder="Enter report description (optional)"
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="format">Format</Label>
-            <Select
-              value={formData.format}
-              onValueChange={(value: "pdf" | "xlsx") => {
-                setFormData((prev) => ({ ...prev, format: value }));
-                setHasUserInteracted(true);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pdf">PDF</SelectItem>
-                <SelectItem value="xlsx">XLSX (Excel)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Field Selection - Only show for XLSX format */}
-      {formData.format === "xlsx" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Field Selection</CardTitle>
-            <CardDescription>
-              Choose which voter record fields to include in the XLSX document
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-none">
+      <Accordion
+        type="multiple"
+        defaultValue={["report-info", "field-selection"]}
+        className="w-full space-y-4"
+      >
+        {/* Basic Information */}
+        <AccordionItem
+          value="report-info"
+          className="bg-white rounded-lg shadow-sm"
+        >
+          <AccordionTrigger className="primary-header text-left bg-white px-6 py-4">
+            Report Information
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 bg-white p-6 pt-0 rounded-lg">
+            <p className="text-sm text-muted-foreground mb-4">
+              Basic information about the report to be generated
+            </p>
             <div className="space-y-2">
-              <Label>Compound Fields</Label>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="include-name"
-                    checked={formData.includeCompoundFields.name}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        includeCompoundFields: {
-                          ...prev.includeCompoundFields,
-                          name: checked as boolean,
-                        },
-                      }))
-                    }
-                  />
-                  <Label htmlFor="include-name">
-                    Include compound name field
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="include-address"
-                    checked={formData.includeCompoundFields.address}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        includeCompoundFields: {
-                          ...prev.includeCompoundFields,
-                          address: checked as boolean,
-                        },
-                      }))
-                    }
-                  />
-                  <Label htmlFor="include-address">
-                    Include compound address field
-                  </Label>
-                </div>
-              </div>
+              <Label htmlFor="name">Report Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => {
+                  setFormData((prev) => ({ ...prev, name: e.target.value }));
+                }}
+                placeholder="Enter report name"
+              />
+              {errors.name && (
+                <p className="text-sm text-red-500">{errors.name}</p>
+              )}
             </div>
 
-            <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                placeholder="Enter report description (optional)"
+                rows={3}
+              />
+            </div>
 
-            {Object.entries(FIELDS_BY_CATEGORY).map(([category, fields]) => (
-              <div key={category} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium text-base">{category}</Label>
-                  <Button
-                    type="button"
-                    variant={
-                      isCategoryFullySelected(category) ? "default" : "outline"
-                    }
-                    size="sm"
-                    onClick={() =>
-                      handleSelectAllInCategory(
-                        category,
-                        !isCategoryFullySelected(category),
-                      )
-                    }
-                    className={`text-xs font-medium transition-colors ${
-                      isCategoryPartiallySelected(category)
-                        ? "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200"
-                        : ""
-                    }`}
-                  >
-                    {isCategoryFullySelected(category)
-                      ? "Deselect All"
-                      : isCategoryPartiallySelected(category)
-                        ? "Select All"
-                        : "Select All"}
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 ml-6">
-                  {fields.map((field) => (
-                    <div
-                      key={field.key}
-                      className="flex items-center space-x-2"
+            <div className="space-y-2">
+              <Label htmlFor="format">Format</Label>
+              <Select
+                value={formData.format}
+                onValueChange={(value: "pdf" | "xlsx") => {
+                  setFormData((prev) => ({ ...prev, format: value }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="xlsx">XLSX (Excel)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Field Selection - Only show for XLSX format */}
+        {formData.format === "xlsx" && (
+          <AccordionItem
+            value="field-selection"
+            className="bg-white rounded-lg shadow-sm"
+          >
+            <AccordionTrigger className="primary-header text-left bg-white px-6 py-4">
+              Field Selection
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4 bg-white p-6 pt-0 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-4">
+                Choose which voter record fields to include in the XLSX document
+              </p>
+
+              {Object.entries(FIELDS_BY_CATEGORY).map(([category, fields]) => (
+                <div key={category} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="primary-header text-lg">{category}</Label>
+                    <Button
+                      type="button"
+                      variant={
+                        isCategoryFullySelected(category)
+                          ? "default"
+                          : "outline"
+                      }
+                      size="sm"
+                      onClick={() =>
+                        handleSelectAllInCategory(
+                          category,
+                          !isCategoryFullySelected(category),
+                        )
+                      }
+                      className={`text-xs font-medium transition-colors ${
+                        isCategoryPartiallySelected(category)
+                          ? "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200"
+                          : ""
+                      }`}
                     >
-                      <Checkbox
-                        id={`field-${field.key}`}
-                        checked={isFieldSelected(field.key)}
-                        onCheckedChange={(checked) =>
-                          handleFieldToggle(field.key, checked as boolean)
-                        }
-                      />
-                      <Label htmlFor={`field-${field.key}`} className="text-sm">
-                        {field.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-                <Separator />
-              </div>
-            ))}
-            {errors.selectedFields && (
-              <p className="text-sm text-red-500">{errors.selectedFields}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                      {isCategoryFullySelected(category)
+                        ? "Deselect All"
+                        : isCategoryPartiallySelected(category)
+                          ? "Select All"
+                          : "Select All"}
+                    </Button>
+                  </div>
 
-      {/* XLSX Configuration - Only show for XLSX format */}
-      {formData.format === "xlsx" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>XLSX Configuration</CardTitle>
-            <CardDescription>
-              Additional options for XLSX document generation
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Column Headers */}
-            {formData.selectedFields.length > 0 && (
-              <div className="space-y-2">
-                <Label>Custom Column Headers (Optional)</Label>
-                <div className="space-y-2">
-                  {formData.selectedFields.map((fieldKey) => {
-                    const field = AVAILABLE_FIELDS.find(
-                      (f) => f.key === fieldKey,
-                    );
-                    return (
+                  {/* Add compound field options for specific categories */}
+                  {category === "Identification" && (
+                    <div className="ml-6 mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="include-name"
+                          checked={formData.includeCompoundFields.name}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              includeCompoundFields: {
+                                ...prev.includeCompoundFields,
+                                name: checked as boolean,
+                              },
+                            }))
+                          }
+                        />
+                        <Label
+                          htmlFor="include-name"
+                          className="text-sm font-medium"
+                        >
+                          Include name as a unified field
+                        </Label>
+                      </div>
+                    </div>
+                  )}
+
+                  {category === "Address" && (
+                    <div className="ml-6 mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="include-address"
+                          checked={formData.includeCompoundFields.address}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              includeCompoundFields: {
+                                ...prev.includeCompoundFields,
+                                address: checked as boolean,
+                              },
+                            }))
+                          }
+                        />
+                        <Label
+                          htmlFor="include-address"
+                          className="text-sm font-medium"
+                        >
+                          Include address as a unified field
+                        </Label>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 ml-6 max-w-4xl">
+                    {fields.map((field) => (
                       <div
-                        key={fieldKey}
+                        key={field.key}
                         className="flex items-center space-x-2"
                       >
-                        <Label
-                          htmlFor={`header-${fieldKey}`}
-                          className="w-32 text-sm"
-                        >
-                          {field?.label}:
-                        </Label>
-                        <Input
-                          id={`header-${fieldKey}`}
-                          value={formData.columnHeaders[fieldKey] ?? ""}
-                          onChange={(e) =>
-                            handleColumnHeaderChange(fieldKey, e.target.value)
+                        <Checkbox
+                          id={`field-${field.key}`}
+                          checked={isFieldSelected(field.key)}
+                          onCheckedChange={(checked) =>
+                            handleFieldToggle(field.key, checked as boolean)
                           }
-                          placeholder={field?.label}
-                          className="flex-1"
                         />
+                        <Label
+                          htmlFor={`field-${field.key}`}
+                          className="text-sm"
+                        >
+                          {field.label}
+                        </Label>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                  <Separator />
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              ))}
+              {errors.selectedFields && (
+                <p className="text-sm text-red-500">{errors.selectedFields}</p>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* XLSX Configuration - Only show for XLSX format */}
+        {formData.format === "xlsx" && (
+          <AccordionItem
+            value="xlsx-config"
+            className="bg-white rounded-lg shadow-sm"
+          >
+            <AccordionTrigger className="primary-header text-left bg-white px-6 py-4">
+              XLSX Configuration
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4 bg-white p-6 pt-0 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-4">
+                Additional options for XLSX document generation
+              </p>
+              {/* Column Headers */}
+              {formData.selectedFields.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Custom Column Headers (Optional)</Label>
+                  <div className="space-y-2 max-w-2xl">
+                    {formData.selectedFields.map((fieldKey) => {
+                      const field = AVAILABLE_FIELDS.find(
+                        (f) => f.key === fieldKey,
+                      );
+                      return (
+                        <div
+                          key={fieldKey}
+                          className="flex items-center space-x-2"
+                        >
+                          <Label
+                            htmlFor={`header-${fieldKey}`}
+                            className="w-32 text-sm flex-shrink-0"
+                          >
+                            {field?.label}:
+                          </Label>
+                          <Input
+                            id={`header-${fieldKey}`}
+                            value={formData.columnHeaders[fieldKey] ?? ""}
+                            onChange={(e) =>
+                              handleColumnHeaderChange(fieldKey, e.target.value)
+                            }
+                            placeholder={field?.label}
+                            className="flex-1"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        )}
+      </Accordion>
 
       {/* Submit Button */}
       <div className="space-y-2">
@@ -695,7 +734,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
         )}
 
         {/* Success message when all errors are cleared */}
-        {hasUserInteracted && Object.keys(errors).length === 0 && (
+        {hasUserSubmitted && Object.keys(errors).length === 0 && (
           <div className="bg-green-50 border border-green-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -725,10 +764,10 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.back()}
+            onClick={clearForm}
             disabled={isGenerating}
           >
-            Cancel
+            Clear
           </Button>
           <Button
             type="submit"
@@ -743,14 +782,12 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
 
       {/* Status Display */}
       {isGenerating && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-              <span>Generating document...</span>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-primary-foreground p-4 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+            <span>Generating document...</span>
+          </div>
+        </div>
       )}
 
       {/* Report Status Tracker */}
