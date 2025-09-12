@@ -3,7 +3,7 @@ import AuthCheck from "~/components/ui/authcheck";
 import prisma from "~/lib/prisma";
 import { ElectionDates } from "./ElectionDates";
 
-const AdminDashboardPage: React.FC = async () => {
+const AdminDashboardPage = async () => {
   const electionDates = await prisma.electionDate.findMany();
 
   return (
