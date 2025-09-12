@@ -16,13 +16,28 @@ import { FieldSelection } from "../committee-reports/components/FieldSelection";
 import { XLSXConfig } from "../committee-reports/components/XLSXConfig";
 import { useFormValidation } from "../committee-reports/hooks/useFormValidation";
 import { ErrorDisplay } from "./components/ErrorDisplay";
+import type {
+  VoterRecordField,
+  VoterRecordAPI,
+} from "@voter-file-tool/shared-validators";
+import { mapVoterRecordAPIToMemberWithFields } from "@voter-file-tool/shared-validators";
 import type { VoterRecord } from "@prisma/client";
-import type { VoterRecordField } from "@voter-file-tool/shared-validators";
-import { mapVoterRecordToMemberWithFields } from "@voter-file-tool/shared-validators";
 import type { XLSXConfigFormData } from "../committee-reports/types";
 import { useToast } from "~/components/ui/use-toast";
 import { useVoterSearch } from "~/contexts/VoterSearchContext";
 import { MAX_RECORDS_FOR_EXPORT } from "~/constants/limits";
+
+// Utility function to convert API records back to Prisma format for display
+function convertAPIToPrismaRecord(apiRecord: VoterRecordAPI): VoterRecord {
+  return {
+    ...apiRecord,
+    DOB: apiRecord.DOB ? new Date(apiRecord.DOB) : null,
+    lastUpdate: apiRecord.lastUpdate ? new Date(apiRecord.lastUpdate) : null,
+    originalRegDate: apiRecord.originalRegDate
+      ? new Date(apiRecord.originalRegDate)
+      : null,
+  } as VoterRecord;
+}
 
 type VoterListReportFormProps = Record<string, never>;
 
@@ -43,7 +58,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
   const { searchQuery, flattenedSearchQuery, clearSearchQuery } =
     useVoterSearch();
 
-  const [searchResults, setSearchResults] = useState<VoterRecord[]>([]);
+  const [searchResults, setSearchResults] = useState<VoterRecordAPI[]>([]);
   const [totalRecords, setTotalRecords] = useState<number>(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportId, setReportId] = useState<string | null>(null);
@@ -118,7 +133,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     try {
       const partialVoterRecords = searchResults
         .map((voter) => {
-          return mapVoterRecordToMemberWithFields(
+          return mapVoterRecordAPIToMemberWithFields(
             voter,
             formData.includeFields,
             formData.includeCompoundFields,
@@ -195,7 +210,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
           if (response.ok) {
             const data = (await response.json()) as {
-              data: VoterRecord[];
+              data: VoterRecordAPI[];
               totalRecords: number;
             };
             setSearchResults(data.data || []);
@@ -368,7 +383,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
             </AccordionTrigger>
             <AccordionContent className="space-y-4 bg-white p-6 pt-0 rounded-lg">
               <VoterRecordTable
-                records={searchResults}
+                records={searchResults.map(convertAPIToPrismaRecord)}
                 paginated={false}
                 fieldsList={["DOB", "Telephone"]}
               />
