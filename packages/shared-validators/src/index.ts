@@ -7,6 +7,7 @@ export * from './schemas/api';
 
 // Export utility functions
 export * from './compoundFieldUtils';
+export * from './searchQueryUtils';
 
 // Re-export commonly used Zod utilities
 export { z } from 'zod';

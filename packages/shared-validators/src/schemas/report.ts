@@ -2,6 +2,28 @@ import { z } from 'zod';
 import { generateDesignatedPetitionDataSchema } from './designatedPetition';
 import { partialVoterRecordSchema } from './voterRecord';
 
+// Field types used in search queries
+export const fieldTypeEnum = z.enum([
+  'String',
+  'number',
+  'Boolean',
+  'DateTime',
+  'Dropdown',
+  'Street',
+  'CityTown',
+  'Hidden',
+]);
+
+// Search query field schema for voter records
+export const searchQueryFieldSchema = z.object({
+  field: z.string(),
+  value: z.union([
+    z.string().nullable(),
+    z.number().nullable(),
+    z.boolean().nullable(),
+  ]),
+});
+
 // Shared format enum
 export const reportFormatEnum = z
   .enum(['pdf', 'xlsx'])
@@ -60,7 +82,7 @@ const voterListReportSchema = z.object({
   type: z.literal('voterList'),
   ...baseApiSchema.shape,
   format: z.literal('xlsx'),
-  payload: z.array(partialVoterRecordSchema),
+  searchQuery: z.array(searchQueryFieldSchema),
   includeFields: z.array(z.string()).optional().default([]),
   xlsxConfig: xlsxConfigSchema,
 });
@@ -145,3 +167,4 @@ export type ReportCompleteResponse = z.infer<
   typeof reportCompleteResponseSchema
 >;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
+export type SearchQueryField = z.infer<typeof searchQueryFieldSchema>;

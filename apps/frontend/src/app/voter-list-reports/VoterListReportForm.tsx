@@ -21,7 +21,6 @@ import type {
   VoterRecordField,
   VoterRecordAPI,
 } from "@voter-file-tool/shared-validators";
-import { mapVoterRecordAPIToMemberWithFields } from "@voter-file-tool/shared-validators";
 import type { VoterRecord } from "@prisma/client";
 import type { XLSXConfigFormData } from "../committee-reports/types";
 import { useToast } from "~/components/ui/use-toast";
@@ -30,16 +29,48 @@ import { MAX_RECORDS_FOR_EXPORT } from "~/constants/limits";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 
 // Utility function to convert API records back to Prisma format for display
-function convertAPIToPrismaRecord(apiRecord: VoterRecordAPI): VoterRecord {
-  return {
+const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
+  // Validate required fields upfront
+  if (!apiRecord.VRCNUM) {
+    throw new Error("Missing required field: VRCNUM");
+  }
+  if (
+    apiRecord.latestRecordEntryYear === undefined ||
+    apiRecord.latestRecordEntryYear === null
+  ) {
+    throw new Error("Missing required field: latestRecordEntryYear");
+  }
+  if (
+    apiRecord.latestRecordEntryNumber === undefined ||
+    apiRecord.latestRecordEntryNumber === null
+  ) {
+    throw new Error("Missing required field: latestRecordEntryNumber");
+  }
+
+  // Helper function to safely convert date strings to Date or null
+  const convertDateString = (
+    dateString: string | null | undefined,
+  ): Date | null => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
+  // Create the Prisma record by spreading the API record and handling special cases
+  const prismaRecord = {
     ...apiRecord,
-    DOB: apiRecord.DOB ? new Date(apiRecord.DOB) : null,
-    lastUpdate: apiRecord.lastUpdate ? new Date(apiRecord.lastUpdate) : null,
-    originalRegDate: apiRecord.originalRegDate
-      ? new Date(apiRecord.originalRegDate)
-      : null,
-  } as VoterRecord;
-}
+    // Convert date strings to Date objects
+    DOB: convertDateString(apiRecord.DOB),
+    lastUpdate: convertDateString(apiRecord.lastUpdate),
+    originalRegDate: convertDateString(apiRecord.originalRegDate),
+  };
+
+  // Remove API-only computed fields that don't exist in the Prisma model
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { hasDiscrepancy, ...prismaRecordWithoutComputedFields } = prismaRecord;
+
+  return prismaRecordWithoutComputedFields as VoterRecord;
+};
 
 type VoterListReportFormProps = Record<string, never>;
 
@@ -61,8 +92,8 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
   const { searchQuery, flattenedSearchQuery, clearSearchQuery } =
     useVoterSearch();
 
-  const [searchResults, setSearchResults] = useState<VoterRecordAPI[]>([]);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [searchResults, setSearchResults] = useState<VoterRecord[]>([]);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportId, setReportId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -89,6 +120,63 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     clearErrorTracking,
     hadErrorsSinceLastSubmit,
   } = useFormValidation(formData);
+
+  // Fetch search results when search query changes
+  React.useEffect(() => {
+    const abortController = new AbortController();
+
+    const fetchSearchResults = async () => {
+      if (flattenedSearchQuery.length === 0) {
+        setSearchResults([]);
+        setTotalRecords(0);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/fetchFilteredData", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            searchQuery: flattenedSearchQuery,
+            pageSize: 100, // Only fetch first 100 for preview
+            page: 1,
+          }),
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch search results");
+        }
+
+        const data = (await response.json()) as {
+          data: VoterRecordAPI[];
+          totalRecords: number;
+        };
+
+        // Convert API records to Prisma format for display
+        const prismaRecords = data.data.map(convertAPIToPrismaRecord);
+        setSearchResults(prismaRecords);
+        setTotalRecords(data.totalRecords);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          // Request was cancelled, don't update state
+          return;
+        }
+
+        console.error("Error fetching search results:", error);
+        setSearchResults([]);
+        setTotalRecords(0);
+      }
+    };
+
+    void fetchSearchResults();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [flattenedSearchQuery]);
 
   // Handle report completion
   const handleReportComplete = (url: string) => {
@@ -155,19 +243,20 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       return;
     }
 
-    if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
+    if (flattenedSearchQuery.length === 0) {
       toast({
-        title: "Too Many Records",
-        description: `Cannot export ${totalRecords} records. Maximum allowed is ${MAX_RECORDS_FOR_EXPORT.toLocaleString()}.`,
+        title: "No Search Query",
+        description:
+          "Please perform a search first before generating a report.",
         variant: "destructive",
       });
       return;
     }
 
-    if (searchResults.length === 0) {
+    if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
       toast({
-        title: "No Records",
-        description: "Please search for voter records first.",
+        title: "Too Many Records",
+        description: `Found ${totalRecords} records, but the maximum for export is ${MAX_RECORDS_FOR_EXPORT}. Please refine your search criteria.`,
         variant: "destructive",
       });
       return;
@@ -177,22 +266,12 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     clearErrorTracking();
 
     try {
-      const partialVoterRecords = searchResults
-        .map((voter) => {
-          return mapVoterRecordAPIToMemberWithFields(
-            voter,
-            formData.includeFields,
-            formData.includeCompoundFields,
-          );
-        })
-        .filter((record) => record !== null);
-
       const reportPayload = {
         type: "voterList" as const,
         name: formData.name,
         description: formData.description,
         format: "xlsx" as const,
-        payload: partialVoterRecords,
+        searchQuery: flattenedSearchQuery,
         includeFields: formData.includeFields,
         xlsxConfig: {
           includeCompoundFields: formData.includeCompoundFields,
@@ -240,43 +319,10 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     }
   };
 
-  React.useEffect(() => {
-    if (flattenedSearchQuery.length > 0 && searchResults.length === 0) {
-      const fetchSearchResults = async () => {
-        try {
-          const response = await fetch("/api/fetchFilteredData", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              searchQuery: flattenedSearchQuery,
-              pageSize: 100, // Maximum allowed by API
-              page: 1,
-            }),
-          });
-
-          if (response.ok) {
-            const data = (await response.json()) as {
-              data: VoterRecordAPI[];
-              totalRecords: number;
-            };
-            setSearchResults(data.data || []);
-            setTotalRecords(data.totalRecords || 0);
-          }
-        } catch (error) {
-          console.error("Failed to load search results from context:", error);
-        }
-      };
-
-      void fetchSearchResults();
-    }
-  }, [flattenedSearchQuery, searchResults.length]);
-
-  // Note: We don't clear the search query on unmount anymore
-  // to allow users to navigate back and forth between pages
-
-  const canExport = totalRecords > 0 && totalRecords <= MAX_RECORDS_FOR_EXPORT;
+  const canExport =
+    flattenedSearchQuery.length > 0 &&
+    totalRecords > 0 &&
+    totalRecords <= MAX_RECORDS_FOR_EXPORT;
 
   return (
     <div className="space-y-6">
@@ -402,42 +448,35 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
         </Card>
       )}
 
-      {/* Search Results */}
+      {/* Search Results Preview */}
       {searchResults.length > 0 && (
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem
-            value="search-results"
-            className="bg-white rounded-lg shadow-sm"
-          >
-            <AccordionTrigger className="primary-header text-left bg-white px-6 py-4">
-              <div className="text-left">
-                <div className="font-semibold">
-                  Search Results ({totalRecords.toLocaleString()} records)
-                  {totalRecords > MAX_RECORDS_FOR_EXPORT && (
-                    <span className="text-destructive ml-2">
-                      (Too many for export - max{" "}
-                      {MAX_RECORDS_FOR_EXPORT.toLocaleString()})
-                    </span>
-                  )}
-                </div>
-                {totalRecords > 100 && (
-                  <div className="text-sm text-muted-foreground font-normal">
-                    Showing preview of first 100 records. All{" "}
-                    {totalRecords.toLocaleString()} records will be included in
-                    the export.
+        <Card>
+          <CardHeader>
+            <h3 className="primary-header">Search Results Preview</h3>
+            <p className="text-sm text-muted-foreground">
+              Showing first {searchResults.length} of{" "}
+              {totalRecords.toLocaleString()} records
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="search-results">
+                <AccordionTrigger>
+                  View Search Results ({searchResults.length} records)
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="mt-4">
+                    <VoterRecordTable
+                      records={searchResults}
+                      fieldsList={[]}
+                      paginated={false}
+                    />
                   </div>
-                )}
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="space-y-4 bg-white p-6 pt-0 rounded-lg">
-              <VoterRecordTable
-                records={searchResults.map(convertAPIToPrismaRecord)}
-                paginated={false}
-                fieldsList={["DOB", "Telephone"]}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </CardContent>
+        </Card>
       )}
 
       {/* Report Configuration */}

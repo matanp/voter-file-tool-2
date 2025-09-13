@@ -19,6 +19,7 @@
     "@aws-sdk/client-s3": "^3.879.0",
     "@aws-sdk/lib-storage": "^3.884.0",
     "@aws-sdk/s3-request-presigner": "^3.879.0",
+    "@prisma/client": "^5.15.0",
     "@types/async": "^3.2.25",
     "@voter-file-tool/shared-prisma": "workspace:^",
     "@voter-file-tool/shared-validators": "workspace:^",
