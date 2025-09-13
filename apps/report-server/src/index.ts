@@ -20,7 +20,11 @@ import {
   type ReportCompleteWebhookPayload,
   type CallbackUrl,
   type VoterRecordField,
+  type SearchQueryField,
+  convertPrismaVoterRecordToAPI,
+  buildPrismaWhereClause,
 } from '@voter-file-tool/shared-validators';
+import { prisma } from './lib/prisma';
 
 // Function to generate a descriptive filename
 function generateFilename(
@@ -138,6 +142,22 @@ app.post(
 );
 
 /**
+ * Fetches voter records based on search query
+ * @param searchQuery - Array of search query fields
+ * @returns Array of voter records
+ */
+async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
+  const whereClause = buildPrismaWhereClause(searchQuery);
+
+  const records = await prisma.voterRecord.findMany({
+    where: whereClause,
+    take: 20000, // Maximum records for export
+  });
+
+  return records;
+}
+
+/**
  * Extracts XLSX configuration from job data
  * @param jobData - The enriched report data
  * @returns XLSX configuration object
@@ -166,7 +186,7 @@ function extractXLSXConfig(jobData: EnrichedReportData) {
 async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName: string;
-    const { type, reportAuthor, jobId, payload, name } = jobData;
+    const { type, reportAuthor, jobId, name } = jobData;
     const format =
       (type === 'ldCommittees' || type === 'voterList') && 'format' in jobData
         ? (jobData as any).format
@@ -182,6 +202,7 @@ async function processJob(jobData: EnrichedReportData) {
       if (format === 'xlsx') {
         console.log('Processing committee report as XLSX...');
         const xlsxConfig = extractXLSXConfig(jobData);
+        const payload = 'payload' in jobData ? jobData.payload : [];
         await generateUnifiedXLSXAndUpload(
           payload,
           fileName,
@@ -190,20 +211,40 @@ async function processJob(jobData: EnrichedReportData) {
         );
       } else {
         console.log('Processing committee report as PDF...');
+        const payload = 'payload' in jobData ? jobData.payload : [];
         const html = generateCommitteeReportHTML(payload);
         await generatePDFAndUpload(html, true, fileName);
       }
     } else if (type === 'voterList') {
       console.log('Processing voter list report as XLSX...');
       const xlsxConfig = extractXLSXConfig(jobData);
+
+      console.log('Fetching voter records using search query...');
+      const voterRecords = await fetchVoterRecords(
+        (jobData as any).searchQuery
+      );
+      console.log(`Found ${voterRecords.length} voter records`);
+
+      const apiRecords = voterRecords.map(convertPrismaVoterRecordToAPI);
+
       await generateUnifiedXLSXAndUpload(
-        payload,
+        apiRecords,
         fileName,
         xlsxConfig,
         'voterList'
       );
     } else if (type === 'designatedPetition') {
       console.log('Processing designated petition form...');
+      const payload =
+        'payload' in jobData
+          ? jobData.payload
+          : {
+              candidates: [],
+              vacancyAppointments: [],
+              party: '',
+              electionDate: '',
+              numPages: 0,
+            };
       const { candidates, vacancyAppointments, party, electionDate, numPages } =
         payload;
 
