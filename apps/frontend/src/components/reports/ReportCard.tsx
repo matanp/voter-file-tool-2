@@ -25,6 +25,55 @@ import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { formatReportType } from "./reportUtils";
 
+// Utility function to format file sizes in human-readable format
+const formatFileSize = (bytes: number | null): string => {
+  if (bytes === null || bytes === 0) return "Unknown size";
+
+  const units = ["B", "KB", "MB", "GB"];
+  let size = bytes;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
+};
+
+// Utility function to get file type from report data
+const getFileType = (report: ReportCardProps["report"]): string => {
+  // First try the fileType field from the database
+  if (report.fileType) {
+    return report.fileType.toUpperCase();
+  }
+
+  // Fallback to content type
+  if (report.fileContentType) {
+    if (report.fileContentType.includes("pdf")) return "PDF";
+    if (
+      report.fileContentType.includes("spreadsheet") ||
+      report.fileContentType.includes("excel")
+    )
+      return "XLSX";
+  }
+
+  // Fallback to extracting from presigned URL
+  if (report.presignedUrl) {
+    try {
+      const pathname = new URL(report.presignedUrl).pathname;
+      const lastDotIndex = pathname.lastIndexOf(".");
+      if (lastDotIndex !== -1 && lastDotIndex < pathname.length - 1) {
+        return pathname.substring(lastDotIndex + 1).toUpperCase();
+      }
+    } catch (error) {
+      console.warn("Failed to parse URL for file type:", error);
+    }
+  }
+
+  return "Unknown";
+};
+
 interface ReportCardProps {
   report: Report & {
     generatedBy: {
@@ -33,6 +82,8 @@ interface ReportCardProps {
       email: string;
     };
     presignedUrl?: string | null;
+    fileSize?: number | null;
+    fileContentType?: string | null;
   };
   canEdit?: boolean;
   canTogglePublic?: boolean;
@@ -57,6 +108,15 @@ const ReportCard: React.FC<ReportCardProps> = ({
   );
   const [isSaving, setIsSaving] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const hasChanges = React.useMemo(() => {
+    const originalTitle = report.title ?? "";
+    const originalDescription = report.description ?? "";
+    const newTitle = editTitle.trim() || "";
+    const newDescription = editDescription.trim() || "";
+
+    return newTitle !== originalTitle || newDescription !== originalDescription;
+  }, [report.title, report.description, editTitle, editDescription]);
   const handleDownload = () => {
     if (!report.presignedUrl) {
       console.error("No presigned URL available for download");
@@ -109,6 +169,12 @@ const ReportCard: React.FC<ReportCardProps> = ({
 
   const handleSave = async () => {
     if (!onUpdate) return;
+
+    // If no changes were made, just exit edit mode without API call
+    if (!hasChanges) {
+      setIsEditing(false);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -296,16 +362,34 @@ const ReportCard: React.FC<ReportCardProps> = ({
           </div>
         </div>
 
+        {/* File information */}
+        <div className="flex items-center space-x-4 text-sm text-gray-600">
+          <div className="flex items-center space-x-1">
+            <span className="font-medium">File type:</span>
+            <Badge variant="outline" className="text-xs" hoverable={false}>
+              {getFileType(report)}
+            </Badge>
+          </div>
+          {report.fileSize && (
+            <div className="flex items-center space-x-1">
+              <span className="font-medium">Size:</span>
+              <span>{formatFileSize(report.fileSize ?? null)}</span>
+            </div>
+          )}
+        </div>
+
         <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleView}
-            className="flex items-center space-x-1"
-          >
-            <Eye className="h-4 w-4" />
-            <span>View</span>
-          </Button>
+          {getFileType(report) !== "XLSX" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleView}
+              className="flex items-center space-x-1"
+            >
+              <Eye className="h-4 w-4" />
+              <span>View</span>
+            </Button>
+          )}
           <Button
             variant="default"
             size="sm"

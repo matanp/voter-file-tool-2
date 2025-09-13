@@ -1,12 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { fetchFilteredDataSchema } from "../lib/utils";
-import { convertPrismaVoterRecordToAPI } from "@voter-file-tool/shared-validators";
 import {
-  getInvalidEmailConditions,
-  getHasEmailConditions,
-} from "~/lib/emailValidation";
+  convertPrismaVoterRecordToAPI,
+  buildPrismaWhereClause,
+} from "@voter-file-tool/shared-validators";
+import type { Prisma } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,46 +14,8 @@ export async function POST(req: NextRequest) {
     const { searchQuery, pageSize, page } =
       fetchFilteredDataSchema.parse(requestBody);
 
-    let query: Record<string, unknown> = {};
-    const andConditions: Prisma.VoterRecordWhereInput[] = [];
-
-    for (const field of searchQuery) {
-      if (field.value !== "" && field.value !== null) {
-        const fieldField = field.field;
-
-        // Handle email search criteria
-        if (fieldField === "hasEmail") {
-          if (field.value === true) {
-            andConditions.push(getHasEmailConditions());
-          }
-        } else if (fieldField === "hasInvalidEmail") {
-          if (field.value === true) {
-            andConditions.push(getInvalidEmailConditions());
-          }
-        } else if (fieldField === "hasPhone") {
-          if (field.value === true) {
-            andConditions.push(
-              { telephone: { not: null } },
-              { telephone: { not: "" } },
-            );
-          }
-        } else if (fieldField === "firstName" || fieldField === "lastName") {
-          query = {
-            ...query,
-            [fieldField]:
-              typeof field.value === "string"
-                ? field.value.trim().toUpperCase()
-                : field.value,
-          };
-        } else {
-          query = { ...query, [fieldField]: field.value };
-        }
-      }
-    }
-
-    if (andConditions.length > 0) {
-      query.AND = andConditions;
-    }
+    const query: Prisma.VoterRecordWhereInput =
+      buildPrismaWhereClause(searchQuery);
 
     if (!searchQuery) {
       return NextResponse.json(
