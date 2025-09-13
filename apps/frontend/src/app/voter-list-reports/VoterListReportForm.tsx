@@ -25,7 +25,10 @@ import type { VoterRecord } from "@prisma/client";
 import type { XLSXConfigFormData } from "../committee-reports/types";
 import { useToast } from "~/components/ui/use-toast";
 import { useVoterSearch } from "~/contexts/VoterSearchContext";
-import { MAX_RECORDS_FOR_EXPORT } from "~/constants/limits";
+import {
+  MAX_RECORDS_FOR_EXPORT,
+  ADMIN_CONTACT_INFO,
+} from "@voter-file-tool/shared-validators";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 
 // Utility function to convert API records back to Prisma format for display
@@ -256,7 +259,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
       toast({
         title: "Too Many Records",
-        description: `Found ${totalRecords} records, but the maximum for export is ${MAX_RECORDS_FOR_EXPORT}. Please refine your search criteria.`,
+        description: `Found ${totalRecords} records, but the maximum for export is ${MAX_RECORDS_FOR_EXPORT.toLocaleString()}. ${ADMIN_CONTACT_INFO}`,
         variant: "destructive",
       });
       return;
@@ -406,15 +409,27 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
             <div className="mt-4 flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
                 {totalRecords > 0 && (
-                  <span>
-                    Found {totalRecords.toLocaleString()} records
+                  <div>
+                    <span>
+                      Found {totalRecords.toLocaleString()} records
+                      {totalRecords > MAX_RECORDS_FOR_EXPORT && (
+                        <span className="text-destructive ml-1">
+                          (exceeds export limit of{" "}
+                          {MAX_RECORDS_FOR_EXPORT.toLocaleString()})
+                        </span>
+                      )}
+                    </span>
                     {totalRecords > MAX_RECORDS_FOR_EXPORT && (
-                      <span className="text-destructive ml-1">
-                        (exceeds export limit of{" "}
-                        {MAX_RECORDS_FOR_EXPORT.toLocaleString()})
-                      </span>
+                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                        <p className="text-sm text-amber-800 font-medium">
+                          Large Export Request
+                        </p>
+                        <p className="text-sm text-amber-700 mt-1">
+                          {ADMIN_CONTACT_INFO}
+                        </p>
+                      </div>
                     )}
-                  </span>
+                  </div>
                 )}
               </div>
               <Button
