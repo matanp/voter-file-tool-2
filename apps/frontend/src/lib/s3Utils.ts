@@ -4,6 +4,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -72,4 +73,33 @@ export async function getPresignedReadUrl(
   });
 
   return await getSignedUrl(s3, command, { expiresIn });
+}
+
+/**
+ * Get file metadata including size from R2
+ *
+ * @param key - The object key (filename) in the bucket
+ */
+export async function getFileMetadata(key: string): Promise<{
+  size: number;
+  contentType?: string;
+  lastModified?: Date;
+} | null> {
+  try {
+    const command = new HeadObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME!,
+      Key: key,
+    });
+
+    const response = await s3.send(command);
+
+    return {
+      size: response.ContentLength ?? 0,
+      contentType: response.ContentType,
+      lastModified: response.LastModified,
+    };
+  } catch (error) {
+    console.error(`Error getting file metadata for ${key}:`, error);
+    return null;
+  }
 }
