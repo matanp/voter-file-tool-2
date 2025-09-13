@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { auth } from "~/auth";
-import { getPresignedReadUrl } from "~/lib/s3Utils";
+import { getPresignedReadUrl, getFileMetadata } from "~/lib/s3Utils";
 import { JobStatus } from "@prisma/client";
 
 export const GET = async (req: NextRequest) => {
@@ -67,16 +67,20 @@ export const GET = async (req: NextRequest) => {
       }),
     ]);
 
-    // Generate presigned URLs for each report
+    // Generate presigned URLs and file metadata for each report
     const reportsWithUrls = await Promise.all(
       reports.map(async (report) => {
         try {
-          const presignedUrl = report.fileKey
-            ? await getPresignedReadUrl(report.fileKey)
-            : null;
+          const [presignedUrl, fileMetadata] = await Promise.all([
+            report.fileKey ? getPresignedReadUrl(report.fileKey) : null,
+            report.fileKey ? getFileMetadata(report.fileKey) : null,
+          ]);
+
           return {
             ...report,
             presignedUrl,
+            fileSize: fileMetadata?.size ?? null,
+            fileContentType: fileMetadata?.contentType ?? null,
           };
         } catch (error) {
           console.error(
@@ -86,6 +90,8 @@ export const GET = async (req: NextRequest) => {
           return {
             ...report,
             presignedUrl: null,
+            fileSize: null,
+            fileContentType: null,
           };
         }
       }),
