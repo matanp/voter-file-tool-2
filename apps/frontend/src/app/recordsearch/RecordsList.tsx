@@ -12,8 +12,12 @@ import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
 import { Button } from "~/components/ui/button";
 import { useToast } from "~/components/ui/use-toast";
 import { useVoterSearch } from "~/contexts/VoterSearchContext";
-import { MAX_RECORDS_FOR_EXPORT } from "~/constants/limits";
+import {
+  MAX_RECORDS_FOR_EXPORT,
+  ADMIN_CONTACT_INFO,
+} from "@voter-file-tool/shared-validators";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
+import { Info } from "lucide-react";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
@@ -37,6 +41,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(100);
   const [hasSearched, setHasSearched] = React.useState(false);
+  const [isHoveringInfo, setIsHoveringInfo] = React.useState(false);
 
   const fieldsList = React.useMemo(() => {
     return createSmartFieldsList(contextFieldsList);
@@ -110,7 +115,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
       toast({
         title: "Too Many Records",
-        description: `Cannot export ${totalRecords.toLocaleString()} records. Maximum allowed is ${MAX_RECORDS_FOR_EXPORT.toLocaleString()}.`,
+        description: `Cannot export ${totalRecords.toLocaleString()} records. Maximum allowed is ${MAX_RECORDS_FOR_EXPORT.toLocaleString()}. ${ADMIN_CONTACT_INFO}`,
         variant: "destructive",
       });
       return;
@@ -146,16 +151,38 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         <h1>Voter Records</h1>
       </div>
       {hasSearched && totalRecords > 0 && (
-        <div className="w-full flex justify-center pt-4">
-          <Button
-            onClick={handleExport}
-            disabled={totalRecords > MAX_RECORDS_FOR_EXPORT}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            {totalRecords > MAX_RECORDS_FOR_EXPORT
-              ? `Export (${totalRecords.toLocaleString()} records - too many)`
-              : `Export ${totalRecords.toLocaleString()} Records`}
-          </Button>
+        <div className="w-full flex flex-col items-center pt-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleExport}
+              disabled={totalRecords > MAX_RECORDS_FOR_EXPORT}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {totalRecords > MAX_RECORDS_FOR_EXPORT
+                ? `Export (${totalRecords.toLocaleString()} records - too many)`
+                : `Export ${totalRecords.toLocaleString()} Records`}
+            </Button>
+            {totalRecords > MAX_RECORDS_FOR_EXPORT && (
+              <div className="relative">
+                <Info
+                  className="h-5 w-5 text-amber-600 cursor-help"
+                  onMouseEnter={() => setIsHoveringInfo(true)}
+                  onMouseLeave={() => setIsHoveringInfo(false)}
+                  onTouchStart={() => setIsHoveringInfo(!isHoveringInfo)}
+                />
+                {isHoveringInfo && (
+                  <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 w-96 p-4 bg-amber-50 border border-amber-200 rounded-md shadow-lg">
+                    <p className="text-sm text-amber-800 font-medium text-center">
+                      Large Export Request
+                    </p>
+                    <p className="text-sm text-amber-700 mt-1 text-center">
+                      {ADMIN_CONTACT_INFO}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
       <div className="m-10">

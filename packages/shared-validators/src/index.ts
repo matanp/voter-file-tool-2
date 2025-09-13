@@ -9,5 +9,8 @@ export * from './schemas/api';
 export * from './compoundFieldUtils';
 export * from './searchQueryUtils';
 
+// Export shared constants
+export * from './constants';
+
 // Re-export commonly used Zod utilities
 export { z } from 'zod';
