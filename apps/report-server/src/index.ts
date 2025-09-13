@@ -147,14 +147,28 @@ app.post(
  * @returns Array of voter records
  */
 async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
-  const whereClause = buildPrismaWhereClause(searchQuery);
+  try {
+    const whereClause = buildPrismaWhereClause(searchQuery);
+    
+    // First check the count to warn about large datasets
+    const count = await prisma.voterRecord.count({
+      where: whereClause,
+    });
+    
+    if (count > 20000) {
+      console.warn(`Query would return ${count} records, limiting to 20000`);
+    }
 
-  const records = await prisma.voterRecord.findMany({
-    where: whereClause,
-    take: 20000, // Maximum records for export
-  });
+    const records = await prisma.voterRecord.findMany({
+      where: whereClause,
+      take: 20000, // Maximum records for export
+    });
 
-  return records;
+    return records;
+  } catch (error) {
+    console.error('Error fetching voter records:', error);
+    throw new Error(`Failed to fetch voter records: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 /**
