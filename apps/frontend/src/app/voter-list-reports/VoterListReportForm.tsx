@@ -30,56 +30,46 @@ import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
-  return {
-    VRCNUM: apiRecord.VRCNUM,
-    committeeId: apiRecord.committeeId,
-    addressForCommittee: apiRecord.addressForCommittee,
-    latestRecordEntryYear: apiRecord.latestRecordEntryYear,
-    latestRecordEntryNumber: apiRecord.latestRecordEntryNumber,
-    lastName: apiRecord.lastName,
-    firstName: apiRecord.firstName,
-    middleInitial: apiRecord.middleInitial,
-    suffixName: apiRecord.suffixName,
-    houseNum: apiRecord.houseNum,
-    street: apiRecord.street,
-    apartment: apiRecord.apartment,
-    halfAddress: apiRecord.halfAddress,
-    resAddrLine2: apiRecord.resAddrLine2,
-    resAddrLine3: apiRecord.resAddrLine3,
-    city: apiRecord.city,
-    state: apiRecord.state,
-    zipCode: apiRecord.zipCode,
-    zipSuffix: apiRecord.zipSuffix,
-    telephone: apiRecord.telephone,
-    email: apiRecord.email,
-    mailingAddress1: apiRecord.mailingAddress1,
-    mailingAddress2: apiRecord.mailingAddress2,
-    mailingAddress3: apiRecord.mailingAddress3,
-    mailingAddress4: apiRecord.mailingAddress4,
-    mailingCity: apiRecord.mailingCity,
-    mailingState: apiRecord.mailingState,
-    mailingZip: apiRecord.mailingZip,
-    mailingZipSuffix: apiRecord.mailingZipSuffix,
-    party: apiRecord.party,
-    gender: apiRecord.gender,
-    DOB: apiRecord.DOB ? new Date(apiRecord.DOB) : null,
-    L_T: apiRecord.L_T,
-    electionDistrict: apiRecord.electionDistrict,
-    countyLegDistrict: apiRecord.countyLegDistrict,
-    stateAssmblyDistrict: apiRecord.stateAssmblyDistrict,
-    stateSenateDistrict: apiRecord.stateSenateDistrict,
-    congressionalDistrict: apiRecord.congressionalDistrict,
-    CC_WD_Village: apiRecord.CC_WD_Village,
-    townCode: apiRecord.townCode,
-    lastUpdate: apiRecord.lastUpdate ? new Date(apiRecord.lastUpdate) : null,
-    originalRegDate: apiRecord.originalRegDate
-      ? new Date(apiRecord.originalRegDate)
-      : null,
-    statevid: apiRecord.statevid,
-    // Note: These fields are computed fields and not stored in the database
-    // They are calculated on the fly in the API response
-    hasDiscrepancy: apiRecord.hasDiscrepancy,
+  // Validate required fields upfront
+  if (!apiRecord.VRCNUM) {
+    throw new Error("Missing required field: VRCNUM");
+  }
+  if (
+    apiRecord.latestRecordEntryYear === undefined ||
+    apiRecord.latestRecordEntryYear === null
+  ) {
+    throw new Error("Missing required field: latestRecordEntryYear");
+  }
+  if (
+    apiRecord.latestRecordEntryNumber === undefined ||
+    apiRecord.latestRecordEntryNumber === null
+  ) {
+    throw new Error("Missing required field: latestRecordEntryNumber");
+  }
+
+  // Helper function to safely convert date strings to Date or null
+  const convertDateString = (
+    dateString: string | null | undefined,
+  ): Date | null => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? null : date;
   };
+
+  // Create the Prisma record by spreading the API record and handling special cases
+  const prismaRecord = {
+    ...apiRecord,
+    // Convert date strings to Date objects
+    DOB: convertDateString(apiRecord.DOB),
+    lastUpdate: convertDateString(apiRecord.lastUpdate),
+    originalRegDate: convertDateString(apiRecord.originalRegDate),
+  };
+
+  // Remove API-only computed fields that don't exist in the Prisma model
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { hasDiscrepancy, ...prismaRecordWithoutComputedFields } = prismaRecord;
+
+  return prismaRecordWithoutComputedFields as VoterRecord;
 };
 
 type VoterListReportFormProps = Record<string, never>;
@@ -133,6 +123,8 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
   // Fetch search results when search query changes
   React.useEffect(() => {
+    const abortController = new AbortController();
+
     const fetchSearchResults = async () => {
       if (flattenedSearchQuery.length === 0) {
         setSearchResults([]);
@@ -151,6 +143,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
             pageSize: 100, // Only fetch first 100 for preview
             page: 1,
           }),
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -167,6 +160,11 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
         setSearchResults(prismaRecords);
         setTotalRecords(data.totalRecords);
       } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          // Request was cancelled, don't update state
+          return;
+        }
+
         console.error("Error fetching search results:", error);
         setSearchResults([]);
         setTotalRecords(0);
@@ -174,6 +172,10 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     };
 
     void fetchSearchResults();
+
+    return () => {
+      abortController.abort();
+    };
   }, [flattenedSearchQuery]);
 
   // Handle report completion
