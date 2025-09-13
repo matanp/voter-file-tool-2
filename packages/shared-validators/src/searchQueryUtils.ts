@@ -115,12 +115,13 @@ export function buildPrismaWhereClause(
           andConditions.push(getHasPhoneConditions());
         }
       } else if (fieldField === 'firstName' || fieldField === 'lastName') {
+        const value = field.value;
+        if (value === null || value === undefined) {
+          continue;
+        }
         query = {
           ...query,
-          [fieldField]:
-            typeof field.value === 'string'
-              ? field.value.trim().toUpperCase()
-              : field.value,
+          [fieldField]: String(value).trim().toUpperCase(),
         };
       } else {
         query = { ...query, [fieldField]: field.value };
