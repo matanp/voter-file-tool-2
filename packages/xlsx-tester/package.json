@@ -1,0 +1,38 @@
+{
+  "name": "@voter-file-tool/xlsx-tester",
+  "version": "1.0.0",
+  "description": "XLSX helper functions for reading Excel file metadata and data",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "xlsx-tester": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prebuild": "pnpm clean",
+    "start": "node dist/cli.js",
+    "test-file": "pnpm build && node dist/cli.js test"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "commander": "^12.0.0",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/node": "^20.11.20",
+    "@types/commander": "^2.12.2"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  }
+}

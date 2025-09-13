@@ -6,4 +6,6 @@ terraform.tfstate*
 **/.env
 
 **/node_modules
+**/dist/
 .vercel
+
