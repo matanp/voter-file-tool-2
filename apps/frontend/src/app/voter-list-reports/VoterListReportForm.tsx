@@ -259,7 +259,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
       toast({
         title: "Too Many Records",
-        description: `Found ${totalRecords} records, but the maximum for export is ${MAX_RECORDS_FOR_EXPORT.toLocaleString()}. ${ADMIN_CONTACT_INFO}`,
+        description: `Found ${totalRecords.toLocaleString()} records, but the maximum for export is ${MAX_RECORDS_FOR_EXPORT.toLocaleString()}. ${ADMIN_CONTACT_INFO}`,
         variant: "destructive",
       });
       return;

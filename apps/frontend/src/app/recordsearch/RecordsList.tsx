@@ -168,7 +168,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
                   className="h-5 w-5 text-amber-600 cursor-help"
                   onMouseEnter={() => setIsHoveringInfo(true)}
                   onMouseLeave={() => setIsHoveringInfo(false)}
-                  onTouchStart={() => setIsHoveringInfo(!isHoveringInfo)}
+                  onClick={() => setIsHoveringInfo(!isHoveringInfo)}
                 />
                 {isHoveringInfo && (
                   <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 w-96 p-4 bg-amber-50 border border-amber-200 rounded-md shadow-lg">
