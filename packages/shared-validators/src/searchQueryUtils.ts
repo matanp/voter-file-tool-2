@@ -24,12 +24,6 @@ export function getValidEmailConditions(): Prisma.VoterRecordWhereInput {
         { email: { contains: ' ' } },
         // Double @ (should only be one)
         { email: { contains: '@@' } },
-        // Very short strings (less than 5 characters)
-        {
-          email: {
-            in: ['', 'a', 'ab', 'abc', 'abcd'],
-          },
-        },
       ],
     },
   };
@@ -53,14 +47,10 @@ export function getInvalidEmailConditions(): Prisma.VoterRecordWhereInput {
       // Starts or ends with dot
       { email: { startsWith: '.' } },
       { email: { endsWith: '.' } },
+      // Contains spaces
+      { email: { contains: ' ' } },
       // Double @ (should only be one)
       { email: { contains: '@@' } },
-      // Very short strings (less than 5 characters)
-      {
-        email: {
-          in: ['', 'a', 'ab', 'abc', 'abcd'],
-        },
-      },
     ],
   };
 }

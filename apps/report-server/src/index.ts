@@ -149,12 +149,12 @@ app.post(
 async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
   try {
     const whereClause = buildPrismaWhereClause(searchQuery);
-    
+
     // First check the count to warn about large datasets
     const count = await prisma.voterRecord.count({
       where: whereClause,
     });
-    
+
     if (count > 20000) {
       console.warn(`Query would return ${count} records, limiting to 20000`);
     }
@@ -167,7 +167,9 @@ async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
     return records;
   } catch (error) {
     console.error('Error fetching voter records:', error);
-    throw new Error(`Failed to fetch voter records: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to fetch voter records: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -234,10 +236,15 @@ async function processJob(jobData: EnrichedReportData) {
       const xlsxConfig = extractXLSXConfig(jobData);
 
       console.log('Fetching voter records using search query...');
-      const voterRecords = await fetchVoterRecords(
-        (jobData as any).searchQuery
-      );
-      console.log(`Found ${voterRecords.length} voter records`);
+
+      let voterRecords: Awaited<ReturnType<typeof prisma.voterRecord.findMany>>;
+      if (type === 'voterList' && 'searchQuery' in jobData) {
+        voterRecords = await fetchVoterRecords(jobData.searchQuery);
+      } else {
+        throw new Error('Missing searchQuery for voterList report');
+      }
+      console.log(`Found 
+        ${voterRecords.length} voter records`);
 
       const apiRecords = voterRecords.map(convertPrismaVoterRecordToAPI);
 
