@@ -33,12 +33,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         // Only allow new user creation if they have a valid invite
         if (!validInvite) {
-          // Log the attempted access for debugging
-          console.log(
-            `Access denied for email: ${user.email} - No valid invite found`,
-          );
-          // Return redirect URL to access denied page with email parameter
-          return `/auth/access-denied?email=${encodeURIComponent(user.email!)}`;
+          return `/auth/access-denied?email=${encodeURIComponent(user.email)}`;
         }
 
         return true;
@@ -47,7 +42,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // For existing users, just sync their privilege level from PrivilegedUser table
       try {
         const privileged = await prisma.privilegedUser.findUnique({
-          where: { email: user.email! },
+          where: { email: user.email },
         });
 
         if (privileged && user.privilegeLevel !== privileged.privilegeLevel) {
@@ -82,7 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Check if user was created via invite by looking for a valid invite
         const validInvite = await prisma.invite.findFirst({
           where: {
-            email: user.email!,
+            email: user.email,
             usedAt: null,
             deleted: false,
             expiresAt: {
@@ -115,7 +110,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // Add user to PrivilegedUser table
           await prisma.privilegedUser.create({
             data: {
-              email: user.email!,
+              email: user.email,
               privilegeLevel: validInvite.privilegeLevel,
             },
           });
@@ -127,7 +122,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         // For non-invite users, check if they should have privileges
         const privilegedUser = await prisma.privilegedUser.findUnique({
-          where: { email: user.email! },
+          where: { email: user.email },
         });
 
         if (privilegedUser) {

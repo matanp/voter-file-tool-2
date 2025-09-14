@@ -14,33 +14,44 @@ import {
 } from "~/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, Invite } from "@prisma/client";
+import { z } from "zod";
 import { Calendar, User, Mail } from "lucide-react";
 import { useToast } from "~/components/ui/use-toast";
 import { DeleteButton } from "~/components/ui/DeleteButton";
 import { CopyButton } from "~/components/ui/CopyButton";
 
-interface Invite {
-  id: string;
-  email: string;
-  token: string;
-  privilegeLevel: PrivilegeLevel;
-  customMessage: string | null;
+// Type for serialized Invite data (dates as strings)
+type SerializedInvite = Omit<Invite, "expiresAt" | "createdAt" | "usedAt"> & {
   expiresAt: string;
-  usedAt: string | null;
   createdAt: string;
-  createdBy: string;
-}
+  usedAt: string | null;
+};
 
-interface CreateInviteData {
+// Use the same schema as the API
+const createInviteSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  privilegeLevel: z
+    .nativeEnum(PrivilegeLevel, {
+      errorMap: () => ({ message: "Invalid privilege level" }),
+    })
+    .refine((level) => level !== PrivilegeLevel.Developer, {
+      message: "Developer privilege level is not allowed for invites",
+    }),
+  customMessage: z.string().optional(),
+  expiresInDays: z.number().min(1).max(365).optional().default(7),
+});
+
+// Type that excludes Developer privilege level for invites
+type CreateInviteData = {
   email: string;
-  privilegeLevel: PrivilegeLevel;
+  privilegeLevel: "Admin" | "RequestAccess" | "ReadAccess";
   customMessage?: string;
   expiresInDays?: number;
-}
+};
 
 interface InvitesResponse {
-  invites: Invite[];
+  invites: SerializedInvite[];
 }
 
 interface ErrorResponse {
@@ -53,18 +64,17 @@ interface ErrorResponse {
 
 export function InviteManagement() {
   const { toast } = useToast();
-  const [invites, setInvites] = useState<Invite[]>([]);
+  const [invites, setInvites] = useState<SerializedInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [formData, setFormData] = useState<CreateInviteData>({
     email: "",
-    privilegeLevel: PrivilegeLevel.ReadAccess,
+    privilegeLevel: "ReadAccess",
     customMessage: "",
     expiresInDays: 7,
   });
 
-  // Fetch invites
   const fetchInvites = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/invites");
@@ -94,7 +104,6 @@ export function InviteManagement() {
     void fetchInvites();
   }, [fetchInvites]);
 
-  // Create invite
   const createInvite = async () => {
     if (!formData.email || !formData.privilegeLevel) {
       toast({
@@ -122,7 +131,7 @@ export function InviteManagement() {
         });
         setFormData({
           email: "",
-          privilegeLevel: PrivilegeLevel.ReadAccess,
+          privilegeLevel: "ReadAccess",
           customMessage: "",
           expiresInDays: 7,
         });
@@ -147,7 +156,7 @@ export function InviteManagement() {
     }
   };
 
-  const copyInviteUrl = async (invite: Invite) => {
+  const copyInviteUrl = async (invite: SerializedInvite) => {
     const baseUrl = window.location.origin;
     const inviteUrl = `${baseUrl}/auth/invite/${invite.token}`;
     await navigator.clipboard.writeText(inviteUrl);
@@ -252,21 +261,17 @@ export function InviteManagement() {
               <Label htmlFor="privilegeLevel">Privilege Level</Label>
               <Select
                 value={formData.privilegeLevel}
-                onValueChange={(value: PrivilegeLevel) =>
-                  setFormData({ ...formData, privilegeLevel: value })
-                }
+                onValueChange={(
+                  value: "Admin" | "RequestAccess" | "ReadAccess",
+                ) => setFormData({ ...formData, privilegeLevel: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={PrivilegeLevel.ReadAccess}>
-                    Read Access
-                  </SelectItem>
-                  <SelectItem value={PrivilegeLevel.RequestAccess}>
-                    Request Access
-                  </SelectItem>
-                  <SelectItem value={PrivilegeLevel.Admin}>Admin</SelectItem>
+                  <SelectItem value="ReadAccess">Read Access</SelectItem>
+                  <SelectItem value="RequestAccess">Request Access</SelectItem>
+                  <SelectItem value="Admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>

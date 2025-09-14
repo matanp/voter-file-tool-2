@@ -6,16 +6,12 @@ import { signIn } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
-// import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Loader2, Mail, Shield, Calendar, MessageSquare } from "lucide-react";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type Invite } from "@prisma/client";
 
-interface InviteData {
-  email: string;
-  privilegeLevel: PrivilegeLevel;
-  customMessage: string | null;
-  expiresAt: string;
-}
+type InviteData = Pick<Invite, "email" | "privilegeLevel" | "customMessage"> & {
+  expiresAt: string; // API returns as string instead of Date
+};
 
 export default function InvitePage() {
   const params = useParams();
@@ -26,8 +22,6 @@ export default function InvitePage() {
   const [signingIn, setSigningIn] = useState(false);
 
   const token = params?.token as string;
-
-  console.log("token", token);
 
   useEffect(() => {
     if (!token) {
@@ -202,7 +196,6 @@ export default function InvitePage() {
             </div>
           </div>
 
-          {/* Custom Message */}
           {invite.customMessage && (
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
@@ -215,7 +208,6 @@ export default function InvitePage() {
             </div>
           )}
 
-          {/* Sign In Button */}
           <div className="space-y-4">
             <Button
               onClick={handleSignIn}
