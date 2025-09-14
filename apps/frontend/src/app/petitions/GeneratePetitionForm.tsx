@@ -17,6 +17,7 @@ import {
   generateReportSchema,
 } from "@voter-file-tool/shared-validators";
 import { ReportStatusTracker } from "../components/ReportStatusTracker";
+import { useApiMutation } from "~/hooks/useApiMutation";
 
 type GeneratePetitionFormProps = {
   parties: string[];
@@ -73,6 +74,28 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   const [reportId, setReportId] = useState<string>("");
   const [reportUrl, setReportUrl] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+
+  // API mutation hook
+  const generateReportMutation = useApiMutation<
+    { reportId: string },
+    GenerateReportData
+  >("/api/generateReport", "POST", {
+    onSuccess: (data) => {
+      setReportId(data.reportId);
+      toast({
+        title: "Report Generation Started",
+        description:
+          "Your petition is being generated. You'll be notified when it's ready.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to generate petition: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleSubmit = async (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -140,28 +163,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       duration: 3000,
     });
 
-    const response = await fetch(`/api/generateReport`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    });
-
-    if (!response.ok) {
-      toast({
-        description: "Error generating PDF",
-        duration: 5000,
-      });
-      return;
-    }
-
-    const responseData = (await response.json()) as unknown as {
-      reportId: string;
-    };
-
-    setReportId(responseData?.reportId);
-    setGenerationError(null); // Clear any previous errors when starting new generation
+    await generateReportMutation.mutate(formData);
   };
 
   useEffect(() => {
@@ -458,7 +460,14 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       </div>
 
       <div className="pt-4">
-        <Button onClick={(e) => void handleSubmit(e)}>Generate Petition</Button>
+        <Button
+          onClick={(e) => void handleSubmit(e)}
+          disabled={generateReportMutation.loading}
+        >
+          {generateReportMutation.loading
+            ? "Generating..."
+            : "Generate Petition"}
+        </Button>
         {Object.keys(errors).length > 0 && (
           <p className="text-destructive">
             Please fill out all required fields

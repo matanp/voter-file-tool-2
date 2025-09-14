@@ -4,6 +4,7 @@ import type { OfficeName } from "@prisma/client";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
 
 interface ElectionOfficesProps {
   officeNames: OfficeName[];
@@ -14,6 +15,35 @@ export const ElectionOffices = ({
 }: ElectionOfficesProps) => {
   const [officeNames, setOfficeNames] = useState<OfficeName[]>(initialOffices);
   const [newOffice, setNewOffice] = useState<string>("");
+
+  // API mutation hooks
+  const addOfficeMutation = useApiMutation<OfficeName, { name: string }>(
+    "/api/admin/officeNames",
+    "POST",
+    {
+      onSuccess: (createdOffice) => {
+        setOfficeNames([...officeNames, createdOffice]);
+        setNewOffice("");
+      },
+      onError: (error) => {
+        console.error("Failed to add office", error);
+      },
+    },
+  );
+
+  const deleteOfficeMutation = useApiDelete<OfficeName, { id: number }>(
+    "/api/admin/officeNames",
+    {
+      onSuccess: (data, payload) => {
+        if (payload?.id) {
+          setOfficeNames(officeNames.filter((o) => o.id !== payload.id));
+        }
+      },
+      onError: (error) => {
+        console.error("Failed to delete office", error);
+      },
+    },
+  );
 
   useEffect(() => {
     const loadOffices = async () => {
@@ -37,36 +67,14 @@ export const ElectionOffices = ({
 
   const handleAddOffice = async () => {
     if (!newOffice.trim()) return;
-
-    try {
-      const res = await fetch("/api/admin/officeNames", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newOffice.trim() }),
-      });
-
-      if (res.ok) {
-        const created = (await res.json()) as OfficeName;
-        setOfficeNames([...officeNames, created]);
-        setNewOffice("");
-      }
-    } catch (err) {
-      console.error("Failed to add office", err);
-    }
+    await addOfficeMutation.mutate({ name: newOffice.trim() });
   };
 
   const handleDeleteOffice = async (id: number) => {
-    try {
-      const res = await fetch(`/api/admin/officeNames/${id}}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        setOfficeNames(officeNames.filter((o) => o.id !== id));
-      }
-    } catch (err) {
-      console.error("Failed to delete office", err);
-    }
+    await deleteOfficeMutation.mutate(
+      undefined,
+      `/api/admin/officeNames/${id}`,
+    );
   };
 
   return (
@@ -83,8 +91,9 @@ export const ElectionOffices = ({
             <Button
               variant="destructive"
               onClick={() => handleDeleteOffice(office.id)}
+              disabled={deleteOfficeMutation.loading}
             >
-              Delete
+              {deleteOfficeMutation.loading ? "Deleting..." : "Delete"}
             </Button>
           </li>
         ))}
@@ -96,8 +105,11 @@ export const ElectionOffices = ({
           onChange={(e) => setNewOffice(e.target.value)}
           placeholder="New office name"
         />
-        <Button onClick={handleAddOffice} disabled={!newOffice.trim()}>
-          Add Office
+        <Button
+          onClick={handleAddOffice}
+          disabled={!newOffice.trim() || addOfficeMutation.loading}
+        >
+          {addOfficeMutation.loading ? "Adding..." : "Add Office"}
         </Button>
       </div>
     </div>
