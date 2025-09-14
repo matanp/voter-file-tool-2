@@ -22,7 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (!existingUser) {
         const validInvite = await prisma.invite.findFirst({
           where: {
-            email: user.email!,
+            email: user.email,
             usedAt: null,
             deleted: false,
             expiresAt: {
