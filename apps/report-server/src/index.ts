@@ -16,6 +16,7 @@ import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
   callbackUrlSchema,
+  MAX_RECORDS_FOR_EXPORT,
   type EnrichedReportData,
   type ReportCompleteWebhookPayload,
   type CallbackUrl,
@@ -155,13 +156,15 @@ async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
       where: whereClause,
     });
 
-    if (count > 20000) {
-      console.warn(`Query would return ${count} records, limiting to 20000`);
+    if (count > MAX_RECORDS_FOR_EXPORT) {
+      console.warn(
+        `Query would return ${count} records, limiting to ${MAX_RECORDS_FOR_EXPORT}`
+      );
     }
 
     const records = await prisma.voterRecord.findMany({
       where: whereClause,
-      take: 20000, // Maximum records for export
+      take: MAX_RECORDS_FOR_EXPORT,
     });
 
     return records;
