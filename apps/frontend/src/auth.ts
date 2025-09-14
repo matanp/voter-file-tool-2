@@ -91,7 +91,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             `Found valid invite for new user: ${user.email}, marking as used`,
           );
 
-          // Mark invite as used first (atomic operation)
+          // Mark invite as used first
           await prisma.invite.update({
             where: { id: validInvite.id },
             data: {

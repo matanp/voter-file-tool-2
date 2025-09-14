@@ -27,12 +27,14 @@ export function CopyButton({
 }: CopyButtonProps) {
   return (
     <Button
+      type="button"
       size={size}
       variant={variant}
       onClick={onClick}
       disabled={disabled}
       className={`h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 ${className}`}
       title={title}
+      aria-label={title}
     >
       <Copy className="h-4 w-4" />
     </Button>

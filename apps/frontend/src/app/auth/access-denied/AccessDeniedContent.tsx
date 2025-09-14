@@ -12,7 +12,7 @@ export default function AccessDeniedContent() {
   useEffect(() => {
     const email = searchParams?.get("email");
     if (email) {
-      setAttemptedEmail(decodeURIComponent(email));
+      setAttemptedEmail(email);
       console.log("Access denied for email:", email);
     }
   }, [searchParams]);
