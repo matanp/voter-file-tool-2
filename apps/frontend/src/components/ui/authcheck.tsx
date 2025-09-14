@@ -22,19 +22,23 @@ export default function AuthCheck({
         privilegeLevel,
       )
     ) {
-      <div className="w-full flex flex-col items-center">
-        <h1>
-          You do not have permission for this page. Contact an admin if you
-          believe this is an error.
-        </h1>
-      </div>;
+      return (
+        <div className="w-full flex flex-col items-center">
+          <h1>
+            You do not have permission for this page. Contact an admin if you
+            believe this is an error.
+          </h1>
+        </div>
+      );
     }
 
     return children;
   } else if (status === "loading") {
-    <div className="w-full flex flex-col items-center">
-      <h1>Loading...</h1>
-    </div>;
+    return (
+      <div className="w-full flex flex-col items-center">
+        <h1>Loading...</h1>
+      </div>
+    );
   } else {
     return (
       <div className="w-full flex flex-col items-center">
