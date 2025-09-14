@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { type Report, type JobStatus } from "@prisma/client";
 import { formatReportType } from "./reportUtils";
+import { useApiDelete } from "~/hooks/useApiMutation";
 
 interface PendingJobsIndicatorProps {
   initialJobs?: Report[];
@@ -29,8 +30,20 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   initialJobs = [],
 }) => {
   const [jobs, setJobs] = useState<Report[]>(initialJobs);
+
   const [loading, setLoading] = useState(false);
-  const [deletingJobs, setDeletingJobs] = useState<Set<string>>(new Set());
+
+  const deleteJobMutation = useApiDelete<{ success: boolean }, { id: string }>(
+    "/api/reports",
+    {
+      onSuccess: (_, payload) => {
+        setJobs((prev) => prev.filter((job) => job.id !== payload?.id));
+      },
+      onError: (error) => {
+        console.error("Error deleting report:", error);
+      },
+    },
+  );
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -109,27 +122,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       return;
     }
 
-    setDeletingJobs((prev) => new Set(prev).add(jobId));
-    try {
-      const response = await fetch(`/api/reports/${jobId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete report");
-      }
-
-      // Remove the job from the list
-      setJobs((prev) => prev.filter((job) => job.id !== jobId));
-    } catch (error) {
-      console.error("Error deleting report:", error);
-    } finally {
-      setDeletingJobs((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(jobId);
-        return newSet;
-      });
-    }
+    await deleteJobMutation.mutate({ id: jobId }, `/api/reports/${jobId}`);
   };
 
   const pendingJobs = jobs.filter(
@@ -211,7 +204,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
                   size="sm"
                   variant="ghost"
                   onClick={() => handleDeleteJob(job.id)}
-                  disabled={deletingJobs.has(job.id)}
+                  disabled={deleteJobMutation.loading}
                   className="h-8 w-8 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                   title="Delete failed report"
                 >

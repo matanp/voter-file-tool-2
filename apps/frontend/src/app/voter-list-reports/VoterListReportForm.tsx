@@ -213,7 +213,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     return () => {
       abortController.abort();
     };
-  }, [flattenedSearchQuery]);
+  }, [fetchDataMutation, flattenedSearchQuery]);
 
   // Handle report completion
   const handleReportComplete = (url: string) => {

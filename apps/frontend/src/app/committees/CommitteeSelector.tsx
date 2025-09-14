@@ -14,6 +14,7 @@ import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
+import { useApiMutation } from "~/hooks/useApiMutation";
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
@@ -31,8 +32,32 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
   const [requestRemoveRecord, setRequestRemoveRecord] =
     useState<VoterRecord | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
   const [legDistricts, setLegDistricts] = useState<string[]>([]);
+
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const removeCommitteeMemberMutation = useApiMutation<
+    { success: boolean },
+    {
+      cityTown: string;
+      legDistrict: string;
+      electionDistrict: number;
+      memberId: string;
+    }
+  >("/api/committee/remove", "POST", {
+    onSuccess: () => {
+      fetchCommitteeList(
+        selectedCity,
+        selectedDistrict,
+        selectedLegDistrict,
+      ).catch((error) => {
+        console.error("Error fetching committee list:", error);
+      });
+    },
+    onError: (error) => {
+      console.error("Error removing committee member:", error);
+    },
+  });
 
   const cities = new Set(committeeLists.map((list) => list.cityTown));
 
@@ -124,25 +149,11 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   ) => {
     event.preventDefault();
 
-    await fetch(`/api/committee/remove`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cityTown: selectedCity,
-        legDistrict: selectedLegDistrict === "" ? "-1" : selectedLegDistrict,
-        electionDistrict: selectedDistrict,
-        memberId: vrcnum,
-      }),
-    });
-
-    fetchCommitteeList(
-      selectedCity,
-      selectedDistrict,
-      selectedLegDistrict,
-    ).catch((error) => {
-      console.error("Error fetching committee list:", error);
+    await removeCommitteeMemberMutation.mutate({
+      cityTown: selectedCity,
+      legDistrict: selectedLegDistrict === "" ? "-1" : selectedLegDistrict,
+      electionDistrict: selectedDistrict,
+      memberId: vrcnum,
     });
   };
 
@@ -272,8 +283,11 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                               onClick={(e) =>
                                 handleRemoveCommitteeMember(e, member.VRCNUM)
                               }
+                              disabled={removeCommitteeMemberMutation.loading}
                             >
-                              Remove from Committee
+                              {removeCommitteeMemberMutation.loading
+                                ? "Removing..."
+                                : "Remove from Committee"}
                             </Button>
                           </div>
                         )}
