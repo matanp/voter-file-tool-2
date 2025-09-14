@@ -4,13 +4,10 @@ import { z } from "zod";
 
 const tokenSchema = z.string().min(1, "Token is required");
 
-interface RouteParams {
-  params: Promise<{
-    token: string;
-  }>;
-}
-
-async function getInviteHandler(req: NextRequest, { params }: RouteParams) {
+async function getInviteHandler(
+  req: NextRequest,
+  { params }: { params: Promise<{ token: string }> },
+) {
   try {
     const { token } = await params;
 

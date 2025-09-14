@@ -26,6 +26,7 @@ type SerializedInvite = Omit<Invite, "expiresAt" | "createdAt" | "usedAt"> & {
   expiresAt: string;
   createdAt: string;
   usedAt: string | null;
+  token: string;
 };
 
 // Use the same schema as the API
@@ -74,6 +75,33 @@ export function InviteManagement() {
     customMessage: "",
     expiresInDays: 7,
   });
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const validateEmail = (email: string) => {
+    if (!email) {
+      setEmailError(null);
+      return true;
+    }
+
+    try {
+      createInviteSchema.pick({ email: true }).parse({ email });
+      setEmailError(null);
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const emailError = error.errors.find((err) => err.path[0] === "email");
+        if (emailError) {
+          setEmailError(emailError.message);
+        }
+      }
+      return false;
+    }
+  };
+
+  const handleEmailChange = (email: string) => {
+    setFormData({ ...formData, email });
+    validateEmail(email);
+  };
 
   const fetchInvites = useCallback(async () => {
     try {
@@ -109,6 +137,15 @@ export function InviteManagement() {
       toast({
         title: "Error",
         description: "Email and privilege level are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateEmail(formData.email)) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
       return;
@@ -252,10 +289,14 @@ export function InviteManagement() {
                 type="email"
                 placeholder="user@example.com"
                 value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
+                onChange={(e) => handleEmailChange(e.target.value)}
+                className={
+                  emailError ? "border-red-500 focus:border-red-500" : ""
                 }
               />
+              {emailError && (
+                <p className="text-sm text-red-500">{emailError}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="privilegeLevel">Privilege Level</Label>
@@ -311,7 +352,10 @@ export function InviteManagement() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={createInvite} disabled={creating}>
+          <Button
+            onClick={createInvite}
+            disabled={creating || !!emailError || !formData.email.trim()}
+          >
             {creating ? "Creating..." : "Create Invite"}
           </Button>
         </CardContent>
