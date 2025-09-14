@@ -13,6 +13,7 @@ import { GlobalContext } from "../providers/GlobalContext";
 import { ComboboxDropdown } from "./ComboBox";
 import { PrivilegeLevel } from "@prisma/client";
 import { SignOutButton } from "./signInButton";
+import { Badge } from "./badge";
 
 type ManageProfileButtonProps = {
   session: Session;
@@ -35,7 +36,20 @@ export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
         {/* <Button variant={"outline"}>View Profile</Button> */}
       </SheetTrigger>
       <SheetContent>
-        <SheetHeader>
+        <div className="flex items-center justify-between absolute top-4 left-6 right-16">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            Open Source Politics
+          </h2>
+          <Badge
+            variant="secondary"
+            hoverable={false}
+            className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+            title="Thank you for trying out our early access version! Your feedback helps us improve the platform."
+          >
+            BETA
+          </Badge>
+        </div>
+        <SheetHeader className="mt-16">
           <SheetTitle>{session.user?.name ?? "No Name"}</SheetTitle>
           <h1 className={textStyles}>
             <span className="font-light">Email:</span>{" "}
