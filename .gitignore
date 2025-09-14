@@ -9,3 +9,5 @@ terraform.tfstate*
 **/dist/
 .vercel
 
+**/.DS_Store
+
