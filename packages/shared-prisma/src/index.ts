@@ -13,6 +13,7 @@ export type {
   CommitteeUploadDiscrepancy,
   DropdownLists,
   ElectionDate,
+  Invite,
   OfficeName,
   PrivilegedUser,
   Report,
