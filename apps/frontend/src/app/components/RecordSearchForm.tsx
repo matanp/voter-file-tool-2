@@ -5,14 +5,18 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
 import { useWindowSize } from "~/hooks/useWindowSize";
+import { useApiMutation } from "~/hooks/useApiMutation";
+
+// Type that matches the API schema
+type SearchQueryField = {
+  field: string;
+  value: string | number | boolean | null;
+};
 
 type RecordSearchProps = {
   handleResults: (results: VoterRecord[]) => void;
   submitButtonText: string;
-  extraSearchQuery?: {
-    field: string;
-    value: string | number | Date | undefined;
-  }[];
+  extraSearchQuery?: SearchQueryField[];
   headerText?: string;
   optionalExtraSearch?: string;
 };
@@ -28,13 +32,29 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   const [voterId, setVoterId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
   const [useOptionalExtaSearch, setUseOptionalExtraSearch] =
     useState<boolean>(true);
 
+  // API mutation hook
+  const searchMutation = useApiMutation<
+    { data: VoterRecord[] },
+    {
+      searchQuery: SearchQueryField[];
+      page: number;
+      pageSize: number;
+    }
+  >("/api/fetchFilteredData", "POST", {
+    onSuccess: (data) => {
+      handleResults(data.data);
+    },
+    onError: (error) => {
+      console.error("Search failed:", error);
+      handleResults([]);
+    },
+  });
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setLoading(true);
     const query =
       optionalExtraSearch && !useOptionalExtaSearch
         ? []
@@ -52,22 +72,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
       query.push({ field: "lastName", value: lastName });
     }
 
-    const response = await fetch(`/api/fetchFilteredData`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ searchQuery: query, page: 1, pageSize: 100 }),
-    });
-
-    // :TODO: does this need to be validated?
-    const { data } = (await response.json()) as {
-      data: VoterRecord[];
-      totalRecords: number;
-    };
-
-    setLoading(false);
-    handleResults(data);
+    await searchMutation.mutate({ searchQuery: query, page: 1, pageSize: 100 });
   };
   return (
     <>
@@ -95,8 +100,8 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             placeholder={width > 760 ? `Enter Last Name` : "Last Name"}
             onChange={(e) => setLastName(e.target.value)}
           />
-          <Button type="submit">
-            {loading ? "Loading..." : submitButtonText}
+          <Button type="submit" disabled={searchMutation.loading}>
+            {searchMutation.loading ? "Loading..." : submitButtonText}
           </Button>
         </div>
         {optionalExtraSearch && extraSearchQuery && (

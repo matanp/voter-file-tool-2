@@ -18,6 +18,13 @@ import {
 } from "@voter-file-tool/shared-validators";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { Info } from "lucide-react";
+import { useApiMutation } from "~/hooks/useApiMutation";
+
+// Type that matches the API schema
+type SearchQueryField = {
+  field: string;
+  value: string | number | boolean | null;
+};
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
@@ -31,7 +38,6 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   } = useVoterSearch();
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = React.useState(0);
-  const [loading, setLoading] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState<
     {
       field: string;
@@ -43,12 +49,55 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const [hasSearched, setHasSearched] = React.useState(false);
   const [isHoveringInfo, setIsHoveringInfo] = React.useState(false);
 
+  // API mutation hooks
+  const searchMutation = useApiMutation<
+    {
+      data: VoterRecord[];
+      totalRecords: number;
+    },
+    {
+      searchQuery: SearchQueryField[];
+      pageSize: number;
+      page: number;
+    }
+  >("/api/fetchFilteredData", "POST", {
+    onSuccess: (data) => {
+      setRecords(data.data);
+      setTotalRecords(data.totalRecords);
+      setHasSearched(true);
+    },
+    onError: (error) => {
+      console.error("Search failed:", error);
+      setRecords([]);
+      setTotalRecords(0);
+    },
+  });
+
+  const loadMoreMutation = useApiMutation<
+    {
+      data: VoterRecord[];
+      totalRecords: number;
+    },
+    {
+      searchQuery: SearchQueryField[];
+      pageSize: number;
+      page: number;
+    }
+  >("/api/fetchFilteredData", "POST", {
+    onSuccess: (data) => {
+      setRecords((prev) => [...prev, ...data.data]);
+      setPage((prev) => prev + 1);
+    },
+    onError: (error) => {
+      console.error("Load more failed:", error);
+    },
+  });
+
   const fieldsList = React.useMemo(() => {
     return createSmartFieldsList(contextFieldsList);
   }, [contextFieldsList]);
 
   const handleSubmit = async (searchQueryParam: SearchField[]) => {
-    setLoading(true);
     setPage(1);
     setPageSize(100);
     const flattenedQuery = searchQueryParam
@@ -67,48 +116,33 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
 
     setSearchQuery(flattenedQuery);
 
-    const response = await fetch(`/api/fetchFilteredData`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        searchQuery: flattenedQuery,
-        pageSize: 100,
-        page: 1,
-      }),
+    // Convert undefined to null to match API schema
+    const convertedQuery = flattenedQuery.map((item) => ({
+      ...item,
+      value: item.value ?? null,
+    }));
+
+    await searchMutation.mutate({
+      searchQuery: convertedQuery,
+      pageSize: 100,
+      page: 1,
     });
-
-    const { data, totalRecords } = (await response.json()) as {
-      data: VoterRecord[];
-      totalRecords: number;
-    };
-
-    setTotalRecords(totalRecords);
-    setRecords(data);
-    setLoading(false);
-    setHasSearched(true);
 
     setContextSearchQuery(searchQueryParam, flattenedQuery);
   };
 
   const handleLoadMore = async () => {
-    const response = await fetch(`/api/fetchFilteredData`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        searchQuery,
-        pageSize,
-        page: page + 1,
-      }),
+    // Convert undefined to null to match API schema
+    const convertedQuery = searchQuery.map((item) => ({
+      ...item,
+      value: item.value ?? null,
+    }));
+
+    await loadMoreMutation.mutate({
+      searchQuery: convertedQuery,
+      pageSize,
+      page: page + 1,
     });
-    const { data } = (await response.json()) as {
-      data: VoterRecord[];
-    };
-    setRecords((prevRecords) => [...prevRecords, ...data]);
-    setPage((prevPage) => prevPage + 1);
   };
 
   const handleExport = () => {
@@ -186,9 +220,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         </div>
       )}
       <div className="m-10">
-        {loading && <VoterRecordTableSkeleton fieldsList={fieldsList} />}
+        {searchMutation.loading && (
+          <VoterRecordTableSkeleton fieldsList={fieldsList} />
+        )}
 
-        {records.length > 0 && !loading && (
+        {records.length > 0 && !searchMutation.loading && (
           <VoterRecordTable
             records={records}
             fieldsList={fieldsList}

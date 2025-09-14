@@ -20,6 +20,7 @@ import ReportCard from "./ReportCard";
 import { type Report, PrivilegeLevel } from "@prisma/client";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
+import { useApiPatch, useApiDelete } from "~/hooks/useApiMutation";
 
 interface ReportsListProps {
   type: "public" | "my-reports";
@@ -56,6 +57,33 @@ const ReportsList: React.FC<ReportsListProps> = ({
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+
+  // API mutation hooks
+  const updateReportMutation = useApiPatch<
+    Report,
+    { title?: string; description?: string; public?: boolean }
+  >(`/api/reports`, {
+    onSuccess: () => {
+      // Refresh the current page to show updated data
+      void fetchReports(page, true);
+    },
+    onError: (error) => {
+      console.error("Error updating report:", error);
+    },
+  });
+
+  const deleteReportMutation = useApiDelete<Report, { id: string }>(
+    `/api/reports`,
+    {
+      onSuccess: () => {
+        // Refresh the current page to show updated data
+        void fetchReports(page, true);
+      },
+      onError: (error) => {
+        console.error("Error deleting report:", error);
+      },
+    },
+  );
 
   const fetchReports = useCallback(
     async (pageNum = 1, isRefresh = false) => {
@@ -130,43 +158,11 @@ const ReportsList: React.FC<ReportsListProps> = ({
     reportId: string,
     updates: { title?: string; description?: string; public?: boolean },
   ) => {
-    try {
-      const response = await fetch(`/api/reports/${reportId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updates),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update report");
-      }
-
-      // Refresh the current page to show updated data
-      await fetchReports(page, true);
-    } catch (error) {
-      console.error("Error updating report:", error);
-      throw error;
-    }
+    await updateReportMutation.mutate(updates, `/api/reports/${reportId}`);
   };
 
   const handleDeleteReport = async (reportId: string) => {
-    try {
-      const response = await fetch(`/api/reports/${reportId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete report");
-      }
-
-      // Refresh the current page to show updated data
-      await fetchReports(page, true);
-    } catch (error) {
-      console.error("Error deleting report:", error);
-      throw error;
-    }
+    await deleteReportMutation.mutate(undefined, `/api/reports/${reportId}`);
   };
 
   if (loading) {

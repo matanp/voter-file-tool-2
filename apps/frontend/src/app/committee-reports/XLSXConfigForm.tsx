@@ -17,6 +17,8 @@ import { ErrorDisplay } from "~/components/ErrorDisplay";
 import { ReportInfo } from "./components/ReportInfo";
 import { FieldSelection } from "./components/FieldSelection";
 import { XLSXConfig } from "./components/XLSXConfig";
+import { useApiMutation } from "~/hooks/useApiMutation";
+import type { GenerateReportData } from "@voter-file-tool/shared-validators";
 
 interface XLSXConfigFormProps {
   committeeLists: CommitteeWithMembers[];
@@ -29,8 +31,29 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
   const [formData, setFormData] =
     useState<XLSXConfigFormData>(DEFAULT_FORM_DATA);
   const [reportId, setReportId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [reportUrl, setReportUrl] = useState<string | null>(null);
+
+  // API mutation hook
+  const generateReportMutation = useApiMutation<
+    { reportId: string },
+    GenerateReportData
+  >("/api/generateReport", "POST", {
+    onSuccess: (data) => {
+      setReportId(data.reportId);
+      toast({
+        title: "Report Generation Started",
+        description:
+          "Your report is being generated. You'll be notified when it's ready.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to generate report: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const {
     errors,
@@ -65,7 +88,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
       document.body.removeChild(link);
     }
 
-    setIsGenerating(false);
     setReportId(null);
   };
 
@@ -77,7 +99,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
       description: errorMessage || "Failed to generate document",
       duration: 5000,
     });
-    setIsGenerating(false);
     setReportId(null);
   };
 
@@ -85,7 +106,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
     setFormData(DEFAULT_FORM_DATA);
     clearErrors();
     setReportId(null);
-    setIsGenerating(false);
     setReportUrl(null);
   };
 
@@ -105,7 +125,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
       return;
     }
 
-    setIsGenerating(true);
     clearErrorTracking(); // Clear error tracking when report generation starts
 
     try {
@@ -146,29 +165,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
             : undefined,
       };
 
-      const response = await fetch("/api/generateReport", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(reportPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as {
-          error?: string;
-          issues?: string;
-        };
-        throw new Error(errorData.error ?? "Failed to generate report");
-      }
-
-      const responseData = (await response.json()) as { reportId: string };
-      setReportId(responseData.reportId);
-
-      toast({
-        description: `Generating ${formData.format.toUpperCase()} document...`,
-        duration: 3000,
-      });
+      await generateReportMutation.mutate(reportPayload);
     } catch (error) {
       console.error("Error generating report:", error);
       toast({
@@ -180,7 +177,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
             : "Failed to generate document",
         duration: 5000,
       });
-      setIsGenerating(false);
     }
   };
 
@@ -243,18 +239,18 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
               type="button"
               variant="outline"
               onClick={clearForm}
-              disabled={isGenerating}
+              disabled={generateReportMutation.loading}
             >
               Clear
             </Button>
             <Button
               type="submit"
               disabled={
-                isGenerating ||
+                generateReportMutation.loading ||
                 (hasUserSubmitted && Object.keys(errors).length > 0)
               }
             >
-              {isGenerating
+              {generateReportMutation.loading
                 ? "Generating..."
                 : `Generate ${formData.format.toUpperCase()}`}
             </Button>
@@ -280,7 +276,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
       </div>
 
       {/* Status Display */}
-      {isGenerating && (
+      {generateReportMutation.loading && (
         <div className="bg-primary-foreground p-4 rounded-lg">
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>

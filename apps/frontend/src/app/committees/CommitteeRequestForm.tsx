@@ -12,6 +12,8 @@ import RecordSearchForm from "../components/RecordSearchForm";
 import { Switch } from "~/components/ui/switch";
 import { toast } from "~/components/ui/use-toast";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
+import { useApiMutation } from "~/hooks/useApiMutation";
+import type { CommitteeRequest } from "@prisma/client";
 
 type CommitteeRequestFormProps = {
   city: string;
@@ -46,39 +48,46 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   const [addFormRecords, setAddFormRecords] = useState<VoterRecord[]>([]);
   const [addMemberFormOpen, setAddMemberFormOpen] = useState<boolean>(false);
 
+  // API mutation hook
+  const requestMutation = useApiMutation<
+    CommitteeRequest,
+    {
+      cityTown: string;
+      legDistrict: string;
+      electionDistrict: number;
+      addMemberId?: string | null;
+      removeMemberId?: string | null;
+      requestNotes: string;
+    }
+  >("/api/committee/requestAdd", "POST", {
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Submitted your request for approval",
+      });
+      onSubmit();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Something went wrong with your request",
+      });
+    },
+  });
+
   const handleSubmit = async (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     event.preventDefault();
 
-    const response = await fetch(`/api/committee/requestAdd`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cityTown: city,
-        legDistrict: legDistrict === "" ? "-1" : legDistrict,
-        electionDistrict: electionDistrict,
-        addMemberId: requestAddMember?.VRCNUM,
-        removeMemberId: requestRemoveMember?.VRCNUM,
-        requestNotes: requestNotes,
-      }),
+    await requestMutation.mutate({
+      cityTown: city,
+      legDistrict: legDistrict === "" ? "-1" : legDistrict,
+      electionDistrict: electionDistrict,
+      addMemberId: requestAddMember?.VRCNUM,
+      removeMemberId: requestRemoveMember?.VRCNUM,
+      requestNotes: requestNotes,
     });
-
-    if (response.ok) {
-      toast({
-        title: "Success",
-        description: "Submitted your request for approval",
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: "Something went wrong with your request",
-      });
-    }
-
-    onSubmit();
   };
 
   const removeMemberForm = (
@@ -213,8 +222,9 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           <Button
             className="w-full max-w-[85vw]"
             onClick={(e) => handleSubmit(e)}
+            disabled={requestMutation.loading}
           >
-            Submit Request
+            {requestMutation.loading ? "Submitting..." : "Submit Request"}
           </Button>
         </div>
       </DialogContent>
