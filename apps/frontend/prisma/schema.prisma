@@ -81,6 +81,20 @@ model VerificationToken {
   @@id([identifier, token])
 }
 
+model Invite {
+  id             String         @id @default(cuid())
+  email          String
+  token          String         @unique
+  privilegeLevel PrivilegeLevel
+  customMessage  String?
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdBy      String
+  createdAt      DateTime       @default(now())
+  deleted        Boolean        @default(false)
+  deletedAt      DateTime?
+}
+
 // Optional for WebAuthn support
 model Authenticator {
   credentialID         String  @unique
