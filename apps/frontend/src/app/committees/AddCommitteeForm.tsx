@@ -7,6 +7,7 @@ import RecordSearchForm from "../components/RecordSearchForm";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
 import CommitteeRequestForm from "./CommitteeRequestForm";
+import { useApiMutation } from "~/hooks/useApiMutation";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -32,6 +33,32 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     null,
   );
 
+  // API mutation hook
+  const addCommitteeMemberMutation = useApiMutation<
+    { success: boolean },
+    {
+      cityTown: string;
+      legDistrict: string;
+      electionDistrict: number;
+      memberId: string;
+    }
+  >("/api/committee/add", "POST", {
+    onSuccess: () => {
+      onAdd(city, electionDistrict, legDistrict);
+      toast({
+        title: "Success",
+        description: "Committee member added successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to add committee member: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const validCommittee =
     city !== "" && legDistrict !== "" && electionDistrict !== -1;
 
@@ -42,31 +69,12 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     event.preventDefault();
 
     if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
-      const response = await fetch(`/api/committee/add`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          cityTown: city,
-          legDistrict: legDistrict === "" ? "-1" : legDistrict,
-          electionDistrict: electionDistrict,
-          memberId: record.VRCNUM,
-        }),
+      await addCommitteeMemberMutation.mutate({
+        cityTown: city,
+        legDistrict: legDistrict === "" ? "-1" : legDistrict,
+        electionDistrict: electionDistrict,
+        memberId: record.VRCNUM,
       });
-
-      if (response.ok) {
-        onAdd(city, electionDistrict, legDistrict);
-        toast({
-          title: "Success",
-          description: `Added ${record.firstName} ${record.lastName} to committee`,
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Something went wrong with your request",
-        });
-      }
     } else {
       setShowConfirm(true);
       setRequestedRecord(record);
@@ -130,10 +138,13 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                         !!member ||
                         committeeList.length >= 4 ||
                         !validCommittee ||
-                        !!record.committeeId
+                        !!record.committeeId ||
+                        addCommitteeMemberMutation.loading
                       }
                     >
-                      {getMessage()}
+                      {addCommitteeMemberMutation.loading
+                        ? "Adding..."
+                        : getMessage()}
                     </Button>
                   </>
                 );
