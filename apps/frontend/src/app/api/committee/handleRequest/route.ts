@@ -2,21 +2,19 @@ import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { validateRequest } from "~/app/api/lib/validateRequest";
 import type { Session } from "next-auth";
-import type { HandleCommitteeRequestData } from "~/lib/validations/committee";
+import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 
 async function handleRequestHandler(req: NextRequest, session: Session) {
-  const { committeeRequestId, acceptOrReject }: HandleCommitteeRequestData =
-    (await req.json()) as HandleCommitteeRequestData;
+  const body = (await req.json()) as unknown;
+  const validation = validateRequest(body, handleCommitteeRequestDataSchema);
 
-  if (
-    !committeeRequestId ||
-    !acceptOrReject ||
-    !Number.isInteger(committeeRequestId) ||
-    !["accept", "reject"].includes(acceptOrReject)
-  ) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  if (!validation.success) {
+    return validation.response;
   }
+
+  const { committeeRequestId, acceptOrReject } = validation.data;
 
   try {
     const committeeRequest = await prisma.committeeRequest.findUnique({

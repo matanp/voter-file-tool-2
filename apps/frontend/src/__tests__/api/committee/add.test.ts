@@ -118,9 +118,12 @@ describe("/api/committee/add", () => {
       ({ field, value, expectedError }) => {
         it(`should return 400 for ${field} = "${value}"`, async () => {
           // Arrange
-          const mockCommitteeData = createMockCommitteeData({
-            [field]: value,
-          });
+          const mockCommitteeData = createMockCommitteeData(
+            {
+              [field]: value,
+            },
+            false,
+          );
           const mockSession = createMockSession({
             user: { privilegeLevel: PrivilegeLevel.Admin },
           });

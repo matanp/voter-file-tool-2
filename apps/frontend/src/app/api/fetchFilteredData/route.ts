@@ -17,13 +17,6 @@ export async function POST(req: NextRequest) {
     const query: Prisma.VoterRecordWhereInput =
       buildPrismaWhereClause(searchQuery);
 
-    if (!searchQuery) {
-      return NextResponse.json(
-        { error: "Missing search query" },
-        { status: 400 },
-      );
-    }
-
     // use cursor based pagination if performance becomes a problem
     const records = await prisma.voterRecord.findMany({
       where: query,

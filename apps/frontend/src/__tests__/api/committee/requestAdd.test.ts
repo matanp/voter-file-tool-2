@@ -228,7 +228,7 @@ describe("/api/committee/requestAdd", () => {
         const response = await POST(request);
 
         // Assert
-        await expectErrorResponse(response, 400, "Invalid request");
+        await expectErrorResponse(response, 400, "Invalid request data");
       },
     );
 
@@ -360,6 +360,44 @@ describe("/api/committee/requestAdd", () => {
           addVoterRecordId: undefined,
           removeVoterRecordId: undefined,
           requestNotes: mockRequestData.requestNotes,
+        }),
+      );
+    });
+
+    it("should handle missing requestNotes", async () => {
+      // Arrange
+      const mockRequestData = createMockRequestData({
+        requestNotes: undefined,
+      });
+      const mockCommittee = createMockCommittee();
+      const mockCommitteeRequest = createMockCommitteeRequest();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.committeeRequest.create.mockResolvedValue(
+        mockCommitteeRequest,
+      );
+
+      const request = createMockRequest(mockRequestData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectSuccessResponse(response, {
+        status: "success",
+        message: "Request created",
+      });
+      expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
+        createCommitteeRequestCreateArgs({
+          committeeListId: mockCommittee.id,
+          addVoterRecordId: mockRequestData.addMemberId,
+          removeVoterRecordId: undefined,
+          requestNotes: undefined,
         }),
       );
     });

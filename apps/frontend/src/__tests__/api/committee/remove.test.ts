@@ -131,9 +131,12 @@ describe("/api/committee/remove", () => {
       ({ field, value, expectedError }) => {
         it(`should return 400 for ${field} = "${value}"`, async () => {
           // Arrange
-          const mockCommitteeData = createMockCommitteeData({
-            [field]: value,
-          } as Partial<CommitteeData>);
+          const mockCommitteeData = createMockCommitteeData(
+            {
+              [field]: value,
+            } as Partial<CommitteeData>,
+            false,
+          );
           const mockSession = createMockSession({
             user: { privilegeLevel: PrivilegeLevel.Admin },
           });
@@ -255,9 +258,12 @@ describe("/api/committee/remove", () => {
 
     it("should return 400 for negative legDistrict", async () => {
       // Arrange
-      const mockCommitteeData = createMockCommitteeData({
-        legDistrict: "-1",
-      });
+      const mockCommitteeData = createMockCommitteeData(
+        {
+          legDistrict: "-1" as unknown as number, // intentially unsfae to test validation
+        },
+        false,
+      );
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
@@ -271,7 +277,7 @@ describe("/api/committee/remove", () => {
       const response = await POST(request);
 
       // Assert
-      await expectErrorResponse(response, 400, "Invalid numeric fields");
+      await expectErrorResponse(response, 400, "Invalid request data");
     });
   });
 });

@@ -4,11 +4,14 @@ import { z } from "zod";
 export const committeeDataSchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z.string().trim().min(1, "Legislative District is required"),
-    electionDistrict: z
-      .string()
-      .trim()
-      .regex(/^\d+$/, "Election District must contain only digits"),
+    legDistrict: z.coerce
+      .number()
+      .int()
+      .positive("Legislative District must be a positive integer"),
+    electionDistrict: z.coerce
+      .number()
+      .int()
+      .positive("Election District must be a positive integer"),
     memberId: z.string().trim().min(1, "Member ID is required"),
   })
   .strict();
@@ -17,7 +20,10 @@ export const committeeDataSchema = z
 export const committeeRequestDataSchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z.string().trim().min(1, "Legislative District is required"),
+    legDistrict: z.coerce
+      .number()
+      .int()
+      .positive("Legislative District must be a positive integer"),
     electionDistrict: z.coerce
       .number()
       .int()
@@ -27,15 +33,15 @@ export const committeeRequestDataSchema = z
     requestNotes: z
       .string()
       .trim()
-      .min(1, "Request notes are required")
-      .max(1000, "Notes must be 1000 characters or fewer"),
+      .max(1000, "Notes must be 1000 characters or fewer")
+      .optional(),
   })
   .strict();
 
 // Handle committee request data validation schema
 export const handleCommitteeRequestDataSchema = z
   .object({
-    committeeRequestId: z
+    committeeRequestId: z.coerce
       .number()
       .int()
       .positive("Committee Request ID must be a positive integer"),
