@@ -1,27 +1,11 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel, Prisma } from "@prisma/client";
-import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { committeeDataSchema } from "~/lib/validations/committee";
 import { ZodError } from "zod";
 
-// const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-export async function POST(req: NextRequest) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  if (!hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  }
-
-  if (req.method !== "POST") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-  }
-
+async function addCommitteeHandler(req: NextRequest) {
   let cityTown: string;
   let legDistrict: string;
   let electionDistrict: string;
@@ -114,3 +98,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Admin, addCommitteeHandler);

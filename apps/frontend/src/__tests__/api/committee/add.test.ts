@@ -8,6 +8,9 @@ import {
   expectSuccessResponse,
   expectErrorResponse,
   createCommitteeUpsertArgs,
+  validationTestCases,
+  createAuthTestSuite,
+  type AuthTestConfig,
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
@@ -41,7 +44,7 @@ describe("/api/committee/add", () => {
       const response = await POST(request);
 
       // Assert
-      expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, mockCommittee);
       expect(prismaMock.committeeList.upsert).toHaveBeenCalledWith(
         createCommitteeUpsertArgs({
           cityTown: mockCommitteeData.cityTown,
@@ -52,171 +55,89 @@ describe("/api/committee/add", () => {
       );
     });
 
-    it("should return 401 when user is not authenticated", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData();
+    // Authentication tests using shared test suite
+    describe("Authentication tests", () => {
+      const authConfig: AuthTestConfig = {
+        endpointName: "/api/committee/add",
+        requiredPrivilege: PrivilegeLevel.Admin,
+        mockRequest: () => createMockRequest(createMockCommitteeData()),
+      };
 
-      mockAuthSession(null);
+      const setupMocks = () => {
+        prismaMock.committeeList.upsert.mockResolvedValue(
+          createMockCommittee(),
+        );
+      };
 
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 401, "Not authenticated");
-    });
-
-    it("should return 401 when user does not have admin privileges", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.ReadAccess },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(false);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 401, "Not authorized");
-    });
-
-    it("should return 400 for missing cityTown", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        { cityTown: "" },
-        false,
+      const authTestSuite = createAuthTestSuite(
+        authConfig,
+        POST,
+        mockAuthSession,
+        mockHasPermission,
+        setupMocks,
       );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
+
+      authTestSuite.forEach(({ description, runTest }) => {
+        it(description, runTest);
       });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request data");
     });
 
-    it("should return 400 for missing legDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        { legDistrict: "" },
-        false,
-      );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
+    // Parameterized validation tests
+    describe.each([
+      ...validationTestCases.missingFields,
+      ...validationTestCases.invalidElectionDistrict,
+    ])(
+      "should return 400 for $field validation",
+      ({ field, value, expectedError }) => {
+        it(`should return 400 for ${field} = "${value}"`, async () => {
+          // Arrange
+          const mockCommitteeData = createMockCommitteeData(
+            { [field]: value },
+            false,
+          );
+          const mockSession = createMockSession({
+            user: { privilegeLevel: PrivilegeLevel.Admin },
+          });
 
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
+          mockAuthSession(mockSession);
+          mockHasPermission(true);
 
-      const request = createMockRequest(mockCommitteeData);
+          const request = createMockRequest(mockCommitteeData);
 
-      // Act
-      const response = await POST(request);
+          // Act
+          const response = await POST(request);
 
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request data");
-    });
+          // Assert
+          await expectErrorResponse(response, 400, expectedError);
+        });
+      },
+    );
 
-    it("should return 400 for missing electionDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        {
-          electionDistrict: "",
-        },
-        false,
-      );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
+    describe.each(validationTestCases.invalidNumeric)(
+      "should return 400 for invalid numeric $field",
+      ({ field, value, expectedError }) => {
+        it(`should return 400 for ${field} = "${value}"`, async () => {
+          // Arrange
+          const mockCommitteeData = createMockCommitteeData({
+            [field]: value,
+          });
+          const mockSession = createMockSession({
+            user: { privilegeLevel: PrivilegeLevel.Admin },
+          });
 
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
+          mockAuthSession(mockSession);
+          mockHasPermission(true);
 
-      const request = createMockRequest(mockCommitteeData);
+          const request = createMockRequest(mockCommitteeData);
 
-      // Act
-      const response = await POST(request);
+          // Act
+          const response = await POST(request);
 
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request data");
-    });
-
-    it("should return 400 for missing memberId", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        { memberId: "" },
-        false,
-      );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request data");
-    });
-
-    it("should return 400 for non-integer electionDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData({
-        electionDistrict: "1.5",
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid numeric fields");
-    });
-
-    it("should return 400 for non-numeric legDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData({
-        legDistrict: "invalid",
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid numeric fields");
-    });
+          // Assert
+          await expectErrorResponse(response, 400, expectedError);
+        });
+      },
+    );
 
     it("should return 500 for database error", async () => {
       // Arrange
@@ -241,7 +162,63 @@ describe("/api/committee/add", () => {
       const response = await POST(request);
 
       // Assert
-      expectErrorResponse(response, 500, "Internal server error");
+      await expectErrorResponse(response, 500, "Internal server error");
+    });
+
+    it("should return 404 when member to connect is not found", async () => {
+      // Arrange
+      const mockCommitteeData = createMockCommitteeData();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+
+      // P2025: Record not found (member to connect not found)
+      const mockError = new Prisma.PrismaClientKnownRequestError(
+        "Record to connect not found",
+        { code: "P2025", clientVersion: "5.0.0" },
+      );
+      prismaMock.committeeList.upsert.mockRejectedValue(mockError);
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(response, 404, "Member not found");
+    });
+
+    it("should return 409 when member already exists in committee", async () => {
+      // Arrange
+      const mockCommitteeData = createMockCommitteeData();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+
+      // P2002: Unique constraint violation (duplicate relation)
+      const mockError = new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed",
+        { code: "P2002", clientVersion: "5.0.0" },
+      );
+      prismaMock.committeeList.upsert.mockRejectedValue(mockError);
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(
+        response,
+        409,
+        "Duplicate relation - member already exists in committee",
+      );
     });
 
     it("should handle creating a new committee when it does not exist", async () => {
@@ -262,7 +239,7 @@ describe("/api/committee/add", () => {
       const response = await POST(request);
 
       // Assert
-      expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, mockCommittee);
       // Verify that upsert was called with both update and create operations
       expect(prismaMock.committeeList.upsert).toHaveBeenCalledWith(
         expect.objectContaining(

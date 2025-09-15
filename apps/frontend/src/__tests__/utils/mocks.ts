@@ -17,6 +17,7 @@ export function mockAuthSession(session: Session | null) {
 }
 
 export function mockHasPermission(granted: boolean) {
+  globalThis.mockHasPermissionFor ||= globalThis.jest?.fn?.();
   globalThis.mockHasPermissionFor.mockReturnValue(granted);
 }
 

@@ -9,6 +9,9 @@ import {
   expectErrorResponse,
   createCommitteeFindUniqueArgs,
   createCommitteeRequestCreateArgs,
+  validationTestCases,
+  createAuthTestSuite,
+  type AuthTestConfig,
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
@@ -56,7 +59,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      expectSuccessResponse(response, {
+      await expectSuccessResponse(response, {
         status: "success",
         message: "Request created",
       });
@@ -103,7 +106,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      expectSuccessResponse(response, {
+      await expectSuccessResponse(response, {
         status: "success",
         message: "Request created",
       });
@@ -142,7 +145,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      expectSuccessResponse(response, {
+      await expectSuccessResponse(response, {
         status: "success",
         message: "Request created",
       });
@@ -156,136 +159,107 @@ describe("/api/committee/requestAdd", () => {
       );
     });
 
-    it("should return 401 when user is not authenticated", async () => {
-      // Arrange
-      const mockRequestData = createMockRequestData();
+    // Authentication tests using shared test suite
+    describe("Authentication tests", () => {
+      const authConfig: AuthTestConfig = {
+        endpointName: "/api/committee/requestAdd",
+        requiredPrivilege: PrivilegeLevel.RequestAccess,
+        mockRequest: () => createMockRequest(createMockRequestData()),
+      };
 
-      mockAuthSession(null);
+      const setupMocks = () => {
+        prismaMock.committeeList.findUnique.mockResolvedValue(
+          createMockCommittee(),
+        );
+        prismaMock.committeeRequest.create.mockResolvedValue(
+          createMockCommitteeRequest(),
+        );
+      };
 
-      const request = createMockRequest(mockRequestData);
+      const authTestSuite = createAuthTestSuite(
+        authConfig,
+        POST,
+        mockAuthSession,
+        mockHasPermission,
+        setupMocks,
+      );
 
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 401, "Not authenticated");
-    });
-
-    it("should return 401 when user does not have request access privileges", async () => {
-      // Arrange
-      const mockRequestData = createMockRequestData();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.ReadAccess },
+      authTestSuite.forEach(({ description, runTest }) => {
+        it(description, runTest);
       });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(false);
-
-      const request = createMockRequest(mockRequestData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 401, "Not authorized");
     });
 
-    it("should return 400 for missing cityTown", async () => {
-      // Arrange
-      const mockRequestData = createMockRequestData({ cityTown: "" });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
-      });
+    test.each([
+      {
+        description: "missing cityTown",
+        requestDataOverrides: { cityTown: "" },
+      },
+      {
+        description: "missing legDistrict",
+        requestDataOverrides: { legDistrict: "" },
+      },
+      {
+        description: "missing electionDistrict",
+        requestDataOverrides: { electionDistrict: null },
+      },
+      {
+        description: "non-integer electionDistrict",
+        requestDataOverrides: { electionDistrict: 1.5 },
+      },
+      {
+        description: "non-numeric legDistrict",
+        requestDataOverrides: { legDistrict: "invalid" },
+      },
+    ])(
+      "should return 400 for $description",
+      async ({ requestDataOverrides }) => {
+        // Arrange
+        const mockRequestData = createMockRequestData(requestDataOverrides);
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
 
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
 
-      const request = createMockRequest(mockRequestData);
+        const request = createMockRequest(mockRequestData);
 
-      // Act
-      const response = await POST(request);
+        // Act
+        const response = await POST(request);
 
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request");
-    });
+        // Assert
+        await expectErrorResponse(response, 400, "Invalid request");
+      },
+    );
 
-    it("should return 400 for missing legDistrict", async () => {
-      // Arrange
-      const mockRequestData = createMockRequestData({ legDistrict: "" });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
-      });
+    // Request notes validation tests
+    describe.each(validationTestCases.invalidRequestNotes)(
+      "should return 400 for invalid requestNotes",
+      ({ field, value, expectedError }) => {
+        it(`should return 400 for ${field} = "${value}"`, async () => {
+          // Arrange
+          const mockRequestData = createMockRequestData({
+            [field]: value,
+          });
+          const mockSession = createMockSession({
+            user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+          });
 
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
+          mockAuthSession(mockSession);
+          mockHasPermission(true);
 
-      const request = createMockRequest(mockRequestData);
+          const request = createMockRequest(mockRequestData);
 
-      // Act
-      const response = await POST(request);
+          // Act
+          const response = await POST(request);
 
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request");
-    });
+          // Assert
+          await expectErrorResponse(response, 400, expectedError);
+        });
+      },
+    );
 
-    it("should return 400 for missing electionDistrict", async () => {
-      // Arrange
-      const mockRequestData = createMockRequestData({ electionDistrict: null });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockRequestData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request");
-    });
-
-    it("should return 400 for non-integer electionDistrict", async () => {
-      // Arrange
-      const mockRequestData = createMockRequestData({ electionDistrict: 1.5 });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockRequestData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request");
-    });
-
-    it("should return 400 for non-numeric legDistrict", async () => {
-      // Arrange
-      const mockRequestData = createMockRequestData({ legDistrict: "invalid" });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockRequestData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request");
-    });
-
-    it("should return 500 when committee is not found", async () => {
+    it("should return 404 when committee is not found", async () => {
       // Arrange
       const mockRequestData = createMockRequestData();
       const mockSession = createMockSession({
@@ -302,7 +276,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      expectErrorResponse(response, 500, "Internal server error");
+      await expectErrorResponse(response, 404, "Committee not found");
     });
 
     it("should return 500 for database error during committee lookup", async () => {
@@ -324,7 +298,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      expectErrorResponse(response, 500, "Internal server error");
+      await expectErrorResponse(response, 500, "Internal server error");
     });
 
     it("should return 500 for database error during request creation", async () => {
@@ -348,7 +322,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      expectErrorResponse(response, 500, "Internal server error");
+      await expectErrorResponse(response, 500, "Internal server error");
     });
 
     it("should handle empty addMemberId and removeMemberId", async () => {
@@ -376,7 +350,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      expectSuccessResponse(response, {
+      await expectSuccessResponse(response, {
         status: "success",
         message: "Request created",
       });

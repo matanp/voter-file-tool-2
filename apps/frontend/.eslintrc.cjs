@@ -3,6 +3,7 @@ const config = {
   parser: "@typescript-eslint/parser",
   parserOptions: {
     project: true,
+    tsconfigRootDir: __dirname,
   },
   plugins: ["@typescript-eslint"],
   extends: [
@@ -39,6 +40,7 @@ const config = {
   overrides: [
     {
       files: ["**/__tests__/**/*", "**/*.test.*", "**/*.spec.*"],
+      env: { jest: true },
       rules: {
         "@typescript-eslint/unbound-method": "off",
       },

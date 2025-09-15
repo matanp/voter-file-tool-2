@@ -1,25 +1,11 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
-import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import type { Session } from "next-auth";
 import type { HandleCommitteeRequestData } from "~/lib/validations/committee";
 
-export async function POST(req: NextRequest) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  if (!hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  }
-
-  if (req.method !== "POST") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-  }
-
+async function handleRequestHandler(req: NextRequest, session: Session) {
   const { committeeRequestId, acceptOrReject }: HandleCommitteeRequestData =
     (await req.json()) as HandleCommitteeRequestData;
 
@@ -119,3 +105,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Admin, handleRequestHandler);

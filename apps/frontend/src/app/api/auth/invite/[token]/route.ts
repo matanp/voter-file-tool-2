@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { z } from "zod";
 
-const tokenSchema = z.string().min(1, "Token is required");
+const tokenSchema = z.string().trim().min(1, "Token is required");
 
 async function getInviteHandler(
   req: NextRequest,
@@ -48,7 +48,7 @@ async function getInviteHandler(
     if (invite.deleted) {
       return NextResponse.json(
         { error: "This invite has been deleted" },
-        { status: 404 },
+        { status: 410 },
       );
     }
 
@@ -56,7 +56,7 @@ async function getInviteHandler(
     if (new Date() > invite.expiresAt) {
       return NextResponse.json(
         { error: "This invite has expired" },
-        { status: 400 },
+        { status: 410 },
       );
     }
 

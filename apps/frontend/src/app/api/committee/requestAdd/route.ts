@@ -1,26 +1,11 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
 import { PrivilegeLevel } from "@prisma/client";
 import type { CommitteeRequestData } from "~/lib/validations/committee";
-export async function POST(req: NextRequest) {
-  const session = await auth();
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import type { Session } from "next-auth";
 
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  if (
-    !hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.RequestAccess)
-  ) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  }
-
-  if (req.method !== "POST") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-  }
-
+async function requestAddHandler(req: NextRequest, session: Session) {
   const {
     cityTown,
     legDistrict,
@@ -33,8 +18,10 @@ export async function POST(req: NextRequest) {
     !cityTown ||
     !legDistrict ||
     !electionDistrict ||
+    !requestNotes ||
     !Number.isInteger(Number(electionDistrict)) ||
-    !Number(legDistrict)
+    !Number(legDistrict) ||
+    requestNotes.length > 1000
   ) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
@@ -51,7 +38,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!committeeRequested) {
-      throw new Error("Committee not found");
+      return NextResponse.json(
+        { error: "Committee not found" },
+        { status: 404 },
+      );
     }
 
     await prisma.committeeRequest.create({
@@ -75,3 +65,8 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withPrivilege(
+  PrivilegeLevel.RequestAccess,
+  requestAddHandler,
+);
