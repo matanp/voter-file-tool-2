@@ -6,6 +6,7 @@ import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
 import { useWindowSize } from "~/hooks/useWindowSize";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { useToast } from "~/components/ui/use-toast";
 import { type SearchQueryField } from "@voter-file-tool/shared-validators";
 
 type RecordSearchProps = {
@@ -24,10 +25,11 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   optionalExtraSearch,
 }) => {
   const { width } = useWindowSize();
+  const { toast } = useToast();
   const [voterId, setVoterId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
-  const [useOptionalExtaSearch, setUseOptionalExtraSearch] =
+  const [useOptionalExtraSearch, setUseOptionalExtraSearch] =
     useState<boolean>(true);
 
   // API mutation hook
@@ -44,6 +46,12 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
     },
     onError: (error) => {
       console.error("Search failed:", error);
+      toast({
+        title: "Search Failed",
+        description:
+          error.message || "Unable to search voter records. Please try again.",
+        variant: "destructive",
+      });
       handleResults([]);
     },
   });
@@ -51,7 +59,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query =
-      optionalExtraSearch && !useOptionalExtaSearch
+      optionalExtraSearch && !useOptionalExtraSearch
         ? []
         : [...(extraSearchQuery ?? [])];
 
@@ -103,7 +111,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
           <div className="flex items-center gap-4 mt-2">
             <Checkbox
               id="eligible-candidates"
-              checked={useOptionalExtaSearch}
+              checked={useOptionalExtraSearch}
               onCheckedChange={(value) => {
                 setUseOptionalExtraSearch(value === true);
               }}

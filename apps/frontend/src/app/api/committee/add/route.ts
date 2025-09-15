@@ -6,7 +6,7 @@ import { committeeDataSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import type { Session } from "next-auth";
 
-async function addCommitteeHandler(req: NextRequest, session: Session) {
+async function addCommitteeHandler(req: NextRequest, _session: Session) {
   const body = (await req.json()) as unknown;
   const validation = validateRequest(body, committeeDataSchema);
 

@@ -6,7 +6,7 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 
-async function handleRequestHandler(req: NextRequest, session: Session) {
+async function handleRequestHandler(req: NextRequest, _session: Session) {
   const body = (await req.json()) as unknown;
   const validation = validateRequest(body, handleCommitteeRequestDataSchema);
 
@@ -94,7 +94,10 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
       });
     }
 
-    return NextResponse.json({ message: "Request accepted" }, { status: 200 });
+    return NextResponse.json(
+      { message: `Request ${acceptOrReject}ed` },
+      { status: 200 },
+    );
   } catch (error) {
     console.error(error);
     return NextResponse.json(

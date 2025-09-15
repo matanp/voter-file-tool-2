@@ -147,11 +147,14 @@ export const createMockRequest = <T = Record<string, unknown>>(
 };
 
 // Test response helpers
-export const expectSuccessResponse = async <T = unknown>(
+export const expectSuccessResponse = async <
+  T extends Record<string, unknown> | unknown[] = Record<string, unknown>,
+>(
   response: MockResponse,
   expectedData?: T,
+  expectedStatus = 200,
 ): Promise<void> => {
-  expect(response.status).toBe(200);
+  expect(response.status).toBe(expectedStatus);
   if (expectedData !== undefined) {
     const json = await response.json();
     expect(json).toEqual(expectedData);
@@ -270,29 +273,20 @@ export const createCommitteeRequestCreateArgs = (
     requestNotes?: string | undefined;
   } = {},
 ) => {
-  const data: {
-    committeeListId: number;
-    requestNotes?: string;
-    addVoterRecordId?: string | null;
-    removeVoterRecordId?: string | null;
-  } = {
-    committeeListId: overrides.committeeListId ?? 1,
+  return {
+    data: {
+      committeeListId: overrides.committeeListId ?? 1,
+      ...(overrides.addVoterRecordId !== undefined && {
+        addVoterRecordId: overrides.addVoterRecordId,
+      }),
+      ...(overrides.removeVoterRecordId !== undefined && {
+        removeVoterRecordId: overrides.removeVoterRecordId,
+      }),
+      ...(overrides.requestNotes !== undefined && {
+        requestNotes: overrides.requestNotes,
+      }),
+    },
   };
-
-  // Only add the fields if they are explicitly provided
-  if (overrides.addVoterRecordId !== undefined) {
-    data.addVoterRecordId = overrides.addVoterRecordId;
-  }
-
-  if (overrides.removeVoterRecordId !== undefined) {
-    data.removeVoterRecordId = overrides.removeVoterRecordId;
-  }
-
-  if (overrides.requestNotes !== undefined) {
-    data.requestNotes = overrides.requestNotes;
-  }
-
-  return { data };
 };
 
 // Shared validation test data
@@ -428,11 +422,12 @@ export const createInsufficientPrivilegeTestCases = (
 
 export const createAuthenticatedTestCase = (
   privilegeLevel: PrivilegeLevel = PrivilegeLevel.Admin,
+  successStatus = 200,
 ): AuthTestCase => ({
   description: `should succeed when user has ${privilegeLevel} privileges`,
   session: createMockSession({ user: { privilegeLevel } }),
   hasPermission: true,
-  expectedStatus: 200,
+  expectedStatus: successStatus,
   expectedError: "",
 });
 
@@ -450,7 +445,11 @@ export const runAuthTest = async (
   mockHasPermission(testCase.hasPermission);
 
   // Setup additional mocks for successful cases if provided
-  if (testCase.expectedStatus === 200 && setupMocks) {
+  if (
+    testCase.expectedStatus >= 200 &&
+    testCase.expectedStatus < 300 &&
+    setupMocks
+  ) {
     setupMocks();
   }
 
@@ -458,8 +457,8 @@ export const runAuthTest = async (
   const response = await handler(mockRequest);
 
   // Assert
-  if (testCase.expectedStatus === 200) {
-    await expectSuccessResponse(response);
+  if (testCase.expectedStatus >= 200 && testCase.expectedStatus < 300) {
+    await expectSuccessResponse(response, undefined, testCase.expectedStatus);
   } else {
     await expectErrorResponse(
       response,
@@ -476,6 +475,7 @@ export const createAuthTestSuite = (
   mockAuthSession: (session: Session | null) => void,
   mockHasPermission: (granted: boolean) => void,
   setupMocks?: () => void,
+  successStatus = 200,
 ): Array<{
   description: string;
   testCase: AuthTestCase;
@@ -484,7 +484,7 @@ export const createAuthTestSuite = (
   const testCases: AuthTestCase[] = [
     createUnauthenticatedTestCase(),
     ...createInsufficientPrivilegeTestCases(config.requiredPrivilege),
-    createAuthenticatedTestCase(config.requiredPrivilege),
+    createAuthenticatedTestCase(config.requiredPrivilege, successStatus),
   ];
 
   return testCases.map((testCase) => ({
@@ -517,4 +517,12 @@ export const createValidationTestSuite = (
     expectedStatus,
     expectedError,
   }));
+};
+
+// Helper function to parse numeric values consistently in tests
+export const parseNumericValue = (value: string | number): number => {
+  if (typeof value === "number") {
+    return value;
+  }
+  return parseInt(value, 10);
 };

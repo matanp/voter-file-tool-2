@@ -76,7 +76,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   });
 
   const handleSubmit = async (
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    _event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     await requestMutation.mutate({
       cityTown: city,

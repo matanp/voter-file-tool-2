@@ -10,6 +10,7 @@ import {
   expectErrorResponse,
   validationTestCases,
   createAuthTestSuite,
+  parseNumericValue,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import type { CommitteeData } from "~/lib/validations/committee";
@@ -51,8 +52,10 @@ describe("/api/committee/remove", () => {
         where: {
           cityTown_legDistrict_electionDistrict: {
             cityTown: mockCommitteeData.cityTown,
-            legDistrict: parseInt(mockCommitteeData.legDistrict, 10),
-            electionDistrict: parseInt(mockCommitteeData.electionDistrict, 10),
+            legDistrict: parseNumericValue(mockCommitteeData.legDistrict),
+            electionDistrict: parseNumericValue(
+              mockCommitteeData.electionDistrict,
+            ),
           },
         },
         include: { committeeMemberList: true },
@@ -224,8 +227,8 @@ describe("/api/committee/remove", () => {
     it("should handle numeric string conversion correctly", async () => {
       // Arrange
       const mockCommitteeData = createMockCommitteeData({
-        legDistrict: "5",
-        electionDistrict: "10",
+        legDistrict: 5,
+        electionDistrict: 10,
       });
       const mockCommittee = createMockCommittee();
       const mockSession = createMockSession({
@@ -248,8 +251,10 @@ describe("/api/committee/remove", () => {
         where: {
           cityTown_legDistrict_electionDistrict: {
             cityTown: mockCommitteeData.cityTown,
-            legDistrict: 5, // Should be converted to number
-            electionDistrict: 10, // Should be converted to number
+            legDistrict: parseNumericValue(mockCommitteeData.legDistrict),
+            electionDistrict: parseNumericValue(
+              mockCommitteeData.electionDistrict,
+            ),
           },
         },
         include: { committeeMemberList: true },
@@ -260,7 +265,7 @@ describe("/api/committee/remove", () => {
       // Arrange
       const mockCommitteeData = createMockCommitteeData(
         {
-          legDistrict: "-1" as unknown as number, // intentially unsfae to test validation
+          legDistrict: "-1" as unknown as number, // intentionally unsafe to test validation
         },
         false,
       );

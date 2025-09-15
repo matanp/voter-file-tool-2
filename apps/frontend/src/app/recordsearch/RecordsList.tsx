@@ -234,7 +234,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         <p className="ml-10">No results found.</p>
       )}
       {!records.length && !hasSearched && (
-        <p className="ml-10">Sumbit a search query to see results.</p>
+        <p className="ml-10">Submit a search query to see results.</p>
       )}
     </div>
   );

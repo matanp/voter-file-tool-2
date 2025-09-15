@@ -55,12 +55,16 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             ? undefined
             : payload.electionDistrict;
 
+        // Normalize legDistrict sentinel values ("-1") to undefined
+        const normalizedLegDistrict =
+          payload.legDistrict === "-1" ? undefined : payload.legDistrict;
+
         // Only refetch if we have valid parameters
         if (payload.cityTown && normalizedElectionDistrict !== undefined) {
           fetchCommitteeList(
             payload.cityTown,
             normalizedElectionDistrict,
-            payload.legDistrict === "-1" ? undefined : payload.legDistrict,
+            normalizedLegDistrict,
           ).catch((error) => {
             console.error("Error fetching committee list:", error);
           });
