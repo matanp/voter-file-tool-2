@@ -23,7 +23,7 @@ export const ElectionDates = ({
     "POST",
     {
       onSuccess: (createdDate) => {
-        setElectionDates([...electionDates, createdDate]);
+        setElectionDates((prev) => [...prev, createdDate]);
         setNewDate(null);
       },
       onError: (error) => {
@@ -35,9 +35,9 @@ export const ElectionDates = ({
   const deleteDateMutation = useApiDelete<ElectionDate, { id: number }>(
     "/api/admin/electionDates",
     {
-      onSuccess: (data, payload) => {
-        if (payload?.id) {
-          setElectionDates(electionDates.filter((d) => d.id !== payload.id));
+      onSuccess: (data) => {
+        if (data?.id) {
+          setElectionDates((prev) => prev.filter((d) => d.id !== data.id));
         }
       },
       onError: (error) => {
@@ -72,10 +72,7 @@ export const ElectionDates = ({
   };
 
   const handleDeleteDate = async (id: number) => {
-    await deleteDateMutation.mutate(
-      undefined,
-      `/api/admin/electionDates/${id}`,
-    );
+    await deleteDateMutation.mutate({ id }, `/api/admin/electionDates/${id}`);
   };
 
   return (

@@ -59,6 +59,9 @@ export function DiscrepanciesActionsMenu({
   });
 
   const handleAction = async (accept: boolean, takeAddress?: string) => {
+    if (handleDiscrepancyMutation.loading) {
+      return;
+    }
     await handleDiscrepancyMutation.mutate({ VRCNUM, accept, takeAddress });
   };
 

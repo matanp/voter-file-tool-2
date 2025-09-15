@@ -4,6 +4,7 @@ export interface ApiMutationOptions<TData = unknown, TPayload = unknown> {
   onSuccess?: (data: TData, payload?: TPayload) => void;
   onError?: (error: Error) => void;
   onFinally?: () => void;
+  timeout?: number; // Timeout in milliseconds (default: 10000ms)
 }
 
 export interface ApiMutationResult<TData = unknown, TPayload = unknown> {
@@ -37,16 +38,25 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
       setLoading(true);
       setError(null);
 
-      try {
-        const url = customEndpoint ?? endpoint;
+      const url = customEndpoint ?? endpoint;
+      const timeoutMs = options?.timeout ?? 10000;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+
+      try {
         const headers =
           payload != null ? { "Content-Type": "application/json" } : undefined;
         const response = await fetch(url, {
           method,
           headers,
           body: payload ? JSON.stringify(payload) : undefined,
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           let errorMessage = `Request failed with status ${response.status}`;
@@ -71,13 +81,24 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
         options?.onSuccess?.(result, payload);
         return result;
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error occurred";
+        // Clear timeout in case of error
+        clearTimeout(timeoutId);
+
+        let errorMessage: string;
+        let errorToThrow: Error;
+
+        if (err instanceof Error && err.name === "AbortError") {
+          errorMessage = "Request timed out";
+          errorToThrow = new Error(errorMessage);
+        } else {
+          errorMessage =
+            err instanceof Error ? err.message : "Unknown error occurred";
+          errorToThrow = err instanceof Error ? err : new Error(errorMessage);
+        }
+
         setError(errorMessage);
-        options?.onError?.(
-          err instanceof Error ? err : new Error(errorMessage),
-        );
-        throw err;
+        options?.onError?.(errorToThrow);
+        throw errorToThrow;
       } finally {
         setLoading(false);
         options?.onFinally?.();

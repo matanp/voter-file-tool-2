@@ -15,6 +15,7 @@ import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { useToast } from "~/components/ui/use-toast";
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
@@ -24,6 +25,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
 }) => {
   const { actingPermissions } = useContext(GlobalContext);
+  const { toast } = useToast();
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedLegDistrict, setSelectedLegDistrict] = useState<string>("");
   const [useLegDistrict, setUseLegDistrict] = useState<boolean>(false);
@@ -45,17 +47,37 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       memberId: string;
     }
   >("/api/committee/remove", "POST", {
-    onSuccess: () => {
-      fetchCommitteeList(
-        selectedCity,
-        selectedDistrict,
-        selectedLegDistrict,
-      ).catch((error) => {
-        console.error("Error fetching committee list:", error);
+    onSuccess: (data, payload) => {
+      if (payload) {
+        // Normalize electionDistrict sentinel values (-1) to undefined
+        const normalizedElectionDistrict =
+          payload.electionDistrict === -1
+            ? undefined
+            : payload.electionDistrict;
+
+        // Only refetch if we have valid parameters
+        if (payload.cityTown && normalizedElectionDistrict !== undefined) {
+          fetchCommitteeList(
+            payload.cityTown,
+            normalizedElectionDistrict,
+            payload.legDistrict === "-1" ? undefined : payload.legDistrict,
+          ).catch((error) => {
+            console.error("Error fetching committee list:", error);
+          });
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Committee member removed successfully",
       });
     },
     onError: (error) => {
-      console.error("Error removing committee member:", error);
+      toast({
+        title: "Error",
+        description: `Failed to remove committee member: ${error.message}`,
+        variant: "destructive",
+      });
     },
   });
 

@@ -29,15 +29,10 @@ import {
   MAX_RECORDS_FOR_EXPORT,
   ADMIN_CONTACT_INFO,
   type GenerateReportData,
+  type SearchQueryField,
 } from "@voter-file-tool/shared-validators";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
-
-// Type that matches the API schema
-type SearchQueryField = {
-  field: string;
-  value: string | number | boolean | null;
-};
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {

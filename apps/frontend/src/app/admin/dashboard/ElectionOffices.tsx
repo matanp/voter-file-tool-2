@@ -22,7 +22,7 @@ export const ElectionOffices = ({
     "POST",
     {
       onSuccess: (createdOffice) => {
-        setOfficeNames([...officeNames, createdOffice]);
+        setOfficeNames((prev) => [...prev, createdOffice]);
         setNewOffice("");
       },
       onError: (error) => {
@@ -36,7 +36,7 @@ export const ElectionOffices = ({
     {
       onSuccess: (data, payload) => {
         if (payload?.id) {
-          setOfficeNames(officeNames.filter((o) => o.id !== payload.id));
+          setOfficeNames((prev) => prev.filter((o) => o.id !== payload.id));
         }
       },
       onError: (error) => {
@@ -58,6 +58,9 @@ export const ElectionOffices = ({
   const fetchOffices = async () => {
     try {
       const res = await fetch("/api/admin/officeNames");
+      if (!res.ok) {
+        throw new Error(`Failed to fetch office names (${res.status})`);
+      }
       const data = (await res.json()) as OfficeName[];
       setOfficeNames(data);
     } catch (err) {
@@ -71,10 +74,7 @@ export const ElectionOffices = ({
   };
 
   const handleDeleteOffice = async (id: number) => {
-    await deleteOfficeMutation.mutate(
-      undefined,
-      `/api/admin/officeNames/${id}`,
-    );
+    await deleteOfficeMutation.mutate({ id }, `/api/admin/officeNames/${id}`);
   };
 
   return (

@@ -64,7 +64,7 @@ async function getInviteHandler(
     if (invite.usedAt) {
       return NextResponse.json(
         { error: "This invite has already been used" },
-        { status: 400 },
+        { status: 409 },
       );
     }
 

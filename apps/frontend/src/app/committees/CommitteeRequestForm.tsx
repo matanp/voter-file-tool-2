@@ -67,10 +67,10 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       });
       onSubmit();
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Something went wrong with your request",
+        description: error.message || "Something went wrong with your request",
       });
     },
   });
@@ -78,8 +78,6 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   const handleSubmit = async (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
-    event.preventDefault();
-
     await requestMutation.mutate({
       cityTown: city,
       legDistrict: legDistrict === "" ? "-1" : legDistrict,

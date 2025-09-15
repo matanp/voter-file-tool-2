@@ -11,20 +11,32 @@ export function validateRequest<T>(
   body: unknown,
   schema: z.ZodSchema<T>,
 ): { success: true; data: T } | { success: false; response: NextResponse } {
-  try {
-    const data = schema.parse(body);
-    return { success: true, data };
-  } catch (error) {
-    console.log("Validation error:", error);
-    return {
-      success: false,
-      response: NextResponse.json(
-        {
-          error: "Invalid request data",
-          details: error instanceof Error ? error.message : "Unknown error",
-        },
-        { status: 400 },
-      ),
-    };
+  const result = schema.safeParse(body);
+
+  if (result.success) {
+    return { success: true, data: result.data };
   }
+
+  if (process.env.NODE_ENV === "development") {
+    console.warn("Validation failed:", result.error.issues);
+  } else {
+    console.debug("Request validation failed");
+  }
+
+  const fieldErrors = result.error.issues.map((issue) => ({
+    field: issue.path.join("."),
+    message: issue.message,
+    code: issue.code,
+  }));
+
+  return {
+    success: false,
+    response: NextResponse.json(
+      {
+        error: "Invalid request data",
+        details: fieldErrors,
+      },
+      { status: 400 },
+    ),
+  };
 }
