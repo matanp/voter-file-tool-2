@@ -47,8 +47,10 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
       }, timeoutMs);
 
       try {
-        const headers =
-          payload != null ? { "Content-Type": "application/json" } : undefined;
+        const headers: Record<string, string> = { Accept: "application/json" };
+        if (payload != null) {
+          headers["Content-Type"] = "application/json";
+        }
         const response = await fetch(url, {
           method,
           headers,

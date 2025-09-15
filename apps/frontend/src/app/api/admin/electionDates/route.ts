@@ -34,8 +34,21 @@ export async function POST(request: Request) {
     const body = (await request.json()) as unknown;
     const parsed = createDateSchema.parse(body);
 
+    const electionDate = new Date(parsed.date);
+
+    const existingDate = await prisma.electionDate.findFirst({
+      where: { date: electionDate },
+    });
+
+    if (existingDate) {
+      return NextResponse.json(
+        { error: "Election date already exists" },
+        { status: 409 },
+      );
+    }
+
     const newDate = await prisma.electionDate.create({
-      data: { date: new Date(parsed.date) },
+      data: { date: electionDate },
     });
 
     revalidatePath("/petitions");

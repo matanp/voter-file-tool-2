@@ -173,8 +173,8 @@ export const expectErrorResponse = async (
       details?: unknown;
     };
     expect(json.error).toBe(expectedError);
-    // Only expect details for validation errors (400 status with "Invalid request data")
-    if (expectedStatus === 400 && expectedError === "Invalid request data") {
+    // Only expect details for validation errors (422 status with "Invalid request data")
+    if (expectedStatus === 422 && expectedError === "Invalid request data") {
       expect(json.details).toBeDefined();
     }
   }

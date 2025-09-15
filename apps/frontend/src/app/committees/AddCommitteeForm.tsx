@@ -43,7 +43,15 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       memberId: string;
     }
   >("/api/committee/add", "POST", {
-    onSuccess: () => {
+    onSuccess: (res) => {
+      if (!res?.success) {
+        toast({
+          title: "Error",
+          description: "Request completed but was not successful.",
+          variant: "destructive",
+        });
+        return;
+      }
       onAdd(city, electionDistrict, legDistrict);
       toast({
         title: "Success",
@@ -63,15 +71,18 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     city !== "" && legDistrict !== "" && electionDistrict !== -1;
 
   const handleAddCommitteeMember = async (
-    event: React.FormEvent<HTMLButtonElement>,
+    event: React.MouseEvent<HTMLButtonElement>,
     record: VoterRecord,
   ) => {
-    event.preventDefault();
-
     if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+      // Don't mutate if legDistrict is empty
+      if (legDistrict === "") {
+        return;
+      }
+
       await addCommitteeMemberMutation.mutate({
         cityTown: city,
-        legDistrict: legDistrict === "" ? "-1" : legDistrict,
+        legDistrict: parseInt(legDistrict, 10).toString(),
         electionDistrict: electionDistrict,
         memberId: record.VRCNUM,
       });

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
+import { useToast } from "~/components/ui/use-toast";
 
 interface ElectionOfficesProps {
   officeNames: OfficeName[];
@@ -13,6 +14,7 @@ interface ElectionOfficesProps {
 export const ElectionOffices = ({
   officeNames: initialOffices,
 }: ElectionOfficesProps) => {
+  const { toast } = useToast();
   const [officeNames, setOfficeNames] = useState<OfficeName[]>(initialOffices);
   const [newOffice, setNewOffice] = useState<string>("");
 
@@ -24,9 +26,18 @@ export const ElectionOffices = ({
       onSuccess: (createdOffice) => {
         setOfficeNames((prev) => [...prev, createdOffice]);
         setNewOffice("");
+        toast({
+          title: "Success",
+          description: "Office name added successfully.",
+        });
       },
       onError: (error) => {
         console.error("Failed to add office", error);
+        toast({
+          title: "Error",
+          description: "Failed to add office name. Please try again.",
+          variant: "destructive",
+        });
       },
     },
   );
@@ -37,10 +48,19 @@ export const ElectionOffices = ({
       onSuccess: (data, payload) => {
         if (payload?.id) {
           setOfficeNames((prev) => prev.filter((o) => o.id !== payload.id));
+          toast({
+            title: "Success",
+            description: "Office name deleted successfully.",
+          });
         }
       },
       onError: (error) => {
         console.error("Failed to delete office", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete office name. Please try again.",
+          variant: "destructive",
+        });
       },
     },
   );

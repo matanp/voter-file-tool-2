@@ -49,12 +49,12 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
     },
   });
 
-  const handleAccept = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  const handleAccept = (
+    e: React.MouseEvent<HTMLButtonElement>,
     acceptOrReject: "accept" | "reject",
   ) => {
     e.preventDefault();
-    await handleRequestMutation.mutate({
+    void handleRequestMutation.mutate({
       committeeRequestId: String(request.id),
       acceptOrReject,
     });

@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { committeeDataSchema } from "~/lib/validations/committee";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import type { Session } from "next-auth";
@@ -25,7 +25,6 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
           electionDistrict: electionDistrict,
         },
       },
-      include: { committeeMemberList: true },
     });
 
     if (!existingElectionDistrict) {
@@ -45,6 +44,19 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
     console.error(error);
+
+    // Handle Prisma known errors with specific status codes
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2025") {
+        // Record not found (member to update not found)
+        return NextResponse.json(
+          { error: "Member not found" },
+          { status: 404 },
+        );
+      }
+    }
+
+    // Default fallback for all other errors
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

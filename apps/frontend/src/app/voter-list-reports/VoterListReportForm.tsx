@@ -198,10 +198,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     },
   });
 
-  // Fetch search results when search query changes
   React.useEffect(() => {
-    const abortController = new AbortController();
-
     const fetchSearchResults = async () => {
       if (flattenedSearchQuery.length === 0) {
         setSearchResults([]);
@@ -231,10 +228,6 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     };
 
     void fetchSearchResults();
-
-    return () => {
-      abortController.abort();
-    };
   }, [flattenedSearchQuery]);
 
   // Handle report completion

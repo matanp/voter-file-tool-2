@@ -86,24 +86,28 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
       >
         <div className="flex gap-4 items-center">
           <Input
-            type="string"
+            type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter Voter ID` : "Voter ID"}
             onChange={(e) => setVoterId(e.target.value)}
           />
           <Input
-            type="string"
+            type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter First Name` : "First Name"}
             onChange={(e) => setFirstName(e.target.value)}
           />
           <Input
-            type="string"
+            type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter Last Name` : "Last Name"}
             onChange={(e) => setLastName(e.target.value)}
           />
-          <Button type="submit" disabled={searchMutation.loading}>
+          <Button
+            type="submit"
+            disabled={searchMutation.loading}
+            aria-busy={searchMutation.loading || undefined}
+          >
             {searchMutation.loading ? "Loading..." : submitButtonText}
           </Button>
         </div>

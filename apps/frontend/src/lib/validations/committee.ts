@@ -52,7 +52,7 @@ export const committeeRequestDataSchema = z
       const hasAddMember = data.addMemberId && data.addMemberId.trim() !== "";
       const hasRemoveMember =
         data.removeMemberId && data.removeMemberId.trim() !== "";
-      return hasAddMember ?? hasRemoveMember;
+      return Boolean(hasAddMember) || Boolean(hasRemoveMember);
     },
     {
       message:

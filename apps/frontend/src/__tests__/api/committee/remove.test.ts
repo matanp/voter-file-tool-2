@@ -58,7 +58,6 @@ describe("/api/committee/remove", () => {
             ),
           },
         },
-        include: { committeeMemberList: true },
       });
       expect(prismaMock.voterRecord.update).toHaveBeenCalledWith({
         where: { VRCNUM: mockCommitteeData.memberId },
@@ -124,7 +123,7 @@ describe("/api/committee/remove", () => {
           const response = await POST(request);
 
           // Assert
-          await expectErrorResponse(response, 400, expectedError);
+          await expectErrorResponse(response, 422, expectedError);
         });
       },
     );
@@ -153,7 +152,7 @@ describe("/api/committee/remove", () => {
           const response = await POST(request);
 
           // Assert
-          await expectErrorResponse(response, 400, expectedError);
+          await expectErrorResponse(response, 422, expectedError);
         });
       },
     );
@@ -224,7 +223,7 @@ describe("/api/committee/remove", () => {
       await expectErrorResponse(response, 500, "Internal server error");
     });
 
-    it("should handle numeric string conversion correctly", async () => {
+    it("should handle numeric conversion correctly", async () => {
       // Arrange
       const mockCommitteeData = createMockCommitteeData({
         legDistrict: 5,
@@ -257,7 +256,6 @@ describe("/api/committee/remove", () => {
             ),
           },
         },
-        include: { committeeMemberList: true },
       });
     });
 
@@ -282,7 +280,7 @@ describe("/api/committee/remove", () => {
       const response = await POST(request);
 
       // Assert
-      await expectErrorResponse(response, 400, "Invalid request data");
+      await expectErrorResponse(response, 422, "Invalid request data");
     });
   });
 });

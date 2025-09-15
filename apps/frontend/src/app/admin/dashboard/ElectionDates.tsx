@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "~/components/ui/button";
 import { DatePicker } from "~/components/ui/datePicker";
 import type { ElectionDate } from "@prisma/client";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
+import { useToast } from "~/components/ui/use-toast";
 
 interface ElectionDateProps {
   electionDates: ElectionDate[];
@@ -13,6 +14,7 @@ interface ElectionDateProps {
 export const ElectionDates = ({
   electionDates: initialDates,
 }: ElectionDateProps) => {
+  const { toast } = useToast();
   const [electionDates, setElectionDates] =
     useState<ElectionDate[]>(initialDates);
   const [newDate, setNewDate] = useState<Date | null>(null);
@@ -25,9 +27,18 @@ export const ElectionDates = ({
       onSuccess: (createdDate) => {
         setElectionDates((prev) => [...prev, createdDate]);
         setNewDate(null);
+        toast({
+          title: "Success",
+          description: "Election date added successfully.",
+        });
       },
       onError: (error) => {
         console.error("Failed to add election date", error);
+        toast({
+          title: "Error",
+          description: "Failed to add election date. Please try again.",
+          variant: "destructive",
+        });
       },
     },
   );
@@ -38,13 +49,37 @@ export const ElectionDates = ({
       onSuccess: (data, payload) => {
         if (payload?.id) {
           setElectionDates((prev) => prev.filter((d) => d.id !== payload.id));
+          toast({
+            title: "Success",
+            description: "Election date deleted successfully.",
+          });
         }
       },
       onError: (error) => {
         console.error("Failed to delete election date", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete election date. Please try again.",
+          variant: "destructive",
+        });
       },
     },
   );
+
+  const fetchElectionDates = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/electionDates");
+      const data: ElectionDate[] = (await res.json()) as ElectionDate[];
+      setElectionDates(data);
+    } catch (err) {
+      console.error("Failed to fetch election dates", err);
+      toast({
+        title: "Error",
+        description: "Failed to load election dates. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   useEffect(() => {
     const loadElectionDates = async () => {
@@ -54,17 +89,7 @@ export const ElectionDates = ({
     loadElectionDates().catch((error) => {
       console.log(error);
     });
-  }, []);
-
-  const fetchElectionDates = async () => {
-    try {
-      const res = await fetch("/api/admin/electionDates");
-      const data: ElectionDate[] = (await res.json()) as ElectionDate[];
-      setElectionDates(data);
-    } catch (err) {
-      console.error("Failed to fetch election dates", err);
-    }
-  };
+  }, [fetchElectionDates]);
 
   const handleAddDate = async () => {
     if (!newDate) return;

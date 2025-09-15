@@ -5,6 +5,7 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { committeeDataSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import type { Session } from "next-auth";
+import * as Sentry from "@sentry/nextjs";
 
 async function addCommitteeHandler(req: NextRequest, _session: Session) {
   const body = (await req.json()) as unknown;
@@ -17,6 +18,34 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
   const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
   try {
+    // First check if the member is already connected to this committee
+    const existingCommittee = await prisma.committeeList.findUnique({
+      where: {
+        cityTown_legDistrict_electionDistrict: {
+          cityTown: cityTown,
+          legDistrict: legDistrict,
+          electionDistrict: electionDistrict,
+        },
+      },
+      include: {
+        committeeMemberList: {
+          where: { VRCNUM: memberId },
+        },
+      },
+    });
+
+    // If committee exists and member is already connected, return idempotent success
+    if (existingCommittee && existingCommittee.committeeMemberList.length > 0) {
+      return NextResponse.json(
+        {
+          message: "Member already connected to committee",
+          committee: existingCommittee,
+          idempotent: true,
+        },
+        { status: 200 },
+      );
+    }
+
     const updatedCommittee = await prisma.committeeList.upsert({
       where: {
         cityTown_legDistrict_electionDistrict: {
@@ -43,9 +72,25 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       },
     });
 
-    return NextResponse.json(updatedCommittee, { status: 200 });
+    // Determine if this was a creation or update based on whether committee existed
+    const wasCreated = !existingCommittee;
+    const statusCode = wasCreated ? 201 : 200;
+
+    return NextResponse.json(updatedCommittee, { status: statusCode });
   } catch (error) {
-    console.error(error);
+    // Use structured logging with Sentry
+    Sentry.captureException(error, {
+      tags: {
+        operation: "addCommittee",
+        cityTown,
+        legDistrict: legDistrict.toString(),
+        electionDistrict: electionDistrict.toString(),
+        memberId,
+      },
+      extra: {
+        requestBody: { cityTown, legDistrict, electionDistrict, memberId },
+      },
+    });
 
     // Handle Prisma known errors with specific status codes
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -56,7 +101,8 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           { status: 404 },
         );
       } else if (error.code === "P2002") {
-        // Unique constraint violation (duplicate relation)
+        // Unique constraint violation (duplicate relation) - should not happen with our idempotency check
+        // but keeping as fallback
         return NextResponse.json(
           { error: "Duplicate relation - member already exists in committee" },
           { status: 409 },

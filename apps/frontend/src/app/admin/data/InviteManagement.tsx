@@ -95,25 +95,25 @@ export function InviteManagement() {
     },
   });
 
-  const deleteInviteMutation = useApiDelete<
-    { success: boolean },
-    { id: string }
-  >("/api/admin/invites", {
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Invite deleted successfully",
-      });
-      void fetchInvites(); // Refresh the list
+  const deleteInviteMutation = useApiDelete<{ success: boolean }>(
+    "/api/admin/invites",
+    {
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Invite deleted successfully",
+        });
+        void fetchInvites(); // Refresh the list
+      },
+      onError: (error) => {
+        toast({
+          title: "Error",
+          description: `Failed to delete invite: ${error.message}`,
+          variant: "destructive",
+        });
+      },
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to delete invite: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
+  );
 
   const validateEmail = (email: string) => {
     if (!email) {
@@ -189,7 +189,10 @@ export function InviteManagement() {
       return;
     }
 
-    await createInviteMutation.mutate(formData);
+    await createInviteMutation.mutate({
+      ...formData,
+      email: formData.email.trim(),
+    });
   };
 
   const copyInviteUrl = async (invite: SerializedInvite) => {
@@ -212,7 +215,7 @@ export function InviteManagement() {
     }
 
     await deleteInviteMutation.mutate(
-      { id: inviteId },
+      undefined, // No payload needed since ID is in URL
       `/api/admin/invites?id=${inviteId}`,
     );
   };
