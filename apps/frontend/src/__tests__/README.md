@@ -104,25 +104,24 @@ export const createMockSession = (overrides = {}) => ({
 
 Use helper functions for common assertions:
 
-```typescript
-export const expectSuccessResponse = (response, expectedData) => {
+````typescript
+export const expectSuccessResponse = async (response: Response, expectedData?: unknown) => {
   expect(response.status).toBe(200);
-  if (expectedData) {
-    expect(response.json()).resolves.toEqual(expectedData);
+  if (typeof expectedData !== "undefined") {
+    await expect(response.json()).resolves.toEqual(expectedData);
   }
 };
 
-export const expectErrorResponse = (
-  response,
-  expectedStatus,
-  expectedError,
+export const expectErrorResponse = async (
+  response: Response,
+  expectedStatus: number,
+  expectedError?: unknown,
 ) => {
   expect(response.status).toBe(expectedStatus);
-  if (expectedError) {
-    expect(response.json()).resolves.toEqual({ error: expectedError });
+  if (typeof expectedError !== "undefined") {
+    await expect(response.json()).resolves.toEqual({ error: expectedError });
   }
 };
-```
 
 ## Test Categories
 
@@ -170,7 +169,7 @@ pnpm test:coverage
 
 # Run specific test file
 pnpm test fetchCommitteeList.test.ts
-```
+````
 
 ## Coverage Goals
 

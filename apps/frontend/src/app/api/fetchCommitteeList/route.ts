@@ -12,7 +12,7 @@ async function getCommitteeList(req: NextRequest) {
     !electionDistrict ||
     !cityTown ||
     Array.isArray(electionDistrict) ||
-    !Number.isInteger(Number(electionDistrict))
+    !/^\d+$/.test(electionDistrict.trim())
   ) {
     return NextResponse.json(
       { error: "Invalid election district" },
