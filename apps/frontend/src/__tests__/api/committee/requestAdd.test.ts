@@ -59,10 +59,14 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, {
-        status: "success",
-        message: "Request created",
-      });
+      await expectSuccessResponse(
+        response,
+        {
+          status: "success",
+          message: "Request created",
+        },
+        201,
+      );
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: mockRequestData.cityTown,
@@ -106,10 +110,14 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, {
-        status: "success",
-        message: "Request created",
-      });
+      await expectSuccessResponse(
+        response,
+        {
+          status: "success",
+          message: "Request created",
+        },
+        201,
+      );
       expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
         createCommitteeRequestCreateArgs({
           committeeListId: mockCommittee.id,
@@ -145,10 +153,14 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, {
-        status: "success",
-        message: "Request created",
-      });
+      await expectSuccessResponse(
+        response,
+        {
+          status: "success",
+          message: "Request created",
+        },
+        201,
+      );
       expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
         createCommitteeRequestCreateArgs({
           committeeListId: mockCommittee.id,
@@ -182,6 +194,7 @@ describe("/api/committee/requestAdd", () => {
         mockAuthSession,
         mockHasPermission,
         setupMocks,
+        201, // Success status for this endpoint
       );
 
       authTestSuite.forEach(({ description, runTest }) => {
@@ -331,18 +344,12 @@ describe("/api/committee/requestAdd", () => {
         addMemberId: null,
         removeMemberId: null,
       });
-      const mockCommittee = createMockCommittee();
-      const mockCommitteeRequest = createMockCommitteeRequest();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.RequestAccess },
       });
 
       mockAuthSession(mockSession);
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
-      prismaMock.committeeRequest.create.mockResolvedValue(
-        mockCommitteeRequest,
-      );
 
       const request = createMockRequest(mockRequestData);
 
@@ -350,18 +357,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, {
-        status: "success",
-        message: "Request created",
-      });
-      expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
-        createCommitteeRequestCreateArgs({
-          committeeListId: mockCommittee.id,
-          addVoterRecordId: undefined,
-          removeVoterRecordId: undefined,
-          requestNotes: mockRequestData.requestNotes,
-        }),
-      );
+      await expectErrorResponse(response, 400, "Invalid request data");
     });
 
     it("should handle missing requestNotes", async () => {
@@ -388,10 +384,14 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, {
-        status: "success",
-        message: "Request created",
-      });
+      await expectSuccessResponse(
+        response,
+        {
+          status: "success",
+          message: "Request created",
+        },
+        201,
+      );
       expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
         createCommitteeRequestCreateArgs({
           committeeListId: mockCommittee.id,

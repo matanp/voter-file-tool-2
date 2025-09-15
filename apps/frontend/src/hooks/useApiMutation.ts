@@ -52,7 +52,7 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
         const response = await fetch(url, {
           method,
           headers,
-          body: payload ? JSON.stringify(payload) : undefined,
+          body: payload != null ? JSON.stringify(payload) : undefined,
           signal: controller.signal,
         });
 
@@ -75,7 +75,18 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
           throw new Error(errorMessage);
         }
 
-        const result = (await response.json()) as TData;
+        let result: TData;
+        const contentType = response.headers.get("content-type");
+        if (contentType?.includes("application/json")) {
+          result = (await response.json()) as TData;
+        } else if (response.status === 204 || !response.body) {
+          // Handle empty responses (e.g., 204 No Content)
+          result = null as TData;
+        } else {
+          throw new Error(
+            "Expected JSON response but received: " + contentType,
+          );
+        }
         setData(result);
 
         options?.onSuccess?.(result, payload);

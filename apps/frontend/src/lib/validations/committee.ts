@@ -52,7 +52,7 @@ export const committeeRequestDataSchema = z
       const hasAddMember = data.addMemberId && data.addMemberId.trim() !== "";
       const hasRemoveMember =
         data.removeMemberId && data.removeMemberId.trim() !== "";
-      return hasAddMember || hasRemoveMember;
+      return hasAddMember ?? hasRemoveMember;
     },
     {
       message:
@@ -79,7 +79,20 @@ export const handleCommitteeRequestDataSchema = z
 export const fetchCommitteeListQuerySchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z.string().trim().optional(),
+    legDistrict: z
+      .string()
+      .trim()
+      .optional()
+      .refine(
+        (val) => {
+          if (val === undefined || val === "") return true;
+          const parsed = Number(val);
+          return !Number.isNaN(parsed) && Number.isInteger(parsed);
+        },
+        {
+          message: "Legislative District must be a valid integer when provided",
+        },
+      ),
     electionDistrict: z
       .string()
       .trim()

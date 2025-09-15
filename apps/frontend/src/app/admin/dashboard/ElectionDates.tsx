@@ -32,12 +32,12 @@ export const ElectionDates = ({
     },
   );
 
-  const deleteDateMutation = useApiDelete<ElectionDate, { id: number }>(
+  const deleteDateMutation = useApiDelete<{ message: string }, { id: number }>(
     "/api/admin/electionDates",
     {
-      onSuccess: (data) => {
-        if (data?.id) {
-          setElectionDates((prev) => prev.filter((d) => d.id !== data.id));
+      onSuccess: (data, payload) => {
+        if (payload?.id) {
+          setElectionDates((prev) => prev.filter((d) => d.id !== payload.id));
         }
       },
       onError: (error) => {

@@ -7,10 +7,39 @@ import { fetchCommitteeListQuerySchema } from "~/lib/validations/committee";
 
 async function getCommitteeList(req: NextRequest) {
   // Extract query parameters
+  const legDistrictValues = req.nextUrl.searchParams.getAll("legDistrict");
+  const legDistrictParam =
+    legDistrictValues.length > 0 ? legDistrictValues[0] : undefined;
+
+  // Check if any legDistrict values are invalid (if multiple provided)
+  if (legDistrictValues.length > 1) {
+    for (const value of legDistrictValues) {
+      if (value && value.trim() !== "") {
+        const parsed = parseInt(value, 10);
+        if (Number.isNaN(parsed)) {
+          return NextResponse.json(
+            {
+              error: "Invalid request data",
+              details: [
+                {
+                  field: "legDistrict",
+                  message:
+                    "Legislative District must be a valid integer when provided",
+                  code: "custom",
+                },
+              ],
+            },
+            { status: 400 },
+          );
+        }
+      }
+    }
+  }
+
   const queryParams = {
     electionDistrict: req.nextUrl.searchParams.get("electionDistrict"),
     cityTown: req.nextUrl.searchParams.get("cityTown"),
-    legDistrict: req.nextUrl.searchParams.get("legDistrict"),
+    legDistrict: legDistrictParam ?? undefined,
   };
 
   // Validate query parameters using the schema

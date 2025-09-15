@@ -83,25 +83,25 @@ describe("/api/fetchCommitteeList", () => {
       {
         param: "electionDistrict",
         value: "",
-        error: "Invalid election district",
+        error: "Invalid request data",
         url: "http://localhost:3000/api/fetchCommitteeList?cityTown=Test%20City&legDistrict=1",
       },
       {
         param: "electionDistrict",
         value: "invalid",
-        error: "Invalid election district",
+        error: "Invalid request data",
         url: "http://localhost:3000/api/fetchCommitteeList?electionDistrict=invalid&cityTown=Test%20City&legDistrict=1",
       },
       {
         param: "cityTown",
         value: "",
-        error: "Invalid election district",
+        error: "Invalid request data",
         url: "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&legDistrict=1",
       },
       {
         param: "electionDistrict",
         value: "1.5",
-        error: "Invalid election district",
+        error: "Invalid request data",
         url: "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1.5&cityTown=Test%20City&legDistrict=1",
       },
     ])(
@@ -277,7 +277,7 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectErrorResponse(response, 400, "Invalid election district");
+      await expectErrorResponse(response, 400, "Invalid request data");
     });
 
     it("should return 400 for empty electionDistrict after trimming", async () => {
@@ -297,11 +297,11 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectErrorResponse(response, 400, "Invalid election district");
+      await expectErrorResponse(response, 400, "Invalid request data");
     });
 
     // Edge case tests for legDistrict parameter handling
-    it("should handle legDistrict parameter with invalid numeric value", async () => {
+    it("should return 400 for legDistrict parameter with invalid numeric value", async () => {
       // Arrange
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
@@ -309,7 +309,6 @@ describe("/api/fetchCommitteeList", () => {
 
       mockAuthSession(mockSession);
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(null);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=invalid",
@@ -319,14 +318,8 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectErrorResponse(response, 404, "Committee not found");
-      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
-        createCommitteeFindUniqueArgs({
-          cityTown: "Test City",
-          legDistrict: NaN, // Should be NaN when invalid
-          electionDistrict: 1,
-        }),
-      );
+      await expectErrorResponse(response, 400, "Invalid request data");
+      expect(prismaMock.committeeList.findUnique).not.toHaveBeenCalled();
     });
 
     it("should handle legDistrict parameter with negative value", async () => {
@@ -358,16 +351,14 @@ describe("/api/fetchCommitteeList", () => {
       );
     });
 
-    it("should handle legDistrict parameter with decimal value", async () => {
+    it("should return 400 for legDistrict parameter with decimal value", async () => {
       // Arrange
-      const mockCommittee = createMockCommittee();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
 
       mockAuthSession(mockSession);
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1.5",
@@ -377,14 +368,8 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
-      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
-        createCommitteeFindUniqueArgs({
-          cityTown: "Test City",
-          legDistrict: 1.5, // Should accept decimal values
-          electionDistrict: 1,
-        }),
-      );
+      await expectErrorResponse(response, 400, "Invalid request data");
+      expect(prismaMock.committeeList.findUnique).not.toHaveBeenCalled();
     });
 
     // URL encoding edge cases
@@ -505,16 +490,14 @@ describe("/api/fetchCommitteeList", () => {
       );
     });
 
-    it("should handle mixed valid and invalid legDistrict parameters", async () => {
+    it("should return 400 for mixed valid and invalid legDistrict parameters", async () => {
       // Arrange
-      const mockCommittee = createMockCommittee();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
 
       mockAuthSession(mockSession);
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1&legDistrict=invalid",
@@ -524,14 +507,8 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
-      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
-        createCommitteeFindUniqueArgs({
-          cityTown: "Test City",
-          legDistrict: 1, // First valid value should win
-          electionDistrict: 1,
-        }),
-      );
+      await expectErrorResponse(response, 400, "Invalid request data");
+      expect(prismaMock.committeeList.findUnique).not.toHaveBeenCalled();
     });
   });
 });

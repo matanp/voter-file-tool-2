@@ -41,10 +41,10 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
         });
       }
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Something went wrong with your request",
+        description: error.message || "Something went wrong with your request",
       });
     },
   });

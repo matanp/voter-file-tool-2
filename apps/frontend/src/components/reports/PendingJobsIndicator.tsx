@@ -37,8 +37,10 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   const deleteJobMutation = useApiDelete<{ success: boolean }, { id: string }>(
     "/api/reports",
     {
-      onSuccess: (_, payload) => {
-        setJobs((prev) => prev.filter((job) => job.id !== payload?.id));
+      onSuccess: (data, payload) => {
+        if (payload?.id) {
+          setJobs((prev) => prev.filter((job) => job.id !== payload.id));
+        }
       },
       onError: (error) => {
         console.error("Error deleting report:", error);

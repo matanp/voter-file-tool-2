@@ -6,7 +6,7 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import type { Session } from "next-auth";
 
-async function removeCommitteeHandler(req: NextRequest, session: Session) {
+async function removeCommitteeHandler(req: NextRequest, _session: Session) {
   const body = (await req.json()) as unknown;
   const validation = validateRequest(body, committeeDataSchema);
 

@@ -60,7 +60,22 @@ const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
     if (!dateString) return null;
     const date = new Date(dateString);
     const isValid = !isNaN(date.getTime());
-    return isValid ? date : null;
+
+    if (!isValid) return null;
+
+    const currentYear = new Date().getFullYear();
+    const minYear = 1900; // Reasonable minimum year for voter records
+    const maxYear = currentYear + 1; // Allow up to next year for future registrations
+
+    const year = date.getFullYear();
+    if (year < minYear || year > maxYear) {
+      console.warn(
+        `Date ${dateString} is outside reasonable bounds (${minYear}-${maxYear})`,
+      );
+      return null;
+    }
+
+    return date;
   };
 
   // Create the Prisma record by spreading the API record and handling special cases
@@ -269,13 +284,15 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       if (filteredUpdates.format === "pdf") {
         filteredUpdates.format = "xlsx";
       }
-      setFormData(
-        (prev) =>
-          ({
-            ...prev,
-            ...filteredUpdates,
-          }) as VoterListReportFormData,
-      );
+
+      setFormData((prev) => {
+        const updated = { ...prev, ...filteredUpdates };
+        const voterListData: VoterListReportFormData = {
+          ...updated,
+          format: "xlsx",
+        };
+        return voterListData;
+      });
     },
     [],
   );

@@ -89,9 +89,15 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       });
     },
     onError: (error) => {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "An unknown error occurred";
       toast({
         title: "Error",
-        description: `Failed to generate petition: ${error.message}`,
+        description: `Failed to generate petition: ${errorMessage}`,
         variant: "destructive",
       });
     },
