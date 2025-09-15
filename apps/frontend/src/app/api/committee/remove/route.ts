@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import type { CommitteeData } from "../add/route";
+import { committeeDataSchema } from "~/lib/validations/committee";
 import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
@@ -18,17 +18,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   }
 
-  const { cityTown, legDistrict, electionDistrict, memberId }: CommitteeData =
-    (await req.json()) as CommitteeData;
+  let cityTown: string;
+  let legDistrict: string;
+  let electionDistrict: string;
+  let memberId: string;
 
-  if (
-    !cityTown ||
-    !legDistrict ||
-    !electionDistrict ||
-    !memberId ||
-    !Number.isInteger(electionDistrict) ||
-    !Number(legDistrict)
-  ) {
+  try {
+    const body = (await req.json()) as unknown;
+    const validatedData = committeeDataSchema.parse(body);
+    cityTown = validatedData.cityTown;
+    legDistrict = validatedData.legDistrict;
+    electionDistrict = validatedData.electionDistrict;
+    memberId = validatedData.memberId;
+
+    // Additional validation for numeric fields
+    if (!Number.isInteger(Number(electionDistrict)) || !Number(legDistrict)) {
+      return NextResponse.json(
+        { error: "Invalid numeric fields" },
+        { status: 400 },
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === "ZodError") {
+      return NextResponse.json(
+        { error: "Invalid request data" },
+        { status: 400 },
+      );
+    }
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 

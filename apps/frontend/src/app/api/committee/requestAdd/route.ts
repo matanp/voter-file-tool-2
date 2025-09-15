@@ -3,15 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
 import { PrivilegeLevel } from "@prisma/client";
-
-type CommitteeRequestData = {
-  cityTown: string;
-  legDistrict: string;
-  electionDistrict: number;
-  addMemberId: string;
-  removeMemberId: string;
-  requestNotes: string;
-};
+import type { CommitteeRequestData } from "~/lib/validations/committee";
 export async function POST(req: NextRequest) {
   const session = await auth();
 
@@ -41,7 +33,7 @@ export async function POST(req: NextRequest) {
     !cityTown ||
     !legDistrict ||
     !electionDistrict ||
-    !Number.isInteger(electionDistrict) ||
+    !Number.isInteger(Number(electionDistrict)) ||
     !Number(legDistrict)
   ) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });

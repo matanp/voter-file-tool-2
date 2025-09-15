@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Alert, AlertDescription } from "~/components/ui/alert";
-import { Mail, Shield, Users } from "lucide-react";
+import { Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import AccessDeniedContent from "./AccessDeniedContent";
