@@ -26,7 +26,7 @@ async function getCommitteeList(req: NextRequest) {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
           legDistrict: legDistrict ? Number(legDistrict) : -1,
-          electionDistrict: parseInt(electionDistrict),
+          electionDistrict: parseInt(electionDistrict, 10),
         },
       },
       include: {

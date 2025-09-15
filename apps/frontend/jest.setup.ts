@@ -13,13 +13,13 @@ jest.mock("next/server", () => ({
     .mockImplementation(
       (url: string, options: { body?: unknown; method?: string } = {}) => {
         const u = new URL(url, "http://localhost");
-        const body =
+        const body: unknown =
           typeof options.body === "string"
             ? (() => {
                 try {
-                  return JSON.parse(options.body as string);
+                  return JSON.parse(options.body) as unknown;
                 } catch {
-                  return {};
+                  return {} as unknown;
                 }
               })()
             : (options.body ?? {});
@@ -55,8 +55,10 @@ jest.mock("next/server", () => ({
       },
     ),
     redirect: jest.fn((url: string, status = 307) => ({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       status,
-      headers: new Map([["location", url]]),
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-unsafe-assignment
+      headers: new Map([["location", url]]) as Map<string, string>,
     })),
   },
 }));
@@ -75,26 +77,38 @@ jest.mock("~/lib/prisma", () => ({
 }));
 
 // Mock @prisma/client to provide error classes
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 jest.mock("@prisma/client", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   ...jest.requireActual("@prisma/client"),
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   Prisma: {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
     ...jest.requireActual("@prisma/client").Prisma,
     PrismaClientKnownRequestError: class extends Error {
       code: string;
-      constructor(message: string, code: string) {
+      constructor(
+        message: string,
+        meta: { code: string; clientVersion?: string },
+      ) {
         super(message);
         this.name = "PrismaClientKnownRequestError";
-        this.code = code;
+        this.code = meta.code;
       }
     },
   },
 }));
 
 // Mock utility functions
-jest.mock("~/lib/utils", () => ({
-  ...jest.requireActual("~/lib/utils"),
-  hasPermissionFor: jest.fn(),
-}));
+jest.mock("~/lib/utils", () => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return
+  const actual = jest.requireActual("~/lib/utils");
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return {
+    ...actual,
+    hasPermissionFor: jest.fn(),
+  };
+});
 
 // Mock console.error to suppress error logs during tests
 const originalConsoleError = console.error;
@@ -116,6 +130,8 @@ globalThis.mockPrisma = prismaMock;
 globalThis.mockAuth = jest.mocked(auth) as unknown as jest.MockedFunction<
   () => Promise<Session | null>
 >;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 globalThis.mockHasPermissionFor = jest.mocked(
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   require("~/lib/utils").hasPermissionFor,
 );

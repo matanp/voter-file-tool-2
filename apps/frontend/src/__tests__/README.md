@@ -134,8 +134,9 @@ export const expectErrorResponse = async (
 ### 2. Authentication Tests
 
 - Unauthenticated requests (401)
-- Insufficient privileges (401/403)
+- Insufficient privileges (403)
 - Different privilege levels
+- **Shared authentication test suite**: Use `createAuthTestSuite()` for consistent authentication testing across all endpoints
 
 ### 3. Validation Tests
 
@@ -177,6 +178,61 @@ pnpm test fetchCommitteeList.test.ts
 - **Branches**: >85%
 - **Functions**: >90%
 - **Lines**: >90%
+
+## Shared Authentication Testing
+
+### Using the Shared Authentication Test Suite
+
+The test utilities now include a comprehensive shared authentication testing framework that eliminates code duplication and ensures consistent authentication testing across all endpoints.
+
+#### Basic Usage
+
+```typescript
+import {
+  createAuthTestSuite,
+  type AuthTestConfig,
+} from "../../utils/testUtils";
+
+describe("Authentication tests", () => {
+  const authConfig: AuthTestConfig = {
+    endpointName: "/api/your-endpoint",
+    requiredPrivilege: PrivilegeLevel.Admin, // or RequestAccess, ReadAccess, etc.
+    mockRequest: () => createMockRequest(yourTestData),
+  };
+
+  const setupMocks = () => {
+    // Setup database mocks for successful test cases
+    prismaMock.yourModel.method.mockResolvedValue(mockData);
+  };
+
+  const authTestSuite = createAuthTestSuite(
+    authConfig,
+    yourHandler,
+    mockAuthSession,
+    mockHasPermission,
+    setupMocks,
+  );
+
+  authTestSuite.forEach(({ description, runTest }) => {
+    it(description, runTest);
+  });
+});
+```
+
+#### What Tests Are Generated
+
+The `createAuthTestSuite()` function automatically generates the following test cases:
+
+1. **Unauthenticated test**: Tests that unauthenticated requests return 401
+2. **Insufficient privilege tests**: Tests that users with insufficient privileges return 403
+3. **Successful authentication test**: Tests that users with proper privileges succeed
+
+#### Benefits
+
+- **Consistency**: All endpoints test authentication the same way
+- **Completeness**: Automatically tests all privilege levels
+- **Maintainability**: Changes to authentication logic only need to be updated in one place
+- **Reduced duplication**: Eliminates repetitive authentication test code
 
 ## Best Practices
 

@@ -2,23 +2,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { committeeDataSchema } from "~/lib/validations/committee";
 import { PrivilegeLevel } from "@prisma/client";
-import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import type { Session } from "next-auth";
 import { ZodError } from "zod";
 
-// const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-export async function POST(req: NextRequest) {
-  // const { electionDistrict, memberId } = req.body;
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  if (!hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  }
-
+async function removeCommitteeHandler(req: NextRequest, session: Session) {
   let cityTown: string;
   let legDistrict: string;
   let electionDistrict: string;
@@ -33,10 +21,14 @@ export async function POST(req: NextRequest) {
     memberId = validatedData.memberId;
 
     // Additional validation for numeric fields
-    if (
-      !Number.isInteger(Number(electionDistrict)) ||
-      !Number.isInteger(Number(legDistrict))
-    ) {
+    const legDistrictNum = Number(legDistrict);
+    const electionDistrictNum = Number(electionDistrict);
+    const validInts =
+      Number.isInteger(legDistrictNum) &&
+      Number.isInteger(electionDistrictNum) &&
+      legDistrictNum > 0 &&
+      electionDistrictNum > 0;
+    if (!validInts) {
       return NextResponse.json(
         { error: "Invalid numeric fields" },
         { status: 400 },
@@ -78,7 +70,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json("success", { status: 200 });
+    return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
@@ -87,3 +79,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Admin, removeCommitteeHandler);

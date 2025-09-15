@@ -14,7 +14,7 @@ declare global {
   var mockHasPermissionFor: jest.MockedFunction<HasPermissionForFn>;
 
   // Jest global
-  var jest: typeof import("@jest/globals").jest | undefined;
+  var jest: typeof import("@jest/globals").jest;
 }
 
 export {};

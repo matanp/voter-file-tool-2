@@ -8,7 +8,11 @@ import {
   createMockRequest,
   expectSuccessResponse,
   expectErrorResponse,
+  validationTestCases,
+  createAuthTestSuite,
+  type AuthTestConfig,
 } from "../../utils/testUtils";
+import type { CommitteeData } from "~/lib/validations/committee";
 import {
   mockAuthSession,
   mockHasPermission,
@@ -42,7 +46,7 @@ describe("/api/committee/remove", () => {
       const response = await POST(request);
 
       // Assert
-      expectSuccessResponse(response, "success");
+      await expectSuccessResponse(response, { status: "success" });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith({
         where: {
           cityTown_legDistrict_electionDistrict: {
@@ -61,171 +65,92 @@ describe("/api/committee/remove", () => {
       });
     });
 
-    it("should return 401 when user is not authenticated", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData();
+    // Authentication tests using shared test suite
+    describe("Authentication tests", () => {
+      const authConfig: AuthTestConfig = {
+        endpointName: "/api/committee/remove",
+        requiredPrivilege: PrivilegeLevel.Admin,
+        mockRequest: () => createMockRequest(createMockCommitteeData()),
+      };
 
-      mockAuthSession(null);
+      const setupMocks = () => {
+        prismaMock.committeeList.findUnique.mockResolvedValue(
+          createMockCommittee(),
+        );
+        prismaMock.voterRecord.update.mockResolvedValue(
+          createMockVoterRecord(),
+        );
+      };
 
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 401, "Not authenticated");
-    });
-
-    it("should return 401 when user does not have admin privileges", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.ReadAccess },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(false);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 401, "Not authorized");
-    });
-
-    it("should return 400 for missing cityTown", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        { cityTown: "" },
-        false,
+      const authTestSuite = createAuthTestSuite(
+        authConfig,
+        POST,
+        mockAuthSession,
+        mockHasPermission,
+        setupMocks,
       );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
+
+      authTestSuite.forEach(({ description, runTest }) => {
+        it(description, runTest);
       });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request data");
     });
 
-    it("should return 400 for missing legDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        { legDistrict: "" },
-        false,
-      );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
+    // Parameterized validation tests
+    describe.each([
+      ...validationTestCases.missingFields,
+      ...validationTestCases.invalidElectionDistrict,
+    ])(
+      "should return 400 for $field validation",
+      ({ field, value, expectedError }) => {
+        it(`should return 400 for ${field} = "${value}"`, async () => {
+          // Arrange
+          const mockCommitteeData = createMockCommitteeData(
+            { [field]: value } as Partial<CommitteeData>,
+            false,
+          );
+          const mockSession = createMockSession({
+            user: { privilegeLevel: PrivilegeLevel.Admin },
+          });
 
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
+          mockAuthSession(mockSession);
+          mockHasPermission(true);
 
-      const request = createMockRequest(mockCommitteeData);
+          const request = createMockRequest(mockCommitteeData);
 
-      // Act
-      const response = await POST(request);
+          // Act
+          const response = await POST(request);
 
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request data");
-    });
+          // Assert
+          await expectErrorResponse(response, 400, expectedError);
+        });
+      },
+    );
 
-    it("should return 400 for missing electionDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        {
-          electionDistrict: "",
-        },
-        false,
-      );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
+    describe.each(validationTestCases.invalidNumeric)(
+      "should return 400 for invalid numeric $field",
+      ({ field, value, expectedError }) => {
+        it(`should return 400 for ${field} = "${value}"`, async () => {
+          // Arrange
+          const mockCommitteeData = createMockCommitteeData({
+            [field]: value,
+          } as Partial<CommitteeData>);
+          const mockSession = createMockSession({
+            user: { privilegeLevel: PrivilegeLevel.Admin },
+          });
 
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
+          mockAuthSession(mockSession);
+          mockHasPermission(true);
 
-      const request = createMockRequest(mockCommitteeData);
+          const request = createMockRequest(mockCommitteeData);
 
-      // Act
-      const response = await POST(request);
+          // Act
+          const response = await POST(request);
 
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request data");
-    });
-
-    it("should return 400 for missing memberId", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        { memberId: "" },
-        false,
-      );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid request data");
-    });
-
-    it("should return 400 for non-integer electionDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData({
-        electionDistrict: "1.5",
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid numeric fields");
-    });
-
-    it("should return 400 for non-numeric legDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData({
-        legDistrict: "invalid",
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      expectErrorResponse(response, 400, "Invalid numeric fields");
-    });
+          // Assert
+          await expectErrorResponse(response, 400, expectedError);
+        });
+      },
+    );
 
     it("should return 404 when committee is not found", async () => {
       // Arrange
@@ -244,7 +169,7 @@ describe("/api/committee/remove", () => {
       const response = await POST(request);
 
       // Assert
-      expectErrorResponse(response, 404, "Committee not found");
+      await expectErrorResponse(response, 404, "Committee not found");
     });
 
     it("should return 500 for database error during committee lookup", async () => {
@@ -266,7 +191,7 @@ describe("/api/committee/remove", () => {
       const response = await POST(request);
 
       // Assert
-      expectErrorResponse(response, 500, "Internal server error");
+      await expectErrorResponse(response, 500, "Internal server error");
     });
 
     it("should return 500 for database error during voter record update", async () => {
@@ -290,7 +215,7 @@ describe("/api/committee/remove", () => {
       const response = await POST(request);
 
       // Assert
-      expectErrorResponse(response, 500, "Internal server error");
+      await expectErrorResponse(response, 500, "Internal server error");
     });
 
     it("should handle numeric string conversion correctly", async () => {
@@ -315,7 +240,7 @@ describe("/api/committee/remove", () => {
       const response = await POST(request);
 
       // Assert
-      expectSuccessResponse(response, "success");
+      await expectSuccessResponse(response, { status: "success" });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith({
         where: {
           cityTown_legDistrict_electionDistrict: {
@@ -326,6 +251,27 @@ describe("/api/committee/remove", () => {
         },
         include: { committeeMemberList: true },
       });
+    });
+
+    it("should return 400 for negative legDistrict", async () => {
+      // Arrange
+      const mockCommitteeData = createMockCommitteeData({
+        legDistrict: "-1",
+      });
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(response, 400, "Invalid numeric fields");
     });
   });
 });

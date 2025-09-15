@@ -5,7 +5,10 @@ export const committeeDataSchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
     legDistrict: z.string().trim().min(1, "Legislative District is required"),
-    electionDistrict: z.string().trim().min(1, "Election District is required"),
+    electionDistrict: z
+      .string()
+      .trim()
+      .regex(/^\d+$/, "Election District must contain only digits"),
     memberId: z.string().trim().min(1, "Member ID is required"),
   })
   .strict();
@@ -15,7 +18,7 @@ export const committeeRequestDataSchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
     legDistrict: z.string().trim().min(1, "Legislative District is required"),
-    electionDistrict: z
+    electionDistrict: z.coerce
       .number()
       .int()
       .positive("Election District must be a positive integer"),
@@ -49,7 +52,10 @@ export const fetchCommitteeListQuerySchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
     legDistrict: z.string().trim().optional(),
-    electionDistrict: z.string().trim().min(1, "Election District is required"),
+    electionDistrict: z
+      .string()
+      .trim()
+      .regex(/^\d+$/, "Election District must contain only digits"),
   })
   .strict();
 
