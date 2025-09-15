@@ -19,12 +19,9 @@ export function validateRequest<T>(
 
   if (process.env.NODE_ENV === "development") {
     console.warn("Validation failed:", result.error.issues);
-  } else {
-    console.debug("Request validation failed");
   }
 
-  const fieldErrors = result.error.issues.map((issue) => ({
-    field: issue.path.join("."),
+  const { fieldErrors, formErrors } = result.error.flatten((issue) => ({
     message: issue.message,
     code: issue.code,
   }));
@@ -34,9 +31,9 @@ export function validateRequest<T>(
     response: NextResponse.json(
       {
         error: "Invalid request data",
-        details: fieldErrors,
+        details: { fieldErrors, formErrors },
       },
-      { status: 400 },
+      { status: 422 },
     ),
   };
 }

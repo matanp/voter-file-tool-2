@@ -223,6 +223,10 @@ describe("/api/committee/requestAdd", () => {
         description: "non-numeric legDistrict",
         requestDataOverrides: { legDistrict: "invalid" },
       },
+      {
+        description: "at-large legDistrict (-1)",
+        requestDataOverrides: { legDistrict: "-1" },
+      },
     ])(
       "should return 400 for $description",
       async ({ requestDataOverrides }) => {
@@ -241,7 +245,7 @@ describe("/api/committee/requestAdd", () => {
         const response = await POST(request);
 
         // Assert
-        await expectErrorResponse(response, 400, "Invalid request data");
+        await expectErrorResponse(response, 422, "Invalid request data");
       },
     );
 
@@ -267,7 +271,7 @@ describe("/api/committee/requestAdd", () => {
           const response = await POST(request);
 
           // Assert
-          await expectErrorResponse(response, 400, expectedError);
+          await expectErrorResponse(response, 422, expectedError);
         });
       },
     );
@@ -357,7 +361,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      await expectErrorResponse(response, 400, "Invalid request data");
+      await expectErrorResponse(response, 422, "Invalid request data");
     });
 
     it("should handle missing requestNotes", async () => {

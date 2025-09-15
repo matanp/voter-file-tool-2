@@ -44,7 +44,7 @@ describe("/api/committee/add", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, mockCommittee, 201);
       expect(prismaMock.committeeList.upsert).toHaveBeenCalledWith(
         createCommitteeUpsertArgs({
           cityTown: mockCommitteeData.cityTown,
@@ -75,6 +75,7 @@ describe("/api/committee/add", () => {
         mockAuthSession,
         mockHasPermission,
         setupMocks,
+        201,
       );
 
       authTestSuite.forEach(({ description, runTest }) => {
@@ -108,7 +109,9 @@ describe("/api/committee/add", () => {
           const response = await POST(request);
 
           // Assert
-          await expectErrorResponse(response, 400, expectedError);
+          await expectErrorResponse(response, 422, expectedError);
+          // Assert no DB upsert on 400s (missing/invalid fields)
+          expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
         });
       },
     );
@@ -137,7 +140,9 @@ describe("/api/committee/add", () => {
           const response = await POST(request);
 
           // Assert
-          await expectErrorResponse(response, 400, expectedError);
+          await expectErrorResponse(response, 422, expectedError);
+          // Assert no DB upsert on 400s (missing/invalid fields)
+          expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
         });
       },
     );
@@ -157,6 +162,29 @@ describe("/api/committee/add", () => {
         "Database error",
         { code: "P2000", clientVersion: "5.0.0" },
       );
+      prismaMock.committeeList.upsert.mockRejectedValue(mockError);
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(response, 500, "Internal server error");
+    });
+
+    it("should return 500 for generic error", async () => {
+      // Arrange
+      const mockCommitteeData = createMockCommitteeData();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+
+      // Generic error (non-Prisma)
+      const mockError = new Error("Generic error");
       prismaMock.committeeList.upsert.mockRejectedValue(mockError);
 
       const request = createMockRequest(mockCommitteeData);
@@ -242,7 +270,7 @@ describe("/api/committee/add", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, mockCommittee, 201);
       // Verify that upsert was called with both update and create operations
       expect(prismaMock.committeeList.upsert).toHaveBeenCalledWith(
         expect.objectContaining(

@@ -8,31 +8,38 @@ import { auth } from "~/auth";
 
 // Mock Next.js modules
 jest.mock("next/server", () => ({
-  NextRequest: jest
-    .fn()
-    .mockImplementation(
-      (url: string, options: { body?: unknown; method?: string } = {}) => {
-        const u = new URL(url, "http://localhost");
-        const body: unknown =
-          typeof options.body === "string"
-            ? (() => {
-                try {
-                  return JSON.parse(options.body) as unknown;
-                } catch {
-                  return {} as unknown;
-                }
-              })()
-            : (options.body ?? {});
-        return {
-          url: u.href,
-          method: options.method ?? "GET",
-          nextUrl: {
-            searchParams: u.searchParams,
-          },
-          json: () => Promise.resolve(body),
-        };
-      },
-    ),
+  NextRequest: jest.fn().mockImplementation(
+    (
+      url: string,
+      options: {
+        body?: unknown;
+        method?: string;
+        headers?: Record<string, string>;
+      } = {},
+    ) => {
+      const u = new URL(url, "http://localhost");
+      const headers = new Headers(options.headers ?? {});
+      const body: unknown =
+        typeof options.body === "string"
+          ? (() => {
+              try {
+                return JSON.parse(options.body) as unknown;
+              } catch {
+                return {} as unknown;
+              }
+            })()
+          : (options.body ?? {});
+      return {
+        url: u.href,
+        method: options.method ?? "GET",
+        headers,
+        nextUrl: {
+          searchParams: u.searchParams,
+        },
+        json: () => Promise.resolve(body),
+      };
+    },
+  ),
   NextResponse: {
     json: jest.fn(
       (
@@ -40,10 +47,8 @@ jest.mock("next/server", () => ({
         init?: { status?: number; headers?: Record<string, string> },
       ) => {
         const status = init?.status ?? 200;
-        const headers = new Map(
-          Object.entries(
-            init?.headers ?? { "content-type": "application/json" },
-          ),
+        const headers = new Headers(
+          init?.headers ?? { "content-type": "application/json" },
         );
         return {
           status,
@@ -55,10 +60,8 @@ jest.mock("next/server", () => ({
       },
     ),
     redirect: jest.fn((url: string, status = 307) => ({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       status,
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-unsafe-assignment
-      headers: new Map([["location", url]]) as Map<string, string>,
+      headers: new Headers([["location", url]]),
     })),
   },
 }));
@@ -87,13 +90,17 @@ jest.mock("@prisma/client", () => ({
     ...jest.requireActual("@prisma/client").Prisma,
     PrismaClientKnownRequestError: class extends Error {
       code: string;
+      clientVersion?: string;
+      meta?: unknown;
       constructor(
         message: string,
-        meta: { code: string; clientVersion?: string },
+        opts: { code: string; clientVersion?: string; meta?: unknown },
       ) {
         super(message);
         this.name = "PrismaClientKnownRequestError";
-        this.code = meta.code;
+        this.code = opts.code;
+        this.clientVersion = opts.clientVersion;
+        this.meta = opts.meta;
       }
     },
   },
@@ -123,6 +130,8 @@ afterAll(() => {
 // Reset mocks before each test
 beforeEach(() => {
   mockReset(prismaMock);
+  globalThis.mockAuth.mockReset();
+  globalThis.mockHasPermissionFor.mockReset();
 });
 
 // Global test utilities

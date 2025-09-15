@@ -26,12 +26,23 @@ export async function POST(request: Request) {
     const body = (await request.json()) as unknown;
     const parsed = createOfficeSchema.parse(body);
 
-    const newDate = await prisma.officeName.create({
+    const existingOffice = await prisma.officeName.findFirst({
+      where: { officeName: parsed.name },
+    });
+
+    if (existingOffice) {
+      return NextResponse.json(
+        { error: "Office name already exists" },
+        { status: 409 },
+      );
+    }
+
+    const newOffice = await prisma.officeName.create({
       data: { officeName: parsed.name },
     });
 
     revalidatePath("/petitions");
-    return NextResponse.json(newDate, { status: 201 });
+    return NextResponse.json(newOffice, { status: 201 });
   } catch (error) {
     console.error("Error creating election office:", error);
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });

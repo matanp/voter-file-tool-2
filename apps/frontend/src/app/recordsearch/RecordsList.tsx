@@ -117,7 +117,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       value: item.value ?? null,
     }));
 
-    await searchMutation.mutate({
+    void searchMutation.mutate({
       searchQuery: convertedQuery,
       pageSize: 100,
       page: 1,
@@ -133,7 +133,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       value: item.value ?? null,
     }));
 
-    await loadMoreMutation.mutate({
+    void loadMoreMutation.mutate({
       searchQuery: convertedQuery,
       pageSize,
       page: page + 1,

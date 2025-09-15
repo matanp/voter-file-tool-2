@@ -47,9 +47,15 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
       });
     },
     onError: (error) => {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Unknown error";
       toast({
         title: "Error",
-        description: `Failed to generate report: ${error.message}`,
+        description: `Failed to generate report: ${msg}`,
         variant: "destructive",
       });
     },

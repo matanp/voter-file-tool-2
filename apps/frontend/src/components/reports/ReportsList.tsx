@@ -155,11 +155,11 @@ const ReportsList: React.FC<ReportsListProps> = ({
     reportId: string,
     updates: { title?: string; description?: string; public?: boolean },
   ) => {
-    await updateReportMutation.mutate(updates, `/api/reports/${reportId}`);
+    void updateReportMutation.mutate(updates, `/api/reports/${reportId}`);
   };
 
   const handleDeleteReport = async (reportId: string) => {
-    await deleteReportMutation.mutate(undefined, `/api/reports/${reportId}`);
+    void deleteReportMutation.mutate(undefined, `/api/reports/${reportId}`);
   };
 
   if (loading) {

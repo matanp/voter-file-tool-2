@@ -66,6 +66,9 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
         description: "Submitted your request for approval",
       });
       onSubmit();
+      setRequestNotes("");
+      setRequestAddMember(null);
+      setRequestRemoveMember(null);
     },
     onError: (error) => {
       toast({
@@ -220,7 +223,10 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           <Button
             className="w-full max-w-[85vw]"
             onClick={(e) => handleSubmit(e)}
-            disabled={requestMutation.loading}
+            disabled={
+              requestMutation.loading ||
+              (!requestAddMember && !requestRemoveMember)
+            }
           >
             {requestMutation.loading ? "Submitting..." : "Submit Request"}
           </Button>

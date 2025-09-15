@@ -76,7 +76,7 @@ async function getInviteHandler(
     if (existingUser) {
       return NextResponse.json(
         { error: "User with this email already exists" },
-        { status: 400 },
+        { status: 409 },
       );
     }
 
@@ -91,20 +91,6 @@ async function getInviteHandler(
     });
   } catch (error) {
     console.error("Error validating invite:", error);
-
-    // Handle Zod validation errors
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: "Validation error",
-          details: error.errors.map((err) => ({
-            field: err.path.join("."),
-            message: err.message,
-          })),
-        },
-        { status: 400 },
-      );
-    }
 
     return NextResponse.json(
       { error: "Internal server error" },

@@ -47,8 +47,12 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
     await prisma.committeeRequest.create({
       data: {
         committeeListId: committeeRequested.id,
-        addVoterRecordId: sanitizedAddMemberId ?? undefined,
-        removeVoterRecordId: sanitizedRemoveMemberId ?? undefined,
+        addVoterRecordId: sanitizedAddMemberId
+          ? sanitizedAddMemberId
+          : undefined,
+        removeVoterRecordId: sanitizedRemoveMemberId
+          ? sanitizedRemoveMemberId
+          : undefined,
         requestNotes: requestNotes,
       },
     });

@@ -132,6 +132,8 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
     setDeletingId(jobId);
     try {
       await deleteJobMutation.mutate({ id: jobId }, `/api/reports/${jobId}`);
+    } catch {
+      // handled by onError
     } finally {
       setDeletingId(null);
     }

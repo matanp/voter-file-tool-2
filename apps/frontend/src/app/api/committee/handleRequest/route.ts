@@ -53,20 +53,29 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
         });
       }
 
-      if (committeeRequest.committeList.committeeMemberList.length >= 4) {
-        await prisma.committeeRequest.delete({
-          where: {
-            id: committeeRequestId,
-          },
-        });
-
-        return NextResponse.json(
-          { error: "Committee already full" },
-          { status: 400 },
-        );
-      }
-
+      // Only check committee capacity when adding a member
+      // For replacements (remove + add), we need to account for the removal
       if (committeeRequest.addVoterRecordId) {
+        const currentMemberCount =
+          committeeRequest.committeList.committeeMemberList.length -
+          (committeeRequest.removeVoterRecordId ? 1 : 0);
+
+        if (currentMemberCount >= 4) {
+          await prisma.committeeRequest.delete({
+            where: {
+              id: committeeRequestId,
+            },
+          });
+
+          return NextResponse.json(
+            {
+              message:
+                "Request processed - Committee already full, no changes made",
+            },
+            { status: 200 },
+          );
+        }
+
         await prisma.committeeList.update({
           where: {
             id: committeeRequest.committeeListId,

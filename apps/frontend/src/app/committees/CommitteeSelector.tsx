@@ -145,7 +145,11 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       setLoading(true);
       try {
         const response = await fetch(
-          `/api/fetchCommitteeList/?cityTown=${city}${legDistrict ? `&legDistrict=${legDistrict}` : ""}&electionDistrict=${district}`,
+          `/api/fetchCommitteeList/?cityTown=${encodeURIComponent(
+            city,
+          )}${legDistrict ? `&legDistrict=${encodeURIComponent(legDistrict)}` : ""}&electionDistrict=${encodeURIComponent(
+            String(district),
+          )}`,
         );
         if (response.ok) {
           const data: unknown = await response.json();
@@ -170,12 +174,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   );
 
   const handleRemoveCommitteeMember = async (
-    event: React.FormEvent<HTMLButtonElement>,
+    event: React.MouseEvent<HTMLButtonElement>,
     vrcnum: string,
   ) => {
-    event.preventDefault();
-
-    await removeCommitteeMemberMutation.mutate({
+    void removeCommitteeMemberMutation.mutate({
       cityTown: selectedCity,
       legDistrict: selectedLegDistrict === "" ? "-1" : selectedLegDistrict,
       electionDistrict: selectedDistrict,

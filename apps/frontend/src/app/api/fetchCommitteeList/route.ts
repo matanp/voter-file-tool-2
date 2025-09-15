@@ -11,26 +11,23 @@ async function getCommitteeList(req: NextRequest) {
   const legDistrictParam =
     legDistrictValues.length > 0 ? legDistrictValues[0] : undefined;
 
-  // Check if any legDistrict values are invalid (if multiple provided)
+  // Validate multiple legDistrict parameters if provided
   if (legDistrictValues.length > 1) {
     for (const value of legDistrictValues) {
       if (value && value.trim() !== "") {
-        const parsed = parseInt(value, 10);
-        if (Number.isNaN(parsed)) {
-          return NextResponse.json(
-            {
-              error: "Invalid request data",
-              details: [
-                {
-                  field: "legDistrict",
-                  message:
-                    "Legislative District must be a valid integer when provided",
-                  code: "custom",
-                },
-              ],
-            },
-            { status: 400 },
-          );
+        const testParams = {
+          electionDistrict: req.nextUrl.searchParams.get("electionDistrict"),
+          cityTown: req.nextUrl.searchParams.get("cityTown"),
+          legDistrict: value,
+        };
+
+        const validation = validateRequest(
+          testParams,
+          fetchCommitteeListQuerySchema,
+        );
+
+        if (!validation.success) {
+          return validation.response;
         }
       }
     }
@@ -55,7 +52,8 @@ async function getCommitteeList(req: NextRequest) {
   const { electionDistrict, cityTown, legDistrict } = validation.data;
 
   try {
-    const parsedLegDistrict = legDistrict ? parseInt(legDistrict, 10) : -1;
+    const parsedLegDistrict =
+      legDistrict != null ? parseInt(legDistrict, 10) : -1;
     const parsedElectionDistrict = parseInt(electionDistrict, 10);
 
     const committee = await prisma.committeeList.findUnique({
