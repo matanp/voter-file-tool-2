@@ -165,8 +165,15 @@ export const expectErrorResponse = async (
 ): Promise<void> => {
   expect(response.status).toBe(expectedStatus);
   if (expectedError !== undefined) {
-    const json = await response.json();
-    expect(json).toEqual({ error: expectedError });
+    const json = (await response.json()) as {
+      error: string;
+      details?: unknown;
+    };
+    expect(json.error).toBe(expectedError);
+    // Only expect details for validation errors (400 status with "Invalid request data")
+    if (expectedStatus === 400 && expectedError === "Invalid request data") {
+      expect(json.details).toBeDefined();
+    }
   }
 };
 
@@ -260,17 +267,16 @@ export const createCommitteeRequestCreateArgs = (
     committeeListId?: number;
     addVoterRecordId?: string | null | undefined;
     removeVoterRecordId?: string | null | undefined;
-    requestNotes?: string;
+    requestNotes?: string | undefined;
   } = {},
 ) => {
   const data: {
     committeeListId: number;
-    requestNotes: string;
+    requestNotes?: string;
     addVoterRecordId?: string | null;
     removeVoterRecordId?: string | null;
   } = {
     committeeListId: overrides.committeeListId ?? 1,
-    requestNotes: overrides.requestNotes ?? "Test request",
   };
 
   // Only add the fields if they are explicitly provided
@@ -280,6 +286,10 @@ export const createCommitteeRequestCreateArgs = (
 
   if (overrides.removeVoterRecordId !== undefined) {
     data.removeVoterRecordId = overrides.removeVoterRecordId;
+  }
+
+  if (overrides.requestNotes !== undefined) {
+    data.requestNotes = overrides.requestNotes;
   }
 
   return { data };
@@ -310,22 +320,22 @@ export const validationTestCases: {
     {
       field: "legDistrict",
       value: "invalid",
-      expectedError: "Invalid numeric fields",
+      expectedError: "Invalid request data",
     },
     {
       field: "legDistrict",
       value: "1.5",
-      expectedError: "Invalid numeric fields",
+      expectedError: "Invalid request data",
     },
     {
       field: "legDistrict",
       value: "-1",
-      expectedError: "Invalid numeric fields",
+      expectedError: "Invalid request data",
     },
     {
       field: "legDistrict",
       value: "0",
-      expectedError: "Invalid numeric fields",
+      expectedError: "Invalid request data",
     },
   ],
   invalidElectionDistrict: [
@@ -346,11 +356,10 @@ export const validationTestCases: {
     },
   ],
   invalidRequestNotes: [
-    { field: "requestNotes", value: "", expectedError: "Invalid request" },
     {
       field: "requestNotes",
       value: "a".repeat(1001),
-      expectedError: "Invalid request",
+      expectedError: "Invalid request data",
     },
   ],
 };

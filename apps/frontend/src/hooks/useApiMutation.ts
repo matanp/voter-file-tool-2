@@ -40,11 +40,11 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
       try {
         const url = customEndpoint ?? endpoint;
 
+        const headers =
+          payload != null ? { "Content-Type": "application/json" } : undefined;
         const response = await fetch(url, {
           method,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
           body: payload ? JSON.stringify(payload) : undefined,
         });
 

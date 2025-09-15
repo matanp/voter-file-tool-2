@@ -3,54 +3,26 @@ import prisma from "~/lib/prisma";
 import { committeeDataSchema } from "~/lib/validations/committee";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { validateRequest } from "~/app/api/lib/validateRequest";
 import type { Session } from "next-auth";
-import { ZodError } from "zod";
 
 async function removeCommitteeHandler(req: NextRequest, session: Session) {
-  let cityTown: string;
-  let legDistrict: string;
-  let electionDistrict: string;
-  let memberId: string;
+  const body = (await req.json()) as unknown;
+  const validation = validateRequest(body, committeeDataSchema);
 
-  try {
-    const body = (await req.json()) as unknown;
-    const validatedData = committeeDataSchema.parse(body);
-    cityTown = validatedData.cityTown;
-    legDistrict = validatedData.legDistrict;
-    electionDistrict = validatedData.electionDistrict;
-    memberId = validatedData.memberId;
-
-    // Additional validation for numeric fields
-    const legDistrictNum = Number(legDistrict);
-    const electionDistrictNum = Number(electionDistrict);
-    const validInts =
-      Number.isInteger(legDistrictNum) &&
-      Number.isInteger(electionDistrictNum) &&
-      legDistrictNum > 0 &&
-      electionDistrictNum > 0;
-    if (!validInts) {
-      return NextResponse.json(
-        { error: "Invalid numeric fields" },
-        { status: 400 },
-      );
-    }
-  } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid request data" },
-        { status: 400 },
-      );
-    }
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  if (!validation.success) {
+    return validation.response;
   }
+
+  const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
   try {
     const existingElectionDistrict = await prisma.committeeList.findUnique({
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
-          legDistrict: parseInt(legDistrict, 10),
-          electionDistrict: parseInt(electionDistrict, 10),
+          legDistrict: legDistrict,
+          electionDistrict: electionDistrict,
         },
       },
       include: { committeeMemberList: true },

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -64,7 +64,8 @@ const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
   ): Date | null => {
     if (!dateString) return null;
     const date = new Date(dateString);
-    return isNaN(date.getTime()) ? null : date;
+    const isValid = !isNaN(date.getTime());
+    return isValid ? date : null;
   };
 
   // Create the Prisma record by spreading the API record and handling special cases
@@ -131,11 +132,26 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     hadErrorsSinceLastSubmit,
   } = useFormValidation(formData);
 
+  const handleFetchDataSuccess = useCallback(
+    (data: { data: VoterRecordAPI[]; totalRecords: number }) => {
+      const convertedRecords = data.data.map(convertAPIToPrismaRecord);
+      setSearchResults(convertedRecords);
+      setTotalRecords(data.totalRecords);
+    },
+    [],
+  );
+
+  const handleFetchDataError = useCallback((error: Error) => {
+    console.error("Failed to fetch search results:", error);
+    setSearchResults([]);
+    setTotalRecords(0);
+  }, []);
+
   // API mutation hooks
   const fetchDataMutation = useApiMutation<
     {
-      records: VoterRecordAPI[];
-      totalCount: number;
+      data: VoterRecordAPI[];
+      totalRecords: number;
     },
     {
       searchQuery: SearchQueryField[];
@@ -143,17 +159,12 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       page: number;
     }
   >("/api/fetchFilteredData", "POST", {
-    onSuccess: (data) => {
-      const convertedRecords = data.records.map(convertAPIToPrismaRecord);
-      setSearchResults(convertedRecords);
-      setTotalRecords(data.totalCount);
-    },
-    onError: (error) => {
-      console.error("Failed to fetch search results:", error);
-      setSearchResults([]);
-      setTotalRecords(0);
-    },
+    onSuccess: handleFetchDataSuccess,
+    onError: handleFetchDataError,
   });
+
+  const mutateRef = useRef(fetchDataMutation.mutate);
+  mutateRef.current = fetchDataMutation.mutate;
 
   const generateReportMutation = useApiMutation<
     { reportId: string },
@@ -168,6 +179,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       });
     },
     onError: (error) => {
+      console.error("Failed to generate report:", error);
       toast({
         title: "Error",
         description: `Failed to generate report: ${error.message}`,
@@ -194,7 +206,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
           value: item.value ?? null,
         }));
 
-        await fetchDataMutation.mutate({
+        await mutateRef.current({
           searchQuery: convertedQuery,
           pageSize: 100, // Only fetch first 100 for preview
           page: 1,
@@ -213,7 +225,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     return () => {
       abortController.abort();
     };
-  }, [fetchDataMutation, flattenedSearchQuery]);
+  }, [flattenedSearchQuery]);
 
   // Handle report completion
   const handleReportComplete = (url: string) => {
@@ -263,7 +275,11 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
         filteredUpdates.format = "xlsx";
       }
       setFormData(
-        (prev) => ({ ...prev, ...filteredUpdates }) as VoterListReportFormData,
+        (prev) =>
+          ({
+            ...prev,
+            ...filteredUpdates,
+          }) as VoterListReportFormData,
       );
     },
     [],
