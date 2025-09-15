@@ -2,15 +2,19 @@
 // Global type declarations for Jest mocks
 import type { PrismaClient } from "@prisma/client";
 import type { DeepMockProxy } from "jest-mock-extended";
+import type { Session } from "next-auth";
 
-// Import the actual functions to infer their types
-import type { auth } from "~/auth";
-import type { hasPermissionFor } from "~/lib/utils";
+// Infer types of value exports without importing them as values
+type AuthFn = typeof import("~/auth").auth;
+type HasPermissionForFn = typeof import("~/lib/utils").hasPermissionFor;
 
 declare global {
   var mockPrisma: DeepMockProxy<PrismaClient>;
-  var mockAuth: jest.MockedFunction<typeof auth>;
-  var mockHasPermissionFor: jest.MockedFunction<typeof hasPermissionFor>;
+  var mockAuth: jest.MockedFunction<() => Promise<Session | null>>;
+  var mockHasPermissionFor: jest.MockedFunction<HasPermissionForFn>;
+
+  // Jest global
+  var jest: typeof import("@jest/globals").jest | undefined;
 }
 
 export {};

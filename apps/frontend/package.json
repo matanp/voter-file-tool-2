@@ -64,6 +64,9 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/eslint": "^8.56.2",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.20",
@@ -73,15 +76,15 @@
     "@typescript-eslint/parser": "^7.1.1",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.5.2",
+    "identity-obj-proxy": "^3.0.0",
     "jest": "^29.7.0",
-    "jest-environment-node": "^29.7.0",
+    "jest-environment-jsdom": "^30.1.2",
     "jest-mock-extended": "^4.0.0",
     "postcss": "^8.4.34",
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.5.11",
     "prisma": "^5.15.0",
     "tailwindcss": "^3.4.1",
-    "ts-jest": "^29.1.2",
     "typescript": "^5.4.5"
   },
   "ct3aMetadata": {

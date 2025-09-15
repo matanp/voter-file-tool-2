@@ -4,6 +4,7 @@ import { committeeDataSchema } from "~/lib/validations/committee";
 import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
+import { ZodError } from "zod";
 
 // const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 export async function POST(req: NextRequest) {
@@ -32,14 +33,17 @@ export async function POST(req: NextRequest) {
     memberId = validatedData.memberId;
 
     // Additional validation for numeric fields
-    if (!Number.isInteger(Number(electionDistrict)) || !Number(legDistrict)) {
+    if (
+      !Number.isInteger(Number(electionDistrict)) ||
+      !Number.isInteger(Number(legDistrict))
+    ) {
       return NextResponse.json(
         { error: "Invalid numeric fields" },
         { status: 400 },
       );
     }
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid request data" },
         { status: 400 },

@@ -1,9 +1,10 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
 import { committeeDataSchema } from "~/lib/validations/committee";
+import { ZodError } from "zod";
 
 // const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 export async function POST(req: NextRequest) {
@@ -35,14 +36,21 @@ export async function POST(req: NextRequest) {
     memberId = validatedData.memberId;
 
     // Additional validation for numeric fields
-    if (!Number.isInteger(Number(electionDistrict)) || !Number(legDistrict)) {
+    const legDistrictNum = Number(legDistrict);
+    const electionDistrictNum = Number(electionDistrict);
+    const validInts =
+      Number.isInteger(legDistrictNum) &&
+      Number.isInteger(electionDistrictNum) &&
+      legDistrictNum > 0 &&
+      electionDistrictNum > 0;
+    if (!validInts) {
       return NextResponse.json(
         { error: "Invalid numeric fields" },
         { status: 400 },
       );
     }
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid request data" },
         { status: 400 },
@@ -81,6 +89,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(updatedCommittee, { status: 200 });
   } catch (error) {
     console.error(error);
+
+    // Handle Prisma known errors with specific status codes
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2025") {
+        // Record not found (member to connect not found)
+        return NextResponse.json(
+          { error: "Member not found" },
+          { status: 404 },
+        );
+      } else if (error.code === "P2002") {
+        // Unique constraint violation (duplicate relation)
+        return NextResponse.json(
+          { error: "Duplicate relation - member already exists in committee" },
+          { status: 409 },
+        );
+      }
+    }
+
+    // Default fallback for all other errors
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

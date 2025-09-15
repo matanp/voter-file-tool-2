@@ -1,5 +1,5 @@
 import { POST } from "~/app/api/committee/add/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, Prisma } from "@prisma/client";
 import {
   createMockSession,
   createMockCommitteeData,
@@ -227,9 +227,13 @@ describe("/api/committee/add", () => {
 
       mockAuthSession(mockSession);
       mockHasPermission(true);
-      prismaMock.committeeList.upsert.mockRejectedValue(
-        new Error("Database error"),
+
+      // Use the mocked Prisma error class from jest.setup.ts
+      const mockError = new Prisma.PrismaClientKnownRequestError(
+        "Database error",
+        { code: "P2000", clientVersion: "5.0.0" },
       );
+      prismaMock.committeeList.upsert.mockRejectedValue(mockError);
 
       const request = createMockRequest(mockCommitteeData);
 
