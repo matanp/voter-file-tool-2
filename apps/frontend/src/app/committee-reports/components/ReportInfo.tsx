@@ -53,7 +53,7 @@ export const ReportInfo: React.FC<ReportInfoProps> = ({
             aria-invalid={!!errors.name}
           />
           {errors.name && (
-            <p id="name-error" className="text-sm text-red-500">
+            <p id="name-error" className="text-sm text-destructive">
               {errors.name}
             </p>
           )}

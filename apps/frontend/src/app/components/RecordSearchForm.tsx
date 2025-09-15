@@ -74,9 +74,9 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
       {headerText && <h1 className="primary-header">{headerText}</h1>}
       <form
         onSubmit={handleSubmit}
-        className="lg:w-max w-[80vw] bg-primary-foreground p-4"
+        className="lg:w-max w-4/5 bg-primary-foreground p-4"
       >
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-4 items-center">
           <Input
             type="string"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
@@ -100,7 +100,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
           </Button>
         </div>
         {optionalExtraSearch && extraSearchQuery && (
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-4 mt-2">
             <Checkbox
               id="eligible-candidates"
               checked={useOptionalExtaSearch}

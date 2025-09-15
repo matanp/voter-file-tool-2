@@ -120,7 +120,7 @@ export default function InvitePage() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-center text-red-600">
+            <CardTitle className="text-center text-destructive">
               Invalid Invite
             </CardTitle>
           </CardHeader>

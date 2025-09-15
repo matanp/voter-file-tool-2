@@ -64,9 +64,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       case "PROCESSING":
         return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
       case "COMPLETED":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-primary" />;
       case "FAILED":
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <XCircle className="h-4 w-4 text-destructive" />;
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
@@ -212,7 +212,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
                   variant="ghost"
                   onClick={() => handleDeleteJob(job.id)}
                   disabled={deletingJobs.has(job.id)}
-                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                   title="Delete failed report"
                 >
                   <Trash2 className="h-4 w-4" />

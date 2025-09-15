@@ -152,11 +152,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       </div>
       {hasSearched && totalRecords > 0 && (
         <div className="w-full flex flex-col items-center pt-4 space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Button
               onClick={handleExport}
               disabled={totalRecords > MAX_RECORDS_FOR_EXPORT}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-primary hover:bg-primary/90"
             >
               {totalRecords > MAX_RECORDS_FOR_EXPORT
                 ? `Export (${totalRecords.toLocaleString()} records - too many)`

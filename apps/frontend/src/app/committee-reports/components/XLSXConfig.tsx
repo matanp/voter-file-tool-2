@@ -27,6 +27,10 @@ export const XLSXConfig: React.FC<XLSXConfigProps> = ({
     });
   };
 
+  if (formData.includeFields.length === 0) {
+    return null;
+  }
+
   return (
     <AccordionItem
       value="xlsx-config"
@@ -40,35 +44,33 @@ export const XLSXConfig: React.FC<XLSXConfigProps> = ({
           Customize column headers for the selected fields
         </p>
         {/* Column Headers */}
-        {formData.includeFields.length > 0 && (
-          <div className="space-y-2">
-            <Label>Custom Column Headers (Optional)</Label>
-            <div className="space-y-2 max-w-2xl">
-              {formData.includeFields.map((fieldKey) => {
-                const field = FIELDS_BY_KEY[fieldKey];
-                return (
-                  <div key={fieldKey} className="flex items-center space-x-2">
-                    <Label
-                      htmlFor={`header-${fieldKey}`}
-                      className="w-32 text-sm flex-shrink-0"
-                    >
-                      {field?.label ?? fieldKey}:
-                    </Label>
-                    <Input
-                      id={`header-${fieldKey}`}
-                      value={formData.columnHeaders[fieldKey] ?? ""}
-                      onChange={(e) =>
-                        handleColumnHeaderChange(fieldKey, e.target.value)
-                      }
-                      placeholder={field?.label ?? fieldKey}
-                      className="flex-1"
-                    />
-                  </div>
-                );
-              })}
-            </div>
+        <div className="space-y-2">
+          <Label>Custom Column Headers (Optional)</Label>
+          <div className="space-y-2 max-w-2xl">
+            {formData.includeFields.map((fieldKey) => {
+              const field = FIELDS_BY_KEY[fieldKey];
+              return (
+                <div key={fieldKey} className="flex items-center space-x-2">
+                  <Label
+                    htmlFor={`header-${fieldKey}`}
+                    className="w-32 text-sm flex-shrink-0"
+                  >
+                    {field?.label ?? fieldKey}:
+                  </Label>
+                  <Input
+                    id={`header-${fieldKey}`}
+                    value={formData.columnHeaders[fieldKey] ?? ""}
+                    onChange={(e) =>
+                      handleColumnHeaderChange(fieldKey, e.target.value)
+                    }
+                    placeholder={field?.label ?? fieldKey}
+                    className="flex-1"
+                  />
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
       </AccordionContent>
     </AccordionItem>
   );
