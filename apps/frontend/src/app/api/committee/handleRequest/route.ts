@@ -3,11 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { hasPermissionFor } from "~/lib/utils";
-
-export interface HandleCommitteeRequestData {
-  committeeRequestId: number;
-  acceptOrReject: "accept" | "reject";
-}
+import type { HandleCommitteeRequestData } from "~/lib/validations/committee";
 
 export async function POST(req: NextRequest) {
   const session = await auth();

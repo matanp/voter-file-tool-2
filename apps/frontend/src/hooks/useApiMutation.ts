@@ -59,7 +59,7 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
             errorMessage = errorData.error ?? errorData.message ?? errorMessage;
           } catch {
             // If response is not JSON, use the status text
-            errorMessage = response.statusText || errorMessage;
+            errorMessage = response.statusText ?? errorMessage;
           }
 
           throw new Error(errorMessage);
