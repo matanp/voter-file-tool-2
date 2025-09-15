@@ -185,7 +185,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       <label htmlFor="district-select" className="primary-header">
         Committee Selector
       </label>
-      <Card className="bg-primary-foreground p-2 w-max flex gap-2">
+      <Card className="bg-primary-foreground p-2 w-max flex gap-4">
         <div className="flex flex-col">
           <label className="font-extralight text-sm pl-1">City</label>
           <ComboboxDropdown

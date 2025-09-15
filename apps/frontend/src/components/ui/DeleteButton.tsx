@@ -32,7 +32,7 @@ export function DeleteButton({
       variant={variant}
       onClick={onClick}
       disabled={disabled}
-      className={`h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 ${className}`}
+      className={`h-8 w-8 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/10 ${className}`}
       title={title}
       aria-label={title}
     >

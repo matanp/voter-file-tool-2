@@ -84,7 +84,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   const removeMemberForm = (
     <div>
       {committeeList.length > 0 && (
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-4 items-center">
           <h2 className="py-2">
             Would you like to remove a member from the committee?
           </h2>
@@ -99,7 +99,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           {committeeList
             .filter((member) => member.VRCNUM !== requestRemoveMember?.VRCNUM)
             .map((member) => (
-              <div key={member.VRCNUM} className="flex gap-2 items-center py-1">
+              <div key={member.VRCNUM} className="flex gap-4 items-center py-1">
                 <p className="">
                   {member.firstName} {member.lastName}
                 </p>
@@ -115,7 +115,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 
   const addMemberForm = (
     <div>
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-4 items-center">
         <h2 className="py-2">
           Would you like to add someone to the committee?
         </h2>
@@ -159,7 +159,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
                 };
                 return (
                   <>
-                    <div className="flex gap-2">
+                    <div className="flex gap-4">
                       <Button
                         onClick={() => setRequestAddMember(record)}
                         disabled={
@@ -183,7 +183,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 
   return (
     <Dialog defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[90vw] w-fit min-w-[50vw]">
+      <DialogContent className="max-w-[90vw] w-fit min-w-1/2">
         <DialogHeader>
           <DialogTitle>Committee Change Request</DialogTitle>
           <h1 className="pt-2">City: {city}</h1>
