@@ -72,18 +72,15 @@ const ReportsList: React.FC<ReportsListProps> = ({
     },
   });
 
-  const deleteReportMutation = useApiDelete<Report, { id: string }>(
-    `/api/reports`,
-    {
-      onSuccess: () => {
-        // Refresh the current page to show updated data
-        void fetchReports(page, true);
-      },
-      onError: (error) => {
-        console.error("Error deleting report:", error);
-      },
+  const deleteReportMutation = useApiDelete<Report, void>(`/api/reports`, {
+    onSuccess: () => {
+      // Refresh the current page to show updated data
+      void fetchReports(page, true);
     },
-  );
+    onError: (error) => {
+      console.error("Error deleting report:", error);
+    },
+  });
 
   const fetchReports = useCallback(
     async (pageNum = 1, isRefresh = false) => {

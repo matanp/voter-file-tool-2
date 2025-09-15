@@ -6,12 +6,7 @@ import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
 import { useWindowSize } from "~/hooks/useWindowSize";
 import { useApiMutation } from "~/hooks/useApiMutation";
-
-// Type that matches the API schema
-type SearchQueryField = {
-  field: string;
-  value: string | number | boolean | null;
-};
+import { type SearchQueryField } from "@voter-file-tool/shared-validators";
 
 type RecordSearchProps = {
   handleResults: (results: VoterRecord[]) => void;

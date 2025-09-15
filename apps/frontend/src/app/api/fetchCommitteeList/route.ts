@@ -2,31 +2,39 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
+import { validateRequest } from "~/app/api/lib/validateRequest";
+import { fetchCommitteeListQuerySchema } from "~/lib/validations/committee";
 
 async function getCommitteeList(req: NextRequest) {
-  const electionDistrict = req.nextUrl.searchParams.get("electionDistrict");
-  const cityTown = req.nextUrl.searchParams.get("cityTown");
-  const legDistrict = req.nextUrl.searchParams.get("legDistrict");
+  // Extract query parameters
+  const queryParams = {
+    electionDistrict: req.nextUrl.searchParams.get("electionDistrict"),
+    cityTown: req.nextUrl.searchParams.get("cityTown"),
+    legDistrict: req.nextUrl.searchParams.get("legDistrict"),
+  };
 
-  if (
-    !electionDistrict ||
-    !cityTown ||
-    Array.isArray(electionDistrict) ||
-    !/^\d+$/.test(electionDistrict.trim())
-  ) {
-    return NextResponse.json(
-      { error: "Invalid election district" },
-      { status: 400 },
-    );
+  // Validate query parameters using the schema
+  const validation = validateRequest(
+    queryParams,
+    fetchCommitteeListQuerySchema,
+  );
+
+  if (!validation.success) {
+    return validation.response;
   }
 
+  const { electionDistrict, cityTown, legDistrict } = validation.data;
+
   try {
+    const parsedLegDistrict = legDistrict ? parseInt(legDistrict, 10) : -1;
+    const parsedElectionDistrict = parseInt(electionDistrict, 10);
+
     const committee = await prisma.committeeList.findUnique({
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
-          legDistrict: legDistrict ? Number(legDistrict) : -1,
-          electionDistrict: parseInt(electionDistrict, 10),
+          legDistrict: parsedLegDistrict,
+          electionDistrict: parsedElectionDistrict,
         },
       },
       include: {

@@ -23,6 +23,9 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     requestNotes,
   } = validation.data;
 
+  const sanitizedAddMemberId = addMemberId?.trim();
+  const sanitizedRemoveMemberId = removeMemberId?.trim();
+
   try {
     const committeeRequested = await prisma.committeeList.findUnique({
       where: {
@@ -44,15 +47,15 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     await prisma.committeeRequest.create({
       data: {
         committeeListId: committeeRequested.id,
-        addVoterRecordId: addMemberId ? addMemberId : undefined,
-        removeVoterRecordId: removeMemberId ? removeMemberId : undefined,
+        addVoterRecordId: sanitizedAddMemberId ?? undefined,
+        removeVoterRecordId: sanitizedRemoveMemberId ?? undefined,
         requestNotes: requestNotes,
       },
     });
 
     return NextResponse.json(
       { status: "success", message: "Request created" },
-      { status: 200 },
+      { status: 201 },
     );
   } catch (error) {
     console.error(error);

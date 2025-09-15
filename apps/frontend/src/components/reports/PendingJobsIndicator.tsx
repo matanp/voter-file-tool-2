@@ -30,6 +30,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   initialJobs = [],
 }) => {
   const [jobs, setJobs] = useState<Report[]>(initialJobs);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
 
@@ -51,7 +52,11 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       const response = await fetch(
         "/api/reportJobs?status=pending,processing,failed&page=1&pageSize=5",
       );
-      const data = (await response.json()) as unknown as {
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch pending jobs (${response.status})`);
+      }
+      const data = (await response.json()) as {
         reports: Report[];
       };
       setJobs(data.reports || []);
@@ -122,7 +127,12 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       return;
     }
 
-    await deleteJobMutation.mutate({ id: jobId }, `/api/reports/${jobId}`);
+    setDeletingId(jobId);
+    try {
+      await deleteJobMutation.mutate({ id: jobId }, `/api/reports/${jobId}`);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const pendingJobs = jobs.filter(
@@ -167,7 +177,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
             variant="ghost"
             size="sm"
             onClick={fetchJobs}
-            disabled={loading}
+            disabled={loading || deleteJobMutation.loading}
             className="flex items-center space-x-1"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -204,7 +214,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
                   size="sm"
                   variant="ghost"
                   onClick={() => handleDeleteJob(job.id)}
-                  disabled={deleteJobMutation.loading}
+                  disabled={deletingId === job.id}
                   className="h-8 w-8 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                   title="Delete failed report"
                 >

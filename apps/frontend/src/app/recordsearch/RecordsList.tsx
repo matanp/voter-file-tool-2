@@ -15,16 +15,11 @@ import { useVoterSearch } from "~/contexts/VoterSearchContext";
 import {
   MAX_RECORDS_FOR_EXPORT,
   ADMIN_CONTACT_INFO,
+  type SearchQueryField,
 } from "@voter-file-tool/shared-validators";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { Info } from "lucide-react";
 import { useApiMutation } from "~/hooks/useApiMutation";
-
-// Type that matches the API schema
-type SearchQueryField = {
-  field: string;
-  value: string | number | boolean | null;
-};
 
 interface RecordsListProps {
   dropdownList: DropdownLists;

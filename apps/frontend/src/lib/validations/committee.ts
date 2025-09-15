@@ -28,15 +28,37 @@ export const committeeRequestDataSchema = z
       .number()
       .int()
       .positive("Election District must be a positive integer"),
-    addMemberId: z.string().nullable().optional(),
-    removeMemberId: z.string().nullable().optional(),
+    addMemberId: z
+      .string()
+      .trim()
+      .nullable()
+      .optional()
+      .transform((v) => (v === "" ? undefined : v)),
+    removeMemberId: z
+      .string()
+      .trim()
+      .nullable()
+      .optional()
+      .transform((v) => (v === "" ? undefined : v)),
     requestNotes: z
       .string()
       .trim()
       .max(1000, "Notes must be 1000 characters or fewer")
       .optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) => {
+      const hasAddMember = data.addMemberId && data.addMemberId.trim() !== "";
+      const hasRemoveMember =
+        data.removeMemberId && data.removeMemberId.trim() !== "";
+      return hasAddMember || hasRemoveMember;
+    },
+    {
+      message:
+        "At least one action is required: either addMemberId or removeMemberId must be provided",
+    },
+  );
 
 // Handle committee request data validation schema
 export const handleCommitteeRequestDataSchema = z
