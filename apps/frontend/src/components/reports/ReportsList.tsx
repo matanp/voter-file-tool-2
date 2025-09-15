@@ -194,14 +194,14 @@ const ReportsList: React.FC<ReportsListProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <AlertCircle className="h-5 w-5 text-red-500" />
+            <AlertCircle className="h-5 w-5 text-destructive" />
             <span>{title}</span>
           </CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4">
-            <p className="text-red-600 mb-4">{error}</p>
+            <p className="text-destructive mb-4">{error}</p>
             <Button onClick={handleRefresh} variant="outline">
               Try Again
             </Button>

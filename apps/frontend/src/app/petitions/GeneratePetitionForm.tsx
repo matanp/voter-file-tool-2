@@ -191,7 +191,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             ]}
             extraContent={(record) => {
               return (
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-4 items-center">
                   <ComboboxDropdown
                     items={officeNames.map((o) => {
                       return { label: o.officeName, value: o.officeName };
@@ -271,7 +271,9 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           />
         )}
       </div>
-      {errors.candidates && <p className="text-red-500">{errors.candidates}</p>}
+      {errors.candidates && (
+        <p className="text-destructive">{errors.candidates}</p>
+      )}
       <div className="py-2">
         <h2 className="text-xl py-2">Vacancy Appointments</h2>
         {vacancyAppointments.length > 0 && (
@@ -283,7 +285,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             fieldsList={["Address"]}
             extraContent={(record) => {
               return (
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-4 items-center">
                   <Button
                     variant={"destructive"}
                     onClick={() =>
@@ -341,9 +343,9 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           )}
       </div>
       {errors.vacancyAppointments && (
-        <p className="text-red-500">{errors.vacancyAppointments}</p>
+        <p className="text-destructive">{errors.vacancyAppointments}</p>
       )}
-      <div className="flex gap-2 items-center py-2">
+      <div className="flex gap-4 items-center py-2">
         <label htmlFor="party">Party:</label>
         <ComboboxDropdown
           items={["Democratic", "Custom"].map((party) => {
@@ -376,9 +378,9 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           />
         )}
       </div>
-      {errors.party && <p className="text-red-500">{errors.party}</p>}
+      {errors.party && <p className="text-destructive">{errors.party}</p>}
 
-      <div className="flex gap-2 items-center py-2">
+      <div className="flex gap-4 items-center py-2">
         <label htmlFor="electionDate">Election Date</label>
         {/** <DatePicker onChange={(date) => setElectionDate(date)} /> **/}
         <ComboboxDropdown
@@ -406,10 +408,10 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
         />
       </div>
       {errors.electionDate && (
-        <p className="text-red-500">{errors.electionDate}</p>
+        <p className="text-destructive">{errors.electionDate}</p>
       )}
 
-      <div className="flex gap-2 items-center py-2">
+      <div className="flex gap-4 items-center py-2">
         <label htmlFor="numberOfPages">Number of Pages</label>
         <Input
           type="number"
@@ -424,7 +426,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           }}
         />
       </div>
-      {errors.numPages && <p className="text-red-500">{errors.numPages}</p>}
+      {errors.numPages && <p className="text-destructive">{errors.numPages}</p>}
 
       <div className="py-2">
         <label htmlFor="reportName" className="block text-sm font-medium mb-2">
@@ -458,7 +460,9 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       <div className="pt-4">
         <Button onClick={(e) => void handleSubmit(e)}>Generate Petition</Button>
         {Object.keys(errors).length > 0 && (
-          <p className="text-red-500">Please fill out all required fields</p>
+          <p className="text-destructive">
+            Please fill out all required fields
+          </p>
         )}
       </div>
       {reportId && (

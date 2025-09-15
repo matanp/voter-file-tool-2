@@ -85,7 +85,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
 
   return (
     <>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
         {validCommittee && (
           <RecordSearchForm
             handleResults={(results) => {

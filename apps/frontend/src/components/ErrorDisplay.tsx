@@ -25,7 +25,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   if (hasErrors) {
     return (
       <div
-        className="bg-red-50 border border-red-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200"
+        className="bg-white border border-red-200 rounded-md p-3 animate-in slide-in-from-top-2 duration-200"
         role="alert"
         aria-live="polite"
       >
