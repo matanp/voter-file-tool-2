@@ -346,10 +346,10 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         {searchRows.map((row, index) => (
           <div
             key={`outer-key-${index}`}
-            className="flex gap-2 shadow-md p-4 bg-background"
+            className="flex gap-4 shadow-md p-4 bg-background"
           >
             <div className="m-2">
-              <div className="flex gap-2">
+              <div className="flex gap-4">
                 <div className="flex flex-row items-center">
                   {/* <select
                   className="form-select h-10 border-2 border-secondary"
@@ -548,7 +548,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           </div>
         ))}
 
-        <div className="flex items-center gap-2 pb-8">
+        <div className="flex items-center gap-4 pb-8">
           <Button
             type="button"
             onClick={() =>

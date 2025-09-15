@@ -167,7 +167,7 @@ export const FieldSelection: React.FC<FieldSelectionProps> = ({
           </div>
         ))}
         {errors.includeFields && (
-          <p className="text-sm text-red-500">{errors.includeFields}</p>
+          <p className="text-sm text-destructive">{errors.includeFields}</p>
         )}
       </AccordionContent>
     </AccordionItem>
