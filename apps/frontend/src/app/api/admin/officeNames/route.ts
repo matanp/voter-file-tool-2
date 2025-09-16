@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
@@ -10,7 +10,7 @@ export async function GET() {
 
     return NextResponse.json(officeNames);
   } catch (error) {
-    console.error("Error fetching election dates:", error);
+    console.error("Error fetching office names:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as unknown;
     const parsed = createOfficeSchema.parse(body);
 
-    const normalized = parsed.name.trim();
+    const normalized = parsed.name;
     const existingOffice = await prisma.officeName.findFirst({
       where: { officeName: normalized },
     });
@@ -46,6 +46,12 @@ export async function POST(request: Request) {
     revalidatePath("/petitions");
     return NextResponse.json(newOffice, { status: 201 });
   } catch (error) {
+    // Handle validation/parse errors (400)
+    if (error instanceof ZodError || error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
+
+    // Handle Prisma unique constraint violation (409)
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
@@ -55,7 +61,12 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+
+    // Handle all other unexpected server errors (500)
     console.error("Error creating office name:", error);
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

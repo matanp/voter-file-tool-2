@@ -8,7 +8,10 @@ import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { useApiMutation } from "~/hooks/useApiMutation";
-import { type AddCommitteeResponse } from "~/lib/validations/committee";
+import {
+  type AddCommitteeResponse,
+  type CommitteeData,
+} from "~/lib/validations/committee";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -33,18 +36,15 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [requestedRecord, setRequestedRecord] = useState<VoterRecord | null>(
     null,
   );
+  const [loadingVRCNUM, setLoadingVRCNUM] = useState<string | null>(null);
 
   // API mutation hook
   const addCommitteeMemberMutation = useApiMutation<
     AddCommitteeResponse,
-    {
-      cityTown: string;
-      legDistrict: string;
-      electionDistrict: number;
-      memberId: string;
-    }
+    CommitteeData
   >("/api/committee/add", "POST", {
     onSuccess: (res) => {
+      setLoadingVRCNUM(null); // Clear loading state
       if (
         res &&
         "success" in res &&
@@ -68,6 +68,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       }
     },
     onError: (error) => {
+      setLoadingVRCNUM(null); // Clear loading state
       toast({
         title: "Error",
         description: `Failed to add committee member: ${error.message}`,
@@ -79,19 +80,17 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const validCommittee =
     city !== "" && legDistrict !== "" && electionDistrict !== -1;
 
-  const handleAddCommitteeMember = async (
-    event: React.MouseEvent<HTMLButtonElement>,
-    record: VoterRecord,
-  ) => {
+  const handleAddCommitteeMember = async (record: VoterRecord) => {
     if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
       // Don't mutate if legDistrict is empty
       if (legDistrict === "") {
         return;
       }
 
+      setLoadingVRCNUM(record.VRCNUM); // Set loading state for this specific record
       await addCommitteeMemberMutation.mutate({
         cityTown: city,
-        legDistrict: parseInt(legDistrict, 10).toString(),
+        legDistrict: parseInt(legDistrict, 10),
         electionDistrict: electionDistrict,
         memberId: record.VRCNUM,
       });
@@ -153,16 +152,16 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                 return (
                   <>
                     <Button
-                      onClick={(e) => handleAddCommitteeMember(e, record)}
+                      onClick={() => handleAddCommitteeMember(record)}
                       disabled={
                         !!member ||
                         committeeList.length >= 4 ||
                         !validCommittee ||
                         !!record.committeeId ||
-                        addCommitteeMemberMutation.loading
+                        loadingVRCNUM === record.VRCNUM
                       }
                     >
-                      {addCommitteeMemberMutation.loading
+                      {loadingVRCNUM === record.VRCNUM
                         ? "Adding..."
                         : getMessage()}
                     </Button>

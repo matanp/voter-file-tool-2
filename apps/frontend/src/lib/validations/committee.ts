@@ -111,14 +111,13 @@ export const fetchCommitteeListQuerySchema = z
 
 // API Response types for committee operations
 export type AddCommitteeResponse =
-  | { success: true; committee: CommitteeWithMembers; message: string }
   | {
       success: true;
-      message: string;
       committee: CommitteeWithMembers;
-      idempotent: true;
+      message: string;
+      idempotent?: true;
     }
-  | { error: string };
+  | { success: false; error: string };
 
 // Type exports derived from schemas
 export type CommitteeData = z.infer<typeof committeeDataSchema>;

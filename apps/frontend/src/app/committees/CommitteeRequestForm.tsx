@@ -14,6 +14,7 @@ import { toast } from "~/components/ui/use-toast";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import type { CommitteeRequest } from "@prisma/client";
+import type { CommitteeRequestData } from "~/lib/validations/committee";
 
 type CommitteeRequestFormProps = {
   city: string;
@@ -51,14 +52,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   // API mutation hook
   const requestMutation = useApiMutation<
     CommitteeRequest,
-    {
-      cityTown: string;
-      legDistrict?: string;
-      electionDistrict: number;
-      addMemberId?: string | null;
-      removeMemberId?: string | null;
-      requestNotes: string;
-    }
+    CommitteeRequestData
   >("/api/committee/requestAdd", "POST", {
     onSuccess: () => {
       toast({
@@ -83,7 +77,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   ) => {
     await requestMutation.mutate({
       cityTown: city,
-      legDistrict: legDistrict === "" ? undefined : legDistrict,
+      legDistrict: legDistrict === "" ? undefined : Number(legDistrict),
       electionDistrict: electionDistrict,
       addMemberId: requestAddMember?.VRCNUM,
       removeMemberId: requestRemoveMember?.VRCNUM,
@@ -221,8 +215,14 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
             <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
           </div>
           <Button
+            type="button"
             className="w-full max-w-[85vw]"
             onClick={(e) => handleSubmit(e)}
+            aria-busy={requestMutation.loading}
+            aria-disabled={
+              requestMutation.loading ||
+              (!requestAddMember && !requestRemoveMember)
+            }
             disabled={
               requestMutation.loading ||
               (!requestAddMember && !requestRemoveMember)

@@ -42,6 +42,16 @@ function formatDate(date: Date, withOrdinal: boolean): string {
   return `${month} ${day}${withOrdinal ? ordinal : ""}, ${year}`;
 }
 
+function formatAddress(record: VoterRecord): string {
+  const addressParts = [
+    record.houseNum,
+    record.street,
+    record.apartment,
+    `${record.city}, ${record.state} ${record.zipCode}`,
+  ];
+  return addressParts.filter(Boolean).join(" ");
+}
+
 export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   electionDates,
   officeNames,
@@ -106,15 +116,20 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    // Prevent double-submits while a request is in flight
+    if (generateReportMutation.loading) {
+      return;
+    }
+
     const candidatesData = candidates.map((c) => {
       const candidateName = `${c.firstName} ${c.lastName}`;
-      const address = `${c.houseNum} ${c.street} ${c.apartment} ${c.city}, ${c.state} ${c.zipCode}`;
+      const address = formatAddress(c);
       return { name: candidateName, address, office: c.office };
     });
 
     const vacancyAppointmentsData = vacancyAppointments.map((c) => {
       const candidateName = `${c.firstName} ${c.lastName}`;
-      const address = `${c.houseNum} ${c.street} ${c.apartment} ${c.city}, ${c.state} ${c.zipCode}`;
+      const address = formatAddress(c);
       return { name: candidateName, address };
     });
 
@@ -243,6 +258,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
               handleResults={setSearchCandidates}
               optionalExtraSearch="Show Eligible Candidates Only"
               submitButtonText="Find Candidates"
+              useFormElement={false}
             />
           )}
           {searchCandidates.length > 0 && showCandidateSearch && (
@@ -318,6 +334,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             <RecordSearchForm
               handleResults={setVacancyAppointmentsSearch}
               submitButtonText="Find Records"
+              useFormElement={false}
             />
           )}
           {vacancyAppointmentsSearch.length > 0 &&

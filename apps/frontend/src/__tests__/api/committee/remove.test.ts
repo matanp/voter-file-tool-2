@@ -10,7 +10,6 @@ import {
   expectErrorResponse,
   validationTestCases,
   createAuthTestSuite,
-  parseNumericValue,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import type { CommitteeData } from "~/lib/validations/committee";
@@ -53,9 +52,7 @@ describe("/api/committee/remove", () => {
           cityTown_legDistrict_electionDistrict: {
             cityTown: mockCommitteeData.cityTown,
             legDistrict: mockCommitteeData.legDistrict ?? -1,
-            electionDistrict: parseNumericValue(
-              mockCommitteeData.electionDistrict,
-            ),
+            electionDistrict: mockCommitteeData.electionDistrict,
           },
         },
       });
@@ -102,9 +99,9 @@ describe("/api/committee/remove", () => {
       ...validationTestCases.missingFields,
       ...validationTestCases.invalidElectionDistrict,
     ])(
-      "should return 400 for $field validation",
+      "should return 422 for $field validation",
       ({ field, value, expectedError }) => {
-        it(`should return 400 for ${field} = "${value}"`, async () => {
+        it(`should return 422 for ${field} = "${value}"`, async () => {
           // Arrange
           const mockCommitteeData = createMockCommitteeData(
             { [field]: value } as Partial<CommitteeData>,
@@ -129,9 +126,9 @@ describe("/api/committee/remove", () => {
     );
 
     describe.each(validationTestCases.invalidNumeric)(
-      "should return 400 for invalid numeric $field",
+      "should return 422 for invalid numeric $field",
       ({ field, value, expectedError }) => {
-        it(`should return 400 for ${field} = "${value}"`, async () => {
+        it(`should return 422 for ${field} = "${value}"`, async () => {
           // Arrange
           const mockCommitteeData = createMockCommitteeData(
             {
@@ -251,9 +248,7 @@ describe("/api/committee/remove", () => {
           cityTown_legDistrict_electionDistrict: {
             cityTown: mockCommitteeData.cityTown,
             legDistrict: mockCommitteeData.legDistrict ?? -1,
-            electionDistrict: parseNumericValue(
-              mockCommitteeData.electionDistrict,
-            ),
+            electionDistrict: mockCommitteeData.electionDistrict,
           },
         },
       });

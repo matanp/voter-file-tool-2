@@ -17,6 +17,17 @@ import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
 
+const normalizeSentinelValues = (
+  electionDistrict: number,
+  legDistrict?: string,
+) => {
+  const normalizedElectionDistrict =
+    electionDistrict === -1 ? undefined : electionDistrict;
+  const normalizedLegDistrict =
+    legDistrict === "-1" || legDistrict === "" ? undefined : legDistrict;
+  return { normalizedElectionDistrict, normalizedLegDistrict };
+};
+
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
 }
@@ -35,8 +46,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [requestRemoveRecord, setRequestRemoveRecord] =
     useState<VoterRecord | null>(null);
   const [legDistricts, setLegDistricts] = useState<string[]>([]);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
-  const [loading, setLoading] = useState<boolean>(false);
+  const [listLoading, setListLoading] = useState<boolean>(false);
 
   const removeCommitteeMemberMutation = useApiMutation<
     { success: boolean },
@@ -48,16 +60,29 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     }
   >("/api/committee/remove", "POST", {
     onSuccess: (data, payload) => {
-      if (payload) {
-        // Normalize electionDistrict sentinel values (-1) to undefined
-        const normalizedElectionDistrict =
-          payload.electionDistrict === -1
-            ? undefined
-            : payload.electionDistrict;
+      setRemovingId(null);
+      // Check for server-reported failure (200 with { success: false })
+      if (
+        data &&
+        typeof data === "object" &&
+        "success" in data &&
+        data.success === false
+      ) {
+        toast({
+          title: "Error",
+          description: `Failed to remove committee member: ${"error" in data ? String(data.error) : "Unknown error"}`,
+          variant: "destructive",
+        });
+        return;
+      }
 
-        // Normalize legDistrict sentinel values ("-1") to undefined
-        const normalizedLegDistrict =
-          payload.legDistrict === "-1" ? undefined : payload.legDistrict;
+      if (payload) {
+        // Use shared normalization helper
+        const { normalizedElectionDistrict, normalizedLegDistrict } =
+          normalizeSentinelValues(
+            payload.electionDistrict,
+            payload.legDistrict,
+          );
 
         // Only refetch if we have valid parameters
         if (payload.cityTown && normalizedElectionDistrict !== undefined) {
@@ -77,6 +102,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       });
     },
     onError: (error) => {
+      setRemovingId(null);
       toast({
         title: "Error",
         description: `Failed to remove committee member: ${error.message}`,
@@ -142,14 +168,15 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   const fetchCommitteeList = useCallback(
     async (city: string, district: number, legDistrict?: string) => {
-      setLoading(true);
+      setListLoading(true);
       try {
+        const params = new URLSearchParams({
+          cityTown: city,
+          electionDistrict: String(district),
+        });
+        if (legDistrict) params.set("legDistrict", legDistrict);
         const response = await fetch(
-          `/api/fetchCommitteeList/?cityTown=${encodeURIComponent(
-            city,
-          )}${legDistrict ? `&legDistrict=${encodeURIComponent(legDistrict)}` : ""}&electionDistrict=${encodeURIComponent(
-            String(district),
-          )}`,
+          `/api/fetchCommitteeList/?${params.toString()}`,
         );
         if (response.ok) {
           const data: unknown = await response.json();
@@ -167,19 +194,29 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         console.error("Error fetching committee list:", error);
         setCommitteeList([]);
       } finally {
-        setLoading(false);
+        setListLoading(false);
       }
     },
-    [setLoading, setCommitteeList],
+    [setListLoading, setCommitteeList],
   );
 
-  const handleRemoveCommitteeMember = async (
-    event: React.MouseEvent<HTMLButtonElement>,
-    vrcnum: string,
-  ) => {
+  const handleRemoveCommitteeMember = async (vrcnum: string) => {
+    // Guard against invalid selection
+    if (!selectedCity || selectedDistrict < 0) {
+      return;
+    }
+
+    setRemovingId(vrcnum);
+
+    // Use shared normalization helper for consistent sentinel value handling
+    const { normalizedLegDistrict } = normalizeSentinelValues(
+      selectedDistrict,
+      selectedLegDistrict,
+    );
+
     void removeCommitteeMemberMutation.mutate({
       cityTown: selectedCity,
-      legDistrict: selectedLegDistrict === "" ? undefined : selectedLegDistrict,
+      legDistrict: normalizedLegDistrict,
       electionDistrict: selectedDistrict,
       memberId: vrcnum,
     });
@@ -287,7 +324,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       </Card>
       <h1 className="primary-header pt-2">{getCommitteeListHeader()}</h1>
 
-      {loading ? (
+      {listLoading ? (
         <p>Loading...</p>
       ) : (
         <div>
@@ -308,12 +345,14 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                           <div className="h-full">
                             <Button
                               className="mt-auto"
-                              onClick={(e) =>
-                                handleRemoveCommitteeMember(e, member.VRCNUM)
+                              type="button"
+                              aria-busy={removingId === member.VRCNUM}
+                              onClick={() =>
+                                handleRemoveCommitteeMember(member.VRCNUM)
                               }
-                              disabled={removeCommitteeMemberMutation.loading}
+                              disabled={removingId === member.VRCNUM}
                             >
-                              {removeCommitteeMemberMutation.loading
+                              {removingId === member.VRCNUM
                                 ? "Removing..."
                                 : "Remove from Committee"}
                             </Button>

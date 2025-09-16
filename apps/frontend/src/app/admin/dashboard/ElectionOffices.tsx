@@ -17,6 +17,7 @@ export const ElectionOffices = ({
   const { toast } = useToast();
   const [officeNames, setOfficeNames] = useState<OfficeName[]>(initialOffices);
   const [newOffice, setNewOffice] = useState<string>("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // API mutation hooks
   const addOfficeMutation = useApiMutation<OfficeName, { name: string }>(
@@ -101,12 +102,13 @@ export const ElectionOffices = ({
   };
 
   const handleDeleteOffice = async (id: number) => {
+    setDeletingId(id);
     try {
       await deleteOfficeMutation.mutate({ id }, `/api/admin/officeNames/${id}`);
     } catch (error) {
-      // Error is already handled by the onError callback in the mutation hook
-      // This catch block prevents the uncaught promise rejection
       console.error("Error in handleDeleteOffice:", error);
+    } finally {
+      setDeletingId((cur) => (cur === id ? null : cur));
     }
   };
 
@@ -124,9 +126,13 @@ export const ElectionOffices = ({
             <Button
               variant="destructive"
               onClick={() => handleDeleteOffice(office.id)}
-              disabled={deleteOfficeMutation.loading}
+              disabled={
+                deleteOfficeMutation.loading && deletingId === office.id
+              }
             >
-              {deleteOfficeMutation.loading ? "Deleting..." : "Delete"}
+              {deleteOfficeMutation.loading && deletingId === office.id
+                ? "Deleting..."
+                : "Delete"}
             </Button>
           </li>
         ))}

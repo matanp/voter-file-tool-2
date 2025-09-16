@@ -110,14 +110,17 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       if (error.code === "P2025") {
         // Record not found (member to connect not found)
         return NextResponse.json(
-          { error: "Member not found" },
+          { success: false, error: "Member not found" },
           { status: 404 },
         );
       } else if (error.code === "P2002") {
         // Unique constraint violation (duplicate relation) - should not happen with our idempotency check
         // but keeping as fallback
         return NextResponse.json(
-          { error: "Duplicate relation - member already exists in committee" },
+          {
+            success: false,
+            error: "Duplicate relation - member already exists in committee",
+          },
           { status: 409 },
         );
       }
@@ -125,7 +128,7 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
 
     // Default fallback for all other errors
     return NextResponse.json(
-      { error: "Internal server error" },
+      { success: false, error: "Internal server error" },
       { status: 500 },
     );
   }
