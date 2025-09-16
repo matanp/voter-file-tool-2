@@ -59,7 +59,7 @@ export type LDCommitteesWithFields = {
   legDistrict: number;
   committees: Record<string, CommitteeMemberWithFields[]>;
 };
-export const mapCommiteesToReportShape = (
+export const mapCommitteesToReportShape = (
   committees: CommitteeWithMembers[],
 ): LDCommitteesWithCompoundFields[] => {
   const groupMap = new Map<string, LDCommitteesWithCompoundFields>();
@@ -150,21 +150,22 @@ export const mapCommitteesToReportShapeWithFields = (
  * Normalizes sentinel values for committee data to ensure consistent handling
  * between client and server components.
  *
- * @param electionDistrict - The election district number
+ * @param electionDistrict - The election district number (always required and positive)
  * @param legDistrict - The legislative district (optional string)
- * @returns Object with normalized values where sentinel values are converted to undefined
+ * @returns Object with normalized values where legDistrict sentinel values are converted to undefined
  */
 export const normalizeSentinelValues = (
   electionDistrict: number,
   legDistrict?: string,
 ) => {
-  const normalizedElectionDistrict =
-    electionDistrict === LEG_DISTRICT_SENTINEL ? undefined : electionDistrict;
   const normalizedLegDistrict =
     legDistrict === LEG_DISTRICT_SENTINEL.toString() || legDistrict === ""
       ? undefined
       : legDistrict;
-  return { normalizedElectionDistrict, normalizedLegDistrict };
+  return {
+    normalizedElectionDistrict: electionDistrict,
+    normalizedLegDistrict,
+  };
 };
 
 /**
@@ -175,10 +176,13 @@ export const normalizeSentinelValues = (
  * @returns The legDistrict value or LEG_DISTRICT_SENTINEL if undefined
  */
 export const toDbSentinelValue = (legDistrict?: string | number): number => {
-  if (legDistrict === undefined) {
-    return LEG_DISTRICT_SENTINEL;
+  if (legDistrict === undefined) return LEG_DISTRICT_SENTINEL;
+  if (typeof legDistrict === "number") return legDistrict;
+  const trimmed = legDistrict.trim();
+  if (trimmed === "") return LEG_DISTRICT_SENTINEL;
+  const n = Number(trimmed);
+  if (!Number.isInteger(n)) {
+    throw new Error(`Invalid legDistrict: "${legDistrict}"`);
   }
-  return typeof legDistrict === "string"
-    ? parseInt(legDistrict, 10)
-    : legDistrict;
+  return n;
 };

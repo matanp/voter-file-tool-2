@@ -6,6 +6,7 @@ import type {
 } from "@prisma/client";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
+import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 
 export const dropdownItems = [
   "city",
@@ -226,50 +227,8 @@ export const exampleVoterRecord: Partial<VoterRecordArchive> = {
   statevid: "NY123456789",
 };
 
-export const fieldEnum = z.enum([
-  "VRCNUM",
-  "lastName",
-  "firstName",
-  "middleInitial",
-  "suffixName",
-  "houseNum",
-  "street",
-  "apartment",
-  "halfAddress",
-  "resAddrLine2",
-  "resAddrLine3",
-  "city",
-  "state",
-  "zipCode",
-  "zipSuffix",
-  "telephone",
-  "email",
-  "mailingAddress1",
-  "mailingAddress2",
-  "mailingAddress3",
-  "mailingAddress4",
-  "mailingCity",
-  "mailingState",
-  "mailingZip",
-  "mailingZipSuffix",
-  "party",
-  "gender",
-  "DOB",
-  "L_T",
-  "electionDistrict",
-  "countyLegDistrict",
-  "stateAssmblyDistrict",
-  "stateSenateDistrict",
-  "congressionalDistrict",
-  "CC_WD_Village",
-  "townCode",
-  "lastUpdate",
-  "originalRegDate",
-  "statevid",
-  "hasEmail",
-  "hasInvalidEmail",
-  "hasPhone",
-]);
+// Use the shared field enum from shared-validators
+export const fieldEnum = searchableFieldEnum;
 
 export const searchQueryFieldSchema = z
   .array(

@@ -73,6 +73,7 @@ describe("/api/committee/add", () => {
       };
 
       const setupMocks = () => {
+        prismaMock.committeeList.findUnique.mockResolvedValue(null);
         prismaMock.committeeList.upsert.mockResolvedValue(
           createMockCommittee(),
         );
@@ -97,9 +98,9 @@ describe("/api/committee/add", () => {
       ...validationTestCases.missingFields,
       ...validationTestCases.invalidElectionDistrict,
     ])(
-      "should return 400 for $field validation",
+      "should return 422 for $field validation",
       ({ field, value, expectedError }) => {
-        it(`should return 400 for ${field} = "${value}"`, async () => {
+        it(`should return 422 for ${field} = "${value}"`, async () => {
           // Arrange
           const mockCommitteeData = createMockCommitteeData(
             { [field]: value },
@@ -119,16 +120,16 @@ describe("/api/committee/add", () => {
 
           // Assert
           await expectErrorResponse(response, 422, expectedError);
-          // Assert no DB upsert on 400s (missing/invalid fields)
+          // Assert no DB upsert on 422s (missing/invalid fields)
           expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
         });
       },
     );
 
     describe.each(validationTestCases.invalidNumeric)(
-      "should return 400 for invalid numeric $field",
+      "should return 422 for invalid numeric $field",
       ({ field, value, expectedError }) => {
-        it(`should return 400 for ${field} = "${value}"`, async () => {
+        it(`should return 422 for ${field} = "${value}"`, async () => {
           // Arrange
           const mockCommitteeData = createMockCommitteeData(
             {
@@ -150,7 +151,7 @@ describe("/api/committee/add", () => {
 
           // Assert
           await expectErrorResponse(response, 422, expectedError);
-          // Assert no DB upsert on 400s (missing/invalid fields)
+          // Assert no DB upsert on 422s (missing/invalid fields)
           expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
         });
       },
@@ -260,10 +261,7 @@ describe("/api/committee/add", () => {
       await expectSuccessResponse(response, {
         success: true,
         message: "Member already connected to committee",
-        committee: {
-          ...mockCommittee,
-          committeeMemberList: [createMockVoterRecord()],
-        },
+        committee: existingCommitteeWithMember,
         idempotent: true,
       });
     });

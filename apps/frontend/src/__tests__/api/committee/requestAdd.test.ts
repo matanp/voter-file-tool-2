@@ -63,7 +63,7 @@ describe("/api/committee/requestAdd", () => {
       await expectSuccessResponse(
         response,
         {
-          status: "success",
+          success: true,
           message: "Request created",
         },
         201,
@@ -113,7 +113,7 @@ describe("/api/committee/requestAdd", () => {
       await expectSuccessResponse(
         response,
         {
-          status: "success",
+          success: true,
           message: "Request created",
         },
         201,
@@ -164,7 +164,7 @@ describe("/api/committee/requestAdd", () => {
       await expectSuccessResponse(
         response,
         {
-          status: "success",
+          success: true,
           message: "Request created",
         },
         201,
@@ -207,7 +207,7 @@ describe("/api/committee/requestAdd", () => {
       await expectSuccessResponse(
         response,
         {
-          status: "success",
+          success: true,
           message: "Request created",
         },
         201,
@@ -243,7 +243,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(createMockRequest(mockRequestData));
       await expectSuccessResponse(
         response,
-        { status: "success", message: "Request created" },
+        { success: true, message: "Request created" },
         201,
       );
       expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
@@ -311,6 +311,10 @@ describe("/api/committee/requestAdd", () => {
       {
         description: "negative legDistrict (sentinel value)",
         requestDataOverrides: { legDistrict: LEG_DISTRICT_SENTINEL },
+      },
+      {
+        description: "whitespace-only legDistrict",
+        requestDataOverrides: { legDistrict: " " },
       },
     ])(
       "should return 422 for $description",
@@ -476,7 +480,7 @@ describe("/api/committee/requestAdd", () => {
       await expectSuccessResponse(
         response,
         {
-          status: "success",
+          success: true,
           message: "Request created",
         },
         201,

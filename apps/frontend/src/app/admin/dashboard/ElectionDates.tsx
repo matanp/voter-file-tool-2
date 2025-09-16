@@ -6,6 +6,7 @@ import { DatePicker } from "~/components/ui/datePicker";
 import type { ElectionDate } from "@prisma/client";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
+import { formatElectionDateForDisplay } from "~/lib/electionDateUtils";
 
 interface ElectionDateProps {
   electionDates: ElectionDate[];
@@ -18,6 +19,7 @@ export const ElectionDates = ({
   const [electionDates, setElectionDates] =
     useState<ElectionDate[]>(initialDates);
   const [newDate, setNewDate] = useState<Date | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
   // API mutation hooks
   const addDateMutation = useApiMutation<ElectionDate, { date: string }>(
@@ -44,28 +46,33 @@ export const ElectionDates = ({
     },
   );
 
-  const deleteDateMutation = useApiDelete<{ message: string }, { id: number }>(
-    "/api/admin/electionDates",
-    {
-      onSuccess: (data, payload) => {
-        if (payload?.id) {
-          setElectionDates((prev) => prev.filter((d) => d.id !== payload.id));
-          toast({
-            title: "Success",
-            description: "Election date deleted successfully.",
-          });
-        }
-      },
-      onError: (error) => {
-        console.error("Failed to delete election date", error);
-        toast({
-          title: "Error",
-          description: "Failed to delete election date. Please try again.",
-          variant: "destructive",
+  const deleteDateMutation = useApiDelete<
+    { id: number; message: string },
+    { id: number }
+  >("/api/admin/electionDates", {
+    onSuccess: (data) => {
+      if (data?.id) {
+        setElectionDates((prev) => prev.filter((d) => d.id !== data.id));
+        setDeletingIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(data.id);
+          return newSet;
         });
-      },
+        toast({
+          title: "Success",
+          description: "Election date deleted successfully.",
+        });
+      }
     },
-  );
+    onError: (error: Error) => {
+      console.error("Failed to delete election date", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete election date. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const fetchElectionDates = useCallback(async () => {
     try {
@@ -94,11 +101,27 @@ export const ElectionDates = ({
 
   const handleAddDate = async () => {
     if (!newDate) return;
-    await addDateMutation.mutate({ date: newDate.toISOString() });
+    try {
+      await addDateMutation.mutate({ date: newDate.toISOString() });
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+      console.error("Add date mutation failed:", error);
+    }
   };
 
   const handleDeleteDate = async (id: number) => {
-    await deleteDateMutation.mutate({ id }, `/api/admin/electionDates/${id}`);
+    setDeletingIds((prev) => new Set(prev).add(id));
+    try {
+      await deleteDateMutation.mutate({ id }, `/api/admin/electionDates/${id}`);
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+      // Just remove the id from deleting set if it wasn't already removed
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }
   };
 
   return (
@@ -111,13 +134,13 @@ export const ElectionDates = ({
             key={ed.id}
             className="flex justify-between items-center border-b py-2"
           >
-            <p>{new Date(ed.date).toLocaleString().split(",")[0]}</p>
+            <p>{formatElectionDateForDisplay(ed.date)}</p>
             <Button
               variant={"destructive"}
               onClick={() => handleDeleteDate(ed.id)}
-              disabled={deleteDateMutation.loading}
+              disabled={deletingIds.has(ed.id)}
             >
-              {deleteDateMutation.loading ? "Deleting..." : "Delete"}
+              {deletingIds.has(ed.id) ? "Deleting..." : "Delete"}
             </Button>
           </li>
         ))}

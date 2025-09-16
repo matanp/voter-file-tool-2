@@ -19,10 +19,9 @@ type ValidationTestCase = {
 };
 
 // Mock response type
-export interface MockResponse<T = unknown> {
-  status: number;
+export type MockResponse<T = unknown> = Pick<Response, "status" | "json"> & {
   json: () => Promise<T>;
-}
+};
 
 // Mock data factories
 export const createMockSession = (
@@ -150,13 +149,13 @@ export const createMockRequest = <T = Record<string, unknown>>(
 export const expectSuccessResponse = async <
   T extends Record<string, unknown> | unknown[] = Record<string, unknown>,
 >(
-  response: MockResponse,
+  response: MockResponse<T>,
   expectedData?: T,
   expectedStatus = 200,
 ): Promise<void> => {
   expect(response.status).toBe(expectedStatus);
   if (expectedData !== undefined) {
-    const json = await response.json();
+    const json = (await response.json()) as T;
     expect(json).toEqual(expectedData);
   }
 };
@@ -509,7 +508,7 @@ export const createValidationTestSuite = (
     field: keyof CommitteeData,
     value: string,
   ) => Partial<CommitteeData>,
-  expectedStatus = 400,
+  expectedStatus = 422,
 ) => {
   return testCases.map(({ field, value, expectedError }) => ({
     description: `missing or invalid ${field}`,

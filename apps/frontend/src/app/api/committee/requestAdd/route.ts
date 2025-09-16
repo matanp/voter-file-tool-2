@@ -30,6 +30,14 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
   const sanitizedAddMemberId = addMemberId?.trim();
   const sanitizedRemoveMemberId = removeMemberId?.trim();
 
+  // Require at least one action
+  if (!sanitizedAddMemberId && !sanitizedRemoveMemberId) {
+    return NextResponse.json(
+      { error: "Invalid request data", success: false },
+      { status: 422 },
+    );
+  }
+
   try {
     const committeeRequested = await prisma.committeeList.findUnique({
       where: {
@@ -62,7 +70,7 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
     });
 
     return NextResponse.json(
-      { status: "success", message: "Request created" },
+      { success: true, message: "Request created" },
       { status: 201 },
     );
   } catch (error) {

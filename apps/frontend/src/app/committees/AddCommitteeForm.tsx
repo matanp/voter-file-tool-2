@@ -3,7 +3,6 @@ import { useContext, useState } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { useToast } from "~/components/ui/use-toast";
 import { hasPermissionFor } from "~/lib/utils";
-import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
@@ -13,6 +12,7 @@ import {
   type AddCommitteeResponse,
   type CommitteeData,
 } from "~/lib/validations/committee";
+import { type SearchQueryField } from "@voter-file-tool/shared-validators";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -74,21 +74,14 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   });
 
   const validCommittee =
-    city !== "" &&
-    legDistrict !== "" &&
-    electionDistrict !== LEG_DISTRICT_SENTINEL;
+    city !== "" && legDistrict !== "" && electionDistrict > 0;
 
   const handleAddCommitteeMember = async (record: VoterRecord) => {
     if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
-      // Don't mutate if legDistrict is empty
-      if (legDistrict === "") {
-        return;
-      }
-
       setLoadingVRCNUM(record.VRCNUM); // Set loading state for this specific record
       await addCommitteeMemberMutation.mutate({
         cityTown: city,
-        legDistrict: parseInt(legDistrict, 10),
+        ...(legDistrict !== "" && { legDistrict: parseInt(legDistrict, 10) }),
         electionDistrict: electionDistrict,
         memberId: record.VRCNUM,
       });
@@ -102,7 +95,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     return null;
   }
 
-  const extraSearchQuery = [
+  const extraSearchQuery: SearchQueryField[] = [
     { field: "city", value: city },
     { field: "L_T", value: legDistrict },
     { field: "electionDistrict", value: electionDistrict },
