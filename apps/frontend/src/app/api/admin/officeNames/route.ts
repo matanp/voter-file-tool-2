@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type { Session } from "next-auth";
 import prisma from "~/lib/prisma";
 import { z, ZodError } from "zod";
 import { Prisma, PrivilegeLevel } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 
-async function getOfficeNamesHandler() {
+async function getOfficeNamesHandler(req: NextRequest, session: Session) {
   try {
     const officeNames = await prisma.officeName.findMany({
       orderBy: { officeName: "asc" },

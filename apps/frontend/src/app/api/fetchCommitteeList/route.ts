@@ -53,10 +53,8 @@ async function getCommitteeList(req: NextRequest) {
   const { electionDistrict, cityTown, legDistrict } = validation.data;
 
   try {
-    const parsedLegDistrict = toDbSentinelValue(
-      legDistrict != null ? parseInt(legDistrict, 10) : undefined,
-    );
-    const parsedElectionDistrict = parseInt(electionDistrict, 10);
+    const parsedLegDistrict = toDbSentinelValue(legDistrict ?? undefined);
+    const parsedElectionDistrict = toDbSentinelValue(electionDistrict);
 
     const committee = await prisma.committeeList.findUnique({
       where: {
