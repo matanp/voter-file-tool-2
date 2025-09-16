@@ -94,66 +94,62 @@ describe("/api/committee/add", () => {
     });
 
     // Parameterized validation tests
-    describe.each([
+    test.each([
       ...validationTestCases.missingFields,
       ...validationTestCases.invalidElectionDistrict,
     ])(
       "should return 422 for $field validation",
-      ({ field, value, expectedError }) => {
-        it(`should return 422 for ${field} = "${value}"`, async () => {
-          // Arrange
-          const mockCommitteeData = createMockCommitteeData(
-            { [field]: value },
-            false,
-          );
-          const mockSession = createMockSession({
-            user: { privilegeLevel: PrivilegeLevel.Admin },
-          });
-
-          mockAuthSession(mockSession);
-          mockHasPermission(true);
-
-          const request = createMockRequest(mockCommitteeData);
-
-          // Act
-          const response = await POST(request);
-
-          // Assert
-          await expectErrorResponse(response, 422, expectedError);
-          // Assert no DB upsert on 422s (missing/invalid fields)
-          expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
+      async ({ field, value, expectedError }) => {
+        // Arrange
+        const mockCommitteeData = createMockCommitteeData(
+          { [field]: value },
+          false,
+        );
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
         });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        const request = createMockRequest(mockCommitteeData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 422, expectedError);
+        // Assert no DB upsert on 422s (missing/invalid fields)
+        expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
       },
     );
 
-    describe.each(validationTestCases.invalidNumeric)(
+    test.each(validationTestCases.invalidNumeric)(
       "should return 422 for invalid numeric $field",
-      ({ field, value, expectedError }) => {
-        it(`should return 422 for ${field} = "${value}"`, async () => {
-          // Arrange
-          const mockCommitteeData = createMockCommitteeData(
-            {
-              [field]: value,
-            },
-            false,
-          );
-          const mockSession = createMockSession({
-            user: { privilegeLevel: PrivilegeLevel.Admin },
-          });
-
-          mockAuthSession(mockSession);
-          mockHasPermission(true);
-
-          const request = createMockRequest(mockCommitteeData);
-
-          // Act
-          const response = await POST(request);
-
-          // Assert
-          await expectErrorResponse(response, 422, expectedError);
-          // Assert no DB upsert on 422s (missing/invalid fields)
-          expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
+      async ({ field, value, expectedError }) => {
+        // Arrange
+        const mockCommitteeData = createMockCommitteeData(
+          {
+            [field]: value,
+          },
+          false,
+        );
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
         });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        const request = createMockRequest(mockCommitteeData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 422, expectedError);
+        // Assert no DB upsert on 422s (missing/invalid fields)
+        expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
       },
     );
 
@@ -346,6 +342,128 @@ describe("/api/committee/add", () => {
       // Verify that findUnique was called but upsert was not
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();
       expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
+    });
+
+    // Integration aspects - Database transaction behavior
+    describe("Database transaction behavior", () => {
+      it("should handle concurrent committee creation attempts", async () => {
+        // Arrange
+        const mockCommitteeData = createMockCommitteeData();
+        const mockCommittee = createMockCommittee();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        // Simulate race condition: first call finds no committee, second call creates it
+        prismaMock.committeeList.findUnique
+          .mockResolvedValueOnce(null) // First call: no committee exists
+          .mockResolvedValueOnce(mockCommittee); // Second call: committee now exists
+
+        prismaMock.committeeList.upsert.mockResolvedValue(mockCommittee);
+
+        const request = createMockRequest(mockCommitteeData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(
+          response,
+          {
+            success: true,
+            committee: mockCommittee,
+            message: "Committee created and member added",
+          },
+          201,
+        );
+
+        // Verify both findUnique and upsert were called
+        expect(prismaMock.committeeList.findUnique).toHaveBeenCalledTimes(1);
+        expect(prismaMock.committeeList.upsert).toHaveBeenCalledTimes(1);
+      });
+
+      it("should maintain data consistency when upsert fails after successful findUnique", async () => {
+        // Arrange
+        const mockCommitteeData = createMockCommitteeData();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        // Mock successful findUnique but failed upsert
+        prismaMock.committeeList.findUnique.mockResolvedValue(null);
+        prismaMock.committeeList.upsert.mockRejectedValue(
+          new Error("Database constraint violation"),
+        );
+
+        const request = createMockRequest(mockCommitteeData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 500, "Internal server error");
+
+        // Verify that both operations were attempted
+        expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();
+        expect(prismaMock.committeeList.upsert).toHaveBeenCalled();
+      });
+    });
+
+    // Integration aspects - Data integrity validation
+    describe("Data integrity validation", () => {
+      it("should validate committee-member relationship consistency", async () => {
+        // Arrange
+        const mockCommitteeData = createMockCommitteeData();
+        const mockCommittee = createMockCommittee();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        // Mock committee creation with member connection
+        const committeeWithMember = {
+          ...mockCommittee,
+          committeeMemberList: [
+            createMockVoterRecord({ VRCNUM: mockCommitteeData.memberId }),
+          ],
+        };
+        prismaMock.committeeList.upsert.mockResolvedValue(committeeWithMember);
+
+        const request = createMockRequest(mockCommitteeData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(
+          response,
+          {
+            success: true,
+            committee: committeeWithMember,
+            message: "Committee created and member added",
+          },
+          201,
+        );
+
+        // Verify the upsert was called with correct member connection
+        expect(prismaMock.committeeList.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            create: expect.objectContaining({
+              committeeMemberList: {
+                connect: { VRCNUM: mockCommitteeData.memberId },
+              },
+            }),
+          }),
+        );
+      });
     });
   });
 });

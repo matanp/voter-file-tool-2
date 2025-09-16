@@ -96,62 +96,58 @@ describe("/api/committee/remove", () => {
     });
 
     // Parameterized validation tests
-    describe.each([
+    test.each([
       ...validationTestCases.missingFields,
       ...validationTestCases.invalidElectionDistrict,
     ])(
       "should return 422 for $field validation",
-      ({ field, value, expectedError }) => {
-        it(`should return 422 for ${field} = "${value}"`, async () => {
-          // Arrange
-          const mockCommitteeData = createMockCommitteeData(
-            { [field]: value } as Partial<CommitteeData>,
-            false,
-          );
-          const mockSession = createMockSession({
-            user: { privilegeLevel: PrivilegeLevel.Admin },
-          });
-
-          mockAuthSession(mockSession);
-          mockHasPermission(true);
-
-          const request = createMockRequest(mockCommitteeData);
-
-          // Act
-          const response = await POST(request);
-
-          // Assert
-          await expectErrorResponse(response, 422, expectedError);
+      async ({ field, value, expectedError }) => {
+        // Arrange
+        const mockCommitteeData = createMockCommitteeData(
+          { [field]: value } as Partial<CommitteeData>,
+          false,
+        );
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
         });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        const request = createMockRequest(mockCommitteeData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 422, expectedError);
       },
     );
 
-    describe.each(validationTestCases.invalidNumeric)(
+    test.each(validationTestCases.invalidNumeric)(
       "should return 422 for invalid numeric $field",
-      ({ field, value, expectedError }) => {
-        it(`should return 422 for ${field} = "${value}"`, async () => {
-          // Arrange
-          const mockCommitteeData = createMockCommitteeData(
-            {
-              [field]: value,
-            } as Partial<CommitteeData>,
-            false,
-          );
-          const mockSession = createMockSession({
-            user: { privilegeLevel: PrivilegeLevel.Admin },
-          });
-
-          mockAuthSession(mockSession);
-          mockHasPermission(true);
-
-          const request = createMockRequest(mockCommitteeData);
-
-          // Act
-          const response = await POST(request);
-
-          // Assert
-          await expectErrorResponse(response, 422, expectedError);
+      async ({ field, value, expectedError }) => {
+        // Arrange
+        const mockCommitteeData = createMockCommitteeData(
+          {
+            [field]: value,
+          } as Partial<CommitteeData>,
+          false,
+        );
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
         });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        const request = createMockRequest(mockCommitteeData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 422, expectedError);
       },
     );
 

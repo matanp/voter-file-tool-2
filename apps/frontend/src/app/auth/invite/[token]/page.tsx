@@ -20,7 +20,6 @@ export default function InvitePage() {
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
 
   const token = params?.token as string;
 
@@ -38,9 +37,17 @@ export default function InvitePage() {
       return;
     }
 
+    // Skip invite fetch when already authenticated
+    if (status === "authenticated") {
+      setLoading(false);
+      return;
+    }
+
     const fetchInvite = async () => {
       try {
-        const response = await fetch(`/api/auth/invite/${token}`);
+        const response = await fetch(
+          `/api/auth/invite/${encodeURIComponent(token)}`,
+        );
 
         if (response.ok) {
           const data = (await response.json()) as unknown as {
@@ -62,12 +69,11 @@ export default function InvitePage() {
     };
 
     void fetchInvite();
-  }, [token]);
+  }, [token, status]);
 
   const handleSignIn = async () => {
     if (!invite) return;
 
-    setSigningIn(true);
     try {
       await signIn("google", {
         callbackUrl: "/",
@@ -75,7 +81,6 @@ export default function InvitePage() {
     } catch (err) {
       console.error("Error signing in:", err);
       setError("Failed to sign in. Please try again.");
-      setSigningIn(false);
     }
   };
 
@@ -214,20 +219,8 @@ export default function InvitePage() {
           )}
 
           <div className="space-y-4">
-            <Button
-              onClick={handleSignIn}
-              disabled={signingIn}
-              className="w-full"
-              size="lg"
-            >
-              {signingIn ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign up with Google"
-              )}
+            <Button onClick={handleSignIn} className="w-full" size="lg">
+              Sign up with Google
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">

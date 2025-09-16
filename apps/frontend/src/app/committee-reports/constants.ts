@@ -195,7 +195,7 @@ export const AVAILABLE_FIELDS: {
     category: "Other",
   },
   {
-    key: "addressForCommittee",
+    key: "addressForCommittee" as VoterRecordField,
     label: "Address for Committee",
     category: "Other",
   },
@@ -214,5 +214,8 @@ export const FIELDS_BY_KEY = AVAILABLE_FIELDS.reduce(
     acc[field.key] = field;
     return acc;
   },
-  {} as Record<string, (typeof AVAILABLE_FIELDS)[0]>,
+  {} as Record<
+    (typeof AVAILABLE_FIELDS)[number]["key"],
+    (typeof AVAILABLE_FIELDS)[0]
+  >,
 );

@@ -287,40 +287,41 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
   const handleChangeValue = useCallback(
     (index: number, value: string | Date | boolean, compoundIndex?: number) => {
-      const updatedRows = [...searchRows];
-      const updatedRow = updatedRows[index];
+      setSearchRows((prev) => {
+        const updatedRows = [...prev];
+        const updatedRow = updatedRows[index];
 
-      if (updatedRow && !updatedRow.compoundType) {
-        if (updatedRow.value === value) return;
-        if (updatedRow.type === "number") {
-          updatedRow.value = Number(value);
-        } else if (updatedRow.type === "Boolean") {
-          updatedRow.value =
-            typeof value === "boolean" ? value : value === "true";
-        } else {
-          updatedRow.value = value;
-        }
-        updatedRows[index] = updatedRow;
-      } else if (updatedRow?.compoundType && compoundIndex !== undefined) {
-        const updatedField = updatedRow.fields[compoundIndex];
-
-        if (updatedField && updatedField.value !== value) {
-          if (updatedField.type === "number") {
-            updatedField.value = Number(value);
-          } else if (updatedField.type === "Boolean") {
-            updatedField.value =
+        if (updatedRow && !updatedRow.compoundType) {
+          if (updatedRow.value === value) return prev;
+          if (updatedRow.type === "number") {
+            updatedRow.value = Number(value);
+          } else if (updatedRow.type === "Boolean") {
+            updatedRow.value =
               typeof value === "boolean" ? value : value === "true";
           } else {
-            updatedField.value = value;
+            updatedRow.value = value;
           }
-          updatedRow.fields[compoundIndex] = updatedField;
           updatedRows[index] = updatedRow;
-        }
-      }
+        } else if (updatedRow?.compoundType && compoundIndex !== undefined) {
+          const updatedField = updatedRow.fields[compoundIndex];
 
-      setSearchRows(updatedRows);
+          if (updatedField && updatedField.value !== value) {
+            if (updatedField.type === "number") {
+              updatedField.value = Number(value);
+            } else if (updatedField.type === "Boolean") {
+              updatedField.value =
+                typeof value === "boolean" ? value : value === "true";
+            } else {
+              updatedField.value = value;
+            }
+            updatedRow.fields[compoundIndex] = updatedField;
+            updatedRows[index] = updatedRow;
+          }
+        }
+        return updatedRows;
+      });
     },
-    [searchRows],
+    [],
   );
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -430,7 +431,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                         //   }
                         // />
                         <Input
-                          type={row.type}
+                          type={row.type === "number" ? "number" : "text"}
                           placeholder={`Enter ${row.displayName}`}
                           onChange={(e) =>
                             handleChangeValue(index, e.target.value)
@@ -522,7 +523,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                           {(field.type === "String" ||
                             field.type === "number") && (
                             <Input
-                              type={field.type}
+                              type={field.type === "number" ? "number" : "text"}
                               placeholder={`Enter ${field.displayName}`}
                               onChange={(e) =>
                                 handleChangeValue(index, e.target.value, subIdx)

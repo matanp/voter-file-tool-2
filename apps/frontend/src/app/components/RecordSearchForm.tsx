@@ -91,7 +91,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
       });
     }
 
-    await searchMutation.mutate({ searchQuery: query, page: 1, pageSize: 100 });
+    void searchMutation.mutate({ searchQuery: query, page: 1, pageSize: 100 });
   };
   const ContainerElement = useFormElement ? "form" : "div";
   const containerProps = useFormElement

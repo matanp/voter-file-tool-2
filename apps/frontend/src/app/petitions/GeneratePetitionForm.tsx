@@ -31,19 +31,12 @@ type GeneratePetitionFormProps = {
 };
 
 function formatAddress(record: VoterRecord): string {
-  const addressParts = [record.houseNum, record.street, record.apartment];
-
-  // Build city, state, zip part defensively
-  const cityStateZipParts = [];
-  if (record.city) cityStateZipParts.push(record.city);
-  if (record.state) cityStateZipParts.push(record.state);
-  if (record.zipCode) cityStateZipParts.push(record.zipCode);
-
-  if (cityStateZipParts.length > 0) {
-    addressParts.push(cityStateZipParts.join(", "));
-  }
-
-  return addressParts.filter(Boolean).join(" ");
+  const line1 = [record.houseNum, record.street, record.apartment]
+    .filter(Boolean)
+    .join(" ");
+  const cityState = [record.city, record.state].filter(Boolean).join(", ");
+  const line2 = [cityState, record.zipCode].filter(Boolean).join(" ");
+  return [line1, line2].filter(Boolean).join(", ");
 }
 
 export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
@@ -127,6 +120,13 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       return { name: candidateName, address };
     });
 
+    const selectedParty =
+      party === "Custom" && customParty !== defaultCustomPartyName
+        ? customParty
+        : party === "Custom"
+          ? ""
+          : party;
+
     const formData: GenerateReportData = {
       type: "designatedPetition",
       name: reportName.trim() || undefined,
@@ -134,7 +134,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       payload: {
         candidates: candidatesData,
         vacancyAppointments: vacancyAppointmentsData,
-        party: party === "Custom" ? customParty : party,
+        party: selectedParty,
         electionDate: electionDate
           ? formatElectionDateForForm(electionDate)
           : "",
@@ -173,6 +173,9 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       duration: 3000,
     });
 
+    setReportUrl(null);
+    setGenerationError(null);
+    setReportId("");
     void generateReportMutation.mutate(formData);
   };
 
@@ -432,12 +435,17 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             min={1}
             inputMode="numeric"
             className="w-24"
-            onChange={(e) => setNumPages(Number(e.target.value))}
+            onChange={(e) => {
+              const v = parseInt(e.target.value || "1", 10);
+              setNumPages(Number.isNaN(v) ? 1 : Math.max(1, v));
+            }}
             onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-              const inputValue = e.target.value;
-              const cleanedValue = parseInt(inputValue, 10) || 0;
-              setNumPages(cleanedValue);
-              e.target.value = cleanedValue.toString();
+              const cleaned = Math.max(
+                1,
+                parseInt(e.target.value || "1", 10) || 1,
+              );
+              setNumPages(cleaned);
+              e.target.value = String(cleaned);
             }}
           />
         </div>
