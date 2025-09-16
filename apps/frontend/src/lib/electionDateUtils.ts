@@ -38,13 +38,14 @@ export function formatElectionDate(
           month: "long",
           day: "numeric",
         });
-      case "withOrdinal":
+      case "withOrdinal": {
         const ordinal = getOrdinal(day);
         const monthName = electionDate.toLocaleDateString("en-US", {
           timeZone: "UTC",
           month: "long",
         });
         return `${monthName} ${day}${ordinal}, ${year}`;
+      }
       default:
         return `${month + 1}/${day}/${year}`;
     }
@@ -84,14 +85,22 @@ function getOrdinal(day: number): string {
 }
 
 /**
- * Formats an election date for use in form values (without ordinal).
+ * Formats an election date for use in form values (parseable ISO string).
  * This is useful for dropdown values and form submissions.
  *
  * @param date - The election date (can be a Date object or ISO string)
- * @returns Formatted date string suitable for form values
+ * @returns ISO date string suitable for form values (YYYY-MM-DD format)
  */
 export function formatElectionDateForForm(date: Date | string): string {
-  return formatElectionDate(date, { format: "withOrdinal", timeZone: "UTC" });
+  const electionDate = typeof date === "string" ? new Date(date) : date;
+
+  // Check if the date is valid
+  if (isNaN(electionDate.getTime())) {
+    return ""; // Return empty string for invalid dates
+  }
+
+  // Return ISO date string in YYYY-MM-DD format for form compatibility
+  return electionDate.toISOString().split("T")[0]!;
 }
 
 /**

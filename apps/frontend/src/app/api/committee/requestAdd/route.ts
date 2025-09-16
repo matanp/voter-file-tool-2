@@ -8,7 +8,20 @@ import { toDbSentinelValue } from "~/app/committees/committeeUtils";
 import type { Session } from "next-auth";
 
 async function requestAddHandler(req: NextRequest, _session: Session) {
-  const body = (await req.json()) as unknown;
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Invalid JSON format",
+        success: false,
+        details: "Request body must be valid JSON",
+      },
+      { status: 400 },
+    );
+  }
+
   const validation = validateRequest(body, committeeRequestDataSchema);
 
   if (!validation.success) {
@@ -25,7 +38,19 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
   } = validation.data;
 
   // Convert undefined legDistrict to sentinel value for database storage
-  const legDistrictForDb = toDbSentinelValue(legDistrict);
+  let legDistrictForDb;
+  try {
+    legDistrictForDb = toDbSentinelValue(legDistrict);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Invalid legDistrict value",
+        success: false,
+        details: "legDistrict conversion failed",
+      },
+      { status: 422 },
+    );
+  }
 
   const sanitizedAddMemberId = addMemberId?.trim();
   const sanitizedRemoveMemberId = removeMemberId?.trim();
