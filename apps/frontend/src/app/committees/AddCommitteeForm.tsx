@@ -8,6 +8,7 @@ import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { type AddCommitteeResponse } from "~/lib/validations/committee";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -35,7 +36,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
 
   // API mutation hook
   const addCommitteeMemberMutation = useApiMutation<
-    { success: boolean },
+    AddCommitteeResponse,
     {
       cityTown: string;
       legDistrict: string;
@@ -44,19 +45,27 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     }
   >("/api/committee/add", "POST", {
     onSuccess: (res) => {
-      if (!res?.success) {
+      if (
+        res &&
+        "success" in res &&
+        res.success &&
+        ("committee" in res || "idempotent" in res)
+      ) {
+        onAdd(city, electionDistrict, legDistrict);
+        const isIdempotent = "idempotent" in res && res.idempotent;
+        toast({
+          title: "Success",
+          description: isIdempotent
+            ? "Member already connected to committee"
+            : "Committee member added successfully",
+        });
+      } else {
         toast({
           title: "Error",
           description: "Request completed but was not successful.",
           variant: "destructive",
         });
-        return;
       }
-      onAdd(city, electionDistrict, legDistrict);
-      toast({
-        title: "Success",
-        description: "Committee member added successfully",
-      });
     },
     onError: (error) => {
       toast({

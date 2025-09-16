@@ -217,6 +217,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
                       }}
                     />
                     <Button
+                      type="button"
                       variant={"destructive"}
                       title="Remove Candidate"
                       onClick={() =>
@@ -233,7 +234,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             />
           )}
           {!showCandidateSearch && (
-            <Button onClick={() => setShowCandidateSearch(true)}>
+            <Button type="button" onClick={() => setShowCandidateSearch(true)}>
               Add Candidate
             </Button>
           )}
@@ -254,6 +255,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
               extraContent={(record) => {
                 return (
                   <Button
+                    type="button"
                     onClick={() => {
                       setCandidates((prev) => [
                         ...prev,
@@ -289,6 +291,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
                 return (
                   <div className="flex gap-4 items-center">
                     <Button
+                      type="button"
                       variant={"destructive"}
                       onClick={() =>
                         setVacancyAppointments((prev) =>
@@ -304,7 +307,10 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
             />
           )}
           {!showVacancyAppointmentsSearch && (
-            <Button onClick={() => setShowVacancyAppointmentsSearch(true)}>
+            <Button
+              type="button"
+              onClick={() => setShowVacancyAppointmentsSearch(true)}
+            >
               Add Vacancy Appointment
             </Button>
           )}
@@ -330,6 +336,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
                 extraContent={(record) => {
                   return (
                     <Button
+                      type="button"
                       onClick={() => {
                         setVacancyAppointments((prev) => [...prev, record]);
                         setShowVacancyAppointmentsSearch(false);

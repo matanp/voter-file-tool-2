@@ -52,7 +52,7 @@ describe("/api/committee/remove", () => {
         where: {
           cityTown_legDistrict_electionDistrict: {
             cityTown: mockCommitteeData.cityTown,
-            legDistrict: parseNumericValue(mockCommitteeData.legDistrict),
+            legDistrict: mockCommitteeData.legDistrict ?? -1,
             electionDistrict: parseNumericValue(
               mockCommitteeData.electionDistrict,
             ),
@@ -250,7 +250,7 @@ describe("/api/committee/remove", () => {
         where: {
           cityTown_legDistrict_electionDistrict: {
             cityTown: mockCommitteeData.cityTown,
-            legDistrict: parseNumericValue(mockCommitteeData.legDistrict),
+            legDistrict: mockCommitteeData.legDistrict ?? -1,
             electionDistrict: parseNumericValue(
               mockCommitteeData.electionDistrict,
             ),

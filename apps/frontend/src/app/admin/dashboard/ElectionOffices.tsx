@@ -35,7 +35,8 @@ export const ElectionOffices = ({
         console.error("Failed to add office", error);
         toast({
           title: "Error",
-          description: "Failed to add office name. Please try again.",
+          description:
+            error.message || "Failed to add office name. Please try again.",
           variant: "destructive",
         });
       },
@@ -90,11 +91,23 @@ export const ElectionOffices = ({
 
   const handleAddOffice = async () => {
     if (!newOffice.trim()) return;
-    await addOfficeMutation.mutate({ name: newOffice.trim() });
+    try {
+      await addOfficeMutation.mutate({ name: newOffice.trim() });
+    } catch (error) {
+      // Error is already handled by the onError callback in the mutation hook
+      // This catch block prevents the uncaught promise rejection
+      console.error("Error in handleAddOffice:", error);
+    }
   };
 
   const handleDeleteOffice = async (id: number) => {
-    await deleteOfficeMutation.mutate({ id }, `/api/admin/officeNames/${id}`);
+    try {
+      await deleteOfficeMutation.mutate({ id }, `/api/admin/officeNames/${id}`);
+    } catch (error) {
+      // Error is already handled by the onError callback in the mutation hook
+      // This catch block prevents the uncaught promise rejection
+      console.error("Error in handleDeleteOffice:", error);
+    }
   };
 
   return (

@@ -34,7 +34,9 @@ export async function POST(request: Request) {
     const body = (await request.json()) as unknown;
     const parsed = createDateSchema.parse(body);
 
+    // Normalize to midnight UTC for day-level uniqueness
     const electionDate = new Date(parsed.date);
+    electionDate.setUTCHours(0, 0, 0, 0);
 
     const existingDate = await prisma.electionDate.findFirst({
       where: { date: electionDate },
@@ -56,6 +58,20 @@ export async function POST(request: Request) {
     return NextResponse.json(newDate, { status: 201 });
   } catch (error) {
     console.error("Error creating election date:", error);
+
+    // Handle Prisma unique constraint violation
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "Election date already exists" },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 }

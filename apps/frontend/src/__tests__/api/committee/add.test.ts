@@ -44,7 +44,15 @@ describe("/api/committee/add", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee, 201);
+      await expectSuccessResponse(
+        response,
+        {
+          success: true,
+          committee: mockCommittee,
+          message: "Committee created and member added",
+        },
+        201,
+      );
       expect(prismaMock.committeeList.upsert).toHaveBeenCalledWith(
         createCommitteeUpsertArgs({
           cityTown: mockCommitteeData.cityTown,
@@ -270,7 +278,15 @@ describe("/api/committee/add", () => {
       const response = await POST(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee, 201);
+      await expectSuccessResponse(
+        response,
+        {
+          success: true,
+          committee: mockCommittee,
+          message: "Committee created and member added",
+        },
+        201,
+      );
       // Verify that upsert was called with both update and create operations
       expect(prismaMock.committeeList.upsert).toHaveBeenCalledWith(
         expect.objectContaining(
@@ -282,6 +298,48 @@ describe("/api/committee/add", () => {
           }),
         ),
       );
+    });
+
+    it("should return idempotent success when member is already in committee", async () => {
+      // Arrange
+      const mockCommitteeData = createMockCommitteeData();
+      const mockCommittee = createMockCommittee();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+
+      // Mock existing committee with member already connected
+      const existingCommitteeWithMember = {
+        ...mockCommittee,
+        committeeMemberList: [{ VRCNUM: mockCommitteeData.memberId }],
+      };
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        existingCommitteeWithMember,
+      );
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectSuccessResponse(
+        response,
+        {
+          success: true,
+          message: "Member already connected to committee",
+          committee: existingCommitteeWithMember,
+          idempotent: true,
+        },
+        200,
+      );
+
+      // Verify that findUnique was called but upsert was not
+      expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();
+      expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
     });
   });
 });

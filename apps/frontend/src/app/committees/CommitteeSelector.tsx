@@ -42,7 +42,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     { success: boolean },
     {
       cityTown: string;
-      legDistrict: string;
+      legDistrict?: string;
       electionDistrict: number;
       memberId: string;
     }
@@ -179,7 +179,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   ) => {
     void removeCommitteeMemberMutation.mutate({
       cityTown: selectedCity,
-      legDistrict: selectedLegDistrict === "" ? "-1" : selectedLegDistrict,
+      legDistrict: selectedLegDistrict === "" ? undefined : selectedLegDistrict,
       electionDistrict: selectedDistrict,
       memberId: vrcnum,
     });
