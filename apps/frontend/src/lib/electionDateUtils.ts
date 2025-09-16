@@ -60,7 +60,7 @@ export function formatElectionDate(
           month: "long",
           day: "numeric",
         });
-      case "withOrdinal":
+      case "withOrdinal": {
         const day = electionDate.getDate();
         const ordinal = getOrdinal(day);
         const monthName = electionDate.toLocaleDateString("en-US", {
@@ -68,6 +68,7 @@ export function formatElectionDate(
         });
         const year = electionDate.getFullYear();
         return `${monthName} ${day}${ordinal}, ${year}`;
+      }
       default:
         return electionDate.toLocaleDateString("en-US");
     }
@@ -99,8 +100,11 @@ export function formatElectionDateForForm(date: Date | string): string {
     return ""; // Return empty string for invalid dates
   }
 
-  // Return ISO date string in YYYY-MM-DD format for form compatibility
-  return electionDate.toISOString().split("T")[0]!;
+  // Construct YYYY-MM-DD string from UTC components to avoid timezone shifts
+  const year = electionDate.getUTCFullYear();
+  const month = (electionDate.getUTCMonth() + 1).toString().padStart(2, "0");
+  const day = electionDate.getUTCDate().toString().padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /**

@@ -5,14 +5,32 @@ import type { CommitteeWithMembers } from "~/app/committees/committeeUtils";
 export const committeeDataSchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z.coerce
-      .number()
-      .int()
+    legDistrict: z
+      .union([z.string(), z.number()])
       .optional()
-      .refine((val) => val === undefined || val > 0, {
-        message:
-          "Legislative District must be a positive integer when provided",
-      }),
+      .refine(
+        (val) =>
+          val === undefined ||
+          (typeof val === "string" ? val.trim() !== "" : true),
+        {
+          message: "Legislative District cannot be empty when provided",
+        },
+      )
+      .transform((val) => {
+        if (val === undefined) return undefined;
+        if (typeof val === "string") return val.trim();
+        return val.toString();
+      })
+      .pipe(
+        z.coerce
+          .number()
+          .int()
+          .optional()
+          .refine((val) => val === undefined || val > 0, {
+            message:
+              "Legislative District must be a positive integer when provided",
+          }),
+      ),
     electionDistrict: z.coerce
       .number()
       .int()

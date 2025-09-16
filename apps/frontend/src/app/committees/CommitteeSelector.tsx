@@ -13,7 +13,6 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
-import { normalizeSentinelValues } from "./committeeUtils";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
@@ -41,45 +40,43 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [listLoading, setListLoading] = useState<boolean>(false);
 
   const removeCommitteeMemberMutation = useApiMutation<
-    { success: boolean },
+    { status: "success" | "error"; error?: string },
     {
       cityTown: string;
-      legDistrict?: string;
+      legDistrict?: number;
       electionDistrict: number;
       memberId: string;
     }
   >("/api/committee/remove", "POST", {
     onSuccess: (data, payload) => {
       setRemovingId(null);
-      // Check for server-reported failure (200 with { success: false })
+      // Check for server-reported failure (200 with { status: "error" })
       if (
         data &&
         typeof data === "object" &&
-        "success" in data &&
-        data.success === false
+        "status" in data &&
+        data.status === "error"
       ) {
         toast({
           title: "Error",
-          description: `Failed to remove committee member: ${"error" in data ? String(data.error) : "Unknown error"}`,
+          description: `Failed to remove committee member: ${data.error ?? "Unknown error"}`,
           variant: "destructive",
         });
         return;
       }
 
       if (payload) {
-        // Use shared normalization helper
-        const { normalizedElectionDistrict, normalizedLegDistrict } =
-          normalizeSentinelValues(
-            payload.electionDistrict,
-            payload.legDistrict,
-          );
+        // Convert numeric legDistrict back to string for fetchCommitteeList
+        const legDistrictString = payload.legDistrict
+          ? payload.legDistrict.toString()
+          : undefined;
 
         // Only refetch if we have valid parameters
-        if (payload.cityTown && normalizedElectionDistrict !== undefined) {
+        if (payload.cityTown && payload.electionDistrict !== undefined) {
           fetchCommitteeList(
             payload.cityTown,
-            normalizedElectionDistrict,
-            normalizedLegDistrict,
+            payload.electionDistrict,
+            legDistrictString,
           ).catch((error) => {
             console.error("Error fetching committee list:", error);
           });
@@ -198,15 +195,14 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
     setRemovingId(vrcnum);
 
-    // Use shared normalization helper for consistent sentinel value handling
-    const { normalizedLegDistrict } = normalizeSentinelValues(
-      selectedDistrict,
-      selectedLegDistrict,
-    );
+    // Convert legDistrict string to number for API call
+    const legDistrictNumber = selectedLegDistrict
+      ? Number(selectedLegDistrict)
+      : undefined;
 
     void removeCommitteeMemberMutation.mutate({
       cityTown: selectedCity,
-      legDistrict: normalizedLegDistrict,
+      legDistrict: legDistrictNumber,
       electionDistrict: selectedDistrict,
       memberId: vrcnum,
     });

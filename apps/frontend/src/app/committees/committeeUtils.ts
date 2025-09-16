@@ -151,17 +151,22 @@ export const mapCommitteesToReportShapeWithFields = (
  * between client and server components.
  *
  * @param electionDistrict - The election district number (always required and positive)
- * @param legDistrict - The legislative district (optional string)
+ * @param legDistrict - The legislative district (optional string or number)
  * @returns Object with normalized values where legDistrict sentinel values are converted to undefined
  */
 export const normalizeSentinelValues = (
   electionDistrict: number,
-  legDistrict?: string,
+  legDistrict?: string | number,
 ) => {
   const normalizedLegDistrict =
-    legDistrict === LEG_DISTRICT_SENTINEL.toString() || legDistrict === ""
+    legDistrict === LEG_DISTRICT_SENTINEL ||
+    legDistrict === LEG_DISTRICT_SENTINEL.toString() ||
+    legDistrict === "" ||
+    legDistrict === undefined
       ? undefined
-      : legDistrict;
+      : typeof legDistrict === "string"
+        ? legDistrict
+        : legDistrict.toString();
   return {
     normalizedElectionDistrict: electionDistrict,
     normalizedLegDistrict,
@@ -177,7 +182,12 @@ export const normalizeSentinelValues = (
  */
 export const toDbSentinelValue = (legDistrict?: string | number): number => {
   if (legDistrict === undefined) return LEG_DISTRICT_SENTINEL;
-  if (typeof legDistrict === "number") return legDistrict;
+  if (typeof legDistrict === "number") {
+    if (!Number.isInteger(legDistrict)) {
+      throw new Error(`Invalid legDistrict: "${legDistrict}"`);
+    }
+    return legDistrict;
+  }
   const trimmed = legDistrict.trim();
   if (trimmed === "") return LEG_DISTRICT_SENTINEL;
   const n = Number(trimmed);
