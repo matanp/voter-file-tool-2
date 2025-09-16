@@ -122,10 +122,10 @@ export type AddCommitteeResponse =
 
 export type CommitteeRequestResponse =
   | {
-      status: "success";
+      success: true;
       message: string;
     }
-  | { error: string };
+  | { success: false; error: string };
 
 // Type exports derived from schemas
 export type CommitteeData = z.infer<typeof committeeDataSchema>;

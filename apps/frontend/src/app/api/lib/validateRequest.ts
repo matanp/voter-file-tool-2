@@ -19,10 +19,9 @@ export function validateRequest<T>(
 
   if (process.env.NODE_ENV === "development") {
     console.warn("Validation failed:", result.error.issues);
-    const { fieldErrors, formErrors } = result.error.flatten((issue) => ({
-      message: issue.message,
-      code: issue.code,
-    }));
+    const { fieldErrors, formErrors } = result.error.flatten(
+      (issue) => `${issue.message} (${issue.code})`,
+    );
     console.warn("Field errors:", fieldErrors);
     console.warn("Form errors:", formErrors);
   }
