@@ -455,13 +455,14 @@ describe("/api/committee/add", () => {
 
         // Verify the upsert was called with correct member connection
         expect(prismaMock.committeeList.upsert).toHaveBeenCalledWith(
-          expect.objectContaining({
-            create: expect.objectContaining({
-              committeeMemberList: {
-                connect: { VRCNUM: mockCommitteeData.memberId },
-              },
+          expect.objectContaining(
+            createCommitteeUpsertArgs({
+              cityTown: mockCommitteeData.cityTown,
+              legDistrict: Number(mockCommitteeData.legDistrict),
+              electionDistrict: Number(mockCommitteeData.electionDistrict),
+              memberId: mockCommitteeData.memberId,
             }),
-          }),
+          ),
         );
       });
     });
