@@ -85,6 +85,56 @@ describe("/api/committee/requestAdd", () => {
       );
     });
 
+    it("should successfully create a committee request with undefined legDistrict (at-large)", async () => {
+      // Arrange
+      const mockRequestData = createMockRequestData({
+        legDistrict: undefined,
+      });
+      const mockCommittee = createMockCommittee();
+      const mockCommitteeRequest = createMockCommitteeRequest();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.committeeRequest.create.mockResolvedValue(
+        mockCommitteeRequest,
+      );
+
+      const request = createMockRequest(mockRequestData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectSuccessResponse(
+        response,
+        {
+          status: "success",
+          message: "Request created",
+        },
+        201,
+      );
+      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
+        createCommitteeFindUniqueArgs({
+          cityTown: mockRequestData.cityTown,
+          legDistrict: -1, // Should convert undefined to -1
+          electionDistrict: Number(mockRequestData.electionDistrict),
+          include: { committeeMemberList: false },
+        }),
+      );
+      expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
+        createCommitteeRequestCreateArgs({
+          committeeListId: mockCommittee.id,
+          addVoterRecordId: mockRequestData.addMemberId,
+          removeVoterRecordId: undefined,
+          requestNotes: mockRequestData.requestNotes,
+        }),
+      );
+    });
+
     it("should successfully create a committee request with remove member", async () => {
       // Arrange
       const mockRequestData = createMockRequestData({
@@ -224,8 +274,8 @@ describe("/api/committee/requestAdd", () => {
         requestDataOverrides: { legDistrict: "invalid" },
       },
       {
-        description: "at-large legDistrict (-1)",
-        requestDataOverrides: { legDistrict: "-1" },
+        description: "negative legDistrict (-1)",
+        requestDataOverrides: { legDistrict: -1 },
       },
     ])(
       "should return 400 for $description",

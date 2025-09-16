@@ -53,7 +53,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     CommitteeRequest,
     {
       cityTown: string;
-      legDistrict: string;
+      legDistrict?: string;
       electionDistrict: number;
       addMemberId?: string | null;
       removeMemberId?: string | null;
@@ -83,7 +83,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   ) => {
     await requestMutation.mutate({
       cityTown: city,
-      legDistrict: legDistrict === "" ? "-1" : legDistrict,
+      legDistrict: legDistrict === "" ? undefined : legDistrict,
       electionDistrict: electionDistrict,
       addMemberId: requestAddMember?.VRCNUM,
       removeMemberId: requestRemoveMember?.VRCNUM,

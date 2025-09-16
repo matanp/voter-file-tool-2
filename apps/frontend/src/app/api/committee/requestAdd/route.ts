@@ -23,6 +23,9 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
     requestNotes,
   } = validation.data;
 
+  // Convert undefined legDistrict to -1 for database storage
+  const legDistrictForDb = legDistrict ?? -1;
+
   const sanitizedAddMemberId = addMemberId?.trim();
   const sanitizedRemoveMemberId = removeMemberId?.trim();
 
@@ -31,7 +34,7 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
-          legDistrict: legDistrict,
+          legDistrict: legDistrictForDb,
           electionDistrict: electionDistrict,
         },
       },

@@ -36,7 +36,8 @@ export const ElectionDates = ({
         console.error("Failed to add election date", error);
         toast({
           title: "Error",
-          description: "Failed to add election date. Please try again.",
+          description:
+            error.message || "Failed to add election date. Please try again.",
           variant: "destructive",
         });
       },

@@ -17,13 +17,16 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
 
   const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
+  // Convert undefined legDistrict to -1 for database storage
+  const legDistrictForDb = legDistrict ?? -1;
+
   try {
     // First check if the member is already connected to this committee
     const existingCommittee = await prisma.committeeList.findUnique({
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
-          legDistrict: legDistrict,
+          legDistrict: legDistrictForDb,
           electionDistrict: electionDistrict,
         },
       },
@@ -38,6 +41,7 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
     if (existingCommittee && existingCommittee.committeeMemberList.length > 0) {
       return NextResponse.json(
         {
+          success: true,
           message: "Member already connected to committee",
           committee: existingCommittee,
           idempotent: true,
@@ -50,7 +54,7 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
-          legDistrict: legDistrict,
+          legDistrict: legDistrictForDb,
           electionDistrict: electionDistrict,
         },
       },
@@ -61,7 +65,7 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       },
       create: {
         cityTown: cityTown,
-        legDistrict: legDistrict,
+        legDistrict: legDistrictForDb,
         electionDistrict: electionDistrict,
         committeeMemberList: {
           connect: { VRCNUM: memberId },
@@ -76,14 +80,23 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
     const wasCreated = !existingCommittee;
     const statusCode = wasCreated ? 201 : 200;
 
-    return NextResponse.json(updatedCommittee, { status: statusCode });
+    return NextResponse.json(
+      {
+        success: true,
+        committee: updatedCommittee,
+        message: wasCreated
+          ? "Committee created and member added"
+          : "Member added to committee",
+      },
+      { status: statusCode },
+    );
   } catch (error) {
     // Use structured logging with Sentry
     Sentry.captureException(error, {
       tags: {
         operation: "addCommittee",
         cityTown,
-        legDistrict: legDistrict.toString(),
+        legDistrict: legDistrictForDb.toString(),
         electionDistrict: electionDistrict.toString(),
         memberId,
       },

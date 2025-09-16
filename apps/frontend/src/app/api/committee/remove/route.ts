@@ -16,12 +16,15 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
 
   const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
+  // Convert undefined legDistrict to -1 for database storage
+  const legDistrictForDb = legDistrict ?? -1;
+
   try {
     const existingElectionDistrict = await prisma.committeeList.findUnique({
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
-          legDistrict: legDistrict,
+          legDistrict: legDistrictForDb,
           electionDistrict: electionDistrict,
         },
       },

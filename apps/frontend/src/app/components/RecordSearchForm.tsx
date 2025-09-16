@@ -56,8 +56,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
     },
   });
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async () => {
     const query =
       optionalExtraSearch && !useOptionalExtraSearch
         ? []
@@ -80,10 +79,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   return (
     <>
       {headerText && <h1 className="primary-header">{headerText}</h1>}
-      <form
-        onSubmit={handleSubmit}
-        className="lg:w-max w-4/5 bg-primary-foreground p-4"
-      >
+      <div className="lg:w-max w-4/5 bg-primary-foreground p-4">
         <div className="flex gap-4 items-center">
           <Input
             type="text"
@@ -104,7 +100,8 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             onChange={(e) => setLastName(e.target.value)}
           />
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={searchMutation.loading}
             aria-busy={searchMutation.loading || undefined}
           >
@@ -123,7 +120,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             <label htmlFor="eligible-candidates">{optionalExtraSearch}</label>
           </div>
         )}
-      </form>
+      </div>
     </>
   );
 };

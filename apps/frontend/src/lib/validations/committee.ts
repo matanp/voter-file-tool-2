@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CommitteeWithMembers } from "~/app/committees/committeeUtils";
 
 // Committee data validation schema
 export const committeeDataSchema = z
@@ -7,7 +8,11 @@ export const committeeDataSchema = z
     legDistrict: z.coerce
       .number()
       .int()
-      .positive("Legislative District must be a positive integer"),
+      .optional()
+      .refine((val) => val === undefined || val > 0, {
+        message:
+          "Legislative District must be a positive integer when provided",
+      }),
     electionDistrict: z.coerce
       .number()
       .int()
@@ -23,7 +28,11 @@ export const committeeRequestDataSchema = z
     legDistrict: z.coerce
       .number()
       .int()
-      .positive("Legislative District must be a positive integer"),
+      .optional()
+      .refine((val) => val === undefined || val > 0, {
+        message:
+          "Legislative District must be a positive integer when provided",
+      }),
     electionDistrict: z.coerce
       .number()
       .int()
@@ -99,6 +108,17 @@ export const fetchCommitteeListQuerySchema = z
       .regex(/^\d+$/, "Election District must contain only digits"),
   })
   .strict();
+
+// API Response types for committee operations
+export type AddCommitteeResponse =
+  | { success: true; committee: CommitteeWithMembers; message: string }
+  | {
+      success: true;
+      message: string;
+      committee: CommitteeWithMembers;
+      idempotent: true;
+    }
+  | { error: string };
 
 // Type exports derived from schemas
 export type CommitteeData = z.infer<typeof committeeDataSchema>;
