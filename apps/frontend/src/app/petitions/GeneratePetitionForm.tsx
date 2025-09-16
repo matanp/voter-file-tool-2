@@ -136,7 +136,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
         vacancyAppointments: vacancyAppointmentsData,
         party: party === "Custom" ? customParty : party,
         electionDate: electionDate
-          ? formatElectionDateForUser(electionDate)
+          ? formatElectionDateForForm(electionDate)
           : "",
         numPages,
       },

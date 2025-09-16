@@ -12,7 +12,10 @@ import {
   type AddCommitteeResponse,
   type CommitteeData,
 } from "~/lib/validations/committee";
-import { type SearchQueryField } from "@voter-file-tool/shared-validators";
+import {
+  type SearchQueryField,
+  searchableFieldEnum,
+} from "@voter-file-tool/shared-validators";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -96,9 +99,12 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   }
 
   const extraSearchQuery: SearchQueryField[] = [
-    { field: "city", value: city },
-    { field: "L_T", value: legDistrict },
-    { field: "electionDistrict", value: electionDistrict },
+    { field: searchableFieldEnum.enum.city, value: city },
+    { field: searchableFieldEnum.enum.L_T, value: legDistrict },
+    {
+      field: searchableFieldEnum.enum.electionDistrict,
+      value: electionDistrict,
+    },
   ];
 
   return (

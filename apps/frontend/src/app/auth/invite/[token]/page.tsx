@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -16,12 +16,20 @@ type InviteData = Pick<Invite, "email" | "privilegeLevel" | "customMessage"> & {
 export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
 
   const token = params?.token as string;
+
+  // Redirect logged-in users to home page
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      router.push("/");
+    }
+  }, [status, session, router]);
 
   useEffect(() => {
     if (!token) {
@@ -61,20 +69,12 @@ export default function InvitePage() {
 
     setSigningIn(true);
     try {
-      const result = await signIn("google", {
+      await signIn("google", {
         callbackUrl: "/",
-        redirect: false,
       });
-
-      if (result?.error) {
-        setError("Failed to sign in. Please try again.");
-      } else if (result?.ok) {
-        router.push("/");
-      }
     } catch (err) {
       console.error("Error signing in:", err);
       setError("Failed to sign in. Please try again.");
-    } finally {
       setSigningIn(false);
     }
   };
@@ -104,12 +104,17 @@ export default function InvitePage() {
     });
   };
 
-  if (loading) {
+  // Show loading while checking authentication or validating invite
+  if (status === "loading" || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Validating invite...</span>
+          <span>
+            {status === "loading"
+              ? "Checking authentication..."
+              : "Validating invite..."}
+          </span>
         </div>
       </div>
     );

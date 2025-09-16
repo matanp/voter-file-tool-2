@@ -76,7 +76,7 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
 
     if (!committeeRequested) {
       return NextResponse.json(
-        { error: "Committee not found" },
+        { success: false, error: "Committee not found" },
         { status: 404 },
       );
     }
@@ -101,7 +101,7 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { success: false, error: "Internal server error" },
       { status: 500 },
     );
   }

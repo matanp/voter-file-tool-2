@@ -7,7 +7,10 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { useWindowSize } from "~/hooks/useWindowSize";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
-import { type SearchQueryField } from "@voter-file-tool/shared-validators";
+import {
+  type SearchQueryField,
+  searchableFieldEnum,
+} from "@voter-file-tool/shared-validators";
 
 type RecordSearchProps = {
   handleResults: (results: VoterRecord[]) => void;
@@ -68,15 +71,24 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
         : [...(extraSearchQuery ?? ([] as SearchQueryField[]))];
 
     if (voterId?.trim()) {
-      query.push({ field: "VRCNUM", value: voterId.trim() });
+      query.push({
+        field: searchableFieldEnum.enum.VRCNUM,
+        value: voterId.trim(),
+      });
     }
 
     if (firstName?.trim()) {
-      query.push({ field: "firstName", value: firstName.trim() });
+      query.push({
+        field: searchableFieldEnum.enum.firstName,
+        value: firstName.trim(),
+      });
     }
 
     if (lastName?.trim()) {
-      query.push({ field: "lastName", value: lastName.trim() });
+      query.push({
+        field: searchableFieldEnum.enum.lastName,
+        value: lastName.trim(),
+      });
     }
 
     await searchMutation.mutate({ searchQuery: query, page: 1, pageSize: 100 });

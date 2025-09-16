@@ -26,8 +26,10 @@ async function getInviteHandler(
       );
     }
 
+    const validatedToken = tokenValidation.data;
+
     const invite = await prisma.invite.findUnique({
-      where: { token },
+      where: { token: validatedToken },
       select: {
         id: true,
         email: true,

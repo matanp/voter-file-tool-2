@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import prisma from "~/lib/prisma";
 import { z, ZodError } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma, PrivilegeLevel } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
 
-export async function GET() {
+async function getOfficeNamesHandler() {
   try {
     const officeNames = await prisma.officeName.findMany();
 
@@ -18,18 +19,20 @@ export async function GET() {
   }
 }
 
+export const GET = withPrivilege(PrivilegeLevel.Admin, getOfficeNamesHandler);
+
 const createOfficeSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
 });
 
-export async function POST(request: Request) {
+async function createOfficeHandler(request: NextRequest) {
   try {
     const body = (await request.json()) as unknown;
     const parsed = createOfficeSchema.parse(body);
 
-    const normalized = parsed.name;
+    const normalized = parsed.name.trim().toLowerCase();
     const existingOffice = await prisma.officeName.findFirst({
-      where: { officeName: normalized },
+      where: { officeName: { equals: normalized, mode: "insensitive" } },
     });
 
     if (existingOffice) {
@@ -70,3 +73,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Admin, createOfficeHandler);

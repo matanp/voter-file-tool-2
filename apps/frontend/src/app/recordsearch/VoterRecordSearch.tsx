@@ -1,6 +1,9 @@
 "use client";
 import type { DropdownLists } from "@prisma/client";
-import { type SearchQueryField } from "@voter-file-tool/shared-validators";
+import {
+  type SearchQueryField,
+  searchableFieldEnum,
+} from "@voter-file-tool/shared-validators";
 import { useState, useCallback } from "react";
 import { Button } from "~/components/ui/button";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
@@ -42,7 +45,7 @@ const SEARCH_FIELDS: SearchField[] = [
     type: "String",
   },
   {
-    name: "VRCNUM",
+    name: searchableFieldEnum.enum.VRCNUM,
     displayName: "Voter ID",
     compoundType: false,
     type: "String",
@@ -53,13 +56,13 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: "firstName",
+        name: searchableFieldEnum.enum.firstName,
         displayName: "First Name",
         compoundType: false,
         type: "String",
       },
       {
-        name: "lastName",
+        name: searchableFieldEnum.enum.lastName,
         displayName: "Last Name",
         compoundType: false,
         type: "String",
@@ -72,13 +75,13 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: "houseNum",
+        name: searchableFieldEnum.enum.houseNum,
         displayName: "House Number",
         compoundType: false,
         type: "number",
       },
       {
-        name: "street",
+        name: searchableFieldEnum.enum.street,
         displayName: "Street",
         compoundType: false,
         type: "Street",
@@ -91,13 +94,13 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: "city",
+        name: searchableFieldEnum.enum.city,
         displayName: "City",
         compoundType: false,
         type: "CityTown",
       },
       {
-        name: "CC_WD_Village",
+        name: searchableFieldEnum.enum.CC_WD_Village,
         displayName: "CC WD Village",
         compoundType: false,
         type: "Hidden",
@@ -107,13 +110,13 @@ const SEARCH_FIELDS: SearchField[] = [
 
   // { name: "state", displayName: "State", compoundType: false, type: "String" },
   {
-    name: "zipCode",
+    name: searchableFieldEnum.enum.zipCode,
     displayName: "Zip Code",
     compoundType: false,
     type: "Dropdown",
   },
   {
-    name: "DOB",
+    name: searchableFieldEnum.enum.DOB,
     displayName: "Date of Birth",
     compoundType: false,
     type: "DateTime",
@@ -124,19 +127,19 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: "countyLegDistrict",
+        name: searchableFieldEnum.enum.countyLegDistrict,
         displayName: "County Leg District",
         compoundType: false,
         type: "Dropdown",
       },
       {
-        name: "stateAssmblyDistrict",
+        name: searchableFieldEnum.enum.stateAssmblyDistrict,
         displayName: "State Assembly District",
         compoundType: false,
         type: "Dropdown",
       },
       {
-        name: "stateSenateDistrict",
+        name: searchableFieldEnum.enum.stateSenateDistrict,
         displayName: "State Senate District",
         compoundType: false,
         type: "Dropdown",
@@ -160,7 +163,7 @@ const SEARCH_FIELDS: SearchField[] = [
       //   type: "Dropdown",
       // },
       {
-        name: "electionDistrict",
+        name: searchableFieldEnum.enum.electionDistrict,
         displayName: "Election District",
         compoundType: false,
         type: "number",
@@ -174,7 +177,7 @@ const SEARCH_FIELDS: SearchField[] = [
     ],
   },
   {
-    name: "party",
+    name: searchableFieldEnum.enum.party,
     displayName: "Party",
     compoundType: false,
     type: "Dropdown",
@@ -185,19 +188,19 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: "hasEmail",
+        name: searchableFieldEnum.enum.hasEmail,
         displayName: "Only records with an email",
         compoundType: false,
         type: "Boolean",
       },
       {
-        name: "hasInvalidEmail",
+        name: searchableFieldEnum.enum.hasInvalidEmail,
         displayName: "Only records with an invalid email",
         compoundType: false,
         type: "Boolean",
       },
       {
-        name: "hasPhone",
+        name: searchableFieldEnum.enum.hasPhone,
         displayName: "Only records with phone number",
         compoundType: false,
         type: "Boolean",
@@ -214,13 +217,13 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
       compoundType: true,
       fields: [
         {
-          name: "firstName",
+          name: searchableFieldEnum.enum.firstName,
           displayName: "First Name",
           compoundType: false,
           type: "String",
         },
         {
-          name: "lastName",
+          name: searchableFieldEnum.enum.lastName,
           displayName: "Last Name",
           compoundType: false,
           type: "String",
@@ -233,13 +236,13 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
       compoundType: true,
       fields: [
         {
-          name: "houseNum",
+          name: searchableFieldEnum.enum.houseNum,
           displayName: "House Number",
           compoundType: false,
           type: "number",
         },
         {
-          name: "street",
+          name: searchableFieldEnum.enum.street,
           displayName: "Street",
           compoundType: false,
           type: "Street",

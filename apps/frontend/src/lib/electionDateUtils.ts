@@ -136,6 +136,25 @@ export function sortElectionDates<T extends { date: Date | string }>(
   return [...dates].sort((a, b) => {
     const dateA = typeof a.date === "string" ? new Date(a.date) : a.date;
     const dateB = typeof b.date === "string" ? new Date(b.date) : b.date;
+
+    // Check if dates are valid
+    const isValidA = !isNaN(dateA.getTime());
+    const isValidB = !isNaN(dateB.getTime());
+
+    // If both dates are invalid, consider them equal
+    if (!isValidA && !isValidB) {
+      return 0;
+    }
+
+    // If only one date is invalid, treat invalid date as greater (sorts to end)
+    if (!isValidA) {
+      return 1;
+    }
+    if (!isValidB) {
+      return -1;
+    }
+
+    // Both dates are valid, compare their numeric getTime() values
     return dateA.getTime() - dateB.getTime();
   });
 }
