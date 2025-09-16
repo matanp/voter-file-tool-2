@@ -1,5 +1,6 @@
 "use client";
 import type { DropdownLists } from "@prisma/client";
+import { type SearchQueryField } from "@voter-file-tool/shared-validators";
 import { useState, useCallback } from "react";
 import { Button } from "~/components/ui/button";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
@@ -16,7 +17,7 @@ interface VoterRecordSearchProps {
 }
 
 export interface BaseSearchField {
-  name: string;
+  name: SearchQueryField["field"] | "empty";
   displayName: string;
   compoundType: false;
   type: string;

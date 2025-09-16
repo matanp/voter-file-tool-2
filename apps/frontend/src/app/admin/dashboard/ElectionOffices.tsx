@@ -1,7 +1,7 @@
 "use client";
 
 import type { OfficeName } from "@prisma/client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
@@ -25,7 +25,13 @@ export const ElectionOffices = ({
     "POST",
     {
       onSuccess: (createdOffice) => {
-        setOfficeNames((prev) => [...prev, createdOffice]);
+        setOfficeNames((prev) => {
+          const idx = prev.findIndex((o) => o.id === createdOffice.id);
+          if (idx === -1) return [...prev, createdOffice];
+          const next = prev.slice();
+          next[idx] = createdOffice;
+          return next;
+        });
         setNewOffice("");
         toast({
           title: "Success",
@@ -49,12 +55,12 @@ export const ElectionOffices = ({
     },
   );
 
-  const deleteOfficeMutation = useApiDelete<OfficeName, { id: number }>(
+  const deleteOfficeMutation = useApiDelete<{ id: number }, { id: number }>(
     "/api/admin/officeNames",
     {
-      onSuccess: (_data, payload) => {
-        if (payload?.id) {
-          setOfficeNames((prev) => prev.filter((o) => o.id !== payload.id));
+      onSuccess: (data) => {
+        if (data?.id) {
+          setOfficeNames((prev) => prev.filter((o) => o.id !== data.id));
           toast({
             title: "Success",
             description: "Office name deleted successfully.",
@@ -78,39 +84,47 @@ export const ElectionOffices = ({
     },
   );
 
-  useEffect(() => {
-    const loadOffices = async () => {
-      await fetchOffices();
-    };
+  const fetchOffices = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const res = await fetch("/api/admin/officeNames", { signal });
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch office names (${res.status} ${res.statusText})`,
+          );
+        }
+        const data = (await res.json()) as OfficeName[];
+        setOfficeNames(data);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        console.error("Failed to fetch office names", err);
+        toast({
+          title: "Error",
+          description: "Could not load office names. Please refresh.",
+          variant: "destructive",
+        });
+      }
+    },
+    [toast],
+  );
 
+  useEffect(() => {
+    const ac = new AbortController();
+    const loadOffices = async () => {
+      await fetchOffices(ac.signal);
+    };
     loadOffices().catch((error) => {
       console.error("Failed to load offices", error);
     });
-  }, []);
-
-  const fetchOffices = async () => {
-    try {
-      const res = await fetch("/api/admin/officeNames");
-      if (!res.ok) {
-        throw new Error(
-          `Failed to fetch office names (${res.status} ${res.statusText})`,
-        );
-      }
-      const data = (await res.json()) as OfficeName[];
-      setOfficeNames(data);
-    } catch (err) {
-      console.error("Failed to fetch office names", err);
-    }
-  };
+    return () => ac.abort();
+  }, [fetchOffices]);
 
   const handleAddOffice = async () => {
     if (!newOffice.trim()) return;
     try {
       await addOfficeMutation.mutate({ name: newOffice.trim() });
-    } catch (error) {
-      // Error is already handled by the onError callback in the mutation hook
-      // This catch block prevents the uncaught promise rejection
-      console.error("Error in handleAddOffice:", error);
+    } catch (_error) {
+      // onError already handles user feedback/logging.
     }
   };
 
@@ -159,6 +173,7 @@ export const ElectionOffices = ({
           placeholder="New office name"
         />
         <Button
+          type="button"
           onClick={handleAddOffice}
           disabled={!newOffice.trim() || addOfficeMutation.loading}
           aria-busy={addOfficeMutation.loading}

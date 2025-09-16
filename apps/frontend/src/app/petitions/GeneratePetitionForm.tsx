@@ -16,6 +16,11 @@ import {
   type GenerateReportData,
   generateReportSchema,
 } from "@voter-file-tool/shared-validators";
+import {
+  formatElectionDateForUser,
+  formatElectionDateForForm,
+  sortElectionDates,
+} from "~/lib/electionDateUtils";
 import { ReportStatusTracker } from "../components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
 
@@ -24,23 +29,6 @@ type GeneratePetitionFormProps = {
   electionDates: ElectionDate[];
   officeNames: OfficeName[];
 };
-
-function formatDate(date: Date, withOrdinal: boolean): string {
-  const day = date.getDate();
-  const ordinal =
-    day % 10 === 1 && day !== 11
-      ? "st"
-      : day % 10 === 2 && day !== 12
-        ? "nd"
-        : day % 10 === 3 && day !== 13
-          ? "rd"
-          : "th";
-
-  const month = date.toLocaleString("en-US", { month: "long" });
-  const year = date.getFullYear();
-
-  return `${month} ${day}${withOrdinal ? ordinal : ""}, ${year}`;
-}
 
 function formatAddress(record: VoterRecord): string {
   const addressParts = [record.houseNum, record.street, record.apartment];
@@ -147,12 +135,9 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
         candidates: candidatesData,
         vacancyAppointments: vacancyAppointmentsData,
         party: party === "Custom" ? customParty : party,
-        electionDate:
-          electionDate?.toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "2-digit",
-          }) ?? "",
+        electionDate: electionDate
+          ? formatElectionDateForUser(electionDate)
+          : "",
         numPages,
       },
     };
@@ -415,18 +400,15 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           <label htmlFor="electionDate">Election Date</label>
           {/** <DatePicker onChange={(date) => setElectionDate(date)} /> **/}
           <ComboboxDropdown
-            items={[...electionDates]
-              .sort(
-                (a: ElectionDate, b: ElectionDate) =>
-                  new Date(a.date).getTime() - new Date(b.date).getTime(),
-              )
+            items={sortElectionDates(electionDates)
               .map((ed) => {
-                const date = formatDate(ed.date, true);
-                if (!date) return null;
+                const label = formatElectionDateForUser(ed.date);
+                const value = formatElectionDateForForm(ed.date);
+                if (!label || !value) return null;
 
                 return {
-                  label: date,
-                  value: formatDate(ed.date, false),
+                  label,
+                  value,
                 };
               })
               .filter(

@@ -9,20 +9,15 @@ import React, {
 import type { SearchField } from "~/app/recordsearch/VoterRecordSearch";
 import { extractFieldNamesFromSearchQuery } from "~/lib/searchFieldUtils";
 import type { FieldName } from "~/app/recordsearch/fieldsConfig";
+import type { SearchQueryField } from "@voter-file-tool/shared-validators";
 
 interface VoterSearchContextType {
   searchQuery: SearchField[];
-  flattenedSearchQuery: {
-    field: string;
-    value: string | number | boolean | undefined;
-  }[];
+  flattenedSearchQuery: SearchQueryField[];
   fieldsList: FieldName[];
   setSearchQuery: (
     query: SearchField[],
-    flattenedQuery: {
-      field: string;
-      value: string | number | boolean | undefined;
-    }[],
+    flattenedQuery: SearchQueryField[],
   ) => void;
   clearSearchQuery: () => void;
 }
@@ -48,21 +43,12 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
 }) => {
   const [searchQuery, setSearchQueryState] = useState<SearchField[]>([]);
   const [flattenedSearchQuery, setFlattenedSearchQuery] = useState<
-    {
-      field: string;
-      value: string | number | boolean | undefined;
-    }[]
+    SearchQueryField[]
   >([]);
   const [fieldsList, setFieldsList] = useState<FieldName[]>([]);
 
   const setSearchQuery = useCallback(
-    (
-      query: SearchField[],
-      flattenedQuery: {
-        field: string;
-        value: string | number | boolean | undefined;
-      }[],
-    ) => {
+    (query: SearchField[], flattenedQuery: SearchQueryField[]) => {
       // Only update if we have actual data, don't overwrite with empty arrays
       if (query.length > 0 && flattenedQuery.length > 0) {
         setSearchQueryState(query);

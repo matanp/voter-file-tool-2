@@ -33,12 +33,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   } = useVoterSearch();
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = React.useState(0);
-  const [searchQuery, setSearchQuery] = React.useState<
-    {
-      field: string;
-      value: string | number | boolean | undefined;
-    }[]
-  >([]);
+  const [searchQuery, setSearchQuery] = React.useState<SearchQueryField[]>([]);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(100);
   const [hasSearched, setHasSearched] = React.useState(false);
@@ -103,10 +98,18 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           return [...acc, curr];
         }
       }, [])
+      .filter(
+        (
+          field,
+        ): field is BaseSearchField & { name: SearchQueryField["field"] } =>
+          field.name !== "empty",
+      )
       .map((field) => ({
         field: field.name,
         value:
-          field.value instanceof Date ? field.value.toISOString() : field.value,
+          field.value instanceof Date
+            ? field.value.toISOString()
+            : (field.value ?? null),
       }));
 
     setSearchQuery(flattenedQuery);
@@ -123,7 +126,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       page: 1,
     });
 
-    setContextSearchQuery(searchQueryParam, flattenedQuery);
+    setContextSearchQuery(searchQueryParam, convertedQuery);
   };
 
   const handleLoadMore = async () => {
