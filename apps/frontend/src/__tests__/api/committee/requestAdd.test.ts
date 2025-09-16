@@ -221,6 +221,40 @@ describe("/api/committee/requestAdd", () => {
       );
     });
 
+    it("trims add/remove member IDs before create", async () => {
+      const mockRequestData = createMockRequestData({
+        addMemberId: "  TEST123456  ",
+        removeMemberId: "  ",
+      });
+      const mockCommittee = createMockCommittee();
+      const mockCommitteeRequest = createMockCommitteeRequest();
+      mockAuthSession(
+        createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.committeeRequest.create.mockResolvedValue(
+        mockCommitteeRequest,
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+      await expectSuccessResponse(
+        response,
+        { status: "success", message: "Request created" },
+        201,
+      );
+      expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
+        createCommitteeRequestCreateArgs({
+          committeeListId: mockCommittee.id,
+          addVoterRecordId: "TEST123456",
+          removeVoterRecordId: undefined,
+          requestNotes: mockRequestData.requestNotes,
+        }),
+      );
+    });
+
     // Authentication tests using shared test suite
     describe("Authentication tests", () => {
       const authConfig: AuthTestConfig = {
@@ -278,7 +312,7 @@ describe("/api/committee/requestAdd", () => {
         requestDataOverrides: { legDistrict: -1 },
       },
     ])(
-      "should return 400 for $description",
+      "should return 422 for $description",
       async ({ requestDataOverrides }) => {
         // Arrange
         const mockRequestData = createMockRequestData(requestDataOverrides);
@@ -301,9 +335,9 @@ describe("/api/committee/requestAdd", () => {
 
     // Request notes validation tests
     describe.each(validationTestCases.invalidRequestNotes)(
-      "should return 400 for invalid requestNotes",
+      "should return 422 for invalid requestNotes",
       ({ field, value, expectedError }) => {
-        it(`should return 400 for ${field} = "${value}"`, async () => {
+        it(`should return 422 for ${field} = "${value}"`, async () => {
           // Arrange
           const mockRequestData = createMockRequestData({
             [field]: value,

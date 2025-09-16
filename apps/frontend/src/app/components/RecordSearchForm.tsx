@@ -15,6 +15,7 @@ type RecordSearchProps = {
   extraSearchQuery?: SearchQueryField[];
   headerText?: string;
   optionalExtraSearch?: string;
+  useFormElement?: boolean;
 };
 
 const RecordSearchForm: React.FC<RecordSearchProps> = ({
@@ -23,6 +24,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   extraSearchQuery,
   headerText,
   optionalExtraSearch,
+  useFormElement = true,
 }) => {
   const { width } = useWindowSize();
   const { toast } = useToast();
@@ -46,10 +48,13 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
     },
     onError: (error) => {
       console.error("Search failed:", error);
+      const description =
+        error instanceof Error
+          ? error.message
+          : "Unable to search voter records. Please try again.";
       toast({
         title: "Search Failed",
-        description:
-          error.message || "Unable to search voter records. Please try again.",
+        description,
         variant: "destructive",
       });
       handleResults([]);
@@ -57,51 +62,79 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   });
 
   const handleSubmit = async () => {
-    const query =
+    const query: SearchQueryField[] =
       optionalExtraSearch && !useOptionalExtraSearch
         ? []
-        : [...(extraSearchQuery ?? [])];
+        : [...(extraSearchQuery ?? ([] as SearchQueryField[]))];
 
-    if (voterId) {
-      query.push({ field: "VRCNUM", value: voterId });
+    if (voterId?.trim()) {
+      query.push({ field: "VRCNUM", value: voterId.trim() });
     }
 
-    if (firstName) {
-      query.push({ field: "firstName", value: firstName });
+    if (firstName?.trim()) {
+      query.push({ field: "firstName", value: firstName.trim() });
     }
 
-    if (lastName) {
-      query.push({ field: "lastName", value: lastName });
+    if (lastName?.trim()) {
+      query.push({ field: "lastName", value: lastName.trim() });
     }
 
     await searchMutation.mutate({ searchQuery: query, page: 1, pageSize: 100 });
   };
+  const ContainerElement = useFormElement ? "form" : "div";
+  const containerProps = useFormElement
+    ? {
+        onSubmit: (e: React.FormEvent) => {
+          e.preventDefault();
+          void handleSubmit();
+        },
+      }
+    : {};
+
   return (
     <>
       {headerText && <h1 className="primary-header">{headerText}</h1>}
-      <div className="lg:w-max w-4/5 bg-primary-foreground p-4">
+      <ContainerElement
+        className="lg:w-max w-4/5 bg-primary-foreground p-4"
+        {...containerProps}
+      >
         <div className="flex gap-4 items-center">
+          <label className="sr-only" htmlFor="voter-id">
+            Voter ID
+          </label>
           <Input
+            id="voter-id"
             type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter Voter ID` : "Voter ID"}
+            autoComplete="off"
             onChange={(e) => setVoterId(e.target.value)}
           />
+          <label className="sr-only" htmlFor="first-name">
+            First Name
+          </label>
           <Input
+            id="first-name"
             type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter First Name` : "First Name"}
+            autoComplete="given-name"
             onChange={(e) => setFirstName(e.target.value)}
           />
+          <label className="sr-only" htmlFor="last-name">
+            Last Name
+          </label>
           <Input
+            id="last-name"
             type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter Last Name` : "Last Name"}
+            autoComplete="family-name"
             onChange={(e) => setLastName(e.target.value)}
           />
           <Button
-            type="button"
-            onClick={handleSubmit}
+            type={useFormElement ? "submit" : "button"}
+            onClick={useFormElement ? undefined : () => void handleSubmit()}
             disabled={searchMutation.loading}
             aria-busy={searchMutation.loading || undefined}
           >
@@ -120,7 +153,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             <label htmlFor="eligible-candidates">{optionalExtraSearch}</label>
           </div>
         )}
-      </div>
+      </ContainerElement>
     </>
   );
 };
