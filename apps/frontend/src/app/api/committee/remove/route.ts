@@ -4,6 +4,7 @@ import { committeeDataSchema } from "~/lib/validations/committee";
 import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
+import { toDbSentinelValue } from "~/app/committees/committeeUtils";
 import type { Session } from "next-auth";
 
 async function removeCommitteeHandler(req: NextRequest, _session: Session) {
@@ -16,8 +17,8 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
 
   const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
-  // Convert undefined legDistrict to -1 for database storage
-  const legDistrictForDb = legDistrict ?? -1;
+  // Convert undefined legDistrict to sentinel value for database storage
+  const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   try {
     const existingElectionDistrict = await prisma.committeeList.findUnique({

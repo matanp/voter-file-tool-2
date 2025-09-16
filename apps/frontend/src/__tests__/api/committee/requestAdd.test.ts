@@ -13,6 +13,7 @@ import {
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../../utils/testUtils";
+import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
 import {
   mockAuthSession,
   mockHasPermission,
@@ -120,7 +121,7 @@ describe("/api/committee/requestAdd", () => {
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: mockRequestData.cityTown,
-          legDistrict: -1, // Should convert undefined to -1
+          legDistrict: LEG_DISTRICT_SENTINEL, // Should convert undefined to sentinel value
           electionDistrict: Number(mockRequestData.electionDistrict),
           include: { committeeMemberList: false },
         }),
@@ -308,8 +309,8 @@ describe("/api/committee/requestAdd", () => {
         requestDataOverrides: { legDistrict: "invalid" },
       },
       {
-        description: "negative legDistrict (-1)",
-        requestDataOverrides: { legDistrict: -1 },
+        description: "negative legDistrict (sentinel value)",
+        requestDataOverrides: { legDistrict: LEG_DISTRICT_SENTINEL },
       },
     ])(
       "should return 422 for $description",

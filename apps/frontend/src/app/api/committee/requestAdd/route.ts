@@ -4,6 +4,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { committeeRequestDataSchema } from "~/lib/validations/committee";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
+import { toDbSentinelValue } from "~/app/committees/committeeUtils";
 import type { Session } from "next-auth";
 
 async function requestAddHandler(req: NextRequest, _session: Session) {
@@ -23,8 +24,8 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
     requestNotes,
   } = validation.data;
 
-  // Convert undefined legDistrict to -1 for database storage
-  const legDistrictForDb = legDistrict ?? -1;
+  // Convert undefined legDistrict to sentinel value for database storage
+  const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   const sanitizedAddMemberId = addMemberId?.trim();
   const sanitizedRemoveMemberId = removeMemberId?.trim();

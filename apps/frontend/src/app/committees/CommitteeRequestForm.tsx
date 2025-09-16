@@ -13,8 +13,10 @@ import { Switch } from "~/components/ui/switch";
 import { toast } from "~/components/ui/use-toast";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { useApiMutation } from "~/hooks/useApiMutation";
-import type { CommitteeRequest } from "@prisma/client";
-import type { CommitteeRequestData } from "~/lib/validations/committee";
+import type {
+  CommitteeRequestData,
+  CommitteeRequestResponse,
+} from "~/lib/validations/committee";
 
 type CommitteeRequestFormProps = {
   city: string;
@@ -51,7 +53,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 
   // API mutation hook
   const requestMutation = useApiMutation<
-    CommitteeRequest,
+    CommitteeRequestResponse,
     CommitteeRequestData
   >("/api/committee/requestAdd", "POST", {
     onSuccess: () => {

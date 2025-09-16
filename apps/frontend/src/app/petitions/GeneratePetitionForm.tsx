@@ -43,12 +43,18 @@ function formatDate(date: Date, withOrdinal: boolean): string {
 }
 
 function formatAddress(record: VoterRecord): string {
-  const addressParts = [
-    record.houseNum,
-    record.street,
-    record.apartment,
-    `${record.city}, ${record.state} ${record.zipCode}`,
-  ];
+  const addressParts = [record.houseNum, record.street, record.apartment];
+
+  // Build city, state, zip part defensively
+  const cityStateZipParts = [];
+  if (record.city) cityStateZipParts.push(record.city);
+  if (record.state) cityStateZipParts.push(record.state);
+  if (record.zipCode) cityStateZipParts.push(record.zipCode);
+
+  if (cityStateZipParts.length > 0) {
+    addressParts.push(cityStateZipParts.join(", "));
+  }
+
   return addressParts.filter(Boolean).join(" ");
 }
 
@@ -182,7 +188,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       duration: 3000,
     });
 
-    await generateReportMutation.mutate(formData);
+    void generateReportMutation.mutate(formData);
   };
 
   useEffect(() => {
@@ -409,10 +415,10 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           <label htmlFor="electionDate">Election Date</label>
           {/** <DatePicker onChange={(date) => setElectionDate(date)} /> **/}
           <ComboboxDropdown
-            items={electionDates
+            items={[...electionDates]
               .sort(
                 (a: ElectionDate, b: ElectionDate) =>
-                  a.date.getTime() - b.date.getTime(),
+                  new Date(a.date).getTime() - new Date(b.date).getTime(),
               )
               .map((ed) => {
                 const date = formatDate(ed.date, true);

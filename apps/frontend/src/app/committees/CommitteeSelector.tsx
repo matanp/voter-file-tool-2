@@ -13,20 +13,10 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
+import { normalizeSentinelValues } from "./committeeUtils";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
-
-const normalizeSentinelValues = (
-  electionDistrict: number,
-  legDistrict?: string,
-) => {
-  const normalizedElectionDistrict =
-    electionDistrict === -1 ? undefined : electionDistrict;
-  const normalizedLegDistrict =
-    legDistrict === "-1" || legDistrict === "" ? undefined : legDistrict;
-  return { normalizedElectionDistrict, normalizedLegDistrict };
-};
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];

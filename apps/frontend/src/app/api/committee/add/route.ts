@@ -4,6 +4,7 @@ import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { committeeDataSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
+import { toDbSentinelValue } from "~/app/committees/committeeUtils";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
 
@@ -17,8 +18,8 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
 
   const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
-  // Convert undefined legDistrict to -1 for database storage
-  const legDistrictForDb = legDistrict ?? -1;
+  // Convert undefined legDistrict to sentinel value for database storage
+  const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   try {
     // First check if the member is already connected to this committee
@@ -114,14 +115,15 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           { status: 404 },
         );
       } else if (error.code === "P2002") {
-        // Unique constraint violation (duplicate relation) - should not happen with our idempotency check
-        // but keeping as fallback
+        // Unique constraint violation (duplicate relation) - treat as idempotent success
+        // This handles concurrent race conditions where the same relation is created simultaneously
         return NextResponse.json(
           {
-            success: false,
-            error: "Duplicate relation - member already exists in committee",
+            success: true,
+            message: "Member already connected to committee (idempotent)",
+            idempotent: true,
           },
-          { status: 409 },
+          { status: 200 },
         );
       }
     }

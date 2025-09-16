@@ -42,13 +42,13 @@ export const committeeRequestDataSchema = z
       .trim()
       .nullable()
       .optional()
-      .transform((v) => (v === "" ? undefined : v)),
+      .transform((v) => (v == null || v === "" ? undefined : v)),
     removeMemberId: z
       .string()
       .trim()
       .nullable()
       .optional()
-      .transform((v) => (v === "" ? undefined : v)),
+      .transform((v) => (v == null || v === "" ? undefined : v)),
     requestNotes: z
       .string()
       .trim()
@@ -96,10 +96,11 @@ export const fetchCommitteeListQuerySchema = z
         (val) => {
           if (val === undefined || val === "") return true;
           const parsed = Number(val);
-          return !Number.isNaN(parsed) && Number.isInteger(parsed);
+          return Number.isInteger(parsed) && parsed > 0;
         },
         {
-          message: "Legislative District must be a valid integer when provided",
+          message:
+            "Legislative District must be a positive integer when provided",
         },
       ),
     electionDistrict: z
@@ -118,6 +119,13 @@ export type AddCommitteeResponse =
       idempotent?: true;
     }
   | { success: false; error: string };
+
+export type CommitteeRequestResponse =
+  | {
+      status: "success";
+      message: string;
+    }
+  | { error: string };
 
 // Type exports derived from schemas
 export type CommitteeData = z.infer<typeof committeeDataSchema>;

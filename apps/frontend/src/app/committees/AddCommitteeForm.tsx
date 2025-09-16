@@ -3,6 +3,7 @@ import { useContext, useState } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { useToast } from "~/components/ui/use-toast";
 import { hasPermissionFor } from "~/lib/utils";
+import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
@@ -45,12 +46,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   >("/api/committee/add", "POST", {
     onSuccess: (res) => {
       setLoadingVRCNUM(null); // Clear loading state
-      if (
-        res &&
-        "success" in res &&
-        res.success &&
-        ("committee" in res || "idempotent" in res)
-      ) {
+      if (res?.success) {
         onAdd(city, electionDistrict, legDistrict);
         const isIdempotent = "idempotent" in res && res.idempotent;
         toast({
@@ -78,7 +74,9 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   });
 
   const validCommittee =
-    city !== "" && legDistrict !== "" && electionDistrict !== -1;
+    city !== "" &&
+    legDistrict !== "" &&
+    electionDistrict !== LEG_DISTRICT_SENTINEL;
 
   const handleAddCommitteeMember = async (record: VoterRecord) => {
     if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {

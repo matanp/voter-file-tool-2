@@ -7,6 +7,7 @@ import {
   applyCompoundFields,
   convertPrismaVoterRecordToAPI,
 } from "@voter-file-tool/shared-validators";
+import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
 
 const mapVoterRecordToMember = (voter: VoterRecord): CompoundFieldTarget => {
   // Convert Prisma record to API format first
@@ -143,4 +144,41 @@ export const mapCommitteesToReportShapeWithFields = (
       ),
     }))
     .filter((group) => Object.keys(group.committees).length > 0);
+};
+
+/**
+ * Normalizes sentinel values for committee data to ensure consistent handling
+ * between client and server components.
+ *
+ * @param electionDistrict - The election district number
+ * @param legDistrict - The legislative district (optional string)
+ * @returns Object with normalized values where sentinel values are converted to undefined
+ */
+export const normalizeSentinelValues = (
+  electionDistrict: number,
+  legDistrict?: string,
+) => {
+  const normalizedElectionDistrict =
+    electionDistrict === LEG_DISTRICT_SENTINEL ? undefined : electionDistrict;
+  const normalizedLegDistrict =
+    legDistrict === LEG_DISTRICT_SENTINEL.toString() || legDistrict === ""
+      ? undefined
+      : legDistrict;
+  return { normalizedElectionDistrict, normalizedLegDistrict };
+};
+
+/**
+ * Converts undefined values to sentinel values for database storage.
+ * This is the inverse operation of normalizeSentinelValues.
+ *
+ * @param legDistrict - The legislative district (optional)
+ * @returns The legDistrict value or LEG_DISTRICT_SENTINEL if undefined
+ */
+export const toDbSentinelValue = (legDistrict?: string | number): number => {
+  if (legDistrict === undefined) {
+    return LEG_DISTRICT_SENTINEL;
+  }
+  return typeof legDistrict === "string"
+    ? parseInt(legDistrict, 10)
+    : legDistrict;
 };
