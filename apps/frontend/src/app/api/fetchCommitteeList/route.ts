@@ -4,6 +4,7 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { fetchCommitteeListQuerySchema } from "~/lib/validations/committee";
+import { toDbSentinelValue } from "~/app/committees/committeeUtils";
 
 async function getCommitteeList(req: NextRequest) {
   // Extract query parameters
@@ -52,8 +53,9 @@ async function getCommitteeList(req: NextRequest) {
   const { electionDistrict, cityTown, legDistrict } = validation.data;
 
   try {
-    const parsedLegDistrict =
-      legDistrict != null ? parseInt(legDistrict, 10) : -1;
+    const parsedLegDistrict = toDbSentinelValue(
+      legDistrict != null ? parseInt(legDistrict, 10) : undefined,
+    );
     const parsedElectionDistrict = parseInt(electionDistrict, 10);
 
     const committee = await prisma.committeeList.findUnique({

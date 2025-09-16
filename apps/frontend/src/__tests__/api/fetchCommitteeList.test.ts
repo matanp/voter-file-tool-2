@@ -11,6 +11,7 @@ import {
   type AuthTestConfig,
 } from "../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
+import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
 
 // Global mocks are available from jest.setup.js
 
@@ -195,7 +196,7 @@ describe("/api/fetchCommitteeList", () => {
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
-          legDistrict: -1, // Should default to -1 when not provided
+          legDistrict: LEG_DISTRICT_SENTINEL, // Should default to sentinel value when not provided
           electionDistrict: 1,
         }),
       );
@@ -374,16 +375,14 @@ describe("/api/fetchCommitteeList", () => {
       expect(prismaMock.committeeList.findUnique).not.toHaveBeenCalled();
     });
 
-    it("should handle legDistrict parameter with negative value", async () => {
+    it("should return 422 for legDistrict parameter with negative value", async () => {
       // Arrange
-      const mockCommittee = createMockCommittee();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
 
       mockAuthSession(mockSession);
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=-5",
@@ -393,14 +392,7 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
-      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
-        createCommitteeFindUniqueArgs({
-          cityTown: "Test City",
-          legDistrict: -5, // Should accept negative values
-          electionDistrict: 1,
-        }),
-      );
+      await expectErrorResponse(response, 422, "Invalid request data");
     });
 
     it("should return 400 for legDistrict parameter with decimal value", async () => {

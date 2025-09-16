@@ -108,6 +108,8 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter Voter ID` : "Voter ID"}
             autoComplete="off"
+            inputMode="numeric"
+            pattern="[0-9]*"
             onChange={(e) => setVoterId(e.target.value)}
           />
           <label className="sr-only" htmlFor="first-name">

@@ -17,7 +17,7 @@ export const ElectionOffices = ({
   const { toast } = useToast();
   const [officeNames, setOfficeNames] = useState<OfficeName[]>(initialOffices);
   const [newOffice, setNewOffice] = useState<string>("");
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
   // API mutation hooks
   const addOfficeMutation = useApiMutation<OfficeName, { name: string }>(
@@ -34,10 +34,15 @@ export const ElectionOffices = ({
       },
       onError: (error) => {
         console.error("Failed to add office", error);
+        const description =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Failed to add office name. Please try again.";
         toast({
           title: "Error",
-          description:
-            error.message || "Failed to add office name. Please try again.",
+          description,
           variant: "destructive",
         });
       },
@@ -47,7 +52,7 @@ export const ElectionOffices = ({
   const deleteOfficeMutation = useApiDelete<OfficeName, { id: number }>(
     "/api/admin/officeNames",
     {
-      onSuccess: (data, payload) => {
+      onSuccess: (_data, payload) => {
         if (payload?.id) {
           setOfficeNames((prev) => prev.filter((o) => o.id !== payload.id));
           toast({
@@ -58,9 +63,15 @@ export const ElectionOffices = ({
       },
       onError: (error) => {
         console.error("Failed to delete office", error);
+        const description =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Failed to delete office name. Please try again.";
         toast({
           title: "Error",
-          description: "Failed to delete office name. Please try again.",
+          description,
           variant: "destructive",
         });
       },
@@ -81,7 +92,9 @@ export const ElectionOffices = ({
     try {
       const res = await fetch("/api/admin/officeNames");
       if (!res.ok) {
-        throw new Error(`Failed to fetch office names (${res.status})`);
+        throw new Error(
+          `Failed to fetch office names (${res.status} ${res.statusText})`,
+        );
       }
       const data = (await res.json()) as OfficeName[];
       setOfficeNames(data);
@@ -102,13 +115,17 @@ export const ElectionOffices = ({
   };
 
   const handleDeleteOffice = async (id: number) => {
-    setDeletingId(id);
+    setDeletingIds((prev) => new Set(prev).add(id));
     try {
       await deleteOfficeMutation.mutate({ id }, `/api/admin/officeNames/${id}`);
     } catch (error) {
       console.error("Error in handleDeleteOffice:", error);
     } finally {
-      setDeletingId((cur) => (cur === id ? null : cur));
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
   };
 
@@ -126,13 +143,10 @@ export const ElectionOffices = ({
             <Button
               variant="destructive"
               onClick={() => handleDeleteOffice(office.id)}
-              disabled={
-                deleteOfficeMutation.loading && deletingId === office.id
-              }
+              disabled={deletingIds.has(office.id)}
+              aria-busy={deletingIds.has(office.id)}
             >
-              {deleteOfficeMutation.loading && deletingId === office.id
-                ? "Deleting..."
-                : "Delete"}
+              {deletingIds.has(office.id) ? "Deleting..." : "Delete"}
             </Button>
           </li>
         ))}
@@ -147,6 +161,7 @@ export const ElectionOffices = ({
         <Button
           onClick={handleAddOffice}
           disabled={!newOffice.trim() || addOfficeMutation.loading}
+          aria-busy={addOfficeMutation.loading}
         >
           {addOfficeMutation.loading ? "Adding..." : "Add Office"}
         </Button>

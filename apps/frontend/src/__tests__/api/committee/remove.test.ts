@@ -13,6 +13,7 @@ import {
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import type { CommitteeData } from "~/lib/validations/committee";
+import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
 import {
   mockAuthSession,
   mockHasPermission,
@@ -51,7 +52,7 @@ describe("/api/committee/remove", () => {
         where: {
           cityTown_legDistrict_electionDistrict: {
             cityTown: mockCommitteeData.cityTown,
-            legDistrict: mockCommitteeData.legDistrict ?? -1,
+            legDistrict: mockCommitteeData.legDistrict ?? LEG_DISTRICT_SENTINEL,
             electionDistrict: mockCommitteeData.electionDistrict,
           },
         },
@@ -247,7 +248,7 @@ describe("/api/committee/remove", () => {
         where: {
           cityTown_legDistrict_electionDistrict: {
             cityTown: mockCommitteeData.cityTown,
-            legDistrict: mockCommitteeData.legDistrict ?? -1,
+            legDistrict: mockCommitteeData.legDistrict ?? LEG_DISTRICT_SENTINEL,
             electionDistrict: mockCommitteeData.electionDistrict,
           },
         },
@@ -258,7 +259,7 @@ describe("/api/committee/remove", () => {
       // Arrange
       const mockCommitteeData = createMockCommitteeData(
         {
-          legDistrict: "-1" as unknown as number, // intentionally unsafe to test validation
+          legDistrict: LEG_DISTRICT_SENTINEL.toString() as unknown as number, // intentionally unsafe to test validation
         },
         false,
       );

@@ -4,6 +4,7 @@ import {
   createMockSession,
   createMockCommitteeData,
   createMockCommittee,
+  createMockVoterRecord,
   createMockRequest,
   expectSuccessResponse,
   expectErrorResponse,
@@ -230,22 +231,25 @@ describe("/api/committee/add", () => {
       await expectErrorResponse(response, 404, "Member not found");
     });
 
-    it("should return 409 when member already exists in committee", async () => {
+    it("should return 200 with idempotent success when member already exists in committee", async () => {
       // Arrange
       const mockCommitteeData = createMockCommitteeData();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
+      const mockCommittee = createMockCommittee();
 
       mockAuthSession(mockSession);
       mockHasPermission(true);
 
-      // P2002: Unique constraint violation (duplicate relation)
-      const mockError = new Prisma.PrismaClientKnownRequestError(
-        "Unique constraint failed",
-        { code: "P2002", clientVersion: "5.0.0" },
+      // Mock existing committee with member already connected
+      const existingCommitteeWithMember = {
+        ...mockCommittee,
+        committeeMemberList: [createMockVoterRecord()],
+      };
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        existingCommitteeWithMember,
       );
-      prismaMock.committeeList.upsert.mockRejectedValue(mockError);
 
       const request = createMockRequest(mockCommitteeData);
 
@@ -253,11 +257,15 @@ describe("/api/committee/add", () => {
       const response = await POST(request);
 
       // Assert
-      await expectErrorResponse(
-        response,
-        409,
-        "Duplicate relation - member already exists in committee",
-      );
+      await expectSuccessResponse(response, {
+        success: true,
+        message: "Member already connected to committee",
+        committee: {
+          ...mockCommittee,
+          committeeMemberList: [createMockVoterRecord()],
+        },
+        idempotent: true,
+      });
     });
 
     it("should handle creating a new committee when it does not exist", async () => {
