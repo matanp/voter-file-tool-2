@@ -7,7 +7,9 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 
 async function getOfficeNamesHandler() {
   try {
-    const officeNames = await prisma.officeName.findMany();
+    const officeNames = await prisma.officeName.findMany({
+      orderBy: { officeName: "asc" },
+    });
 
     return NextResponse.json(officeNames);
   } catch (error) {
@@ -30,7 +32,7 @@ async function createOfficeHandler(request: NextRequest) {
     const body = (await request.json()) as unknown;
     const parsed = createOfficeSchema.parse(body);
 
-    const normalized = parsed.name.trim().toLowerCase();
+    const normalized = parsed.name.toLowerCase();
     const existingOffice = await prisma.officeName.findFirst({
       where: { officeName: { equals: normalized, mode: "insensitive" } },
     });
@@ -50,8 +52,14 @@ async function createOfficeHandler(request: NextRequest) {
     return NextResponse.json(newOffice, { status: 201 });
   } catch (error) {
     // Handle validation/parse errors (400)
-    if (error instanceof ZodError || error instanceof SyntaxError) {
-      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Invalid input", issues: error.flatten() },
+        { status: 400 },
+      );
+    }
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Malformed JSON" }, { status: 400 });
     }
 
     // Handle Prisma unique constraint violation (409)

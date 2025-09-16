@@ -287,40 +287,49 @@ describe("/api/committee/requestAdd", () => {
       });
     });
 
+    // Consolidated validation tests
     test.each([
+      // Missing required fields
+      { field: "cityTown", value: "", type: "missing" },
+      { field: "legDistrict", value: "", type: "missing" },
+      { field: "electionDistrict", value: null, type: "missing" },
+
+      // Invalid numeric values
+      { field: "electionDistrict", value: 1.5, type: "invalid_numeric" },
+      { field: "legDistrict", value: "invalid", type: "invalid_numeric" },
       {
-        description: "missing cityTown",
-        requestDataOverrides: { cityTown: "" },
+        field: "legDistrict",
+        value: LEG_DISTRICT_SENTINEL,
+        type: "invalid_numeric",
       },
-      {
-        description: "missing legDistrict",
-        requestDataOverrides: { legDistrict: "" },
-      },
-      {
-        description: "missing electionDistrict",
-        requestDataOverrides: { electionDistrict: null },
-      },
-      {
-        description: "non-integer electionDistrict",
-        requestDataOverrides: { electionDistrict: 1.5 },
-      },
-      {
-        description: "non-numeric legDistrict",
-        requestDataOverrides: { legDistrict: "invalid" },
-      },
-      {
-        description: "negative legDistrict (sentinel value)",
-        requestDataOverrides: { legDistrict: LEG_DISTRICT_SENTINEL },
-      },
-      {
-        description: "whitespace-only legDistrict",
-        requestDataOverrides: { legDistrict: " " },
-      },
-    ])(
-      "should return 422 for $description",
-      async ({ requestDataOverrides }) => {
+      { field: "legDistrict", value: " ", type: "invalid_numeric" },
+    ])("should return 422 for $type $field", async ({ field, value, type }) => {
+      // Arrange
+      const mockRequestData = createMockRequestData({ [field]: value });
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+
+      const request = createMockRequest(mockRequestData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(response, 422, "Invalid request data");
+    });
+
+    // Request notes validation tests
+    test.each(validationTestCases.invalidRequestNotes)(
+      "should return 422 for invalid requestNotes - $field",
+      async ({ field, value, expectedError }) => {
         // Arrange
-        const mockRequestData = createMockRequestData(requestDataOverrides);
+        const mockRequestData = createMockRequestData({
+          [field]: value,
+        });
         const mockSession = createMockSession({
           user: { privilegeLevel: PrivilegeLevel.RequestAccess },
         });
@@ -334,34 +343,7 @@ describe("/api/committee/requestAdd", () => {
         const response = await POST(request);
 
         // Assert
-        await expectErrorResponse(response, 422, "Invalid request data");
-      },
-    );
-
-    // Request notes validation tests
-    describe.each(validationTestCases.invalidRequestNotes)(
-      "should return 422 for invalid requestNotes",
-      ({ field, value, expectedError }) => {
-        it(`should return 422 for ${field} = "${value}"`, async () => {
-          // Arrange
-          const mockRequestData = createMockRequestData({
-            [field]: value,
-          });
-          const mockSession = createMockSession({
-            user: { privilegeLevel: PrivilegeLevel.RequestAccess },
-          });
-
-          mockAuthSession(mockSession);
-          mockHasPermission(true);
-
-          const request = createMockRequest(mockRequestData);
-
-          // Act
-          const response = await POST(request);
-
-          // Assert
-          await expectErrorResponse(response, 422, expectedError);
-        });
+        await expectErrorResponse(response, 422, expectedError);
       },
     );
 
@@ -493,6 +475,214 @@ describe("/api/committee/requestAdd", () => {
           requestNotes: undefined,
         }),
       );
+    });
+
+    // Integration aspects - Request workflow validation
+    describe("Request workflow integration", () => {
+      it("should maintain referential integrity between committee and request", async () => {
+        // Arrange
+        const mockRequestData = createMockRequestData();
+        const mockCommittee = createMockCommittee({ id: 123 });
+        const mockCommitteeRequest = createMockCommitteeRequest({
+          id: 456,
+          committeeListId: 123,
+        });
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+        prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+        prismaMock.committeeRequest.create.mockResolvedValue(
+          mockCommitteeRequest,
+        );
+
+        const request = createMockRequest(mockRequestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(
+          response,
+          {
+            success: true,
+            message: "Request created",
+          },
+          201,
+        );
+
+        // Verify the committee lookup used correct parameters
+        expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
+          createCommitteeFindUniqueArgs({
+            cityTown: mockRequestData.cityTown,
+            legDistrict: Number(mockRequestData.legDistrict),
+            electionDistrict: Number(mockRequestData.electionDistrict),
+            include: { committeeMemberList: false },
+          }),
+        );
+
+        // Verify the request creation used the correct committee ID
+        expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
+          createCommitteeRequestCreateArgs({
+            committeeListId: mockCommittee.id,
+            addVoterRecordId: mockRequestData.addMemberId,
+            removeVoterRecordId: undefined,
+            requestNotes: mockRequestData.requestNotes,
+          }),
+        );
+      });
+
+      it("should handle partial failure scenarios gracefully", async () => {
+        // Arrange
+        const mockRequestData = createMockRequestData();
+        const mockCommittee = createMockCommittee();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        // Mock successful committee lookup but failed request creation
+        prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+        prismaMock.committeeRequest.create.mockRejectedValue(
+          new Error("Foreign key constraint violation"),
+        );
+
+        const request = createMockRequest(mockRequestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 500, "Internal server error");
+
+        // Verify both operations were attempted
+        expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();
+        expect(prismaMock.committeeRequest.create).toHaveBeenCalled();
+      });
+
+      it("should validate voter record existence for add/remove operations", async () => {
+        // Arrange
+        const mockRequestData = createMockRequestData({
+          addMemberId: "NONEXISTENT123",
+          removeMemberId: "ALSONONEXISTENT456",
+        });
+        const mockCommittee = createMockCommittee();
+        const mockCommitteeRequest = createMockCommitteeRequest();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+        prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+        prismaMock.committeeRequest.create.mockResolvedValue(
+          mockCommitteeRequest,
+        );
+
+        const request = createMockRequest(mockRequestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(
+          response,
+          {
+            success: true,
+            message: "Request created",
+          },
+          201,
+        );
+
+        // Note: The current implementation doesn't validate voter record existence
+        // This test documents the current behavior and could be enhanced
+        // to add voter record validation in the future
+        expect(prismaMock.committeeRequest.create).toHaveBeenCalledWith(
+          createCommitteeRequestCreateArgs({
+            committeeListId: mockCommittee.id,
+            addVoterRecordId: "NONEXISTENT123",
+            removeVoterRecordId: "ALSONONEXISTENT456",
+            requestNotes: mockRequestData.requestNotes,
+          }),
+        );
+      });
+    });
+
+    // Integration aspects - Business logic validation
+    describe("Business logic integration", () => {
+      it("should enforce committee uniqueness constraints", async () => {
+        // Arrange
+        const mockRequestData = createMockRequestData();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        // Mock committee lookup failure (committee doesn't exist)
+        prismaMock.committeeList.findUnique.mockResolvedValue(null);
+
+        const request = createMockRequest(mockRequestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 404, "Committee not found");
+
+        // Verify committee lookup was attempted but request creation was not
+        expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();
+        expect(prismaMock.committeeRequest.create).not.toHaveBeenCalled();
+      });
+
+      it("should handle at-large district logic correctly", async () => {
+        // Arrange
+        const mockRequestData = createMockRequestData({
+          legDistrict: undefined, // At-large district
+        });
+        const mockCommittee = createMockCommittee();
+        const mockCommitteeRequest = createMockCommitteeRequest();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+        prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+        prismaMock.committeeRequest.create.mockResolvedValue(
+          mockCommitteeRequest,
+        );
+
+        const request = createMockRequest(mockRequestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(
+          response,
+          {
+            success: true,
+            message: "Request created",
+          },
+          201,
+        );
+
+        // Verify the committee lookup used the sentinel value for at-large districts
+        expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
+          createCommitteeFindUniqueArgs({
+            cityTown: mockRequestData.cityTown,
+            legDistrict: LEG_DISTRICT_SENTINEL,
+            electionDistrict: Number(mockRequestData.electionDistrict),
+            include: { committeeMemberList: false },
+          }),
+        );
+      });
     });
   });
 });

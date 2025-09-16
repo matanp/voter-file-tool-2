@@ -2,6 +2,11 @@ import type { Prisma } from '@voter-file-tool/shared-prisma';
 import type { SearchQueryField } from './schemas/report';
 import { searchableFieldEnum } from './constants';
 
+const NAME_FIELDS = new Set<string>([
+  searchableFieldEnum.enum.firstName,
+  searchableFieldEnum.enum.lastName,
+]);
+
 /**
  * Creates Prisma query conditions for finding records with valid emails
  * @returns Prisma where conditions for valid emails
@@ -105,10 +110,7 @@ export function buildPrismaWhereClause(
         if (field.value === true) {
           andConditions.push(getHasPhoneConditions());
         }
-      } else if (
-        fieldField === searchableFieldEnum.enum.firstName ||
-        fieldField === searchableFieldEnum.enum.lastName
-      ) {
+      } else if (NAME_FIELDS.has(fieldField as string)) {
         const value = field.value;
         if (value === null || value === undefined) {
           continue;
