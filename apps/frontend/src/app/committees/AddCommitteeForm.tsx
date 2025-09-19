@@ -7,6 +7,15 @@ import RecordSearchForm from "../components/RecordSearchForm";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
 import CommitteeRequestForm from "./CommitteeRequestForm";
+import { useApiMutation } from "~/hooks/useApiMutation";
+import {
+  type AddCommitteeResponse,
+  type CommitteeData,
+} from "~/lib/validations/committee";
+import {
+  type SearchQueryField,
+  searchableFieldEnum,
+} from "@voter-file-tool/shared-validators";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -31,42 +40,54 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [requestedRecord, setRequestedRecord] = useState<VoterRecord | null>(
     null,
   );
+  const [loadingVRCNUM, setLoadingVRCNUM] = useState<string | null>(null);
 
-  const validCommittee =
-    city !== "" && legDistrict !== "" && electionDistrict !== -1;
-
-  const handleAddCommitteeMember = async (
-    event: React.FormEvent<HTMLButtonElement>,
-    record: VoterRecord,
-  ) => {
-    event.preventDefault();
-
-    if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
-      const response = await fetch(`/api/committee/add`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          cityTown: city,
-          legDistrict: legDistrict === "" ? "-1" : legDistrict,
-          electionDistrict: electionDistrict,
-          memberId: record.VRCNUM,
-        }),
-      });
-
-      if (response.ok) {
+  // API mutation hook
+  const addCommitteeMemberMutation = useApiMutation<
+    AddCommitteeResponse,
+    CommitteeData
+  >("/api/committee/add", "POST", {
+    onSuccess: (res) => {
+      setLoadingVRCNUM(null); // Clear loading state
+      if (res?.success) {
         onAdd(city, electionDistrict, legDistrict);
+        const isIdempotent = "idempotent" in res && res.idempotent;
         toast({
           title: "Success",
-          description: `Added ${record.firstName} ${record.lastName} to committee`,
+          description: isIdempotent
+            ? "Member already connected to committee"
+            : "Committee member added successfully",
         });
       } else {
         toast({
           title: "Error",
-          description: "Something went wrong with your request",
+          description: "Request completed but was not successful.",
+          variant: "destructive",
         });
       }
+    },
+    onError: (error) => {
+      setLoadingVRCNUM(null); // Clear loading state
+      toast({
+        title: "Error",
+        description: `Failed to add committee member: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const validCommittee =
+    city !== "" && legDistrict !== "" && electionDistrict > 0;
+
+  const handleAddCommitteeMember = async (record: VoterRecord) => {
+    if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+      setLoadingVRCNUM(record.VRCNUM); // Set loading state for this specific record
+      await addCommitteeMemberMutation.mutate({
+        cityTown: city,
+        ...(legDistrict !== "" && { legDistrict: parseInt(legDistrict, 10) }),
+        electionDistrict: electionDistrict,
+        memberId: record.VRCNUM,
+      });
     } else {
       setShowConfirm(true);
       setRequestedRecord(record);
@@ -77,10 +98,13 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     return null;
   }
 
-  const extraSearchQuery = [
-    { field: "city", value: city },
-    { field: "L_T", value: legDistrict },
-    { field: "electionDistrict", value: electionDistrict },
+  const extraSearchQuery: SearchQueryField[] = [
+    { field: searchableFieldEnum.enum.city, value: city },
+    { field: searchableFieldEnum.enum.L_T, value: legDistrict },
+    {
+      field: searchableFieldEnum.enum.electionDistrict,
+      value: electionDistrict,
+    },
   ];
 
   return (
@@ -125,15 +149,18 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                 return (
                   <>
                     <Button
-                      onClick={(e) => handleAddCommitteeMember(e, record)}
+                      onClick={() => handleAddCommitteeMember(record)}
                       disabled={
                         !!member ||
                         committeeList.length >= 4 ||
                         !validCommittee ||
-                        !!record.committeeId
+                        !!record.committeeId ||
+                        loadingVRCNUM === record.VRCNUM
                       }
                     >
-                      {getMessage()}
+                      {loadingVRCNUM === record.VRCNUM
+                        ? "Adding..."
+                        : getMessage()}
                     </Button>
                   </>
                 );

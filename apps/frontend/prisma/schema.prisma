@@ -264,12 +264,12 @@ model CommitteeUploadDiscrepancy {
 
 model ElectionDate {
   id   Int      @id @default(autoincrement())
-  date DateTime
+  date DateTime @unique
 }
 
 model OfficeName {
   id         Int    @id @default(autoincrement())
-  officeName String
+  officeName String @unique
 }
 
 model Report {

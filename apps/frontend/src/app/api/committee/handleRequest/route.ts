@@ -1,40 +1,20 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
-import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { validateRequest } from "~/app/api/lib/validateRequest";
+import type { Session } from "next-auth";
+import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 
-export interface HandleCommitteeRequestData {
-  committeeRequestId: number;
-  acceptOrReject: "accept" | "reject";
-}
+async function handleRequestHandler(req: NextRequest, _session: Session) {
+  const body = (await req.json()) as unknown;
+  const validation = validateRequest(body, handleCommitteeRequestDataSchema);
 
-export async function POST(req: NextRequest) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!validation.success) {
+    return validation.response;
   }
 
-  if (!hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  }
-
-  if (req.method !== "POST") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-  }
-
-  const { committeeRequestId, acceptOrReject }: HandleCommitteeRequestData =
-    (await req.json()) as HandleCommitteeRequestData;
-
-  if (
-    !committeeRequestId ||
-    !acceptOrReject ||
-    !Number.isInteger(committeeRequestId) ||
-    !["accept", "reject"].includes(acceptOrReject)
-  ) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
+  const { committeeRequestId, acceptOrReject } = validation.data;
 
   try {
     const committeeRequest = await prisma.committeeRequest.findUnique({
@@ -73,20 +53,29 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (committeeRequest.committeList.committeeMemberList.length >= 4) {
-        await prisma.committeeRequest.delete({
-          where: {
-            id: committeeRequestId,
-          },
-        });
-
-        return NextResponse.json(
-          { error: "Committee already full" },
-          { status: 400 },
-        );
-      }
-
+      // Only check committee capacity when adding a member
+      // For replacements (remove + add), we need to account for the removal
       if (committeeRequest.addVoterRecordId) {
+        const currentMemberCount =
+          committeeRequest.committeList.committeeMemberList.length -
+          (committeeRequest.removeVoterRecordId ? 1 : 0);
+
+        if (currentMemberCount >= 4) {
+          await prisma.committeeRequest.delete({
+            where: {
+              id: committeeRequestId,
+            },
+          });
+
+          return NextResponse.json(
+            {
+              message:
+                "Request processed - Committee already full, no changes made",
+            },
+            { status: 200 },
+          );
+        }
+
         await prisma.committeeList.update({
           where: {
             id: committeeRequest.committeeListId,
@@ -114,7 +103,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ message: "Request accepted" }, { status: 200 });
+    return NextResponse.json(
+      { message: `Request ${acceptOrReject}ed` },
+      { status: 200 },
+    );
   } catch (error) {
     console.error(error);
     return NextResponse.json(
@@ -123,3 +115,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Admin, handleRequestHandler);

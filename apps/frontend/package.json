@@ -8,6 +8,12 @@
     "dev": "next dev",
     "turbo": "next dev --turbo",
     "start": "next start",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:api": "jest --config jest.api.config.cjs",
+    "test:api:watch": "jest --config jest.api.config.cjs --watch",
+    "test:api:coverage": "jest --config jest.api.config.cjs --coverage",
     "dbconnect": "psql -h localhost -U matanAdmin -d postgres1",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
@@ -61,7 +67,11 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/eslint": "^8.56.2",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.11.20",
     "@types/react": "19.1.12",
     "@types/react-dom": "19.1.9",
@@ -69,6 +79,10 @@
     "@typescript-eslint/parser": "^7.1.1",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.5.2",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^30.1.2",
+    "jest-environment-jsdom": "^30.1.2",
+    "jest-mock-extended": "^4.0.0",
     "postcss": "^8.4.34",
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.5.11",
@@ -78,12 +92,5 @@
   },
   "ct3aMetadata": {
     "initVersion": "7.30.2"
-  },
-  "packageManager": "pnpm@8.15.7",
-  "pnpm": {
-    "overrides": {
-      "@types/react": "19.1.12",
-      "@types/react-dom": "19.1.9"
-    }
   }
 }

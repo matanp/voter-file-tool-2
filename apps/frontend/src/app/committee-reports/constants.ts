@@ -1,4 +1,5 @@
 import type { VoterRecordField } from "@voter-file-tool/shared-validators";
+import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 
 // Available VoterRecord fields for selection
 export const AVAILABLE_FIELDS: {
@@ -8,113 +9,193 @@ export const AVAILABLE_FIELDS: {
 }[] = [
   // Basic identification fields
   {
-    key: "VRCNUM",
+    key: searchableFieldEnum.enum.VRCNUM,
     label: "Voter Registration Number",
     category: "Identification",
   },
-  { key: "firstName", label: "First Name", category: "Identification" },
-  { key: "middleInitial", label: "Middle Initial", category: "Identification" },
-  { key: "lastName", label: "Last Name", category: "Identification" },
-  { key: "suffixName", label: "Suffix Name", category: "Identification" },
-  { key: "DOB", label: "Date of Birth", category: "Identification" },
-  { key: "gender", label: "Gender", category: "Identification" },
+  {
+    key: searchableFieldEnum.enum.firstName,
+    label: "First Name",
+    category: "Identification",
+  },
+  {
+    key: searchableFieldEnum.enum.middleInitial,
+    label: "Middle Initial",
+    category: "Identification",
+  },
+  {
+    key: searchableFieldEnum.enum.lastName,
+    label: "Last Name",
+    category: "Identification",
+  },
+  {
+    key: searchableFieldEnum.enum.suffixName,
+    label: "Suffix Name",
+    category: "Identification",
+  },
+  {
+    key: searchableFieldEnum.enum.DOB,
+    label: "Date of Birth",
+    category: "Identification",
+  },
+  {
+    key: searchableFieldEnum.enum.gender,
+    label: "Gender",
+    category: "Identification",
+  },
 
   // Address fields
-  { key: "houseNum", label: "House Number", category: "Address" },
-  { key: "street", label: "Street", category: "Address" },
-  { key: "apartment", label: "Apartment", category: "Address" },
-  { key: "halfAddress", label: "Half Address", category: "Address" },
   {
-    key: "resAddrLine2",
+    key: searchableFieldEnum.enum.houseNum,
+    label: "House Number",
+    category: "Address",
+  },
+  {
+    key: searchableFieldEnum.enum.street,
+    label: "Street",
+    category: "Address",
+  },
+  {
+    key: searchableFieldEnum.enum.apartment,
+    label: "Apartment",
+    category: "Address",
+  },
+  {
+    key: searchableFieldEnum.enum.halfAddress,
+    label: "Half Address",
+    category: "Address",
+  },
+  {
+    key: searchableFieldEnum.enum.resAddrLine2,
     label: "Residence Address Line 2",
     category: "Address",
   },
   {
-    key: "resAddrLine3",
+    key: searchableFieldEnum.enum.resAddrLine3,
     label: "Residence Address Line 3",
     category: "Address",
   },
-  { key: "city", label: "City", category: "Address" },
-  { key: "state", label: "State", category: "Address" },
-  { key: "zipCode", label: "ZIP Code", category: "Address" },
-  { key: "zipSuffix", label: "ZIP Suffix", category: "Address" },
+  { key: searchableFieldEnum.enum.city, label: "City", category: "Address" },
+  { key: searchableFieldEnum.enum.state, label: "State", category: "Address" },
+  {
+    key: searchableFieldEnum.enum.zipCode,
+    label: "ZIP Code",
+    category: "Address",
+  },
+  {
+    key: searchableFieldEnum.enum.zipSuffix,
+    label: "ZIP Suffix",
+    category: "Address",
+  },
 
   // Contact information
-  { key: "telephone", label: "Telephone", category: "Contact" },
-  { key: "email", label: "Email", category: "Contact" },
+  {
+    key: searchableFieldEnum.enum.telephone,
+    label: "Telephone",
+    category: "Contact",
+  },
+  { key: searchableFieldEnum.enum.email, label: "Email", category: "Contact" },
 
   // Mailing address
   {
-    key: "mailingAddress1",
+    key: searchableFieldEnum.enum.mailingAddress1,
     label: "Mailing Address 1",
     category: "Mailing Address",
   },
   {
-    key: "mailingAddress2",
+    key: searchableFieldEnum.enum.mailingAddress2,
     label: "Mailing Address 2",
     category: "Mailing Address",
   },
   {
-    key: "mailingAddress3",
+    key: searchableFieldEnum.enum.mailingAddress3,
     label: "Mailing Address 3",
     category: "Mailing Address",
   },
   {
-    key: "mailingAddress4",
+    key: searchableFieldEnum.enum.mailingAddress4,
     label: "Mailing Address 4",
     category: "Mailing Address",
   },
-  { key: "mailingCity", label: "Mailing City", category: "Mailing Address" },
-  { key: "mailingState", label: "Mailing State", category: "Mailing Address" },
-  { key: "mailingZip", label: "Mailing ZIP", category: "Mailing Address" },
   {
-    key: "mailingZipSuffix",
+    key: searchableFieldEnum.enum.mailingCity,
+    label: "Mailing City",
+    category: "Mailing Address",
+  },
+  {
+    key: searchableFieldEnum.enum.mailingState,
+    label: "Mailing State",
+    category: "Mailing Address",
+  },
+  {
+    key: searchableFieldEnum.enum.mailingZip,
+    label: "Mailing ZIP",
+    category: "Mailing Address",
+  },
+  {
+    key: searchableFieldEnum.enum.mailingZipSuffix,
     label: "Mailing ZIP Suffix",
     category: "Mailing Address",
   },
 
   // Political information
-  { key: "party", label: "Party", category: "Political" },
-  { key: "L_T", label: "L_T", category: "Political" },
+  {
+    key: searchableFieldEnum.enum.party,
+    label: "Party",
+    category: "Political",
+  },
+  { key: searchableFieldEnum.enum.L_T, label: "L_T", category: "Political" },
 
   // District information
   {
-    key: "electionDistrict",
+    key: searchableFieldEnum.enum.electionDistrict,
     label: "Election District",
     category: "Districts",
   },
   {
-    key: "countyLegDistrict",
+    key: searchableFieldEnum.enum.countyLegDistrict,
     label: "County Legislative District",
     category: "Districts",
   },
   {
-    key: "stateAssmblyDistrict",
+    key: searchableFieldEnum.enum.stateAssmblyDistrict,
     label: "State Assembly District",
     category: "Districts",
   },
   {
-    key: "stateSenateDistrict",
+    key: searchableFieldEnum.enum.stateSenateDistrict,
     label: "State Senate District",
     category: "Districts",
   },
   {
-    key: "congressionalDistrict",
+    key: searchableFieldEnum.enum.congressionalDistrict,
     label: "Congressional District",
     category: "Districts",
   },
-  { key: "CC_WD_Village", label: "CC_WD_Village", category: "Districts" },
-  { key: "townCode", label: "Town Code", category: "Districts" },
+  {
+    key: searchableFieldEnum.enum.CC_WD_Village,
+    label: "CC_WD_Village",
+    category: "Districts",
+  },
+  {
+    key: searchableFieldEnum.enum.townCode,
+    label: "Town Code",
+    category: "Districts",
+  },
 
   // Other fields
   {
-    key: "originalRegDate",
+    key: searchableFieldEnum.enum.originalRegDate,
     label: "Original Registration Date",
     category: "Other",
   },
-  { key: "statevid", label: "State VID", category: "Other" },
   {
-    key: "addressForCommittee",
+    key: searchableFieldEnum.enum.statevid,
+    label: "State VID",
+    category: "Other",
+  },
+  {
+    key: "addressForCommittee" as VoterRecordField,
     label: "Address for Committee",
     category: "Other",
   },
@@ -133,5 +214,8 @@ export const FIELDS_BY_KEY = AVAILABLE_FIELDS.reduce(
     acc[field.key] = field;
     return acc;
   },
-  {} as Record<string, (typeof AVAILABLE_FIELDS)[0]>,
+  {} as Record<
+    (typeof AVAILABLE_FIELDS)[number]["key"],
+    (typeof AVAILABLE_FIELDS)[0]
+  >,
 );

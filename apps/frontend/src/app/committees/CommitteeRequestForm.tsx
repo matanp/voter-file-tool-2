@@ -12,6 +12,11 @@ import RecordSearchForm from "../components/RecordSearchForm";
 import { Switch } from "~/components/ui/switch";
 import { toast } from "~/components/ui/use-toast";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
+import { useApiMutation } from "~/hooks/useApiMutation";
+import type {
+  CommitteeRequestData,
+  CommitteeRequestResponse,
+} from "~/lib/validations/committee";
 
 type CommitteeRequestFormProps = {
   city: string;
@@ -46,39 +51,40 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   const [addFormRecords, setAddFormRecords] = useState<VoterRecord[]>([]);
   const [addMemberFormOpen, setAddMemberFormOpen] = useState<boolean>(false);
 
-  const handleSubmit = async (
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-  ) => {
-    event.preventDefault();
-
-    const response = await fetch(`/api/committee/requestAdd`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cityTown: city,
-        legDistrict: legDistrict === "" ? "-1" : legDistrict,
-        electionDistrict: electionDistrict,
-        addMemberId: requestAddMember?.VRCNUM,
-        removeMemberId: requestRemoveMember?.VRCNUM,
-        requestNotes: requestNotes,
-      }),
-    });
-
-    if (response.ok) {
+  // API mutation hook
+  const requestMutation = useApiMutation<
+    CommitteeRequestResponse,
+    CommitteeRequestData
+  >("/api/committee/requestAdd", "POST", {
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Submitted your request for approval",
       });
-    } else {
+      onSubmit();
+      setRequestNotes("");
+      setRequestAddMember(null);
+      setRequestRemoveMember(null);
+    },
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Something went wrong with your request",
+        description: error.message || "Something went wrong with your request",
       });
-    }
+    },
+  });
 
-    onSubmit();
+  const handleSubmit = async (
+    _event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  ) => {
+    await requestMutation.mutate({
+      cityTown: city,
+      legDistrict: legDistrict === "" ? undefined : Number(legDistrict),
+      electionDistrict: electionDistrict,
+      addMemberId: requestAddMember?.VRCNUM,
+      removeMemberId: requestRemoveMember?.VRCNUM,
+      requestNotes: requestNotes,
+    });
   };
 
   const removeMemberForm = (
@@ -211,10 +217,20 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
             <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
           </div>
           <Button
+            type="button"
             className="w-full max-w-[85vw]"
             onClick={(e) => handleSubmit(e)}
+            aria-busy={requestMutation.loading}
+            aria-disabled={
+              requestMutation.loading ||
+              (!requestAddMember && !requestRemoveMember)
+            }
+            disabled={
+              requestMutation.loading ||
+              (!requestAddMember && !requestRemoveMember)
+            }
           >
-            Submit Request
+            {requestMutation.loading ? "Submitting..." : "Submit Request"}
           </Button>
         </div>
       </DialogContent>

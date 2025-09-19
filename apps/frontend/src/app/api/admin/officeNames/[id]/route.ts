@@ -14,7 +14,7 @@ export async function DELETE(
 
   try {
     await prisma.officeName.delete({ where: { id } });
-    return NextResponse.json({ message: "Election Offce deleted" });
+    return NextResponse.json({ id, message: "Election Office deleted" });
   } catch (error) {
     console.error("Error deleting election date:", error);
     return NextResponse.json(
