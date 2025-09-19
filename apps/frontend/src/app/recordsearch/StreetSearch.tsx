@@ -69,7 +69,7 @@ export const StreetSearch: React.FC<{
         </div>
       )}
       {debouncedSearch !== "" && matches.length === 0 && (
-        <p className="text-red-500">No matches found</p>
+        <p className="text-destructive">No matches found</p>
       )}
     </div>
   );

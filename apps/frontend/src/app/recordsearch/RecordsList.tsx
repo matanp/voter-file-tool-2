@@ -15,9 +15,11 @@ import { useVoterSearch } from "~/contexts/VoterSearchContext";
 import {
   MAX_RECORDS_FOR_EXPORT,
   ADMIN_CONTACT_INFO,
+  type SearchQueryField,
 } from "@voter-file-tool/shared-validators";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { Info } from "lucide-react";
+import { useApiMutation } from "~/hooks/useApiMutation";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
@@ -31,24 +33,61 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   } = useVoterSearch();
   const [records, setRecords] = React.useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = React.useState(0);
-  const [loading, setLoading] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState<
-    {
-      field: string;
-      value: string | number | boolean | undefined;
-    }[]
-  >([]);
+  const [searchQuery, setSearchQuery] = React.useState<SearchQueryField[]>([]);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(100);
   const [hasSearched, setHasSearched] = React.useState(false);
   const [isHoveringInfo, setIsHoveringInfo] = React.useState(false);
+
+  // API mutation hooks
+  const searchMutation = useApiMutation<
+    {
+      data: VoterRecord[];
+      totalRecords: number;
+    },
+    {
+      searchQuery: SearchQueryField[];
+      pageSize: number;
+      page: number;
+    }
+  >("/api/fetchFilteredData", "POST", {
+    onSuccess: (data) => {
+      setRecords(data.data);
+      setTotalRecords(data.totalRecords);
+      setHasSearched(true);
+    },
+    onError: (error) => {
+      console.error("Search failed:", error);
+      setRecords([]);
+      setTotalRecords(0);
+    },
+  });
+
+  const loadMoreMutation = useApiMutation<
+    {
+      data: VoterRecord[];
+      totalRecords: number;
+    },
+    {
+      searchQuery: SearchQueryField[];
+      pageSize: number;
+      page: number;
+    }
+  >("/api/fetchFilteredData", "POST", {
+    onSuccess: (data) => {
+      setRecords((prev) => [...prev, ...data.data]);
+      setPage((prev) => prev + 1);
+    },
+    onError: (error) => {
+      console.error("Load more failed:", error);
+    },
+  });
 
   const fieldsList = React.useMemo(() => {
     return createSmartFieldsList(contextFieldsList);
   }, [contextFieldsList]);
 
   const handleSubmit = async (searchQueryParam: SearchField[]) => {
-    setLoading(true);
     setPage(1);
     setPageSize(100);
     const flattenedQuery = searchQueryParam
@@ -59,56 +98,49 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           return [...acc, curr];
         }
       }, [])
+      .filter(
+        (
+          field,
+        ): field is BaseSearchField & { name: SearchQueryField["field"] } =>
+          field.name !== "empty",
+      )
       .map((field) => ({
         field: field.name,
         value:
-          field.value instanceof Date ? field.value.toISOString() : field.value,
+          field.value instanceof Date
+            ? field.value.toISOString()
+            : (field.value ?? null),
       }));
 
     setSearchQuery(flattenedQuery);
 
-    const response = await fetch(`/api/fetchFilteredData`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        searchQuery: flattenedQuery,
-        pageSize: 100,
-        page: 1,
-      }),
+    // Convert undefined to null to match API schema
+    const convertedQuery = flattenedQuery.map((item) => ({
+      ...item,
+      value: item.value ?? null,
+    }));
+
+    void searchMutation.mutate({
+      searchQuery: convertedQuery,
+      pageSize: 100,
+      page: 1,
     });
 
-    const { data, totalRecords } = (await response.json()) as {
-      data: VoterRecord[];
-      totalRecords: number;
-    };
-
-    setTotalRecords(totalRecords);
-    setRecords(data);
-    setLoading(false);
-    setHasSearched(true);
-
-    setContextSearchQuery(searchQueryParam, flattenedQuery);
+    setContextSearchQuery(searchQueryParam, convertedQuery);
   };
 
   const handleLoadMore = async () => {
-    const response = await fetch(`/api/fetchFilteredData`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        searchQuery,
-        pageSize,
-        page: page + 1,
-      }),
+    // Convert undefined to null to match API schema
+    const convertedQuery = searchQuery.map((item) => ({
+      ...item,
+      value: item.value ?? null,
+    }));
+
+    void loadMoreMutation.mutate({
+      searchQuery: convertedQuery,
+      pageSize,
+      page: page + 1,
     });
-    const { data } = (await response.json()) as {
-      data: VoterRecord[];
-    };
-    setRecords((prevRecords) => [...prevRecords, ...data]);
-    setPage((prevPage) => prevPage + 1);
   };
 
   const handleExport = () => {
@@ -152,11 +184,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       </div>
       {hasSearched && totalRecords > 0 && (
         <div className="w-full flex flex-col items-center pt-4 space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Button
               onClick={handleExport}
               disabled={totalRecords > MAX_RECORDS_FOR_EXPORT}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-primary hover:bg-primary/90"
             >
               {totalRecords > MAX_RECORDS_FOR_EXPORT
                 ? `Export (${totalRecords.toLocaleString()} records - too many)`
@@ -186,9 +218,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         </div>
       )}
       <div className="m-10">
-        {loading && <VoterRecordTableSkeleton fieldsList={fieldsList} />}
+        {searchMutation.loading && (
+          <VoterRecordTableSkeleton fieldsList={fieldsList} />
+        )}
 
-        {records.length > 0 && !loading && (
+        {records.length > 0 && !searchMutation.loading && (
           <VoterRecordTable
             records={records}
             fieldsList={fieldsList}
@@ -203,7 +237,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         <p className="ml-10">No results found.</p>
       )}
       {!records.length && !hasSearched && (
-        <p className="ml-10">Sumbit a search query to see results.</p>
+        <p className="ml-10">Submit a search query to see results.</p>
       )}
     </div>
   );

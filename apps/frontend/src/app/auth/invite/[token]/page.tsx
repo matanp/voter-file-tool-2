@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -16,12 +16,19 @@ type InviteData = Pick<Invite, "email" | "privilegeLevel" | "customMessage"> & {
 export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
 
   const token = params?.token as string;
+
+  // Redirect logged-in users to home page
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      router.push("/");
+    }
+  }, [status, session, router]);
 
   useEffect(() => {
     if (!token) {
@@ -30,9 +37,17 @@ export default function InvitePage() {
       return;
     }
 
+    // Skip invite fetch when already authenticated
+    if (status === "authenticated") {
+      setLoading(false);
+      return;
+    }
+
     const fetchInvite = async () => {
       try {
-        const response = await fetch(`/api/auth/invite/${token}`);
+        const response = await fetch(
+          `/api/auth/invite/${encodeURIComponent(token)}`,
+        );
 
         if (response.ok) {
           const data = (await response.json()) as unknown as {
@@ -54,28 +69,18 @@ export default function InvitePage() {
     };
 
     void fetchInvite();
-  }, [token]);
+  }, [token, status]);
 
   const handleSignIn = async () => {
     if (!invite) return;
 
-    setSigningIn(true);
     try {
-      const result = await signIn("google", {
+      await signIn("google", {
         callbackUrl: "/",
-        redirect: false,
       });
-
-      if (result?.error) {
-        setError("Failed to sign in. Please try again.");
-      } else if (result?.ok) {
-        router.push("/");
-      }
     } catch (err) {
       console.error("Error signing in:", err);
       setError("Failed to sign in. Please try again.");
-    } finally {
-      setSigningIn(false);
     }
   };
 
@@ -104,12 +109,17 @@ export default function InvitePage() {
     });
   };
 
-  if (loading) {
+  // Show loading while checking authentication or validating invite
+  if (status === "loading" || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Validating invite...</span>
+          <span>
+            {status === "loading"
+              ? "Checking authentication..."
+              : "Validating invite..."}
+          </span>
         </div>
       </div>
     );
@@ -120,7 +130,7 @@ export default function InvitePage() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-center text-red-600">
+            <CardTitle className="text-center text-destructive">
               Invalid Invite
             </CardTitle>
           </CardHeader>
@@ -209,20 +219,8 @@ export default function InvitePage() {
           )}
 
           <div className="space-y-4">
-            <Button
-              onClick={handleSignIn}
-              disabled={signingIn}
-              className="w-full"
-              size="lg"
-            >
-              {signingIn ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign up with Google"
-              )}
+            <Button onClick={handleSignIn} className="w-full" size="lg">
+              Sign up with Google
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">

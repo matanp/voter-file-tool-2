@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { generateDesignatedPetitionDataSchema } from './designatedPetition';
 import { partialVoterRecordSchema } from './voterRecord';
+import { searchableFieldEnum } from '../constants';
 
 // Field types used in search queries
 export const fieldTypeEnum = z.enum([
@@ -16,7 +17,7 @@ export const fieldTypeEnum = z.enum([
 
 // Search query field schema for voter records
 export const searchQueryFieldSchema = z.object({
-  field: z.string(),
+  field: searchableFieldEnum,
   value: z.union([
     z.string().nullable(),
     z.number().nullable(),

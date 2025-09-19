@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "~/components/ui/button";
 import { DatePicker } from "~/components/ui/datePicker";
 import type { ElectionDate } from "@prisma/client";
+import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
+import { useToast } from "~/components/ui/use-toast";
+import { formatElectionDateForDisplay } from "~/lib/electionDateUtils";
 
 interface ElectionDateProps {
   electionDates: ElectionDate[];
@@ -12,9 +15,79 @@ interface ElectionDateProps {
 export const ElectionDates = ({
   electionDates: initialDates,
 }: ElectionDateProps) => {
+  const { toast } = useToast();
   const [electionDates, setElectionDates] =
     useState<ElectionDate[]>(initialDates);
   const [newDate, setNewDate] = useState<Date | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+
+  // API mutation hooks
+  const addDateMutation = useApiMutation<ElectionDate, { date: string }>(
+    "/api/admin/electionDates",
+    "POST",
+    {
+      onSuccess: (createdDate) => {
+        setElectionDates((prev) => [...prev, createdDate]);
+        setNewDate(null);
+        toast({
+          title: "Success",
+          description: "Election date added successfully.",
+        });
+      },
+      onError: (error) => {
+        console.error("Failed to add election date", error);
+        toast({
+          title: "Error",
+          description:
+            error.message || "Failed to add election date. Please try again.",
+          variant: "destructive",
+        });
+      },
+    },
+  );
+
+  const deleteDateMutation = useApiDelete<
+    { id: number; message: string },
+    { id: number }
+  >("/api/admin/electionDates", {
+    onSuccess: (data) => {
+      if (data?.id) {
+        setElectionDates((prev) => prev.filter((d) => d.id !== data.id));
+        setDeletingIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(data.id);
+          return newSet;
+        });
+        toast({
+          title: "Success",
+          description: "Election date deleted successfully.",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      console.error("Failed to delete election date", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete election date. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const fetchElectionDates = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/electionDates");
+      const data: ElectionDate[] = (await res.json()) as ElectionDate[];
+      setElectionDates(data);
+    } catch (err) {
+      console.error("Failed to fetch election dates", err);
+      toast({
+        title: "Error",
+        description: "Failed to load election dates. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   useEffect(() => {
     const loadElectionDates = async () => {
@@ -24,49 +97,30 @@ export const ElectionDates = ({
     loadElectionDates().catch((error) => {
       console.log(error);
     });
-  }, []);
-
-  const fetchElectionDates = async () => {
-    try {
-      const res = await fetch("/api/admin/electionDates");
-      const data: ElectionDate[] = (await res.json()) as ElectionDate[];
-      setElectionDates(data);
-    } catch (err) {
-      console.error("Failed to fetch election dates", err);
-    }
-  };
+  }, [fetchElectionDates]);
 
   const handleAddDate = async () => {
     if (!newDate) return;
-
     try {
-      const res = await fetch("/api/admin/electionDates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: newDate }),
-      });
-
-      if (res.ok) {
-        const created: ElectionDate = (await res.json()) as ElectionDate;
-        setElectionDates([...electionDates, created]);
-        setNewDate(null);
-      }
-    } catch (err) {
-      console.error("Failed to add election date", err);
+      await addDateMutation.mutate({ date: newDate.toISOString() });
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+      console.error("Add date mutation failed:", error);
     }
   };
 
   const handleDeleteDate = async (id: number) => {
+    setDeletingIds((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`/api/admin/electionDates/${id}`, {
-        method: "DELETE",
+      await deleteDateMutation.mutate({ id }, `/api/admin/electionDates/${id}`);
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+      // Just remove the id from deleting set if it wasn't already removed
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
       });
-
-      if (res.ok) {
-        setElectionDates(electionDates.filter((d) => d.id !== id));
-      }
-    } catch (err) {
-      console.error("Failed to delete election date", err);
     }
   };
 
@@ -80,12 +134,13 @@ export const ElectionDates = ({
             key={ed.id}
             className="flex justify-between items-center border-b py-2"
           >
-            <p>{new Date(ed.date).toLocaleString().split(",")[0]}</p>
+            <p>{formatElectionDateForDisplay(ed.date)}</p>
             <Button
               variant={"destructive"}
               onClick={() => handleDeleteDate(ed.id)}
+              disabled={deletingIds.has(ed.id)}
             >
-              Delete
+              {deletingIds.has(ed.id) ? "Deleting..." : "Delete"}
             </Button>
           </li>
         ))}
@@ -93,8 +148,11 @@ export const ElectionDates = ({
 
       <div className="space-y-2">
         <DatePicker onChange={(date) => setNewDate(date)} />
-        <Button onClick={handleAddDate} disabled={newDate === null}>
-          Add Election Date
+        <Button
+          onClick={handleAddDate}
+          disabled={newDate === null || addDateMutation.loading}
+        >
+          {addDateMutation.loading ? "Adding..." : "Add Election Date"}
         </Button>
       </div>
     </div>
