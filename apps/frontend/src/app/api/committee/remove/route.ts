@@ -33,8 +33,28 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
 
     if (!existingElectionDistrict) {
       return NextResponse.json(
-        { error: "Committee not found" },
+        { status: "error", error: "Committee not found" },
         { status: 404 },
+      );
+    }
+
+    // Verify the member actually belongs to this committee before removal
+    const memberToRemove = await prisma.voterRecord.findUnique({
+      where: { VRCNUM: memberId },
+      select: { committeeId: true },
+    });
+
+    if (!memberToRemove) {
+      return NextResponse.json(
+        { status: "error", error: "Member not found" },
+        { status: 404 },
+      );
+    }
+
+    if (memberToRemove.committeeId !== existingElectionDistrict.id) {
+      return NextResponse.json(
+        { status: "error", error: "Member does not belong to this committee" },
+        { status: 400 },
       );
     }
 
@@ -49,20 +69,9 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
   } catch (error) {
     console.error(error);
 
-    // Handle Prisma known errors with specific status codes
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2025") {
-        // Record not found (member to update not found)
-        return NextResponse.json(
-          { error: "Member not found" },
-          { status: 404 },
-        );
-      }
-    }
-
     // Default fallback for all other errors
     return NextResponse.json(
-      { error: "Internal server error" },
+      { status: "error", error: "Internal server error" },
       { status: 500 },
     );
   }

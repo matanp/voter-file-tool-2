@@ -251,19 +251,22 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
     },
   ]);
 
-  const handleChangeField = (index: number, field: string) => {
-    const updatedRows = [...searchRows];
-    let updatedRow: SearchField | undefined = updatedRows[index];
-    if (updatedRow) {
-      updatedRow = SEARCH_FIELDS.find(
-        (searchField) => searchField.name === field,
-      );
-      if (updatedRow) {
-        updatedRows[index] = updatedRow;
+  const handleChangeField = (
+    index: number,
+    field: (typeof SEARCH_FIELDS)[number]["name"],
+  ) => {
+    setSearchRows((prev) => {
+      const updatedRows = [...prev];
+      const template = SEARCH_FIELDS.find((f) => f.name === field);
+      if (template) {
+        // structuredClone is widely available in Next runtimes; fallback to JSON if needed
+        updatedRows[index] =
+          typeof structuredClone === "function"
+            ? structuredClone(template)
+            : (JSON.parse(JSON.stringify(template)) as SearchField);
       }
-    }
-
-    setSearchRows(updatedRows);
+      return updatedRows;
+    });
   };
 
   const handleRemoveRow = (index: number) => {

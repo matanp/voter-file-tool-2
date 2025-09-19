@@ -13,7 +13,7 @@ import { toast } from "~/components/ui/use-toast";
 import { startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useApiMutation } from "~/hooks/useApiMutation";
-import type { CommitteeRequest } from "@prisma/client";
+import { type SimpleApiResponse } from "@voter-file-tool/shared-validators";
 
 type RequestCardProps = {
   request: CommitteeRequestWithDetails;
@@ -24,17 +24,18 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
 
   // API mutation hook
   const handleRequestMutation = useApiMutation<
-    CommitteeRequest,
+    SimpleApiResponse,
     {
       committeeRequestId: string;
       acceptOrReject: "accept" | "reject";
     }
   >("/api/committee/handleRequest", "POST", {
     onSuccess: (data, payload) => {
-      if (payload?.acceptOrReject) {
+      if (payload?.acceptOrReject && "message" in data) {
+        const successData = data as { message: string };
         toast({
           title: "Success",
-          description: `${payload.acceptOrReject === "accept" ? "Committee has been updated" : "Committee request has been rejected"}`,
+          description: successData.message,
         });
         startTransition(() => {
           router.refresh();

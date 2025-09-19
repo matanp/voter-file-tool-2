@@ -54,7 +54,15 @@ async function getCommitteeList(req: NextRequest) {
 
   try {
     const parsedLegDistrict = toDbSentinelValue(legDistrict ?? undefined);
-    const parsedElectionDistrict = toDbSentinelValue(electionDistrict);
+
+    // Parse electionDistrict as a number and validate it's an integer
+    const parsedElectionDistrict = Number(electionDistrict);
+    if (!Number.isInteger(parsedElectionDistrict)) {
+      return NextResponse.json(
+        { error: "electionDistrict must be a valid integer" },
+        { status: 400 },
+      );
+    }
 
     const committee = await prisma.committeeList.findUnique({
       where: {

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useContext } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useContext,
+  useRef,
+} from "react";
 import {
   Card,
   CardContent,
@@ -58,6 +64,14 @@ const ReportsList: React.FC<ReportsListProps> = ({
   const [totalCount, setTotalCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Keep a ref to the current page value to avoid closure issues
+  const pageRef = useRef(page);
+
+  // Update pageRef whenever page changes
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
   // API mutation hooks
   const updateReportMutation = useApiPatch<
     Report,
@@ -65,7 +79,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
   >(`/api/reports`, {
     onSuccess: () => {
       // Refresh the current page to show updated data
-      void fetchReports(page, true);
+      void fetchReports(pageRef.current, true);
     },
     onError: (error) => {
       console.error("Error updating report:", error);
@@ -75,7 +89,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
   const deleteReportMutation = useApiDelete<Report, void>(`/api/reports`, {
     onSuccess: () => {
       // Refresh the current page to show updated data
-      void fetchReports(page, true);
+      void fetchReports(pageRef.current, true);
     },
     onError: (error) => {
       console.error("Error deleting report:", error);

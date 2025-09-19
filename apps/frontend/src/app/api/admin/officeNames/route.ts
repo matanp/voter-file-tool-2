@@ -33,9 +33,8 @@ async function createOfficeHandler(request: NextRequest) {
     const body = (await request.json()) as unknown;
     const parsed = createOfficeSchema.parse(body);
 
-    const normalized = parsed.name.toLowerCase();
     const existingOffice = await prisma.officeName.findFirst({
-      where: { officeName: { equals: normalized, mode: "insensitive" } },
+      where: { officeName: { equals: parsed.name, mode: "insensitive" } },
     });
 
     if (existingOffice) {
@@ -46,7 +45,7 @@ async function createOfficeHandler(request: NextRequest) {
     }
 
     const newOffice = await prisma.officeName.create({
-      data: { officeName: normalized },
+      data: { officeName: parsed.name },
     });
 
     revalidatePath("/petitions");

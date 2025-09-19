@@ -32,6 +32,7 @@ describe("/api/committee/remove", () => {
       // Arrange
       const mockCommitteeData = createMockCommitteeData();
       const mockCommittee = createMockCommittee();
+      const mockVoterRecord = createMockVoterRecord();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
@@ -39,7 +40,8 @@ describe("/api/committee/remove", () => {
       mockAuthSession(mockSession);
       mockHasPermission(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
-      prismaMock.voterRecord.update.mockResolvedValue(createMockVoterRecord());
+      prismaMock.voterRecord.findUnique.mockResolvedValue(mockVoterRecord);
+      prismaMock.voterRecord.update.mockResolvedValue(mockVoterRecord);
 
       const request = createMockRequest(mockCommitteeData);
 
@@ -76,6 +78,9 @@ describe("/api/committee/remove", () => {
       const setupMocks = () => {
         prismaMock.committeeList.findUnique.mockResolvedValue(
           createMockCommittee(),
+        );
+        prismaMock.voterRecord.findUnique.mockResolvedValue(
+          createMockVoterRecord(),
         );
         prismaMock.voterRecord.update.mockResolvedValue(
           createMockVoterRecord(),
@@ -197,6 +202,7 @@ describe("/api/committee/remove", () => {
       // Arrange
       const mockCommitteeData = createMockCommitteeData();
       const mockCommittee = createMockCommittee();
+      const mockVoterRecord = createMockVoterRecord();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
@@ -204,6 +210,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(mockSession);
       mockHasPermission(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.voterRecord.findUnique.mockResolvedValue(mockVoterRecord);
       prismaMock.voterRecord.update.mockRejectedValue(
         new Error("Database error"),
       );
@@ -224,6 +231,7 @@ describe("/api/committee/remove", () => {
         electionDistrict: 10,
       });
       const mockCommittee = createMockCommittee();
+      const mockVoterRecord = createMockVoterRecord();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
@@ -231,7 +239,8 @@ describe("/api/committee/remove", () => {
       mockAuthSession(mockSession);
       mockHasPermission(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
-      prismaMock.voterRecord.update.mockResolvedValue(createMockVoterRecord());
+      prismaMock.voterRecord.findUnique.mockResolvedValue(mockVoterRecord);
+      prismaMock.voterRecord.update.mockResolvedValue(mockVoterRecord);
 
       const request = createMockRequest(mockCommitteeData);
 
@@ -273,6 +282,55 @@ describe("/api/committee/remove", () => {
 
       // Assert
       await expectErrorResponse(response, 422, "Invalid request data");
+    });
+
+    it("should return 404 when member is not found", async () => {
+      // Arrange
+      const mockCommitteeData = createMockCommitteeData();
+      const mockCommittee = createMockCommittee();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.voterRecord.findUnique.mockResolvedValue(null);
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(response, 404, "Member not found");
+    });
+
+    it("should return 400 when member does not belong to this committee", async () => {
+      // Arrange
+      const mockCommitteeData = createMockCommitteeData();
+      const mockCommittee = createMockCommittee({ id: 1 });
+      const mockVoterRecord = createMockVoterRecord({ committeeId: 2 }); // Different committee ID
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.voterRecord.findUnique.mockResolvedValue(mockVoterRecord);
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(
+        response,
+        400,
+        "Member does not belong to this committee",
+      );
     });
   });
 });
