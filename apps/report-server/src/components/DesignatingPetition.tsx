@@ -139,7 +139,8 @@ const PetitionForm = React.forwardRef<
                 <React.Fragment key={i}>
                   <tr className={i % 2 === 1 ? 'border-t-2 border-black' : ''}>
                     <td className="border border-black h-5 p-1">
-                      {i + 1}. __/__/{electionDate?.split(',')[1].trim()}
+                      {i + 1}. __/__/
+                      {electionDate?.split(',')[1]?.trim() || '____'}
                     </td>
                     <td className="border border-black h-8 p-1"></td>
                     <td

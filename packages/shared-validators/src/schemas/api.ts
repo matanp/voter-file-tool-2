@@ -42,6 +42,20 @@ export const callbackUrlSchema = z
   .string()
   .url('Callback URL must be a valid URL');
 
+// Simple API response schemas for common success/error patterns
+export const simpleSuccessResponseSchema = z.object({
+  message: z.string(),
+});
+
+export const simpleErrorResponseSchema = z.object({
+  error: z.string(),
+});
+
+export const simpleApiResponseSchema = z.union([
+  simpleSuccessResponseSchema,
+  simpleErrorResponseSchema,
+]);
+
 // Type exports
 export type UUID = z.infer<typeof uuidSchema>;
 export type NonEmptyString = z.infer<typeof nonEmptyStringSchema>;
@@ -51,3 +65,6 @@ export type ApiResponse = z.infer<typeof apiResponseSchema>;
 export type WebhookSignature = z.infer<typeof webhookSignatureSchema>;
 export type Environment = z.infer<typeof environmentSchema>;
 export type CallbackUrl = z.infer<typeof callbackUrlSchema>;
+export type SimpleSuccessResponse = z.infer<typeof simpleSuccessResponseSchema>;
+export type SimpleErrorResponse = z.infer<typeof simpleErrorResponseSchema>;
+export type SimpleApiResponse = z.infer<typeof simpleApiResponseSchema>;

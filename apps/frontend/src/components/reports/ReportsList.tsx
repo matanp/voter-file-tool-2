@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useContext } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useContext,
+  useRef,
+} from "react";
 import {
   Card,
   CardContent,
@@ -20,6 +26,7 @@ import ReportCard from "./ReportCard";
 import { type Report, PrivilegeLevel } from "@prisma/client";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
+import { useApiPatch, useApiDelete } from "~/hooks/useApiMutation";
 
 interface ReportsListProps {
   type: "public" | "my-reports";
@@ -57,6 +64,38 @@ const ReportsList: React.FC<ReportsListProps> = ({
   const [totalCount, setTotalCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Keep a ref to the current page value to avoid closure issues
+  const pageRef = useRef(page);
+
+  // Keep refs current to avoid stale closures in async callbacks
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  // API mutation hooks
+  const updateReportMutation = useApiPatch<
+    Report,
+    { title?: string; description?: string; public?: boolean }
+  >(`/api/reports`, {
+    onSuccess: () => {
+      // Refresh the current page to show updated data
+      void fetchReportsRef.current?.(pageRef.current, true);
+    },
+    onError: (error) => {
+      console.error("Error updating report:", error);
+    },
+  });
+
+  const deleteReportMutation = useApiDelete<Report, void>(`/api/reports`, {
+    onSuccess: () => {
+      // Refresh the current page to show updated data
+      void fetchReportsRef.current?.(pageRef.current, true);
+    },
+    onError: (error) => {
+      console.error("Error deleting report:", error);
+    },
+  });
+
   const fetchReports = useCallback(
     async (pageNum = 1, isRefresh = false) => {
       if (isRefresh) {
@@ -89,6 +128,15 @@ const ReportsList: React.FC<ReportsListProps> = ({
     },
     [type],
   );
+
+  // Latest fetchReports ref to avoid capturing a stale function in onSuccess
+  const fetchReportsRef =
+    useRef<(pageNum?: number, isRefresh?: boolean) => Promise<void>>(
+      fetchReports,
+    );
+  useEffect(() => {
+    fetchReportsRef.current = fetchReports;
+  }, [fetchReports]);
 
   useEffect(() => {
     void fetchReports(1);
@@ -130,43 +178,11 @@ const ReportsList: React.FC<ReportsListProps> = ({
     reportId: string,
     updates: { title?: string; description?: string; public?: boolean },
   ) => {
-    try {
-      const response = await fetch(`/api/reports/${reportId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updates),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update report");
-      }
-
-      // Refresh the current page to show updated data
-      await fetchReports(page, true);
-    } catch (error) {
-      console.error("Error updating report:", error);
-      throw error;
-    }
+    void updateReportMutation.mutate(updates, `/api/reports/${reportId}`);
   };
 
   const handleDeleteReport = async (reportId: string) => {
-    try {
-      const response = await fetch(`/api/reports/${reportId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete report");
-      }
-
-      // Refresh the current page to show updated data
-      await fetchReports(page, true);
-    } catch (error) {
-      console.error("Error deleting report:", error);
-      throw error;
-    }
+    void deleteReportMutation.mutate(undefined, `/api/reports/${reportId}`);
   };
 
   if (loading) {

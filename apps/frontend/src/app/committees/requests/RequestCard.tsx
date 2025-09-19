@@ -12,6 +12,8 @@ import type { CommitteeRequestWithDetails } from "./page";
 import { toast } from "~/components/ui/use-toast";
 import { startTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useApiMutation } from "~/hooks/useApiMutation";
+import { type SimpleApiResponse } from "@voter-file-tool/shared-validators";
 
 type RequestCardProps = {
   request: CommitteeRequestWithDetails;
@@ -19,36 +21,43 @@ type RequestCardProps = {
 
 export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
   const router = useRouter();
-  const handleAccept = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+
+  // API mutation hook
+  const handleRequestMutation = useApiMutation<
+    SimpleApiResponse,
+    {
+      committeeRequestId: string;
+      acceptOrReject: "accept" | "reject";
+    }
+  >("/api/committee/handleRequest", "POST", {
+    onSuccess: (data, payload) => {
+      if (payload?.acceptOrReject && "message" in data) {
+        const successData = data as { message: string };
+        toast({
+          title: "Success",
+          description: successData.message,
+        });
+        startTransition(() => {
+          router.refresh();
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Something went wrong with your request",
+      });
+    },
+  });
+
+  const handleAccept = (
+    e: React.MouseEvent<HTMLButtonElement>,
     acceptOrReject: "accept" | "reject",
   ) => {
     e.preventDefault();
-    const response = await fetch(`/api/committee/handleRequest`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        committeeRequestId: request.id,
-        acceptOrReject: "accept",
-      }),
-    });
-
-    if (response.status === 200) {
-      toast({
-        title: "Success",
-        description: `${acceptOrReject === "accept" ? "Committtee has been updated" : "Committtee request has been rejected"}`,
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: "Something went wrong with your request",
-      });
-    }
-
-    startTransition(() => {
-      router.refresh();
+    void handleRequestMutation.mutate({
+      committeeRequestId: String(request.id),
+      acceptOrReject,
     });
   };
 
@@ -73,10 +82,19 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
         )}
       </CardContent>
       <CardFooter className="flex justify-between">
-        <Button variant="outline" onClick={(e) => handleAccept(e, "reject")}>
-          Reject
+        <Button
+          variant="outline"
+          onClick={(e) => handleAccept(e, "reject")}
+          disabled={handleRequestMutation.loading}
+        >
+          {handleRequestMutation.loading ? "Processing..." : "Reject"}
         </Button>
-        <Button onClick={(e) => handleAccept(e, "accept")}>Accept</Button>
+        <Button
+          onClick={(e) => handleAccept(e, "accept")}
+          disabled={handleRequestMutation.loading}
+        >
+          {handleRequestMutation.loading ? "Processing..." : "Accept"}
+        </Button>
       </CardFooter>
     </Card>
   );

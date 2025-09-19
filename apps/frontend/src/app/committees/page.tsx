@@ -28,12 +28,6 @@ const CommitteeLists = async () => {
         : {},
     });
 
-  // console.log(JSON.stringify(committeeLists.slice(100, 102)));
-
-  // console.log(
-  //   JSON.stringify(mapCommiteesToReportShape(committeeLists.slice(0, 10))),
-  // );
-
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
   let committeeRequests = [];

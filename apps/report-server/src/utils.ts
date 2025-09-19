@@ -10,6 +10,39 @@ import {
   createCompoundNameField,
   createCompoundAddressField,
 } from '@voter-file-tool/shared-validators';
+// Helper function to convert YYYY-MM-DD format to "Month Day, Year" format
+function formatElectionDateForPetition(dateString: string): string {
+  if (!dateString) return '';
+
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+
+    // Use UTC methods to preserve the intended date
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+
+    // Get ordinal suffix for day
+    const getOrdinal = (day: number): string => {
+      if (day % 10 === 1 && day !== 11) return 'st';
+      if (day % 10 === 2 && day !== 12) return 'nd';
+      if (day % 10 === 3 && day !== 13) return 'rd';
+      return 'th';
+    };
+
+    const monthName = date.toLocaleDateString('en-US', {
+      timeZone: 'UTC',
+      month: 'long',
+    });
+
+    return `${monthName} ${day}${getOrdinal(day)}, ${year}`;
+  } catch (error) {
+    console.error('Error formatting election date:', error);
+    return '';
+  }
+}
+
 export const generateHTML = (
   candidates: { name: string; address: string; office: string }[],
   vacancyAppointments: { name: string; address: string }[],
@@ -20,6 +53,10 @@ export const generateHTML = (
   // Make sure the path to your built Tailwind CSS is correct
   const tailwindCSS =
     '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+
+  // Convert election date from YYYY-MM-DD to "Month Day, Year" format
+  const formattedElectionDate = formatElectionDateForPetition(electionDate);
+
   const html = Array.from({ length: numPages }, (_, i) => i + 1)
     .map((sheetNum) =>
       ReactDOMServer.renderToStaticMarkup(
@@ -28,7 +65,7 @@ export const generateHTML = (
           candidates: candidates,
           vacancyAppointments: vacancyAppointments,
           party: party,
-          electionDate: electionDate,
+          electionDate: formattedElectionDate,
         })
       )
     )

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -28,8 +28,11 @@ import { useVoterSearch } from "~/contexts/VoterSearchContext";
 import {
   MAX_RECORDS_FOR_EXPORT,
   ADMIN_CONTACT_INFO,
+  type GenerateReportData,
+  type SearchQueryField,
 } from "@voter-file-tool/shared-validators";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
+import { useApiMutation } from "~/hooks/useApiMutation";
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
@@ -56,7 +59,23 @@ const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
   ): Date | null => {
     if (!dateString) return null;
     const date = new Date(dateString);
-    return isNaN(date.getTime()) ? null : date;
+    const isValid = !isNaN(date.getTime());
+
+    if (!isValid) return null;
+
+    const currentYear = new Date().getFullYear();
+    const minYear = 1900; // Reasonable minimum year for voter records
+    const maxYear = currentYear + 1; // Allow up to next year for future registrations
+
+    const year = date.getFullYear();
+    if (year < minYear || year > maxYear) {
+      console.warn(
+        `Date ${dateString} is outside reasonable bounds (${minYear}-${maxYear})`,
+      );
+      return null;
+    }
+
+    return date;
   };
 
   // Create the Prisma record by spreading the API record and handling special cases
@@ -97,7 +116,6 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
   const [searchResults, setSearchResults] = useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [reportId, setReportId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -124,10 +142,63 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     hadErrorsSinceLastSubmit,
   } = useFormValidation(formData);
 
-  // Fetch search results when search query changes
-  React.useEffect(() => {
-    const abortController = new AbortController();
+  const handleFetchDataSuccess = useCallback(
+    (data: { data: VoterRecordAPI[]; totalRecords: number }) => {
+      const convertedRecords = data.data.map(convertAPIToPrismaRecord);
+      setSearchResults(convertedRecords);
+      setTotalRecords(data.totalRecords);
+    },
+    [],
+  );
 
+  const handleFetchDataError = useCallback((error: Error) => {
+    console.error("Failed to fetch search results:", error);
+    setSearchResults([]);
+    setTotalRecords(0);
+  }, []);
+
+  // API mutation hooks
+  const fetchDataMutation = useApiMutation<
+    {
+      data: VoterRecordAPI[];
+      totalRecords: number;
+    },
+    {
+      searchQuery: SearchQueryField[];
+      pageSize: number;
+      page: number;
+    }
+  >("/api/fetchFilteredData", "POST", {
+    onSuccess: handleFetchDataSuccess,
+    onError: handleFetchDataError,
+  });
+
+  const mutateRef = useRef(fetchDataMutation.mutate);
+  mutateRef.current = fetchDataMutation.mutate;
+
+  const generateReportMutation = useApiMutation<
+    { reportId: string },
+    GenerateReportData
+  >("/api/generateReport", "POST", {
+    onSuccess: (data) => {
+      setReportId(data.reportId);
+      toast({
+        title: "Report Generation Started",
+        description:
+          "Your report is being generated. You'll be notified when it's ready.",
+      });
+    },
+    onError: (error) => {
+      console.error("Failed to generate report:", error);
+      toast({
+        title: "Error",
+        description: `Failed to generate report: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  React.useEffect(() => {
     const fetchSearchResults = async () => {
       if (flattenedSearchQuery.length === 0) {
         setSearchResults([]);
@@ -136,49 +207,27 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       }
 
       try {
-        const response = await fetch("/api/fetchFilteredData", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            searchQuery: flattenedSearchQuery,
-            pageSize: 100, // Only fetch first 100 for preview
-            page: 1,
-          }),
-          signal: abortController.signal,
+        // Convert undefined to null to match API schema
+        const convertedQuery = flattenedSearchQuery.map((item) => ({
+          ...item,
+          value: item.value ?? null,
+        }));
+
+        await mutateRef.current({
+          searchQuery: convertedQuery,
+          pageSize: 100, // Only fetch first 100 for preview
+          page: 1,
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch search results");
-        }
-
-        const data = (await response.json()) as {
-          data: VoterRecordAPI[];
-          totalRecords: number;
-        };
-
-        // Convert API records to Prisma format for display
-        const prismaRecords = data.data.map(convertAPIToPrismaRecord);
-        setSearchResults(prismaRecords);
-        setTotalRecords(data.totalRecords);
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
           // Request was cancelled, don't update state
           return;
         }
-
-        console.error("Error fetching search results:", error);
-        setSearchResults([]);
-        setTotalRecords(0);
+        // Error handling is done in the mutation hook
       }
     };
 
     void fetchSearchResults();
-
-    return () => {
-      abortController.abort();
-    };
   }, [flattenedSearchQuery]);
 
   // Handle report completion
@@ -201,7 +250,6 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       document.body.removeChild(link);
     }
 
-    setIsGenerating(false);
     setReportId(null);
   };
 
@@ -212,7 +260,6 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       description: errorMessage || "Failed to generate document",
       duration: 5000,
     });
-    setIsGenerating(false);
     setReportId(null);
   };
 
@@ -230,9 +277,15 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       if (filteredUpdates.format === "pdf") {
         filteredUpdates.format = "xlsx";
       }
-      setFormData(
-        (prev) => ({ ...prev, ...filteredUpdates }) as VoterListReportFormData,
-      );
+
+      setFormData((prev) => {
+        const updated = { ...prev, ...filteredUpdates };
+        const voterListData: VoterListReportFormData = {
+          ...updated,
+          format: "xlsx",
+        };
+        return voterListData;
+      });
     },
     [],
   );
@@ -265,16 +318,21 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       return;
     }
 
-    setIsGenerating(true);
     clearErrorTracking();
 
     try {
+      // Convert undefined to null to match API schema
+      const convertedSearchQuery = flattenedSearchQuery.map((item) => ({
+        ...item,
+        value: item.value ?? null,
+      }));
+
       const reportPayload = {
         type: "voterList" as const,
         name: formData.name,
         description: formData.description,
         format: "xlsx" as const,
-        searchQuery: flattenedSearchQuery,
+        searchQuery: convertedSearchQuery,
         includeFields: formData.includeFields,
         xlsxConfig: {
           includeCompoundFields: formData.includeCompoundFields,
@@ -287,38 +345,9 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
         },
       };
 
-      const response = await fetch("/api/generateReport", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(reportPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as { error?: string };
-        throw new Error(errorData.error ?? "Failed to generate report");
-      }
-
-      const responseData = (await response.json()) as { reportId: string };
-      setReportId(responseData.reportId);
-
-      toast({
-        description: "Generating XLSX document...",
-        duration: 3000,
-      });
+      await generateReportMutation.mutate(reportPayload);
     } catch (error) {
       console.error("Error generating report:", error);
-      toast({
-        variant: "destructive",
-        title: "Generation Failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate document",
-        duration: 5000,
-      });
-      setIsGenerating(false);
     }
   };
 
@@ -591,13 +620,15 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
                     <Button
                       type="submit"
                       disabled={
-                        isGenerating ||
+                        generateReportMutation.loading ||
                         !canExport ||
                         (hasUserSubmitted && Object.keys(errors).length > 0)
                       }
                       className="min-w-[120px]"
                     >
-                      {isGenerating ? "Generating..." : "Generate Report"}
+                      {generateReportMutation.loading
+                        ? "Generating..."
+                        : "Generate Report"}
                     </Button>
                   </div>
                 </div>
@@ -607,7 +638,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
         </Card>
       )}
 
-      {isGenerating && (
+      {generateReportMutation.loading && (
         <Card>
           <CardContent className="pt-6">
             <div className="bg-primary-foreground p-4 rounded-lg">

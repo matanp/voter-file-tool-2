@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { z } from "zod";
 
-const tokenSchema = z.string().min(1, "Token is required");
+const tokenSchema = z.string().trim().min(1, "Token is required");
 
 async function getInviteHandler(
   req: NextRequest,
@@ -25,8 +26,10 @@ async function getInviteHandler(
       );
     }
 
+    const validatedToken = tokenValidation.data;
+
     const invite = await prisma.invite.findUnique({
-      where: { token },
+      where: { token: validatedToken },
       select: {
         id: true,
         email: true,
@@ -47,7 +50,7 @@ async function getInviteHandler(
     if (invite.deleted) {
       return NextResponse.json(
         { error: "This invite has been deleted" },
-        { status: 404 },
+        { status: 410 },
       );
     }
 
@@ -55,7 +58,7 @@ async function getInviteHandler(
     if (new Date() > invite.expiresAt) {
       return NextResponse.json(
         { error: "This invite has expired" },
-        { status: 400 },
+        { status: 410 },
       );
     }
 
@@ -63,7 +66,7 @@ async function getInviteHandler(
     if (invite.usedAt) {
       return NextResponse.json(
         { error: "This invite has already been used" },
-        { status: 400 },
+        { status: 409 },
       );
     }
 
@@ -75,7 +78,7 @@ async function getInviteHandler(
     if (existingUser) {
       return NextResponse.json(
         { error: "User with this email already exists" },
-        { status: 400 },
+        { status: 409 },
       );
     }
 
@@ -90,20 +93,6 @@ async function getInviteHandler(
     });
   } catch (error) {
     console.error("Error validating invite:", error);
-
-    // Handle Zod validation errors
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: "Validation error",
-          details: error.errors.map((err) => ({
-            field: err.path.join("."),
-            message: err.message,
-          })),
-        },
-        { status: 400 },
-      );
-    }
 
     return NextResponse.json(
       { error: "Internal server error" },

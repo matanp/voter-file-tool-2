@@ -10,9 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { useState } from "react";
 import { useToast } from "~/components/ui/use-toast";
 import type { CommitteeList } from "@prisma/client";
+import { useApiMutation } from "~/hooks/useApiMutation";
 
 export function DiscrepanciesActionsMenu({
   VRCNUM,
@@ -26,50 +26,50 @@ export function DiscrepanciesActionsMenu({
   onAction: (accept: boolean) => void;
 }) {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
 
-  const handleAction = async (accept: boolean, takeAddress?: string) => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/admin/handleCommitteeDiscrepancy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ VRCNUM, accept, takeAddress }),
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as { error: string };
-        toast({
-          title: "Error",
-          description: `Error: ${errorData.error}`,
-        });
-      } else {
-        const successData = (await response.json()) as {
-          committee: CommitteeList;
-        };
-        onAction(accept);
+  // API mutation hook
+  const handleDiscrepancyMutation = useApiMutation<
+    {
+      committee: CommitteeList;
+    },
+    {
+      VRCNUM: string;
+      accept: boolean;
+      takeAddress?: string;
+    }
+  >("/api/admin/handleCommitteeDiscrepancy", "POST", {
+    onSuccess: (data, payload) => {
+      if (payload?.accept !== undefined) {
+        onAction(payload.accept);
         toast({
           title: "Success",
-          description: accept
-            ? `Added to committee ${successData.committee.cityTown}, LD: ${successData.committee.legDistrict}, ED: ${successData.committee.electionDistrict}`
+          description: payload.accept
+            ? `Added to committee ${data.committee.cityTown}, LD: ${data.committee.legDistrict}, ED: ${data.committee.electionDistrict}`
             : `Discrepancy removed, not added to committee`,
         });
       }
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error("Failed to handle action:", error);
-      alert("An unexpected error occurred. Please try again.");
-    } finally {
-      setLoading(false);
+      toast({
+        title: "Error",
+        description: `Error: ${error.message}`,
+      });
+    },
+  });
+
+  const handleAction = async (accept: boolean, takeAddress?: string) => {
+    if (handleDiscrepancyMutation.loading) {
+      return;
     }
+    await handleDiscrepancyMutation.mutate({ VRCNUM, accept, takeAddress });
   };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" disabled={loading}>
-          {loading ? "Processing..." : "Actions"}
+        <Button variant="outline" disabled={handleDiscrepancyMutation.loading}>
+          {handleDiscrepancyMutation.loading ? "Processing..." : "Actions"}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">

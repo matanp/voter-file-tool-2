@@ -1,32 +1,31 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
 import { PrivilegeLevel } from "@prisma/client";
+import { committeeRequestDataSchema } from "~/lib/validations/committee";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { validateRequest } from "~/app/api/lib/validateRequest";
+import { toDbSentinelValue } from "~/app/committees/committeeUtils";
+import type { Session } from "next-auth";
 
-type CommitteeRequestData = {
-  cityTown: string;
-  legDistrict: string;
-  electionDistrict: number;
-  addMemberId: string;
-  removeMemberId: string;
-  requestNotes: string;
-};
-export async function POST(req: NextRequest) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+async function requestAddHandler(req: NextRequest, _session: Session) {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Invalid JSON format",
+        success: false,
+        details: "Request body must be valid JSON",
+      },
+      { status: 400 },
+    );
   }
 
-  if (
-    !hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.RequestAccess)
-  ) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  }
+  const validation = validateRequest(body, committeeRequestDataSchema);
 
-  if (req.method !== "POST") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+  if (!validation.success) {
+    return validation.response;
   }
 
   const {
@@ -36,15 +35,32 @@ export async function POST(req: NextRequest) {
     addMemberId,
     removeMemberId,
     requestNotes,
-  } = (await req.json()) as CommitteeRequestData;
-  if (
-    !cityTown ||
-    !legDistrict ||
-    !electionDistrict ||
-    !Number.isInteger(electionDistrict) ||
-    !Number(legDistrict)
-  ) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  } = validation.data;
+
+  // Convert undefined legDistrict to sentinel value for database storage
+  let legDistrictForDb;
+  try {
+    legDistrictForDb = toDbSentinelValue(legDistrict);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Invalid legDistrict value",
+        success: false,
+        details: "legDistrict conversion failed",
+      },
+      { status: 422 },
+    );
+  }
+
+  const sanitizedAddMemberId = addMemberId?.trim();
+  const sanitizedRemoveMemberId = removeMemberId?.trim();
+
+  // Require at least one action
+  if (!sanitizedAddMemberId && !sanitizedRemoveMemberId) {
+    return NextResponse.json(
+      { error: "Invalid request data", success: false },
+      { status: 422 },
+    );
   }
 
   try {
@@ -52,34 +68,46 @@ export async function POST(req: NextRequest) {
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
-          legDistrict: Number(legDistrict),
-          electionDistrict: Number(electionDistrict),
+          legDistrict: legDistrictForDb,
+          electionDistrict: electionDistrict,
         },
       },
     });
 
     if (!committeeRequested) {
-      throw new Error("Committee not found");
+      return NextResponse.json(
+        { success: false, error: "Committee not found" },
+        { status: 404 },
+      );
     }
 
     await prisma.committeeRequest.create({
       data: {
         committeeListId: committeeRequested.id,
-        addVoterRecordId: addMemberId ? addMemberId : undefined,
-        removeVoterRecordId: removeMemberId ? removeMemberId : undefined,
+        addVoterRecordId: sanitizedAddMemberId
+          ? sanitizedAddMemberId
+          : undefined,
+        removeVoterRecordId: sanitizedRemoveMemberId
+          ? sanitizedRemoveMemberId
+          : undefined,
         requestNotes: requestNotes,
       },
     });
 
     return NextResponse.json(
-      { status: "success", message: "Request created" },
-      { status: 200 },
+      { success: true, message: "Request created" },
+      { status: 201 },
     );
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { success: false, error: "Internal server error" },
       { status: 500 },
     );
   }
 }
+
+export const POST = withPrivilege(
+  PrivilegeLevel.RequestAccess,
+  requestAddHandler,
+);
