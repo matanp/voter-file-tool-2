@@ -30,7 +30,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   initialJobs = [],
 }) => {
   const [jobs, setJobs] = useState<Report[]>(initialJobs);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(false);
 
@@ -129,13 +129,17 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       return;
     }
 
-    setDeletingId(jobId);
+    setDeletingIds((prev) => new Set(prev).add(jobId));
     try {
       await deleteJobMutation.mutate({ id: jobId }, `/api/reports/${jobId}`);
     } catch {
       // handled by onError
     } finally {
-      setDeletingId(null);
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(jobId);
+        return newSet;
+      });
     }
   };
 
@@ -181,7 +185,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
             variant="ghost"
             size="sm"
             onClick={fetchJobs}
-            disabled={loading || deleteJobMutation.loading}
+            disabled={
+              loading || deleteJobMutation.loading || deletingIds.size > 0
+            }
             className="flex items-center space-x-1"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -218,7 +224,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
                   size="sm"
                   variant="ghost"
                   onClick={() => handleDeleteJob(job.id)}
-                  disabled={deletingId === job.id}
+                  disabled={deletingIds.has(job.id)}
                   className="h-8 w-8 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                   title="Delete failed report"
                 >

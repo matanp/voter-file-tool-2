@@ -107,9 +107,9 @@ describe("/api/fetchCommitteeList", () => {
         url: "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1.5&cityTown=Test%20City&legDistrict=1",
       },
     ])(
-      "should return 400 for $param validation",
+      "should return 422 for $param validation",
       ({ param, value, error, url }) => {
-        it(`should return 400 for ${param} = "${value}"`, async () => {
+        it(`should return 422 for ${param} = "${value}"`, async () => {
           // Arrange
           const mockSession = createMockSession({
             user: { privilegeLevel: PrivilegeLevel.Admin },
@@ -263,7 +263,7 @@ describe("/api/fetchCommitteeList", () => {
       );
     });
 
-    it("should return 400 for electionDistrict with non-digit characters", async () => {
+    it("should return 422 for electionDistrict with non-digit characters", async () => {
       // Arrange
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
@@ -283,7 +283,7 @@ describe("/api/fetchCommitteeList", () => {
       await expectErrorResponse(response, 422, "Invalid request data");
     });
 
-    it("should return 400 for empty electionDistrict after trimming", async () => {
+    it("should return 422 for empty electionDistrict after trimming", async () => {
       // Arrange
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
@@ -355,7 +355,7 @@ describe("/api/fetchCommitteeList", () => {
     });
 
     // Edge case tests for legDistrict parameter handling
-    it("should return 400 for legDistrict parameter with invalid numeric value", async () => {
+    it("should return 422 for legDistrict parameter with invalid numeric value", async () => {
       // Arrange
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
@@ -396,7 +396,7 @@ describe("/api/fetchCommitteeList", () => {
       await expectErrorResponse(response, 422, "Invalid request data");
     });
 
-    it("should return 400 for legDistrict parameter with decimal value", async () => {
+    it("should return 422 for legDistrict parameter with decimal value", async () => {
       // Arrange
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
@@ -512,7 +512,7 @@ describe("/api/fetchCommitteeList", () => {
       },
     );
 
-    it("should return 400 for mixed valid and invalid legDistrict parameters", async () => {
+    it("should return 422 for mixed valid and invalid legDistrict parameters", async () => {
       // Arrange
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },

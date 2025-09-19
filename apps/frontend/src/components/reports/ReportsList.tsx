@@ -67,7 +67,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
   // Keep a ref to the current page value to avoid closure issues
   const pageRef = useRef(page);
 
-  // Update pageRef whenever page changes
+  // Keep refs current to avoid stale closures in async callbacks
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
@@ -79,7 +79,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
   >(`/api/reports`, {
     onSuccess: () => {
       // Refresh the current page to show updated data
-      void fetchReports(pageRef.current, true);
+      void fetchReportsRef.current?.(pageRef.current, true);
     },
     onError: (error) => {
       console.error("Error updating report:", error);
@@ -89,7 +89,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
   const deleteReportMutation = useApiDelete<Report, void>(`/api/reports`, {
     onSuccess: () => {
       // Refresh the current page to show updated data
-      void fetchReports(pageRef.current, true);
+      void fetchReportsRef.current?.(pageRef.current, true);
     },
     onError: (error) => {
       console.error("Error deleting report:", error);
@@ -128,6 +128,15 @@ const ReportsList: React.FC<ReportsListProps> = ({
     },
     [type],
   );
+
+  // Latest fetchReports ref to avoid capturing a stale function in onSuccess
+  const fetchReportsRef =
+    useRef<(pageNum?: number, isRefresh?: boolean) => Promise<void>>(
+      fetchReports,
+    );
+  useEffect(() => {
+    fetchReportsRef.current = fetchReports;
+  }, [fetchReports]);
 
   useEffect(() => {
     void fetchReports(1);
