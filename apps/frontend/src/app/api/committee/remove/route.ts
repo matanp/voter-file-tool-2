@@ -1,53 +1,60 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import type { CommitteeData } from "../add/route";
-import { PrivilegeLevel } from "@prisma/client";
-import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { committeeDataSchema } from "~/lib/validations/committee";
+import { PrivilegeLevel, Prisma } from "@prisma/client";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { validateRequest } from "~/app/api/lib/validateRequest";
+import { toDbSentinelValue } from "~/app/committees/committeeUtils";
+import type { Session } from "next-auth";
 
-// const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-export async function POST(req: NextRequest) {
-  // const { electionDistrict, memberId } = req.body;
-  const session = await auth();
+async function removeCommitteeHandler(req: NextRequest, _session: Session) {
+  const body = (await req.json()) as unknown;
+  const validation = validateRequest(body, committeeDataSchema);
 
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!validation.success) {
+    return validation.response;
   }
 
-  if (!hasPermissionFor(session.user.privilegeLevel, PrivilegeLevel.Admin)) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  }
+  const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
-  const { cityTown, legDistrict, electionDistrict, memberId }: CommitteeData =
-    (await req.json()) as CommitteeData;
-
-  if (
-    !cityTown ||
-    !legDistrict ||
-    !electionDistrict ||
-    !memberId ||
-    !Number.isInteger(electionDistrict) ||
-    !Number(legDistrict)
-  ) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
+  // Convert undefined legDistrict to sentinel value for database storage
+  const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   try {
     const existingElectionDistrict = await prisma.committeeList.findUnique({
       where: {
         cityTown_legDistrict_electionDistrict: {
           cityTown: cityTown,
-          legDistrict: parseInt(legDistrict, 10),
-          electionDistrict: parseInt(electionDistrict, 10),
+          legDistrict: legDistrictForDb,
+          electionDistrict: electionDistrict,
         },
       },
-      include: { committeeMemberList: true },
     });
 
     if (!existingElectionDistrict) {
       return NextResponse.json(
-        { error: "Committee not found" },
+        { status: "error", error: "Committee not found" },
         { status: 404 },
+      );
+    }
+
+    // Verify the member actually belongs to this committee before removal
+    const memberToRemove = await prisma.voterRecord.findUnique({
+      where: { VRCNUM: memberId },
+      select: { committeeId: true },
+    });
+
+    if (!memberToRemove) {
+      return NextResponse.json(
+        { status: "error", error: "Member not found" },
+        { status: 404 },
+      );
+    }
+
+    if (memberToRemove.committeeId !== existingElectionDistrict.id) {
+      return NextResponse.json(
+        { status: "error", error: "Member does not belong to this committee" },
+        { status: 400 },
       );
     }
 
@@ -58,12 +65,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json("success", { status: 200 });
+    return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
     console.error(error);
+
+    // Default fallback for all other errors
     return NextResponse.json(
-      { error: "Internal server error" },
+      { status: "error", error: "Internal server error" },
       { status: 500 },
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Admin, removeCommitteeHandler);

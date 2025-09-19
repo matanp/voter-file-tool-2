@@ -12,6 +12,11 @@ import RecordSearchForm from "../components/RecordSearchForm";
 import { Switch } from "~/components/ui/switch";
 import { toast } from "~/components/ui/use-toast";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
+import { useApiMutation } from "~/hooks/useApiMutation";
+import type {
+  CommitteeRequestData,
+  CommitteeRequestResponse,
+} from "~/lib/validations/committee";
 
 type CommitteeRequestFormProps = {
   city: string;
@@ -46,45 +51,46 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   const [addFormRecords, setAddFormRecords] = useState<VoterRecord[]>([]);
   const [addMemberFormOpen, setAddMemberFormOpen] = useState<boolean>(false);
 
-  const handleSubmit = async (
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-  ) => {
-    event.preventDefault();
-
-    const response = await fetch(`/api/committee/requestAdd`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cityTown: city,
-        legDistrict: legDistrict === "" ? "-1" : legDistrict,
-        electionDistrict: electionDistrict,
-        addMemberId: requestAddMember?.VRCNUM,
-        removeMemberId: requestRemoveMember?.VRCNUM,
-        requestNotes: requestNotes,
-      }),
-    });
-
-    if (response.ok) {
+  // API mutation hook
+  const requestMutation = useApiMutation<
+    CommitteeRequestResponse,
+    CommitteeRequestData
+  >("/api/committee/requestAdd", "POST", {
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Submitted your request for approval",
       });
-    } else {
+      onSubmit();
+      setRequestNotes("");
+      setRequestAddMember(null);
+      setRequestRemoveMember(null);
+    },
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Something went wrong with your request",
+        description: error.message || "Something went wrong with your request",
       });
-    }
+    },
+  });
 
-    onSubmit();
+  const handleSubmit = async (
+    _event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  ) => {
+    await requestMutation.mutate({
+      cityTown: city,
+      legDistrict: legDistrict === "" ? undefined : Number(legDistrict),
+      electionDistrict: electionDistrict,
+      addMemberId: requestAddMember?.VRCNUM,
+      removeMemberId: requestRemoveMember?.VRCNUM,
+      requestNotes: requestNotes,
+    });
   };
 
   const removeMemberForm = (
     <div>
       {committeeList.length > 0 && (
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-4 items-center">
           <h2 className="py-2">
             Would you like to remove a member from the committee?
           </h2>
@@ -99,7 +105,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           {committeeList
             .filter((member) => member.VRCNUM !== requestRemoveMember?.VRCNUM)
             .map((member) => (
-              <div key={member.VRCNUM} className="flex gap-2 items-center py-1">
+              <div key={member.VRCNUM} className="flex gap-4 items-center py-1">
                 <p className="">
                   {member.firstName} {member.lastName}
                 </p>
@@ -115,7 +121,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 
   const addMemberForm = (
     <div>
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-4 items-center">
         <h2 className="py-2">
           Would you like to add someone to the committee?
         </h2>
@@ -159,7 +165,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
                 };
                 return (
                   <>
-                    <div className="flex gap-2">
+                    <div className="flex gap-4">
                       <Button
                         onClick={() => setRequestAddMember(record)}
                         disabled={
@@ -183,7 +189,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 
   return (
     <Dialog defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[90vw] w-fit min-w-[50vw]">
+      <DialogContent className="max-w-[90vw] w-fit min-w-1/2">
         <DialogHeader>
           <DialogTitle>Committee Change Request</DialogTitle>
           <h1 className="pt-2">City: {city}</h1>
@@ -211,10 +217,20 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
             <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
           </div>
           <Button
+            type="button"
             className="w-full max-w-[85vw]"
             onClick={(e) => handleSubmit(e)}
+            aria-busy={requestMutation.loading}
+            aria-disabled={
+              requestMutation.loading ||
+              (!requestAddMember && !requestRemoveMember)
+            }
+            disabled={
+              requestMutation.loading ||
+              (!requestAddMember && !requestRemoveMember)
+            }
           >
-            Submit Request
+            {requestMutation.loading ? "Submitting..." : "Submit Request"}
           </Button>
         </div>
       </DialogContent>

@@ -5,16 +5,20 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
 import { useWindowSize } from "~/hooks/useWindowSize";
+import { useApiMutation } from "~/hooks/useApiMutation";
+import { useToast } from "~/components/ui/use-toast";
+import {
+  type SearchQueryField,
+  searchableFieldEnum,
+} from "@voter-file-tool/shared-validators";
 
 type RecordSearchProps = {
   handleResults: (results: VoterRecord[]) => void;
   submitButtonText: string;
-  extraSearchQuery?: {
-    field: string;
-    value: string | number | Date | undefined;
-  }[];
+  extraSearchQuery?: SearchQueryField[];
   headerText?: string;
   optionalExtraSearch?: string;
+  useFormElement?: boolean;
 };
 
 const RecordSearchForm: React.FC<RecordSearchProps> = ({
@@ -23,87 +27,139 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   extraSearchQuery,
   headerText,
   optionalExtraSearch,
+  useFormElement = true,
 }) => {
   const { width } = useWindowSize();
+  const { toast } = useToast();
   const [voterId, setVoterId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [useOptionalExtaSearch, setUseOptionalExtraSearch] =
+  const [useOptionalExtraSearch, setUseOptionalExtraSearch] =
     useState<boolean>(true);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setLoading(true);
-    const query =
-      optionalExtraSearch && !useOptionalExtaSearch
+  // API mutation hook
+  const searchMutation = useApiMutation<
+    { data: VoterRecord[] },
+    {
+      searchQuery: SearchQueryField[];
+      page: number;
+      pageSize: number;
+    }
+  >("/api/fetchFilteredData", "POST", {
+    onSuccess: (data) => {
+      handleResults(data.data);
+    },
+    onError: (error) => {
+      console.error("Search failed:", error);
+      const description =
+        error instanceof Error
+          ? error.message
+          : "Unable to search voter records. Please try again.";
+      toast({
+        title: "Search Failed",
+        description,
+        variant: "destructive",
+      });
+      handleResults([]);
+    },
+  });
+
+  const handleSubmit = async () => {
+    const query: SearchQueryField[] =
+      optionalExtraSearch && !useOptionalExtraSearch
         ? []
-        : [...(extraSearchQuery ?? [])];
+        : [...(extraSearchQuery ?? ([] as SearchQueryField[]))];
 
-    if (voterId) {
-      query.push({ field: "VRCNUM", value: voterId });
+    if (voterId?.trim()) {
+      query.push({
+        field: searchableFieldEnum.enum.VRCNUM,
+        value: voterId.trim(),
+      });
     }
 
-    if (firstName) {
-      query.push({ field: "firstName", value: firstName });
+    if (firstName?.trim()) {
+      query.push({
+        field: searchableFieldEnum.enum.firstName,
+        value: firstName.trim(),
+      });
     }
 
-    if (lastName) {
-      query.push({ field: "lastName", value: lastName });
+    if (lastName?.trim()) {
+      query.push({
+        field: searchableFieldEnum.enum.lastName,
+        value: lastName.trim(),
+      });
     }
 
-    const response = await fetch(`/api/fetchFilteredData`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ searchQuery: query, page: 1, pageSize: 100 }),
-    });
-
-    // :TODO: does this need to be validated?
-    const { data } = (await response.json()) as {
-      data: VoterRecord[];
-      totalRecords: number;
-    };
-
-    setLoading(false);
-    handleResults(data);
+    void searchMutation.mutate({ searchQuery: query, page: 1, pageSize: 100 });
   };
+  const ContainerElement = useFormElement ? "form" : "div";
+  const containerProps = useFormElement
+    ? {
+        onSubmit: (e: React.FormEvent) => {
+          e.preventDefault();
+          void handleSubmit();
+        },
+      }
+    : {};
+
   return (
     <>
       {headerText && <h1 className="primary-header">{headerText}</h1>}
-      <form
-        onSubmit={handleSubmit}
-        className="lg:w-max w-[80vw] bg-primary-foreground p-4"
+      <ContainerElement
+        className="lg:w-max w-4/5 bg-primary-foreground p-4"
+        {...containerProps}
       >
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-4 items-center">
+          <label className="sr-only" htmlFor="voter-id">
+            Voter ID
+          </label>
           <Input
-            type="string"
+            id="voter-id"
+            type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter Voter ID` : "Voter ID"}
+            autoComplete="off"
+            inputMode="numeric"
+            pattern="[0-9]*"
             onChange={(e) => setVoterId(e.target.value)}
           />
+          <label className="sr-only" htmlFor="first-name">
+            First Name
+          </label>
           <Input
-            type="string"
+            id="first-name"
+            type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter First Name` : "First Name"}
+            autoComplete="given-name"
             onChange={(e) => setFirstName(e.target.value)}
           />
+          <label className="sr-only" htmlFor="last-name">
+            Last Name
+          </label>
           <Input
-            type="string"
+            id="last-name"
+            type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
             placeholder={width > 760 ? `Enter Last Name` : "Last Name"}
+            autoComplete="family-name"
             onChange={(e) => setLastName(e.target.value)}
           />
-          <Button type="submit">
-            {loading ? "Loading..." : submitButtonText}
+          <Button
+            type={useFormElement ? "submit" : "button"}
+            onClick={useFormElement ? undefined : () => void handleSubmit()}
+            disabled={searchMutation.loading}
+            aria-busy={searchMutation.loading || undefined}
+          >
+            {searchMutation.loading ? "Loading..." : submitButtonText}
           </Button>
         </div>
         {optionalExtraSearch && extraSearchQuery && (
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-4 mt-2">
             <Checkbox
               id="eligible-candidates"
-              checked={useOptionalExtaSearch}
+              checked={useOptionalExtraSearch}
               onCheckedChange={(value) => {
                 setUseOptionalExtraSearch(value === true);
               }}
@@ -111,7 +167,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             <label htmlFor="eligible-candidates">{optionalExtraSearch}</label>
           </div>
         )}
-      </form>
+      </ContainerElement>
     </>
   );
 };

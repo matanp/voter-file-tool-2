@@ -14,6 +14,8 @@ import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
+import { useApiMutation } from "~/hooks/useApiMutation";
+import { useToast } from "~/components/ui/use-toast";
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
@@ -23,6 +25,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
 }) => {
   const { actingPermissions } = useContext(GlobalContext);
+  const { toast } = useToast();
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedLegDistrict, setSelectedLegDistrict] = useState<string>("");
   const [useLegDistrict, setUseLegDistrict] = useState<boolean>(false);
@@ -31,8 +34,69 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
   const [requestRemoveRecord, setRequestRemoveRecord] =
     useState<VoterRecord | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
   const [legDistricts, setLegDistricts] = useState<string[]>([]);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const [listLoading, setListLoading] = useState<boolean>(false);
+
+  const removeCommitteeMemberMutation = useApiMutation<
+    { status: "success" | "error"; error?: string },
+    {
+      cityTown: string;
+      legDistrict?: number;
+      electionDistrict: number;
+      memberId: string;
+    }
+  >("/api/committee/remove", "POST", {
+    onSuccess: (data, payload) => {
+      setRemovingId(null);
+      // Check for server-reported failure (200 with { status: "error" })
+      if (
+        data &&
+        typeof data === "object" &&
+        "status" in data &&
+        data.status === "error"
+      ) {
+        toast({
+          title: "Error",
+          description: `Failed to remove committee member: ${data.error ?? "Unknown error"}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (payload) {
+        // Convert numeric legDistrict back to string for fetchCommitteeList
+        const legDistrictString = payload.legDistrict
+          ? payload.legDistrict.toString()
+          : undefined;
+
+        // Only refetch if we have valid parameters
+        if (payload.cityTown && payload.electionDistrict !== undefined) {
+          fetchCommitteeList(
+            payload.cityTown,
+            payload.electionDistrict,
+            legDistrictString,
+          ).catch((error) => {
+            console.error("Error fetching committee list:", error);
+          });
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Committee member removed successfully",
+      });
+    },
+    onError: (error) => {
+      setRemovingId(null);
+      toast({
+        title: "Error",
+        description: `Failed to remove committee member: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const cities = new Set(committeeLists.map((list) => list.cityTown));
 
@@ -91,10 +155,15 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   const fetchCommitteeList = useCallback(
     async (city: string, district: number, legDistrict?: string) => {
-      setLoading(true);
+      setListLoading(true);
       try {
+        const params = new URLSearchParams({
+          cityTown: city,
+          electionDistrict: String(district),
+        });
+        if (legDistrict) params.set("legDistrict", legDistrict);
         const response = await fetch(
-          `/api/fetchCommitteeList/?cityTown=${city}${legDistrict ? `&legDistrict=${legDistrict}` : ""}&electionDistrict=${district}`,
+          `/api/fetchCommitteeList/?${params.toString()}`,
         );
         if (response.ok) {
           const data: unknown = await response.json();
@@ -112,37 +181,30 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         console.error("Error fetching committee list:", error);
         setCommitteeList([]);
       } finally {
-        setLoading(false);
+        setListLoading(false);
       }
     },
-    [setLoading, setCommitteeList],
+    [setListLoading, setCommitteeList],
   );
 
-  const handleRemoveCommitteeMember = async (
-    event: React.FormEvent<HTMLButtonElement>,
-    vrcnum: string,
-  ) => {
-    event.preventDefault();
+  const handleRemoveCommitteeMember = async (vrcnum: string) => {
+    // Guard against invalid selection
+    if (!selectedCity || selectedDistrict < 0) {
+      return;
+    }
 
-    await fetch(`/api/committee/remove`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cityTown: selectedCity,
-        legDistrict: selectedLegDistrict === "" ? "-1" : selectedLegDistrict,
-        electionDistrict: selectedDistrict,
-        memberId: vrcnum,
-      }),
-    });
+    setRemovingId(vrcnum);
 
-    fetchCommitteeList(
-      selectedCity,
-      selectedDistrict,
-      selectedLegDistrict,
-    ).catch((error) => {
-      console.error("Error fetching committee list:", error);
+    // Convert legDistrict string to number for API call
+    const legDistrictNumber = selectedLegDistrict
+      ? Number(selectedLegDistrict)
+      : undefined;
+
+    void removeCommitteeMemberMutation.mutate({
+      cityTown: selectedCity,
+      legDistrict: legDistrictNumber,
+      electionDistrict: selectedDistrict,
+      memberId: vrcnum,
     });
   };
 
@@ -185,7 +247,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       <label htmlFor="district-select" className="primary-header">
         Committee Selector
       </label>
-      <Card className="bg-primary-foreground p-2 w-max flex gap-2">
+      <Card className="bg-primary-foreground p-2 w-max flex gap-4">
         <div className="flex flex-col">
           <label className="font-extralight text-sm pl-1">City</label>
           <ComboboxDropdown
@@ -248,7 +310,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       </Card>
       <h1 className="primary-header pt-2">{getCommitteeListHeader()}</h1>
 
-      {loading ? (
+      {listLoading ? (
         <p>Loading...</p>
       ) : (
         <div>
@@ -269,11 +331,16 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                           <div className="h-full">
                             <Button
                               className="mt-auto"
-                              onClick={(e) =>
-                                handleRemoveCommitteeMember(e, member.VRCNUM)
+                              type="button"
+                              aria-busy={removingId === member.VRCNUM}
+                              onClick={() =>
+                                handleRemoveCommitteeMember(member.VRCNUM)
                               }
+                              disabled={removingId === member.VRCNUM}
                             >
-                              Remove from Committee
+                              {removingId === member.VRCNUM
+                                ? "Removing..."
+                                : "Remove from Committee"}
                             </Button>
                           </div>
                         )}

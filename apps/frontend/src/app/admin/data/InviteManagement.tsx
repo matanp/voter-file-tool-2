@@ -14,12 +14,13 @@ import {
 } from "~/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { PrivilegeLevel, Invite } from "@prisma/client";
+import { PrivilegeLevel, type Invite } from "@prisma/client";
 import { z } from "zod";
 import { Calendar, User, Mail } from "lucide-react";
 import { useToast } from "~/components/ui/use-toast";
 import { DeleteButton } from "~/components/ui/DeleteButton";
 import { CopyButton } from "~/components/ui/CopyButton";
+import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
 
 // Type for serialized Invite data (dates as strings)
 type SerializedInvite = Omit<Invite, "expiresAt" | "createdAt" | "usedAt"> & {
@@ -55,20 +56,10 @@ interface InvitesResponse {
   invites: SerializedInvite[];
 }
 
-interface ErrorResponse {
-  error: string;
-  details?: Array<{
-    field: string;
-    message: string;
-  }>;
-}
-
 export function InviteManagement() {
   const { toast } = useToast();
   const [invites, setInvites] = useState<SerializedInvite[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
   const [formData, setFormData] = useState<CreateInviteData>({
     email: "",
     privilegeLevel: "ReadAccess",
@@ -76,6 +67,53 @@ export function InviteManagement() {
     expiresInDays: 7,
   });
   const [emailError, setEmailError] = useState<string | null>(null);
+
+  // API mutation hooks
+  const createInviteMutation = useApiMutation<
+    SerializedInvite,
+    CreateInviteData
+  >("/api/admin/invites", "POST", {
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Invite created successfully",
+      });
+      setFormData({
+        email: "",
+        privilegeLevel: "ReadAccess",
+        customMessage: "",
+        expiresInDays: 7,
+      });
+      void fetchInvites(); // Refresh the list
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to create invite: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteInviteMutation = useApiDelete<{ success: boolean }>(
+    "/api/admin/invites",
+    {
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Invite deleted successfully",
+        });
+        void fetchInvites(); // Refresh the list
+      },
+      onError: (error) => {
+        toast({
+          title: "Error",
+          description: `Failed to delete invite: ${error.message}`,
+          variant: "destructive",
+        });
+      },
+    },
+  );
 
   const validateEmail = (email: string) => {
     if (!email) {
@@ -151,46 +189,10 @@ export function InviteManagement() {
       return;
     }
 
-    setCreating(true);
-    try {
-      const response = await fetch("/api/admin/invites", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Invite created successfully",
-        });
-        setFormData({
-          email: "",
-          privilegeLevel: "ReadAccess",
-          customMessage: "",
-          expiresInDays: 7,
-        });
-        void fetchInvites(); // Refresh the list
-      } else {
-        const errorData = (await response.json()) as unknown as ErrorResponse;
-        toast({
-          title: "Error",
-          description: errorData.error || "Failed to create invite",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error creating invite:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create invite",
-        variant: "destructive",
-      });
-    } finally {
-      setCreating(false);
-    }
+    await createInviteMutation.mutate({
+      ...formData,
+      email: formData.email.trim(),
+    });
   };
 
   const copyInviteUrl = async (invite: SerializedInvite) => {
@@ -212,36 +214,10 @@ export function InviteManagement() {
       return;
     }
 
-    setDeleting(inviteId);
-    try {
-      const response = await fetch(`/api/admin/invites?id=${inviteId}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Invite deleted successfully",
-        });
-        void fetchInvites(); // Refresh the list
-      } else {
-        const errorData = (await response.json()) as unknown as ErrorResponse;
-        toast({
-          title: "Error",
-          description: errorData.error || "Failed to delete invite",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error deleting invite:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete invite",
-        variant: "destructive",
-      });
-    } finally {
-      setDeleting(null);
-    }
+    await deleteInviteMutation.mutate(
+      undefined, // No payload needed since ID is in URL
+      `/api/admin/invites?id=${inviteId}`,
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -354,9 +330,13 @@ export function InviteManagement() {
           </div>
           <Button
             onClick={createInvite}
-            disabled={creating || !!emailError || !formData.email.trim()}
+            disabled={
+              createInviteMutation.loading ||
+              !!emailError ||
+              !formData.email.trim()
+            }
           >
-            {creating ? "Creating..." : "Create Invite"}
+            {createInviteMutation.loading ? "Creating..." : "Create Invite"}
           </Button>
         </CardContent>
       </Card>
@@ -410,7 +390,7 @@ export function InviteManagement() {
                         title="Copy invite URL"
                       />
                       <DeleteButton
-                        disabled={deleting === invite.id}
+                        disabled={deleteInviteMutation.loading}
                         onClick={() => deleteInvite(invite.id, invite.email)}
                         title="Delete invite"
                       />

@@ -1,9 +1,11 @@
 "use client";
 
 import type { OfficeName } from "@prisma/client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
+import { useToast } from "~/components/ui/use-toast";
 
 interface ElectionOfficesProps {
   officeNames: OfficeName[];
@@ -12,60 +14,132 @@ interface ElectionOfficesProps {
 export const ElectionOffices = ({
   officeNames: initialOffices,
 }: ElectionOfficesProps) => {
+  const { toast } = useToast();
   const [officeNames, setOfficeNames] = useState<OfficeName[]>(initialOffices);
   const [newOffice, setNewOffice] = useState<string>("");
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+
+  // API mutation hooks
+  const addOfficeMutation = useApiMutation<OfficeName, { name: string }>(
+    "/api/admin/officeNames",
+    "POST",
+    {
+      onSuccess: (createdOffice) => {
+        setOfficeNames((prev) => {
+          const idx = prev.findIndex((o) => o.id === createdOffice.id);
+          if (idx === -1) return [...prev, createdOffice];
+          const next = prev.slice();
+          next[idx] = createdOffice;
+          return next;
+        });
+        setNewOffice("");
+        toast({
+          title: "Success",
+          description: "Office name added successfully.",
+        });
+      },
+      onError: (error) => {
+        console.error("Failed to add office", error);
+        const description =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Failed to add office name. Please try again.";
+        toast({
+          title: "Error",
+          description,
+          variant: "destructive",
+        });
+      },
+    },
+  );
+
+  const deleteOfficeMutation = useApiDelete<{ id: number }, { id: number }>(
+    "/api/admin/officeNames",
+    {
+      onSuccess: (data) => {
+        if (data?.id) {
+          setOfficeNames((prev) => prev.filter((o) => o.id !== data.id));
+          toast({
+            title: "Success",
+            description: "Office name deleted successfully.",
+          });
+        }
+      },
+      onError: (error) => {
+        console.error("Failed to delete office", error);
+        const description =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Failed to delete office name. Please try again.";
+        toast({
+          title: "Error",
+          description,
+          variant: "destructive",
+        });
+      },
+    },
+  );
+
+  const fetchOffices = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const res = await fetch("/api/admin/officeNames", { signal });
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch office names (${res.status} ${res.statusText})`,
+          );
+        }
+        const data = (await res.json()) as OfficeName[];
+        setOfficeNames(data);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        console.error("Failed to fetch office names", err);
+        toast({
+          title: "Error",
+          description: "Could not load office names. Please refresh.",
+          variant: "destructive",
+        });
+      }
+    },
+    [toast],
+  );
 
   useEffect(() => {
+    const ac = new AbortController();
     const loadOffices = async () => {
-      await fetchOffices();
+      await fetchOffices(ac.signal);
     };
-
     loadOffices().catch((error) => {
       console.error("Failed to load offices", error);
     });
-  }, []);
-
-  const fetchOffices = async () => {
-    try {
-      const res = await fetch("/api/admin/officeNames");
-      const data = (await res.json()) as OfficeName[];
-      setOfficeNames(data);
-    } catch (err) {
-      console.error("Failed to fetch office names", err);
-    }
-  };
+    return () => ac.abort();
+  }, [fetchOffices]);
 
   const handleAddOffice = async () => {
     if (!newOffice.trim()) return;
-
     try {
-      const res = await fetch("/api/admin/officeNames", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newOffice.trim() }),
-      });
-
-      if (res.ok) {
-        const created = (await res.json()) as OfficeName;
-        setOfficeNames([...officeNames, created]);
-        setNewOffice("");
-      }
-    } catch (err) {
-      console.error("Failed to add office", err);
+      await addOfficeMutation.mutate({ name: newOffice.trim() });
+    } catch (_error) {
+      // onError already handles user feedback/logging.
     }
   };
 
   const handleDeleteOffice = async (id: number) => {
+    setDeletingIds((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`/api/admin/officeNames/${id}}`, {
-        method: "DELETE",
+      await deleteOfficeMutation.mutate({ id }, `/api/admin/officeNames/${id}`);
+    } catch (error) {
+      console.error("Error in handleDeleteOffice:", error);
+    } finally {
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
       });
-
-      if (res.ok) {
-        setOfficeNames(officeNames.filter((o) => o.id !== id));
-      }
-    } catch (err) {
-      console.error("Failed to delete office", err);
     }
   };
 
@@ -83,8 +157,10 @@ export const ElectionOffices = ({
             <Button
               variant="destructive"
               onClick={() => handleDeleteOffice(office.id)}
+              disabled={deletingIds.has(office.id)}
+              aria-busy={deletingIds.has(office.id)}
             >
-              Delete
+              {deletingIds.has(office.id) ? "Deleting..." : "Delete"}
             </Button>
           </li>
         ))}
@@ -96,8 +172,13 @@ export const ElectionOffices = ({
           onChange={(e) => setNewOffice(e.target.value)}
           placeholder="New office name"
         />
-        <Button onClick={handleAddOffice} disabled={!newOffice.trim()}>
-          Add Office
+        <Button
+          type="button"
+          onClick={handleAddOffice}
+          disabled={!newOffice.trim() || addOfficeMutation.loading}
+          aria-busy={addOfficeMutation.loading}
+        >
+          {addOfficeMutation.loading ? "Adding..." : "Add Office"}
         </Button>
       </div>
     </div>

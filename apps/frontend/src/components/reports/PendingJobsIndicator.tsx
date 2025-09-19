@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { type Report, type JobStatus } from "@prisma/client";
 import { formatReportType } from "./reportUtils";
+import { useApiDelete } from "~/hooks/useApiMutation";
 
 interface PendingJobsIndicatorProps {
   initialJobs?: Report[];
@@ -29,8 +30,23 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   initialJobs = [],
 }) => {
   const [jobs, setJobs] = useState<Report[]>(initialJobs);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
   const [loading, setLoading] = useState(false);
-  const [deletingJobs, setDeletingJobs] = useState<Set<string>>(new Set());
+
+  const deleteJobMutation = useApiDelete<{ success: boolean }, { id: string }>(
+    "/api/reports",
+    {
+      onSuccess: (data, payload) => {
+        if (payload?.id) {
+          setJobs((prev) => prev.filter((job) => job.id !== payload.id));
+        }
+      },
+      onError: (error) => {
+        console.error("Error deleting report:", error);
+      },
+    },
+  );
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -38,7 +54,11 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       const response = await fetch(
         "/api/reportJobs?status=pending,processing,failed&page=1&pageSize=5",
       );
-      const data = (await response.json()) as unknown as {
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch pending jobs (${response.status})`);
+      }
+      const data = (await response.json()) as {
         reports: Report[];
       };
       setJobs(data.reports || []);
@@ -64,9 +84,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       case "PROCESSING":
         return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
       case "COMPLETED":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-primary" />;
       case "FAILED":
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <XCircle className="h-4 w-4 text-destructive" />;
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
@@ -109,22 +129,13 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       return;
     }
 
-    setDeletingJobs((prev) => new Set(prev).add(jobId));
+    setDeletingIds((prev) => new Set(prev).add(jobId));
     try {
-      const response = await fetch(`/api/reports/${jobId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete report");
-      }
-
-      // Remove the job from the list
-      setJobs((prev) => prev.filter((job) => job.id !== jobId));
-    } catch (error) {
-      console.error("Error deleting report:", error);
+      await deleteJobMutation.mutate({ id: jobId }, `/api/reports/${jobId}`);
+    } catch {
+      // handled by onError
     } finally {
-      setDeletingJobs((prev) => {
+      setDeletingIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(jobId);
         return newSet;
@@ -174,7 +185,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
             variant="ghost"
             size="sm"
             onClick={fetchJobs}
-            disabled={loading}
+            disabled={
+              loading || deleteJobMutation.loading || deletingIds.size > 0
+            }
             className="flex items-center space-x-1"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -211,8 +224,8 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
                   size="sm"
                   variant="ghost"
                   onClick={() => handleDeleteJob(job.id)}
-                  disabled={deletingJobs.has(job.id)}
-                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  disabled={deletingIds.has(job.id)}
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                   title="Delete failed report"
                 >
                   <Trash2 className="h-4 w-4" />
