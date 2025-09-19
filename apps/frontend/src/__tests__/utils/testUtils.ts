@@ -48,8 +48,8 @@ export const createMockCommitteeData = (
 ): CommitteeData => {
   const data = {
     cityTown: "Test City",
-    legDistrict: "1",
-    electionDistrict: "1",
+    legDistrict: 1,
+    electionDistrict: 1,
     memberId: "TEST123456",
     ...overrides,
   };
@@ -129,18 +129,25 @@ export const createMockRequest = <T = Record<string, unknown>>(
     url.searchParams.set(key, value);
   });
 
+  const method = options.method ?? "POST";
   const defaultHeaders = {
     "Content-Type": "application/json",
   };
 
-  const request = new NextRequest(url, {
-    method: options.method ?? "POST",
+  // Only include body for non-GET/HEAD requests
+  const requestInit: RequestInit = {
+    method,
     headers: {
       ...defaultHeaders,
       ...options.headers,
     },
-    body: JSON.stringify(body),
-  });
+  };
+
+  if (method !== "GET" && method !== "HEAD") {
+    requestInit.body = JSON.stringify(body);
+  }
+
+  const request = new NextRequest(url, requestInit);
 
   return request;
 };

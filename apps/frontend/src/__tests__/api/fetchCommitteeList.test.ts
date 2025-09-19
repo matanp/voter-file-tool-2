@@ -662,7 +662,6 @@ describe("/api/fetchCommitteeList", () => {
     describe("Authorization and data access integration", () => {
       it("should enforce admin-only access to committee data", async () => {
         // Arrange
-        const mockCommittee = createMockCommittee();
         const mockSession = createMockSession({
           user: { privilegeLevel: PrivilegeLevel.ReadAccess }, // Insufficient privileges
         });
@@ -690,6 +689,7 @@ describe("/api/fetchCommitteeList", () => {
 
       it("should handle session expiration during request processing", async () => {
         // Arrange
+        const mockCommittee = createMockCommittee();
         const mockSession = createMockSession({
           user: { privilegeLevel: PrivilegeLevel.Admin },
         });
@@ -700,9 +700,7 @@ describe("/api/fetchCommitteeList", () => {
 
         // Simulate session becoming invalid (this would be handled by the auth middleware)
         // For this test, we're verifying the endpoint behavior with valid session
-        prismaMock.committeeList.findUnique.mockResolvedValue(
-          createMockCommittee(),
-        );
+        prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
         const request = new NextRequest(
           "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1",
@@ -712,7 +710,7 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, createMockCommittee());
+        await expectSuccessResponse(response, mockCommittee);
 
         // Verify the request completed successfully with valid session
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();
