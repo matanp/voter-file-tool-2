@@ -13,7 +13,7 @@ const Header: React.FC = () => {
 
   const showDataTab = hasPermissionFor(
     session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
-    PrivilegeLevel.Developer,
+    PrivilegeLevel.Admin,
   );
 
   const sharedTabStyle =
