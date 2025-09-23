@@ -6,7 +6,11 @@ import type {
 } from "@prisma/client";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
-import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
+import {
+  NUMBER_FIELDS,
+  BOOLEAN_FIELDS,
+  STRING_FIELDS,
+} from "@voter-file-tool/shared-validators";
 
 export const dropdownItems = [
   "city",
@@ -227,40 +231,29 @@ export const exampleVoterRecord: Partial<VoterRecordArchive> = {
   statevid: "NY123456789",
 };
 
-// Use the shared field enum from shared-validators
-export const fieldEnum = searchableFieldEnum;
+// Define discriminated union schemas for each field type
+const numberFieldSchema = z.object({
+  field: z.enum(NUMBER_FIELDS),
+  value: z.number().nullable(),
+});
 
-export const searchQueryFieldSchema = z
-  .array(
-    z.object({
-      field: fieldEnum,
-      value: z.union([
-        z.string().nullable(),
-        z.number().nullable(),
-        z.boolean().nullable(),
-      ]),
-    }),
-  )
-  .refine(
-    (data) => {
-      return data.every((item) => {
-        if (item.field === "houseNum" || item.field === "electionDistrict") {
-          return typeof item.value === "number" || item.value === null;
-        }
-        if (
-          item.field === "hasEmail" ||
-          item.field === "hasInvalidEmail" ||
-          item.field === "hasPhone"
-        ) {
-          return typeof item.value === "boolean" || item.value === null;
-        }
-        return typeof item.value === "string" || item.value === null;
-      });
-    },
-    {
-      message: "Invalid value type for the specified field.",
-    },
-  );
+const booleanFieldSchema = z.object({
+  field: z.enum(BOOLEAN_FIELDS),
+  value: z.boolean().nullable(),
+});
+
+const stringFieldSchema = z.object({
+  field: z.enum(STRING_FIELDS),
+  value: z.string().nullable(),
+});
+
+export const searchQueryFieldSchema = z.array(
+  z.discriminatedUnion("field", [
+    numberFieldSchema,
+    booleanFieldSchema,
+    stringFieldSchema,
+  ]),
+);
 
 export const fetchFilteredDataSchema = z.object({
   searchQuery: searchQueryFieldSchema,
