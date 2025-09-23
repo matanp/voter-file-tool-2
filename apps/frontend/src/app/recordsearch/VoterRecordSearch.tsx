@@ -5,6 +5,25 @@ import {
   searchableFieldEnum,
 } from "@voter-file-tool/shared-validators";
 import { useState, useCallback } from "react";
+
+const generateId = () =>
+  `search-row-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+const addIdToSearchField = (field: SearchField): SearchField => {
+  const id = generateId();
+  if (field.compoundType) {
+    return {
+      ...field,
+      id,
+      fields: field.fields.map((subField) => ({
+        ...subField,
+        id: generateId(),
+      })),
+    };
+  } else {
+    return { ...field, id };
+  }
+};
 import { Button } from "~/components/ui/button";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { DatePicker } from "~/components/ui/datePicker";
@@ -25,6 +44,7 @@ export interface BaseSearchField {
   compoundType: false;
   type: string;
   value?: string | Date | number | boolean;
+  id?: string;
 }
 
 export type SearchField =
@@ -34,6 +54,7 @@ export type SearchField =
       displayName: string;
       compoundType: true;
       fields: BaseSearchField[];
+      id?: string;
     };
 
 const SEARCH_FIELDS: SearchField[] = [
@@ -211,7 +232,7 @@ const SEARCH_FIELDS: SearchField[] = [
 
 const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   const [searchRows, setSearchRows] = useState<SearchField[]>([
-    {
+    addIdToSearchField({
       name: "name",
       displayName: "Name",
       compoundType: true,
@@ -229,8 +250,8 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           type: "String",
         },
       ],
-    },
-    {
+    }),
+    addIdToSearchField({
       name: "address",
       displayName: "Address",
       compoundType: true,
@@ -248,7 +269,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           type: "Street",
         },
       ],
-    },
+    }),
   ]);
 
   const handleChangeField = (
@@ -260,10 +281,13 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
       const template = SEARCH_FIELDS.find((f) => f.name === field);
       if (template) {
         // structuredClone is widely available in Next runtimes; fallback to JSON if needed
-        updatedRows[index] =
+        const newField =
           typeof structuredClone === "function"
             ? structuredClone(template)
             : (JSON.parse(JSON.stringify(template)) as SearchField);
+
+        // Preserve the existing ID
+        updatedRows[index] = addIdToSearchField(newField);
       }
       return updatedRows;
     });
@@ -272,13 +296,13 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   const handleRemoveRow = (index: number) => {
     if (searchRows.length === 1) {
       setSearchRows([
-        {
+        addIdToSearchField({
           name: "empty",
           displayName: "Select a field",
           value: "",
           compoundType: false,
           type: "String",
-        },
+        }),
       ]);
       return;
     }
@@ -353,7 +377,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
       >
         {searchRows.map((row, index) => (
           <div
-            key={`outer-key-${index}`}
+            key={row.id ?? `fallback-key-${index}`}
             className="flex gap-4 shadow-md p-4 bg-background"
           >
             <div className="m-2">
@@ -449,7 +473,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
                       return (
                         <div
-                          key={`sub-index-${index}-${subIdx}`}
+                          key={field.id ?? `sub-fallback-${index}-${subIdx}`}
                           className="flex flex-col"
                         >
                           {field.name !== "city" &&
@@ -562,13 +586,13 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             onClick={() =>
               setSearchRows([
                 ...searchRows,
-                {
+                addIdToSearchField({
                   name: "empty",
                   displayName: "Select a field",
                   value: "",
                   compoundType: false,
                   type: "String",
-                },
+                }),
               ])
             }
           >
