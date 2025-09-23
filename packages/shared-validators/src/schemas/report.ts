@@ -62,17 +62,26 @@ const designatedPetitionReportSchema = z.object({
   payload: generateDesignatedPetitionDataSchema,
 });
 
+// Committee selection criteria schema
+const committeeSelectionSchema = z.object({
+  // If provided, only include committees from these city/town combinations
+  cityTownFilters: z.array(z.string()).optional(),
+  // If provided, only include committees from these legislative districts
+  legDistrictFilters: z.array(z.number()).optional(),
+  // If provided, only include committees from these election districts
+  electionDistrictFilters: z.array(z.number()).optional(),
+  // If true, include all committees (default behavior)
+  includeAll: z.boolean().optional().default(true),
+});
+
 const ldCommitteesReportSchema = z.object({
   type: z.literal('ldCommittees'),
   ...baseApiSchema.shape,
   format: reportFormatEnum,
-  payload: z.array(
-    z.object({
-      cityTown: z.string(),
-      legDistrict: z.number(),
-      committees: z.record(z.string(), z.array(partialVoterRecordSchema)),
-    })
-  ),
+  // Replace payload with committee selection criteria
+  committeeSelection: committeeSelectionSchema
+    .optional()
+    .default({ includeAll: true }),
   // Optional field to specify which VoterRecord fields to include
   includeFields: z.array(z.string()).optional().default([]),
   // XLSX-specific configuration (only applies when format is 'xlsx')
@@ -169,3 +178,4 @@ export type ReportCompleteResponse = z.infer<
 >;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 export type SearchQueryField = z.infer<typeof searchQueryFieldSchema>;
+export type CommitteeSelection = z.infer<typeof committeeSelectionSchema>;

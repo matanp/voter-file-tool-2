@@ -22,8 +22,11 @@ import {
   type CallbackUrl,
   type VoterRecordField,
   type SearchQueryField,
+  type CommitteeSelection,
+  type CommitteeWithMembers,
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
+  mapCommitteesToReportShapeWithFields,
 } from '@voter-file-tool/shared-validators';
 import { prisma } from './lib/prisma';
 
@@ -177,6 +180,71 @@ async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
 }
 
 /**
+ * Fetches committee records based on selection criteria
+ * @param committeeSelection - Committee selection criteria
+ * @returns Array of committee records with members
+ */
+async function fetchCommittees(
+  committeeSelection: CommitteeSelection
+): Promise<CommitteeWithMembers[]> {
+  try {
+    console.log('Fetching committees with selection:', committeeSelection);
+
+    // Build where clause for committee filtering
+    const whereClause: any = {};
+
+    if (!committeeSelection.includeAll) {
+      if (
+        committeeSelection.cityTownFilters &&
+        committeeSelection.cityTownFilters.length > 0
+      ) {
+        whereClause.cityTown = { in: committeeSelection.cityTownFilters };
+      }
+
+      if (
+        committeeSelection.legDistrictFilters &&
+        committeeSelection.legDistrictFilters.length > 0
+      ) {
+        whereClause.legDistrict = { in: committeeSelection.legDistrictFilters };
+      }
+
+      if (
+        committeeSelection.electionDistrictFilters &&
+        committeeSelection.electionDistrictFilters.length > 0
+      ) {
+        whereClause.electionDistrict = {
+          in: committeeSelection.electionDistrictFilters,
+        };
+      }
+    }
+
+    const committees = await prisma.committeeList.findMany({
+      where: whereClause,
+      include: {
+        committeeMemberList: true,
+      },
+    });
+
+    console.log(`Found ${committees.length} committees`);
+    if (committees.length > 0) {
+      console.log('Sample committee structure:', {
+        id: committees[0].id,
+        cityTown: committees[0].cityTown,
+        legDistrict: committees[0].legDistrict,
+        electionDistrict: committees[0].electionDistrict,
+        memberCount: committees[0].committeeMemberList?.length || 0,
+      });
+    }
+    return committees;
+  } catch (error) {
+    console.error('Error fetching committees:', error);
+    throw new Error(
+      `Failed to fetch committees: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
  * Extracts XLSX configuration from job data
  * @param jobData - The enriched report data
  * @returns XLSX configuration object
@@ -218,20 +286,40 @@ async function processJob(jobData: EnrichedReportData) {
     fileName = generateFilename(name, type, format, sanitizedAuthor);
 
     if (type === 'ldCommittees') {
+      console.log('Processing committee report...');
+
+      // Fetch committees from database based on selection criteria
+      const committeeSelection =
+        'committeeSelection' in jobData
+          ? jobData.committeeSelection
+          : { includeAll: true };
+      const includeFields =
+        'includeFields' in jobData ? jobData.includeFields : [];
+      const rawCommittees = await fetchCommittees(committeeSelection);
+
+      // Transform committees to report shape with field filtering
+      const committeeData = mapCommitteesToReportShapeWithFields(
+        rawCommittees,
+        includeFields as VoterRecordField[]
+      );
+
+      console.log(
+        'Transformed committee data structure:',
+        JSON.stringify(committeeData, null, 2)
+      );
+
       if (format === 'xlsx') {
-        console.log('Processing committee report as XLSX...');
+        console.log('Generating committee report as XLSX...');
         const xlsxConfig = extractXLSXConfig(jobData);
-        const payload = 'payload' in jobData ? jobData.payload : [];
         await generateUnifiedXLSXAndUpload(
-          payload,
+          committeeData,
           fileName,
           xlsxConfig,
           'ldCommittees'
         );
       } else {
-        console.log('Processing committee report as PDF...');
-        const payload = 'payload' in jobData ? jobData.payload : [];
-        const html = generateCommitteeReportHTML(payload);
+        console.log('Generating committee report as PDF...');
+        const html = generateCommitteeReportHTML(committeeData);
         await generatePDFAndUpload(html, true, fileName);
       }
     } else if (type === 'voterList') {
