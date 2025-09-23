@@ -8,7 +8,6 @@ import { Label } from "~/components/ui/label";
 import { useToast } from "~/components/ui/use-toast";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { Accordion } from "~/components/ui/accordion";
-import type { CommitteeSelection } from "@voter-file-tool/shared-validators";
 import type { XLSXConfigFormData } from "./types";
 import { DEFAULT_FORM_DATA } from "./types";
 import { useFormValidation } from "./hooks/useFormValidation";
@@ -19,11 +18,7 @@ import { XLSXConfig } from "./components/XLSXConfig";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import type { GenerateReportData } from "@voter-file-tool/shared-validators";
 
-interface XLSXConfigFormProps {
-  // No longer need committeeLists prop - committees are now queried by the backend
-}
-
-export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = () => {
+export const XLSXConfigForm: React.FC = () => {
   const { toast } = useToast();
   const [formData, setFormData] =
     useState<XLSXConfigFormData>(DEFAULT_FORM_DATA);
@@ -131,10 +126,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = () => {
     clearErrorTracking(); // Clear error tracking when report generation starts
 
     try {
-      const committeeSelection: CommitteeSelection = {
-        includeAll: true,
-      };
-
       const includeCompoundFields =
         formData.format === "pdf"
           ? {
@@ -148,7 +139,6 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = () => {
         name: formData.name,
         description: formData.description,
         format: formData.format,
-        committeeSelection,
         includeFields: formData.includeFields,
         xlsxConfig:
           formData.format === "xlsx"

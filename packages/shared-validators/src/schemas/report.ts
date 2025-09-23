@@ -78,10 +78,6 @@ const ldCommitteesReportSchema = z.object({
   type: z.literal('ldCommittees'),
   ...baseApiSchema.shape,
   format: reportFormatEnum,
-  // Replace payload with committee selection criteria
-  committeeSelection: committeeSelectionSchema
-    .optional()
-    .default({ includeAll: true }),
   // Optional field to specify which VoterRecord fields to include
   includeFields: z.array(z.string()).optional().default([]),
   // XLSX-specific configuration (only applies when format is 'xlsx')
