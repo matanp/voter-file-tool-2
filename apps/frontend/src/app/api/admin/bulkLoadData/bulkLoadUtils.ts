@@ -7,10 +7,10 @@ import {
   exampleVoterRecord,
   type DropdownItem,
   dropdownItems,
-  fieldEnum,
   convertStringToDateTime,
   isRecordNewer,
 } from "../../lib/utils";
+import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 
 type VoterRecordArchiveStrings = {
   [K in keyof VoterRecordArchive]: string | null;
@@ -150,7 +150,7 @@ async function saveVoterRecord(
   };
 
   for (const key of Object.keys(exampleVoterRecord)) {
-    const parseKey = fieldEnum.safeParse(key);
+    const parseKey = searchableFieldEnum.safeParse(key);
     if (!parseKey.success) {
       console.log("Error parsing field", key);
       continue;

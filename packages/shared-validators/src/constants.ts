@@ -21,38 +21,20 @@ const NON_SEARCHABLE_FIELDS = [
 ] as const;
 
 /**
- * Additional computed fields that can be searched
+ * Field type subsets for discriminated unions
  */
-const COMPUTED_SEARCHABLE_FIELDS = [
+export const NUMBER_FIELDS = ['houseNum', 'electionDistrict'] as const;
+export const BOOLEAN_FIELDS = [
   'hasEmail',
   'hasInvalidEmail',
   'hasPhone',
 ] as const;
-
-/**
- * Derive searchable fields from VoterRecord type, excluding non-searchable fields
- * This automatically stays in sync with the Prisma schema
- */
-type VoterRecordKeys = keyof VoterRecord;
-type SearchableVoterRecordKeys = Exclude<
-  VoterRecordKeys,
-  (typeof NON_SEARCHABLE_FIELDS)[number]
->;
-type AllSearchableFields =
-  | SearchableVoterRecordKeys
-  | (typeof COMPUTED_SEARCHABLE_FIELDS)[number];
-
-/**
- * Create enum from the derived type - this is the single source of truth
- * The enum values are automatically derived from the VoterRecord type
- */
-export const searchableFieldEnum = z.enum([
+export const STRING_FIELDS = [
   'VRCNUM',
   'lastName',
   'firstName',
   'middleInitial',
   'suffixName',
-  'houseNum',
   'street',
   'apartment',
   'halfAddress',
@@ -76,7 +58,6 @@ export const searchableFieldEnum = z.enum([
   'gender',
   'DOB',
   'L_T',
-  'electionDistrict',
   'countyLegDistrict',
   'stateAssmblyDistrict',
   'stateSenateDistrict',
@@ -86,9 +67,38 @@ export const searchableFieldEnum = z.enum([
   'lastUpdate',
   'originalRegDate',
   'statevid',
+] as const;
+
+/**
+ * Additional computed fields that can be searched
+ */
+const COMPUTED_SEARCHABLE_FIELDS = [
   'hasEmail',
   'hasInvalidEmail',
   'hasPhone',
+] as const;
+
+/**
+ * Derive searchable fields from VoterRecord type, excluding non-searchable fields
+ * This automatically stays in sync with the Prisma schema
+ */
+type VoterRecordKeys = keyof VoterRecord;
+type SearchableVoterRecordKeys = Exclude<
+  VoterRecordKeys,
+  (typeof NON_SEARCHABLE_FIELDS)[number]
+>;
+type AllSearchableFields =
+  | SearchableVoterRecordKeys
+  | (typeof COMPUTED_SEARCHABLE_FIELDS)[number];
+
+/**
+ * Create enum from the field type subsets - this is the single source of truth
+ * The enum values are explicitly derived from the field type subsets
+ */
+export const searchableFieldEnum = z.enum([
+  ...NUMBER_FIELDS,
+  ...BOOLEAN_FIELDS,
+  ...STRING_FIELDS,
 ] as const satisfies readonly AllSearchableFields[]);
 
 export type SearchableField = z.infer<typeof searchableFieldEnum>;
