@@ -278,12 +278,10 @@ function mapVoterRecordFieldsInternal(
   const member: PartialVoterRecordAPI = {};
 
   fieldsToInclude.forEach((field) => {
-    fieldsToInclude.forEach((field) => {
-      if (field in voter) {
-        (member as Record<string, any>)[field] =
-          voter[field as keyof VoterRecordAPI];
-      }
-    });
+    if (field in voter) {
+      (member as Record<string, any>)[field] =
+        voter[field as keyof VoterRecordAPI];
+    }
   });
 
   return member;
