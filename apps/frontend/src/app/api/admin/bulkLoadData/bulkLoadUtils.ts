@@ -163,9 +163,12 @@ async function saveVoterRecord(
     const value = record[parseKey.data];
 
     if (key === "houseNum" || key === "electionDistrict") {
+      const trimmed = value?.trim();
+      const num =
+        trimmed === "" || trimmed == null ? undefined : Number(trimmed);
       voterRecord = {
         ...voterRecord,
-        [key]: Number(value ?? -1),
+        ...(Number.isFinite(num) ? { [key]: num } : {}),
       };
     } else if (
       key === "DOB" ||

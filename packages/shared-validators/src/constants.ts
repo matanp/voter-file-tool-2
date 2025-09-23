@@ -29,6 +29,7 @@ export const BOOLEAN_FIELDS = [
   'hasInvalidEmail',
   'hasPhone',
 ] as const;
+export const DATE_FIELDS = ['DOB', 'lastUpdate', 'originalRegDate'] as const;
 export const STRING_FIELDS = [
   'VRCNUM',
   'lastName',
@@ -56,7 +57,6 @@ export const STRING_FIELDS = [
   'mailingZipSuffix',
   'party',
   'gender',
-  'DOB',
   'L_T',
   'countyLegDistrict',
   'stateAssmblyDistrict',
@@ -64,8 +64,6 @@ export const STRING_FIELDS = [
   'congressionalDistrict',
   'CC_WD_Village',
   'townCode',
-  'lastUpdate',
-  'originalRegDate',
   'statevid',
 ] as const;
 
@@ -98,6 +96,7 @@ type AllSearchableFields =
 export const searchableFieldEnum = z.enum([
   ...NUMBER_FIELDS,
   ...BOOLEAN_FIELDS,
+  ...DATE_FIELDS,
   ...STRING_FIELDS,
 ] as const satisfies readonly AllSearchableFields[]);
 
