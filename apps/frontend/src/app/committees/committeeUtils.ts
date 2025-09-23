@@ -1,17 +1,8 @@
-import {
-  mapCommitteesToReportShape,
-  mapCommitteesToReportShapeWithFields,
-  type CommitteeWithMembers,
-  type LDCommitteesWithFields,
-} from "@voter-file-tool/shared-validators";
+import type { CommitteeList, VoterRecord } from "@prisma/client";
 import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
 
-// Re-export the shared utilities
-export {
-  mapCommitteesToReportShape,
-  mapCommitteesToReportShapeWithFields,
-  type CommitteeWithMembers,
-  type LDCommitteesWithFields,
+export type CommitteeWithMembers = CommitteeList & {
+  committeeMemberList?: VoterRecord[];
 };
 
 /**
