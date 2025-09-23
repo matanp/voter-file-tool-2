@@ -6,18 +6,29 @@ import {
 } from "@voter-file-tool/shared-validators";
 import { useState, useCallback } from "react";
 
-const generateId = () =>
-  `search-row-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+const generateId = (): string => {
+  // Use crypto.randomUUID() for better uniqueness, with fallback for older browsers
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback to timestamp + random for older browsers
+  return `search-row-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+};
 
-const addIdToSearchField = (field: SearchField): SearchField => {
-  const id = generateId();
+const addIdsIfMissing = (
+  field: SearchField,
+  existingId?: string,
+): SearchField => {
+  // Only add ID if it doesn't already exist, or use the provided existing ID
+  const id = existingId ?? field.id ?? generateId();
+
   if (field.compoundType) {
     return {
       ...field,
       id,
       fields: field.fields.map((subField) => ({
         ...subField,
-        id: generateId(),
+        id: subField.id ?? generateId(),
       })),
     };
   } else {
@@ -231,8 +242,8 @@ const SEARCH_FIELDS: SearchField[] = [
 ];
 
 const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
-  const [searchRows, setSearchRows] = useState<SearchField[]>([
-    addIdToSearchField({
+  const [searchRows, setSearchRows] = useState<SearchField[]>(() => [
+    addIdsIfMissing({
       name: "name",
       displayName: "Name",
       compoundType: true,
@@ -251,7 +262,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         },
       ],
     }),
-    addIdToSearchField({
+    addIdsIfMissing({
       name: "address",
       displayName: "Address",
       compoundType: true,
@@ -286,8 +297,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             ? structuredClone(template)
             : (JSON.parse(JSON.stringify(template)) as SearchField);
 
-        // Preserve the existing ID
-        updatedRows[index] = addIdToSearchField(newField);
+        updatedRows[index] = addIdsIfMissing(newField, updatedRows[index]?.id);
       }
       return updatedRows;
     });
@@ -296,7 +306,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   const handleRemoveRow = (index: number) => {
     if (searchRows.length === 1) {
       setSearchRows([
-        addIdToSearchField({
+        addIdsIfMissing({
           name: "empty",
           displayName: "Select a field",
           value: "",
@@ -353,17 +363,25 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const isMeaningful = (v: unknown) =>
+      v !== undefined &&
+      v !== null &&
+      !(typeof v === "string" && v.trim() === "");
+
     const filteredRows = searchRows
-      .map((row) => {
-        if (row.compoundType) {
-          return {
-            ...row,
-            fields: row.fields.filter((field) => field.value),
-          };
-        }
-        return row;
-      })
-      .filter((row) => row.compoundType || row.value);
+      .map((row) =>
+        row.compoundType
+          ? {
+              ...row,
+              fields: row.fields.filter((f) => isMeaningful(f.value)),
+            }
+          : row,
+      )
+      .filter((row) =>
+        row.compoundType ? row.fields.length > 0 : isMeaningful(row.value),
+      );
+
     props.handleSubmit(filteredRows).catch((error) => {
       console.error("Error submitting search:", error);
     });
@@ -586,7 +604,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             onClick={() =>
               setSearchRows([
                 ...searchRows,
-                addIdToSearchField({
+                addIdsIfMissing({
                   name: "empty",
                   displayName: "Select a field",
                   value: "",
