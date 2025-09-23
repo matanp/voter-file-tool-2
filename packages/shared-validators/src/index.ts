@@ -7,6 +7,7 @@ export * from './schemas/api';
 
 // Export utility functions
 export * from './compoundFieldUtils';
+export * from './committeeUtils';
 export * from './searchQueryUtils';
 
 // Export shared constants
