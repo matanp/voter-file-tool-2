@@ -5,12 +5,16 @@ import {
   createMockVoterRecord,
   createMockRequest,
   createAuthTestSuite,
+  expectSuccessResponse,
   type AuthTestConfig,
 } from "../utils/testUtils";
 import {
   createEmptySearchQuery,
   createInvalidRequestData,
   createInvalidSearchQueryField,
+  createValidRequestData,
+  setupDatabaseMocks,
+  expectFindManyCalledWithSubset,
   runPaginationTest,
   runSearchQueryTest,
   runValidationTest,
@@ -25,7 +29,10 @@ import {
 import type { DeepMockProxy } from "jest-mock-extended";
 import type { PrismaClient } from "@prisma/client";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
-import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
+import {
+  searchableFieldEnum,
+  convertPrismaVoterRecordToAPI,
+} from "@voter-file-tool/shared-validators";
 
 // Type alias for the Prisma mock
 type PrismaMock = DeepMockProxy<PrismaClient>;
@@ -170,6 +177,147 @@ describe("/api/fetchFilteredData", () => {
           expectedTotal: 1,
           expectAndConditions: true,
         },
+        {
+          description:
+            "should filter multiple records by firstName and return subset",
+          searchQuery: [
+            { field: searchableFieldEnum.enum.firstName, value: "John" },
+          ],
+          expectedWhere: { firstName: "JOHN" },
+          mockRecords: [
+            createMockVoterRecord({
+              firstName: "John",
+              lastName: "Doe",
+              VRCNUM: "VR001",
+            }),
+            createMockVoterRecord({
+              firstName: "John",
+              lastName: "Smith",
+              VRCNUM: "VR002",
+            }),
+          ],
+          expectedTotal: 2,
+        },
+        {
+          description:
+            "should filter multiple records by lastName and return subset",
+          searchQuery: [
+            { field: searchableFieldEnum.enum.lastName, value: "Smith" },
+          ],
+          expectedWhere: { lastName: "SMITH" },
+          mockRecords: [
+            createMockVoterRecord({
+              firstName: "John",
+              lastName: "Smith",
+              VRCNUM: "VR001",
+            }),
+            createMockVoterRecord({
+              firstName: "Jane",
+              lastName: "Smith",
+              VRCNUM: "VR002",
+            }),
+            createMockVoterRecord({
+              firstName: "Bob",
+              lastName: "Smith",
+              VRCNUM: "VR003",
+            }),
+          ],
+          expectedTotal: 3,
+        },
+        {
+          description:
+            "should filter multiple records by city and return subset",
+          searchQuery: [
+            { field: searchableFieldEnum.enum.city, value: "New York" },
+          ],
+          expectedWhere: { city: "New York" },
+          mockRecords: [
+            createMockVoterRecord({
+              firstName: "Alice",
+              city: "New York",
+              VRCNUM: "VR001",
+            }),
+            createMockVoterRecord({
+              firstName: "Bob",
+              city: "New York",
+              VRCNUM: "VR002",
+            }),
+          ],
+          expectedTotal: 2,
+        },
+        {
+          description:
+            "should filter multiple records by multiple fields and return subset",
+          searchQuery: [
+            { field: searchableFieldEnum.enum.firstName, value: "John" },
+            { field: searchableFieldEnum.enum.city, value: "Boston" },
+          ],
+          expectedWhere: {
+            firstName: "JOHN",
+            city: "Boston",
+          },
+          mockRecords: [
+            createMockVoterRecord({
+              firstName: "John",
+              city: "Boston",
+              VRCNUM: "VR001",
+            }),
+            createMockVoterRecord({
+              firstName: "John",
+              city: "Boston",
+              VRCNUM: "VR002",
+            }),
+          ],
+          expectedTotal: 2,
+        },
+        {
+          description:
+            "should filter by houseNum and return subset from multiple records",
+          searchQuery: [
+            { field: searchableFieldEnum.enum.houseNum, value: 123 },
+          ],
+          expectedWhere: { houseNum: 123 },
+          mockRecords: [
+            createMockVoterRecord({
+              houseNum: 123,
+              firstName: "Alice",
+              VRCNUM: "VR001",
+            }),
+            createMockVoterRecord({
+              houseNum: 123,
+              firstName: "Bob",
+              VRCNUM: "VR002",
+            }),
+            createMockVoterRecord({
+              houseNum: 123,
+              firstName: "Charlie",
+              VRCNUM: "VR003",
+            }),
+          ],
+          expectedTotal: 3,
+        },
+        {
+          description:
+            "should filter by hasEmail=true and return subset from multiple records",
+          searchQuery: [
+            { field: searchableFieldEnum.enum.hasEmail, value: true },
+          ],
+          expectedWhere: {}, // hasEmail gets converted to AND conditions
+          mockRecords: [
+            createMockVoterRecord({
+              email: "alice@example.com",
+              firstName: "Alice",
+              VRCNUM: "VR001",
+            }),
+            createMockVoterRecord({
+              email: "bob@example.com",
+              firstName: "Bob",
+              VRCNUM: "VR002",
+            }),
+          ],
+          expectedTotal: 2,
+          expectAndConditions: true,
+        },
       ];
 
       searchQueryTestCases.forEach((testCase) => {
@@ -181,6 +329,292 @@ describe("/api/fetchFilteredData", () => {
             prismaMock,
           );
         });
+      });
+    });
+
+    describe("Multiple records filtering tests", () => {
+      it("should return only matching records when searching in a larger dataset", async () => {
+        // Arrange: Create a larger dataset with mixed data
+        const allRecords = [
+          createMockVoterRecord({
+            firstName: "John",
+            lastName: "Doe",
+            city: "New York",
+            VRCNUM: "VR001",
+          }),
+          createMockVoterRecord({
+            firstName: "Jane",
+            lastName: "Smith",
+            city: "Boston",
+            VRCNUM: "VR002",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            lastName: "Johnson",
+            city: "Chicago",
+            VRCNUM: "VR003",
+          }),
+          createMockVoterRecord({
+            firstName: "Alice",
+            lastName: "Brown",
+            city: "New York",
+            VRCNUM: "VR004",
+          }),
+          createMockVoterRecord({
+            firstName: "Bob",
+            lastName: "Wilson",
+            city: "Boston",
+            VRCNUM: "VR005",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            lastName: "Davis",
+            city: "Miami",
+            VRCNUM: "VR006",
+          }),
+        ];
+
+        // Only return records that match firstName: "John"
+        const matchingRecords = allRecords.filter(
+          (record) => record.firstName === "John",
+        );
+
+        setupAuthenticatedTest();
+        setupDatabaseMocks(matchingRecords, matchingRecords.length, prismaMock);
+
+        const requestData = createValidRequestData(
+          [{ field: searchableFieldEnum.enum.firstName, value: "John" }],
+          10,
+          1,
+        );
+        const request = createMockRequest(requestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(response, {
+          data: matchingRecords.map(convertPrismaVoterRecordToAPI),
+          totalRecords: matchingRecords.length,
+        });
+
+        // Verify the correct where clause was used
+        expectFindManyCalledWithSubset(
+          {
+            where: { firstName: "JOHN" },
+            skip: 0,
+            take: 10,
+          },
+          0,
+          prismaMock,
+        );
+      });
+
+      it("should handle pagination correctly with multiple matching records", async () => {
+        // Arrange: Create 5 records that match the search
+        const matchingRecords = [
+          createMockVoterRecord({
+            firstName: "John",
+            lastName: "Doe",
+            VRCNUM: "VR001",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            lastName: "Smith",
+            VRCNUM: "VR002",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            lastName: "Johnson",
+            VRCNUM: "VR003",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            lastName: "Brown",
+            VRCNUM: "VR004",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            lastName: "Wilson",
+            VRCNUM: "VR005",
+          }),
+        ];
+
+        // For page 2 with pageSize 2, we should get records 3 and 4 (skip 2, take 2)
+        const page2Records = matchingRecords.slice(2, 4);
+
+        setupAuthenticatedTest();
+        setupDatabaseMocks(page2Records, matchingRecords.length, prismaMock);
+
+        const requestData = createValidRequestData(
+          [{ field: searchableFieldEnum.enum.firstName, value: "John" }],
+          2, // pageSize
+          2, // page
+        );
+        const request = createMockRequest(requestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(response, {
+          data: page2Records.map(convertPrismaVoterRecordToAPI),
+          totalRecords: matchingRecords.length,
+        });
+
+        // Verify pagination calculation: skip = (2-1) * 2 = 2
+        expectFindManyCalledWithSubset(
+          {
+            where: { firstName: "JOHN" },
+            skip: 2,
+            take: 2,
+          },
+          0,
+          prismaMock,
+        );
+      });
+
+      it("should filter by multiple criteria and return only records matching all conditions", async () => {
+        // Arrange: Create records with various combinations
+        const allRecords = [
+          createMockVoterRecord({
+            firstName: "John",
+            city: "Boston",
+            houseNum: 123,
+            VRCNUM: "VR001",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            city: "New York",
+            houseNum: 123,
+            VRCNUM: "VR002",
+          }),
+          createMockVoterRecord({
+            firstName: "Jane",
+            city: "Boston",
+            houseNum: 123,
+            VRCNUM: "VR003",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            city: "Boston",
+            houseNum: 456,
+            VRCNUM: "VR004",
+          }),
+          createMockVoterRecord({
+            firstName: "John",
+            city: "Boston",
+            houseNum: 123,
+            VRCNUM: "VR005",
+          }),
+        ];
+
+        // Only records matching firstName: "John" AND city: "Boston" AND houseNum: 123
+        const matchingRecords = allRecords.filter(
+          (record) =>
+            record.firstName === "John" &&
+            record.city === "Boston" &&
+            record.houseNum === 123,
+        );
+
+        setupAuthenticatedTest();
+        setupDatabaseMocks(matchingRecords, matchingRecords.length, prismaMock);
+
+        const requestData = createValidRequestData(
+          [
+            { field: searchableFieldEnum.enum.firstName, value: "John" },
+            { field: searchableFieldEnum.enum.city, value: "Boston" },
+            { field: searchableFieldEnum.enum.houseNum, value: 123 },
+          ],
+          10,
+          1,
+        );
+        const request = createMockRequest(requestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(response, {
+          data: matchingRecords.map(convertPrismaVoterRecordToAPI),
+          totalRecords: matchingRecords.length,
+        });
+
+        // Verify the correct where clause was used
+        expectFindManyCalledWithSubset(
+          {
+            where: {
+              firstName: "JOHN",
+              city: "Boston",
+              houseNum: 123,
+            },
+            skip: 0,
+            take: 10,
+          },
+          0,
+          prismaMock,
+        );
+      });
+
+      it("should handle hasEmail filtering with multiple records", async () => {
+        // Arrange: Create records with mixed email status
+        const allRecords = [
+          createMockVoterRecord({
+            firstName: "Alice",
+            email: "alice@example.com",
+            VRCNUM: "VR001",
+          }),
+          createMockVoterRecord({
+            firstName: "Bob",
+            email: null,
+            VRCNUM: "VR002",
+          }),
+          createMockVoterRecord({
+            firstName: "Charlie",
+            email: "charlie@example.com",
+            VRCNUM: "VR003",
+          }),
+          createMockVoterRecord({
+            firstName: "Diana",
+            email: "",
+            VRCNUM: "VR004",
+          }),
+          createMockVoterRecord({
+            firstName: "Eve",
+            email: "eve@example.com",
+            VRCNUM: "VR005",
+          }),
+        ];
+
+        // Only records with hasEmail: true (non-null, non-empty email)
+        const matchingRecords = allRecords.filter(
+          (record) => record.email !== null && record.email !== "",
+        );
+
+        setupAuthenticatedTest();
+        setupDatabaseMocks(matchingRecords, matchingRecords.length, prismaMock);
+
+        const requestData = createValidRequestData(
+          [{ field: searchableFieldEnum.enum.hasEmail, value: true }],
+          10,
+          1,
+        );
+        const request = createMockRequest(requestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectSuccessResponse(response, {
+          data: matchingRecords.map(convertPrismaVoterRecordToAPI),
+          totalRecords: matchingRecords.length,
+        });
+
+        // Verify the correct where clause was used (should include AND conditions for email)
+        const query = prismaMock.voterRecord.findMany.mock.calls[0];
+        const queryArgs = query?.[0] as { where?: { AND?: unknown } };
+        expect(queryArgs?.where).toHaveProperty("AND");
+        expect(Array.isArray(queryArgs?.where?.AND)).toBe(true);
       });
     });
 

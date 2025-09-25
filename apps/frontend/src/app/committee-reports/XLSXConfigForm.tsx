@@ -134,7 +134,7 @@ export const XLSXConfigForm: React.FC = () => {
             }
           : formData.includeCompoundFields;
 
-      const reportPayload = {
+      const reportPayload: GenerateReportData = {
         type: "ldCommittees" as const,
         name: formData.name,
         description: formData.description,
