@@ -144,10 +144,17 @@ export const createMockRequest = <T = Record<string, unknown>>(
   };
 
   if (method !== "GET" && method !== "HEAD") {
-    requestInit.body = JSON.stringify(body);
+    try {
+      requestInit.body = JSON.stringify(body);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`Request body is not serializable: ${errorMessage}`);
+    }
   }
 
-  const request = new NextRequest(url, requestInit);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+  const request = new NextRequest(url, requestInit as any);
 
   return request;
 };
@@ -174,13 +181,24 @@ export const expectErrorResponse = async (
 ): Promise<void> => {
   expect(response.status).toBe(expectedStatus);
   if (expectedError !== undefined) {
-    const json = (await response.json()) as {
-      error: string;
-      success?: boolean;
-    };
+    const json = (await response.json()) as Record<string, unknown>;
+
+    // Validate response structure
+    if (typeof json !== "object" || json === null) {
+      throw new Error("Response is not a valid JSON object");
+    }
+
+    if (!("error" in json) || typeof json.error !== "string") {
+      throw new Error("Response does not contain a valid error field");
+    }
+
     expect(json.error).toBe(expectedError);
+
     // For validation errors (422 status with "Invalid request data"), expect success: false
     if (expectedStatus === 422 && expectedError === "Invalid request data") {
+      if (!("success" in json) || typeof json.success !== "boolean") {
+        throw new Error("Response does not contain a valid success field");
+      }
       expect(json.success).toBe(false);
     }
   }
