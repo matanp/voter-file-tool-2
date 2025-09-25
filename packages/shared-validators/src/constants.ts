@@ -30,7 +30,7 @@ const NON_SEARCHABLE_FIELDS = [
  * Field type subsets for discriminated unions
  */
 export const NUMBER_FIELDS = ['houseNum', 'electionDistrict'] as const;
-export const BOOLEAN_FIELDS = [
+export const COMPUTED_BOOLEAN_FIELDS = [
   'hasEmail',
   'hasInvalidEmail',
   'hasPhone',
@@ -74,15 +74,6 @@ export const STRING_FIELDS = [
 ] as const;
 
 /**
- * Additional computed fields that can be searched
- */
-const COMPUTED_SEARCHABLE_FIELDS = [
-  'hasEmail',
-  'hasInvalidEmail',
-  'hasPhone',
-] as const;
-
-/**
  * Derive searchable fields from VoterRecord type, excluding non-searchable fields
  * This automatically stays in sync with the Prisma schema
  */
@@ -93,7 +84,7 @@ type SearchableVoterRecordKeys = Exclude<
 >;
 type AllSearchableFields =
   | SearchableVoterRecordKeys
-  | (typeof COMPUTED_SEARCHABLE_FIELDS)[number];
+  | (typeof COMPUTED_BOOLEAN_FIELDS)[number];
 
 /**
  * Create enum from the field type subsets - this is the single source of truth
@@ -101,7 +92,7 @@ type AllSearchableFields =
  */
 export const searchableFieldEnum = z.enum([
   ...NUMBER_FIELDS,
-  ...BOOLEAN_FIELDS,
+  ...COMPUTED_BOOLEAN_FIELDS,
   ...DATE_FIELDS,
   ...STRING_FIELDS,
 ] as const satisfies readonly AllSearchableFields[]);

@@ -8,7 +8,7 @@ import { z } from "zod";
 import prisma from "~/lib/prisma";
 import {
   NUMBER_FIELDS,
-  BOOLEAN_FIELDS,
+  COMPUTED_BOOLEAN_FIELDS,
   STRING_FIELDS,
 } from "@voter-file-tool/shared-validators";
 
@@ -238,7 +238,7 @@ const numberFieldSchema = z.object({
 });
 
 const booleanFieldSchema = z.object({
-  field: z.enum(BOOLEAN_FIELDS),
+  field: z.enum(COMPUTED_BOOLEAN_FIELDS),
   value: z.boolean().nullable(),
 });
 
@@ -260,6 +260,8 @@ export const fetchFilteredDataSchema = z.object({
   pageSize: z.number().int().min(1).max(100),
   page: z.number().int().min(1),
 });
+
+export type FetchFilteredDataRequest = z.infer<typeof fetchFilteredDataSchema>;
 
 // const partyCodes = [
 //   "BLK",

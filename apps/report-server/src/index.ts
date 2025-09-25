@@ -26,7 +26,6 @@ import {
   type CommitteeWithMembers,
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
-  mapCommitteesToReportShapeWithFields,
 } from '@voter-file-tool/shared-validators';
 import {
   mapCommitteesToReportShape,
@@ -179,71 +178,6 @@ async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
     console.error('Error fetching voter records:', error);
     throw new Error(
       `Failed to fetch voter records: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
-  }
-}
-
-/**
- * Fetches committee records based on selection criteria
- * @param committeeSelection - Committee selection criteria
- * @returns Array of committee records with members
- */
-async function fetchCommittees(
-  committeeSelection: CommitteeSelection
-): Promise<CommitteeWithMembers[]> {
-  try {
-    console.log('Fetching committees with selection:', committeeSelection);
-
-    // Build where clause for committee filtering
-    const whereClause: any = {};
-
-    if (!committeeSelection.includeAll) {
-      if (
-        committeeSelection.cityTownFilters &&
-        committeeSelection.cityTownFilters.length > 0
-      ) {
-        whereClause.cityTown = { in: committeeSelection.cityTownFilters };
-      }
-
-      if (
-        committeeSelection.legDistrictFilters &&
-        committeeSelection.legDistrictFilters.length > 0
-      ) {
-        whereClause.legDistrict = { in: committeeSelection.legDistrictFilters };
-      }
-
-      if (
-        committeeSelection.electionDistrictFilters &&
-        committeeSelection.electionDistrictFilters.length > 0
-      ) {
-        whereClause.electionDistrict = {
-          in: committeeSelection.electionDistrictFilters,
-        };
-      }
-    }
-
-    const committees = await prisma.committeeList.findMany({
-      where: whereClause,
-      include: {
-        committeeMemberList: true,
-      },
-    });
-
-    console.log(`Found ${committees.length} committees`);
-    if (committees.length > 0) {
-      console.log('Sample committee structure:', {
-        id: committees[0].id,
-        cityTown: committees[0].cityTown,
-        legDistrict: committees[0].legDistrict,
-        electionDistrict: committees[0].electionDistrict,
-        memberCount: committees[0].committeeMemberList?.length || 0,
-      });
-    }
-    return committees;
-  } catch (error) {
-    console.error('Error fetching committees:', error);
-    throw new Error(
-      `Failed to fetch committees: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }
