@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import type { RequestInit as NextRequestInit } from "next/dist/server/web/spec-extension/request";
 import {
   PrivilegeLevel,
   type CommitteeList,
@@ -11,8 +12,7 @@ import {
   type CommitteeData,
 } from "~/lib/validations/committee";
 
-// Validation test case types
-type ValidationTestCase = {
+type CommitteeValidationTestCase = {
   field: keyof CommitteeData;
   value: string;
   expectedError: string;
@@ -135,7 +135,7 @@ export const createMockRequest = <T = Record<string, unknown>>(
   };
 
   // Only include body for non-GET/HEAD requests
-  const requestInit: RequestInit = {
+  const requestInit: NextRequestInit = {
     method,
     headers: {
       ...defaultHeaders,
@@ -153,8 +153,7 @@ export const createMockRequest = <T = Record<string, unknown>>(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-  const request = new NextRequest(url, requestInit as any);
+  const request = new NextRequest(url, requestInit);
 
   return request;
 };
@@ -315,9 +314,9 @@ export const createCommitteeRequestCreateArgs = (
 
 // Shared validation test data
 export const validationTestCases: {
-  missingFields: ValidationTestCase[];
-  invalidNumeric: ValidationTestCase[];
-  invalidElectionDistrict: ValidationTestCase[];
+  missingFields: CommitteeValidationTestCase[];
+  invalidNumeric: CommitteeValidationTestCase[];
+  invalidElectionDistrict: CommitteeValidationTestCase[];
   invalidRequestNotes: Array<{
     field: "requestNotes";
     value: string;
@@ -528,7 +527,7 @@ export const createAuthTestSuite = (
 
 // Helper function to create parameterized validation tests
 export const createValidationTestSuite = (
-  testCases: ValidationTestCase[],
+  testCases: CommitteeValidationTestCase[],
   createInvalidData: (
     field: keyof CommitteeData,
     value: string,

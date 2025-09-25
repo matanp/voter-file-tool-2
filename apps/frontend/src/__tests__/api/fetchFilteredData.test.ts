@@ -1,48 +1,34 @@
 import { POST } from "~/app/api/fetchFilteredData/route";
-import { PrivilegeLevel, type Prisma } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
   createMockVoterRecord,
-  expectSuccessResponse,
-  expectErrorResponse,
   createMockRequest,
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
-import type { SearchQueryField } from "@voter-file-tool/shared-validators";
 import {
-  searchableFieldEnum,
-  type SearchableField,
-  NUMBER_FIELDS,
-  BOOLEAN_FIELDS,
-  STRING_FIELDS,
-  convertPrismaVoterRecordToAPI,
-  type VoterRecordAPI,
-} from "@voter-file-tool/shared-validators";
-import { fetchFilteredDataSchema } from "~/app/api/lib/utils";
-import type { z } from "zod";
+  createEmptySearchQuery,
+  createInvalidRequestData,
+  createInvalidSearchQueryField,
+  runPaginationTest,
+  runSearchQueryTest,
+  runValidationTest,
+  runDatabaseErrorTest,
+  runDateConversionTest,
+  type PaginationTestCase,
+  type SearchQueryTestCase,
+  type FetchFilteredDataValidationTestCase,
+  type DatabaseErrorTestCase,
+  type DateConversionTestCase,
+} from "../utils/fetchFilteredDataTestUtils";
+import type { DeepMockProxy } from "jest-mock-extended";
+import type { PrismaClient } from "@prisma/client";
+import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
+import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 
-// Type-safe Prisma mock call verification
-type PrismaFindManyArgs = {
-  where: Prisma.VoterRecordWhereInput;
-  skip: number;
-  take: number;
-};
-
-// Strongly typed Jest objectContaining helper to avoid unsafe assignments at callsites
-const typedObjectContaining = <T>(subset: Partial<T>): T => {
-  return expect.objectContaining(subset) as unknown as T;
-};
-
-// Verify a subset of the Prisma findMany args
-const expectFindManyCalledWithSubset = (
-  subset: Partial<PrismaFindManyArgs>,
-  callIndex = 0,
-): void => {
-  const call = prismaMock.voterRecord.findMany.mock.calls[callIndex]?.[0];
-  expect(call).toMatchObject(subset);
-};
+// Type alias for the Prisma mock
+type PrismaMock = DeepMockProxy<PrismaClient>;
 
 const setupAuthenticatedTest = (privilegeLevel = PrivilegeLevel.ReadAccess) => {
   const mockSession = createMockSession({ user: { privilegeLevel } });
@@ -50,74 +36,6 @@ const setupAuthenticatedTest = (privilegeLevel = PrivilegeLevel.ReadAccess) => {
   mockHasPermission(true);
   return mockSession;
 };
-
-const setupDatabaseMocks = (
-  records: ReturnType<typeof createMockVoterRecord>[],
-  totalRecords: number,
-) => {
-  prismaMock.voterRecord.findMany.mockResolvedValue(records);
-  prismaMock.voterRecord.count.mockResolvedValue(totalRecords);
-};
-const createEmptySearchQuery = (): SearchQueryField[] => {
-  return [];
-};
-
-// Separate type for invalid test data
-type InvalidSearchQueryField = {
-  field: string; // Allow any string for invalid tests
-  value: unknown; // Allow any value for invalid tests
-};
-
-const createInvalidSearchQueryField = (
-  field: string,
-  value: unknown,
-): InvalidSearchQueryField => {
-  return { field, value };
-};
-
-// Type-safe request data builders
-type FetchFilteredDataRequest = z.infer<typeof fetchFilteredDataSchema>;
-
-// Type-safe valid request data creation with runtime validation
-const createValidRequestData = (
-  searchQuery: SearchQueryField[],
-  pageSize: number,
-  page: number,
-): FetchFilteredDataRequest => {
-  const result = fetchFilteredDataSchema.safeParse({
-    searchQuery,
-    pageSize,
-    page,
-  });
-
-  if (!result.success) {
-    throw new Error(`Invalid request data: ${result.error.message}`);
-  }
-
-  return result.data;
-};
-
-// Separate type for invalid request data
-type InvalidRequestData = {
-  searchQuery?: unknown;
-  pageSize?: unknown;
-  page?: unknown;
-};
-
-const createInvalidRequestData = (
-  searchQuery: unknown,
-  pageSize: unknown,
-  page: unknown,
-): InvalidRequestData => {
-  return {
-    searchQuery,
-    pageSize,
-    page,
-  };
-};
-
-// Note: Direct expect.objectContaining() calls are used instead of helper functions
-// to avoid TypeScript type inference issues with Jest expectations
 
 describe("/api/fetchFilteredData", () => {
   beforeEach(() => {
@@ -163,7 +81,7 @@ describe("/api/fetchFilteredData", () => {
     });
 
     describe("Pagination tests", () => {
-      const paginationTestCases = [
+      const paginationTestCases: PaginationTestCase[] = [
         {
           description: "should handle basic pagination correctly",
           pageSize: 5,
@@ -187,53 +105,25 @@ describe("/api/fetchFilteredData", () => {
         },
       ];
 
-      paginationTestCases.forEach(
-        ({ description, pageSize, page, expectedSkip, totalRecords }) => {
-          it(description, async () => {
-            // Arrange
-            const recordCount = Math.max(1, Math.min(pageSize, 10)); // Ensure at least 1 record
-            const mockVoterRecords: ReturnType<typeof createMockVoterRecord>[] =
-              Array.from({ length: recordCount }, (_, i) =>
-                createMockVoterRecord({
-                  VRCNUM: `TEST${i.toString().padStart(6, "0")}`,
-                }),
-              );
-
-            setupAuthenticatedTest();
-            setupDatabaseMocks(mockVoterRecords, totalRecords);
-
-            const requestData = createValidRequestData(
-              createEmptySearchQuery(),
-              pageSize,
-              page,
-            );
-
-            const request = createMockRequest(requestData);
-
-            // Act
-            const response = await POST(request);
-
-            // Assert
-            await expectSuccessResponse(response, {
-              data: mockVoterRecords.map(convertPrismaVoterRecordToAPI),
-              totalRecords,
-            });
-
-            // Verify pagination calculation (subset match; avoid brittleness)
-            expectFindManyCalledWithSubset({
-              skip: expectedSkip,
-              take: pageSize,
-            });
-          });
-        },
-      );
+      paginationTestCases.forEach((testCase) => {
+        it(testCase.description, async () => {
+          await runPaginationTest(
+            testCase,
+            POST,
+            setupAuthenticatedTest,
+            prismaMock,
+          );
+        });
+      });
     });
 
     describe("Search query tests", () => {
-      const searchQueryTestCases = [
+      const searchQueryTestCases: SearchQueryTestCase[] = [
         {
           description: "should handle single field search",
-          searchQuery: [{ field: "firstName" as const, value: "John" }],
+          searchQuery: [
+            { field: searchableFieldEnum.enum.firstName, value: "John" },
+          ],
           expectedWhere: { firstName: "JOHN" },
           mockRecords: [createMockVoterRecord({ firstName: "John" })],
           expectedTotal: 1,
@@ -241,9 +131,9 @@ describe("/api/fetchFilteredData", () => {
         {
           description: "should handle multiple field search",
           searchQuery: [
-            { field: "firstName" as const, value: "John" },
-            { field: "lastName" as const, value: "Doe" },
-            { field: "city" as const, value: "Test City" },
+            { field: searchableFieldEnum.enum.firstName, value: "John" },
+            { field: searchableFieldEnum.enum.lastName, value: "Doe" },
+            { field: searchableFieldEnum.enum.city, value: "Test City" },
           ],
           expectedWhere: {
             firstName: "JOHN",
@@ -261,7 +151,9 @@ describe("/api/fetchFilteredData", () => {
         },
         {
           description: "should handle empty search results",
-          searchQuery: [{ field: "firstName" as const, value: "NonExistent" }],
+          searchQuery: [
+            { field: searchableFieldEnum.enum.firstName, value: "NonExistent" },
+          ],
           expectedWhere: { firstName: "NONEXISTENT" },
           mockRecords: [],
           expectedTotal: 0,
@@ -269,9 +161,9 @@ describe("/api/fetchFilteredData", () => {
         {
           description: "should handle different field types correctly",
           searchQuery: [
-            { field: "houseNum" as const, value: 123 },
-            { field: "hasEmail" as const, value: true },
-            { field: "firstName" as const, value: "John" },
+            { field: searchableFieldEnum.enum.houseNum, value: 123 },
+            { field: searchableFieldEnum.enum.hasEmail, value: true },
+            { field: searchableFieldEnum.enum.firstName, value: "John" },
           ],
           expectedWhere: { firstName: "JOHN", houseNum: 123 },
           mockRecords: [createMockVoterRecord()],
@@ -280,67 +172,16 @@ describe("/api/fetchFilteredData", () => {
         },
       ];
 
-      searchQueryTestCases.forEach(
-        ({
-          description,
-          searchQuery,
-          expectedWhere,
-          mockRecords,
-          expectedTotal,
-          expectAndConditions,
-        }) => {
-          it(description, async () => {
-            // Arrange
-            setupAuthenticatedTest();
-            setupDatabaseMocks(mockRecords, expectedTotal);
-
-            const requestData = createValidRequestData(searchQuery, 10, 1);
-
-            const request = createMockRequest(requestData);
-
-            // Act
-            const response = await POST(request);
-
-            // Assert
-            await expectSuccessResponse(response, {
-              data: mockRecords.map(convertPrismaVoterRecordToAPI),
-              totalRecords: expectedTotal,
-            });
-
-            // Strongly type expected where clause
-            const expectedWhereTyped: Prisma.VoterRecordWhereInput =
-              expectedWhere;
-            expectFindManyCalledWithSubset({
-              where:
-                typedObjectContaining<Prisma.VoterRecordWhereInput>(
-                  expectedWhereTyped,
-                ),
-              skip: 0,
-              take: 10,
-            });
-
-            if (expectAndConditions) {
-              const query = prismaMock.voterRecord.findMany.mock.calls[0];
-              expect(query?.[0]?.where).toHaveProperty("AND");
-              expect(Array.isArray(query?.[0]?.where?.AND)).toBe(true);
-              // Assert that hasEmail true produces the shared validators' AND conditions
-              const andArray = (query?.[0]?.where?.AND ?? []) as unknown[];
-              expect(andArray.length).toBeGreaterThan(0);
-              // Ensure there's a condition that ensures email is not null and not empty
-              expect(andArray).toEqual(
-                expect.arrayContaining([
-                  typedObjectContaining<Prisma.VoterRecordWhereInput>({
-                    AND: expect.arrayContaining([
-                      { email: { not: null } },
-                      { email: { not: "" } },
-                    ]) as unknown as Prisma.VoterRecordWhereInput[],
-                  }),
-                ]),
-              );
-            }
-          });
-        },
-      );
+      searchQueryTestCases.forEach((testCase) => {
+        it(testCase.description, async () => {
+          await runSearchQueryTest(
+            testCase,
+            POST,
+            setupAuthenticatedTest,
+            prismaMock,
+          );
+        });
+      });
     });
 
     describe("Validation tests", () => {
@@ -349,8 +190,7 @@ describe("/api/fetchFilteredData", () => {
         setupAuthenticatedTest();
       };
 
-      // Parameterized validation test cases
-      const validationTestCases = [
+      const validationTestCases: FetchFilteredDataValidationTestCase[] = [
         {
           description: "should return 422 for missing searchQuery",
           requestData: createInvalidRequestData(
@@ -404,7 +244,6 @@ describe("/api/fetchFilteredData", () => {
             1,
           ),
         },
-        // Additional validation safety: non-integer, negative, wrong-type, and missing fields
         {
           description: "should return 422 for non-integer page",
           requestData: createInvalidRequestData(
@@ -426,7 +265,7 @@ describe("/api/fetchFilteredData", () => {
           requestData: createInvalidRequestData(
             createEmptySearchQuery(),
             10,
-            "1" as unknown as number, // Intentionally wrong type passed in body to trigger runtime validation path
+            "1" as unknown as number, // Intentionally wrong type
           ),
         },
         {
@@ -447,27 +286,18 @@ describe("/api/fetchFilteredData", () => {
         },
       ];
 
-      validationTestCases.forEach(({ description, requestData }) => {
-        it(description, async () => {
-          // Arrange
-          setupAuthMocks();
-          const request = createMockRequest(requestData);
-
-          // Act
-          const response = await POST(request);
-
-          // Assert
-          await expectErrorResponse(response, 422, "Invalid request data");
-          expect(prismaMock.voterRecord.findMany).not.toHaveBeenCalled();
+      validationTestCases.forEach((testCase) => {
+        it(testCase.description, async () => {
+          await runValidationTest(testCase, POST, setupAuthMocks, prismaMock);
         });
       });
     });
 
     describe("Database error handling", () => {
-      const databaseErrorTestCases = [
+      const databaseErrorTestCases: DatabaseErrorTestCase[] = [
         {
           description: "should return 500 for database error during findMany",
-          mockSetup: () => {
+          mockSetup: (prismaMock: PrismaMock) => {
             prismaMock.voterRecord.findMany.mockRejectedValue(
               new Error("Database connection failed"),
             );
@@ -476,7 +306,7 @@ describe("/api/fetchFilteredData", () => {
         },
         {
           description: "should return 500 for database error during count",
-          mockSetup: () => {
+          mockSetup: (prismaMock: PrismaMock) => {
             prismaMock.voterRecord.findMany.mockResolvedValue([
               createMockVoterRecord(),
             ]);
@@ -488,47 +318,23 @@ describe("/api/fetchFilteredData", () => {
         },
       ];
 
-      databaseErrorTestCases.forEach(
-        ({ description, mockSetup, expectedCalls }) => {
-          it(description, async () => {
-            // Arrange
-            setupAuthenticatedTest();
-            mockSetup();
-
-            const requestData = createValidRequestData(
-              [
-                {
-                  field: searchableFieldEnum.enum.firstName,
-                  value: "John",
-                },
-              ],
-              10,
-              1,
-            );
-
-            const request = createMockRequest(requestData);
-
-            // Act
-            const response = await POST(request);
-
-            // Assert
-            await expectErrorResponse(response, 500, "Internal Server Error");
-            expect(prismaMock.voterRecord.findMany).toHaveBeenCalledTimes(
-              expectedCalls.findMany ? 1 : 0,
-            );
-            expect(prismaMock.voterRecord.count).toHaveBeenCalledTimes(
-              expectedCalls.count ? 1 : 0,
-            );
-          });
-        },
-      );
+      databaseErrorTestCases.forEach((testCase) => {
+        it(testCase.description, async () => {
+          await runDatabaseErrorTest(
+            testCase,
+            POST,
+            setupAuthenticatedTest,
+            prismaMock,
+          );
+        });
+      });
     });
 
     // Edge case tests for data conversion
     describe("Data conversion edge cases", () => {
       const testDate = new Date("2023-01-01T00:00:00.000Z");
 
-      const dateConversionTestCases = [
+      const dateConversionTestCases: DateConversionTestCase[] = [
         {
           description: "should handle voter records with null dates correctly",
           mockData: { DOB: null, lastUpdate: null, originalRegDate: null },
@@ -562,43 +368,16 @@ describe("/api/fetchFilteredData", () => {
         },
       ];
 
-      dateConversionTestCases.forEach(
-        ({ description, mockData, expectedData }) => {
-          it(description, async () => {
-            // Arrange
-            const mockRecord = createMockVoterRecord(mockData);
-            setupAuthenticatedTest();
-            setupDatabaseMocks([mockRecord], 1);
-
-            const requestData = createValidRequestData(
-              createEmptySearchQuery(),
-              10,
-              1,
-            );
-
-            const request = createMockRequest(requestData);
-
-            // Act
-            const response = await POST(request);
-
-            // Assert
-            const responseData = (await response.json()) as {
-              data: Array<VoterRecordAPI>;
-              totalRecords: number;
-            };
-            expect(responseData.totalRecords).toBe(1);
-            expect(responseData.data).toHaveLength(1);
-
-            // Verify date field conversion specifically
-            const actualRecord = responseData.data[0]!;
-            expect(actualRecord.DOB).toBe(expectedData.DOB);
-            expect(actualRecord.lastUpdate).toBe(expectedData.lastUpdate);
-            expect(actualRecord.originalRegDate).toBe(
-              expectedData.originalRegDate,
-            );
-          });
-        },
-      );
+      dateConversionTestCases.forEach((testCase) => {
+        it(testCase.description, async () => {
+          await runDateConversionTest(
+            testCase,
+            POST,
+            setupAuthenticatedTest,
+            prismaMock,
+          );
+        });
+      });
     });
   });
 });
