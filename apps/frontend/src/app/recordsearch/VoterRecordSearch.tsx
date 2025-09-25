@@ -54,7 +54,7 @@ export interface BaseSearchField {
   displayName: string;
   compoundType: false;
   type: string;
-  value?: string | Date | number | boolean;
+  value?: string | Date | number | boolean | undefined;
   id?: string;
 }
 
@@ -331,7 +331,8 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         if (updatedRow && !updatedRow.compoundType) {
           if (updatedRow.value === value) return prev;
           if (updatedRow.type === "number") {
-            updatedRow.value = Number(value);
+            // Use undefined for empty strings instead of coercing to 0
+            updatedRow.value = value === "" ? undefined : Number(value);
           } else if (updatedRow.type === "Boolean") {
             updatedRow.value =
               typeof value === "boolean" ? value : value === "true";
@@ -344,7 +345,8 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
           if (updatedField && updatedField.value !== value) {
             if (updatedField.type === "number") {
-              updatedField.value = Number(value);
+              // Use undefined for empty strings instead of coercing to 0
+              updatedField.value = value === "" ? undefined : Number(value);
             } else if (updatedField.type === "Boolean") {
               updatedField.value =
                 typeof value === "boolean" ? value : value === "true";
@@ -364,10 +366,13 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const isMeaningful = (v: unknown) =>
-      v !== undefined &&
-      v !== null &&
-      !(typeof v === "string" && v.trim() === "");
+    const isMeaningful = (v: unknown) => {
+      if (v === undefined || v === null) return false;
+      if (typeof v === "boolean") return v === true;
+      if (typeof v === "string") return v.trim() !== "";
+      if (typeof v === "number") return v !== 0 && !isNaN(v);
+      return true; // For other types like Date
+    };
 
     const filteredRows = searchRows
       .map((row) =>

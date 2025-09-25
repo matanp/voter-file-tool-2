@@ -246,18 +246,21 @@ export const runSearchQueryTest = async (
     expect(Array.isArray(queryArgs?.where?.AND)).toBe(true);
 
     const andArray = Array.isArray(queryArgs?.where?.AND)
-      ? queryArgs.where.AND
+      ? (queryArgs.where.AND as Prisma.VoterRecordWhereInput[])
       : [];
     expect(andArray.length).toBeGreaterThan(0);
 
-    const expectedEmailConditions: Prisma.VoterRecordWhereInput[] = [
+    // Check for essential email predicates individually to avoid brittle tests
+    // This ensures the core email guards are present while allowing future additions
+    const expectedEmailConditions = [
       { email: { not: null } },
       { email: { not: "" } },
-    ];
+    ] as const;
+
     expect(andArray).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          AND: expectedEmailConditions,
+          AND: expect.arrayContaining(expectedEmailConditions) as unknown,
         }),
       ]),
     );

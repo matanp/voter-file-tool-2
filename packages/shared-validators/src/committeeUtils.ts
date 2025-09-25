@@ -20,15 +20,24 @@ export const normalizeSentinelValues = (
   electionDistrict: number,
   legDistrict?: string | number
 ) => {
-  const normalizedLegDistrict =
-    legDistrict === LEG_DISTRICT_SENTINEL ||
-    legDistrict === LEG_DISTRICT_SENTINEL.toString() ||
-    legDistrict === '' ||
-    legDistrict === undefined
-      ? undefined
-      : typeof legDistrict === 'string'
-        ? legDistrict
+  let normalizedLegDistrict: string | undefined;
+
+  if (legDistrict === undefined) {
+    normalizedLegDistrict = undefined;
+  } else if (typeof legDistrict === 'string') {
+    const trimmed = legDistrict.trim();
+    normalizedLegDistrict =
+      trimmed === LEG_DISTRICT_SENTINEL.toString() || trimmed === ''
+        ? undefined
+        : trimmed;
+  } else {
+    // Number case
+    normalizedLegDistrict =
+      legDistrict === LEG_DISTRICT_SENTINEL
+        ? undefined
         : legDistrict.toString();
+  }
+
   return {
     normalizedElectionDistrict: electionDistrict,
     normalizedLegDistrict,
