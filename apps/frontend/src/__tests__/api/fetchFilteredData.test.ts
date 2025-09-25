@@ -178,6 +178,15 @@ describe("/api/fetchFilteredData", () => {
           expectAndConditions: true,
         },
         {
+          description: "should handle date of birth search correctly",
+          searchQuery: [
+            { field: searchableFieldEnum.enum.DOB, value: "1990-01-01" },
+          ],
+          expectedWhere: { DOB: "1990-01-01" },
+          mockRecords: [createMockVoterRecord({ DOB: new Date("1990-01-01") })],
+          expectedTotal: 1,
+        },
+        {
           description:
             "should filter multiple records by firstName and return subset",
           searchQuery: [
