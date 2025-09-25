@@ -5,7 +5,12 @@ import type { Session } from "next-auth";
 export function mockAuthSession(session: Session | null) {
   // Initialize Jest mock if absent
   if (!globalThis.mockAuth) {
-    globalThis.mockAuth = globalThis.jest?.fn?.() as jest.MockedFunction<
+    if (!globalThis.jest?.fn) {
+      throw new Error(
+        "Jest is not available in global scope. Ensure test setup runs before using mockAuthSession().",
+      );
+    }
+    globalThis.mockAuth = globalThis.jest.fn() as jest.MockedFunction<
       () => Promise<Session | null>
     >;
   }
@@ -25,8 +30,13 @@ export function mockAuthSession(session: Session | null) {
 
 export function mockHasPermission(granted: boolean) {
   if (!globalThis.mockHasPermissionFor) {
+    if (!globalThis.jest?.fn) {
+      throw new Error(
+        "Jest is not available in global scope. Ensure test setup runs before using mockHasPermission().",
+      );
+    }
     globalThis.mockHasPermissionFor =
-      globalThis.jest?.fn?.() as jest.MockedFunction<
+      globalThis.jest.fn() as jest.MockedFunction<
         (...args: unknown[]) => boolean
       >;
   }
