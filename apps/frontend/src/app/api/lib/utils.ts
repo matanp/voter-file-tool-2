@@ -10,6 +10,7 @@ import {
   NUMBER_FIELDS,
   COMPUTED_BOOLEAN_FIELDS,
   STRING_FIELDS,
+  DATE_FIELDS,
 } from "@voter-file-tool/shared-validators";
 
 export const dropdownItems = [
@@ -247,11 +248,17 @@ const stringFieldSchema = z.object({
   value: z.string().nullable(),
 });
 
+const dateFieldSchema = z.object({
+  field: z.enum(DATE_FIELDS),
+  value: z.string().nullable(),
+});
+
 export const searchQueryFieldSchema = z.array(
   z.discriminatedUnion("field", [
     numberFieldSchema,
     booleanFieldSchema,
     stringFieldSchema,
+    dateFieldSchema,
   ]),
 );
 
