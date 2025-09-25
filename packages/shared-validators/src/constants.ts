@@ -11,6 +11,12 @@ export const MAX_RECORDS_FOR_EXPORT = 20000;
 export const ADMIN_CONTACT_INFO = `For exports larger than ${MAX_RECORDS_FOR_EXPORT.toLocaleString()} records, please contact an administrator to request a custom export.`;
 
 /**
+ * Sentinel value used to represent undefined legDistrict in database storage
+ * This prevents drift across routes/clients when handling optional legDistrict values
+ */
+export const LEG_DISTRICT_SENTINEL = -1;
+
+/**
  * Fields that are not searchable (computed or internal fields)
  */
 const NON_SEARCHABLE_FIELDS = [
