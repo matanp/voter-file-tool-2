@@ -11,6 +11,12 @@ export const MAX_RECORDS_FOR_EXPORT = 20000;
 export const ADMIN_CONTACT_INFO = `For exports larger than ${MAX_RECORDS_FOR_EXPORT.toLocaleString()} records, please contact an administrator to request a custom export.`;
 
 /**
+ * Sentinel value used to represent undefined legDistrict in database storage
+ * This prevents drift across routes/clients when handling optional legDistrict values
+ */
+export const LEG_DISTRICT_SENTINEL = -1;
+
+/**
  * Fields that are not searchable (computed or internal fields)
  */
 const NON_SEARCHABLE_FIELDS = [
@@ -21,38 +27,21 @@ const NON_SEARCHABLE_FIELDS = [
 ] as const;
 
 /**
- * Additional computed fields that can be searched
+ * Field type subsets for discriminated unions
  */
-const COMPUTED_SEARCHABLE_FIELDS = [
+export const NUMBER_FIELDS = ['houseNum', 'electionDistrict'] as const;
+export const COMPUTED_BOOLEAN_FIELDS = [
   'hasEmail',
   'hasInvalidEmail',
   'hasPhone',
 ] as const;
-
-/**
- * Derive searchable fields from VoterRecord type, excluding non-searchable fields
- * This automatically stays in sync with the Prisma schema
- */
-type VoterRecordKeys = keyof VoterRecord;
-type SearchableVoterRecordKeys = Exclude<
-  VoterRecordKeys,
-  (typeof NON_SEARCHABLE_FIELDS)[number]
->;
-type AllSearchableFields =
-  | SearchableVoterRecordKeys
-  | (typeof COMPUTED_SEARCHABLE_FIELDS)[number];
-
-/**
- * Create enum from the derived type - this is the single source of truth
- * The enum values are automatically derived from the VoterRecord type
- */
-export const searchableFieldEnum = z.enum([
+export const DATE_FIELDS = ['DOB', 'lastUpdate', 'originalRegDate'] as const;
+export const STRING_FIELDS = [
   'VRCNUM',
   'lastName',
   'firstName',
   'middleInitial',
   'suffixName',
-  'houseNum',
   'street',
   'apartment',
   'halfAddress',
@@ -74,21 +63,46 @@ export const searchableFieldEnum = z.enum([
   'mailingZipSuffix',
   'party',
   'gender',
-  'DOB',
   'L_T',
-  'electionDistrict',
   'countyLegDistrict',
   'stateAssmblyDistrict',
   'stateSenateDistrict',
   'congressionalDistrict',
   'CC_WD_Village',
   'townCode',
-  'lastUpdate',
-  'originalRegDate',
   'statevid',
-  'hasEmail',
-  'hasInvalidEmail',
-  'hasPhone',
+] as const;
+
+/**
+ * Derive searchable fields from VoterRecord type, excluding non-searchable fields
+ * This automatically stays in sync with the Prisma schema
+ */
+type VoterRecordKeys = keyof VoterRecord;
+type SearchableVoterRecordKeys = Exclude<
+  VoterRecordKeys,
+  (typeof NON_SEARCHABLE_FIELDS)[number]
+>;
+type AllSearchableFields =
+  | SearchableVoterRecordKeys
+  | (typeof COMPUTED_BOOLEAN_FIELDS)[number];
+
+/**
+ * Create enum from the field type subsets - this is the single source of truth
+ * The enum values are explicitly derived from the field type subsets
+ */
+export const searchableFieldEnum = z.enum([
+  ...NUMBER_FIELDS,
+  ...COMPUTED_BOOLEAN_FIELDS,
+  ...DATE_FIELDS,
+  ...STRING_FIELDS,
 ] as const satisfies readonly AllSearchableFields[]);
 
 export type SearchableField = z.infer<typeof searchableFieldEnum>;
+
+// Export the enum values as a const array for easier access
+export const SEARCHABLE_FIELD_VALUES = [
+  ...NUMBER_FIELDS,
+  ...COMPUTED_BOOLEAN_FIELDS,
+  ...DATE_FIELDS,
+  ...STRING_FIELDS,
+] as const;

@@ -10,6 +10,7 @@ import { useToast } from "~/components/ui/use-toast";
 import {
   type SearchQueryField,
   searchableFieldEnum,
+  normalizeSearchQuery,
 } from "@voter-file-tool/shared-validators";
 
 type RecordSearchProps = {
@@ -73,25 +74,32 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
     if (voterId?.trim()) {
       query.push({
         field: searchableFieldEnum.enum.VRCNUM,
-        value: voterId.trim(),
+        values: [voterId.trim()],
       });
     }
 
     if (firstName?.trim()) {
       query.push({
         field: searchableFieldEnum.enum.firstName,
-        value: firstName.trim(),
+        values: [firstName.trim()],
       });
     }
 
     if (lastName?.trim()) {
       query.push({
         field: searchableFieldEnum.enum.lastName,
-        value: lastName.trim(),
+        values: [lastName.trim()],
       });
     }
 
-    void searchMutation.mutate({ searchQuery: query, page: 1, pageSize: 100 });
+    // Normalize before sending
+    const normalized = normalizeSearchQuery(query);
+
+    void searchMutation.mutate({
+      searchQuery: normalized,
+      page: 1,
+      pageSize: 100,
+    });
   };
   const ContainerElement = useFormElement ? "form" : "div";
   const containerProps = useFormElement

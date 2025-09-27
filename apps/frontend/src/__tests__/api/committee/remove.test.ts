@@ -13,7 +13,7 @@ import {
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import type { CommitteeData } from "~/lib/validations/committee";
-import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
+import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import {
   mockAuthSession,
   mockHasPermission,

@@ -4,9 +4,9 @@ import type {
   VoterRecord,
   VoterRecordArchive,
 } from "@prisma/client";
+import { searchQueryFieldSchema } from "@voter-file-tool/shared-validators";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
-import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 
 export const dropdownItems = [
   "city",
@@ -143,16 +143,6 @@ export function findDiscrepancies(
       typeof field.existingField === "string"
         ? existingRecord[field.existingField]
         : field.existingField(existingRecord);
-
-    // if (
-    //   existingValue?.includes("SANFILIPPO") ||
-    //   existingValue?.includes("FAGER")
-    // ) {
-    //   console.log("abc", incomingRecord[field.incomingField]?.split(" "));
-    //   console.log("incomingValue", incomingValue);
-    //   console.log("existingValue", existingValue);
-    //   console.log("discrepancy", incomingValue !== existingValue);
-    // }
     if (incomingValue !== existingValue) {
       discrepancies[field.incomingField] = {
         incoming: incomingValue ?? "",
@@ -227,46 +217,13 @@ export const exampleVoterRecord: Partial<VoterRecordArchive> = {
   statevid: "NY123456789",
 };
 
-// Use the shared field enum from shared-validators
-export const fieldEnum = searchableFieldEnum;
-
-export const searchQueryFieldSchema = z
-  .array(
-    z.object({
-      field: fieldEnum,
-      value: z.union([
-        z.string().nullable(),
-        z.number().nullable(),
-        z.boolean().nullable(),
-      ]),
-    }),
-  )
-  .refine(
-    (data) => {
-      return data.every((item) => {
-        if (item.field === "houseNum" || item.field === "electionDistrict") {
-          return typeof item.value === "number" || item.value === null;
-        }
-        if (
-          item.field === "hasEmail" ||
-          item.field === "hasInvalidEmail" ||
-          item.field === "hasPhone"
-        ) {
-          return typeof item.value === "boolean" || item.value === null;
-        }
-        return typeof item.value === "string" || item.value === null;
-      });
-    },
-    {
-      message: "Invalid value type for the specified field.",
-    },
-  );
-
 export const fetchFilteredDataSchema = z.object({
-  searchQuery: searchQueryFieldSchema,
-  pageSize: z.number().min(1).max(100),
-  page: z.number().min(1),
+  searchQuery: z.array(searchQueryFieldSchema),
+  pageSize: z.number().int().min(1).max(100),
+  page: z.number().int().min(1),
 });
+
+export type FetchFilteredDataRequest = z.infer<typeof fetchFilteredDataSchema>;
 
 // const partyCodes = [
 //   "BLK",

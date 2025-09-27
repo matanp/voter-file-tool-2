@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import type { RequestInit as NextRequestInit } from "next/dist/server/web/spec-extension/request";
 import {
   PrivilegeLevel,
   type CommitteeList,
@@ -11,8 +12,7 @@ import {
   type CommitteeData,
 } from "~/lib/validations/committee";
 
-// Validation test case types
-type ValidationTestCase = {
+type CommitteeValidationTestCase = {
   field: keyof CommitteeData;
   value: string;
   expectedError: string;
@@ -135,7 +135,7 @@ export const createMockRequest = <T = Record<string, unknown>>(
   };
 
   // Only include body for non-GET/HEAD requests
-  const requestInit: RequestInit = {
+  const requestInit: NextRequestInit = {
     method,
     headers: {
       ...defaultHeaders,
@@ -144,7 +144,13 @@ export const createMockRequest = <T = Record<string, unknown>>(
   };
 
   if (method !== "GET" && method !== "HEAD") {
-    requestInit.body = JSON.stringify(body);
+    try {
+      requestInit.body = JSON.stringify(body);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`Request body is not serializable: ${errorMessage}`);
+    }
   }
 
   const request = new NextRequest(url, requestInit);
@@ -174,13 +180,24 @@ export const expectErrorResponse = async (
 ): Promise<void> => {
   expect(response.status).toBe(expectedStatus);
   if (expectedError !== undefined) {
-    const json = (await response.json()) as {
-      error: string;
-      success?: boolean;
-    };
+    const json = (await response.json()) as Record<string, unknown>;
+
+    // Validate response structure
+    if (typeof json !== "object" || json === null) {
+      throw new Error("Response is not a valid JSON object");
+    }
+
+    if (!("error" in json) || typeof json.error !== "string") {
+      throw new Error("Response does not contain a valid error field");
+    }
+
     expect(json.error).toBe(expectedError);
+
     // For validation errors (422 status with "Invalid request data"), expect success: false
     if (expectedStatus === 422 && expectedError === "Invalid request data") {
+      if (!("success" in json) || typeof json.success !== "boolean") {
+        throw new Error("Response does not contain a valid success field");
+      }
       expect(json.success).toBe(false);
     }
   }
@@ -297,9 +314,9 @@ export const createCommitteeRequestCreateArgs = (
 
 // Shared validation test data
 export const validationTestCases: {
-  missingFields: ValidationTestCase[];
-  invalidNumeric: ValidationTestCase[];
-  invalidElectionDistrict: ValidationTestCase[];
+  missingFields: CommitteeValidationTestCase[];
+  invalidNumeric: CommitteeValidationTestCase[];
+  invalidElectionDistrict: CommitteeValidationTestCase[];
   invalidRequestNotes: Array<{
     field: "requestNotes";
     value: string;
@@ -510,7 +527,7 @@ export const createAuthTestSuite = (
 
 // Helper function to create parameterized validation tests
 export const createValidationTestSuite = (
-  testCases: ValidationTestCase[],
+  testCases: CommitteeValidationTestCase[],
   createInvalidData: (
     field: keyof CommitteeData,
     value: string,

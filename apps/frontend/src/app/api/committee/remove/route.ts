@@ -4,7 +4,7 @@ import { committeeDataSchema } from "~/lib/validations/committee";
 import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { toDbSentinelValue } from "~/app/committees/committeeUtils";
+import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import type { Session } from "next-auth";
 
 async function removeCommitteeHandler(req: NextRequest, _session: Session) {

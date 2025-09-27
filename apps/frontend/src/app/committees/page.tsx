@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
-import type { CommitteeWithMembers } from "./committeeUtils";
+import type { CommitteeWithMembers } from "@voter-file-tool/shared-validators";
 
 const CommitteeLists = async () => {
   const permissions = await auth();

@@ -30,9 +30,11 @@ import {
   ADMIN_CONTACT_INFO,
   type GenerateReportData,
   type SearchQueryField,
+  normalizeSearchQuery,
 } from "@voter-file-tool/shared-validators";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { ZodError } from "zod";
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
@@ -207,14 +209,9 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       }
 
       try {
-        // Convert undefined to null to match API schema
-        const convertedQuery = flattenedSearchQuery.map((item) => ({
-          ...item,
-          value: item.value ?? null,
-        }));
-
+        const normalized = normalizeSearchQuery(flattenedSearchQuery);
         await mutateRef.current({
-          searchQuery: convertedQuery,
+          searchQuery: normalized,
           pageSize: 100, // Only fetch first 100 for preview
           page: 1,
         });
@@ -223,12 +220,29 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
           // Request was cancelled, don't update state
           return;
         }
-        // Error handling is done in the mutation hook
+        if (error instanceof ZodError) {
+          if (error instanceof ZodError) {
+            setSearchResults([]);
+            setTotalRecords(0);
+            toast({
+              variant: "destructive",
+              title: "Invalid Search Filters",
+              description:
+                "Some filter values are invalid. Please review your search and try again.",
+            });
+            // Provide additional context for developers
+            console.error(
+              "Search query normalization failed",
+              error.flatten?.() ?? error,
+            );
+            return;
+          }
+          // Error handling is done in the mutation hook
+        }
       }
     };
-
     void fetchSearchResults();
-  }, [flattenedSearchQuery]);
+  }, [flattenedSearchQuery, toast]);
 
   // Handle report completion
   const handleReportComplete = (url: string) => {
@@ -321,18 +335,13 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     clearErrorTracking();
 
     try {
-      // Convert undefined to null to match API schema
-      const convertedSearchQuery = flattenedSearchQuery.map((item) => ({
-        ...item,
-        value: item.value ?? null,
-      }));
-
+      const normalized = normalizeSearchQuery(flattenedSearchQuery);
       const reportPayload = {
         type: "voterList" as const,
         name: formData.name,
         description: formData.description,
         format: "xlsx" as const,
-        searchQuery: convertedSearchQuery,
+        searchQuery: normalized,
         includeFields: formData.includeFields,
         xlsxConfig: {
           includeCompoundFields: formData.includeCompoundFields,
@@ -347,6 +356,15 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
       await generateReportMutation.mutate(reportPayload);
     } catch (error) {
+      if (error instanceof ZodError) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Search Filters",
+          description:
+            "Please fix invalid values in your search before generating the report.",
+        });
+        return;
+      }
       console.error("Error generating report:", error);
     }
   };

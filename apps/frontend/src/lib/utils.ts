@@ -30,3 +30,15 @@ export function hasPermissionFor(
     permissionOrder.indexOf(permissionCheckLevel)
   );
 }
+
+/**
+ * Reconciles initial values against available items, filtering out invalid values
+ */
+export function reconcileInitialValues<T extends { value: string }>(
+  initialValues: string[],
+  items: T[],
+): string[] {
+  return initialValues.filter((value) =>
+    items.some((item) => item.value === value),
+  );
+}

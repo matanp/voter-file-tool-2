@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import type { SearchField } from "~/app/recordsearch/VoterRecordSearch";
+import type { SearchField } from "~/types/searchFields";
 import { extractFieldNamesFromSearchQuery } from "~/lib/searchFieldUtils";
 import type { FieldName } from "~/app/recordsearch/fieldsConfig";
 import type { SearchQueryField } from "@voter-file-tool/shared-validators";
@@ -49,15 +49,22 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
 
   const setSearchQuery = useCallback(
     (query: SearchField[], flattenedQuery: SearchQueryField[]) => {
-      // Only update if we have actual data, don't overwrite with empty arrays
-      if (query.length > 0 && flattenedQuery.length > 0) {
-        setSearchQueryState(query);
-        setFlattenedSearchQuery(flattenedQuery);
-        const extractedFields = extractFieldNamesFromSearchQuery(query);
-        setFieldsList(extractedFields);
+      // Early exit if both arrays are empty and current state is already empty
+      if (
+        query.length === 0 &&
+        flattenedQuery.length === 0 &&
+        searchQuery.length === 0 &&
+        flattenedSearchQuery.length === 0
+      ) {
+        return;
       }
+
+      setSearchQueryState(query);
+      setFlattenedSearchQuery(flattenedQuery);
+      const extractedFields = extractFieldNamesFromSearchQuery(query);
+      setFieldsList(extractedFields);
     },
-    [],
+    [searchQuery, flattenedSearchQuery],
   );
 
   const clearSearchQuery = useCallback(() => {

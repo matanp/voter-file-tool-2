@@ -1,6 +1,15 @@
-import type { SearchField } from "~/app/recordsearch/VoterRecordSearch";
+import type { SearchField, BaseSearchField } from "~/types/searchFields";
 import type { FieldName } from "~/app/recordsearch/fieldsConfig";
 import { fields } from "~/app/recordsearch/fieldsConfig";
+
+// Map additional criteria flags to fields to add to output display
+const ADDITIONAL_CRITERIA_TRUE_TO_FIELD: Readonly<
+  Partial<Record<BaseSearchField["name"], FieldName>>
+> = {
+  hasEmail: "email",
+  hasInvalidEmail: "email",
+  hasPhone: "telephone",
+} as const;
 
 /**
  * Extracts field names from a search query, including nested compound fields
@@ -23,26 +32,12 @@ export function extractFieldNamesFromSearchQuery(
         ) {
           fieldNames.add(subField.name);
         }
-        if (
-          field.name === "additionalCriteria" &&
-          subField.name === "hasEmail" &&
-          subField.value === true
-        ) {
-          fieldNames.add("email");
-        }
-        if (
-          field.name === "additionalCriteria" &&
-          subField.name === "hasInvalidEmail" &&
-          subField.value === true
-        ) {
-          fieldNames.add("email");
-        }
-        if (
-          field.name === "additionalCriteria" &&
-          subField.name === "hasPhone" &&
-          subField.value === true
-        ) {
-          fieldNames.add("telephone");
+        if (field.name === "additionalCriteria" && subField.value === true) {
+          const mappedFieldName =
+            ADDITIONAL_CRITERIA_TRUE_TO_FIELD[subField.name];
+          if (mappedFieldName) {
+            fieldNames.add(mappedFieldName);
+          }
         }
       });
     } else if (

@@ -9,6 +9,10 @@ export * from './schemas/api';
 export * from './compoundFieldUtils';
 export * from './committeeUtils';
 export * from './searchQueryUtils';
+export * from './searchQueryFieldGuards';
+export * from './searchQueryErrors';
+export * from './searchQueryFieldValidators';
+export * from './searchQueryNormalizers';
 
 // Export shared constants
 export * from './constants';

@@ -1,21 +1,31 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { fetchFilteredDataSchema } from "../lib/utils";
+import { validateRequest } from "../lib/validateRequest";
 import {
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
+  normalizeSearchQuery,
 } from "@voter-file-tool/shared-validators";
 import type { Prisma } from "@prisma/client";
+import { withPrivilege } from "../lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
+import type { Session } from "next-auth";
 
-export async function POST(req: NextRequest) {
+async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
   try {
     const requestBody: unknown = await req.json();
 
-    const { searchQuery, pageSize, page } =
-      fetchFilteredDataSchema.parse(requestBody);
+    const validation = validateRequest(requestBody, fetchFilteredDataSchema);
+    if (!validation.success) {
+      return validation.response;
+    }
+
+    const { searchQuery, pageSize, page } = validation.data;
+    const normalized = normalizeSearchQuery(searchQuery);
 
     const query: Prisma.VoterRecordWhereInput =
-      buildPrismaWhereClause(searchQuery);
+      buildPrismaWhereClause(normalized);
 
     // use cursor based pagination if performance becomes a problem
     const records = await prisma.voterRecord.findMany({
@@ -43,3 +53,8 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withPrivilege(
+  PrivilegeLevel.ReadAccess,
+  fetchFilteredDataHandler,
+);
