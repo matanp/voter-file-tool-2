@@ -39,7 +39,7 @@ export function validateSearchQueryField(field: unknown): SearchQueryField {
 export function validateSearchQuery(query: unknown[]): {
   valid: boolean;
   errors: string[];
-  data?: SearchQueryField[];
+  data: SearchQueryField[];
 } {
   const errors: string[] = [];
   const validFields: SearchQueryField[] = [];
@@ -58,7 +58,7 @@ export function validateSearchQuery(query: unknown[]): {
   return {
     valid: errors.length === 0,
     errors,
-    data: validFields.length > 0 ? validFields : undefined,
+    data: validFields,
   };
 }
 
@@ -96,7 +96,7 @@ export function safeValidateSearchQuery(
   | { success: false; error: string } {
   const validation = validateSearchQuery(query);
 
-  if (validation.valid && validation.data) {
+  if (validation.valid) {
     return { success: true, data: validation.data };
   }
 

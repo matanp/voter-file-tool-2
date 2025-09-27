@@ -34,6 +34,7 @@ import {
 } from "@voter-file-tool/shared-validators";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { ZodError } from "zod";
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
@@ -219,6 +220,20 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
           // Request was cancelled, don't update state
           return;
         }
+        if (error instanceof ZodError) {
+          toast({
+            variant: "destructive",
+            title: "Invalid Search Filters",
+            description:
+              "Some filter values are invalid. Please review your search and try again.",
+          });
+          // Provide additional context for developers
+          console.error(
+            "Search query normalization failed",
+            error.flatten?.() ?? error,
+          );
+          return;
+        }
         // Error handling is done in the mutation hook
       }
     };
@@ -338,6 +353,15 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
       await generateReportMutation.mutate(reportPayload);
     } catch (error) {
+      if (error instanceof ZodError) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Search Filters",
+          description:
+            "Please fix invalid values in your search before generating the report.",
+        });
+        return;
+      }
       console.error("Error generating report:", error);
     }
   };

@@ -1,5 +1,5 @@
 import { POST } from "~/app/api/fetchFilteredData/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type VoterRecord } from "@prisma/client";
 import {
   createMockSession,
   createMockRequest,
@@ -29,7 +29,7 @@ import {
   type DatabaseErrorTestCase,
   type DateConversionTestCase,
 } from "../utils/fetchFilteredDataTestUtils";
-import type { createMockVoterRecord } from "../utils/testUtils";
+// removed type-only import of createMockVoterRecord; we use VoterRecord directly
 import type { DeepMockProxy } from "jest-mock-extended";
 import type { PrismaClient } from "@prisma/client";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
@@ -342,7 +342,7 @@ describe("/api/fetchFilteredData", () => {
       searchQueryTestCases.forEach((testCase) => {
         it(testCase.description, async () => {
           // Use hardcoded expected records based on the search query
-          let expectedRecords: ReturnType<typeof createMockVoterRecord>[] = [];
+          let expectedRecords: VoterRecord[] = [];
           let expectedTotal = 0;
 
           // Map search queries to hardcoded expected records
@@ -377,7 +377,9 @@ describe("/api/fetchFilteredData", () => {
               expectedRecords = EXPECTED_RECORDS.electionDistrict1Records;
             } else if (
               query.field === "DOB" &&
-              query.values?.includes("1985-03-15")
+              query.values?.some(
+                (v) => typeof v === "string" && v.startsWith("1985-03-15"),
+              )
             ) {
               expectedRecords = EXPECTED_RECORDS.dob1985Records;
             } else if (query.field === "hasEmail" && query.value === true) {
@@ -510,7 +512,7 @@ describe("/api/fetchFilteredData", () => {
       arrayOrTestCases.forEach((testCase) => {
         it(testCase.description, async () => {
           // Use hardcoded expected records based on the search query
-          let expectedRecords: ReturnType<typeof createMockVoterRecord>[] = [];
+          let expectedRecords: VoterRecord[] = [];
           let expectedTotal = 0;
 
           // Map search queries to hardcoded expected records
@@ -561,9 +563,9 @@ describe("/api/fetchFilteredData", () => {
                 EXPECTED_RECORDS.democraticRepublicanIndependentRecords;
             } else if (
               query.field === "DOB" &&
-              query.values?.includes("1985-03-15") &&
-              query.values?.includes("1987-07-22") &&
-              query.values?.includes("1990-01-10")
+              query.values?.includes("1985-03-15T00:00:00.000Z") &&
+              query.values?.includes("1987-07-22T00:00:00.000Z") &&
+              query.values?.includes("1990-01-10T00:00:00.000Z")
             ) {
               expectedRecords = EXPECTED_RECORDS.dobMultipleRecords;
             } else if (query.field === "hasEmail" && query.value === true) {
@@ -653,7 +655,7 @@ describe("/api/fetchFilteredData", () => {
       mixedFieldTestCases.forEach((testCase) => {
         it(testCase.description, async () => {
           // Use hardcoded expected records based on the search query
-          let expectedRecords: ReturnType<typeof createMockVoterRecord>[] = [];
+          let expectedRecords: VoterRecord[] = [];
           let expectedTotal = 0;
 
           // Map search queries to hardcoded expected records
@@ -830,7 +832,7 @@ describe("/api/fetchFilteredData", () => {
       edgeCaseTestCases.forEach((testCase) => {
         it(testCase.description, async () => {
           // Use hardcoded expected records based on the search query
-          let expectedRecords: ReturnType<typeof createMockVoterRecord>[] = [];
+          let expectedRecords: VoterRecord[] = [];
           let expectedTotal = 0;
 
           // Map search queries to hardcoded expected records
