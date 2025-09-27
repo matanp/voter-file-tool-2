@@ -100,7 +100,9 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
 
   const extraSearchQuery: SearchQueryField[] = [
     { field: searchableFieldEnum.enum.city, values: [city] },
-    { field: searchableFieldEnum.enum.L_T, values: [legDistrict] },
+    ...(legDistrict
+      ? [{ field: searchableFieldEnum.enum.L_T, values: [legDistrict] }]
+      : []),
     {
       field: searchableFieldEnum.enum.electionDistrict,
       values: [electionDistrict],

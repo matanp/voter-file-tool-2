@@ -3,10 +3,16 @@ import type { SearchQueryField } from "@voter-file-tool/shared-validators";
 import {
   searchableFieldEnum,
   convertPrismaVoterRecordToAPI,
+  isNumberFieldName,
+  isDateFieldName,
+  isStringFieldName,
+  isComputedBooleanFieldName,
+} from "@voter-file-tool/shared-validators";
+import type {
   NUMBER_FIELDS,
   COMPUTED_BOOLEAN_FIELDS,
   DATE_FIELDS,
-  type STRING_FIELDS,
+  STRING_FIELDS,
 } from "@voter-file-tool/shared-validators";
 import {
   fetchFilteredDataSchema,
@@ -612,21 +618,7 @@ export const createEmptySearchQuery = (): SearchQueryField[] => {
   return [];
 };
 
-// Type guard functions to determine field types from discriminated union
-const isNumberField = (
-  field: string,
-): field is (typeof NUMBER_FIELDS)[number] =>
-  NUMBER_FIELDS.includes(field as (typeof NUMBER_FIELDS)[number]);
-
-const isComputedBooleanField = (
-  field: string,
-): field is (typeof COMPUTED_BOOLEAN_FIELDS)[number] =>
-  COMPUTED_BOOLEAN_FIELDS.includes(
-    field as (typeof COMPUTED_BOOLEAN_FIELDS)[number],
-  );
-
-const isDateField = (field: string): field is (typeof DATE_FIELDS)[number] =>
-  DATE_FIELDS.includes(field as (typeof DATE_FIELDS)[number]);
+// Use shared type guard functions to determine field types from discriminated union
 
 const createNumberField = (
   field: (typeof NUMBER_FIELDS)[number],
@@ -673,7 +665,7 @@ export const createSearchQuery = (
     const fieldEnum = searchableFieldEnum.enum[field];
 
     // Use type guards to determine field type and create appropriate structure
-    if (isNumberField(field)) {
+    if (isNumberFieldName(field)) {
       // Type-safe: we know field is a number field and value should be number | null
       if (typeof value !== "number" && value !== null) {
         throw new Error(
@@ -684,7 +676,7 @@ export const createSearchQuery = (
         fieldEnum as (typeof NUMBER_FIELDS)[number],
         value,
       );
-    } else if (isComputedBooleanField(field)) {
+    } else if (isComputedBooleanFieldName(field)) {
       // Type-safe: we know field is a computed boolean field and value should be boolean | null
       if (typeof value !== "boolean" && value !== null) {
         throw new Error(
@@ -695,7 +687,7 @@ export const createSearchQuery = (
         fieldEnum as (typeof COMPUTED_BOOLEAN_FIELDS)[number],
         value,
       );
-    } else if (isDateField(field)) {
+    } else if (isDateFieldName(field)) {
       // Type-safe: we know field is a date field and value should be string | null
       if (typeof value !== "string" && value !== null) {
         throw new Error(
@@ -703,8 +695,7 @@ export const createSearchQuery = (
         );
       }
       return createDateField(fieldEnum as (typeof DATE_FIELDS)[number], value);
-    } else {
-      // Must be a string field since all other types are covered
+    } else if (isStringFieldName(field)) {
       // Type-safe: we know field is a string field and value should be string | null
       if (typeof value !== "string" && value !== null) {
         throw new Error(
@@ -715,6 +706,8 @@ export const createSearchQuery = (
         fieldEnum as (typeof STRING_FIELDS)[number],
         value,
       );
+    } else {
+      throw new Error(`Unknown field type: ${String(field)}`);
     }
   });
 };

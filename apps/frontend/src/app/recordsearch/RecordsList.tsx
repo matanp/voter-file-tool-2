@@ -95,13 +95,9 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
 
     // Flatten compound fields and convert to SearchQueryField format
     const flattenedQuery = searchQueryParam
-      .reduce((acc: BaseSearchField[], curr: SearchField) => {
-        if (curr.compoundType) {
-          return [...acc, ...curr.fields];
-        } else {
-          return [...acc, curr];
-        }
-      }, [])
+      .flatMap<BaseSearchField>((curr) =>
+        curr.compoundType ? curr.fields : [curr],
+      )
       .map(convertBaseSearchFieldToSearchQueryField)
       .filter((field): field is SearchQueryField => field !== null);
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CommitteeWithMembers } from "~/app/committees/committeeUtils";
+import type { CommitteeWithMembers } from "@voter-file-tool/shared-validators";
 
 // Committee data validation schema
 export const committeeDataSchema = z
