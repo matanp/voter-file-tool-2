@@ -26,6 +26,7 @@ import {
   type CommitteeWithMembers,
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
+  normalizeSearchQuery,
 } from '@voter-file-tool/shared-validators';
 import {
   mapCommitteesToReportShape,
@@ -155,7 +156,8 @@ app.post(
  */
 async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
   try {
-    const whereClause = buildPrismaWhereClause(searchQuery);
+    const normalized = normalizeSearchQuery(searchQuery);
+    const whereClause = buildPrismaWhereClause(normalized);
 
     // First check the count to warn about large datasets
     const count = await prisma.voterRecord.count({

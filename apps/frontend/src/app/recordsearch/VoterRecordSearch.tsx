@@ -1,9 +1,6 @@
 "use client";
 import type { DropdownLists } from "@prisma/client";
-import {
-  type SearchQueryField,
-  searchableFieldEnum,
-} from "@voter-file-tool/shared-validators";
+import type { SearchField } from "~/types/searchFields";
 import { useState, useCallback } from "react";
 
 const generateId = (): string => {
@@ -49,25 +46,6 @@ interface VoterRecordSearchProps {
   dropdownList: DropdownLists;
 }
 
-export interface BaseSearchField {
-  name: SearchQueryField["field"] | "empty";
-  displayName: string;
-  compoundType: false;
-  type: string;
-  value?: string | Date | number | boolean | undefined;
-  id?: string;
-}
-
-export type SearchField =
-  | BaseSearchField
-  | {
-      name: string;
-      displayName: string;
-      compoundType: true;
-      fields: BaseSearchField[];
-      id?: string;
-    };
-
 const SEARCH_FIELDS: SearchField[] = [
   {
     name: "empty",
@@ -77,7 +55,7 @@ const SEARCH_FIELDS: SearchField[] = [
     type: "String",
   },
   {
-    name: searchableFieldEnum.enum.VRCNUM,
+    name: "VRCNUM",
     displayName: "Voter ID",
     compoundType: false,
     type: "String",
@@ -88,13 +66,13 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: searchableFieldEnum.enum.firstName,
+        name: "firstName",
         displayName: "First Name",
         compoundType: false,
         type: "String",
       },
       {
-        name: searchableFieldEnum.enum.lastName,
+        name: "lastName",
         displayName: "Last Name",
         compoundType: false,
         type: "String",
@@ -107,13 +85,13 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: searchableFieldEnum.enum.houseNum,
+        name: "houseNum",
         displayName: "House Number",
         compoundType: false,
         type: "number",
       },
       {
-        name: searchableFieldEnum.enum.street,
+        name: "street",
         displayName: "Street",
         compoundType: false,
         type: "Street",
@@ -126,13 +104,13 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: searchableFieldEnum.enum.city,
+        name: "city",
         displayName: "City",
         compoundType: false,
         type: "CityTown",
       },
       {
-        name: searchableFieldEnum.enum.CC_WD_Village,
+        name: "CC_WD_Village",
         displayName: "CC WD Village",
         compoundType: false,
         type: "Hidden",
@@ -142,13 +120,13 @@ const SEARCH_FIELDS: SearchField[] = [
 
   // { name: "state", displayName: "State", compoundType: false, type: "String" },
   {
-    name: searchableFieldEnum.enum.zipCode,
+    name: "zipCode",
     displayName: "Zip Code",
     compoundType: false,
     type: "Dropdown",
   },
   {
-    name: searchableFieldEnum.enum.DOB,
+    name: "DOB",
     displayName: "Date of Birth",
     compoundType: false,
     type: "DateTime",
@@ -159,19 +137,19 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: searchableFieldEnum.enum.countyLegDistrict,
+        name: "countyLegDistrict",
         displayName: "County Leg District",
         compoundType: false,
         type: "Dropdown",
       },
       {
-        name: searchableFieldEnum.enum.stateAssmblyDistrict,
+        name: "stateAssmblyDistrict",
         displayName: "State Assembly District",
         compoundType: false,
         type: "Dropdown",
       },
       {
-        name: searchableFieldEnum.enum.stateSenateDistrict,
+        name: "stateSenateDistrict",
         displayName: "State Senate District",
         compoundType: false,
         type: "Dropdown",
@@ -195,7 +173,7 @@ const SEARCH_FIELDS: SearchField[] = [
       //   type: "Dropdown",
       // },
       {
-        name: searchableFieldEnum.enum.electionDistrict,
+        name: "electionDistrict",
         displayName: "Election District",
         compoundType: false,
         type: "number",
@@ -209,7 +187,7 @@ const SEARCH_FIELDS: SearchField[] = [
     ],
   },
   {
-    name: searchableFieldEnum.enum.party,
+    name: "party",
     displayName: "Party",
     compoundType: false,
     type: "Dropdown",
@@ -220,19 +198,19 @@ const SEARCH_FIELDS: SearchField[] = [
     compoundType: true,
     fields: [
       {
-        name: searchableFieldEnum.enum.hasEmail,
+        name: "hasEmail",
         displayName: "Only records with an email",
         compoundType: false,
         type: "Boolean",
       },
       {
-        name: searchableFieldEnum.enum.hasInvalidEmail,
+        name: "hasInvalidEmail",
         displayName: "Only records with an invalid email",
         compoundType: false,
         type: "Boolean",
       },
       {
-        name: searchableFieldEnum.enum.hasPhone,
+        name: "hasPhone",
         displayName: "Only records with phone number",
         compoundType: false,
         type: "Boolean",
@@ -249,13 +227,13 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
       compoundType: true,
       fields: [
         {
-          name: searchableFieldEnum.enum.firstName,
+          name: "firstName",
           displayName: "First Name",
           compoundType: false,
           type: "String",
         },
         {
-          name: searchableFieldEnum.enum.lastName,
+          name: "lastName",
           displayName: "Last Name",
           compoundType: false,
           type: "String",
@@ -268,13 +246,13 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
       compoundType: true,
       fields: [
         {
-          name: searchableFieldEnum.enum.houseNum,
+          name: "houseNum",
           displayName: "House Number",
           compoundType: false,
           type: "number",
         },
         {
-          name: searchableFieldEnum.enum.street,
+          name: "street",
           displayName: "Street",
           compoundType: false,
           type: "Street",
@@ -323,7 +301,11 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   };
 
   const handleChangeValue = useCallback(
-    (index: number, value: string | Date | boolean, compoundIndex?: number) => {
+    (
+      index: number,
+      value: string | Date | boolean | undefined,
+      compoundIndex?: number,
+    ) => {
       setSearchRows((prev) => {
         const updatedRows = [...prev];
         const updatedRow = updatedRows[index];
@@ -334,8 +316,8 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             // Use undefined for empty strings instead of coercing to 0
             updatedRow.value = value === "" ? undefined : Number(value);
           } else if (updatedRow.type === "Boolean") {
-            updatedRow.value =
-              typeof value === "boolean" ? value : value === "true";
+            // Only persist true; anything else becomes undefined
+            updatedRow.value = value ?? undefined;
           } else {
             updatedRow.value = value;
           }
@@ -348,8 +330,8 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
               // Use undefined for empty strings instead of coercing to 0
               updatedField.value = value === "" ? undefined : Number(value);
             } else if (updatedField.type === "Boolean") {
-              updatedField.value =
-                typeof value === "boolean" ? value : value === "true";
+              // Only persist true; anything else becomes undefined
+              updatedField.value = value ?? undefined;
             } else {
               updatedField.value = value;
             }
@@ -557,7 +539,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
                                 onCheckedChange={(checked) =>
                                   handleChangeValue(
                                     index,
-                                    checked === true,
+                                    checked ?? undefined,
                                     subIdx,
                                   )
                                 }

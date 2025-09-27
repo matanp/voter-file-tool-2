@@ -5,6 +5,7 @@ import { validateRequest } from "../lib/validateRequest";
 import {
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
+  normalizeSearchQuery,
 } from "@voter-file-tool/shared-validators";
 import type { Prisma } from "@prisma/client";
 import { withPrivilege } from "../lib/withPrivilege";
@@ -21,9 +22,10 @@ async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
     }
 
     const { searchQuery, pageSize, page } = validation.data;
+    const normalized = normalizeSearchQuery(searchQuery);
 
     const query: Prisma.VoterRecordWhereInput =
-      buildPrismaWhereClause(searchQuery);
+      buildPrismaWhereClause(normalized);
 
     // use cursor based pagination if performance becomes a problem
     const records = await prisma.voterRecord.findMany({

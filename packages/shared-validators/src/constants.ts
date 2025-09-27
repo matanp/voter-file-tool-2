@@ -98,3 +98,11 @@ export const searchableFieldEnum = z.enum([
 ] as const satisfies readonly AllSearchableFields[]);
 
 export type SearchableField = z.infer<typeof searchableFieldEnum>;
+
+// Export the enum values as a const array for easier access
+export const SEARCHABLE_FIELD_VALUES = [
+  ...NUMBER_FIELDS,
+  ...COMPUTED_BOOLEAN_FIELDS,
+  ...DATE_FIELDS,
+  ...STRING_FIELDS,
+] as const;

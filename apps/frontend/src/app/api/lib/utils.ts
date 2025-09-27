@@ -4,14 +4,9 @@ import type {
   VoterRecord,
   VoterRecordArchive,
 } from "@prisma/client";
+import { searchQueryFieldSchema } from "@voter-file-tool/shared-validators";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
-import {
-  NUMBER_FIELDS,
-  COMPUTED_BOOLEAN_FIELDS,
-  STRING_FIELDS,
-  DATE_FIELDS,
-} from "@voter-file-tool/shared-validators";
 
 export const dropdownItems = [
   "city",
@@ -148,16 +143,6 @@ export function findDiscrepancies(
       typeof field.existingField === "string"
         ? existingRecord[field.existingField]
         : field.existingField(existingRecord);
-
-    // if (
-    //   existingValue?.includes("SANFILIPPO") ||
-    //   existingValue?.includes("FAGER")
-    // ) {
-    //   console.log("abc", incomingRecord[field.incomingField]?.split(" "));
-    //   console.log("incomingValue", incomingValue);
-    //   console.log("existingValue", existingValue);
-    //   console.log("discrepancy", incomingValue !== existingValue);
-    // }
     if (incomingValue !== existingValue) {
       discrepancies[field.incomingField] = {
         incoming: incomingValue ?? "",
@@ -232,38 +217,8 @@ export const exampleVoterRecord: Partial<VoterRecordArchive> = {
   statevid: "NY123456789",
 };
 
-// Define discriminated union schemas for each field type
-const numberFieldSchema = z.object({
-  field: z.enum(NUMBER_FIELDS),
-  value: z.number().nullable(),
-});
-
-const booleanFieldSchema = z.object({
-  field: z.enum(COMPUTED_BOOLEAN_FIELDS),
-  value: z.boolean().nullable(),
-});
-
-const stringFieldSchema = z.object({
-  field: z.enum(STRING_FIELDS),
-  value: z.string().nullable(),
-});
-
-const dateFieldSchema = z.object({
-  field: z.enum(DATE_FIELDS),
-  value: z.string().nullable(),
-});
-
-export const searchQueryFieldSchema = z.array(
-  z.discriminatedUnion("field", [
-    numberFieldSchema,
-    booleanFieldSchema,
-    stringFieldSchema,
-    dateFieldSchema,
-  ]),
-);
-
 export const fetchFilteredDataSchema = z.object({
-  searchQuery: searchQueryFieldSchema,
+  searchQuery: z.array(searchQueryFieldSchema),
   pageSize: z.number().int().min(1).max(100),
   page: z.number().int().min(1),
 });

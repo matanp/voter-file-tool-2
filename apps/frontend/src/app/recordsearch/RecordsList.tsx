@@ -1,10 +1,7 @@
 "use client";
 import React from "react";
 import { useRouter } from "next/navigation";
-import VoterRecordSearch, {
-  type BaseSearchField,
-  type SearchField,
-} from "./VoterRecordSearch";
+import VoterRecordSearch from "./VoterRecordSearch";
 import { type DropdownLists, type VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { getAddress } from "../api/lib/utils";
@@ -17,6 +14,8 @@ import {
   ADMIN_CONTACT_INFO,
   type SearchQueryField,
 } from "@voter-file-tool/shared-validators";
+import type { BaseSearchField, SearchField } from "~/types/searchFields";
+import { convertBaseSearchFieldToSearchQueryField } from "~/types/searchFields";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { Info } from "lucide-react";
 import { useApiMutation } from "~/hooks/useApiMutation";
@@ -24,6 +23,9 @@ import { useApiMutation } from "~/hooks/useApiMutation";
 interface RecordsListProps {
   dropdownList: DropdownLists;
 }
+
+// Type-safe conversion using discriminated union properly
+
 export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const router = useRouter();
   const { toast } = useToast();
@@ -90,6 +92,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const handleSubmit = async (searchQueryParam: SearchField[]) => {
     setPage(1);
     setPageSize(100);
+
+    // Flatten compound fields and convert to SearchQueryField format
     const flattenedQuery = searchQueryParam
       .reduce((acc: BaseSearchField[], curr: SearchField) => {
         if (curr.compoundType) {
@@ -98,46 +102,23 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           return [...acc, curr];
         }
       }, [])
-      .filter(
-        (
-          field,
-        ): field is BaseSearchField & { name: SearchQueryField["field"] } =>
-          field.name !== "empty",
-      )
-      .map((field) => ({
-        field: field.name,
-        value:
-          field.value instanceof Date
-            ? field.value.toISOString()
-            : (field.value ?? null),
-      }));
+      .map(convertBaseSearchFieldToSearchQueryField)
+      .filter((field): field is SearchQueryField => field !== null);
 
     setSearchQuery(flattenedQuery);
 
-    // Convert undefined to null to match API schema
-    const convertedQuery = flattenedQuery.map((item) => ({
-      ...item,
-      value: item.value ?? null,
-    }));
-
     void searchMutation.mutate({
-      searchQuery: convertedQuery,
+      searchQuery: flattenedQuery,
       pageSize: 100,
       page: 1,
     });
 
-    setContextSearchQuery(searchQueryParam, convertedQuery);
+    setContextSearchQuery(searchQueryParam, flattenedQuery);
   };
 
   const handleLoadMore = async () => {
-    // Convert undefined to null to match API schema
-    const convertedQuery = searchQuery.map((item) => ({
-      ...item,
-      value: item.value ?? null,
-    }));
-
     void loadMoreMutation.mutate({
-      searchQuery: convertedQuery,
+      searchQuery: searchQuery,
       pageSize,
       page: page + 1,
     });
