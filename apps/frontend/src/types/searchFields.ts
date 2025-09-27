@@ -15,6 +15,14 @@ export type BaseFieldType =
   | "CityTown"
   | "Hidden";
 
+export type SearchFieldValue =
+  | string
+  | Date
+  | number
+  | boolean
+  | string[]
+  | undefined;
+
 export interface BaseSearchField {
   name:
     | (typeof NUMBER_FIELDS)[number]
@@ -25,8 +33,9 @@ export interface BaseSearchField {
   displayName: string;
   compoundType: false;
   type: BaseFieldType;
-  value?: string | Date | number | boolean | undefined;
+  value?: SearchFieldValue;
   id?: string;
+  allowMultiple?: boolean;
 }
 
 export interface CompoundSearchField {

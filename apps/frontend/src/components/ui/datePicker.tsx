@@ -6,6 +6,7 @@ import { format } from "date-fns";
 
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
+import { SEARCH_DROPDOWN_WIDTH } from "~/lib/constants/sizing";
 import { Calendar } from "~/components/ui/calendar";
 import {
   Popover,
@@ -21,13 +22,19 @@ import {
 } from "./select";
 
 interface DatePickerProps {
+  initialValue?: Date;
   onChange: (date: Date) => void;
+  ariaLabel?: string;
 }
 
 const NUM_YEARS = 125;
 
-export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
-  const [date, setDate] = React.useState<Date>();
+export const DatePicker: React.FC<DatePickerProps> = ({
+  initialValue,
+  onChange,
+  ariaLabel,
+}) => {
+  const [date, setDate] = React.useState<Date | undefined>(initialValue);
   const [isOpen, setIsOpen] = React.useState(false);
 
   const years = Array.from(
@@ -51,11 +58,14 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
         <Button
           variant={"outline"}
           className={cn(
-            "w-[185px] justify-start text-left font-normal",
+            `${SEARCH_DROPDOWN_WIDTH} justify-start text-left font-normal`,
             !date && "text-muted-foreground",
           )}
+          aria-label={ariaLabel ?? "Select date"}
+          aria-expanded={isOpen}
+          aria-haspopup="dialog"
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
+          <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
           {date ? format(date, "PPP") : <span>Pick a date</span>}
         </Button>
       </PopoverTrigger>

@@ -49,13 +49,10 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
 
   const setSearchQuery = useCallback(
     (query: SearchField[], flattenedQuery: SearchQueryField[]) => {
-      // Only update if we have actual data, don't overwrite with empty arrays
-      if (query.length > 0 && flattenedQuery.length > 0) {
-        setSearchQueryState(query);
-        setFlattenedSearchQuery(flattenedQuery);
-        const extractedFields = extractFieldNamesFromSearchQuery(query);
-        setFieldsList(extractedFields);
-      }
+      setSearchQueryState(query);
+      setFlattenedSearchQuery(flattenedQuery);
+      const extractedFields = extractFieldNamesFromSearchQuery(query);
+      setFieldsList(extractedFields);
     },
     [],
   );

@@ -174,10 +174,12 @@ const CITY_TOWN_MAP = [
 
 export const CityTownSearch: React.FC<{
   cities: string[];
+  initialCity?: string;
+  initialTown?: string;
   onChange: (city: string, town: string) => void;
-}> = ({ cities, onChange }) => {
-  const [city, setCity] = useState<string>("");
-  const [town, setTown] = useState<string>("");
+}> = ({ cities, initialCity = "", initialTown = "", onChange }) => {
+  const [city, setCity] = useState<string>(initialCity);
+  const [town, setTown] = useState<string>(initialTown);
 
   const townInfo = CITY_TOWN_MAP.find(
     (cityMapItem) => cityMapItem.name.toLowerCase() === city.toLowerCase(),
@@ -189,6 +191,7 @@ export const CityTownSearch: React.FC<{
         items={cities.map((city) => {
           return { label: city, value: city };
         })}
+        initialValue={city}
         displayLabel={"Select City"}
         onSelect={function (value: string): void {
           setCity(value);
@@ -202,6 +205,7 @@ export const CityTownSearch: React.FC<{
             items={townInfo.info.towns.map((town) => {
               return { label: town.name, value: town.code };
             })}
+            initialValue={town}
             displayLabel={`Select ${townInfo.info.name}`}
             onSelect={function (value: string): void {
               if (value === town) {

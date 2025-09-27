@@ -100,10 +100,17 @@ export function convertBaseSearchFieldToSearchQueryField(
 
     // Handle string fields (all other fields) with proper type narrowing
     if (isStringFieldName(fieldName)) {
-      return {
-        field: fieldName,
-        values: [String(field.value)],
-      };
+      if (Array.isArray(field.value)) {
+        return {
+          field: fieldName,
+          values: field.value.map(String),
+        };
+      } else {
+        return {
+          field: fieldName,
+          values: [String(field.value)],
+        };
+      }
     }
 
     // Exhaustive compile-time check: if we reach here, fieldName is never
