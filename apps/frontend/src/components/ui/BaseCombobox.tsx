@@ -60,13 +60,10 @@ export function BaseCombobox({
   const [open, setOpen] = React.useState(false);
 
   const filterFunction = React.useCallback(
-    (value: string, search: string) =>
-      items
-        .find((item) => item.value === value)
-        ?.label.toLowerCase()
-        .startsWith(search.toLowerCase())
-        ? 1
-        : 0,
+    (value: string, search: string) => {
+      const label = items.find((item) => item.value === value)?.label ?? "";
+      return label.toLowerCase().startsWith(search.toLowerCase()) ? 1 : 0;
+    },
     [items],
   );
 
@@ -148,14 +145,44 @@ export function useComboboxInitialValues(
   initialValues: string | string[],
   items: ComboboxItem[],
 ) {
-  const [values, setValues] = React.useState<string[]>([]);
-
-  React.useEffect(() => {
+  const [values, setValues] = React.useState<string[]>(() => {
+    // Initialize values during first render
     const valuesArray = Array.isArray(initialValues)
       ? initialValues
       : [initialValues];
-    const reconciledValues = reconcileInitialValues(valuesArray, items);
-    setValues(reconciledValues);
+    return reconcileInitialValues(valuesArray, items);
+  });
+
+  // Track previous values to avoid unnecessary updates
+  const prevInitialValuesRef = React.useRef(initialValues);
+  const prevItemsRef = React.useRef(items);
+
+  React.useEffect(() => {
+    // Only update if initialValues or items actually changed
+    const initialValuesChanged = prevInitialValuesRef.current !== initialValues;
+
+    // Deep comparison for items array to avoid infinite loops
+    const itemsChanged =
+      prevItemsRef.current.length !== items.length ||
+      prevItemsRef.current.some((prevItem, index) => {
+        const currentItem = items[index];
+        return (
+          !currentItem ||
+          prevItem.value !== currentItem.value ||
+          prevItem.label !== currentItem.label
+        );
+      });
+
+    if (initialValuesChanged || itemsChanged) {
+      const valuesArray = Array.isArray(initialValues)
+        ? initialValues
+        : [initialValues];
+      const reconciledValues = reconcileInitialValues(valuesArray, items);
+      setValues(reconciledValues);
+
+      prevInitialValuesRef.current = initialValues;
+      prevItemsRef.current = items;
+    }
   }, [initialValues, items]);
 
   return { values, setValues };

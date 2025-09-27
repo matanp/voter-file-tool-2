@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 
 const CITY_TOWN_MAP = [
@@ -180,9 +180,40 @@ export const CityTownSearch: React.FC<{
 }> = ({ cities, initialCity = "", initialTown = "", onChange }) => {
   const [city, setCity] = useState<string>(initialCity);
   const [town, setTown] = useState<string>(initialTown);
+  const onChangeRef = useRef(onChange);
+
+  // Keep onChange ref up to date
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  // Sync local state with initial props when they change
+  useEffect(() => {
+    setCity(initialCity);
+    setTown(initialTown);
+    onChangeRef.current(initialCity, initialTown);
+  }, [initialCity, initialTown]);
 
   const townInfo = CITY_TOWN_MAP.find(
     (cityMapItem) => cityMapItem.name.toLowerCase() === city.toLowerCase(),
+  );
+
+  const handleCityChange = useCallback((value: string) => {
+    setCity(value);
+    onChangeRef.current(value, "");
+  }, []);
+
+  const handleTownChange = useCallback(
+    (value: string) => {
+      if (value === town) {
+        setTown("");
+        onChangeRef.current(city, "");
+        return;
+      }
+      setTown(value);
+      onChangeRef.current(city, value);
+    },
+    [city, town],
   );
 
   return (
@@ -193,10 +224,7 @@ export const CityTownSearch: React.FC<{
         })}
         initialValue={city}
         displayLabel={"Select City"}
-        onSelect={function (value: string): void {
-          setCity(value);
-          onChange(value, "");
-        }}
+        onSelect={handleCityChange}
       />
       {townInfo && (
         <>
@@ -207,15 +235,7 @@ export const CityTownSearch: React.FC<{
             })}
             initialValue={town}
             displayLabel={`Select ${townInfo.info.name}`}
-            onSelect={function (value: string): void {
-              if (value === town) {
-                setTown("");
-                onChange(city, "");
-                return;
-              }
-              setTown(value);
-              onChange(city, value);
-            }}
+            onSelect={handleTownChange}
           />
         </>
       )}

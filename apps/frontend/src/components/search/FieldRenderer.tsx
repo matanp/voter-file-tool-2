@@ -15,6 +15,7 @@ import {
   getDropdownItems,
   getDropdownDisplayLabel,
 } from "~/lib/searchHelpers";
+import { useMemo, useCallback } from "react";
 
 interface FieldRendererProps {
   field: BaseSearchField;
@@ -58,7 +59,10 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
         return null;
       }
 
-      const items = getDropdownItems(field.name, dropdownList);
+      const items = useMemo(
+        () => getDropdownItems(field.name, dropdownList),
+        [field.name, dropdownList],
+      );
       const displayLabel = getDropdownDisplayLabel(
         field.displayName,
         field.allowMultiple ?? false,
@@ -128,9 +132,13 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
 
     case FIELD_TYPES.CITY_TOWN: {
       if (field.allowMultiple) {
+        const cityItems = useMemo(
+          () => getDropdownItems("city", dropdownList),
+          [dropdownList],
+        );
         return (
           <MultiSelectCombobox
-            items={getDropdownItems("city", dropdownList)}
+            items={cityItems}
             displayLabel="Select Cities"
             initialValues={Array.isArray(field.value) ? field.value : []}
             onSelect={onValueChange}
@@ -138,27 +146,39 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
         );
       }
 
+      const handleCityTownChange = useCallback(
+        (city: string, town: string) => {
+          onValueChange(city);
+          // TODO: Handle town value separately if needed
+          void town; // Suppress unused parameter warning
+        },
+        [onValueChange],
+      );
+
       return (
         <CityTownSearch
           key={`city-town-${String(field.value)}`}
           cities={dropdownList.city}
           initialCity={typeof field.value === "string" ? field.value : ""}
-          onChange={(city, town) => {
-            onValueChange(city);
-            // TODO: Handle town value separately if needed
-            void town; // Suppress unused parameter warning
-          }}
+          onChange={handleCityTownChange}
         />
       );
     }
 
     case FIELD_TYPES.BOOLEAN: {
+      const handleCheckboxChange = useCallback(
+        (checked: boolean | "indeterminate") => {
+          onValueChange(checked === "indeterminate" ? undefined : checked);
+        },
+        [onValueChange],
+      );
+
       return (
         <div className="flex items-center space-x-2">
           <Checkbox
             id={fieldId}
             checked={field.value === true}
-            onCheckedChange={(checked) => onValueChange(checked ?? undefined)}
+            onCheckedChange={handleCheckboxChange}
           />
           <label
             htmlFor={fieldId}
@@ -185,6 +205,13 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
         );
       }
 
+      const handleStringInputChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+          onValueChange(e.target.value);
+        },
+        [onValueChange],
+      );
+
       return (
         <Input
           key={`input-${String(field.value)}`}
@@ -195,7 +222,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
               ? String(field.value)
               : ""
           }
-          onChange={(e) => onValueChange(e.target.value)}
+          onChange={handleStringInputChange}
           aria-label={`Enter ${fieldLabel}`}
           id={fieldId}
         />
@@ -203,6 +230,15 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     }
 
     case FIELD_TYPES.NUMBER: {
+      const handleNumberInputChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+          onValueChange(
+            e.target.value === "" ? undefined : Number(e.target.value),
+          );
+        },
+        [onValueChange],
+      );
+
       return (
         <Input
           key={`input-${String(field.value)}`}
@@ -213,7 +249,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
               ? String(field.value)
               : ""
           }
-          onChange={(e) => onValueChange(e.target.value)}
+          onChange={handleNumberInputChange}
           aria-label={`Enter ${fieldLabel}`}
           id={fieldId}
         />

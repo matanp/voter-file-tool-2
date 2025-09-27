@@ -39,6 +39,11 @@ export function MultiSelectCombobox({
 }: MultiSelectComboboxProps) {
   const { values, setValues } = useComboboxInitialValues(initialValues, items);
 
+  // Helper function to get label with fallback to prevent "undefined" display
+  const getLabel = (value: string) => {
+    return items.find((item) => item.value === value)?.label ?? value;
+  };
+
   const handleSelect = (currentValue: string) => {
     const newValues = values.includes(currentValue)
       ? values.filter((value) => value !== currentValue)
@@ -60,14 +65,12 @@ export function MultiSelectCombobox({
     }
 
     if (values.length <= maxDisplayItems) {
-      return values
-        .map((value) => items.find((item) => item.value === value)?.label)
-        .join(", ");
+      return values.map(getLabel).join(", ");
     }
 
     const displayedValues = values
       .slice(0, maxDisplayItems)
-      .map((value) => items.find((item) => item.value === value)?.label)
+      .map(getLabel)
       .join(", ");
 
     return `${displayedValues} +${values.length - maxDisplayItems} more`;
@@ -93,24 +96,27 @@ export function MultiSelectCombobox({
         <div
           className={`flex flex-wrap gap-1 ${SEARCH_BADGE_CONTAINER_MAX_WIDTH}`}
         >
-          {values.slice(0, maxDisplayItems).map((value) => (
-            <Badge
-              key={value}
-              variant="secondary"
-              className="text-xs px-2 py-1"
-            >
-              {items.find((item) => item.value === value)?.label}
-              <button
-                type="button"
-                onClick={() => handleRemoveValue(value)}
-                className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
-                aria-label={`Remove ${items.find((item) => item.value === value)?.label}`}
-                title={`Remove ${items.find((item) => item.value === value)?.label}`}
+          {values.slice(0, maxDisplayItems).map((value) => {
+            const label = getLabel(value);
+            return (
+              <Badge
+                key={value}
+                variant="secondary"
+                className="text-xs px-2 py-1"
               >
-                <Cross2Icon className="h-3 w-3" aria-hidden="true" />
-              </button>
-            </Badge>
-          ))}
+                {label}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveValue(value)}
+                  className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
+                  aria-label={`Remove ${label}`}
+                  title={`Remove ${label}`}
+                >
+                  <Cross2Icon className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </Badge>
+            );
+          })}
           {values.length > maxDisplayItems && (
             <Badge variant="outline" className="text-xs px-2 py-1">
               +{values.length - maxDisplayItems} more

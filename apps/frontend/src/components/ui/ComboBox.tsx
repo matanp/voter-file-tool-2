@@ -35,7 +35,7 @@ export function ComboboxDropdown({
   const value = values[0] ?? "";
 
   const valueDisplayText = value
-    ? items.find((item) => item.value === value)?.label
+    ? (items.find((item) => item.value === value)?.label ?? displayLabel)
     : displayLabel;
 
   const handleSelect = (currentValue: string) => {

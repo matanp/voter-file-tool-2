@@ -7,7 +7,7 @@ import type {
 
 export type BaseFieldType =
   | "String"
-  | "number"
+  | "Number"
   | "Boolean"
   | "DateTime"
   | "Dropdown"
