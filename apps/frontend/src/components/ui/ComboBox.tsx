@@ -1,116 +1,64 @@
 "use client";
 
 import * as React from "react";
-import { CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
-
-import { cn } from "~/lib/utils";
-import { Button } from "~/components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "~/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "~/components/ui/popover";
+  BaseCombobox,
+  useComboboxInitialValues,
+  type ComboboxItem,
+} from "./BaseCombobox";
 
 interface ComboboxDropdownProps {
-  items: { value: string; label: string }[];
+  items: ComboboxItem[];
   initialValue?: string;
   displayLabel: string;
   onSelect: (value: string) => void;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
 }
 
+/**
+ * Single-select combobox dropdown component.
+ * Allows users to select one option from a filtered list.
+ */
 export function ComboboxDropdown({
   items,
   initialValue,
   displayLabel,
   onSelect,
+  ariaLabel,
+  ariaDescribedBy,
 }: ComboboxDropdownProps) {
-  const [open, setOpen] = React.useState(false);
-  const [value, setValue] = React.useState(initialValue ?? "");
-
-  // these next 2 effects seem to solve some issues
-  // this one handles the case where the items dynamically change and the current value is not in the list
-  React.useEffect(() => {
-    if (items.find((item) => item.value === value) === undefined) {
-      setValue("");
-    }
-  }, [items, value]);
-
-  // this allows initial values to be set, but ensuring that the value is in the list
-  React.useEffect(() => {
-    if (
-      initialValue &&
-      items.find((item) => item.value === initialValue) === undefined
-    ) {
-      setValue("");
-    } else if (initialValue) {
-      setValue(initialValue);
-    }
-  }, [initialValue, items]);
+  const { values, setValues } = useComboboxInitialValues(
+    initialValue ?? "",
+    items,
+  );
+  const value = values[0] ?? "";
 
   const valueDisplayText = value
     ? items.find((item) => item.value === value)?.label
     : displayLabel;
 
+  const handleSelect = (currentValue: string) => {
+    const newValue = currentValue === value ? "" : currentValue;
+    setValues(newValue ? [newValue] : []);
+    onSelect(newValue);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={`w-[185px] justify-between ${valueDisplayText && valueDisplayText.length > 22 ? "text-xs font-semibold" : ""}`}
-        >
-          {valueDisplayText}
-          <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
-        <Command
-          shouldFilter={true}
-          filter={(value, search) =>
-            items
-              .find((item) => item.value === value)
-              ?.label.toLowerCase()
-              .startsWith(search.toLowerCase())
-              ? 1
-              : 0
-          }
-        >
-          <CommandInput placeholder={displayLabel} className="h-9" />
-          <CommandList>
-            <CommandEmpty>Nothing found</CommandEmpty>
-            <CommandGroup>
-              {items.map((item) => (
-                <CommandItem
-                  key={item.value}
-                  value={item.value}
-                  onSelect={(currentValue) => {
-                    setValue(currentValue === value ? "" : currentValue);
-                    onSelect(currentValue);
-                    setOpen(false);
-                  }}
-                >
-                  {item.label}
-                  <CheckIcon
-                    className={cn(
-                      "ml-auto h-4 w-4",
-                      value === item.value ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <BaseCombobox
+      items={items}
+      displayLabel={displayLabel}
+      buttonClassName={
+        valueDisplayText && valueDisplayText.length > 22
+          ? "text-xs font-semibold"
+          : ""
+      }
+      onItemSelect={handleSelect}
+      isItemSelected={(itemValue) => itemValue === value}
+      ariaLabel={ariaLabel}
+      ariaDescribedBy={ariaDescribedBy}
+    >
+      {valueDisplayText}
+    </BaseCombobox>
   );
 }

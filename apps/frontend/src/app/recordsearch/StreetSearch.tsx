@@ -1,27 +1,23 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
+import { useDebouncedValue } from "~/hooks/useDebouncedValue";
+import { SEARCH_DROPDOWN_WIDTH } from "~/lib/constants/sizing";
 
 export const StreetSearch: React.FC<{
   streets: string[];
+  initialValue?: string;
   onChange: (search: string) => void;
-}> = ({ streets, onChange }) => {
-  const [search, setSearch] = useState<string>("");
-  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+}> = ({ streets, initialValue = "", onChange }) => {
+  const [search, setSearch] = useState<string>(initialValue);
+  const debouncedSearch = useDebouncedValue(search);
 
-  let timer: NodeJS.Timeout | null = null;
-
-  const debounceHandler = (value: string) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      setDebouncedSearch(value);
-      onChange(value);
-    }, 250);
-  };
+  React.useEffect(() => {
+    onChange(debouncedSearch);
+  }, [debouncedSearch, onChange]);
 
   const handleInputChange = (value: string) => {
     setSearch(value);
-    debounceHandler(value);
   };
 
   const matches = streets
@@ -36,13 +32,12 @@ export const StreetSearch: React.FC<{
     if (event.key === "Tab" && firstMatch && search !== "") {
       event.preventDefault();
       setSearch(firstMatch);
-      setDebouncedSearch("");
       onChange(firstMatch);
     }
   };
 
   return (
-    <div className="w-[185px] max-w-md mx-auto">
+    <div className={`${SEARCH_DROPDOWN_WIDTH} max-w-md mx-auto`}>
       <Input
         placeholder="Enter Street"
         value={search}
@@ -60,7 +55,6 @@ export const StreetSearch: React.FC<{
                 onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.preventDefault();
                   setSearch(match);
-                  setDebouncedSearch("");
                   onChange(match);
                 }}
               >{`Fill${index === 0 ? " (Tab)" : ""}`}</Button>

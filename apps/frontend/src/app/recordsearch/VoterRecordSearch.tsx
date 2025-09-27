@@ -1,265 +1,33 @@
 "use client";
 import type { DropdownLists } from "@prisma/client";
-import type { SearchField } from "~/types/searchFields";
-import { useState, useCallback } from "react";
+import type { SearchField, SearchFieldValue } from "~/types/searchFields";
+import { useState, useCallback, useEffect } from "react";
+import { SearchRow } from "~/components/search/SearchRow";
+import {
+  addIdsIfMissing,
+  filterMeaningfulRows,
+  getAvailableFields,
+  canRemoveRow,
+  EMPTY_FIELD,
+  assignProcessedFieldValue,
+} from "~/lib/searchHelpers";
+import { SEARCH_FIELDS } from "~/lib/constants/searchFields";
 
-const generateId = (): string => {
-  // Use crypto.randomUUID() for better uniqueness, with fallback for older browsers
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback to timestamp + random for older browsers
-  return `search-row-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-};
-
-const addIdsIfMissing = (
-  field: SearchField,
-  existingId?: string,
-): SearchField => {
-  // Only add ID if it doesn't already exist, or use the provided existing ID
-  const id = existingId ?? field.id ?? generateId();
-
-  if (field.compoundType) {
-    return {
-      ...field,
-      id,
-      fields: field.fields.map((subField) => ({
-        ...subField,
-        id: subField.id ?? generateId(),
-      })),
-    };
-  } else {
-    return { ...field, id };
-  }
-};
 import { Button } from "~/components/ui/button";
-import { ComboboxDropdown } from "~/components/ui/ComboBox";
-import { DatePicker } from "~/components/ui/datePicker";
-import { isDropdownItem } from "../api/lib/utils";
-import { Input } from "~/components/ui/input";
-import { Checkbox } from "~/components/ui/checkbox";
-import { StreetSearch } from "./StreetSearch";
-import { CityTownSearch } from "./CityTownSearch";
 
 interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
   dropdownList: DropdownLists;
 }
 
-const SEARCH_FIELDS: SearchField[] = [
-  {
-    name: "empty",
-    displayName: "Select a field",
-    value: "",
-    compoundType: false,
-    type: "String",
-  },
-  {
-    name: "VRCNUM",
-    displayName: "Voter ID",
-    compoundType: false,
-    type: "String",
-  },
-  {
-    name: "name",
-    displayName: "Name",
-    compoundType: true,
-    fields: [
-      {
-        name: "firstName",
-        displayName: "First Name",
-        compoundType: false,
-        type: "String",
-      },
-      {
-        name: "lastName",
-        displayName: "Last Name",
-        compoundType: false,
-        type: "String",
-      },
-    ],
-  },
-  {
-    name: "address",
-    displayName: "Address",
-    compoundType: true,
-    fields: [
-      {
-        name: "houseNum",
-        displayName: "House Number",
-        compoundType: false,
-        type: "number",
-      },
-      {
-        name: "street",
-        displayName: "Street",
-        compoundType: false,
-        type: "Street",
-      },
-    ],
-  },
-  {
-    name: "cityTown",
-    displayName: "City / Town",
-    compoundType: true,
-    fields: [
-      {
-        name: "city",
-        displayName: "City",
-        compoundType: false,
-        type: "CityTown",
-      },
-      {
-        name: "CC_WD_Village",
-        displayName: "CC WD Village",
-        compoundType: false,
-        type: "Hidden",
-      },
-    ],
-  },
-
-  // { name: "state", displayName: "State", compoundType: false, type: "String" },
-  {
-    name: "zipCode",
-    displayName: "Zip Code",
-    compoundType: false,
-    type: "Dropdown",
-  },
-  {
-    name: "DOB",
-    displayName: "Date of Birth",
-    compoundType: false,
-    type: "DateTime",
-  },
-  {
-    name: "district",
-    displayName: "District",
-    compoundType: true,
-    fields: [
-      {
-        name: "countyLegDistrict",
-        displayName: "County Leg District",
-        compoundType: false,
-        type: "Dropdown",
-      },
-      {
-        name: "stateAssmblyDistrict",
-        displayName: "State Assembly District",
-        compoundType: false,
-        type: "Dropdown",
-      },
-      {
-        name: "stateSenateDistrict",
-        displayName: "State Senate District",
-        compoundType: false,
-        type: "Dropdown",
-      },
-      // {
-      //   name: "congressionalDistrict",
-      //   displayName: "Congressional District",
-      //   compoundType: false,
-      //   type: "String",
-      // },
-      // {
-      //   name: "CC_WD_Village",
-      //   displayName: "CC WD Village",
-      //   compoundType: false,
-      //   type: "String",
-      // },
-      // {
-      //   name: "townCode",
-      //   displayName: "Town Code",
-      //   compoundType: false,
-      //   type: "Dropdown",
-      // },
-      {
-        name: "electionDistrict",
-        displayName: "Election District",
-        compoundType: false,
-        type: "number",
-      },
-      // {
-      //   name: "statevid",
-      //   displayName: "Statevid",
-      //   compoundType: false,
-      //   type: "String",
-      // },
-    ],
-  },
-  {
-    name: "party",
-    displayName: "Party",
-    compoundType: false,
-    type: "Dropdown",
-  },
-  {
-    name: "additionalCriteria",
-    displayName: "Additional Criteria",
-    compoundType: true,
-    fields: [
-      {
-        name: "hasEmail",
-        displayName: "Only records with an email",
-        compoundType: false,
-        type: "Boolean",
-      },
-      {
-        name: "hasInvalidEmail",
-        displayName: "Only records with an invalid email",
-        compoundType: false,
-        type: "Boolean",
-      },
-      {
-        name: "hasPhone",
-        displayName: "Only records with phone number",
-        compoundType: false,
-        type: "Boolean",
-      },
-    ],
-  },
-];
-
 const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
-  const [searchRows, setSearchRows] = useState<SearchField[]>(() => [
-    addIdsIfMissing({
-      name: "name",
-      displayName: "Name",
-      compoundType: true,
-      fields: [
-        {
-          name: "firstName",
-          displayName: "First Name",
-          compoundType: false,
-          type: "String",
-        },
-        {
-          name: "lastName",
-          displayName: "Last Name",
-          compoundType: false,
-          type: "String",
-        },
-      ],
-    }),
-    addIdsIfMissing({
-      name: "address",
-      displayName: "Address",
-      compoundType: true,
-      fields: [
-        {
-          name: "houseNum",
-          displayName: "House Number",
-          compoundType: false,
-          type: "number",
-        },
-        {
-          name: "street",
-          displayName: "Street",
-          compoundType: false,
-          type: "Street",
-        },
-      ],
-    }),
-  ]);
+  const [searchRows, setSearchRows] = useState<SearchField[]>(() => {
+    const initialFieldNames = ["name", "address"];
+    return SEARCH_FIELDS.filter((field) =>
+      initialFieldNames.includes(field.name),
+    ).map((field) => addIdsIfMissing(field));
+  });
+  const [announcement, setAnnouncement] = useState<string>("");
 
   const handleChangeField = (
     index: number,
@@ -283,59 +51,40 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
   const handleRemoveRow = (index: number) => {
     if (searchRows.length === 1) {
-      setSearchRows([
-        addIdsIfMissing({
-          name: "empty",
-          displayName: "Select a field",
-          value: "",
-          compoundType: false,
-          type: "String",
-        }),
-      ]);
+      setSearchRows([addIdsIfMissing(EMPTY_FIELD)]);
+      setAnnouncement("Search criteria cleared. Ready for new search.");
       return;
     }
 
     const updatedRows = [...searchRows];
     updatedRows.splice(index, 1);
     setSearchRows(updatedRows);
+    setAnnouncement(
+      `Search criteria ${index + 1} removed. ${updatedRows.length} criteria remaining.`,
+    );
   };
 
   const handleChangeValue = useCallback(
-    (
-      index: number,
-      value: string | Date | boolean | undefined,
-      compoundIndex?: number,
-    ) => {
+    (index: number, value: SearchFieldValue, compoundIndex?: number) => {
       setSearchRows((prev) => {
         const updatedRows = [...prev];
         const updatedRow = updatedRows[index];
 
-        if (updatedRow && !updatedRow.compoundType) {
+        if (!updatedRow) return prev;
+
+        if (!updatedRow.compoundType) {
           if (updatedRow.value === value) return prev;
-          if (updatedRow.type === "number") {
-            // Use undefined for empty strings instead of coercing to 0
-            updatedRow.value = value === "" ? undefined : Number(value);
-          } else if (updatedRow.type === "Boolean") {
-            // Only persist true; anything else becomes undefined
-            updatedRow.value = value ?? undefined;
-          } else {
-            updatedRow.value = value;
-          }
-          updatedRows[index] = updatedRow;
-        } else if (updatedRow?.compoundType && compoundIndex !== undefined) {
+
+          updatedRows[index] = assignProcessedFieldValue(updatedRow, value);
+        } else if (compoundIndex !== undefined) {
           const updatedField = updatedRow.fields[compoundIndex];
 
           if (updatedField && updatedField.value !== value) {
-            if (updatedField.type === "number") {
-              // Use undefined for empty strings instead of coercing to 0
-              updatedField.value = value === "" ? undefined : Number(value);
-            } else if (updatedField.type === "Boolean") {
-              // Only persist true; anything else becomes undefined
-              updatedField.value = value ?? undefined;
-            } else {
-              updatedField.value = value;
-            }
-            updatedRow.fields[compoundIndex] = updatedField;
+            const processedField = assignProcessedFieldValue(
+              updatedField,
+              value,
+            );
+            updatedRow.fields[compoundIndex] = processedField;
             updatedRows[index] = updatedRow;
           }
         }
@@ -347,259 +96,92 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const isMeaningful = (v: unknown) => {
-      if (v === undefined || v === null) return false;
-      if (typeof v === "boolean") return v === true;
-      if (typeof v === "string") return v.trim() !== "";
-      if (typeof v === "number") return v !== 0 && !isNaN(v);
-      return true; // For other types like Date
-    };
-
-    const filteredRows = searchRows
-      .map((row) =>
-        row.compoundType
-          ? {
-              ...row,
-              fields: row.fields.filter((f) => isMeaningful(f.value)),
-            }
-          : row,
-      )
-      .filter((row) =>
-        row.compoundType ? row.fields.length > 0 : isMeaningful(row.value),
-      );
-
+    const filteredRows = filterMeaningfulRows(searchRows);
     props.handleSubmit(filteredRows).catch((error) => {
       console.error("Error submitting search:", error);
     });
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl+Enter or Cmd+Enter to submit
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        const filteredRows = filterMeaningfulRows(searchRows);
+        props.handleSubmit(filteredRows).catch((error) => {
+          console.error("Error submitting search:", error);
+        });
+      }
+
+      // Ctrl+Plus or Cmd+Plus to add new criteria
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        (event.key === "+" || event.key === "=")
+      ) {
+        event.preventDefault();
+        const newRows = [...searchRows, addIdsIfMissing(EMPTY_FIELD)];
+        setSearchRows(newRows);
+        setAnnouncement(
+          `New search criteria added. Total: ${newRows.length} criteria.`,
+        );
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [searchRows, props]);
 
   return (
     <div className="flex justify-center">
       <form
         onSubmit={handleSubmit}
         className="w-max flex flex-col items-center gap-4"
+        role="search"
+        aria-label="Voter record search form"
       >
-        {searchRows.map((row, index) => (
-          <div
-            key={row.id ?? `fallback-key-${index}`}
-            className="flex gap-4 shadow-md p-4 bg-background"
-          >
-            <div className="m-2">
-              <div className="flex gap-4">
-                <div className="flex flex-row items-center">
-                  {/* <select
-                  className="form-select h-10 border-2 border-secondary"
-                  value={row.name}
-                  onChange={(e) => handleChangeField(index, e.target.value)}
-                >
-                  <optgroup>
-                    {SEARCH_FIELDS.filter(
-                      (field) =>
-                        searchRows.find((row) => row.name === field.name) ===
-                          undefined || row.name === field.name,
-                    ).map((field, idx) => (
-                      <option value={field.name} key={`fiield-${idx}`}>
-                        {field.displayName}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select> */}
-                  <ComboboxDropdown
-                    items={SEARCH_FIELDS.filter(
-                      (field) =>
-                        ((field.compoundType || field.type !== "Hidden") &&
-                          searchRows.find((row) => row.name === field.name) ===
-                            undefined) ||
-                        row.name === field.name,
-                    ).map((field) => ({
-                      label: field.displayName,
-                      value: field.name,
-                    }))}
-                    initialValue={row.name}
-                    displayLabel={row.displayName}
-                    onSelect={(value) => {
-                      handleChangeField(index, value);
-                    }}
-                  />
-                </div>
-                <div className="col-sm-4">
-                  {!row.compoundType && row.name !== "empty" && (
-                    <>
-                      {row.type === "Dropdown" && isDropdownItem(row.name) && (
-                        <ComboboxDropdown
-                          items={props.dropdownList[row.name].map(
-                            (item: string) => ({
-                              label: item,
-                              value: item,
-                            }),
-                          )}
-                          displayLabel={`Select ${row.displayName}`}
-                          onSelect={(value) => {
-                            handleChangeValue(index, value);
-                          }}
-                        />
-                      )}
-                      {row.type === "DateTime" && (
-                        <DatePicker
-                          onChange={(date) => handleChangeValue(index, date)}
-                        />
-                      )}
-                      {row.type === "Street" && (
-                        <StreetSearch
-                          streets={props.dropdownList.street}
-                          onChange={(value) => {
-                            handleChangeValue(index, value);
-                          }}
-                        />
-                      )}
-                      {(row.type === "String" || row.type === "number") && (
-                        // <input
-                        //   type={row.type}
-                        //   className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-                        //   placeholder={`Enter ${row.displayName}`}
-                        //   onChange={(e) =>
-                        //     handleChangeValue(index, e.target.value)
-                        //   }
-                        // />
-                        <Input
-                          type={row.type === "number" ? "number" : "text"}
-                          placeholder={`Enter ${row.displayName}`}
-                          onChange={(e) =>
-                            handleChangeValue(index, e.target.value)
-                          }
-                        />
-                      )}
-                    </>
-                  )}
-                  {row.compoundType &&
-                    row.fields.map((field, subIdx) => {
-                      if (field.type === "Hidden") return null;
+        <fieldset className="border-0 p-0 m-0">
+          <legend className="sr-only">Search criteria</legend>
+          {searchRows.map((row, index) => {
+            const availableFields = getAvailableFields(
+              searchRows,
+              SEARCH_FIELDS,
+              row.name,
+            );
+            const canRemove = canRemoveRow(searchRows, index);
 
-                      return (
-                        <div
-                          key={field.id ?? `sub-fallback-${index}-${subIdx}`}
-                          className="flex flex-col"
-                        >
-                          {field.name !== "city" &&
-                            field.type !== "Boolean" &&
-                            field.displayName.length < 15 && (
-                              <label className="font-extralight text-sm pl-1 pt-2">
-                                {field.displayName}
-                              </label>
-                            )}
-                          {field.type === "Dropdown" &&
-                            isDropdownItem(field.name) && (
-                              <ComboboxDropdown
-                                items={props.dropdownList[field.name].map(
-                                  (item: string) => ({
-                                    label: item,
-                                    value: item,
-                                  }),
-                                )}
-                                displayLabel={
-                                  field.displayName.length < 10
-                                    ? `Select ${field.displayName}`
-                                    : field.displayName
-                                }
-                                onSelect={(value) => {
-                                  handleChangeValue(index, value, subIdx);
-                                }}
-                              />
-                            )}
-                          {field.type === "DateTime" && (
-                            <DatePicker
-                              onChange={(date) =>
-                                handleChangeValue(index, date, subIdx)
-                              }
-                            />
-                          )}
-                          {field.type === "CityTown" && (
-                            <CityTownSearch
-                              cities={props.dropdownList.city}
-                              onChange={(city, town) => {
-                                handleChangeValue(index, city, subIdx);
-                                handleChangeValue(index, town, subIdx + 1);
-                              }}
-                            />
-                          )}
-                          {field.type === "Street" && (
-                            <StreetSearch
-                              streets={props.dropdownList.street}
-                              onChange={(value) => {
-                                handleChangeValue(index, value, subIdx);
-                              }}
-                            />
-                          )}
-                          {field.type === "Boolean" && (
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`${field.name}-${index}-${subIdx}`}
-                                checked={field.value === true}
-                                onCheckedChange={(checked) =>
-                                  handleChangeValue(
-                                    index,
-                                    checked ?? undefined,
-                                    subIdx,
-                                  )
-                                }
-                              />
-                              <label
-                                htmlFor={`${field.name}-${index}-${subIdx}`}
-                                className="text-sm font-medium text-gray-700 cursor-pointer"
-                              >
-                                {field.displayName}
-                              </label>
-                            </div>
-                          )}
-                          {(field.type === "String" ||
-                            field.type === "number") && (
-                            <Input
-                              type={field.type === "number" ? "number" : "text"}
-                              placeholder={`Enter ${field.displayName}`}
-                              onChange={(e) =>
-                                handleChangeValue(index, e.target.value, subIdx)
-                              }
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            </div>
-            {(searchRows.length > 1 || searchRows[0]?.name !== "empty") && (
-              <div className="col-sm-2 flex flex-row items-center">
-                <Button
-                  variant="destructive"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleRemoveRow(index);
-                  }}
-                  title="Remove Search Criteria"
-                >
-                  X
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
+            return (
+              <SearchRow
+                key={row.id ?? `fallback-key-${index}`}
+                row={row}
+                index={index}
+                dropdownList={props.dropdownList}
+                availableFields={availableFields}
+                onFieldChange={handleChangeField}
+                onValueChange={handleChangeValue}
+                onRemoveRow={handleRemoveRow}
+                canRemove={canRemove}
+              />
+            );
+          })}
+        </fieldset>
 
-        <div className="flex items-center gap-4 pb-8">
+        <div
+          className="flex items-center gap-4 pb-8"
+          role="group"
+          aria-label="Search actions"
+        >
           <Button
             type="button"
-            onClick={() =>
-              setSearchRows([
-                ...searchRows,
-                addIdsIfMissing({
-                  name: "empty",
-                  displayName: "Select a field",
-                  value: "",
-                  compoundType: false,
-                  type: "String",
-                }),
-              ])
-            }
+            onClick={() => {
+              const newRows = [...searchRows, addIdsIfMissing(EMPTY_FIELD)];
+              setSearchRows(newRows);
+              setAnnouncement(
+                `New search criteria added. Total: ${newRows.length} criteria.`,
+              );
+            }}
+            aria-label="Add another search criteria"
+            title="Add another search criteria (Ctrl+Plus)"
           >
             Add Search Criteria
           </Button>
@@ -608,12 +190,24 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             <Button
               type="submit"
               className="hover:bg-primary-700 w-full rounded-md border border-transparent bg-primary px-4 py-2 text-primary-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              aria-label="Submit voter record search"
+              title="Submit search (Ctrl+Enter)"
             >
               Submit
             </Button>
           </div>
         </div>
       </form>
+
+      {/* Screen reader announcements */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        role="status"
+      >
+        {announcement}
+      </div>
     </div>
   );
 };
