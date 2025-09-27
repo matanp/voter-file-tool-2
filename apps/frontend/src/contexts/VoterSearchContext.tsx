@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import type { SearchField } from "~/app/recordsearch/VoterRecordSearch";
+import type { SearchField } from "~/types/searchFields";
 import { extractFieldNamesFromSearchQuery } from "~/lib/searchFieldUtils";
 import type { FieldName } from "~/app/recordsearch/fieldsConfig";
 import type { SearchQueryField } from "@voter-file-tool/shared-validators";

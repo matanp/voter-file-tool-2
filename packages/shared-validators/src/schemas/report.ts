@@ -1,29 +1,48 @@
 import { z } from 'zod';
 import { generateDesignatedPetitionDataSchema } from './designatedPetition';
 import { partialVoterRecordSchema } from './voterRecord';
-import { searchableFieldEnum } from '../constants';
+import {
+  NUMBER_FIELDS,
+  COMPUTED_BOOLEAN_FIELDS,
+  DATE_FIELDS,
+  STRING_FIELDS,
+} from '../constants';
 
-// Field types used in search queries
-export const fieldTypeEnum = z.enum([
-  'String',
-  'number',
-  'Boolean',
-  'DateTime',
-  'Dropdown',
-  'Street',
-  'CityTown',
-  'Hidden',
-]);
-
-// Search query field schema for voter records
-export const searchQueryFieldSchema = z.object({
-  field: searchableFieldEnum,
-  value: z.union([
-    z.string().nullable(),
-    z.number().nullable(),
-    z.boolean().nullable(),
-  ]),
+// Discriminated union schemas for each field type
+const numberFieldSchema = z.object({
+  field: z.enum(NUMBER_FIELDS),
+  values: z
+    .array(z.number().nullable())
+    .min(1, 'At least one value is required'),
 });
+
+const computedBooleanFieldSchema = z.object({
+  field: z.enum(COMPUTED_BOOLEAN_FIELDS),
+  // Only allow true | null; false should be treated as absence
+  value: z.literal(true).nullable(),
+});
+
+const stringFieldSchema = z.object({
+  field: z.enum(STRING_FIELDS),
+  values: z
+    .array(z.string().nullable())
+    .min(1, 'At least one value is required'),
+});
+
+const dateFieldSchema = z.object({
+  field: z.enum(DATE_FIELDS),
+  values: z
+    .array(z.string().datetime().nullable())
+    .min(1, 'At least one value is required'),
+});
+
+// Search query field schema using discriminated union
+export const searchQueryFieldSchema = z.discriminatedUnion('field', [
+  numberFieldSchema,
+  computedBooleanFieldSchema,
+  stringFieldSchema,
+  dateFieldSchema,
+]);
 
 // Shared format enum
 export const reportFormatEnum = z
@@ -156,6 +175,21 @@ export const errorResponseSchema = z.object({
   details: z.array(z.any()).optional(),
   issues: z.array(z.any()).optional(),
 });
+
+// Utility type to extract field names from SearchQueryField
+export type SearchableFieldName = SearchQueryField['field'];
+
+// Utility type to get the value type for a specific field
+export type FieldValueType<T extends SearchableFieldName> =
+  T extends (typeof NUMBER_FIELDS)[number]
+    ? number | null
+    : T extends (typeof COMPUTED_BOOLEAN_FIELDS)[number]
+      ? true | null
+      : T extends (typeof DATE_FIELDS)[number]
+        ? string | null
+        : T extends (typeof STRING_FIELDS)[number]
+          ? string | null
+          : never;
 
 // Type exports
 export type GenerateReportData = z.infer<typeof generateReportSchema>;
