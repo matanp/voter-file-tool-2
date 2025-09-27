@@ -17,7 +17,7 @@ export const EMPTY_FIELD: SearchField = {
 
 export const FIELD_TYPES = {
   STRING: "String",
-  NUMBER: "number",
+  NUMBER: "Number",
   DROPDOWN: "Dropdown",
   DATETIME: "DateTime",
   STREET: "Street",
@@ -150,7 +150,7 @@ export function processFieldValue(
   type: BaseFieldType,
 ): SearchFieldValue {
   try {
-    if (type === "number") {
+    if (type === "Number") {
       // Convert empty strings to undefined, numbers to numbers
       return value === "" ? undefined : Number(value);
     }

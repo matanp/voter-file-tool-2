@@ -1,3 +1,4 @@
+import React, { useCallback } from "react";
 import { Button } from "~/components/ui/button";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { FieldRenderer } from "./FieldRenderer";
@@ -30,21 +31,27 @@ export const SearchRow: React.FC<SearchRowProps> = ({
   onRemoveRow,
   canRemove,
 }) => {
-  const handleFieldChange = (value: string) => {
-    onFieldChange(index, value);
-  };
+  const handleFieldChange = useCallback(
+    (value: string) => {
+      onFieldChange(index, value);
+    },
+    [onFieldChange, index],
+  );
 
-  const handleValueChange = (
-    value: SearchFieldValue,
-    compoundIndex?: number,
-  ) => {
-    onValueChange(index, value, compoundIndex);
-  };
+  const handleValueChange = useCallback(
+    (value: SearchFieldValue, compoundIndex?: number) => {
+      onValueChange(index, value, compoundIndex);
+    },
+    [onValueChange, index],
+  );
 
-  const handleRemoveClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    onRemoveRow(index);
-  };
+  const handleRemoveClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      onRemoveRow(index);
+    },
+    [onRemoveRow, index],
+  );
 
   return (
     <div

@@ -46,6 +46,16 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     new Date(0, i).toLocaleString("default", { month: "long" }),
   );
 
+  // Sync internal state with initialValue prop changes
+  React.useEffect(() => {
+    const currentTime = date?.getTime();
+    const newTime = initialValue?.getTime();
+
+    if (currentTime !== newTime) {
+      setDate(initialValue);
+    }
+  }, [initialValue, date]);
+
   React.useEffect(() => {
     if (date) {
       onChange(date);

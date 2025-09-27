@@ -29,40 +29,46 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   });
   const [announcement, setAnnouncement] = useState<string>("");
 
-  const handleChangeField = (
-    index: number,
-    field: (typeof SEARCH_FIELDS)[number]["name"],
-  ) => {
-    setSearchRows((prev) => {
-      const updatedRows = [...prev];
-      const template = SEARCH_FIELDS.find((f) => f.name === field);
-      if (template) {
-        // structuredClone is widely available in Next runtimes; fallback to JSON if needed
-        const newField =
-          typeof structuredClone === "function"
-            ? structuredClone(template)
-            : (JSON.parse(JSON.stringify(template)) as SearchField);
+  const handleChangeField = useCallback(
+    (index: number, field: (typeof SEARCH_FIELDS)[number]["name"]) => {
+      setSearchRows((prev) => {
+        const updatedRows = [...prev];
+        const template = SEARCH_FIELDS.find((f) => f.name === field);
+        if (template) {
+          // structuredClone is widely available in Next runtimes; fallback to JSON if needed
+          const newField =
+            typeof structuredClone === "function"
+              ? structuredClone(template)
+              : (JSON.parse(JSON.stringify(template)) as SearchField);
 
-        updatedRows[index] = addIdsIfMissing(newField, updatedRows[index]?.id);
+          updatedRows[index] = addIdsIfMissing(
+            newField,
+            updatedRows[index]?.id,
+          );
+        }
+        return updatedRows;
+      });
+    },
+    [],
+  );
+
+  const handleRemoveRow = useCallback(
+    (index: number) => {
+      if (searchRows.length === 1) {
+        setSearchRows([addIdsIfMissing(EMPTY_FIELD)]);
+        setAnnouncement("Search criteria cleared. Ready for new search.");
+        return;
       }
-      return updatedRows;
-    });
-  };
 
-  const handleRemoveRow = (index: number) => {
-    if (searchRows.length === 1) {
-      setSearchRows([addIdsIfMissing(EMPTY_FIELD)]);
-      setAnnouncement("Search criteria cleared. Ready for new search.");
-      return;
-    }
-
-    const updatedRows = [...searchRows];
-    updatedRows.splice(index, 1);
-    setSearchRows(updatedRows);
-    setAnnouncement(
-      `Search criteria ${index + 1} removed. ${updatedRows.length} criteria remaining.`,
-    );
-  };
+      const updatedRows = [...searchRows];
+      updatedRows.splice(index, 1);
+      setSearchRows(updatedRows);
+      setAnnouncement(
+        `Search criteria ${index + 1} removed. ${updatedRows.length} criteria remaining.`,
+      );
+    },
+    [searchRows],
+  );
 
   const handleChangeValue = useCallback(
     (index: number, value: SearchFieldValue, compoundIndex?: number) => {
@@ -94,13 +100,16 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
     [],
   );
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const filteredRows = filterMeaningfulRows(searchRows);
-    props.handleSubmit(filteredRows).catch((error) => {
-      console.error("Error submitting search:", error);
-    });
-  };
+  const handleSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const filteredRows = filterMeaningfulRows(searchRows);
+      props.handleSubmit(filteredRows).catch((error) => {
+        console.error("Error submitting search:", error);
+      });
+    },
+    [searchRows, props],
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -120,10 +129,14 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         (event.key === "+" || event.key === "=")
       ) {
         event.preventDefault();
-        const newRows = [...searchRows, addIdsIfMissing(EMPTY_FIELD)];
-        setSearchRows(newRows);
+        let nextLength = 0;
+        setSearchRows((prevRows) => {
+          const nextRows = [...prevRows, addIdsIfMissing(EMPTY_FIELD)];
+          nextLength = nextRows.length;
+          return nextRows;
+        });
         setAnnouncement(
-          `New search criteria added. Total: ${newRows.length} criteria.`,
+          `New search criteria added. Total: ${nextLength} criteria.`,
         );
       }
     };
@@ -131,6 +144,18 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [searchRows, props]);
+
+  const handleAddCriteria = useCallback(() => {
+    let nextLength = 0;
+    setSearchRows((prevRows) => {
+      const nextRows = [...prevRows, addIdsIfMissing(EMPTY_FIELD)];
+      nextLength = nextRows.length;
+      return nextRows;
+    });
+    setAnnouncement(
+      `New search criteria added. Total: ${nextLength} criteria.`,
+    );
+  }, []);
 
   return (
     <div className="flex justify-center">
@@ -173,13 +198,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         >
           <Button
             type="button"
-            onClick={() => {
-              const newRows = [...searchRows, addIdsIfMissing(EMPTY_FIELD)];
-              setSearchRows(newRows);
-              setAnnouncement(
-                `New search criteria added. Total: ${newRows.length} criteria.`,
-              );
-            }}
+            onClick={handleAddCriteria}
             aria-label="Add another search criteria"
             title="Add another search criteria (Ctrl+Plus)"
           >

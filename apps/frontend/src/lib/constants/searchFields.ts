@@ -44,7 +44,7 @@ export const SEARCH_FIELDS: SearchField[] = [
         name: "houseNum",
         displayName: "House Number",
         compoundType: false,
-        type: "number",
+        type: "Number",
       },
       {
         name: "street",
@@ -138,7 +138,7 @@ export const SEARCH_FIELDS: SearchField[] = [
         name: "electionDistrict",
         displayName: "Election District",
         compoundType: false,
-        type: "number",
+        type: "Number",
       },
       // {
       //   name: "statevid",

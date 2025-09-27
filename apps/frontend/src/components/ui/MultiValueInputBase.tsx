@@ -21,6 +21,7 @@ interface MultiValueInputBaseProps {
   onBlur?: () => void;
   onInputChange?: (value: string) => void; // Callback for input value changes
   children?: React.ReactNode; // For suggestion overlays
+  autoAddOnBlur?: boolean; // Whether to auto-add values on blur (default: true)
 }
 
 export interface MultiValueInputBaseRef {
@@ -48,42 +49,81 @@ export const MultiValueInputBase = React.forwardRef<
       onBlur,
       onInputChange,
       children,
+      autoAddOnBlur = true,
     },
     ref,
   ) => {
     const [inputValue, setInputValue] = React.useState("");
-    const [values, setValues] = React.useState<string[]>([]);
-
-    // Initialize values from props
-    React.useEffect(() => {
+    const [values, setValues] = React.useState<string[]>(() => {
+      // Initialize values from props during initial render
       if (Array.isArray(value)) {
-        setValues(value);
+        return value;
       } else if (typeof value === "string" && value.trim() !== "") {
-        setValues([value]);
+        return [value];
       } else {
-        setValues([]);
+        return [];
+      }
+    });
+
+    // Track previous value to avoid unnecessary updates
+    const prevValueRef = React.useRef(value);
+    const isInitialRender = React.useRef(true);
+    const onChangeRef = React.useRef(onChange);
+
+    // Keep onChange ref up to date
+    React.useEffect(() => {
+      onChangeRef.current = onChange;
+    }, [onChange]);
+
+    // Update values when props change, but avoid unnecessary updates
+    React.useEffect(() => {
+      // Only update if the value prop actually changed
+      if (prevValueRef.current !== value) {
+        const newValues = Array.isArray(value)
+          ? value
+          : typeof value === "string" && value.trim() !== ""
+            ? [value]
+            : [];
+
+        setValues(newValues);
+        prevValueRef.current = value;
       }
     }, [value]);
 
+    // Call onChange when values change (but not during initial render or prop updates)
+    React.useEffect(() => {
+      if (!isInitialRender.current) {
+        onChangeRef.current(values);
+      }
+      isInitialRender.current = false;
+    }, [values]);
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter" || e.key === ",") {
+      onKeyDown?.(e);
+
+      // Only handle Enter/Comma if the event wasn't already handled by parent
+      if (!e.defaultPrevented && (e.key === "Enter" || e.key === ",")) {
         e.preventDefault();
         addValue();
       }
-      onKeyDown?.(e);
     };
 
     const handleBlur = () => {
-      addValue();
+      if (autoAddOnBlur) {
+        addValue();
+      }
       onBlur?.();
     };
 
     const addValue = (valueToAdd?: string) => {
       const trimmedValue = (valueToAdd ?? inputValue).trim();
-      if (trimmedValue && !values.includes(trimmedValue)) {
-        const newValues = [...values, trimmedValue];
-        setValues(newValues);
-        onChange(newValues);
+      if (trimmedValue) {
+        setValues((prevValues) => {
+          if (!prevValues.includes(trimmedValue)) {
+            return [...prevValues, trimmedValue];
+          }
+          return prevValues;
+        });
       }
       setInputValue("");
     };
@@ -97,7 +137,6 @@ export const MultiValueInputBase = React.forwardRef<
     const removeValue = (valueToRemove: string) => {
       const newValues = values.filter((v) => v !== valueToRemove);
       setValues(newValues);
-      onChange(newValues);
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
