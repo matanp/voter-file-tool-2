@@ -38,7 +38,6 @@ export function reconcileInitialValues<T extends { value: string }>(
   initialValues: string[],
   items: T[],
 ): string[] {
-  return initialValues.filter((value) =>
-    items.some((item) => item.value === value),
-  );
+  const validValues = new Set(items.map((item) => item.value));
+  return initialValues.filter((value) => validValues.has(value));
 }

@@ -14,6 +14,7 @@ export interface ComboboxDropdownProps {
   onSelect: (value: string) => void;
   ariaLabel?: string;
   ariaDescribedBy?: string;
+  id?: string;
 }
 
 /**
@@ -27,6 +28,7 @@ export function ComboboxDropdown({
   onSelect,
   ariaLabel,
   ariaDescribedBy,
+  id,
 }: ComboboxDropdownProps) {
   const { values, setValues } = useComboboxInitialValues(
     initialValue ?? "",
@@ -57,6 +59,7 @@ export function ComboboxDropdown({
       isItemSelected={(itemValue) => itemValue === value}
       ariaLabel={ariaLabel}
       ariaDescribedBy={ariaDescribedBy}
+      id={id}
     >
       {valueDisplayText}
     </BaseCombobox>

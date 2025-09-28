@@ -69,6 +69,7 @@ export const MultiValueInputBase = React.forwardRef<
     const prevValueRef = React.useRef(value);
     const isInitialRender = React.useRef(true);
     const onChangeRef = React.useRef(onChange);
+    const isPropUpdateRef = React.useRef(false);
 
     // Keep onChange ref up to date
     React.useEffect(() => {
@@ -85,6 +86,8 @@ export const MultiValueInputBase = React.forwardRef<
             ? [value]
             : [];
 
+        // Mark this as a prop-driven update to prevent duplicate onChange calls
+        isPropUpdateRef.current = true;
         setValues(newValues);
         prevValueRef.current = value;
       }
@@ -92,9 +95,11 @@ export const MultiValueInputBase = React.forwardRef<
 
     // Call onChange when values change (but not during initial render or prop updates)
     React.useEffect(() => {
-      if (!isInitialRender.current) {
+      if (!isInitialRender.current && !isPropUpdateRef.current) {
         onChangeRef.current(values);
       }
+      // Reset the prop update flag after checking it
+      isPropUpdateRef.current = false;
       isInitialRender.current = false;
     }, [values]);
 

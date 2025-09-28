@@ -39,6 +39,7 @@ interface BaseComboboxProps {
   children: React.ReactNode;
   ariaLabel?: string;
   ariaDescribedBy?: string;
+  id?: string;
 }
 
 /**
@@ -56,6 +57,7 @@ export function BaseCombobox({
   children,
   ariaLabel,
   ariaDescribedBy,
+  id,
 }: BaseComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -81,6 +83,7 @@ export function BaseCombobox({
           aria-controls={listboxId}
           aria-label={ariaLabel ?? `Select ${displayLabel}`}
           aria-describedby={ariaDescribedBy}
+          id={id}
           className={cn(
             SEARCH_DROPDOWN_WIDTH,
             "justify-between",

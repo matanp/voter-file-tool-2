@@ -44,7 +44,9 @@ export function normalizeSearchQueryField(
     const isName = isNameFieldName(field.field as string);
     const normalized = field.values
       .map((v) => (typeof v === 'string' ? v.trim() : v))
-      .filter((v): v is string => v !== null && v !== '')
+      .filter(
+        (v): v is string => typeof v === 'string' && v !== null && v !== ''
+      )
       .map((v) => (isName ? v.toUpperCase() : v));
     if (normalized.length === 0) return null;
     return { field: field.field, values: normalized };

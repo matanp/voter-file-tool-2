@@ -123,9 +123,10 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         });
       }
 
-      // Ctrl+Plus or Cmd+Plus to add new criteria
+      // Ctrl+Shift+Plus or Cmd+Shift+Plus to add new criteria
       if (
         (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
         (event.key === "+" || event.key === "=")
       ) {
         event.preventDefault();
@@ -200,7 +201,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             type="button"
             onClick={handleAddCriteria}
             aria-label="Add another search criteria"
-            title="Add another search criteria (Ctrl+Plus)"
+            title="Add another search criteria (Ctrl+Shift+Plus)"
           >
             Add Search Criteria
           </Button>

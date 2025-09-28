@@ -207,6 +207,7 @@ export const CityTownSearch: React.FC<CityTownSearchProps> = ({
 
   const handleCityChange = useCallback((value: string) => {
     setCity(value);
+    setTown("");
     onChangeRef.current(value, "");
   }, []);
 

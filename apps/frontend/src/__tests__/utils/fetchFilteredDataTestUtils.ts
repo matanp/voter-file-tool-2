@@ -622,10 +622,10 @@ export const createEmptySearchQuery = (): SearchQueryField[] => {
 
 const createNumberField = (
   field: (typeof NUMBER_FIELDS)[number],
-  value: number | null,
+  values: Array<number | null>,
 ): Extract<SearchQueryField, { field: (typeof NUMBER_FIELDS)[number] }> => ({
   field,
-  values: [value],
+  values,
 });
 
 const createComputedBooleanField = (
@@ -641,24 +641,24 @@ const createComputedBooleanField = (
 
 const createDateField = (
   field: (typeof DATE_FIELDS)[number],
-  value: string | null,
+  values: Array<string | null>,
 ): Extract<SearchQueryField, { field: (typeof DATE_FIELDS)[number] }> => ({
   field,
-  values: [value],
+  values,
 });
 
 const createStringField = (
   field: (typeof STRING_FIELDS)[number],
-  value: string | null,
+  values: Array<string | null>,
 ): Extract<SearchQueryField, { field: (typeof STRING_FIELDS)[number] }> => ({
   field,
-  values: [value],
+  values,
 });
 
 export const createSearchQuery = (
   fields: Array<{
     field: keyof typeof searchableFieldEnum.enum;
-    value: string | number | true | null;
+    value: string | number | true | null | Array<string | number | null>;
   }>,
 ): SearchQueryField[] => {
   return fields.map(({ field, value }) => {
@@ -666,15 +666,13 @@ export const createSearchQuery = (
 
     // Use type guards to determine field type and create appropriate structure
     if (isNumberFieldName(field)) {
-      // Type-safe: we know field is a number field and value should be number | null
-      if (typeof value !== "number" && value !== null) {
-        throw new Error(
-          `Expected number or null for field ${field}, got ${typeof value}`,
-        );
+      const values = Array.isArray(value) ? value : [value];
+      if (values.some((entry) => entry !== null && typeof entry !== "number")) {
+        throw new Error(`Expected number or null for field ${field}`);
       }
       return createNumberField(
         fieldEnum as (typeof NUMBER_FIELDS)[number],
-        value,
+        values as Array<number | null>,
       );
     } else if (isComputedBooleanFieldName(field)) {
       // Type-safe: we know field is a computed boolean field and value should be boolean | null
@@ -688,23 +686,22 @@ export const createSearchQuery = (
         value,
       );
     } else if (isDateFieldName(field)) {
-      // Type-safe: we know field is a date field and value should be string | null
-      if (typeof value !== "string" && value !== null) {
-        throw new Error(
-          `Expected string or null for field ${field}, got ${typeof value}`,
-        );
+      const values = Array.isArray(value) ? value : [value];
+      if (values.some((entry) => entry !== null && typeof entry !== "string")) {
+        throw new Error(`Expected ISO date string or null for field ${field}`);
       }
-      return createDateField(fieldEnum as (typeof DATE_FIELDS)[number], value);
+      return createDateField(
+        fieldEnum as (typeof DATE_FIELDS)[number],
+        values as Array<string | null>,
+      );
     } else if (isStringFieldName(field)) {
-      // Type-safe: we know field is a string field and value should be string | null
-      if (typeof value !== "string" && value !== null) {
-        throw new Error(
-          `Expected string or null for field ${field}, got ${typeof value}`,
-        );
+      const values = Array.isArray(value) ? value : [value];
+      if (values.some((entry) => entry !== null && typeof entry !== "string")) {
+        throw new Error(`Expected string or null for field ${field}`);
       }
       return createStringField(
         fieldEnum as (typeof STRING_FIELDS)[number],
-        value,
+        values as Array<string | null>,
       );
     } else {
       throw new Error(`Unknown field type: ${String(field)}`);

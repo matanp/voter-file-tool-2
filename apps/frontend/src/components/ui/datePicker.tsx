@@ -36,6 +36,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 }) => {
   const [date, setDate] = React.useState<Date | undefined>(initialValue);
   const [isOpen, setIsOpen] = React.useState(false);
+  const previousInitialValueRef = React.useRef<Date | undefined>(initialValue);
 
   const years = Array.from(
     { length: NUM_YEARS },
@@ -48,13 +49,14 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
   // Sync internal state with initialValue prop changes
   React.useEffect(() => {
-    const currentTime = date?.getTime();
+    const previousTime = previousInitialValueRef.current?.getTime();
     const newTime = initialValue?.getTime();
 
-    if (currentTime !== newTime) {
+    if (previousTime !== newTime) {
       setDate(initialValue);
+      previousInitialValueRef.current = initialValue;
     }
-  }, [initialValue, date]);
+  }, [initialValue]);
 
   React.useEffect(() => {
     if (date) {
