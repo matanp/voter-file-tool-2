@@ -1,6 +1,6 @@
 import { SearchFieldProcessor } from "~/lib/searchFieldProcessor";
 import type { BaseSearchField } from "~/types/searchFields";
-import { DATE_FIELDS } from "@voter-file-tool/shared-validators";
+import type { DATE_FIELDS } from "@voter-file-tool/shared-validators";
 import { EARLIEST_DATE, LATEST_DATE } from "~/lib/constants/dateBoundaries";
 
 describe("SearchFieldProcessor DOB Safety", () => {
@@ -487,7 +487,15 @@ describe("SearchFieldProcessor DOB Safety", () => {
     });
 
     it("should handle circular references in DOB objects", () => {
-      const circularDOBObject: any = {
+      interface CircularDOBObject {
+        mode: "single";
+        singleDate: Date;
+        extendBefore: boolean;
+        extendAfter: boolean;
+        self?: CircularDOBObject;
+      }
+
+      const circularDOBObject: CircularDOBObject = {
         mode: "single" as const,
         singleDate: new Date("1990-01-01"),
         extendBefore: false,

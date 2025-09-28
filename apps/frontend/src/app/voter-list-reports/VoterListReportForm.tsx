@@ -128,8 +128,7 @@ interface VoterListReportFormData {
 }
 
 export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
-  const { searchQuery, flattenedSearchQuery, clearSearchQuery } =
-    useVoterSearch();
+  const { flattenedSearchQuery, clearSearchQuery } = useVoterSearch();
 
   const [searchResults, setSearchResults] = useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);

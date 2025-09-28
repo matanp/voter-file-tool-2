@@ -3,7 +3,6 @@ import { Calendar } from "lucide-react";
 import { DatePicker } from "~/components/ui/datePicker";
 import { ExtensionToggles } from "./ExtensionToggles";
 import type { DateRange } from "~/types/searchFields";
-import { EARLIEST_DATE, LATEST_DATE } from "~/lib/constants/dateBoundaries";
 
 interface DateRangeWithExtensionsProps {
   range?: DateRange;

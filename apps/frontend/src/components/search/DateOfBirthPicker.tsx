@@ -73,7 +73,7 @@ export const DateOfBirthPicker: React.FC<DateOfBirthPickerProps> = ({
       // If we're in range mode with extension toggles enabled, update the range
       if (
         prevValue.mode === "range" &&
-        (prevValue.extendBefore || prevValue.extendAfter)
+        ((prevValue.extendBefore ?? false) || (prevValue.extendAfter ?? false))
       ) {
         if (date) {
           newValue.range = {
@@ -113,7 +113,10 @@ export const DateOfBirthPicker: React.FC<DateOfBirthPickerProps> = ({
 
         // If we're in range mode, handle the transition to/from extension mode
         if (prevValue.mode === "range") {
-          if (newValue.extendBefore || newValue.extendAfter) {
+          if (
+            (newValue.extendBefore ?? false) ||
+            (newValue.extendAfter ?? false)
+          ) {
             // Switching to extension mode - preserve existing date values
             let preservedDate: Date | undefined;
 
@@ -157,7 +160,7 @@ export const DateOfBirthPicker: React.FC<DateOfBirthPickerProps> = ({
                   (prevValue.range.startDate.getTime() ===
                     EARLIEST_DATE.getTime() ||
                     prevValue.range.startDate.getTime() ===
-                      LATEST_DATE.getTime())) ||
+                      LATEST_DATE.getTime())) ??
                 (prevValue.range.endDate &&
                   (prevValue.range.endDate.getTime() ===
                     EARLIEST_DATE.getTime() ||

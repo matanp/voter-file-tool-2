@@ -316,7 +316,7 @@ describe("FieldRenderer", () => {
       expect(mockOnValueChange).toHaveBeenCalledWith(
         expect.objectContaining({
           mode: "single",
-          singleDate: expect.any(Date),
+          singleDate: expect.any(Date) as Date,
         }),
       );
     });
