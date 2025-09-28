@@ -99,10 +99,10 @@ describe("SearchRow Real Component Integration", () => {
       render(<SearchRow {...props} />);
 
       const dateButton = screen.getByRole("button", {
-        name: /Select Date of Birth/,
+        name: /Select date of birth/,
       });
       expect(dateButton).toBeInTheDocument();
-      expect(dateButton).toHaveAttribute("aria-label", "Select Date of Birth");
+      expect(dateButton).toHaveAttribute("aria-label", "Select date of birth");
     });
   });
 

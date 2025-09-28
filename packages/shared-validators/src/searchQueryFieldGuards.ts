@@ -123,6 +123,18 @@ export function isDateFieldName(
   return DATE_FIELDS.includes(name as (typeof DATE_FIELDS)[number]);
 }
 
+/**
+ * Type guard to check if a SearchQueryField is any type of date field
+ */
+export function isDateSearchField(
+  field: SearchQueryField
+): field is Extract<SearchQueryField, { field: (typeof DATE_FIELDS)[number] }> {
+  return (
+    ('values' in field || 'range' in field || 'value' in field) &&
+    DATE_FIELDS.includes(field.field as (typeof DATE_FIELDS)[number])
+  );
+}
+
 export function isStringFieldName(
   name: string
 ): name is (typeof STRING_FIELDS)[number] {
