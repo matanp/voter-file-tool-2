@@ -7,7 +7,7 @@ import {
   type ComboboxItem,
 } from "./BaseCombobox";
 
-interface ComboboxDropdownProps {
+export interface ComboboxDropdownProps {
   items: ComboboxItem[];
   initialValue?: string;
   displayLabel: string;

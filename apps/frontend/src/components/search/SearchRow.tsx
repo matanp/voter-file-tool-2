@@ -6,7 +6,7 @@ import { CompoundFieldRenderer } from "./CompoundFieldRenderer";
 import type { SearchField, SearchFieldValue } from "~/types/searchFields";
 import type { DropdownLists } from "@prisma/client";
 
-interface SearchRowProps {
+export interface SearchRowProps {
   row: SearchField;
   index: number;
   dropdownList: DropdownLists;

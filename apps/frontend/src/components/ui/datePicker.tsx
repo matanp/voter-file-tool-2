@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "./select";
 
-interface DatePickerProps {
+export interface DatePickerProps {
   initialValue?: Date;
   onChange: (date: Date) => void;
   ariaLabel?: string;

@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 
+export interface CityTownSearchProps {
+  cities: string[];
+  initialCity?: string;
+  initialTown?: string;
+  onChange: (city: string, town: string) => void;
+}
+
 const CITY_TOWN_MAP = [
   {
     name: "ROCHESTER",
@@ -172,12 +179,12 @@ const CITY_TOWN_MAP = [
   },
 ];
 
-export const CityTownSearch: React.FC<{
-  cities: string[];
-  initialCity?: string;
-  initialTown?: string;
-  onChange: (city: string, town: string) => void;
-}> = ({ cities, initialCity = "", initialTown = "", onChange }) => {
+export const CityTownSearch: React.FC<CityTownSearchProps> = ({
+  cities,
+  initialCity = "",
+  initialTown = "",
+  onChange,
+}) => {
   const [city, setCity] = useState<string>(initialCity);
   const [town, setTown] = useState<string>(initialTown);
   const onChangeRef = useRef(onChange);

@@ -11,7 +11,7 @@ import {
   DISPLAY_LABEL_THRESHOLDS,
 } from "~/lib/searchHelpers";
 
-interface CompoundFieldRendererProps {
+export interface CompoundFieldRendererProps {
   field: SearchField;
   dropdownList: DropdownLists;
   onValueChange: (value: SearchFieldValue, subIndex: number) => void;

@@ -2,7 +2,7 @@
 
 import { MultiValueInputBase } from "./MultiValueInputBase";
 
-interface MultiStringInputProps {
+export interface MultiStringInputProps {
   placeholder: string;
   value?: string | string[];
   onChange: (value: string[]) => void;

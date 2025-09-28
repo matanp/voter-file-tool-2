@@ -13,7 +13,7 @@ import {
   SEARCH_BADGE_CONTAINER_MAX_WIDTH,
 } from "~/lib/constants/sizing";
 
-interface MultiStreetSearchProps {
+export interface MultiStreetSearchProps {
   streets: string[];
   value?: string | string[];
   onChange: (values: string[]) => void;
