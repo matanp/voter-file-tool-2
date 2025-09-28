@@ -12,7 +12,7 @@ import {
   type AuthTestConfig,
 } from "../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
-import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
+import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 
 // Global mocks are available from jest.setup.js
 

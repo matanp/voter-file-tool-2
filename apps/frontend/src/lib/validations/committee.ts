@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CommitteeWithMembers } from "~/app/committees/committeeUtils";
+import type { CommitteeWithMembers } from "@voter-file-tool/shared-validators";
 
 // Committee data validation schema
 export const committeeDataSchema = z
@@ -109,10 +109,11 @@ export const fetchCommitteeListQuerySchema = z
     legDistrict: z
       .string()
       .trim()
+      .transform((v) => (v === "" ? undefined : v))
       .optional()
       .refine(
         (val) => {
-          if (val === undefined || val === "") return true;
+          if (val === undefined) return true;
           const parsed = Number(val);
           return Number.isInteger(parsed) && parsed > 0;
         },
