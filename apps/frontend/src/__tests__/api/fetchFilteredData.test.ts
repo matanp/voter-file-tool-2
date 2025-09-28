@@ -376,8 +376,11 @@ describe("/api/fetchFilteredData", () => {
               expectedRecords = EXPECTED_RECORDS.electionDistrict1Records;
             } else if (
               query.field === "DOB" &&
-              query.values?.some(
-                (v) => typeof v === "string" && v.startsWith("1985-03-15"),
+              "values" in query &&
+              Array.isArray(query.values) &&
+              query.values.some(
+                (v: string | null) =>
+                  typeof v === "string" && v.startsWith("1985-03-15"),
               )
             ) {
               expectedRecords = EXPECTED_RECORDS.dob1985Records;
@@ -562,9 +565,11 @@ describe("/api/fetchFilteredData", () => {
                 EXPECTED_RECORDS.democraticRepublicanIndependentRecords;
             } else if (
               query.field === "DOB" &&
-              query.values?.includes("1985-03-15T00:00:00.000Z") &&
-              query.values?.includes("1987-07-22T00:00:00.000Z") &&
-              query.values?.includes("1990-01-10T00:00:00.000Z")
+              "values" in query &&
+              Array.isArray(query.values) &&
+              query.values.includes("1985-03-15T00:00:00.000Z") &&
+              query.values.includes("1987-07-22T00:00:00.000Z") &&
+              query.values.includes("1990-01-10T00:00:00.000Z")
             ) {
               expectedRecords = EXPECTED_RECORDS.dobMultipleRecords;
             } else if (query.field === "hasEmail" && query.value === true) {
