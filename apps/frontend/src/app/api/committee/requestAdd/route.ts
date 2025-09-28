@@ -4,7 +4,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { committeeRequestDataSchema } from "~/lib/validations/committee";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { toDbSentinelValue } from "~/app/committees/committeeUtils";
+import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import type { Session } from "next-auth";
 
 async function requestAddHandler(req: NextRequest, _session: Session) {

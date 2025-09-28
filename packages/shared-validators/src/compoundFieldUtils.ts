@@ -42,7 +42,7 @@ export function convertPrismaVoterRecordToAPI(
 }
 
 // Interface for objects that can have compound fields applied
-export interface CompoundFieldTarget extends PartialVoterRecordAPI {
+export interface EnrichedPartialVoterRecordAPI extends PartialVoterRecordAPI {
   name?: string;
   address?: string;
 }
@@ -112,8 +112,8 @@ export function createCompoundAddressField(
 export function applyCompoundFields(
   record: PartialVoterRecordAPI,
   config: CompoundFieldConfig = DEFAULT_COMPOUND_FIELD_CONFIG
-): CompoundFieldTarget {
-  const result: CompoundFieldTarget = { ...record };
+): EnrichedPartialVoterRecordAPI {
+  const result: EnrichedPartialVoterRecordAPI = { ...record };
 
   if (config.name) {
     result.name = createCompoundNameField(record);
@@ -165,7 +165,7 @@ export function determineColumnsToInclude(
  * Extracts field value from a record, handling compound fields
  */
 export function extractFieldValue(
-  record: CompoundFieldTarget,
+  record: EnrichedPartialVoterRecordAPI,
   field: string
 ): string | number | Date | null | undefined | unknown {
   if (field === 'name') {
@@ -175,7 +175,7 @@ export function extractFieldValue(
     return record.address || createCompoundAddressField(record);
   }
 
-  const value = record[field as keyof CompoundFieldTarget];
+  const value = record[field as keyof EnrichedPartialVoterRecordAPI];
   return value !== undefined && value !== null ? value : '';
 }
 
@@ -278,12 +278,10 @@ function mapVoterRecordFieldsInternal(
   const member: PartialVoterRecordAPI = {};
 
   fieldsToInclude.forEach((field) => {
-    fieldsToInclude.forEach((field) => {
-      if (field in voter) {
-        (member as Record<string, any>)[field] =
-          voter[field as keyof VoterRecordAPI];
-      }
-    });
+    if (field in voter) {
+      (member as Record<string, any>)[field] =
+        voter[field as keyof VoterRecordAPI];
+    }
   });
 
   return member;

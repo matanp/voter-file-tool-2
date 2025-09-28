@@ -1,17 +1,11 @@
-import {
-  mapCommitteesToReportShape,
-  mapCommitteesToReportShapeWithFields,
-  type CommitteeWithMembers,
-  type LDCommitteesWithFields,
-} from "@voter-file-tool/shared-validators";
-import { LEG_DISTRICT_SENTINEL } from "~/lib/constants/committee";
+import type {
+  CommitteeList,
+  VoterRecord,
+} from '@voter-file-tool/shared-prisma';
+import { LEG_DISTRICT_SENTINEL } from './constants';
 
-// Re-export the shared utilities
-export {
-  mapCommitteesToReportShape,
-  mapCommitteesToReportShapeWithFields,
-  type CommitteeWithMembers,
-  type LDCommitteesWithFields,
+export type CommitteeWithMembers = CommitteeList & {
+  committeeMemberList?: VoterRecord[];
 };
 
 /**
@@ -24,17 +18,26 @@ export {
  */
 export const normalizeSentinelValues = (
   electionDistrict: number,
-  legDistrict?: string | number,
+  legDistrict?: string | number
 ) => {
-  const normalizedLegDistrict =
-    legDistrict === LEG_DISTRICT_SENTINEL ||
-    legDistrict === LEG_DISTRICT_SENTINEL.toString() ||
-    legDistrict === "" ||
-    legDistrict === undefined
-      ? undefined
-      : typeof legDistrict === "string"
-        ? legDistrict
+  let normalizedLegDistrict: string | undefined;
+
+  if (legDistrict === undefined) {
+    normalizedLegDistrict = undefined;
+  } else if (typeof legDistrict === 'string') {
+    const trimmed = legDistrict.trim();
+    normalizedLegDistrict =
+      trimmed === LEG_DISTRICT_SENTINEL.toString() || trimmed === ''
+        ? undefined
+        : trimmed;
+  } else {
+    // Number case
+    normalizedLegDistrict =
+      legDistrict === LEG_DISTRICT_SENTINEL
+        ? undefined
         : legDistrict.toString();
+  }
+
   return {
     normalizedElectionDistrict: electionDistrict,
     normalizedLegDistrict,
@@ -50,14 +53,14 @@ export const normalizeSentinelValues = (
  */
 export const toDbSentinelValue = (legDistrict?: string | number): number => {
   if (legDistrict === undefined) return LEG_DISTRICT_SENTINEL;
-  if (typeof legDistrict === "number") {
+  if (typeof legDistrict === 'number') {
     if (!Number.isInteger(legDistrict)) {
       throw new Error(`Invalid legDistrict: "${legDistrict}"`);
     }
     return legDistrict;
   }
   const trimmed = legDistrict.trim();
-  if (trimmed === "") return LEG_DISTRICT_SENTINEL;
+  if (trimmed === '') return LEG_DISTRICT_SENTINEL;
   const n = Number(trimmed);
   if (!Number.isInteger(n)) {
     throw new Error(`Invalid legDistrict: "${legDistrict}"`);

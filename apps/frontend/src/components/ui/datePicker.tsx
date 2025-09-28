@@ -6,6 +6,7 @@ import { format } from "date-fns";
 
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
+import { SEARCH_DROPDOWN_WIDTH } from "~/lib/constants/sizing";
 import { Calendar } from "~/components/ui/calendar";
 import {
   Popover,
@@ -20,15 +21,22 @@ import {
   SelectValue,
 } from "./select";
 
-interface DatePickerProps {
+export interface DatePickerProps {
+  initialValue?: Date;
   onChange: (date: Date) => void;
+  ariaLabel?: string;
 }
 
 const NUM_YEARS = 125;
 
-export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
-  const [date, setDate] = React.useState<Date>();
+export const DatePicker: React.FC<DatePickerProps> = ({
+  initialValue,
+  onChange,
+  ariaLabel,
+}) => {
+  const [date, setDate] = React.useState<Date | undefined>(initialValue);
   const [isOpen, setIsOpen] = React.useState(false);
+  const previousInitialValueRef = React.useRef<Date | undefined>(initialValue);
 
   const years = Array.from(
     { length: NUM_YEARS },
@@ -39,11 +47,26 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
     new Date(0, i).toLocaleString("default", { month: "long" }),
   );
 
+  // Sync internal state with initialValue prop changes
+  React.useEffect(() => {
+    const previousTime = previousInitialValueRef.current?.getTime();
+    const newTime = initialValue?.getTime();
+
+    if (previousTime !== newTime) {
+      setDate(initialValue);
+      previousInitialValueRef.current = initialValue;
+    }
+  }, [initialValue]);
+
+  // Use ref to store stable onChange callback
+  const onChangeRef = React.useRef(onChange);
+  onChangeRef.current = onChange;
+
   React.useEffect(() => {
     if (date) {
-      onChange(date);
+      onChangeRef.current(date);
     }
-  }, [date, onChange]);
+  }, [date]);
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -51,11 +74,14 @@ export const DatePicker: React.FC<DatePickerProps> = ({ onChange }) => {
         <Button
           variant={"outline"}
           className={cn(
-            "w-[185px] justify-start text-left font-normal",
+            `${SEARCH_DROPDOWN_WIDTH} justify-start text-left font-normal`,
             !date && "text-muted-foreground",
           )}
+          aria-label={ariaLabel ?? "Select date"}
+          aria-expanded={isOpen}
+          aria-haspopup="dialog"
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
+          <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
           {date ? format(date, "PPP") : <span>Pick a date</span>}
         </Button>
       </PopoverTrigger>

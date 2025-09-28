@@ -1,28 +1,36 @@
-import { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
+import { useDebouncedValue } from "~/hooks/useDebouncedValue";
+import { SEARCH_DROPDOWN_WIDTH } from "~/lib/constants/sizing";
 
-export const StreetSearch: React.FC<{
+export interface StreetSearchProps {
   streets: string[];
+  initialValue?: string;
   onChange: (search: string) => void;
-}> = ({ streets, onChange }) => {
-  const [search, setSearch] = useState<string>("");
-  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+}
 
-  let timer: NodeJS.Timeout | null = null;
+export const StreetSearch: React.FC<StreetSearchProps> = ({
+  streets,
+  initialValue = "",
+  onChange,
+}) => {
+  const [search, setSearch] = useState<string>(initialValue);
+  const debouncedSearch = useDebouncedValue(search);
+  const lastImmediateEmitRef = useRef<string | null>(null);
 
-  const debounceHandler = (value: string) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      setDebouncedSearch(value);
-      onChange(value);
-    }, 250);
-  };
+  React.useEffect(() => {
+    // Skip calling onChange if this value was already emitted immediately
+    if (debouncedSearch === lastImmediateEmitRef.current) {
+      lastImmediateEmitRef.current = null; // Clear the ref after skipping
+      return;
+    }
+    onChange(debouncedSearch);
+  }, [debouncedSearch, onChange]);
 
-  const handleInputChange = (value: string) => {
+  const handleInputChange = useCallback((value: string) => {
     setSearch(value);
-    debounceHandler(value);
-  };
+  }, []);
 
   const matches = streets
     .filter((street) =>
@@ -32,17 +40,30 @@ export const StreetSearch: React.FC<{
 
   const firstMatch = matches[0];
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Tab" && firstMatch && search !== "") {
-      event.preventDefault();
-      setSearch(firstMatch);
-      setDebouncedSearch("");
-      onChange(firstMatch);
-    }
-  };
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Tab" && firstMatch && search !== "") {
+        event.preventDefault();
+        setSearch(firstMatch);
+        lastImmediateEmitRef.current = firstMatch;
+        onChange(firstMatch);
+      }
+    },
+    [firstMatch, search, onChange],
+  );
+
+  const handleFillClick = useCallback(
+    (match: string) => (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      setSearch(match);
+      lastImmediateEmitRef.current = match;
+      onChange(match);
+    },
+    [onChange],
+  );
 
   return (
-    <div className="w-[185px] max-w-md mx-auto">
+    <div className={`${SEARCH_DROPDOWN_WIDTH} max-w-md mx-auto`}>
       <Input
         placeholder="Enter Street"
         value={search}
@@ -57,12 +78,7 @@ export const StreetSearch: React.FC<{
             <div key={index} className="flex items-center gap-2">
               <span className="text-gray-700 ml-3">{match}</span>
               <Button
-                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                  e.preventDefault();
-                  setSearch(match);
-                  setDebouncedSearch("");
-                  onChange(match);
-                }}
+                onClick={handleFillClick(match)}
               >{`Fill${index === 0 ? " (Tab)" : ""}`}</Button>
             </div>
           ))}

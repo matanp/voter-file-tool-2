@@ -4,7 +4,7 @@ import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { committeeDataSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { toDbSentinelValue } from "~/app/committees/committeeUtils";
+import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
 
