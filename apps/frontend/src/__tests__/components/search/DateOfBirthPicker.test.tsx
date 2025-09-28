@@ -1,14 +1,47 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { DateOfBirthPicker } from "~/components/search/DateOfBirthPicker";
 import type { DateOfBirthValue } from "~/components/search/DateOfBirthPicker";
 import { EARLIEST_DATE, LATEST_DATE } from "~/lib/constants/dateBoundaries";
 
+// Type definitions for mock components
+interface DateModeSelectorProps {
+  currentMode: "single" | "range";
+  onModeChange: (mode: "single" | "range") => void;
+  ariaLabel: string;
+}
+
+interface SingleDatePickerProps {
+  singleDate: Date | undefined;
+  onDateChange: (date: Date | undefined) => void;
+  ariaLabel: string;
+}
+
+interface DateRangeWithExtensionsProps {
+  range: { startDate: Date | undefined; endDate: Date | undefined } | undefined;
+  singleDate: Date | undefined;
+  extendBefore: boolean;
+  extendAfter: boolean;
+  onRangeChange: (range: {
+    startDate: Date | undefined;
+    endDate: Date | undefined;
+  }) => void;
+  onSingleDateChange: (date: Date | undefined) => void;
+  onToggleChange: (
+    toggle: "extendBefore" | "extendAfter",
+    checked: boolean,
+  ) => void;
+}
+
 // Mock the child components
 jest.mock("~/components/search/DateModeSelector", () => ({
-  DateModeSelector: ({ currentMode, onModeChange, ariaLabel }: any) => (
+  DateModeSelector: ({
+    currentMode,
+    onModeChange,
+    ariaLabel,
+  }: DateModeSelectorProps) => (
     <div role="group" aria-label={ariaLabel}>
       <button
         data-testid="mode-single"
@@ -29,7 +62,11 @@ jest.mock("~/components/search/DateModeSelector", () => ({
 }));
 
 jest.mock("~/components/search/SingleDatePicker", () => ({
-  SingleDatePicker: ({ singleDate, onDateChange, ariaLabel }: any) => (
+  SingleDatePicker: ({
+    singleDate,
+    onDateChange,
+    ariaLabel,
+  }: SingleDatePickerProps) => (
     <input
       data-testid="single-date-picker"
       aria-label={ariaLabel}
@@ -52,7 +89,7 @@ jest.mock("~/components/search/DateRangeWithExtensions", () => ({
     onRangeChange,
     onSingleDateChange,
     onToggleChange,
-  }: any) => (
+  }: DateRangeWithExtensionsProps) => (
     <div data-testid="date-range-with-extensions">
       {extendBefore || extendAfter ? (
         <div>
@@ -569,7 +606,11 @@ describe("DateOfBirthPicker", () => {
     it("should handle undefined onChange callback", () => {
       // Should not crash when onChange is undefined
       expect(() => {
-        render(<DateOfBirthPicker onChange={undefined as any} />);
+        render(
+          <DateOfBirthPicker
+            onChange={undefined as unknown as (value: DateOfBirthValue) => void}
+          />,
+        );
       }).not.toThrow();
     });
 
@@ -578,7 +619,7 @@ describe("DateOfBirthPicker", () => {
         mode: "invalid-mode",
         singleDate: "not-a-date",
         extendBefore: "not-a-boolean",
-      } as any;
+      } as unknown as DateOfBirthValue;
 
       // Should not crash with malformed initial value
       expect(() => {

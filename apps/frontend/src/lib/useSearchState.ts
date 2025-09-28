@@ -54,14 +54,14 @@ function isValueEqual(a: SearchFieldValue, b: SearchFieldValue): boolean {
       if (aRange.startDate && bRange.startDate) {
         if (aRange.startDate.getTime() !== bRange.startDate.getTime())
           return false;
-      } else if (aRange.startDate || bRange.startDate) {
+      } else if (aRange.startDate ?? bRange.startDate) {
         return false;
       }
 
       // Compare endDate
       if (aRange.endDate && bRange.endDate) {
         if (aRange.endDate.getTime() !== bRange.endDate.getTime()) return false;
-      } else if (aRange.endDate || bRange.endDate) {
+      } else if (aRange.endDate ?? bRange.endDate) {
         return false;
       }
 

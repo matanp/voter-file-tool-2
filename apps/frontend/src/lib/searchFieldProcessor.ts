@@ -410,7 +410,7 @@ export class SearchFieldProcessor {
       }
 
       // Return the range if at least one date is valid
-      if (result.startDate || result.endDate) {
+      if (result.startDate ?? result.endDate) {
         return result;
       }
     }
@@ -444,7 +444,7 @@ export class SearchFieldProcessor {
       const validModes = ["single", "range"] as const;
       const mode =
         typeof dobValue.mode === "string" &&
-        validModes.includes(dobValue.mode as any)
+        validModes.includes(dobValue.mode as "single" | "range")
           ? (dobValue.mode as "single" | "range")
           : "single";
 
@@ -680,7 +680,7 @@ export class SearchFieldProcessor {
       }
 
       // Only return if at least one date is provided
-      if (rangeData.startDate || rangeData.endDate) {
+      if (rangeData.startDate ?? rangeData.endDate) {
         return {
           field: fieldName,
           range: rangeData,
@@ -732,7 +732,10 @@ export class SearchFieldProcessor {
         case "single":
           if (dobValue.singleDate) {
             // If extendBefore or extendAfter is enabled, convert to range
-            if (dobValue.extendBefore || dobValue.extendAfter) {
+            if (
+              (dobValue.extendBefore ?? false) ||
+              (dobValue.extendAfter ?? false)
+            ) {
               const rangeData: {
                 startDate: string | null;
                 endDate: string | null;
@@ -761,7 +764,10 @@ export class SearchFieldProcessor {
 
         case "range":
           // If extension is enabled, use singleDate for the range
-          if (dobValue.extendBefore || dobValue.extendAfter) {
+          if (
+            (dobValue.extendBefore ?? false) ||
+            (dobValue.extendAfter ?? false)
+          ) {
             if (dobValue.singleDate) {
               const rangeData: {
                 startDate: string | null;
@@ -790,7 +796,7 @@ export class SearchFieldProcessor {
               endDate: dobValue.range.endDate?.toISOString() ?? null,
             };
 
-            if (rangeData.startDate || rangeData.endDate) {
+            if (rangeData.startDate ?? rangeData.endDate) {
               return {
                 field: dbFieldName,
                 range: rangeData,

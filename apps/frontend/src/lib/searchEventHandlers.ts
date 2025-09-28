@@ -153,7 +153,7 @@ export const useInputHandlers = (
       );
       onValueChange(processedValue);
     },
-    [onValueChange, field.name, field.type],
+    [onValueChange, field],
   );
 
   const handleDateRangeChange = useCallback(
@@ -164,7 +164,7 @@ export const useInputHandlers = (
       );
       onValueChange(processedValue);
     },
-    [onValueChange, field.name, field.type],
+    [onValueChange, field],
   );
 
   const handleDropdownChange = useCallback(
@@ -197,7 +197,7 @@ export const useInputHandlers = (
       );
       onValueChange(processedValue);
     },
-    [onValueChange, field.name, field.type],
+    [onValueChange, field],
   );
 
   return {

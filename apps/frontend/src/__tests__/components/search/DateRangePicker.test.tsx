@@ -3,9 +3,16 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { DateRangePicker } from "~/components/search/DateRangePicker";
 import type { DateRange } from "~/types/searchFields";
 
+// Type definition for mock DatePicker component
+interface DatePickerProps {
+  initialValue: Date | undefined;
+  onChange: (date: Date | undefined) => void;
+  ariaLabel: string;
+}
+
 // Mock the DatePicker component
 jest.mock("~/components/ui/datePicker", () => ({
-  DatePicker: ({ initialValue, onChange, ariaLabel }: any) => (
+  DatePicker: ({ initialValue, onChange, ariaLabel }: DatePickerProps) => (
     <input
       data-testid="date-picker"
       aria-label={ariaLabel}

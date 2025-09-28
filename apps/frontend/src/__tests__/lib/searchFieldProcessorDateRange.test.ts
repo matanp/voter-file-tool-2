@@ -1,6 +1,6 @@
 import { SearchFieldProcessor } from "~/lib/searchFieldProcessor";
 import type { BaseSearchField, DateRange } from "~/types/searchFields";
-import { DATE_FIELDS } from "@voter-file-tool/shared-validators";
+import type { DATE_FIELDS } from "@voter-file-tool/shared-validators";
 
 describe("SearchFieldProcessor - DateRange", () => {
   const mockDateField: BaseSearchField = {
