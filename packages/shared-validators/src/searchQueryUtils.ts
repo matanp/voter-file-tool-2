@@ -4,6 +4,7 @@ import { searchableFieldEnum, COMPUTED_BOOLEAN_FIELDS } from './constants';
 import {
   isComputedBooleanSearchField,
   isValuesSearchField,
+  isDateRangeSearchField,
 } from './searchQueryFieldGuards';
 
 const NAME_FIELDS = new Set<string>([
@@ -129,6 +130,29 @@ export function buildPrismaWhereClause(
           void _exhaustiveCheck;
           break;
         }
+      }
+      continue;
+    }
+
+    // Handle date range queries
+    if (isDateRangeSearchField(field)) {
+      const rangeConditions: Prisma.VoterRecordWhereInput[] = [];
+      const rangeField = field as any;
+
+      if (rangeField.range.startDate) {
+        rangeConditions.push({
+          [fieldField]: { gte: rangeField.range.startDate },
+        });
+      }
+
+      if (rangeField.range.endDate) {
+        rangeConditions.push({
+          [fieldField]: { lte: rangeField.range.endDate },
+        });
+      }
+
+      if (rangeConditions.length > 0) {
+        andConditions.push({ AND: rangeConditions });
       }
       continue;
     }

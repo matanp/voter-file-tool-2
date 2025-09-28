@@ -29,19 +29,38 @@ const stringFieldSchema = z.object({
     .min(1, 'At least one value is required'),
 });
 
-const dateFieldSchema = z.object({
+// Date field with values array
+const dateValuesFieldSchema = z.object({
   field: z.enum(DATE_FIELDS),
   values: z
     .array(z.string().datetime().nullable())
     .min(1, 'At least one value is required'),
 });
 
-// Search query field schema using discriminated union
-export const searchQueryFieldSchema = z.discriminatedUnion('field', [
-  numberFieldSchema,
-  computedBooleanFieldSchema,
-  stringFieldSchema,
-  dateFieldSchema,
+// Date field with range object
+const dateRangeFieldSchema = z
+  .object({
+    field: z.enum(DATE_FIELDS),
+    range: z.object({
+      startDate: z.string().datetime().nullable(),
+      endDate: z.string().datetime().nullable(),
+    }),
+  })
+  .refine((data) => !('values' in data), {
+    message: 'Date range fields cannot have values property',
+  });
+
+// Union of date field types
+const dateFieldSchema = z.union([dateValuesFieldSchema, dateRangeFieldSchema]);
+
+// Search query field schema using union with proper discrimination
+// Order matters: more specific schemas first
+export const searchQueryFieldSchema = z.union([
+  dateRangeFieldSchema, // Most specific - has 'range' property
+  dateValuesFieldSchema, // Has 'values' property
+  computedBooleanFieldSchema, // Has 'value' property
+  numberFieldSchema, // Has 'values' property
+  stringFieldSchema, // Has 'values' property
 ]);
 
 // Shared format enum
@@ -186,7 +205,7 @@ export type FieldValueType<T extends SearchableFieldName> =
     : T extends (typeof COMPUTED_BOOLEAN_FIELDS)[number]
       ? true | null
       : T extends (typeof DATE_FIELDS)[number]
-        ? string | null
+        ? string | null | { startDate: string | null; endDate: string | null }
         : T extends (typeof STRING_FIELDS)[number]
           ? string | null
           : never;

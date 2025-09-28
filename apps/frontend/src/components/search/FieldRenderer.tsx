@@ -3,6 +3,7 @@ import { MultiSelectCombobox } from "~/components/ui/MultiSelectCombobox";
 import { MultiStringInput } from "~/components/ui/MultiStringInput";
 import { MultiStreetSearch } from "~/components/ui/MultiStreetSearch";
 import { DatePicker } from "~/components/ui/datePicker";
+import { DateOfBirthPicker } from "./DateOfBirthPicker";
 import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
 import { StreetSearch } from "~/app/recordsearch/StreetSearch";
@@ -136,9 +137,26 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     case SEARCH_CONFIG.fieldTypes.DATETIME: {
       return (
         <DatePicker
-          key={`date-${String(field.value)}`}
+          key={`date-${field.name}-${index ?? 0}`}
           initialValue={field.value instanceof Date ? field.value : undefined}
           onChange={inputHandlers.handleDateChange}
+          ariaLabel={`Select ${fieldLabel}`}
+        />
+      );
+    }
+
+    case SEARCH_CONFIG.fieldTypes.DATE_OF_BIRTH: {
+      return (
+        <DateOfBirthPicker
+          key={`date-of-birth-${field.name}-${index ?? 0}`}
+          initialValue={
+            field.value &&
+            typeof field.value === "object" &&
+            "mode" in field.value
+              ? field.value
+              : undefined
+          }
+          onChange={inputHandlers.handleDateOfBirthChange}
           ariaLabel={`Select ${fieldLabel}`}
         />
       );

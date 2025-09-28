@@ -3,6 +3,7 @@ import type {
   SearchField,
   SearchFieldValue,
   BaseSearchField,
+  DateOfBirthValue,
 } from "~/types/searchFields";
 import { SEARCH_CONFIG } from "./searchConfiguration";
 import { SearchFieldProcessor } from "./searchFieldProcessor";
@@ -152,7 +153,18 @@ export const useInputHandlers = (
       );
       onValueChange(processedValue);
     },
-    [onValueChange, field],
+    [onValueChange, field.name, field.type],
+  );
+
+  const handleDateRangeChange = useCallback(
+    (range: { startDate?: Date; endDate?: Date }) => {
+      const processedValue = SearchFieldProcessor.normalizeForStorage(
+        range,
+        field,
+      );
+      onValueChange(processedValue);
+    },
+    [onValueChange, field.name, field.type],
   );
 
   const handleDropdownChange = useCallback(
@@ -177,11 +189,24 @@ export const useInputHandlers = (
     [onValueChange, field],
   );
 
+  const handleDateOfBirthChange = useCallback(
+    (value: DateOfBirthValue) => {
+      const processedValue = SearchFieldProcessor.normalizeForStorage(
+        value,
+        field,
+      );
+      onValueChange(processedValue);
+    },
+    [onValueChange, field.name, field.type],
+  );
+
   return {
     handleStringInputChange,
     handleNumberInputChange,
     handleCheckboxChange,
     handleDateChange,
+    handleDateRangeChange,
+    handleDateOfBirthChange,
     handleDropdownChange,
     handleMultiStringChange,
   };

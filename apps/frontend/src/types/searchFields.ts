@@ -10,14 +10,31 @@ export type BaseFieldType =
   | "Number"
   | "Boolean"
   | "DateTime"
+  | "DateRange"
+  | "DateOfBirth"
   | "Dropdown"
   | "Street"
   | "CityTown"
   | "Hidden";
 
+export type DateRange = {
+  startDate?: Date;
+  endDate?: Date;
+};
+
+export type DateOfBirthValue = {
+  mode: "single" | "range";
+  singleDate?: Date;
+  range?: DateRange;
+  extendBefore?: boolean;
+  extendAfter?: boolean;
+};
+
 export type SearchFieldValue =
   | string
   | Date
+  | DateRange
+  | DateOfBirthValue
   | number
   | boolean
   | string[]
@@ -29,6 +46,8 @@ export interface BaseSearchField {
     | (typeof COMPUTED_BOOLEAN_FIELDS)[number]
     | (typeof DATE_FIELDS)[number]
     | (typeof STRING_FIELDS)[number]
+    | "lastUpdateRange"
+    | "originalRegDateRange"
     | "empty";
   displayName: string;
   compoundType: false;

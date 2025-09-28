@@ -35,6 +35,43 @@ function isValueEqual(a: SearchFieldValue, b: SearchFieldValue): boolean {
   }
   if (a instanceof Date || b instanceof Date) return false;
 
+  // Handle DateRange objects
+  if (
+    typeof a === "object" &&
+    typeof b === "object" &&
+    a !== null &&
+    b !== null
+  ) {
+    // Check if both are DateRange objects
+    const aIsDateRange = "startDate" in a || "endDate" in a;
+    const bIsDateRange = "startDate" in b || "endDate" in b;
+
+    if (aIsDateRange && bIsDateRange) {
+      const aRange = a as { startDate?: Date; endDate?: Date };
+      const bRange = b as { startDate?: Date; endDate?: Date };
+
+      // Compare startDate
+      if (aRange.startDate && bRange.startDate) {
+        if (aRange.startDate.getTime() !== bRange.startDate.getTime())
+          return false;
+      } else if (aRange.startDate || bRange.startDate) {
+        return false;
+      }
+
+      // Compare endDate
+      if (aRange.endDate && bRange.endDate) {
+        if (aRange.endDate.getTime() !== bRange.endDate.getTime()) return false;
+      } else if (aRange.endDate || bRange.endDate) {
+        return false;
+      }
+
+      return true;
+    }
+
+    // If one is DateRange and the other isn't, they're not equal
+    if (aIsDateRange || bIsDateRange) return false;
+  }
+
   // Handle arrays
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
@@ -66,8 +103,8 @@ export const useLocalSearchState = () => {
    */
   const updateSearchRow = useCallback(
     (index: number, updates: Partial<SearchField>) => {
-      setSearchRows((prev) =>
-        prev.map((row, i) => {
+      setSearchRows((prev) => {
+        const newRows = prev.map((row, i) => {
           if (i === index) {
             // Use type guard to validate updates
             if (isValidSearchFieldUpdate(updates)) {
@@ -82,8 +119,45 @@ export const useLocalSearchState = () => {
             }
           }
           return row;
-        }),
-      );
+        });
+
+        // Only update if there's actually a change
+        const hasChanged = newRows.some((newRow, i) => {
+          const oldRow = prev[i];
+          if (!oldRow) return true;
+
+          // Compare base fields
+          if (isBaseSearchField(newRow) && isBaseSearchField(oldRow)) {
+            return (
+              !isValueEqual(newRow.value, oldRow.value) ||
+              newRow.name !== oldRow.name ||
+              newRow.type !== oldRow.type
+            );
+          }
+
+          // Compare compound fields
+          if (isCompoundSearchField(newRow) && isCompoundSearchField(oldRow)) {
+            return (
+              newRow.name !== oldRow.name ||
+              newRow.fields.length !== oldRow.fields.length ||
+              newRow.fields.some((newField, fieldIndex) => {
+                const oldField = oldRow.fields[fieldIndex];
+                return (
+                  !oldField ||
+                  !isValueEqual(newField.value, oldField.value) ||
+                  newField.name !== oldField.name ||
+                  newField.type !== oldField.type
+                );
+              })
+            );
+          }
+
+          // Type mismatch
+          return true;
+        });
+
+        return hasChanged ? newRows : prev;
+      });
     },
     [],
   );

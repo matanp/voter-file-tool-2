@@ -58,11 +58,15 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     }
   }, [initialValue]);
 
+  // Use ref to store stable onChange callback
+  const onChangeRef = React.useRef(onChange);
+  onChangeRef.current = onChange;
+
   React.useEffect(() => {
     if (date) {
-      onChange(date);
+      onChangeRef.current(date);
     }
-  }, [date, onChange]);
+  }, [date]);
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>

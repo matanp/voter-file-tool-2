@@ -14,6 +14,8 @@ export const SEARCH_CONFIG = {
     NUMBER: "Number",
     DROPDOWN: "Dropdown",
     DATETIME: "DateTime",
+    DATE_RANGE: "DateRange",
+    DATE_OF_BIRTH: "DateOfBirth",
     STREET: "Street",
     CITY_TOWN: "CityTown",
     BOOLEAN: "Boolean",

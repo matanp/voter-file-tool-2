@@ -41,13 +41,36 @@ export function isComputedBooleanSearchField(
 }
 
 /**
- * Type guard to check if a SearchQueryField is a date field
+ * Type guard to check if a SearchQueryField is a date field with values array
  */
-export function isDateSearchField(
+export function isDateValuesSearchField(
   field: SearchQueryField
-): field is Extract<SearchQueryField, { field: (typeof DATE_FIELDS)[number] }> {
+): field is Extract<
+  SearchQueryField,
+  { field: (typeof DATE_FIELDS)[number]; values: (string | null)[] }
+> {
   return (
     'values' in field &&
+    !('range' in field) &&
+    DATE_FIELDS.includes(field.field as (typeof DATE_FIELDS)[number])
+  );
+}
+
+/**
+ * Type guard to check if a SearchQueryField is a date field with range
+ */
+export function isDateRangeSearchField(
+  field: SearchQueryField
+): field is Extract<
+  SearchQueryField,
+  {
+    field: (typeof DATE_FIELDS)[number];
+    range: { startDate: string | null; endDate: string | null };
+  }
+> {
+  return (
+    'range' in field &&
+    !('values' in field) &&
     DATE_FIELDS.includes(field.field as (typeof DATE_FIELDS)[number])
   );
 }
