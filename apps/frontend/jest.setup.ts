@@ -1,6 +1,7 @@
 // Optional: configure or set up a testing framework before each test.
 // If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
 
+import "@testing-library/jest-dom";
 import { mockDeep, mockReset } from "jest-mock-extended";
 import type { PrismaClient } from "@prisma/client";
 import type { Session } from "next-auth";
@@ -116,6 +117,15 @@ jest.mock("~/lib/utils", () => {
     hasPermissionFor: jest.fn(),
   };
 });
+
+// Mock ResizeObserver for components that use it
+class MockResizeObserver {
+  observe = jest.fn();
+  unobserve = jest.fn();
+  disconnect = jest.fn();
+}
+
+global.ResizeObserver = MockResizeObserver as typeof ResizeObserver;
 
 // Mock console.error to suppress error logs during tests
 const originalConsoleError = console.error;

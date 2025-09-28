@@ -4,7 +4,7 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { fetchCommitteeListQuerySchema } from "~/lib/validations/committee";
-import { toDbSentinelValue } from "~/app/committees/committeeUtils";
+import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 
 async function getCommitteeList(req: NextRequest) {
   // Extract query parameters

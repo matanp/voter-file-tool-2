@@ -1,6 +1,11 @@
 import type { Prisma } from '@voter-file-tool/shared-prisma';
 import type { SearchQueryField } from './schemas/report';
-import { searchableFieldEnum } from './constants';
+import { searchableFieldEnum, COMPUTED_BOOLEAN_FIELDS } from './constants';
+import {
+  isComputedBooleanSearchField,
+  isValuesSearchField,
+  isDateRangeSearchField,
+} from './searchQueryFieldGuards';
 
 const NAME_FIELDS = new Set<string>([
   searchableFieldEnum.enum.firstName,
@@ -94,33 +99,86 @@ export function buildPrismaWhereClause(
   const andConditions: Prisma.VoterRecordWhereInput[] = [];
 
   for (const field of searchQuery) {
-    if (field.value !== '' && field.value !== null) {
-      const fieldField = field.field;
+    const fieldField = field.field;
 
-      // Handle email search criteria
-      if (fieldField === 'hasEmail') {
-        if (field.value === true) {
-          andConditions.push(getHasEmailConditions());
+    // Handle computed boolean fields (single value) with exhaustive switch on name
+    if (isComputedBooleanSearchField(field)) {
+      const name = fieldField as (typeof COMPUTED_BOOLEAN_FIELDS)[number];
+      switch (name) {
+        case 'hasEmail': {
+          if (field.value === true) {
+            andConditions.push(getHasEmailConditions());
+          }
+          break;
         }
-      } else if (fieldField === 'hasInvalidEmail') {
-        if (field.value === true) {
-          andConditions.push(getInvalidEmailConditions());
+        case 'hasInvalidEmail': {
+          if (field.value === true) {
+            andConditions.push(getInvalidEmailConditions());
+          }
+          break;
         }
-      } else if (fieldField === 'hasPhone') {
-        if (field.value === true) {
-          andConditions.push(getHasPhoneConditions());
+        case 'hasPhone': {
+          if (field.value === true) {
+            andConditions.push(getHasPhoneConditions());
+          }
+          break;
         }
-      } else if (NAME_FIELDS.has(fieldField as string)) {
-        const value = field.value;
-        if (value === null || value === undefined) {
-          continue;
+        default: {
+          // Compile-time exhaustiveness: if a new computed boolean is added,
+          // this assignment will fail unless handled above.
+          const _exhaustiveCheck: never = name;
+          void _exhaustiveCheck;
+          break;
         }
+      }
+      continue;
+    }
+
+    // Handle date range queries
+    if (isDateRangeSearchField(field)) {
+      const rangeConditions: Prisma.VoterRecordWhereInput[] = [];
+      const rangeField = field as any;
+
+      if (rangeField.range.startDate) {
+        rangeConditions.push({
+          [fieldField]: { gte: rangeField.range.startDate },
+        });
+      }
+
+      if (rangeField.range.endDate) {
+        rangeConditions.push({
+          [fieldField]: { lte: rangeField.range.endDate },
+        });
+      }
+
+      if (rangeConditions.length > 0) {
+        andConditions.push({ AND: rangeConditions });
+      }
+      continue;
+    }
+
+    // Handle other fields (array values)
+    if (isValuesSearchField(field)) {
+      // Filter out empty values and null values
+      const validValues = field.values.filter(
+        (value: unknown) => value !== '' && value !== null
+      );
+
+      if (validValues.length === 0) {
+        continue;
+      }
+
+      if (NAME_FIELDS.has(fieldField as string)) {
+        // For name fields, convert to uppercase and use OR condition for multiple values
+        const upperCaseValues = validValues.map((value: unknown) =>
+          String(value).trim().toUpperCase()
+        );
         query = {
           ...query,
-          [fieldField]: String(value).trim().toUpperCase(),
+          [fieldField]: { in: upperCaseValues },
         };
       } else {
-        query = { ...query, [fieldField]: field.value };
+        query = { ...query, [fieldField]: { in: validValues } };
       }
     }
   }

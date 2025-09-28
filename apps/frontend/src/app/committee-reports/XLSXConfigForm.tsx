@@ -2,14 +2,13 @@
 
 import * as React from "react";
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "~/components/ui/button";
 import { Switch } from "~/components/ui/switch";
 import { Label } from "~/components/ui/label";
 import { useToast } from "~/components/ui/use-toast";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { Accordion } from "~/components/ui/accordion";
-import { mapCommitteesToReportShapeWithFields } from "../committees/committeeUtils";
-import type { CommitteeWithMembers } from "../committees/committeeUtils";
 import type { XLSXConfigFormData } from "./types";
 import { DEFAULT_FORM_DATA } from "./types";
 import { useFormValidation } from "./hooks/useFormValidation";
@@ -20,13 +19,7 @@ import { XLSXConfig } from "./components/XLSXConfig";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import type { GenerateReportData } from "@voter-file-tool/shared-validators";
 
-interface XLSXConfigFormProps {
-  committeeLists: CommitteeWithMembers[];
-}
-
-export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
-  committeeLists,
-}) => {
+export const XLSXConfigForm: React.FC = () => {
   const { toast } = useToast();
   const [formData, setFormData] =
     useState<XLSXConfigFormData>(DEFAULT_FORM_DATA);
@@ -87,7 +80,7 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
       // Force direct download for XLSX files when auto-download is enabled
       const link = document.createElement("a");
       link.href = url;
-      link.download = ""; // This forces download instead of navigation
+      link.download = formData.name?.trim() ? `${formData.name}.xlsx` : "";
       link.style.display = "none";
       document.body.appendChild(link);
       link.click();
@@ -133,57 +126,29 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
 
     clearErrorTracking(); // Clear error tracking when report generation starts
 
-    try {
-      const committeeData = mapCommitteesToReportShapeWithFields(
-        committeeLists,
-        formData.includeFields,
-      );
-
-      const includeCompoundFields =
-        formData.format === "pdf"
+    const reportPayload: GenerateReportData = {
+      type: "ldCommittees" as const,
+      name: formData.name,
+      description: formData.description,
+      format: formData.format,
+      includeFields: formData.includeFields,
+      xlsxConfig:
+        formData.format === "xlsx"
           ? {
-              name: true,
-              address: true,
+              includeCompoundFields: formData.includeCompoundFields,
+              columnOrder:
+                formData.columnOrder.length > 0
+                  ? formData.columnOrder
+                  : undefined,
+              columnHeaders:
+                Object.keys(formData.columnHeaders).length > 0
+                  ? formData.columnHeaders
+                  : undefined,
             }
-          : formData.includeCompoundFields;
+          : undefined,
+    };
 
-      const reportPayload = {
-        type: "ldCommittees" as const,
-        name: formData.name,
-        description: formData.description,
-        format: formData.format,
-        payload: committeeData,
-        includeFields: formData.includeFields,
-        includeCompoundFields,
-        xlsxConfig:
-          formData.format === "xlsx"
-            ? {
-                includeCompoundFields,
-                columnOrder:
-                  formData.columnOrder.length > 0
-                    ? formData.columnOrder
-                    : undefined,
-                columnHeaders:
-                  Object.keys(formData.columnHeaders).length > 0
-                    ? formData.columnHeaders
-                    : undefined,
-              }
-            : undefined,
-      };
-
-      await generateReportMutation.mutate(reportPayload);
-    } catch (error) {
-      console.error("Error generating report:", error);
-      toast({
-        variant: "destructive",
-        title: "Generation Failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate document",
-        duration: 5000,
-      });
-    }
+    await generateReportMutation.mutate(reportPayload);
   };
 
   return (
@@ -269,12 +234,12 @@ export const XLSXConfigForm: React.FC<XLSXConfigFormProps> = ({
             ) : (
               <>
                 Find your report in the{" "}
-                <a
+                <Link
                   href="/reports"
                   className="text-blue-600 hover:text-blue-800 underline"
                 >
                   Reports page
-                </a>
+                </Link>
               </>
             )}
           </p>

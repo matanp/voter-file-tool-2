@@ -1,29 +1,67 @@
 import { z } from 'zod';
 import { generateDesignatedPetitionDataSchema } from './designatedPetition';
 import { partialVoterRecordSchema } from './voterRecord';
-import { searchableFieldEnum } from '../constants';
+import {
+  NUMBER_FIELDS,
+  COMPUTED_BOOLEAN_FIELDS,
+  DATE_FIELDS,
+  STRING_FIELDS,
+} from '../constants';
 
-// Field types used in search queries
-export const fieldTypeEnum = z.enum([
-  'String',
-  'number',
-  'Boolean',
-  'DateTime',
-  'Dropdown',
-  'Street',
-  'CityTown',
-  'Hidden',
-]);
-
-// Search query field schema for voter records
-export const searchQueryFieldSchema = z.object({
-  field: searchableFieldEnum,
-  value: z.union([
-    z.string().nullable(),
-    z.number().nullable(),
-    z.boolean().nullable(),
-  ]),
+// Discriminated union schemas for each field type
+const numberFieldSchema = z.object({
+  field: z.enum(NUMBER_FIELDS),
+  values: z
+    .array(z.number().nullable())
+    .min(1, 'At least one value is required'),
 });
+
+const computedBooleanFieldSchema = z.object({
+  field: z.enum(COMPUTED_BOOLEAN_FIELDS),
+  // Only allow true | null; false should be treated as absence
+  value: z.literal(true).nullable(),
+});
+
+const stringFieldSchema = z.object({
+  field: z.enum(STRING_FIELDS),
+  values: z
+    .array(z.string().nullable())
+    .min(1, 'At least one value is required'),
+});
+
+// Date field with values array
+const dateValuesFieldSchema = z.object({
+  field: z.enum(DATE_FIELDS),
+  values: z
+    .array(z.string().datetime().nullable())
+    .min(1, 'At least one value is required'),
+});
+
+// Date field with range object
+const dateRangeFieldSchema = z
+  .object({
+    field: z.enum(DATE_FIELDS),
+    range: z.object({
+      startDate: z.string().datetime().nullable(),
+      endDate: z.string().datetime().nullable(),
+    }),
+  })
+  .refine((data) => !('values' in data), {
+    message: 'Date range fields cannot have values property',
+  });
+
+// Union of date field types
+const dateFieldSchema = z.union([dateValuesFieldSchema, dateRangeFieldSchema]);
+
+// Search query field schema using union with proper discrimination
+// Order matters: more specific schemas first
+export const searchQueryFieldSchema = z.union([
+  dateRangeFieldSchema, // Most specific - has 'range' property
+  dateValuesFieldSchema, // Has 'values' property
+  computedBooleanFieldSchema, // Has 'value' property
+  numberFieldSchema, // Has 'values' property
+  stringFieldSchema, // Has 'values' property
+]);
 
 // Shared format enum
 export const reportFormatEnum = z
@@ -62,17 +100,22 @@ const designatedPetitionReportSchema = z.object({
   payload: generateDesignatedPetitionDataSchema,
 });
 
+// Committee selection criteria schema
+const committeeSelectionSchema = z.object({
+  // If provided, only include committees from these city/town combinations
+  cityTownFilters: z.array(z.string()).optional(),
+  // If provided, only include committees from these legislative districts
+  legDistrictFilters: z.array(z.number()).optional(),
+  // If provided, only include committees from these election districts
+  electionDistrictFilters: z.array(z.number()).optional(),
+  // If true, include all committees (default behavior)
+  includeAll: z.boolean().optional().default(true),
+});
+
 const ldCommitteesReportSchema = z.object({
   type: z.literal('ldCommittees'),
   ...baseApiSchema.shape,
   format: reportFormatEnum,
-  payload: z.array(
-    z.object({
-      cityTown: z.string(),
-      legDistrict: z.number(),
-      committees: z.record(z.string(), z.array(partialVoterRecordSchema)),
-    })
-  ),
   // Optional field to specify which VoterRecord fields to include
   includeFields: z.array(z.string()).optional().default([]),
   // XLSX-specific configuration (only applies when format is 'xlsx')
@@ -152,6 +195,21 @@ export const errorResponseSchema = z.object({
   issues: z.array(z.any()).optional(),
 });
 
+// Utility type to extract field names from SearchQueryField
+export type SearchableFieldName = SearchQueryField['field'];
+
+// Utility type to get the value type for a specific field
+export type FieldValueType<T extends SearchableFieldName> =
+  T extends (typeof NUMBER_FIELDS)[number]
+    ? number | null
+    : T extends (typeof COMPUTED_BOOLEAN_FIELDS)[number]
+      ? true | null
+      : T extends (typeof DATE_FIELDS)[number]
+        ? string | null | { startDate: string | null; endDate: string | null }
+        : T extends (typeof STRING_FIELDS)[number]
+          ? string | null
+          : never;
+
 // Type exports
 export type GenerateReportData = z.infer<typeof generateReportSchema>;
 export type EnrichedReportData = z.infer<typeof enrichedReportDataSchema>;
@@ -169,3 +227,4 @@ export type ReportCompleteResponse = z.infer<
 >;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 export type SearchQueryField = z.infer<typeof searchQueryFieldSchema>;
+export type CommitteeSelection = z.infer<typeof committeeSelectionSchema>;
