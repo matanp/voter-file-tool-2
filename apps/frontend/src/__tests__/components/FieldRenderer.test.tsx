@@ -10,11 +10,12 @@ import {
   testSearchFields,
 } from "~/__tests__/utils/searchTestUtils";
 import type { BaseSearchField, BaseFieldType } from "~/types/searchFields";
+import type { DatePickerProps } from "~/components/ui/datePicker";
+
 import type { ComboboxDropdownProps } from "~/components/ui/ComboBox";
 import type { MultiSelectComboboxProps } from "~/components/ui/MultiSelectCombobox";
 import type { MultiStringInputProps } from "~/components/ui/MultiStringInput";
 import type { MultiStreetSearchProps } from "~/components/ui/MultiStreetSearch";
-import type { DatePickerProps } from "~/components/ui/datePicker";
 import type { InputProps } from "~/components/ui/input";
 import type { StreetSearchProps } from "~/app/recordsearch/StreetSearch";
 import type { CityTownSearchProps } from "~/app/recordsearch/CityTownSearch";
@@ -132,15 +133,15 @@ jest.mock("~/components/ui/MultiStreetSearch", () => ({
 
 jest.mock("~/components/ui/datePicker", () => ({
   DatePicker: (props: DatePickerProps) => (
-    <input
+    <button
       data-testid="date-picker"
-      type="date"
-      value={
-        props.initialValue ? props.initialValue.toISOString().split("T")[0] : ""
-      }
-      onChange={(e) => props.onChange(new Date(e.target.value))}
+      onClick={() => props.onChange(new Date("1990-01-01"))}
       aria-label={props.ariaLabel}
-    />
+    >
+      {props.initialValue
+        ? props.initialValue.toISOString().split("T")[0]
+        : "Select Date"}
+    </button>
   ),
 }));
 
@@ -307,9 +308,10 @@ describe("FieldRenderer", () => {
       });
       render(<FieldRenderer {...props} />);
 
-      const dateInput = screen.getByTestId("date-picker");
-      await user.clear(dateInput);
-      await user.type(dateInput, "1990-01-01");
+      const dateButton = screen.getByTestId("date-picker");
+      expect(dateButton).toBeInTheDocument();
+
+      await user.click(dateButton);
 
       expect(mockOnValueChange).toHaveBeenCalledWith(expect.any(Date));
     });
@@ -477,6 +479,10 @@ describe("FieldRenderer", () => {
     });
 
     it("handles invalid field type gracefully", () => {
+      const consoleSpy = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
+
       const invalidField = {
         ...testSearchFields.stringField,
         type: "InvalidType" as BaseFieldType,
@@ -485,7 +491,17 @@ describe("FieldRenderer", () => {
         field: invalidField,
       });
 
-      expect(() => render(<FieldRenderer {...props} />)).toThrow();
+      const { container } = render(<FieldRenderer {...props} />);
+
+      // Should render nothing (null) for invalid field types
+      expect(container.firstChild).toBeNull();
+
+      // Should log a warning about unknown field type
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Unknown field type: InvalidType",
+      );
+
+      consoleSpy.mockRestore();
     });
   });
 });

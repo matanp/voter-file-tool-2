@@ -1,40 +1,20 @@
 import type {
   SearchField,
   SearchFieldValue,
-  BaseFieldType,
   BaseSearchField,
 } from "~/types/searchFields";
 import type { DropdownLists } from "@prisma/client";
+import { SEARCH_CONFIG, FIELD_CONFIG } from "./searchConfiguration";
+import { SearchFieldProcessor } from "./searchFieldProcessor";
 
-// Constants
+// Define EMPTY_FIELD directly here since it's used in multiple places
 export const EMPTY_FIELD: SearchField = {
-  name: "empty",
+  name: FIELD_CONFIG.emptyFieldName,
   displayName: "Select a field",
   value: "",
   compoundType: false,
   type: "String",
 };
-
-export const FIELD_TYPES = {
-  STRING: "String",
-  NUMBER: "Number",
-  DROPDOWN: "Dropdown",
-  DATETIME: "DateTime",
-  STREET: "Street",
-  CITY_TOWN: "CityTown",
-  BOOLEAN: "Boolean",
-  HIDDEN: "Hidden",
-} as const;
-
-export const FIELD_NAMES = {
-  EMPTY: "empty",
-  CITY: "city",
-} as const;
-
-export const DISPLAY_LABEL_THRESHOLDS = {
-  SHORT_LABEL: 10,
-  MEDIUM_LABEL: 15,
-} as const;
 
 export const generateId = (): string => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -63,15 +43,6 @@ export const addIdsIfMissing = (
   return { ...field, id };
 };
 
-export const isMeaningful = (value: unknown): boolean => {
-  if (value === undefined || value === null) return false;
-  if (typeof value === "boolean") return value === true;
-  if (typeof value === "string") return value.trim() !== "";
-  if (typeof value === "number") return Number.isFinite(value);
-  if (Array.isArray(value)) return value.length > 0;
-  return true; // For other types like Date
-};
-
 export const filterMeaningfulRows = (
   searchRows: SearchField[],
 ): SearchField[] => {
@@ -80,12 +51,16 @@ export const filterMeaningfulRows = (
       row.compoundType
         ? {
             ...row,
-            fields: row.fields.filter((f) => isMeaningful(f.value)),
+            fields: row.fields.filter((f) =>
+              SearchFieldProcessor.isValidValue(f.value),
+            ),
           }
         : row,
     )
     .filter((row) =>
-      row.compoundType ? row.fields.length > 0 : isMeaningful(row.value),
+      row.compoundType
+        ? row.fields.length > 0
+        : SearchFieldProcessor.isValidValue(row.value),
     );
 };
 
@@ -111,7 +86,9 @@ export const canRemoveRow = (
   searchRows: SearchField[],
   _index: number,
 ): boolean => {
-  return searchRows.length > 1 || searchRows[0]?.name !== "empty";
+  return (
+    searchRows.length > 1 || searchRows[0]?.name !== FIELD_CONFIG.emptyFieldName
+  );
 };
 
 export const getDropdownItems = (
@@ -127,57 +104,15 @@ export const getDropdownItems = (
   }));
 };
 
-export const getDropdownDisplayLabel = (
-  displayName: string,
-  allowMultiple: boolean,
-): string => {
-  if (allowMultiple) {
-    return displayName.length < DISPLAY_LABEL_THRESHOLDS.SHORT_LABEL
-      ? `Select ${displayName}`
-      : displayName;
-  }
-  return `Select ${displayName}`;
-};
-
-/**
- * Type-safe field value processing with proper type narrowing
- * @param value - The raw value to process
- * @param type - The field type to determine processing logic
- * @returns The processed value ready for storage/display
- */
-export function processFieldValue(
-  value: SearchFieldValue,
-  type: BaseFieldType,
-): SearchFieldValue {
-  try {
-    if (type === "Number") {
-      // Convert null, undefined, or empty strings to undefined, otherwise coerce with Number()
-      return value === null || value === undefined || value === ""
-        ? undefined
-        : Number(value);
-    }
-    if (type === "Boolean") {
-      // Ensure boolean values are properly handled
-      return value ?? undefined;
-    }
-    // For all other types (String, DateTime, Dropdown, Street, CityTown, Hidden)
-    // return as-is to maintain data integrity
-    return value;
-  } catch {
-    // If any processing fails, return the original value
-    return value;
-  }
-}
-
 /**
  * Type-safe field value assignment helper
- * Processes and assigns field values with proper type safety
+ * Processes and assigns field values with proper type safety using unified processor
  */
 export function assignProcessedFieldValue<T extends BaseSearchField>(
   field: T,
   value: SearchFieldValue,
 ): T {
-  const processedValue = processFieldValue(value, field.type);
+  const processedValue = SearchFieldProcessor.normalizeForStorage(value, field);
   return {
     ...field,
     value: processedValue,
