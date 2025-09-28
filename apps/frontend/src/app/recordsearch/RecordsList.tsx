@@ -1,10 +1,8 @@
 "use client";
 import React from "react";
 import { useRouter } from "next/navigation";
-import VoterRecordSearch, {
-  type BaseSearchField,
-  type SearchField,
-} from "./VoterRecordSearch";
+import { useSession } from "next-auth/react";
+import VoterRecordSearch from "./VoterRecordSearch";
 import { type DropdownLists, type VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { getAddress } from "../api/lib/utils";
@@ -17,6 +15,8 @@ import {
   ADMIN_CONTACT_INFO,
   type SearchQueryField,
 } from "@voter-file-tool/shared-validators";
+import type { SearchField } from "~/types/searchFields";
+import { SearchFieldProcessor } from "~/lib/searchFieldProcessor";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { Info } from "lucide-react";
 import { useApiMutation } from "~/hooks/useApiMutation";
@@ -24,9 +24,13 @@ import { useApiMutation } from "~/hooks/useApiMutation";
 interface RecordsListProps {
   dropdownList: DropdownLists;
 }
+
+// Type-safe conversion using discriminated union properly
+
 export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const router = useRouter();
   const { toast } = useToast();
+  const { status } = useSession();
   const {
     setSearchQuery: setContextSearchQuery,
     fieldsList: contextFieldsList,
@@ -87,61 +91,34 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     return createSmartFieldsList(contextFieldsList);
   }, [contextFieldsList]);
 
-  const handleSubmit = async (searchQueryParam: SearchField[]) => {
-    setPage(1);
-    setPageSize(100);
-    const flattenedQuery = searchQueryParam
-      .reduce((acc: BaseSearchField[], curr: SearchField) => {
-        if (curr.compoundType) {
-          return [...acc, ...curr.fields];
-        } else {
-          return [...acc, curr];
-        }
-      }, [])
-      .filter(
-        (
-          field,
-        ): field is BaseSearchField & { name: SearchQueryField["field"] } =>
-          field.name !== "empty",
-      )
-      .map((field) => ({
-        field: field.name,
-        value:
-          field.value instanceof Date
-            ? field.value.toISOString()
-            : (field.value ?? null),
-      }));
+  const handleSubmit = React.useCallback(
+    async (searchQueryParam: SearchField[]) => {
+      setPage(1);
+      setPageSize(100);
 
-    setSearchQuery(flattenedQuery);
+      const flattenedQuery =
+        SearchFieldProcessor.convertSearchFieldsToSearchQuery(searchQueryParam);
 
-    // Convert undefined to null to match API schema
-    const convertedQuery = flattenedQuery.map((item) => ({
-      ...item,
-      value: item.value ?? null,
-    }));
+      setSearchQuery(flattenedQuery);
 
-    void searchMutation.mutate({
-      searchQuery: convertedQuery,
-      pageSize: 100,
-      page: 1,
-    });
+      void searchMutation.mutate({
+        searchQuery: flattenedQuery,
+        pageSize: 100,
+        page: 1,
+      });
 
-    setContextSearchQuery(searchQueryParam, convertedQuery);
-  };
+      setContextSearchQuery(searchQueryParam, flattenedQuery);
+    },
+    [searchMutation, setContextSearchQuery],
+  );
 
-  const handleLoadMore = async () => {
-    // Convert undefined to null to match API schema
-    const convertedQuery = searchQuery.map((item) => ({
-      ...item,
-      value: item.value ?? null,
-    }));
-
+  const handleLoadMore = React.useCallback(async () => {
     void loadMoreMutation.mutate({
-      searchQuery: convertedQuery,
+      searchQuery: searchQuery,
       pageSize,
       page: page + 1,
     });
-  };
+  }, [loadMoreMutation, searchQuery, pageSize, page]);
 
   const handleExport = () => {
     if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
@@ -163,7 +140,10 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     }
 
     // Navigate to voter list report page (search data is already in context)
-    router.push("/voter-list-reports");
+    // Use setTimeout to ensure navigation happens after any pending state updates
+    setTimeout(() => {
+      router.push("/voter-list-reports");
+    }, 0);
   };
 
   return (
@@ -176,6 +156,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           <VoterRecordSearch
             handleSubmit={handleSubmit}
             dropdownList={dropdownList}
+            isAuthenticated={status === "authenticated"}
           />
         </div>
       </div>
@@ -236,8 +217,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       {!records.length && hasSearched && (
         <p className="ml-10">No results found.</p>
       )}
-      {!records.length && !hasSearched && (
+      {!records.length && !hasSearched && status === "authenticated" && (
         <p className="ml-10">Submit a search query to see results.</p>
+      )}
+      {!records.length && !hasSearched && status === "unauthenticated" && (
+        <p className="ml-10">Please log in to search voter records.</p>
       )}
     </div>
   );

@@ -17,6 +17,7 @@ const config = {
     "<rootDir>/dist/",
     "<rootDir>/src/__tests__/utils/",
     "<rootDir>/src/__tests__/types/",
+    "<rootDir>/src/__tests__/__mocks__/",
   ],
   moduleNameMapper: {
     // TypeScript path aliases

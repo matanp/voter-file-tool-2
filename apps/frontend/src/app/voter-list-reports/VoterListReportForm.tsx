@@ -21,6 +21,7 @@ import type {
   VoterRecordField,
   VoterRecordAPI,
 } from "@voter-file-tool/shared-validators";
+import { voterRecordSchema } from "@voter-file-tool/shared-validators";
 import type { VoterRecord } from "@prisma/client";
 import type { XLSXConfigFormData } from "../committee-reports/types";
 import { useToast } from "~/components/ui/use-toast";
@@ -30,9 +31,13 @@ import {
   ADMIN_CONTACT_INFO,
   type GenerateReportData,
   type SearchQueryField,
+  normalizeSearchQuery,
 } from "@voter-file-tool/shared-validators";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { ZodError } from "zod";
+import { parseCalendarDate } from "~/lib/dateUtils";
+import { SearchQueryDisplay } from "~/components/search/SearchQueryDisplay";
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
@@ -58,10 +63,9 @@ const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
     dateString: string | null | undefined,
   ): Date | null => {
     if (!dateString) return null;
-    const date = new Date(dateString);
-    const isValid = !isNaN(date.getTime());
 
-    if (!isValid) return null;
+    const date = parseCalendarDate(dateString);
+    if (!date) return null;
 
     const currentYear = new Date().getFullYear();
     const minYear = 1900; // Reasonable minimum year for voter records
@@ -78,9 +82,22 @@ const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
     return date;
   };
 
-  // Create the Prisma record by spreading the API record and handling special cases
+  // First validate the API record structure using Zod schema
+  const apiValidationResult = voterRecordSchema.safeParse(apiRecord);
+
+  if (!apiValidationResult.success) {
+    console.error(
+      "VoterRecordAPI validation failed:",
+      apiValidationResult.error,
+    );
+    throw new Error(
+      `Invalid API voter record data: ${apiValidationResult.error.message}`,
+    );
+  }
+
+  // Create the Prisma record by spreading the validated API record and handling special cases
   const prismaRecord = {
-    ...apiRecord,
+    ...apiValidationResult.data,
     // Convert date strings to Date objects
     DOB: convertDateString(apiRecord.DOB),
     lastUpdate: convertDateString(apiRecord.lastUpdate),
@@ -111,13 +128,16 @@ interface VoterListReportFormData {
 }
 
 export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
-  const { searchQuery, flattenedSearchQuery, clearSearchQuery } =
-    useVoterSearch();
+  const { flattenedSearchQuery, clearSearchQuery } = useVoterSearch();
 
   const [searchResults, setSearchResults] = useState<VoterRecord[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [reportId, setReportId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Store toast in ref to avoid dependency issues
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const [formData, setFormData] = useState<VoterListReportFormData>({
     name: "",
@@ -207,14 +227,9 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       }
 
       try {
-        // Convert undefined to null to match API schema
-        const convertedQuery = flattenedSearchQuery.map((item) => ({
-          ...item,
-          value: item.value ?? null,
-        }));
-
+        const normalized = normalizeSearchQuery(flattenedSearchQuery);
         await mutateRef.current({
-          searchQuery: convertedQuery,
+          searchQuery: normalized,
           pageSize: 100, // Only fetch first 100 for preview
           page: 1,
         });
@@ -223,10 +238,24 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
           // Request was cancelled, don't update state
           return;
         }
-        // Error handling is done in the mutation hook
+        if (error instanceof ZodError) {
+          setSearchResults([]);
+          setTotalRecords(0);
+          toastRef.current({
+            variant: "destructive",
+            title: "Invalid Search Filters",
+            description:
+              "Some filter values are invalid. Please review your search and try again.",
+          });
+          // Provide additional context for developers
+          console.error(
+            "Search query normalization failed",
+            error.flatten?.() ?? error,
+          );
+          return;
+        }
       }
     };
-
     void fetchSearchResults();
   }, [flattenedSearchQuery]);
 
@@ -321,18 +350,13 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     clearErrorTracking();
 
     try {
-      // Convert undefined to null to match API schema
-      const convertedSearchQuery = flattenedSearchQuery.map((item) => ({
-        ...item,
-        value: item.value ?? null,
-      }));
-
+      const normalized = normalizeSearchQuery(flattenedSearchQuery);
       const reportPayload = {
         type: "voterList" as const,
         name: formData.name,
         description: formData.description,
         format: "xlsx" as const,
-        searchQuery: convertedSearchQuery,
+        searchQuery: normalized,
         includeFields: formData.includeFields,
         xlsxConfig: {
           includeCompoundFields: formData.includeCompoundFields,
@@ -347,6 +371,15 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
       await generateReportMutation.mutate(reportPayload);
     } catch (error) {
+      if (error instanceof ZodError) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Search Filters",
+          description:
+            "Please fix invalid values in your search before generating the report.",
+        });
+        return;
+      }
       console.error("Error generating report:", error);
     }
   };
@@ -358,139 +391,17 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
   return (
     <div className="space-y-6">
-      {/* Current Search Query Display */}
-      {searchQuery.length > 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="primary-header">Current Search Query</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {searchQuery
-                .filter((field) => {
-                  if (field.compoundType) {
-                    // For compound fields, only show if at least one sub-field has a non-empty value
-                    return field.fields.some((subField) => {
-                      const value = subField.value;
-                      return (
-                        value !== null &&
-                        value !== undefined &&
-                        String(value).trim() !== ""
-                      );
-                    });
-                  } else {
-                    // For simple fields, only show if the value is non-empty
-                    const value = field.value;
-                    return (
-                      value !== null &&
-                      value !== undefined &&
-                      String(value).trim() !== ""
-                    );
-                  }
-                })
-                .map((field, index) => (
-                  <div key={index} className="space-y-1">
-                    {field.compoundType ? (
-                      // Compound field - show only sub-fields with non-empty values
-                      <div>
-                        <span className="font-medium text-sm">
-                          {field.displayName}:
-                        </span>
-                        <div className="ml-4 space-y-1">
-                          {field.fields
-                            .filter((subField) => {
-                              const value = subField.value;
-                              return (
-                                value !== null &&
-                                value !== undefined &&
-                                String(value).trim() !== ""
-                              );
-                            })
-                            .map((subField, subIndex) => (
-                              <div
-                                key={subIndex}
-                                className="flex items-center space-x-2 text-sm"
-                              >
-                                <span className="font-medium">
-                                  {subField.displayName}:
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {String(subField.value ?? "")}
-                                </span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    ) : (
-                      // Simple field
-                      <div className="flex items-center space-x-2 text-sm">
-                        <span className="font-medium">
-                          {field.displayName}:
-                        </span>
-                        <span className="text-muted-foreground">
-                          {String(field.value ?? "")}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-            </div>
-            <div className="mt-4 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                {totalRecords > 0 && (
-                  <div>
-                    <span>
-                      Found {totalRecords.toLocaleString()} records
-                      {totalRecords > MAX_RECORDS_FOR_EXPORT && (
-                        <span className="text-destructive ml-1">
-                          (exceeds export limit of{" "}
-                          {MAX_RECORDS_FOR_EXPORT.toLocaleString()})
-                        </span>
-                      )}
-                    </span>
-                    {totalRecords > MAX_RECORDS_FOR_EXPORT && (
-                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
-                        <p className="text-sm text-amber-800 font-medium">
-                          Large Export Request
-                        </p>
-                        <p className="text-sm text-amber-700 mt-1">
-                          {ADMIN_CONTACT_INFO}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  clearSearchQuery();
-                  setSearchResults([]);
-                  setTotalRecords(0);
-                }}
-              >
-                Clear Search
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* No Search Query Message */}
-      {searchQuery.length === 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="primary-header">No Search Query</h3>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Please go to the Record Search page to search for voter records
-              first, then return here to export them.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <SearchQueryDisplay
+        searchQuery={flattenedSearchQuery}
+        totalRecords={totalRecords}
+        maxRecordsForExport={MAX_RECORDS_FOR_EXPORT}
+        adminContactInfo={ADMIN_CONTACT_INFO}
+        onClearSearch={() => {
+          clearSearchQuery();
+          setSearchResults([]);
+          setTotalRecords(0);
+        }}
+      />
 
       {/* Search Results Preview */}
       {searchResults.length > 0 && (

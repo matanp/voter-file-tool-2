@@ -22,9 +22,16 @@ import {
   type CallbackUrl,
   type VoterRecordField,
   type SearchQueryField,
+  type CommitteeSelection,
+  type CommitteeWithMembers,
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
+  normalizeSearchQuery,
 } from '@voter-file-tool/shared-validators';
+import {
+  mapCommitteesToReportShape,
+  fetchCommitteeData,
+} from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
 
 // Function to generate a descriptive filename
@@ -149,7 +156,8 @@ app.post(
  */
 async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
   try {
-    const whereClause = buildPrismaWhereClause(searchQuery);
+    const normalized = normalizeSearchQuery(searchQuery);
+    const whereClause = buildPrismaWhereClause(normalized);
 
     // First check the count to warn about large datasets
     const count = await prisma.voterRecord.count({
@@ -218,19 +226,22 @@ async function processJob(jobData: EnrichedReportData) {
     fileName = generateFilename(name, type, format, sanitizedAuthor);
 
     if (type === 'ldCommittees') {
+      console.log('Fetching committee data from database...');
+      const committeeData = await fetchCommitteeData();
+      const payload = mapCommitteesToReportShape(committeeData);
+      console.log(`Fetched ${payload.length} committee groups from database`);
+
       if (format === 'xlsx') {
-        console.log('Processing committee report as XLSX...');
+        console.log('Generating committee report as XLSX...');
         const xlsxConfig = extractXLSXConfig(jobData);
-        const payload = 'payload' in jobData ? jobData.payload : [];
         await generateUnifiedXLSXAndUpload(
-          payload,
+          committeeData,
           fileName,
           xlsxConfig,
           'ldCommittees'
         );
       } else {
         console.log('Processing committee report as PDF...');
-        const payload = 'payload' in jobData ? jobData.payload : [];
         const html = generateCommitteeReportHTML(payload);
         await generatePDFAndUpload(html, true, fileName);
       }

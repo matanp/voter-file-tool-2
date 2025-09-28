@@ -6,7 +6,7 @@ import { Prisma, PrivilegeLevel } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 
-async function getOfficeNamesHandler(req: NextRequest, session: Session) {
+async function getOfficeNamesHandler(_req: NextRequest, _session: Session) {
   try {
     const officeNames = await prisma.officeName.findMany({
       orderBy: { officeName: "asc" },
