@@ -5,6 +5,7 @@ import React, {
   useState,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import type { SearchField } from "~/types/searchFields";
 import { extractFieldNamesFromSearchQuery } from "~/lib/searchFieldUtils";
@@ -47,15 +48,16 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
   >([]);
   const [fieldsList, setFieldsList] = useState<FieldName[]>([]);
 
+  // Track empty state using refs to avoid dependency changes
+  const isEmptyRef = useRef({ search: true, flat: true });
+
   const setSearchQuery = useCallback(
     (query: SearchField[], flattenedQuery: SearchQueryField[]) => {
+      const nextEmpty = query.length === 0 && flattenedQuery.length === 0;
+      const currEmpty = isEmptyRef.current.search && isEmptyRef.current.flat;
+
       // Early exit if both arrays are empty and current state is already empty
-      if (
-        query.length === 0 &&
-        flattenedQuery.length === 0 &&
-        searchQuery.length === 0 &&
-        flattenedSearchQuery.length === 0
-      ) {
+      if (nextEmpty && currEmpty) {
         return;
       }
 
@@ -63,8 +65,14 @@ export const VoterSearchProvider: React.FC<VoterSearchProviderProps> = ({
       setFlattenedSearchQuery(flattenedQuery);
       const extractedFields = extractFieldNamesFromSearchQuery(query);
       setFieldsList(extractedFields);
+
+      // Update ref to track current empty state
+      isEmptyRef.current = {
+        search: query.length === 0,
+        flat: flattenedQuery.length === 0,
+      };
     },
-    [searchQuery, flattenedSearchQuery],
+    [],
   );
 
   const clearSearchQuery = useCallback(() => {

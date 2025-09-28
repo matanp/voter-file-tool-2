@@ -39,10 +39,13 @@ export function MultiSelectCombobox({
 }: MultiSelectComboboxProps) {
   const { values, setValues } = useComboboxInitialValues(initialValues, items);
 
+  const labelsByValue = React.useMemo(
+    () => new Map(items.map((item) => [item.value, item.label])),
+    [items],
+  );
+
   // Helper function to get label with fallback to prevent "undefined" display
-  const getLabel = (value: string) => {
-    return items.find((item) => item.value === value)?.label ?? value;
-  };
+  const getLabel = (value: string) => labelsByValue.get(value) ?? value;
 
   const handleSelect = (currentValue: string) => {
     const newValues = values.includes(currentValue)

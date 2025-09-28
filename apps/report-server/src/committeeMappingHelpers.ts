@@ -91,8 +91,15 @@ export async function fetchCommitteeData(): Promise<CommitteeWithMembers[]> {
     return committees;
   } catch (error) {
     console.error('Error fetching committee data:', error);
-    throw new Error(
-      `Failed to fetch committee data: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    if (error instanceof Error) {
+      // Preserve the original stack trace by rethrowing the original error
+      // with additional context in the message
+      const enhancedError = new Error(
+        `Failed to fetch committee data: ${error.message}`
+      );
+      enhancedError.stack = error.stack;
+      throw enhancedError;
+    }
+    throw new Error('Failed to fetch committee data: Unknown error');
   }
 }

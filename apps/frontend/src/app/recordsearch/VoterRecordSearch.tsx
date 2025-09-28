@@ -18,6 +18,7 @@ import { Button } from "~/components/ui/button";
 interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
   dropdownList: DropdownLists;
+  isAuthenticated: boolean;
 }
 
 const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
@@ -103,6 +104,9 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (!props.isAuthenticated) {
+        return; // Prevent submission if not authenticated
+      }
       const filteredRows = filterMeaningfulRows(searchRows);
       props.handleSubmit(filteredRows).catch((error) => {
         console.error("Error submitting search:", error);
@@ -117,6 +121,9 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
       // Ctrl+Enter or Cmd+Enter to submit
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         event.preventDefault();
+        if (!props.isAuthenticated) {
+          return; // Prevent submission if not authenticated
+        }
         const filteredRows = filterMeaningfulRows(searchRows);
         props.handleSubmit(filteredRows).catch((error) => {
           console.error("Error submitting search:", error);
@@ -209,9 +216,18 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           <div className="py-2">
             <Button
               type="submit"
-              className="hover:bg-primary-700 w-full rounded-md border border-transparent bg-primary px-4 py-2 text-primary-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              aria-label="Submit voter record search"
-              title="Submit search (Ctrl+Enter)"
+              disabled={!props.isAuthenticated}
+              className="hover:bg-primary-700 w-full rounded-md border border-transparent bg-primary px-4 py-2 text-primary-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={
+                props.isAuthenticated
+                  ? "Submit voter record search"
+                  : "Please log in to search voter records"
+              }
+              title={
+                props.isAuthenticated
+                  ? "Submit search (Ctrl+Enter)"
+                  : "Please log in to search voter records"
+              }
             >
               Submit
             </Button>

@@ -152,6 +152,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           <VoterRecordSearch
             handleSubmit={handleSubmit}
             dropdownList={dropdownList}
+            isAuthenticated={status === "authenticated"}
           />
         </div>
       </div>
@@ -215,7 +216,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       {!records.length && !hasSearched && status === "authenticated" && (
         <p className="ml-10">Submit a search query to see results.</p>
       )}
-      {!records.length && !hasSearched && status !== "authenticated" && (
+      {!records.length && !hasSearched && status === "unauthenticated" && (
         <p className="ml-10">Please log in to search voter records.</p>
       )}
     </div>

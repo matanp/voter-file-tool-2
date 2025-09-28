@@ -219,7 +219,28 @@ describe("SearchRow Real Component Integration", () => {
       const mockOnValueChange = jest.fn();
       const props = createMockSearchRowProps({
         onValueChange: mockOnValueChange,
-        row: testSearchFields.numberField,
+        row: { ...testSearchFields.numberField, value: undefined }, // Start with empty field
+      });
+      render(<SearchRow {...props} />);
+
+      const input = screen.getByRole("spinbutton", {
+        name: /Enter House Number/,
+      });
+      await user.type(input, "456");
+
+      // userEvent.type() simulates individual keystrokes, so each character triggers onChange
+      expect(mockOnValueChange).toHaveBeenCalledTimes(3);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(1, 0, 4, undefined);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(2, 0, 5, undefined);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(3, 0, 6, undefined);
+    });
+
+    it("calls onValueChange with undefined when number input is cleared", async () => {
+      const user = userEvent.setup();
+      const mockOnValueChange = jest.fn();
+      const props = createMockSearchRowProps({
+        onValueChange: mockOnValueChange,
+        row: { ...testSearchFields.numberField, value: 123 }, // Start with existing value
       });
       render(<SearchRow {...props} />);
 
@@ -227,10 +248,9 @@ describe("SearchRow Real Component Integration", () => {
         name: /Enter House Number/,
       });
       await user.clear(input);
-      await user.type(input, "456");
 
-      expect(mockOnValueChange).toHaveBeenCalledTimes(4); // Clear + 3 characters
-      expect(mockOnValueChange).toHaveBeenLastCalledWith(0, 1236, undefined);
+      expect(mockOnValueChange).toHaveBeenCalledTimes(1);
+      expect(mockOnValueChange).toHaveBeenCalledWith(0, undefined, undefined);
     });
 
     it("calls onValueChange when checkbox is toggled", async () => {

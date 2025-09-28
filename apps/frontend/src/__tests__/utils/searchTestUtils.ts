@@ -114,17 +114,19 @@ export const createMockVoterRecordSearchProps = (
   overrides: {
     handleSubmit?: (searchQuery: SearchField[]) => Promise<void>;
     dropdownList?: DropdownLists;
+    isAuthenticated?: boolean;
   } = {},
 ) => ({
   handleSubmit: jest.fn().mockResolvedValue(Promise.resolve()),
   dropdownList: createMockDropdownLists(),
+  isAuthenticated: true,
   ...overrides,
 });
 
 // Mock SearchRow props factory
-export const createMockSearchRowProps = (
+export const createMockSearchRowProps = <T extends SearchField = SearchField>(
   overrides: {
-    row?: SearchField;
+    row?: T;
     index?: number;
     dropdownList?: DropdownLists;
     availableFields?: Array<{ label: string; value: string }>;
@@ -138,7 +140,7 @@ export const createMockSearchRowProps = (
     canRemove?: boolean;
   } = {},
 ) => ({
-  row: createMockSearchField(),
+  row: (overrides.row ?? createMockSearchField()) as T,
   index: 0,
   dropdownList: createMockDropdownLists(),
   availableFields: [
@@ -171,7 +173,19 @@ export const createMockFieldRendererProps = (
 });
 
 // Test data sets using real SEARCH_FIELDS constant
-export const testSearchFields = {
+export const testSearchFields: {
+  stringField: BaseSearchField;
+  numberField: BaseSearchField;
+  dropdownField: BaseSearchField;
+  dateField: BaseSearchField;
+  booleanField: BaseSearchField;
+  streetField: BaseSearchField;
+  cityTownField: BaseSearchField;
+  emptyField: BaseSearchField;
+  emptyStringField: BaseSearchField;
+  compoundNameField: CompoundSearchField;
+  compoundAddressField: CompoundSearchField;
+} = {
   // Base fields from SEARCH_FIELDS - these should match real field structures
   stringField: {
     ...findBaseSearchFieldByName("VRCNUM")!,
@@ -222,15 +236,19 @@ export const testSearchFields = {
     value: "", // Empty for input change tests
     id: "test-empty-string-1",
   },
-  // Compound fields from SEARCH_FIELDS
+  // Compound fields from SEARCH_FIELDS - deep cloned to prevent mutations leaking to SEARCH_FIELDS
   compoundNameField: {
-    ...findCompoundSearchFieldByName("name")!,
+    ...(JSON.parse(
+      JSON.stringify(findCompoundSearchFieldByName("name")!),
+    ) as CompoundSearchField),
     id: "test-compound-name-1",
-  },
+  } as CompoundSearchField,
   compoundAddressField: {
-    ...findCompoundSearchFieldByName("address")!,
+    ...(JSON.parse(
+      JSON.stringify(findCompoundSearchFieldByName("address")!),
+    ) as CompoundSearchField),
     id: "test-compound-address-1",
-  },
+  } as CompoundSearchField,
 };
 
 // Custom render function with VoterSearchProvider
