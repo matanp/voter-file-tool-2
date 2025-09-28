@@ -581,9 +581,9 @@ describe("FieldRenderer Real Component Integration", () => {
     });
 
     it("handles invalid field types by gracefully returning null", () => {
-      const consoleSpy = jest
-        .spyOn(console, "warn")
-        .mockImplementation(() => {});
+      const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {
+        /** noop */
+      });
 
       const invalidField = {
         ...testSearchFields.stringField,

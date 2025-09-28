@@ -479,9 +479,9 @@ describe("FieldRenderer", () => {
     });
 
     it("handles invalid field type gracefully", () => {
-      const consoleSpy = jest
-        .spyOn(console, "warn")
-        .mockImplementation(() => {});
+      const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {
+        /** noop */
+      });
 
       const invalidField = {
         ...testSearchFields.stringField,
