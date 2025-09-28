@@ -4,7 +4,7 @@ import type {
   BaseSearchField,
 } from "~/types/searchFields";
 import type { DropdownLists } from "@prisma/client";
-import { SEARCH_CONFIG, FIELD_CONFIG } from "./searchConfiguration";
+import { FIELD_CONFIG } from "./searchConfiguration";
 import { SearchFieldProcessor } from "./searchFieldProcessor";
 
 // Define EMPTY_FIELD directly here since it's used in multiple places
