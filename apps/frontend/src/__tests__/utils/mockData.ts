@@ -1,5 +1,4 @@
 import type { DropdownLists } from "@prisma/client";
-import { SEARCH_FIELDS } from "~/lib/constants/searchFields";
 import { EMPTY_FIELD } from "~/lib/searchHelpers";
 import {
   findBaseSearchFieldByName,

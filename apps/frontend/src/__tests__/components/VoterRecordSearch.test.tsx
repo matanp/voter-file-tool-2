@@ -59,7 +59,7 @@ describe("VoterRecordSearch", () => {
               name: "firstName",
               value: ["John"],
             }),
-          ]),
+          ]) as unknown[],
         }),
       ]);
     });
@@ -116,7 +116,7 @@ describe("VoterRecordSearch", () => {
               name: "lastName",
               value: ["Doe"],
             }),
-          ]),
+          ]) as unknown[],
         }),
       ]);
     });
@@ -290,7 +290,6 @@ describe("VoterRecordSearch", () => {
     });
 
     it("renders field selector dropdown with proper accessibility", async () => {
-      const user = userEvent.setup();
       const props = createMockVoterRecordSearchProps();
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
 
@@ -340,7 +339,9 @@ describe("VoterRecordSearch", () => {
       await user.click(submitButton);
 
       expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-      const submittedData = mockHandleSubmit.mock.calls[0][0];
+      const submittedData = (
+        mockHandleSubmit.mock.calls[0] as unknown[]
+      )?.[0] as unknown[];
 
       // Validate structure - empty because initial fields have no values
       expect(Array.isArray(submittedData)).toBe(true);
@@ -348,7 +349,6 @@ describe("VoterRecordSearch", () => {
     });
 
     it("prevents default form submission behavior", async () => {
-      const user = userEvent.setup();
       const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
       const props = createMockVoterRecordSearchProps({
         handleSubmit: mockHandleSubmit,
@@ -371,7 +371,9 @@ describe("VoterRecordSearch", () => {
       const user = userEvent.setup();
       const consoleErrorSpy = jest
         .spyOn(console, "error")
-        .mockImplementation(() => {});
+        .mockImplementation(() => {
+          /* no-op */
+        });
       const mockHandleSubmit = jest
         .fn()
         .mockRejectedValue(new Error("Submission failed"));

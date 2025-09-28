@@ -244,7 +244,6 @@ describe("SearchRow", () => {
     });
 
     it("prevents default behavior when remove button is clicked", async () => {
-      const user = userEvent.setup();
       const mockOnRemoveRow = jest.fn();
       const props = createMockSearchRowProps({
         onRemoveRow: mockOnRemoveRow,

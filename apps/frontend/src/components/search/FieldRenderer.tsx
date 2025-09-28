@@ -53,16 +53,56 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   const fieldId = `${field.name}-${index ?? 0}-${subIndex ?? 0}`;
   const fieldLabel = `${field.displayName}${isCompoundField ? ` (part ${(subIndex ?? 0) + 1})` : ""}`;
 
+  const dropdownItems = useMemo(() => {
+    if (field.type === FIELD_TYPES.DROPDOWN && isDropdownItem(field.name)) {
+      return getDropdownItems(field.name, dropdownList);
+    }
+    return [];
+  }, [field.type, field.name, dropdownList]);
+
+  const cityItems = useMemo(() => {
+    if (field.type === FIELD_TYPES.CITY_TOWN && field.allowMultiple) {
+      return getDropdownItems("city", dropdownList);
+    }
+    return [];
+  }, [field.type, field.allowMultiple, dropdownList]);
+
+  const handleCityTownChange = useCallback(
+    (city: string, town: string) => {
+      onValueChange(city);
+      // TODO: Handle town value separately if needed
+      void town; // Suppress unused parameter warning
+    },
+    [onValueChange],
+  );
+
+  const handleCheckboxChange = useCallback(
+    (checked: boolean | "indeterminate") => {
+      onValueChange(checked === "indeterminate" ? undefined : checked);
+    },
+    [onValueChange],
+  );
+
+  const handleStringInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onValueChange(e.target.value);
+    },
+    [onValueChange],
+  );
+
+  const handleNumberInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onValueChange(e.target.value === "" ? undefined : Number(e.target.value));
+    },
+    [onValueChange],
+  );
+
   switch (field.type) {
     case FIELD_TYPES.DROPDOWN: {
       if (!isDropdownItem(field.name)) {
         return null;
       }
 
-      const items = useMemo(
-        () => getDropdownItems(field.name, dropdownList),
-        [field.name, dropdownList],
-      );
       const displayLabel = getDropdownDisplayLabel(
         field.displayName,
         field.allowMultiple ?? false,
@@ -71,25 +111,25 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       if (field.allowMultiple) {
         return (
           <MultiSelectCombobox
-            items={items}
+            items={dropdownItems}
             displayLabel={displayLabel}
             initialValues={Array.isArray(field.value) ? field.value : []}
             onSelect={onValueChange}
             ariaLabel={`Select multiple ${fieldLabel}`}
           />
         );
+      } else {
+        return (
+          <ComboboxDropdown
+            key={`${field.name}-${String(field.value)}`}
+            items={dropdownItems}
+            initialValue={typeof field.value === "string" ? field.value : ""}
+            displayLabel={displayLabel}
+            onSelect={onValueChange}
+            ariaLabel={`Select ${fieldLabel}`}
+          />
+        );
       }
-
-      return (
-        <ComboboxDropdown
-          key={`${field.name}-${String(field.value)}`}
-          items={items}
-          initialValue={typeof field.value === "string" ? field.value : ""}
-          displayLabel={displayLabel}
-          onSelect={onValueChange}
-          ariaLabel={`Select ${fieldLabel}`}
-        />
-      );
     }
 
     case FIELD_TYPES.DATETIME: {
@@ -118,24 +158,20 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             onChange={onValueChange}
           />
         );
+      } else {
+        return (
+          <StreetSearch
+            key={`street-${String(field.value)}`}
+            streets={dropdownList.street}
+            initialValue={typeof field.value === "string" ? field.value : ""}
+            onChange={onValueChange}
+          />
+        );
       }
-
-      return (
-        <StreetSearch
-          key={`street-${String(field.value)}`}
-          streets={dropdownList.street}
-          initialValue={typeof field.value === "string" ? field.value : ""}
-          onChange={onValueChange}
-        />
-      );
     }
 
     case FIELD_TYPES.CITY_TOWN: {
       if (field.allowMultiple) {
-        const cityItems = useMemo(
-          () => getDropdownItems("city", dropdownList),
-          [dropdownList],
-        );
         return (
           <MultiSelectCombobox
             items={cityItems}
@@ -144,35 +180,19 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             onSelect={onValueChange}
           />
         );
+      } else {
+        return (
+          <CityTownSearch
+            key={`city-town-${String(field.value)}`}
+            cities={dropdownList.city}
+            initialCity={typeof field.value === "string" ? field.value : ""}
+            onChange={handleCityTownChange}
+          />
+        );
       }
-
-      const handleCityTownChange = useCallback(
-        (city: string, town: string) => {
-          onValueChange(city);
-          // TODO: Handle town value separately if needed
-          void town; // Suppress unused parameter warning
-        },
-        [onValueChange],
-      );
-
-      return (
-        <CityTownSearch
-          key={`city-town-${String(field.value)}`}
-          cities={dropdownList.city}
-          initialCity={typeof field.value === "string" ? field.value : ""}
-          onChange={handleCityTownChange}
-        />
-      );
     }
 
     case FIELD_TYPES.BOOLEAN: {
-      const handleCheckboxChange = useCallback(
-        (checked: boolean | "indeterminate") => {
-          onValueChange(checked === "indeterminate" ? undefined : checked);
-        },
-        [onValueChange],
-      );
-
       return (
         <div className="flex items-center space-x-2">
           <Checkbox
@@ -203,52 +223,30 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             onChange={onValueChange}
           />
         );
+      } else {
+        return (
+          <Input
+            type="text"
+            placeholder={`Enter ${field.displayName}`}
+            value={
+              typeof field.value === "string" || typeof field.value === "number"
+                ? String(field.value)
+                : ""
+            }
+            onChange={handleStringInputChange}
+            aria-label={`Enter ${fieldLabel}`}
+            id={fieldId}
+          />
+        );
       }
-
-      const handleStringInputChange = useCallback(
-        (e: React.ChangeEvent<HTMLInputElement>) => {
-          onValueChange(e.target.value);
-        },
-        [onValueChange],
-      );
-
-      return (
-        <Input
-          key={`input-${String(field.value)}`}
-          type="text"
-          placeholder={`Enter ${field.displayName}`}
-          value={
-            typeof field.value === "string" || typeof field.value === "number"
-              ? String(field.value)
-              : ""
-          }
-          onChange={handleStringInputChange}
-          aria-label={`Enter ${fieldLabel}`}
-          id={fieldId}
-        />
-      );
     }
 
     case FIELD_TYPES.NUMBER: {
-      const handleNumberInputChange = useCallback(
-        (e: React.ChangeEvent<HTMLInputElement>) => {
-          onValueChange(
-            e.target.value === "" ? undefined : Number(e.target.value),
-          );
-        },
-        [onValueChange],
-      );
-
       return (
         <Input
-          key={`input-${String(field.value)}`}
           type="number"
           placeholder={`Enter ${field.displayName}`}
-          value={
-            typeof field.value === "string" || typeof field.value === "number"
-              ? String(field.value)
-              : ""
-          }
+          value={typeof field.value === "number" ? field.value : undefined}
           onChange={handleNumberInputChange}
           aria-label={`Enter ${fieldLabel}`}
           id={fieldId}

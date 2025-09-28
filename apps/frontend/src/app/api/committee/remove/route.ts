@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { committeeDataSchema } from "~/lib/validations/committee";
-import { PrivilegeLevel, Prisma } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
