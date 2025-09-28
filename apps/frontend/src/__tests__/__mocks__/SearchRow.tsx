@@ -1,13 +1,13 @@
 import React from "react";
 import type { SearchField } from "~/types/searchFields";
-import type { SearchRowProps } from "~/components/search/SearchRow";
+import type { SearchRowComponentProps } from "~/lib/searchRowTypes";
 
 /**
  * Mock implementation of SearchRow component for testing VoterRecordSearch.
  * This mock simulates the behavior of the real SearchRow component while
  * providing test-specific functionality for value and field changes.
  */
-export const SearchRow: React.FC<SearchRowProps> = (props) => {
+export const SearchRow: React.FC<SearchRowComponentProps> = (props) => {
   const [currentRow, setCurrentRow] = React.useState(props.row);
 
   const handleFieldChange = () => {
