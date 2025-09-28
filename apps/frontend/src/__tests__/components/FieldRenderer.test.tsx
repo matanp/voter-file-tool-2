@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { FieldRenderer } from "~/components/search/FieldRenderer";
@@ -66,10 +66,10 @@ jest.mock("~/components/ui/MultiSelectCombobox", () => ({
 jest.mock("~/components/ui/input", () => ({
   Input: (props: InputProps) => (
     <input
-      data-testid={`input-${props.type || "text"}`}
+      data-testid={`input-${props.type ?? "text"}`}
       type={props.type}
       placeholder={props.placeholder}
-      value={props.value || ""}
+      value={props.value ?? ""}
       onChange={props.onChange}
       aria-label={props["aria-label"]}
       id={props.id}
@@ -105,7 +105,9 @@ jest.mock("~/components/ui/MultiStringInput", () => ({
       data-testid="multi-string-input"
       placeholder={props.placeholder}
       value={
-        Array.isArray(props.value) ? props.value.join(", ") : props.value || ""
+        Array.isArray(props.value)
+          ? props.value.join(", ")
+          : (props.value ?? "")
       }
       onChange={(e) => props.onChange(e.target.value.split(", "))}
     />
@@ -120,7 +122,7 @@ jest.mock("~/components/ui/MultiStreetSearch", () => ({
         value={
           Array.isArray(props.value)
             ? props.value.join(", ")
-            : props.value || ""
+            : (props.value ?? "")
         }
         onChange={(e) => props.onChange(e.target.value.split(", "))}
       />
@@ -147,7 +149,7 @@ jest.mock("~/app/recordsearch/StreetSearch", () => ({
     <div data-testid="street-search">
       <input
         placeholder="Enter street"
-        value={props.initialValue || ""}
+        value={props.initialValue ?? ""}
         onChange={(e) => props.onChange(e.target.value)}
       />
     </div>
@@ -159,7 +161,7 @@ jest.mock("~/app/recordsearch/CityTownSearch", () => ({
     <div data-testid="city-town-search">
       <input
         placeholder="Enter city"
-        value={props.initialCity || ""}
+        value={props.initialCity ?? ""}
         onChange={(e) => props.onChange(e.target.value, "")}
       />
     </div>

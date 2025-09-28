@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { FieldRenderer } from "~/components/search/FieldRenderer";
@@ -15,7 +15,7 @@ import type { CityTownSearchProps } from "~/app/recordsearch/CityTownSearch";
 import type { MultiSelectComboboxProps } from "~/components/ui/MultiSelectCombobox";
 import type { MultiStringInputProps } from "~/components/ui/MultiStringInput";
 import type { MultiStreetSearchProps } from "~/components/ui/MultiStreetSearch";
-import { BaseSearchField } from "~/types/searchFields";
+import type { BaseSearchField } from "~/types/searchFields";
 
 jest.mock("~/components/ui/DatePicker", () => ({
   DatePicker: ({ initialValue, onChange, ariaLabel }: DatePickerProps) => (
@@ -29,7 +29,11 @@ jest.mock("~/components/ui/DatePicker", () => ({
 }));
 
 jest.mock("~/app/recordsearch/StreetSearch", () => ({
-  StreetSearch: ({ streets, initialValue, onChange }: StreetSearchProps) => (
+  StreetSearch: ({
+    streets: _streets,
+    initialValue,
+    onChange,
+  }: StreetSearchProps) => (
     <input
       list="streets"
       value={initialValue}
@@ -40,7 +44,11 @@ jest.mock("~/app/recordsearch/StreetSearch", () => ({
 }));
 
 jest.mock("~/app/recordsearch/CityTownSearch", () => ({
-  CityTownSearch: ({ cities, initialCity, onChange }: CityTownSearchProps) => (
+  CityTownSearch: ({
+    cities: _cities,
+    initialCity,
+    onChange,
+  }: CityTownSearchProps) => (
     <input
       list="cities"
       value={initialCity}
@@ -98,7 +106,11 @@ jest.mock("~/components/ui/MultiStringInput", () => ({
 }));
 
 jest.mock("~/components/ui/MultiStreetSearch", () => ({
-  MultiStreetSearch: ({ streets, value, onChange }: MultiStreetSearchProps) => (
+  MultiStreetSearch: ({
+    streets: _streets,
+    value,
+    onChange,
+  }: MultiStreetSearchProps) => (
     <input
       placeholder="Enter streets"
       value={Array.isArray(value) ? value.join(", ") : value}

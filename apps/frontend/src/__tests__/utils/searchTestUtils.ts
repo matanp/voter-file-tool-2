@@ -1,5 +1,5 @@
-import React, { ReactElement } from "react";
-import { render, RenderOptions } from "@testing-library/react";
+import React, { type ReactElement } from "react";
+import { render, type RenderOptions } from "@testing-library/react";
 import type {
   SearchField,
   SearchFieldValue,
@@ -22,7 +22,7 @@ export const findBaseSearchFieldByName = (
 ): BaseSearchField | undefined => {
   const field = findSearchFieldByName(name);
   if (field && !field.compoundType) {
-    return field as BaseSearchField;
+    return field;
   }
   return undefined;
 };
@@ -31,8 +31,8 @@ export const findCompoundSearchFieldByName = (
   name: string,
 ): CompoundSearchField | undefined => {
   const field = findSearchFieldByName(name);
-  if (field && field.compoundType) {
-    return field as CompoundSearchField;
+  if (field?.compoundType) {
+    return field;
   }
   return undefined;
 };
@@ -234,25 +234,16 @@ export const testSearchFields = {
 };
 
 // Custom render function with VoterSearchProvider
-interface CustomRenderOptions extends Omit<RenderOptions, "wrapper"> {
-  initialSearchQuery?: SearchField[];
-  initialFlattenedSearchQuery?: any[];
-  initialFieldsList?: string[];
-}
+type CustomRenderOptions = Omit<RenderOptions, "wrapper">;
 
 export const renderWithVoterSearchProvider = (
   ui: ReactElement,
   options: CustomRenderOptions = {},
 ) => {
-  const {
-    initialSearchQuery = [],
-    initialFlattenedSearchQuery = [],
-    initialFieldsList = [],
-    ...renderOptions
-  } = options;
+  const { ...renderOptions } = options;
 
   const Wrapper = ({ children }: { children: React.ReactNode }) => {
-    return React.createElement(VoterSearchProvider, { children });
+    return React.createElement(VoterSearchProvider, null, children);
   };
 
   return render(ui, { wrapper: Wrapper, ...renderOptions });
@@ -295,15 +286,15 @@ export const createMockFormEvent = (
   return {
     preventDefault,
     stopPropagation,
-    currentTarget: null as any,
-    target: null as any,
+    currentTarget: null as unknown as HTMLFormElement,
+    target: null as unknown as HTMLFormElement,
     type: "submit",
     timeStamp: Date.now(),
     bubbles: true,
     cancelable: true,
     defaultPrevented: false,
     isTrusted: true,
-    nativeEvent: null as any,
+    nativeEvent: null as unknown as Event,
     eventPhase: Event.NONE,
     isDefaultPrevented: () => preventDefault.mock.calls.length > 0,
     isPropagationStopped: () => stopPropagation.mock.calls.length > 0,
@@ -327,7 +318,7 @@ export const createMockChangeEvent = (
     tagName: "INPUT",
     nodeName: "INPUT",
     nodeType: 1,
-    ownerDocument: null as any,
+    ownerDocument: null as unknown as Document,
     style: {} as CSSStyleDeclaration,
     className: "",
     id: "",
@@ -365,7 +356,7 @@ export const createMockChangeEvent = (
     cancelable: true,
     defaultPrevented: false,
     isTrusted: true,
-    nativeEvent: null as any,
+    nativeEvent: null as unknown as Event,
     eventPhase: Event.NONE,
     isDefaultPrevented: () => preventDefault.mock.calls.length > 0,
     isPropagationStopped: () => stopPropagation.mock.calls.length > 0,
@@ -492,15 +483,15 @@ export const createMockFormSubmitEvent =
     return {
       preventDefault,
       stopPropagation,
-      currentTarget: null as any,
-      target: null as any,
+      currentTarget: null as unknown as HTMLFormElement,
+      target: null as unknown as HTMLFormElement,
       type: "submit",
       timeStamp: Date.now(),
       bubbles: true,
       cancelable: true,
       defaultPrevented: false,
       isTrusted: true,
-      nativeEvent: null as any,
+      nativeEvent: null as unknown as Event,
       // Add missing properties required by FormEvent
       eventPhase: Event.NONE,
       isDefaultPrevented: () => preventDefault.mock.calls.length > 0,
@@ -541,7 +532,7 @@ export const createMockKeyboardEvent = (
     persist: jest.fn(),
   });
 
-  return event as KeyboardEvent;
+  return event;
 };
 
 // Type-safe test data validators

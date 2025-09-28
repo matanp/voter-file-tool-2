@@ -303,24 +303,27 @@ describe("/api/committee/requestAdd", () => {
         type: "invalid_numeric",
       },
       { field: "legDistrict", value: " ", type: "invalid_numeric" },
-    ])("should return 422 for $type $field", async ({ field, value, type }) => {
-      // Arrange
-      const mockRequestData = createMockRequestData({ [field]: value });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
-      });
+    ])(
+      "should return 422 for $type $field",
+      async ({ field, value, type: _type }) => {
+        // Arrange
+        const mockRequestData = createMockRequestData({ [field]: value });
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
 
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
 
-      const request = createMockRequest(mockRequestData);
+        const request = createMockRequest(mockRequestData);
 
-      // Act
-      const response = await POST(request);
+        // Act
+        const response = await POST(request);
 
-      // Assert
-      await expectErrorResponse(response, 422, "Invalid request data");
-    });
+        // Assert
+        await expectErrorResponse(response, 422, "Invalid request data");
+      },
+    );
 
     // Request notes validation tests
     test.each(validationTestCases.invalidRequestNotes)(
