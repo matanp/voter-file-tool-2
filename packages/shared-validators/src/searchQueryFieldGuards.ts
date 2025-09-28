@@ -31,7 +31,13 @@ export function isComputedBooleanSearchField(
   SearchQueryField,
   { field: (typeof COMPUTED_BOOLEAN_FIELDS)[number] }
 > {
-  return 'value' in field && !('values' in field);
+  return (
+    'value' in field &&
+    !('values' in field) &&
+    COMPUTED_BOOLEAN_FIELDS.includes(
+      field.field as (typeof COMPUTED_BOOLEAN_FIELDS)[number]
+    )
+  );
 }
 
 /**

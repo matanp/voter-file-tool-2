@@ -242,28 +242,6 @@ describe("SearchRow", () => {
       expect(mockOnRemoveRow).toHaveBeenCalledTimes(1);
       expect(mockOnRemoveRow).toHaveBeenCalledWith(0);
     });
-
-    it("prevents default behavior when remove button is clicked", async () => {
-      const mockOnRemoveRow = jest.fn();
-      const props = createMockSearchRowProps({
-        onRemoveRow: mockOnRemoveRow,
-        canRemove: true,
-      });
-      render(<SearchRow {...props} />);
-
-      const removeButton = screen.getByRole("button", {
-        name: "Remove search criteria 1",
-      });
-      const clickEvent = new MouseEvent("click", {
-        bubbles: true,
-        cancelable: true,
-      });
-      const preventDefaultSpy = jest.spyOn(clickEvent, "preventDefault");
-
-      fireEvent(removeButton, clickEvent);
-
-      expect(preventDefaultSpy).toHaveBeenCalled();
-    });
   });
 
   describe("Props Handling", () => {

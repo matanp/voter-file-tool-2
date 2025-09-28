@@ -185,7 +185,7 @@ describe("VoterRecordSearch", () => {
       );
       expect(addButton).toHaveAttribute(
         "title",
-        "Add another search criteria (Ctrl+Plus)",
+        "Add another search criteria (Ctrl+Shift+Plus)",
       );
 
       const submitButton = screen.getByRole("button", {
@@ -432,17 +432,18 @@ describe("VoterRecordSearch", () => {
       });
     });
 
-    it("adds new criteria with Ctrl+Plus, Ctrl+Equals, or Cmd+Plus", async () => {
+    it("adds new criteria with Ctrl+Shift+Plus, Ctrl+Shift+Equals, or Cmd+Shift+Plus", async () => {
       const props = createMockVoterRecordSearchProps();
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
 
-      // Test Ctrl+Plus
-      const ctrlPlusEvent = new KeyboardEvent("keydown", {
+      // Test Ctrl+Shift+Plus
+      const ctrlShiftPlusEvent = new KeyboardEvent("keydown", {
         key: "+",
         ctrlKey: true,
+        shiftKey: true,
         bubbles: true,
       });
-      document.dispatchEvent(ctrlPlusEvent);
+      document.dispatchEvent(ctrlShiftPlusEvent);
 
       await waitFor(() => {
         expect(
@@ -453,13 +454,14 @@ describe("VoterRecordSearch", () => {
         );
       });
 
-      // Test Ctrl+Equals
-      const ctrlEqualsEvent = new KeyboardEvent("keydown", {
+      // Test Ctrl+Shift+Equals
+      const ctrlShiftEqualsEvent = new KeyboardEvent("keydown", {
         key: "=",
         ctrlKey: true,
+        shiftKey: true,
         bubbles: true,
       });
-      document.dispatchEvent(ctrlEqualsEvent);
+      document.dispatchEvent(ctrlShiftEqualsEvent);
 
       await waitFor(() => {
         expect(
@@ -470,13 +472,14 @@ describe("VoterRecordSearch", () => {
         );
       });
 
-      // Test Cmd+Plus (Mac)
-      const cmdPlusEvent = new KeyboardEvent("keydown", {
+      // Test Cmd+Shift+Plus (Mac)
+      const cmdShiftPlusEvent = new KeyboardEvent("keydown", {
         key: "+",
         metaKey: true,
+        shiftKey: true,
         bubbles: true,
       });
-      document.dispatchEvent(cmdPlusEvent);
+      document.dispatchEvent(cmdShiftPlusEvent);
 
       await waitFor(() => {
         expect(
@@ -486,6 +489,33 @@ describe("VoterRecordSearch", () => {
           "New search criteria added. Total: 5 criteria.",
         );
       });
+    });
+
+    it("does not add criteria with old Ctrl+Plus shortcut (preserves browser zoom)", async () => {
+      const props = createMockVoterRecordSearchProps();
+      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
+
+      // Test that old Ctrl+Plus does NOT add criteria (should allow browser zoom)
+      const ctrlPlusEvent = new KeyboardEvent("keydown", {
+        key: "+",
+        ctrlKey: true,
+        bubbles: true,
+      });
+      document.dispatchEvent(ctrlPlusEvent);
+
+      // Wait a bit to ensure no state change occurs
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Should still have only 2 initial criteria
+      expect(
+        screen.getByRole("group", { name: "Search criteria 1" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Search criteria 2" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("group", { name: "Search criteria 3" }),
+      ).not.toBeInTheDocument();
     });
 
     it("cleans up keyboard event listeners on unmount", () => {

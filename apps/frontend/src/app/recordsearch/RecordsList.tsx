@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import VoterRecordSearch from "./VoterRecordSearch";
 import { type DropdownLists, type VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
@@ -14,8 +15,8 @@ import {
   ADMIN_CONTACT_INFO,
   type SearchQueryField,
 } from "@voter-file-tool/shared-validators";
-import type { BaseSearchField, SearchField } from "~/types/searchFields";
-import { convertBaseSearchFieldToSearchQueryField } from "~/types/searchFields";
+import type { SearchField } from "~/types/searchFields";
+import { convertSearchFieldsToSearchQuery } from "~/types/searchFields";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { Info } from "lucide-react";
 import { useApiMutation } from "~/hooks/useApiMutation";
@@ -29,6 +30,7 @@ interface RecordsListProps {
 export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const router = useRouter();
   const { toast } = useToast();
+  const { status } = useSession();
   const {
     setSearchQuery: setContextSearchQuery,
     fieldsList: contextFieldsList,
@@ -89,36 +91,33 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     return createSmartFieldsList(contextFieldsList);
   }, [contextFieldsList]);
 
-  const handleSubmit = async (searchQueryParam: SearchField[]) => {
-    setPage(1);
-    setPageSize(100);
+  const handleSubmit = React.useCallback(
+    async (searchQueryParam: SearchField[]) => {
+      setPage(1);
+      setPageSize(100);
 
-    // Flatten compound fields and convert to SearchQueryField format
-    const flattenedQuery = searchQueryParam
-      .flatMap<BaseSearchField>((curr) =>
-        curr.compoundType ? curr.fields : [curr],
-      )
-      .map(convertBaseSearchFieldToSearchQueryField)
-      .filter((field): field is SearchQueryField => field !== null);
+      const flattenedQuery = convertSearchFieldsToSearchQuery(searchQueryParam);
 
-    setSearchQuery(flattenedQuery);
+      setSearchQuery(flattenedQuery);
 
-    void searchMutation.mutate({
-      searchQuery: flattenedQuery,
-      pageSize: 100,
-      page: 1,
-    });
+      void searchMutation.mutate({
+        searchQuery: flattenedQuery,
+        pageSize: 100,
+        page: 1,
+      });
 
-    setContextSearchQuery(searchQueryParam, flattenedQuery);
-  };
+      setContextSearchQuery(searchQueryParam, flattenedQuery);
+    },
+    [searchMutation, setContextSearchQuery],
+  );
 
-  const handleLoadMore = async () => {
+  const handleLoadMore = React.useCallback(async () => {
     void loadMoreMutation.mutate({
       searchQuery: searchQuery,
       pageSize,
       page: page + 1,
     });
-  };
+  }, [loadMoreMutation, searchQuery, pageSize, page]);
 
   const handleExport = () => {
     if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
@@ -213,8 +212,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       {!records.length && hasSearched && (
         <p className="ml-10">No results found.</p>
       )}
-      {!records.length && !hasSearched && (
+      {!records.length && !hasSearched && status === "authenticated" && (
         <p className="ml-10">Submit a search query to see results.</p>
+      )}
+      {!records.length && !hasSearched && status !== "authenticated" && (
+        <p className="ml-10">Please log in to search voter records.</p>
       )}
     </div>
   );

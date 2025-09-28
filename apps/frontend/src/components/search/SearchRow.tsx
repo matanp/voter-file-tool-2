@@ -46,16 +46,12 @@ export const SearchRow: React.FC<SearchRowProps> = ({
   );
 
   const handleRemoveClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      onRemoveRow(index);
-    },
+    () => onRemoveRow(index),
     [onRemoveRow, index],
   );
 
   return (
     <div
-      key={row.id ?? `fallback-key-${index}`}
       className="flex gap-4 shadow-md p-4 bg-background"
       role="group"
       aria-label={`Search criteria ${index + 1}`}
@@ -68,6 +64,7 @@ export const SearchRow: React.FC<SearchRowProps> = ({
               Select search field for criteria {index + 1}
             </label>
             <ComboboxDropdown
+              id={`field-selector-${index}`}
               items={availableFields}
               initialValue={row.name}
               displayLabel={row.displayName}
@@ -77,12 +74,12 @@ export const SearchRow: React.FC<SearchRowProps> = ({
           </div>
 
           {/* Value input */}
-          <div className="col-sm-4">
+          <div>
             {!row.compoundType && row.name !== "empty" && (
               <FieldRenderer
                 field={row}
                 dropdownList={dropdownList}
-                onValueChange={(value) => handleValueChange(value)}
+                onValueChange={handleValueChange}
                 index={index}
               />
             )}
@@ -101,7 +98,7 @@ export const SearchRow: React.FC<SearchRowProps> = ({
 
       {/* Remove button */}
       {canRemove && (
-        <div className="col-sm-2 flex flex-row items-center">
+        <div className="flex flex-row items-center">
           <Button
             variant="destructive"
             onClick={handleRemoveClick}

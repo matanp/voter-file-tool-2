@@ -684,17 +684,17 @@ describe("/api/fetchFilteredData", () => {
                 if (
                   firstNameValues?.includes("John") &&
                   firstNameValues?.includes("Jane") &&
-                  cityValues?.includes("Boston")
-                ) {
-                  expectedRecords = EXPECTED_RECORDS.johnJaneBostonRecords;
-                } else if (
-                  firstNameValues?.includes("John") &&
-                  firstNameValues?.includes("Jane") &&
                   cityValues?.includes("Boston") &&
                   cityValues?.includes("New York")
                 ) {
                   expectedRecords =
                     EXPECTED_RECORDS.johnJaneBostonNewYorkRecords;
+                } else if (
+                  firstNameValues?.includes("John") &&
+                  firstNameValues?.includes("Jane") &&
+                  cityValues?.includes("Boston")
+                ) {
+                  expectedRecords = EXPECTED_RECORDS.johnJaneBostonRecords;
                 }
               }
             } else if (

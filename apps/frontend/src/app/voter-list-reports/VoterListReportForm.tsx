@@ -221,23 +221,20 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
           return;
         }
         if (error instanceof ZodError) {
-          if (error instanceof ZodError) {
-            setSearchResults([]);
-            setTotalRecords(0);
-            toast({
-              variant: "destructive",
-              title: "Invalid Search Filters",
-              description:
-                "Some filter values are invalid. Please review your search and try again.",
-            });
-            // Provide additional context for developers
-            console.error(
-              "Search query normalization failed",
-              error.flatten?.() ?? error,
-            );
-            return;
-          }
-          // Error handling is done in the mutation hook
+          setSearchResults([]);
+          setTotalRecords(0);
+          toast({
+            variant: "destructive",
+            title: "Invalid Search Filters",
+            description:
+              "Some filter values are invalid. Please review your search and try again.",
+          });
+          // Provide additional context for developers
+          console.error(
+            "Search query normalization failed",
+            error.flatten?.() ?? error,
+          );
+          return;
         }
       }
     };

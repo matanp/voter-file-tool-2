@@ -151,8 +151,10 @@ export function processFieldValue(
 ): SearchFieldValue {
   try {
     if (type === "Number") {
-      // Convert empty strings to undefined, numbers to numbers
-      return value === "" ? undefined : Number(value);
+      // Convert null, undefined, or empty strings to undefined, otherwise coerce with Number()
+      return value === null || value === undefined || value === ""
+        ? undefined
+        : Number(value);
     }
     if (type === "Boolean") {
       // Ensure boolean values are properly handled

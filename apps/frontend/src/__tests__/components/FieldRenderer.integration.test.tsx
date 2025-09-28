@@ -141,7 +141,7 @@ describe("FieldRenderer Real Component Integration", () => {
       expect(input).toHaveAttribute("id", "VRCNUM-0-0");
     });
 
-    it("calls onValueChange with final value after typing string", async () => {
+    it("calls onValueChange with each character as typed", async () => {
       const user = userEvent.setup();
       const mockOnValueChange = jest.fn();
       const props = createMockFieldRendererProps({
@@ -189,11 +189,11 @@ describe("FieldRenderer Real Component Integration", () => {
       expect(input).toHaveAttribute("id", "houseNum-0-0");
     });
 
-    it("calls onValueChange with parsed number after typing", async () => {
+    it("calls onValueChange with final parsed number after typing", async () => {
       const user = userEvent.setup();
       const mockOnValueChange = jest.fn();
       const props = createMockFieldRendererProps({
-        field: testSearchFields.numberField,
+        field: { ...testSearchFields.numberField, value: undefined },
         onValueChange: mockOnValueChange,
       });
       render(<FieldRenderer {...props} />);
@@ -201,11 +201,10 @@ describe("FieldRenderer Real Component Integration", () => {
       const input = screen.getByRole("spinbutton", {
         name: /Enter House Number/,
       });
-      await user.clear(input);
       await user.type(input, "456");
 
-      expect(mockOnValueChange).toHaveBeenCalledTimes(4); // Clear + 3 characters
-      expect(mockOnValueChange).toHaveBeenLastCalledWith(1236);
+      expect(mockOnValueChange).toHaveBeenCalledTimes(3); // 3 characters typed
+      expect(mockOnValueChange).toHaveBeenLastCalledWith(456);
     });
 
     it("calls onValueChange with undefined when number input is cleared", async () => {
@@ -284,7 +283,7 @@ describe("FieldRenderer Real Component Integration", () => {
       expect(dateButton).toHaveAttribute("aria-label", "Select Date of Birth");
     });
 
-    it("calls onValueChange when date is selected", async () => {
+    it("calls onValueChange when date button is clicked", async () => {
       const user = userEvent.setup();
       const mockOnValueChange = jest.fn();
       const props = createMockFieldRendererProps({
@@ -298,6 +297,8 @@ describe("FieldRenderer Real Component Integration", () => {
       });
       await user.click(dateButton);
 
+      // The real DatePicker calls onChange when the button is clicked
+      expect(mockOnValueChange).toHaveBeenCalledTimes(1);
       expect(mockOnValueChange).toHaveBeenCalledWith(expect.any(Date));
     });
   });
@@ -315,7 +316,7 @@ describe("FieldRenderer Real Component Integration", () => {
       expect(dropdown).toHaveAttribute("aria-label", "Select Party");
     });
 
-    it("renders dropdown with correct initial value", () => {
+    it("displays current dropdown value in the UI", () => {
       const mockOnValueChange = jest.fn();
       const props = createMockFieldRendererProps({
         field: testSearchFields.dropdownField,
