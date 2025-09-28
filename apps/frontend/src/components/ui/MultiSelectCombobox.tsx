@@ -14,7 +14,7 @@ import {
   type ComboboxItem,
 } from "./BaseCombobox";
 
-interface MultiSelectComboboxProps {
+export interface MultiSelectComboboxProps {
   items: ComboboxItem[];
   initialValues?: string[];
   displayLabel: string;

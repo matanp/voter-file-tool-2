@@ -17,7 +17,7 @@ import {
 } from "~/lib/searchHelpers";
 import { useMemo, useCallback } from "react";
 
-interface FieldRendererProps {
+export interface FieldRendererProps {
   field: BaseSearchField;
   dropdownList: DropdownLists;
   onValueChange: (value: SearchFieldValue) => void;

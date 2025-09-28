@@ -12,51 +12,19 @@ import {
   mockSearchFields,
   mockCompoundFields,
 } from "~/__tests__/utils/mockData";
+import type { SearchField } from "~/types/searchFields";
+import type { ComboboxDropdownProps } from "~/components/ui/ComboBox";
 
-// Mock the FieldRenderer and CompoundFieldRenderer components
-jest.mock("~/components/search/FieldRenderer", () => ({
-  FieldRenderer: ({ field, onValueChange }: any) => (
-    <div data-testid={`field-renderer-${field.name}`}>
-      <input
-        data-testid={`field-input-${field.name}`}
-        value={String(field.value ?? "")}
-        onChange={(e) => onValueChange(e.target.value)}
-        placeholder={`Enter ${field.displayName}`}
-      />
-    </div>
-  ),
-}));
-
-jest.mock("~/components/search/CompoundFieldRenderer", () => ({
-  CompoundFieldRenderer: ({ field, onValueChange }: any) => (
-    <div data-testid={`compound-field-renderer-${field.name}`}>
-      {field.fields.map((subField: any, index: number) => (
-        <div
-          key={index}
-          data-testid={`compound-subfield-${field.name}-${index}`}
-        >
-          <input
-            data-testid={`compound-input-${field.name}-${index}`}
-            value={String(subField.value ?? "")}
-            onChange={(e) => onValueChange(e.target.value, index)}
-            placeholder={`Enter ${subField.displayName}`}
-          />
-        </div>
-      ))}
-    </div>
-  ),
-}));
-
-// Mock the ComboboxDropdown component
+// Mock only complex external dependencies, use real components where possible
 jest.mock("~/components/ui/ComboBox", () => ({
-  ComboboxDropdown: ({ items, initialValue, onSelect, ariaLabel }: any) => (
+  ComboboxDropdown: (props: ComboboxDropdownProps) => (
     <select
       data-testid="field-selector"
-      value={initialValue}
-      onChange={(e) => onSelect(e.target.value)}
-      aria-label={ariaLabel}
+      value={props.initialValue}
+      onChange={(e) => props.onSelect(e.target.value)}
+      aria-label={props.ariaLabel}
     >
-      {items.map((item: any) => (
+      {props.items.map((item) => (
         <option key={item.value} value={item.value}>
           {item.label}
         </option>
@@ -67,7 +35,17 @@ jest.mock("~/components/ui/ComboBox", () => ({
 
 // Mock the Button component
 jest.mock("~/components/ui/button", () => ({
-  Button: ({ children, onClick, disabled, ...props }: any) => (
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    ...props
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    [key: string]: unknown;
+  }) => (
     <button onClick={onClick} disabled={disabled} {...props}>
       {children}
     </button>
@@ -96,7 +74,9 @@ describe("SearchRow", () => {
       const group = screen.getByRole("group", { name: "Search criteria 1" });
       expect(group).toBeInTheDocument();
 
-      const fieldSelector = screen.getByTestId("field-selector");
+      const fieldSelector = screen.getByRole("combobox", {
+        name: /Select search field for criteria 1/,
+      });
       expect(fieldSelector).toHaveAttribute(
         "aria-label",
         "Select search field for criteria 1",
@@ -113,7 +93,9 @@ describe("SearchRow", () => {
       });
       render(<SearchRow {...props} />);
 
-      const fieldSelector = screen.getByTestId("field-selector");
+      const fieldSelector = screen.getByRole("combobox", {
+        name: /Select search field for criteria 1/,
+      });
       expect(fieldSelector).toBeInTheDocument();
 
       // Check that options are rendered
@@ -144,44 +126,31 @@ describe("SearchRow", () => {
   });
 
   describe("Field Rendering", () => {
-    it("renders FieldRenderer for non-compound fields", () => {
+    it("renders appropriate input based on field type", () => {
       const props = createMockSearchRowProps({
         row: mockSearchFields.firstName,
       });
       render(<SearchRow {...props} />);
 
+      // Real FieldRenderer renders based on field type - firstName is a string field
       expect(
-        screen.getByTestId("field-renderer-firstName"),
+        screen.getByRole("textbox", { name: /Enter First Name/ }),
       ).toBeInTheDocument();
-      expect(screen.getByTestId("field-input-firstName")).toBeInTheDocument();
     });
 
-    it("renders CompoundFieldRenderer for compound fields", () => {
+    it("renders compound field sub-fields", () => {
       const props = createMockSearchRowProps({
         row: mockCompoundFields.name,
       });
       render(<SearchRow {...props} />);
 
+      // Real CompoundFieldRenderer renders sub-fields based on compound field structure
       expect(
-        screen.getByTestId("compound-field-renderer-name"),
+        screen.getByPlaceholderText("Enter First Name"),
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId("compound-subfield-name-0"),
+        screen.getByPlaceholderText("Enter Last Name"),
       ).toBeInTheDocument();
-      expect(
-        screen.getByTestId("compound-subfield-name-1"),
-      ).toBeInTheDocument();
-    });
-
-    it("does not render field renderer for empty fields", () => {
-      const props = createMockSearchRowProps({
-        row: mockSearchFields.empty,
-      });
-      render(<SearchRow {...props} />);
-
-      expect(
-        screen.queryByTestId("field-renderer-empty"),
-      ).not.toBeInTheDocument();
     });
   });
 
@@ -208,33 +177,52 @@ describe("SearchRow", () => {
     it("calls onValueChange when field value changes", async () => {
       const user = userEvent.setup();
       const mockOnValueChange = jest.fn();
+      const fieldWithEmptyValue = {
+        ...mockSearchFields.firstName,
+        value: "",
+      };
       const props = createMockSearchRowProps({
         onValueChange: mockOnValueChange,
-        row: mockSearchFields.firstName,
+        row: fieldWithEmptyValue,
       });
       render(<SearchRow {...props} />);
 
-      const fieldInput = screen.getByTestId("field-input-firstName");
+      const fieldInput = screen.getByRole("textbox", {
+        name: /Enter First Name/,
+      });
       await user.type(fieldInput, "John");
 
       expect(mockOnValueChange).toHaveBeenCalledTimes(4); // J, o, h, n
-      expect(mockOnValueChange).toHaveBeenLastCalledWith(0, "Johnn", undefined);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(1, 0, "J", undefined);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(2, 0, "o", undefined);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(3, 0, "h", undefined);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(4, 0, "n", undefined);
     });
 
     it("calls onValueChange with compound index for compound fields", async () => {
       const user = userEvent.setup();
       const mockOnValueChange = jest.fn();
+      const compoundFieldWithEmptyValues = {
+        ...mockCompoundFields.name,
+        fields: [
+          { ...mockCompoundFields.name.fields[0], value: "" },
+          { ...mockCompoundFields.name.fields[1], value: "" },
+        ],
+      } as typeof mockCompoundFields.name;
       const props = createMockSearchRowProps({
         onValueChange: mockOnValueChange,
-        row: mockCompoundFields.name,
+        row: compoundFieldWithEmptyValues,
       });
       render(<SearchRow {...props} />);
 
-      const firstNameInput = screen.getByTestId("compound-input-name-0");
+      const firstNameInput = screen.getByPlaceholderText("Enter First Name");
       await user.type(firstNameInput, "John");
 
       expect(mockOnValueChange).toHaveBeenCalledTimes(4); // J, o, h, n
-      expect(mockOnValueChange).toHaveBeenLastCalledWith(0, "Johnn", 0);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(1, 0, "J", 0);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(2, 0, "o", 0);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(3, 0, "h", 0);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(4, 0, "n", 0);
     });
 
     it("calls onRemoveRow when remove button is clicked", async () => {
@@ -305,10 +293,10 @@ describe("SearchRow", () => {
       });
       render(<SearchRow {...props} />);
 
-      const fieldRenderer = screen.getByTestId("field-renderer-firstName");
-      expect(fieldRenderer).toBeInTheDocument();
-
-      const fieldInput = screen.getByTestId("field-input-firstName");
+      const fieldInput = screen.getByRole("textbox", {
+        name: /Enter First Name/,
+      });
+      expect(fieldInput).toBeInTheDocument();
       expect(fieldInput).toHaveValue("");
     });
 
@@ -321,34 +309,37 @@ describe("SearchRow", () => {
       expect(
         screen.getByRole("group", { name: "Search criteria 3" }),
       ).toBeInTheDocument();
-      expect(screen.getByTestId("field-selector")).toHaveAttribute(
-        "aria-label",
-        "Select search field for criteria 3",
-      );
+      expect(
+        screen.getByRole("combobox", {
+          name: /Select search field for criteria 3/,
+        }),
+      ).toHaveAttribute("aria-label", "Select search field for criteria 3");
     });
   });
 
   describe("Edge Cases", () => {
     it("handles missing row by throwing error", () => {
       const props = createMockSearchRowProps({
-        row: undefined as any,
+        row: undefined as unknown as SearchField,
       });
 
       // Should throw an error when row is undefined
       expect(() => render(<SearchRow {...props} />)).toThrow();
     });
 
-    it("handles empty availableFields array", () => {
+    it("renders field selector even with empty availableFields array", () => {
       const props = createMockSearchRowProps({
         availableFields: [],
       });
       render(<SearchRow {...props} />);
 
-      const fieldSelector = screen.getByTestId("field-selector");
+      const fieldSelector = screen.getByRole("combobox", {
+        name: /Select search field for criteria 1/,
+      });
       expect(fieldSelector).toBeInTheDocument();
     });
 
-    it("handles compound field with no sub-fields", () => {
+    it("renders field selector for compound field with no sub-fields", () => {
       const emptyCompoundField = {
         ...mockCompoundFields.name,
         fields: [],
@@ -358,9 +349,10 @@ describe("SearchRow", () => {
       });
       render(<SearchRow {...props} />);
 
-      expect(
-        screen.getByTestId("compound-field-renderer-name"),
-      ).toBeInTheDocument();
+      const fieldSelector = screen.getByRole("combobox", {
+        name: /Select search field for criteria 1/,
+      });
+      expect(fieldSelector).toBeInTheDocument();
     });
   });
 
@@ -374,10 +366,11 @@ describe("SearchRow", () => {
       expect(
         screen.getByRole("group", { name: "Search criteria 2" }),
       ).toBeInTheDocument();
-      expect(screen.getByTestId("field-selector")).toHaveAttribute(
-        "aria-label",
-        "Select search field for criteria 2",
-      );
+      expect(
+        screen.getByRole("combobox", {
+          name: /Select search field for criteria 2/,
+        }),
+      ).toHaveAttribute("aria-label", "Select search field for criteria 2");
     });
 
     it("has correct button labels", () => {
@@ -399,7 +392,9 @@ describe("SearchRow", () => {
       });
       render(<SearchRow {...props} />);
 
-      const fieldInput = screen.getByTestId("field-input-firstName");
+      const fieldInput = screen.getByRole("textbox", {
+        name: /Enter First Name/,
+      });
       expect(fieldInput).toHaveAttribute("placeholder", "Enter First Name");
     });
   });

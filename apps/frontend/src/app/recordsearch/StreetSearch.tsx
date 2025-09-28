@@ -4,11 +4,17 @@ import { Button } from "~/components/ui/button";
 import { useDebouncedValue } from "~/hooks/useDebouncedValue";
 import { SEARCH_DROPDOWN_WIDTH } from "~/lib/constants/sizing";
 
-export const StreetSearch: React.FC<{
+export interface StreetSearchProps {
   streets: string[];
   initialValue?: string;
   onChange: (search: string) => void;
-}> = ({ streets, initialValue = "", onChange }) => {
+}
+
+export const StreetSearch: React.FC<StreetSearchProps> = ({
+  streets,
+  initialValue = "",
+  onChange,
+}) => {
   const [search, setSearch] = useState<string>(initialValue);
   const debouncedSearch = useDebouncedValue(search);
   const lastImmediateEmitRef = useRef<string | null>(null);

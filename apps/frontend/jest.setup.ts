@@ -117,6 +117,15 @@ jest.mock("~/lib/utils", () => {
   };
 });
 
+// Mock ResizeObserver for components that use it
+class MockResizeObserver {
+  observe = jest.fn();
+  unobserve = jest.fn();
+  disconnect = jest.fn();
+}
+
+global.ResizeObserver = MockResizeObserver as typeof ResizeObserver;
+
 // Mock console.error to suppress error logs during tests
 const originalConsoleError = console.error;
 beforeAll(() => {

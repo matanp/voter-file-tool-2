@@ -48,26 +48,30 @@ export const findBaseSearchFieldInCompound = (
   return undefined;
 };
 
-// Mock data factories for SearchField types
-export const createMockBaseSearchField = (
-  overrides: Partial<BaseSearchField> = {},
+// Type-safe mock data factories for SearchField types
+export const createMockBaseSearchField = <
+  T extends BaseSearchField = BaseSearchField,
+>(
+  overrides: Partial<T> = {},
 ): BaseSearchField => ({
   name: "firstName" as const,
   displayName: "First Name",
   compoundType: false,
-  type: "String",
-  value: "",
+  type: "String" as const,
+  value: "" as SearchFieldValue,
   id: "test-id-1",
   allowMultiple: false,
   ...overrides,
 });
 
-export const createMockCompoundSearchField = (
-  overrides: Partial<CompoundSearchField> = {},
+export const createMockCompoundSearchField = <
+  T extends CompoundSearchField = CompoundSearchField,
+>(
+  overrides: Partial<T> = {},
 ): CompoundSearchField => ({
-  name: "name",
+  name: "name" as const,
   displayName: "Name",
-  compoundType: true,
+  compoundType: true as const,
   fields: [
     createMockBaseSearchField({ name: "firstName", displayName: "First Name" }),
     createMockBaseSearchField({ name: "lastName", displayName: "Last Name" }),
@@ -76,8 +80,8 @@ export const createMockCompoundSearchField = (
   ...overrides,
 });
 
-export const createMockSearchField = (
-  overrides: Partial<SearchField> = {},
+export const createMockSearchField = <T extends SearchField = SearchField>(
+  overrides: Partial<T> = {},
 ): SearchField => {
   if (overrides.compoundType === true) {
     return createMockCompoundSearchField(
@@ -112,7 +116,7 @@ export const createMockVoterRecordSearchProps = (
     dropdownList?: DropdownLists;
   } = {},
 ) => ({
-  handleSubmit: jest.fn().mockResolvedValue(undefined),
+  handleSubmit: jest.fn().mockResolvedValue(Promise.resolve()),
   dropdownList: createMockDropdownLists(),
   ...overrides,
 });
@@ -168,7 +172,7 @@ export const createMockFieldRendererProps = (
 
 // Test data sets using real SEARCH_FIELDS constant
 export const testSearchFields = {
-  // Base fields from SEARCH_FIELDS
+  // Base fields from SEARCH_FIELDS - these should match real field structures
   stringField: {
     ...findBaseSearchFieldByName("VRCNUM")!,
     allowMultiple: false, // Override to test single string input
@@ -284,38 +288,90 @@ export const expectFieldToHaveDisplayName = (
 // Mock event factories
 export const createMockFormEvent = (
   overrides: Partial<React.FormEvent<HTMLFormElement>> = {},
-) =>
-  ({
-    preventDefault: jest.fn(),
-    stopPropagation: jest.fn(),
+): React.FormEvent<HTMLFormElement> => {
+  const preventDefault = jest.fn();
+  const stopPropagation = jest.fn();
+
+  return {
+    preventDefault,
+    stopPropagation,
+    currentTarget: null as any,
+    target: null as any,
+    type: "submit",
+    timeStamp: Date.now(),
+    bubbles: true,
+    cancelable: true,
+    defaultPrevented: false,
+    isTrusted: true,
+    nativeEvent: null as any,
+    eventPhase: Event.NONE,
+    isDefaultPrevented: () => preventDefault.mock.calls.length > 0,
+    isPropagationStopped: () => stopPropagation.mock.calls.length > 0,
+    persist: jest.fn(),
     ...overrides,
-  }) as React.FormEvent<HTMLFormElement>;
+  } as React.FormEvent<HTMLFormElement>;
+};
 
-export const createMockChangeEvent = (value: string) =>
-  ({
-    target: { value },
-    preventDefault: jest.fn(),
-    stopPropagation: jest.fn(),
-  }) as unknown as React.ChangeEvent<HTMLInputElement>;
+export const createMockChangeEvent = (
+  value: string,
+): React.ChangeEvent<HTMLInputElement> => {
+  const preventDefault = jest.fn();
+  const stopPropagation = jest.fn();
 
-export const createMockKeyboardEvent = (
-  key: string,
-  options: {
-    ctrlKey?: boolean;
-    metaKey?: boolean;
-    shiftKey?: boolean;
-    altKey?: boolean;
-  } = {},
-) =>
-  ({
-    key,
-    ctrlKey: options.ctrlKey ?? false,
-    metaKey: options.metaKey ?? false,
-    shiftKey: options.shiftKey ?? false,
-    altKey: options.altKey ?? false,
-    preventDefault: jest.fn(),
-    stopPropagation: jest.fn(),
-  }) as unknown as KeyboardEvent;
+  // Create a mock input element with minimal required properties
+  const targetElement = {
+    value,
+    name: "test-input",
+    type: "text",
+    checked: false,
+    tagName: "INPUT",
+    nodeName: "INPUT",
+    nodeType: 1,
+    ownerDocument: null as any,
+    style: {} as CSSStyleDeclaration,
+    className: "",
+    id: "",
+    innerHTML: "",
+    outerHTML: "",
+    textContent: "",
+    attributes: {} as NamedNodeMap,
+    childNodes: {} as NodeList,
+    firstChild: null,
+    lastChild: null,
+    nextSibling: null,
+    previousSibling: null,
+    parentNode: null,
+    parentElement: null,
+    children: {} as HTMLCollection,
+    focus: jest.fn(),
+    blur: jest.fn(),
+    click: jest.fn(),
+    select: jest.fn(),
+    setSelectionRange: jest.fn(),
+    setRangeText: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  } as unknown as HTMLInputElement;
+
+  return {
+    target: targetElement,
+    preventDefault,
+    stopPropagation,
+    currentTarget: targetElement,
+    type: "change",
+    timeStamp: Date.now(),
+    bubbles: true,
+    cancelable: true,
+    defaultPrevented: false,
+    isTrusted: true,
+    nativeEvent: null as any,
+    eventPhase: Event.NONE,
+    isDefaultPrevented: () => preventDefault.mock.calls.length > 0,
+    isPropagationStopped: () => stopPropagation.mock.calls.length > 0,
+    persist: jest.fn(),
+  } as React.ChangeEvent<HTMLInputElement>;
+};
 
 // Test data for different field types
 export const fieldTypeTestData = {
@@ -376,7 +432,7 @@ export const cleanupMocks = () => {
   jest.resetAllMocks();
 };
 
-// Type guards for testing
+// Enhanced type guards for testing with better type safety
 export const isBaseSearchField = (
   field: SearchField,
 ): field is BaseSearchField => {
@@ -387,6 +443,132 @@ export const isCompoundSearchField = (
   field: SearchField,
 ): field is CompoundSearchField => {
   return field.compoundType === true;
+};
+
+// Type-safe field type validators
+export const isValidFieldType = (
+  type: string,
+): type is BaseSearchField["type"] => {
+  const validTypes: readonly BaseSearchField["type"][] = [
+    "String",
+    "Number",
+    "Boolean",
+    "DateTime",
+    "Dropdown",
+    "Street",
+    "CityTown",
+    "Hidden",
+  ] as const;
+  return validTypes.includes(type as BaseSearchField["type"]);
+};
+
+// Type-safe assertion helpers
+export const assertIsBaseSearchField = (
+  field: SearchField,
+): asserts field is BaseSearchField => {
+  if (!isBaseSearchField(field)) {
+    throw new Error(
+      `Expected BaseSearchField, got CompoundSearchField: ${field.name}`,
+    );
+  }
+};
+
+export const assertIsCompoundSearchField = (
+  field: SearchField,
+): asserts field is CompoundSearchField => {
+  if (!isCompoundSearchField(field)) {
+    throw new Error(
+      `Expected CompoundSearchField, got BaseSearchField: ${field.name}`,
+    );
+  }
+};
+
+// Type-safe mock event creators
+export const createMockFormSubmitEvent =
+  (): React.FormEvent<HTMLFormElement> => {
+    const preventDefault = jest.fn();
+    const stopPropagation = jest.fn();
+
+    return {
+      preventDefault,
+      stopPropagation,
+      currentTarget: null as any,
+      target: null as any,
+      type: "submit",
+      timeStamp: Date.now(),
+      bubbles: true,
+      cancelable: true,
+      defaultPrevented: false,
+      isTrusted: true,
+      nativeEvent: null as any,
+      // Add missing properties required by FormEvent
+      eventPhase: Event.NONE,
+      isDefaultPrevented: () => preventDefault.mock.calls.length > 0,
+      isPropagationStopped: () => stopPropagation.mock.calls.length > 0,
+      persist: jest.fn(),
+    } as React.FormEvent<HTMLFormElement>;
+  };
+
+export const createMockKeyboardEvent = (
+  key: string,
+  options: {
+    ctrlKey?: boolean;
+    metaKey?: boolean;
+    shiftKey?: boolean;
+    altKey?: boolean;
+  } = {},
+): KeyboardEvent => {
+  const preventDefault = jest.fn();
+  const stopPropagation = jest.fn();
+
+  const event = new KeyboardEvent("keydown", {
+    key,
+    ctrlKey: options.ctrlKey ?? false,
+    metaKey: options.metaKey ?? false,
+    shiftKey: options.shiftKey ?? false,
+    altKey: options.altKey ?? false,
+    bubbles: true,
+    cancelable: true,
+  });
+
+  // Add jest spy methods and required properties
+  Object.assign(event, {
+    preventDefault,
+    stopPropagation,
+    eventPhase: Event.NONE,
+    isDefaultPrevented: () => preventDefault.mock.calls.length > 0,
+    isPropagationStopped: () => stopPropagation.mock.calls.length > 0,
+    persist: jest.fn(),
+  });
+
+  return event as KeyboardEvent;
+};
+
+// Type-safe test data validators
+export const validateSearchField = (field: SearchField): boolean => {
+  if (field.compoundType) {
+    return (
+      Array.isArray(field.fields) &&
+      field.fields.length > 0 &&
+      field.fields.every((f) => validateBaseSearchField(f))
+    );
+  }
+  return validateBaseSearchField(field);
+};
+
+export const validateBaseSearchField = (field: BaseSearchField): boolean => {
+  return (
+    typeof field.name === "string" &&
+    typeof field.displayName === "string" &&
+    typeof field.type === "string" &&
+    isValidFieldType(field.type) &&
+    (field.value === undefined ||
+      typeof field.value === "string" ||
+      typeof field.value === "number" ||
+      typeof field.value === "boolean" ||
+      field.value instanceof Date ||
+      Array.isArray(field.value))
+  );
 };
 
 // Test constants

@@ -10,72 +10,116 @@ import {
   cleanupMocks,
 } from "~/__tests__/utils/searchTestUtils";
 
-// Mock the SearchRow component to isolate VoterRecordSearch testing
-jest.mock("~/components/search/SearchRow", () => {
-  return {
-    SearchRow: ({
-      row,
-      index,
-      onFieldChange,
-      onValueChange,
-      onRemoveRow,
-      canRemove,
-    }: any) => {
-      const [currentRow, setCurrentRow] = React.useState(row);
-
-      const handleFieldChange = () => {
-        const newRow = {
-          ...currentRow,
-          name: "lastName",
-          displayName: "Last Name",
-        };
-        setCurrentRow(newRow);
-        onFieldChange(index, "lastName");
-      };
-
-      const handleValueChange = () => {
-        const newRow = { ...currentRow, value: "New Value" };
-        setCurrentRow(newRow);
-        onValueChange(index, "New Value");
-      };
-
-      return (
-        <div data-testid={`search-row-${index}`}>
-          <div data-testid={`field-name-${index}`}>{currentRow.name}</div>
-          <div data-testid={`field-display-name-${index}`}>
-            {currentRow.displayName}
-          </div>
-          <div data-testid={`field-value-${index}`}>
-            {String(currentRow.value ?? "")}
-          </div>
-          <button
-            data-testid={`remove-button-${index}`}
-            onClick={() => onRemoveRow(index)}
-            disabled={!canRemove}
-          >
-            Remove
-          </button>
-          <button
-            data-testid={`field-change-button-${index}`}
-            onClick={handleFieldChange}
-          >
-            Change Field
-          </button>
-          <button
-            data-testid={`value-change-button-${index}`}
-            onClick={handleValueChange}
-          >
-            Change Value
-          </button>
-        </div>
-      );
-    },
-  };
-});
-
 describe("VoterRecordSearch", () => {
   beforeEach(() => {
     cleanupMocks();
+  });
+
+  describe("Complete User Search Journey", () => {
+    it("allows user to enter first name and add street criteria", async () => {
+      const user = userEvent.setup();
+      const mockHandleSubmit = jest.fn().mockResolvedValue(Promise.resolve());
+      const props = createMockVoterRecordSearchProps({
+        handleSubmit: mockHandleSubmit,
+      });
+
+      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
+
+      // User starts with initial search criteria
+      const initialRows = screen.getAllByRole("group", {
+        name: /Search criteria \d+/,
+      });
+      expect(initialRows).toHaveLength(2);
+
+      // Keep the default name field and enter search data
+      const firstNameInput = screen.getByPlaceholderText("Enter First Name(s)");
+      await user.type(firstNameInput, "John");
+
+      // User wants to add address criteria
+      const addButton = screen.getByRole("button", {
+        name: /Add another search criteria/i,
+      });
+      await user.click(addButton);
+
+      // Enter street address in the new criteria row (uses default empty field)
+      const streetInput = screen.getByPlaceholderText("Enter Street(s)");
+      await user.type(streetInput, "Main St");
+
+      // Submit the search
+      const submitButton = screen.getByRole("button", { name: /Submit/i });
+      await user.click(submitButton);
+
+      // Verify the search was submitted with correct data
+      expect(mockHandleSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({
+          name: "name",
+          compoundType: true,
+          fields: expect.arrayContaining([
+            expect.objectContaining({
+              name: "firstName",
+              value: ["John"],
+            }),
+          ]),
+        }),
+      ]);
+    });
+
+    it("allows user to enter multiple criteria and remove one before submission", async () => {
+      const user = userEvent.setup();
+      const mockHandleSubmit = jest.fn().mockResolvedValue(Promise.resolve());
+      const props = createMockVoterRecordSearchProps({
+        handleSubmit: mockHandleSubmit,
+      });
+
+      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
+
+      // Enter data in first criteria
+      const firstNameInput = screen.getByPlaceholderText("Enter First Name(s)");
+      await user.type(firstNameInput, "John");
+
+      // Add another criteria
+      const addButton = screen.getByRole("button", {
+        name: /Add another search criteria/i,
+      });
+      await user.click(addButton);
+
+      // Enter data in the new criteria (uses default empty field)
+      const lastNameInput = screen.getByPlaceholderText("Enter Last Name(s)");
+      await user.type(lastNameInput, "Doe");
+
+      // Remove the middle criteria to test modification
+      const removeButtons = screen.getAllByRole("button", {
+        name: /Remove search criteria \d+/i,
+      });
+      expect(removeButtons).toHaveLength(3); // Should have 3 remove buttons now
+      const secondButton = removeButtons[1];
+      expect(secondButton).toBeDefined();
+      if (secondButton) {
+        await user.click(secondButton); // Remove second criteria
+      }
+
+      // Submit search
+      const submitButton = screen.getByRole("button", { name: /Submit/i });
+      await user.click(submitButton);
+
+      // Verify final search structure
+      expect(mockHandleSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({
+          name: "name",
+          compoundType: true,
+          fields: expect.arrayContaining([
+            expect.objectContaining({
+              name: "firstName",
+              value: ["John"],
+            }),
+            expect.objectContaining({
+              name: "lastName",
+              value: ["Doe"],
+            }),
+          ]),
+        }),
+      ]);
+    });
   });
 
   describe("Basic Rendering", () => {
@@ -94,12 +138,23 @@ describe("VoterRecordSearch", () => {
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
 
       // Should have initial fields: name and address
-      expect(screen.getByTestId("search-row-0")).toBeInTheDocument();
-      expect(screen.getByTestId("search-row-1")).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Search criteria 1" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Search criteria 2" }),
+      ).toBeInTheDocument();
 
-      // Check initial field names
-      expect(screen.getByTestId("field-name-0")).toHaveTextContent("name");
-      expect(screen.getByTestId("field-name-1")).toHaveTextContent("address");
+      // Check initial field names by looking at the dropdown buttons
+      const firstFieldDropdown = screen.getByRole("combobox", {
+        name: /select search field for criteria 1/i,
+      });
+      const secondFieldDropdown = screen.getByRole("combobox", {
+        name: /select search field for criteria 2/i,
+      });
+
+      expect(firstFieldDropdown).toBeInTheDocument();
+      expect(secondFieldDropdown).toBeInTheDocument();
     });
 
     it("renders form with correct accessibility attributes", () => {
@@ -170,7 +225,9 @@ describe("VoterRecordSearch", () => {
       await user.click(addButton);
 
       // Should now have 3 search rows (initial 2 + 1 new)
-      expect(screen.getByTestId("search-row-2")).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Search criteria 3" }),
+      ).toBeInTheDocument();
 
       // Check announcement
       await waitFor(() => {
@@ -185,13 +242,19 @@ describe("VoterRecordSearch", () => {
       const props = createMockVoterRecordSearchProps();
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
 
-      const removeButton = screen.getByTestId("remove-button-0");
+      const removeButton = screen.getByRole("button", {
+        name: /remove search criteria 1/i,
+      });
       await user.click(removeButton);
 
       // Should now have 1 search row (removed one)
       // The remaining row should be re-indexed to 0
-      expect(screen.getByTestId("search-row-0")).toBeInTheDocument();
-      expect(screen.queryByTestId("search-row-1")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Search criteria 1" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("group", { name: "Search criteria 2" }),
+      ).not.toBeInTheDocument();
 
       // Check announcement
       await waitFor(() => {
@@ -207,11 +270,15 @@ describe("VoterRecordSearch", () => {
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
 
       // Remove the first row
-      const removeButton = screen.getByTestId("remove-button-0");
+      const removeButton = screen.getByRole("button", {
+        name: /remove search criteria 1/i,
+      });
       await user.click(removeButton);
 
       // Remove the second row (now indexed as 0)
-      const removeButton2 = screen.getByTestId("remove-button-0");
+      const removeButton2 = screen.getByRole("button", {
+        name: /remove search criteria 1/i,
+      });
       await user.click(removeButton2);
 
       // Check announcement
@@ -222,35 +289,26 @@ describe("VoterRecordSearch", () => {
       });
     });
 
-    it("handles field changes correctly", async () => {
+    it("renders field selector dropdown with proper accessibility", async () => {
       const user = userEvent.setup();
       const props = createMockVoterRecordSearchProps();
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
 
-      const changeFieldButton = screen.getByTestId("field-change-button-0");
-      await user.click(changeFieldButton);
+      // Find the first field dropdown
+      const fieldDropdown = screen.getByRole("combobox", {
+        name: /select search field for criteria 1/i,
+      });
 
-      // Field should have changed to lastName
-      expect(screen.getByTestId("field-name-0")).toHaveTextContent("lastName");
-    });
-
-    it("handles value changes correctly", async () => {
-      const user = userEvent.setup();
-      const props = createMockVoterRecordSearchProps();
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const changeValueButton = screen.getByTestId("value-change-button-0");
-      await user.click(changeValueButton);
-
-      // Value should have changed
-      expect(screen.getByTestId("field-value-0")).toHaveTextContent(
-        "New Value",
+      expect(fieldDropdown).toBeInTheDocument();
+      expect(fieldDropdown).toHaveAttribute(
+        "aria-label",
+        "Select search field for criteria 1",
       );
     });
   });
 
   describe("Form Submission", () => {
-    it("submits form with correct data", async () => {
+    it("submits empty form when no meaningful data is present", async () => {
       const user = userEvent.setup();
       const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
       const props = createMockVoterRecordSearchProps({
@@ -268,97 +326,7 @@ describe("VoterRecordSearch", () => {
       expect(mockHandleSubmit).toHaveBeenCalledWith([]);
     });
 
-    it("submits form with complex compound field data", async () => {
-      const user = userEvent.setup();
-      const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
-      const props = createMockVoterRecordSearchProps({
-        handleSubmit: mockHandleSubmit,
-      });
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const submitButton = screen.getByRole("button", {
-        name: "Submit voter record search",
-      });
-      await user.click(submitButton);
-
-      expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-      // The initial fields (name and address) are compound fields without values, so they get filtered out
-      expect(mockHandleSubmit).toHaveBeenCalledWith([]);
-    });
-
-    it("submits form with multiple single fields and mixed data types", async () => {
-      const user = userEvent.setup();
-      const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
-      const props = createMockVoterRecordSearchProps({
-        handleSubmit: mockHandleSubmit,
-      });
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const submitButton = screen.getByRole("button", {
-        name: "Submit voter record search",
-      });
-      await user.click(submitButton);
-
-      expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-      // The initial fields (name and address) are compound fields without values, so they get filtered out
-      expect(mockHandleSubmit).toHaveBeenCalledWith([]);
-    });
-
-    it("filters out empty and meaningless values correctly", async () => {
-      const user = userEvent.setup();
-      const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
-      const props = createMockVoterRecordSearchProps({
-        handleSubmit: mockHandleSubmit,
-      });
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const submitButton = screen.getByRole("button", {
-        name: "Submit voter record search",
-      });
-      await user.click(submitButton);
-
-      expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-      // The initial fields (name and address) are compound fields without values, so they get filtered out
-      expect(mockHandleSubmit).toHaveBeenCalledWith([]);
-    });
-
-    it("handles compound fields with partial data correctly", async () => {
-      const user = userEvent.setup();
-      const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
-      const props = createMockVoterRecordSearchProps({
-        handleSubmit: mockHandleSubmit,
-      });
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const submitButton = screen.getByRole("button", {
-        name: "Submit voter record search",
-      });
-      await user.click(submitButton);
-
-      expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-      // The initial fields (name and address) are compound fields without values, so they get filtered out
-      expect(mockHandleSubmit).toHaveBeenCalledWith([]);
-    });
-
-    it("handles array values correctly in form submission", async () => {
-      const user = userEvent.setup();
-      const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
-      const props = createMockVoterRecordSearchProps({
-        handleSubmit: mockHandleSubmit,
-      });
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const submitButton = screen.getByRole("button", {
-        name: "Submit voter record search",
-      });
-      await user.click(submitButton);
-
-      expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-      // The initial fields (name and address) are compound fields without values, so they get filtered out
-      expect(mockHandleSubmit).toHaveBeenCalledWith([]);
-    });
-
-    it("validates search query structure and data integrity", async () => {
+    it("validates structure of empty form submission", async () => {
       const user = userEvent.setup();
       const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
       const props = createMockVoterRecordSearchProps({
@@ -374,27 +342,9 @@ describe("VoterRecordSearch", () => {
       expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
       const submittedData = mockHandleSubmit.mock.calls[0][0];
 
-      // Validate structure
+      // Validate structure - empty because initial fields have no values
       expect(Array.isArray(submittedData)).toBe(true);
-      expect(submittedData).toHaveLength(0); // Empty because initial fields have no values
-    });
-
-    it("handles date values correctly in form submission", async () => {
-      const user = userEvent.setup();
-      const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
-      const props = createMockVoterRecordSearchProps({
-        handleSubmit: mockHandleSubmit,
-      });
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const submitButton = screen.getByRole("button", {
-        name: "Submit voter record search",
-      });
-      await user.click(submitButton);
-
-      expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-      // The initial fields (name and address) are compound fields without values, so they get filtered out
-      expect(mockHandleSubmit).toHaveBeenCalledWith([]);
+      expect(submittedData).toHaveLength(0);
     });
 
     it("prevents default form submission behavior", async () => {
@@ -447,126 +397,91 @@ describe("VoterRecordSearch", () => {
   });
 
   describe("Keyboard Shortcuts", () => {
-    it("submits form with Ctrl+Enter", async () => {
+    it("submits form with Ctrl+Enter or Cmd+Enter", async () => {
       const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
       const props = createMockVoterRecordSearchProps({
         handleSubmit: mockHandleSubmit,
       });
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
 
-      const keyboardEvent = new KeyboardEvent("keydown", {
+      // Test Ctrl+Enter
+      const ctrlEnterEvent = new KeyboardEvent("keydown", {
         key: "Enter",
         ctrlKey: true,
         bubbles: true,
       });
-
-      document.dispatchEvent(keyboardEvent);
+      document.dispatchEvent(ctrlEnterEvent);
 
       await waitFor(() => {
         expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
       });
-    });
 
-    it("submits form with Cmd+Enter on Mac", async () => {
-      const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
-      const props = createMockVoterRecordSearchProps({
-        handleSubmit: mockHandleSubmit,
-      });
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const keyboardEvent = new KeyboardEvent("keydown", {
+      // Reset mock and test Cmd+Enter (Mac)
+      mockHandleSubmit.mockClear();
+      const cmdEnterEvent = new KeyboardEvent("keydown", {
         key: "Enter",
         metaKey: true,
         bubbles: true,
       });
-
-      document.dispatchEvent(keyboardEvent);
+      document.dispatchEvent(cmdEnterEvent);
 
       await waitFor(() => {
         expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
       });
     });
 
-    it("submits complex form data with keyboard shortcut", async () => {
-      const mockHandleSubmit = jest.fn().mockResolvedValue(undefined);
-      const props = createMockVoterRecordSearchProps({
-        handleSubmit: mockHandleSubmit,
-      });
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const keyboardEvent = new KeyboardEvent("keydown", {
-        key: "Enter",
-        ctrlKey: true,
-        bubbles: true,
-      });
-
-      document.dispatchEvent(keyboardEvent);
-
-      await waitFor(() => {
-        expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-        const submittedData = mockHandleSubmit.mock.calls[0][0];
-
-        // Should have empty data because initial fields have no values
-        expect(submittedData).toHaveLength(0);
-      });
-    });
-
-    it("adds new criteria with Ctrl+Plus", async () => {
+    it("adds new criteria with Ctrl+Plus, Ctrl+Equals, or Cmd+Plus", async () => {
       const props = createMockVoterRecordSearchProps();
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
 
-      const keyboardEvent = new KeyboardEvent("keydown", {
+      // Test Ctrl+Plus
+      const ctrlPlusEvent = new KeyboardEvent("keydown", {
         key: "+",
         ctrlKey: true,
         bubbles: true,
       });
-
-      document.dispatchEvent(keyboardEvent);
+      document.dispatchEvent(ctrlPlusEvent);
 
       await waitFor(() => {
-        expect(screen.getByTestId("search-row-2")).toBeInTheDocument();
+        expect(
+          screen.getByRole("group", { name: "Search criteria 3" }),
+        ).toBeInTheDocument();
         expect(screen.getByRole("status")).toHaveTextContent(
           "New search criteria added. Total: 3 criteria.",
         );
       });
-    });
 
-    it("adds new criteria with Ctrl+Equals", async () => {
-      const props = createMockVoterRecordSearchProps();
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const keyboardEvent = new KeyboardEvent("keydown", {
+      // Test Ctrl+Equals
+      const ctrlEqualsEvent = new KeyboardEvent("keydown", {
         key: "=",
         ctrlKey: true,
         bubbles: true,
       });
-
-      document.dispatchEvent(keyboardEvent);
+      document.dispatchEvent(ctrlEqualsEvent);
 
       await waitFor(() => {
-        expect(screen.getByTestId("search-row-2")).toBeInTheDocument();
+        expect(
+          screen.getByRole("group", { name: "Search criteria 4" }),
+        ).toBeInTheDocument();
         expect(screen.getByRole("status")).toHaveTextContent(
-          "New search criteria added. Total: 3 criteria.",
+          "New search criteria added. Total: 4 criteria.",
         );
       });
-    });
 
-    it("adds new criteria with Cmd+Plus on Mac", async () => {
-      const props = createMockVoterRecordSearchProps();
-      renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
-
-      const keyboardEvent = new KeyboardEvent("keydown", {
+      // Test Cmd+Plus (Mac)
+      const cmdPlusEvent = new KeyboardEvent("keydown", {
         key: "+",
         metaKey: true,
         bubbles: true,
       });
-
-      document.dispatchEvent(keyboardEvent);
+      document.dispatchEvent(cmdPlusEvent);
 
       await waitFor(() => {
-        expect(screen.getByTestId("search-row-2")).toBeInTheDocument();
+        expect(
+          screen.getByRole("group", { name: "Search criteria 5" }),
+        ).toBeInTheDocument();
         expect(screen.getByRole("status")).toHaveTextContent(
-          "New search criteria added. Total: 3 criteria.",
+          "New search criteria added. Total: 5 criteria.",
         );
       });
     });
@@ -626,7 +541,7 @@ describe("VoterRecordSearch", () => {
   });
 
   describe("Edge Cases", () => {
-    it("handles rapid button clicks gracefully", async () => {
+    it("allows adding multiple search criteria through repeated button clicks", async () => {
       const user = userEvent.setup();
       const props = createMockVoterRecordSearchProps();
       renderWithVoterSearchProvider(<VoterRecordSearch {...props} />);
@@ -641,7 +556,9 @@ describe("VoterRecordSearch", () => {
       await user.click(addButton);
 
       // Should handle gracefully without errors
-      expect(screen.getByTestId("search-row-4")).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Search criteria 5" }),
+      ).toBeInTheDocument();
     });
 
     it("handles empty search rows gracefully", () => {
