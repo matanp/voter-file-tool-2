@@ -88,7 +88,7 @@ export const SEARCH_FIELDS: SearchField[] = [
     name: "DOB",
     displayName: "Date of Birth",
     compoundType: false,
-    type: "DateTime",
+    type: "DateOfBirth",
   },
   {
     name: "district",

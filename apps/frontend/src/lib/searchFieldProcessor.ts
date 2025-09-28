@@ -12,6 +12,7 @@ import {
   DATE_FIELDS,
   STRING_FIELDS,
 } from "@voter-file-tool/shared-validators";
+import { EARLIEST_DATE, LATEST_DATE } from "~/lib/constants/dateBoundaries";
 
 export class SearchFieldProcessor {
   static normalizeForStorage(
@@ -41,28 +42,50 @@ export class SearchFieldProcessor {
     }
 
     const fieldName = field.name;
+
+    // Normalize the value first
+    const normalizedValue = this.normalizeForStorage(field.value, field);
+    if (normalizedValue === undefined || normalizedValue === null) {
+      return null;
+    }
+
+    // Handle DateOfBirth fields specially
+    if (field.type === "DateOfBirth") {
+      return this.convertDateOfBirthToQuery(fieldName, normalizedValue);
+    }
+
+    // Handle DateRange fields specially
+    if (field.type === "DateRange") {
+      // Map the field name to the corresponding database field
+      const dbFieldName = this.mapDateRangeFieldToDbField(fieldName);
+      return this.convertDateToQuery(
+        dbFieldName as (typeof DATE_FIELDS)[number],
+        normalizedValue,
+      );
+    }
+
     const fieldType = this.getFieldType(fieldName);
 
     switch (fieldType) {
       case "number":
         return this.convertNumberToQuery(
           fieldName as (typeof NUMBER_FIELDS)[number],
-          field.value,
+          normalizedValue,
         );
       case "boolean":
         return this.convertBooleanToQuery(
           fieldName as (typeof COMPUTED_BOOLEAN_FIELDS)[number],
-          field.value,
+          normalizedValue,
         );
       case "date":
         return this.convertDateToQuery(
           fieldName as (typeof DATE_FIELDS)[number],
-          field.value,
+          normalizedValue,
         );
       case "string":
         return this.convertStringToQuery(
           fieldName as (typeof STRING_FIELDS)[number],
-          field.value,
+          normalizedValue,
         );
       case "unknown":
         console.warn(`Unknown field type for field ${fieldName}`);
@@ -220,6 +243,8 @@ export class SearchFieldProcessor {
         return this.validateString(value, allowMultiple);
       case "DateTime":
         return this.validateDateTime(value);
+      case "DateOfBirth":
+        return this.validateDateOfBirth(value);
       case "Dropdown":
         return this.validateDropdown(value);
       case "Street":
@@ -357,6 +382,112 @@ export class SearchFieldProcessor {
     return undefined;
   }
 
+  private static validateDateRange(
+    value: unknown,
+  ): { startDate?: Date; endDate?: Date } | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value === "object" && value !== null) {
+      const range = value as { startDate?: unknown; endDate?: unknown };
+      const result: { startDate?: Date; endDate?: Date } = {};
+
+      if (range.startDate !== undefined && range.startDate !== null) {
+        const startDate = this.validateDateTime(range.startDate);
+        if (startDate) {
+          result.startDate = startDate;
+        }
+      }
+
+      if (range.endDate !== undefined && range.endDate !== null) {
+        const endDate = this.validateDateTime(range.endDate);
+        if (endDate) {
+          result.endDate = endDate;
+        }
+      }
+
+      // Return the range if at least one date is valid
+      if (result.startDate || result.endDate) {
+        return result;
+      }
+    }
+
+    return undefined;
+  }
+
+  private static validateDateOfBirth(value: unknown):
+    | {
+        mode: "single" | "range";
+        singleDate?: Date;
+        range?: { startDate?: Date; endDate?: Date };
+        extendBefore?: boolean;
+        extendAfter?: boolean;
+      }
+    | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value === "object" && value !== null) {
+      const dobValue = value as {
+        mode?: unknown;
+        singleDate?: unknown;
+        range?: unknown;
+        extendBefore?: unknown;
+        extendAfter?: unknown;
+      };
+
+      // Validate mode
+      const validModes = ["single", "range"] as const;
+      const mode =
+        typeof dobValue.mode === "string" &&
+        validModes.includes(dobValue.mode as any)
+          ? (dobValue.mode as "single" | "range")
+          : "single";
+
+      const result: {
+        mode: "single" | "range";
+        singleDate?: Date;
+        range?: { startDate?: Date; endDate?: Date };
+        extendBefore?: boolean;
+        extendAfter?: boolean;
+      } = {
+        mode,
+      };
+
+      // Validate singleDate
+      if (dobValue.singleDate !== undefined && dobValue.singleDate !== null) {
+        const singleDate = this.validateDateTime(dobValue.singleDate);
+        if (singleDate) {
+          result.singleDate = singleDate;
+        }
+      }
+
+      // Validate range
+      if (dobValue.range !== undefined && dobValue.range !== null) {
+        const range = this.validateDateRange(dobValue.range);
+        if (range) {
+          result.range = range;
+        }
+      }
+
+      // Validate extendBefore
+      if (typeof dobValue.extendBefore === "boolean") {
+        result.extendBefore = dobValue.extendBefore;
+      }
+
+      // Validate extendAfter
+      if (typeof dobValue.extendAfter === "boolean") {
+        result.extendAfter = dobValue.extendAfter;
+      }
+
+      return result;
+    }
+
+    return undefined;
+  }
+
   private static validateDropdown(
     value: unknown,
   ): string | string[] | undefined {
@@ -418,6 +549,17 @@ export class SearchFieldProcessor {
    * Determines the field type based on the field name.
    * Returns a union type for exhaustive switch checking.
    */
+  private static mapDateRangeFieldToDbField(fieldName: string): string {
+    // Map date range field names to their corresponding database field names
+    const fieldMapping: Record<string, string> = {
+      DOBRange: "DOB",
+      lastUpdateRange: "lastUpdate",
+      originalRegDateRange: "originalRegDate",
+    };
+
+    return fieldMapping[fieldName] ?? fieldName;
+  }
+
   private static getFieldType(
     fieldName: string,
   ): "number" | "boolean" | "date" | "string" | "unknown" {
@@ -515,6 +657,38 @@ export class SearchFieldProcessor {
     fieldName: (typeof DATE_FIELDS)[number],
     value: SearchFieldValue,
   ): SearchQueryField | null {
+    // Handle DateRange objects
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      ("startDate" in value || "endDate" in value)
+    ) {
+      const range = value as { startDate?: Date; endDate?: Date };
+      const rangeData: { startDate: string | null; endDate: string | null } = {
+        startDate: null,
+        endDate: null,
+      };
+
+      if (range.startDate) {
+        rangeData.startDate = range.startDate.toISOString();
+      }
+
+      if (range.endDate) {
+        rangeData.endDate = range.endDate.toISOString();
+      }
+
+      // Only return if at least one date is provided
+      if (rangeData.startDate || rangeData.endDate) {
+        return {
+          field: fieldName,
+          range: rangeData,
+        } as unknown as SearchQueryField;
+      }
+
+      return null;
+    }
+
+    // Handle single Date values (existing logic)
     if (value instanceof Date) {
       return {
         field: fieldName,
@@ -530,6 +704,98 @@ export class SearchFieldProcessor {
           field: fieldName,
           values: [value],
         };
+      }
+    }
+
+    return null;
+  }
+
+  private static convertDateOfBirthToQuery(
+    fieldName: string,
+    value: SearchFieldValue,
+  ): SearchQueryField | null {
+    if (typeof value === "object" && value !== null && "mode" in value) {
+      const dobValue = value as {
+        mode: "single" | "range";
+        singleDate?: Date;
+        range?: { startDate?: Date; endDate?: Date };
+        extendBefore?: boolean;
+        extendAfter?: boolean;
+      };
+
+      // Map DOB field name to the corresponding database field
+      const dbFieldName = "DOB" as (typeof DATE_FIELDS)[number];
+
+      switch (dobValue.mode) {
+        case "single":
+          if (dobValue.singleDate) {
+            // If extendBefore or extendAfter is enabled, convert to range
+            if (dobValue.extendBefore || dobValue.extendAfter) {
+              const rangeData: {
+                startDate: string | null;
+                endDate: string | null;
+              } = {
+                startDate: dobValue.extendBefore
+                  ? EARLIEST_DATE.toISOString()
+                  : dobValue.singleDate.toISOString(),
+                endDate: dobValue.extendAfter
+                  ? LATEST_DATE.toISOString()
+                  : dobValue.singleDate.toISOString(),
+              };
+
+              return {
+                field: dbFieldName,
+                range: rangeData,
+              } as unknown as SearchQueryField;
+            } else {
+              // Regular single date
+              return {
+                field: dbFieldName,
+                values: [dobValue.singleDate.toISOString()],
+              };
+            }
+          }
+          break;
+
+        case "range":
+          // If extension is enabled, use singleDate for the range
+          if (dobValue.extendBefore || dobValue.extendAfter) {
+            if (dobValue.singleDate) {
+              const rangeData: {
+                startDate: string | null;
+                endDate: string | null;
+              } = {
+                startDate: dobValue.extendBefore
+                  ? EARLIEST_DATE.toISOString()
+                  : dobValue.singleDate.toISOString(),
+                endDate: dobValue.extendAfter
+                  ? LATEST_DATE.toISOString()
+                  : dobValue.singleDate.toISOString(),
+              };
+
+              return {
+                field: dbFieldName,
+                range: rangeData,
+              } as unknown as SearchQueryField;
+            }
+          } else if (dobValue.range) {
+            // Regular range mode
+            const rangeData: {
+              startDate: string | null;
+              endDate: string | null;
+            } = {
+              startDate: dobValue.range.startDate?.toISOString() ?? null,
+              endDate: dobValue.range.endDate?.toISOString() ?? null,
+            };
+
+            if (rangeData.startDate || rangeData.endDate) {
+              return {
+                field: dbFieldName,
+                range: rangeData,
+              } as unknown as SearchQueryField;
+            }
+          }
+          break;
       }
     }
 
