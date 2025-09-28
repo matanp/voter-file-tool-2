@@ -5,11 +5,7 @@ import type {
   SearchFieldValue,
 } from "~/types/searchFields";
 import type { DropdownLists } from "@prisma/client";
-import {
-  FIELD_TYPES,
-  FIELD_NAMES,
-  DISPLAY_LABEL_THRESHOLDS,
-} from "~/lib/searchHelpers";
+import { SEARCH_CONFIG, FIELD_CONFIG } from "~/lib/searchConfiguration";
 
 export interface CompoundFieldRendererProps {
   field: SearchField;
@@ -31,12 +27,13 @@ export const CompoundFieldRenderer: React.FC<CompoundFieldRendererProps> = ({
   return (
     <>
       {field.fields.map((subField: BaseSearchField, subIndex) => {
-        if (subField.type === FIELD_TYPES.HIDDEN) return null;
+        if (subField.type === SEARCH_CONFIG.fieldTypes.HIDDEN) return null;
 
         const shouldShowLabel =
-          subField.name !== FIELD_NAMES.CITY &&
-          subField.type !== FIELD_TYPES.BOOLEAN &&
-          subField.displayName.length < DISPLAY_LABEL_THRESHOLDS.MEDIUM_LABEL;
+          subField.name !== FIELD_CONFIG.cityFieldName &&
+          subField.type !== SEARCH_CONFIG.fieldTypes.BOOLEAN &&
+          subField.displayName.length <
+            SEARCH_CONFIG.displayThresholds.mediumLabel;
 
         return (
           <div

@@ -16,7 +16,7 @@ import {
   type SearchQueryField,
 } from "@voter-file-tool/shared-validators";
 import type { SearchField } from "~/types/searchFields";
-import { convertSearchFieldsToSearchQuery } from "~/types/searchFields";
+import { SearchFieldProcessor } from "~/lib/searchFieldProcessor";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { Info } from "lucide-react";
 import { useApiMutation } from "~/hooks/useApiMutation";
@@ -96,7 +96,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       setPage(1);
       setPageSize(100);
 
-      const flattenedQuery = convertSearchFieldsToSearchQuery(searchQueryParam);
+      const flattenedQuery =
+        SearchFieldProcessor.convertSearchFieldsToSearchQuery(searchQueryParam);
 
       setSearchQuery(flattenedQuery);
 
@@ -139,7 +140,10 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     }
 
     // Navigate to voter list report page (search data is already in context)
-    router.push("/voter-list-reports");
+    // Use setTimeout to ensure navigation happens after any pending state updates
+    setTimeout(() => {
+      router.push("/voter-list-reports");
+    }, 0);
   };
 
   return (

@@ -580,16 +580,30 @@ describe("FieldRenderer Real Component Integration", () => {
       expect(label).toHaveClass("cursor-pointer");
     });
 
-    it("handles invalid field types by throwing error", () => {
+    it("handles invalid field types by gracefully returning null", () => {
+      const consoleSpy = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
+
       const invalidField = {
         ...testSearchFields.stringField,
         type: "InvalidType",
       };
       const props = createMockFieldRendererProps({
-        field: invalidField as unknown as BaseSearchField, // intentionally unsafe to ensure it throws
+        field: invalidField as unknown as BaseSearchField, // intentionally unsafe to test graceful handling
       });
 
-      expect(() => render(<FieldRenderer {...props} />)).toThrow();
+      const { container } = render(<FieldRenderer {...props} />);
+
+      // Should render nothing (null) for invalid field types
+      expect(container.firstChild).toBeNull();
+
+      // Should log a warning about unknown field type
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Unknown field type: InvalidType",
+      );
+
+      consoleSpy.mockRestore();
     });
   });
 
