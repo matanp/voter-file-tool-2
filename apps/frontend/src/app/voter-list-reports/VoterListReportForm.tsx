@@ -37,6 +37,7 @@ import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { ZodError } from "zod";
 import { parseCalendarDate } from "~/lib/dateUtils";
+import { SearchQueryDisplay } from "~/components/search/SearchQueryDisplay";
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
@@ -391,139 +392,17 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
   return (
     <div className="space-y-6">
-      {/* Current Search Query Display */}
-      {searchQuery.length > 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="primary-header">Current Search Query</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {searchQuery
-                .filter((field) => {
-                  if (field.compoundType) {
-                    // For compound fields, only show if at least one sub-field has a non-empty value
-                    return field.fields.some((subField) => {
-                      const value = subField.value;
-                      return (
-                        value !== null &&
-                        value !== undefined &&
-                        String(value).trim() !== ""
-                      );
-                    });
-                  } else {
-                    // For simple fields, only show if the value is non-empty
-                    const value = field.value;
-                    return (
-                      value !== null &&
-                      value !== undefined &&
-                      String(value).trim() !== ""
-                    );
-                  }
-                })
-                .map((field, index) => (
-                  <div key={index} className="space-y-1">
-                    {field.compoundType ? (
-                      // Compound field - show only sub-fields with non-empty values
-                      <div>
-                        <span className="font-medium text-sm">
-                          {field.displayName}:
-                        </span>
-                        <div className="ml-4 space-y-1">
-                          {field.fields
-                            .filter((subField) => {
-                              const value = subField.value;
-                              return (
-                                value !== null &&
-                                value !== undefined &&
-                                String(value).trim() !== ""
-                              );
-                            })
-                            .map((subField, subIndex) => (
-                              <div
-                                key={subIndex}
-                                className="flex items-center space-x-2 text-sm"
-                              >
-                                <span className="font-medium">
-                                  {subField.displayName}:
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {String(subField.value ?? "")}
-                                </span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    ) : (
-                      // Simple field
-                      <div className="flex items-center space-x-2 text-sm">
-                        <span className="font-medium">
-                          {field.displayName}:
-                        </span>
-                        <span className="text-muted-foreground">
-                          {String(field.value ?? "")}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-            </div>
-            <div className="mt-4 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                {totalRecords > 0 && (
-                  <div>
-                    <span>
-                      Found {totalRecords.toLocaleString()} records
-                      {totalRecords > MAX_RECORDS_FOR_EXPORT && (
-                        <span className="text-destructive ml-1">
-                          (exceeds export limit of{" "}
-                          {MAX_RECORDS_FOR_EXPORT.toLocaleString()})
-                        </span>
-                      )}
-                    </span>
-                    {totalRecords > MAX_RECORDS_FOR_EXPORT && (
-                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
-                        <p className="text-sm text-amber-800 font-medium">
-                          Large Export Request
-                        </p>
-                        <p className="text-sm text-amber-700 mt-1">
-                          {ADMIN_CONTACT_INFO}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  clearSearchQuery();
-                  setSearchResults([]);
-                  setTotalRecords(0);
-                }}
-              >
-                Clear Search
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* No Search Query Message */}
-      {searchQuery.length === 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="primary-header">No Search Query</h3>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Please go to the Record Search page to search for voter records
-              first, then return here to export them.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <SearchQueryDisplay
+        searchQuery={flattenedSearchQuery}
+        totalRecords={totalRecords}
+        maxRecordsForExport={MAX_RECORDS_FOR_EXPORT}
+        adminContactInfo={ADMIN_CONTACT_INFO}
+        onClearSearch={() => {
+          clearSearchQuery();
+          setSearchResults([]);
+          setTotalRecords(0);
+        }}
+      />
 
       {/* Search Results Preview */}
       {searchResults.length > 0 && (
