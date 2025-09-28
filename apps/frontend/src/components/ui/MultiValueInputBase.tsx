@@ -10,7 +10,11 @@ import {
   SEARCH_BADGE_MAX_WIDTH,
 } from "~/lib/constants/sizing";
 
-interface MultiValueInputBaseProps {
+interface MultiValueInputBaseProps
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    "value" | "onChange" | "placeholder"
+  > {
   placeholder: string;
   value?: string | string[];
   onChange: (value: string[]) => void;
@@ -50,6 +54,7 @@ export const MultiValueInputBase = React.forwardRef<
       onInputChange,
       children,
       autoAddOnBlur = true,
+      ...inputProps
     },
     ref,
   ) => {
@@ -161,6 +166,7 @@ export const MultiValueInputBase = React.forwardRef<
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             className={cn(SEARCH_INPUT_MIN_WIDTH, inputClassName)}
+            {...inputProps}
           />
           {children}
         </div>

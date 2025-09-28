@@ -45,10 +45,26 @@ export function convertBaseSearchFieldToSearchQueryField(
 
     // Handle number fields with proper type narrowing
     if (isNumberFieldName(fieldName)) {
-      const numValue =
-        typeof field.value === "number" ? field.value : Number(field.value);
+      // If already a number, preserve existing behavior
+      if (typeof field.value === "number") {
+        return {
+          field: fieldName,
+          values: [field.value],
+        };
+      }
 
-      if (isNaN(numValue)) {
+      // Coerce to string and trim
+      const trimmedValue = String(field.value).trim();
+
+      // If trimmed string is empty, skip the filter
+      if (trimmedValue === "") {
+        return null;
+      }
+
+      // Convert to Number and validate
+      const numValue = Number(trimmedValue);
+
+      if (!Number.isFinite(numValue)) {
         throw new FrontendSearchQueryFieldError(
           `Invalid number value for field ${fieldName}: ${String(field.value)}`,
           field,

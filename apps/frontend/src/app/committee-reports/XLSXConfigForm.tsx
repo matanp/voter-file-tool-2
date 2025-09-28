@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "~/components/ui/button";
 import { Switch } from "~/components/ui/switch";
 import { Label } from "~/components/ui/label";
@@ -79,7 +80,7 @@ export const XLSXConfigForm: React.FC = () => {
       // Force direct download for XLSX files when auto-download is enabled
       const link = document.createElement("a");
       link.href = url;
-      link.download = ""; // This forces download instead of navigation
+      link.download = formData.name?.trim() ? `${formData.name}.xlsx` : "";
       link.style.display = "none";
       document.body.appendChild(link);
       link.click();
@@ -125,50 +126,29 @@ export const XLSXConfigForm: React.FC = () => {
 
     clearErrorTracking(); // Clear error tracking when report generation starts
 
-    try {
-      const includeCompoundFields =
-        formData.format === "pdf"
+    const reportPayload: GenerateReportData = {
+      type: "ldCommittees" as const,
+      name: formData.name,
+      description: formData.description,
+      format: formData.format,
+      includeFields: formData.includeFields,
+      xlsxConfig:
+        formData.format === "xlsx"
           ? {
-              name: true,
-              address: true,
+              includeCompoundFields: formData.includeCompoundFields,
+              columnOrder:
+                formData.columnOrder.length > 0
+                  ? formData.columnOrder
+                  : undefined,
+              columnHeaders:
+                Object.keys(formData.columnHeaders).length > 0
+                  ? formData.columnHeaders
+                  : undefined,
             }
-          : formData.includeCompoundFields;
+          : undefined,
+    };
 
-      const reportPayload: GenerateReportData = {
-        type: "ldCommittees" as const,
-        name: formData.name,
-        description: formData.description,
-        format: formData.format,
-        includeFields: formData.includeFields,
-        xlsxConfig:
-          formData.format === "xlsx"
-            ? {
-                includeCompoundFields,
-                columnOrder:
-                  formData.columnOrder.length > 0
-                    ? formData.columnOrder
-                    : undefined,
-                columnHeaders:
-                  Object.keys(formData.columnHeaders).length > 0
-                    ? formData.columnHeaders
-                    : undefined,
-              }
-            : undefined,
-      };
-
-      await generateReportMutation.mutate(reportPayload);
-    } catch (error) {
-      console.error("Error generating report:", error);
-      toast({
-        variant: "destructive",
-        title: "Generation Failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate document",
-        duration: 5000,
-      });
-    }
+    await generateReportMutation.mutate(reportPayload);
   };
 
   return (
@@ -254,12 +234,12 @@ export const XLSXConfigForm: React.FC = () => {
             ) : (
               <>
                 Find your report in the{" "}
-                <a
+                <Link
                   href="/reports"
                   className="text-blue-600 hover:text-blue-800 underline"
                 >
                   Reports page
-                </a>
+                </Link>
               </>
             )}
           </p>

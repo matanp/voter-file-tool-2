@@ -67,7 +67,7 @@ export const isMeaningful = (value: unknown): boolean => {
   if (value === undefined || value === null) return false;
   if (typeof value === "boolean") return value === true;
   if (typeof value === "string") return value.trim() !== "";
-  if (typeof value === "number") return value !== 0 && !isNaN(value);
+  if (typeof value === "number") return Number.isFinite(value);
   if (Array.isArray(value)) return value.length > 0;
   return true; // For other types like Date
 };

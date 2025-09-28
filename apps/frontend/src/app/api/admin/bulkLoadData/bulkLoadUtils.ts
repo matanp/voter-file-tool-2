@@ -10,6 +10,13 @@ import {
   convertStringToDateTime,
   isRecordNewer,
 } from "../../lib/utils";
+// TODO: Replace searchableFieldEnum with isKeyOfVoterRecordArchiveStrings guard
+// The current code gates ingestion to search-only fields, but should allow
+// non-searchable but valid archive columns. Remove searchableFieldEnum import,
+// import isKeyOfVoterRecordArchiveStrings from archive validator module, and
+// update validation/checks to call that guard instead of checking against
+// the search-focused enum. Run unit tests and adjust callers to preserve
+// original ingestion behavior for non-searchable archive fields.
 import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 
 type VoterRecordArchiveStrings = {

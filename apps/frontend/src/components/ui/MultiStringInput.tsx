@@ -1,30 +1,14 @@
 "use client";
 
 import { MultiValueInputBase } from "./MultiValueInputBase";
+import type { ComponentProps } from "react";
 
-export interface MultiStringInputProps {
-  placeholder: string;
-  value?: string | string[];
-  onChange: (value: string[]) => void;
-  className?: string;
-}
+export type MultiStringInputProps = ComponentProps<typeof MultiValueInputBase>;
 
 /**
  * Simple multi-value text input component that allows users to enter
  * comma-separated values or press Enter to add values.
  */
-export function MultiStringInput({
-  placeholder,
-  value,
-  onChange,
-  className,
-}: MultiStringInputProps) {
-  return (
-    <MultiValueInputBase
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-      className={className}
-    />
-  );
+export function MultiStringInput(props: MultiStringInputProps) {
+  return <MultiValueInputBase {...props} />;
 }

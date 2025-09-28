@@ -21,6 +21,7 @@ import type {
   VoterRecordField,
   VoterRecordAPI,
 } from "@voter-file-tool/shared-validators";
+import { voterRecordSchema } from "@voter-file-tool/shared-validators";
 import type { VoterRecord } from "@prisma/client";
 import type { XLSXConfigFormData } from "../committee-reports/types";
 import { useToast } from "~/components/ui/use-toast";
@@ -35,6 +36,7 @@ import {
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { ZodError } from "zod";
+import { parseCalendarDate } from "~/lib/dateUtils";
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
@@ -60,10 +62,9 @@ const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
     dateString: string | null | undefined,
   ): Date | null => {
     if (!dateString) return null;
-    const date = new Date(dateString);
-    const isValid = !isNaN(date.getTime());
 
-    if (!isValid) return null;
+    const date = parseCalendarDate(dateString);
+    if (!date) return null;
 
     const currentYear = new Date().getFullYear();
     const minYear = 1900; // Reasonable minimum year for voter records
@@ -80,9 +81,22 @@ const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
     return date;
   };
 
-  // Create the Prisma record by spreading the API record and handling special cases
+  // First validate the API record structure using Zod schema
+  const apiValidationResult = voterRecordSchema.safeParse(apiRecord);
+
+  if (!apiValidationResult.success) {
+    console.error(
+      "VoterRecordAPI validation failed:",
+      apiValidationResult.error,
+    );
+    throw new Error(
+      `Invalid API voter record data: ${apiValidationResult.error.message}`,
+    );
+  }
+
+  // Create the Prisma record by spreading the validated API record and handling special cases
   const prismaRecord = {
-    ...apiRecord,
+    ...apiValidationResult.data,
     // Convert date strings to Date objects
     DOB: convertDateString(apiRecord.DOB),
     lastUpdate: convertDateString(apiRecord.lastUpdate),
@@ -120,6 +134,10 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [reportId, setReportId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Store toast in ref to avoid dependency issues
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const [formData, setFormData] = useState<VoterListReportFormData>({
     name: "",
@@ -223,7 +241,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
         if (error instanceof ZodError) {
           setSearchResults([]);
           setTotalRecords(0);
-          toast({
+          toastRef.current({
             variant: "destructive",
             title: "Invalid Search Filters",
             description:
@@ -239,7 +257,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       }
     };
     void fetchSearchResults();
-  }, [flattenedSearchQuery, toast]);
+  }, [flattenedSearchQuery]);
 
   // Handle report completion
   const handleReportComplete = (url: string) => {

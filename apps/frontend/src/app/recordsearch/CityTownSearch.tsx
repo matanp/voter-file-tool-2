@@ -198,8 +198,11 @@ export const CityTownSearch: React.FC<CityTownSearchProps> = ({
   useEffect(() => {
     setCity(initialCity);
     setTown(initialTown);
-    onChangeRef.current(initialCity, initialTown);
-  }, [initialCity, initialTown]);
+    // Only call onChange if the incoming values differ from current local state
+    if (initialCity !== city || initialTown !== town) {
+      onChangeRef.current(initialCity, initialTown);
+    }
+  }, [initialCity, initialTown, city, town]);
 
   const townInfo = CITY_TOWN_MAP.find(
     (cityMapItem) => cityMapItem.name.toLowerCase() === city.toLowerCase(),

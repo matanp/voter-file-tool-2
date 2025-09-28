@@ -19,12 +19,12 @@ import type { BaseSearchField } from "~/types/searchFields";
 
 jest.mock("~/components/ui/DatePicker", () => ({
   DatePicker: ({ initialValue, onChange, ariaLabel }: DatePickerProps) => (
-    <input
-      type="date"
-      value={initialValue ? initialValue.toISOString().split("T")[0] : ""}
-      onChange={(e) => onChange(new Date(e.target.value))}
+    <button
+      onClick={() => onChange(new Date("2023-01-01"))}
       aria-label={ariaLabel}
-    />
+    >
+      {initialValue ? initialValue.toISOString().split("T")[0] : "Select Date"}
+    </button>
   ),
 }));
 
@@ -189,7 +189,7 @@ describe("FieldRenderer Real Component Integration", () => {
       expect(input).toHaveAttribute("id", "houseNum-0-0");
     });
 
-    it("calls onValueChange with final parsed number after typing", async () => {
+    it("calls onValueChange with parsed number for each character typed", async () => {
       const user = userEvent.setup();
       const mockOnValueChange = jest.fn();
       const props = createMockFieldRendererProps({
@@ -201,10 +201,18 @@ describe("FieldRenderer Real Component Integration", () => {
       const input = screen.getByRole("spinbutton", {
         name: /Enter House Number/,
       });
+
+      // Clear any existing value first
+      await user.clear(input);
+
+      // Type the number character by character
       await user.type(input, "456");
 
-      expect(mockOnValueChange).toHaveBeenCalledTimes(3); // 3 characters typed
-      expect(mockOnValueChange).toHaveBeenLastCalledWith(456);
+      // userEvent.type() simulates individual keystrokes, so each character triggers onChange
+      expect(mockOnValueChange).toHaveBeenCalledTimes(3);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(1, 4);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(2, 5);
+      expect(mockOnValueChange).toHaveBeenNthCalledWith(3, 6);
     });
 
     it("calls onValueChange with undefined when number input is cleared", async () => {

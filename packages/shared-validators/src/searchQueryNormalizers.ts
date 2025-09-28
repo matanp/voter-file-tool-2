@@ -33,8 +33,8 @@ export function normalizeSearchQueryField(
   // Date fields: trim strings; drop empty strings and nulls
   if (isDateSearchField(field)) {
     const normalized = field.values
-      .map((v) => (typeof v === 'string' ? v.trim() : v))
-      .filter((v): v is string => v !== null && v !== '');
+      .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+      .map((v) => v.trim());
     if (normalized.length === 0) return null;
     return { field: field.field, values: normalized };
   }

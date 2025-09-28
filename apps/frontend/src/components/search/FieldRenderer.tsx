@@ -92,7 +92,13 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
 
   const handleNumberInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      onValueChange(e.target.value === "" ? undefined : Number(e.target.value));
+      const inputValue = e.target.value;
+      if (inputValue === "") {
+        onValueChange(undefined);
+      } else {
+        const parsedNumber = Number(inputValue);
+        onValueChange(isNaN(parsedNumber) ? undefined : parsedNumber);
+      }
     },
     [onValueChange],
   );
@@ -221,6 +227,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             placeholder={placeholder}
             value={getMultiStringValue(field.value)}
             onChange={onValueChange}
+            aria-label={`Enter ${fieldLabel}`}
+            id={fieldId}
           />
         );
       } else {
@@ -246,7 +254,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
         <Input
           type="number"
           placeholder={`Enter ${field.displayName}`}
-          value={typeof field.value === "number" ? field.value : undefined}
+          value={field.value != null ? String(field.value) : ""}
           onChange={handleNumberInputChange}
           aria-label={`Enter ${fieldLabel}`}
           id={fieldId}

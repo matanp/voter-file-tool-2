@@ -29,7 +29,6 @@ import {
   type DatabaseErrorTestCase,
   type DateConversionTestCase,
 } from "../utils/fetchFilteredDataTestUtils";
-// removed type-only import of createMockVoterRecord; we use VoterRecord directly
 import type { DeepMockProxy } from "jest-mock-extended";
 import type { PrismaClient } from "@prisma/client";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
