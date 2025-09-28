@@ -296,7 +296,7 @@ describe("FieldRenderer", () => {
 
       const dateInput = screen.getByTestId("date-picker");
       expect(dateInput).toBeInTheDocument();
-      expect(dateInput).toHaveAttribute("aria-label", "Select Date of Birth");
+      expect(dateInput).toHaveAttribute("aria-label", "Select date of birth");
     });
 
     it("handles date changes", async () => {
@@ -313,7 +313,12 @@ describe("FieldRenderer", () => {
 
       await user.click(dateButton);
 
-      expect(mockOnValueChange).toHaveBeenCalledWith(expect.any(Date));
+      expect(mockOnValueChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mode: "single",
+          singleDate: expect.any(Date),
+        }),
+      );
     });
   });
 

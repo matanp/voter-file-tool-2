@@ -245,6 +245,8 @@ export class SearchFieldProcessor {
         return this.validateDateTime(value);
       case "DateOfBirth":
         return this.validateDateOfBirth(value);
+      case "DateRange":
+        return this.validateDateRange(value);
       case "Dropdown":
         return this.validateDropdown(value);
       case "Street":
