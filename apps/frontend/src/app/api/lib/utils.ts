@@ -4,6 +4,7 @@ import type {
   VoterRecord,
   VoterRecordArchive,
 } from "@prisma/client";
+import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { searchQueryFieldSchema } from "@voter-file-tool/shared-validators";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
@@ -87,14 +88,17 @@ export async function voterHasDiscrepancy(VRCNUM: string): Promise<boolean> {
   return false;
 }
 
-export const getAddress = (record: VoterRecord, committee?: boolean) => {
+export const getAddress = (
+  record: VoterRecord | VoterRecordAPI,
+  committee?: boolean,
+) => {
   if (record.addressForCommittee && committee) {
     return record.addressForCommittee;
   }
   return `${record.houseNum} ${record.street}${record.apartment ? ` APT ${record.apartment}` : ""}`;
 };
 
-export const getName = (record: VoterRecord) => {
+export const getName = (record: VoterRecord | VoterRecordAPI) => {
   const nameParts = [record.firstName, record.middleInitial, record.lastName]
     .filter((part) => part != null && part !== "")
     .map((part) => (part === record.middleInitial && part ? `${part}` : part));

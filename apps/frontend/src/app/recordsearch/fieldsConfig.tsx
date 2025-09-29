@@ -1,4 +1,5 @@
 import { type VoterRecord } from "@prisma/client";
+import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { Skeleton } from "~/components/ui/skeleton";
 import { TableCell } from "~/components/ui/table";
 
@@ -7,7 +8,7 @@ export interface FieldConfig {
   name: string;
   head: string;
   size: string;
-  cell: (record: VoterRecord) => React.ReactNode;
+  cell: (record: VoterRecordAPI) => React.ReactNode;
   skeletonCell: (index: number) => React.ReactNode;
 }
 
@@ -91,7 +92,7 @@ export const fields: FieldConfig[] = [
     name: "houseNum",
     head: "House Number",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-houseNum`}>{record.houseNum}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -104,7 +105,7 @@ export const fields: FieldConfig[] = [
     name: "street",
     head: "Street",
     size: "w-[25ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-street`}>{record.street}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -132,7 +133,7 @@ export const fields: FieldConfig[] = [
     name: "city",
     head: "City",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-city`}>{record.city}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -145,7 +146,7 @@ export const fields: FieldConfig[] = [
     name: "state",
     head: "State",
     size: "w-[10ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-state`}>{record.state}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -158,7 +159,7 @@ export const fields: FieldConfig[] = [
     name: "zipCode",
     head: "Zip Code",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-zipCode`}>{record.zipCode}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -171,7 +172,7 @@ export const fields: FieldConfig[] = [
     name: "zipSuffix",
     head: "Zip Suffix",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-zipSuffix`}>
         {record.zipSuffix}
       </TableCell>
@@ -186,7 +187,7 @@ export const fields: FieldConfig[] = [
     name: "telephone",
     head: "Telephone",
     size: "w-[18ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-telephone`}>
         {record.telephone}
       </TableCell>
@@ -201,7 +202,7 @@ export const fields: FieldConfig[] = [
     name: "email",
     head: "Email",
     size: "w-[30ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-email`}>{record.email}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -214,7 +215,7 @@ export const fields: FieldConfig[] = [
     name: "party",
     head: "Party",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-party`}>{record.party}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -227,7 +228,7 @@ export const fields: FieldConfig[] = [
     name: "gender",
     head: "Gender",
     size: "w-[10ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-gender`}>{record.gender}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -240,10 +241,8 @@ export const fields: FieldConfig[] = [
     name: "DOB",
     head: "DOB",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-dob`}>
-        {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
-      </TableCell>
+    cell: (record: VoterRecordAPI) => (
+      <TableCell key={`${record.VRCNUM}-dob`}>{record.DOB || ""}</TableCell>
     ),
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-dob-${index}`}>
@@ -255,7 +254,7 @@ export const fields: FieldConfig[] = [
     name: "countyLegDistrict",
     head: "County Leg District",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-countyLegDistrict`}>
         {record.countyLegDistrict}
       </TableCell>
@@ -270,7 +269,7 @@ export const fields: FieldConfig[] = [
     name: "stateAssmblyDistrict",
     head: "State Assembly District",
     size: "w-[25ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-stateAssmblyDistrict`}>
         {record.stateAssmblyDistrict}
       </TableCell>
@@ -285,7 +284,7 @@ export const fields: FieldConfig[] = [
     name: "stateSenateDistrict",
     head: "State Senate District",
     size: "w-[25ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-stateSenateDistrict`}>
         {record.stateSenateDistrict}
       </TableCell>
@@ -300,7 +299,7 @@ export const fields: FieldConfig[] = [
     name: "congressionalDistrict",
     head: "Congressional District",
     size: "w-[25ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-congressionalDistrict`}>
         {record.congressionalDistrict}
       </TableCell>
@@ -315,7 +314,7 @@ export const fields: FieldConfig[] = [
     name: "CC_WD_Village",
     head: "CC WD Village",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-CC_WD_Village`}>
         {record.CC_WD_Village}
       </TableCell>
@@ -330,7 +329,7 @@ export const fields: FieldConfig[] = [
     name: "electionDistrict",
     head: "Election District",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-electionDistrict`}>
         {record.electionDistrict}
       </TableCell>
@@ -345,7 +344,7 @@ export const fields: FieldConfig[] = [
     name: "townCode",
     head: "Town Code",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-townCode`}>{record.townCode}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -358,7 +357,7 @@ export const fields: FieldConfig[] = [
     name: "statevid",
     head: "Statevid",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-statevid`}>{record.statevid}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -371,7 +370,7 @@ export const fields: FieldConfig[] = [
     name: "L_T",
     head: "L_T",
     size: "w-[10ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-L_T`}>{record.L_T}</TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -399,11 +398,9 @@ export const fields: FieldConfig[] = [
     name: "originalRegDate",
     head: "Original Reg Date",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-originalRegDate`}>
-        {record.originalRegDate
-          ? new Date(record.originalRegDate).toLocaleDateString()
-          : ""}
+        {record.originalRegDate || ""}
       </TableCell>
     ),
     skeletonCell: (index: number) => (
@@ -416,7 +413,7 @@ export const fields: FieldConfig[] = [
     name: "hasDiscrepancy",
     head: "Has Discrepancy",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-hasDiscrepancy`}>
         {record.hasDiscrepancy ? "Yes" : "No"}
       </TableCell>
@@ -431,7 +428,7 @@ export const fields: FieldConfig[] = [
     name: "Address",
     head: "Address",
     size: "w-[35ch]",
-    cell: (record: VoterRecord) => (
+    cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-address`}>
         {`${record.houseNum} ${record.street}`}
       </TableCell>
