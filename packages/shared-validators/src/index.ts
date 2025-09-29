@@ -13,6 +13,7 @@ export * from './searchQueryFieldGuards';
 export * from './searchQueryErrors';
 export * from './searchQueryFieldValidators';
 export * from './searchQueryNormalizers';
+export * from './typeGuards';
 
 // Export shared constants
 export * from './constants';

@@ -1,13 +1,15 @@
-import { PrivilegeLevel, type VoterRecord } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
+import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { useContext, useState } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { useToast } from "~/components/ui/use-toast";
-import { hasPermissionFor } from "~/lib/utils";
+import { useCommitteePermissions } from "~/hooks/useCommitteePermissions";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { useCommitteeMemberStatus } from "~/hooks/useCommitteeMemberStatus";
 import {
   type AddCommitteeResponse,
   type CommitteeData,
@@ -21,7 +23,7 @@ interface AddCommitteeFormProps {
   electionDistrict: number;
   city: string;
   legDistrict: string;
-  committeeList: VoterRecord[];
+  committeeList: VoterRecordAPI[];
   onAdd: (city: string, district: number, legDistrict?: string) => void;
 }
 
@@ -33,11 +35,11 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   onAdd,
 }) => {
   const { toast } = useToast();
-  const { actingPermissions } = useContext(GlobalContext);
-  const [records, setRecords] = useState<VoterRecord[]>([]);
+  const { isAdmin, canView } = useCommitteePermissions();
+  const [records, setRecords] = useState<VoterRecordAPI[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [showConfirm, setShowConfirm] = useState<boolean>(false);
-  const [requestedRecord, setRequestedRecord] = useState<VoterRecord | null>(
+  const [requestedRecord, setRequestedRecord] = useState<VoterRecordAPI | null>(
     null,
   );
   const [loadingVRCNUM, setLoadingVRCNUM] = useState<string | null>(null);
@@ -79,8 +81,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const validCommittee =
     city !== "" && legDistrict !== "" && electionDistrict > 0;
 
-  const handleAddCommitteeMember = async (record: VoterRecord) => {
-    if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+  const handleAddCommitteeMember = async (record: VoterRecordAPI) => {
+    if (isAdmin) {
       setLoadingVRCNUM(record.VRCNUM); // Set loading state for this specific record
       await addCommitteeMemberMutation.mutate({
         cityTown: city,
@@ -94,7 +96,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     }
   };
 
-  if (actingPermissions === PrivilegeLevel.ReadAccess) {
+  if (!canView) {
     return null;
   }
 
@@ -132,29 +134,17 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
               paginated={false}
               fieldsList={[]}
               extraContent={(record) => {
-                const member = committeeList.find(
-                  (member) => member.VRCNUM === record.VRCNUM,
+                const memberStatus = useCommitteeMemberStatus(
+                  record,
+                  committeeList,
                 );
-
-                const getMessage = () => {
-                  if (member) {
-                    return "Already in this committee";
-                  } else if (!!record.committeeId) {
-                    return "Already in a different committee";
-                  } else if (committeeList.length >= 4) {
-                    return "Committee Full";
-                  } else {
-                    return "Add to Committee";
-                  }
-                };
 
                 return (
                   <>
                     <Button
                       onClick={() => handleAddCommitteeMember(record)}
                       disabled={
-                        !!member ||
-                        committeeList.length >= 4 ||
+                        !memberStatus.canAdd ||
                         !validCommittee ||
                         !!record.committeeId ||
                         loadingVRCNUM === record.VRCNUM
@@ -162,7 +152,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                     >
                       {loadingVRCNUM === record.VRCNUM
                         ? "Adding..."
-                        : getMessage()}
+                        : memberStatus.message}
                     </Button>
                   </>
                 );
