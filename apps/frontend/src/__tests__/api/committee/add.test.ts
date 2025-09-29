@@ -4,6 +4,7 @@ import {
   createMockSession,
   createMockCommitteeData,
   createMockCommittee,
+  createCommitteeWithMemberMock,
   createMockVoterRecord,
   createMockRequest,
   expectSuccessResponse,
@@ -234,16 +235,16 @@ describe("/api/committee/add", () => {
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
-      const mockCommittee = createMockCommittee();
 
       mockAuthSession(mockSession);
       mockHasPermission(true);
 
       // Mock existing committee with member already connected
-      const existingCommitteeWithMember = {
-        ...mockCommittee,
-        committeeMemberList: [createMockVoterRecord()],
-      };
+      const existingCommitteeWithMember = createCommitteeWithMemberMock({
+        committeeMemberList: [
+          createMockVoterRecord({ VRCNUM: mockCommitteeData.memberId }),
+        ],
+      });
       prismaMock.committeeList.findUnique.mockResolvedValue(
         existingCommitteeWithMember,
       );
@@ -305,7 +306,6 @@ describe("/api/committee/add", () => {
     it("should return idempotent success when member is already in committee", async () => {
       // Arrange
       const mockCommitteeData = createMockCommitteeData();
-      const mockCommittee = createMockCommittee();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.Admin },
       });
@@ -314,10 +314,11 @@ describe("/api/committee/add", () => {
       mockHasPermission(true);
 
       // Mock existing committee with member already connected
-      const existingCommitteeWithMember = {
-        ...mockCommittee,
-        committeeMemberList: [{ VRCNUM: mockCommitteeData.memberId }],
-      };
+      const existingCommitteeWithMember = createCommitteeWithMemberMock({
+        committeeMemberList: [
+          createMockVoterRecord({ VRCNUM: mockCommitteeData.memberId }),
+        ],
+      });
       prismaMock.committeeList.findUnique.mockResolvedValue(
         existingCommitteeWithMember,
       );
@@ -420,7 +421,6 @@ describe("/api/committee/add", () => {
       it("should validate committee-member relationship consistency", async () => {
         // Arrange
         const mockCommitteeData = createMockCommitteeData();
-        const mockCommittee = createMockCommittee();
         const mockSession = createMockSession({
           user: { privilegeLevel: PrivilegeLevel.Admin },
         });
@@ -429,12 +429,7 @@ describe("/api/committee/add", () => {
         mockHasPermission(true);
 
         // Mock committee creation with member connection
-        const committeeWithMember = {
-          ...mockCommittee,
-          committeeMemberList: [
-            createMockVoterRecord({ VRCNUM: mockCommitteeData.memberId }),
-          ],
-        };
+        const committeeWithMember = createCommitteeWithMemberMock();
         prismaMock.committeeList.upsert.mockResolvedValue(committeeWithMember);
 
         const request = createMockRequest(mockCommitteeData);
@@ -464,6 +459,37 @@ describe("/api/committee/add", () => {
             }),
           ),
         );
+      });
+    });
+
+    describe("Database constraint error handling", () => {
+      it("should handle P2002 unique constraint violation gracefully", async () => {
+        // Arrange
+        const mockCommitteeData = createMockCommitteeData();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        // Mock P2002 unique constraint violation error
+        const p2002Error = new Error("Unique constraint failed");
+        (p2002Error as any).code = "P2002";
+        // Mock the instanceof check for Prisma.PrismaClientKnownRequestError
+        Object.setPrototypeOf(p2002Error, Object.prototype);
+        (p2002Error as any).constructor = {
+          name: "PrismaClientKnownRequestError",
+        };
+        prismaMock.committeeList.upsert.mockRejectedValue(p2002Error);
+
+        const request = createMockRequest(mockCommitteeData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 500, "Internal server error");
       });
     });
   });

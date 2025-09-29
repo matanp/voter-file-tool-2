@@ -1,4 +1,3 @@
-import { type VoterRecord } from "@prisma/client";
 import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { Skeleton } from "~/components/ui/skeleton";
 import { TableCell } from "~/components/ui/table";
@@ -242,7 +241,7 @@ export const fields: FieldConfig[] = [
     head: "DOB",
     size: "w-[20ch]",
     cell: (record: VoterRecordAPI) => (
-      <TableCell key={`${record.VRCNUM}-dob`}>{record.DOB || ""}</TableCell>
+      <TableCell key={`${record.VRCNUM}-dob`}>{record.DOB ?? ""}</TableCell>
     ),
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-dob-${index}`}>
@@ -400,7 +399,7 @@ export const fields: FieldConfig[] = [
     size: "w-[20ch]",
     cell: (record: VoterRecordAPI) => (
       <TableCell key={`${record.VRCNUM}-originalRegDate`}>
-        {record.originalRegDate || ""}
+        {record.originalRegDate ?? ""}
       </TableCell>
     ),
     skeletonCell: (index: number) => (

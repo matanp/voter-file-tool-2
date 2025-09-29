@@ -13,7 +13,7 @@ import { Switch } from "~/components/ui/switch";
 import { toast } from "~/components/ui/use-toast";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { useApiMutation } from "~/hooks/useApiMutation";
-import { useCommitteeMemberStatus } from "~/hooks/useCommitteeMemberStatus";
+import { CommitteeMemberAction } from "../../components/CommitteeMemberAction";
 import type {
   CommitteeRequestData,
   CommitteeRequestResponse,
@@ -147,29 +147,16 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
               records={addFormRecords.slice(0, 4)}
               paginated={false}
               fieldsList={[]}
-              extraContent={(record) => {
-                const memberStatus = useCommitteeMemberStatus(
-                  record,
-                  committeeList,
-                );
-
-                return (
-                  <>
-                    <div className="flex gap-4">
-                      <Button
-                        onClick={() => setRequestAddMember(record)}
-                        disabled={
-                          !memberStatus.canAdd ||
-                          committeeList.length >= 4 ||
-                          !!record.committeeId
-                        }
-                      >
-                        {memberStatus.message}
-                      </Button>
-                    </div>
-                  </>
-                );
-              }}
+              extraContent={(record) => (
+                <div className="flex gap-4">
+                  <CommitteeMemberAction
+                    record={record}
+                    committeeList={committeeList}
+                    onAdd={setRequestAddMember}
+                    disabled={committeeList.length >= 4}
+                  />
+                </div>
+              )}
             />
           }
         </>

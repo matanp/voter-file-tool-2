@@ -1,4 +1,3 @@
-import type { VoterRecord, CommitteeList } from "@prisma/client";
 import type { CommitteeWithMembers } from "@voter-file-tool/shared-validators";
 import {
   isVoterRecord,
@@ -47,18 +46,12 @@ export interface RemoveCommitteeResponse extends CommitteeApiResponse<void> {
   status?: "success" | "error";
 }
 
-export interface CommitteeRequestResponse extends CommitteeApiResponse<void> {
-  // Request creation response
-}
+export type CommitteeRequestResponse = CommitteeApiResponse<void>;
 
-export interface HandleRequestResponse extends CommitteeApiResponse<void> {
-  // Request handling response
-}
+export type HandleRequestResponse = CommitteeApiResponse<void>;
 
-export interface FetchCommitteeListResponse
-  extends CommitteeApiResponse<CommitteeWithMembers> {
-  // Committee list fetch response
-}
+export type FetchCommitteeListResponse =
+  CommitteeApiResponse<CommitteeWithMembers>;
 
 // Committee validation result
 export interface ValidationResult {
@@ -85,15 +78,26 @@ export interface MemberAdditionValidation {
 export function isCommitteeWithMembers(
   data: unknown,
 ): data is CommitteeWithMembers {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    "id" in data &&
-    "cityTown" in data &&
-    "electionDistrict" in data &&
-    "committeeMemberList" in data &&
-    Array.isArray((data as any).committeeMemberList)
-  );
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("id" in data) ||
+    !("cityTown" in data) ||
+    !("electionDistrict" in data) ||
+    !("committeeMemberList" in data)
+  ) {
+    return false;
+  }
+
+  const committeeData = data as { committeeMemberList: unknown };
+
+  // Check if committeeMemberList is an array
+  if (!Array.isArray(committeeData.committeeMemberList)) {
+    return false;
+  }
+
+  // Validate that all members are valid VoterRecords
+  return committeeData.committeeMemberList.every(isVoterRecord);
 }
 
 // Re-export type guards from shared-validators for convenience

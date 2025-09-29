@@ -4,6 +4,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
   createMockCommittee,
+  createEmptyCommitteeMock,
   createMockVoterRecord,
   expectSuccessResponse,
   expectErrorResponse,
@@ -71,7 +72,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        success: true,
+        data: mockCommittee,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -193,7 +197,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        success: true,
+        data: mockCommittee,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -223,7 +230,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        success: true,
+        data: mockCommittee,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -253,7 +263,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        success: true,
+        data: mockCommittee,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -323,7 +336,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        success: true,
+        data: mockCommittee,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -455,7 +471,10 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+          success: true,
+          data: mockCommittee,
+        });
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
           createCommitteeFindUniqueArgs({
             cityTown: expectedCityTown,
@@ -505,7 +524,10 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+          success: true,
+          data: mockCommittee,
+        });
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
           createCommitteeFindUniqueArgs(expectedArgs),
         );
@@ -581,7 +603,10 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+          success: true,
+          data: mockCommittee,
+        });
 
         // Verify the committee lookup included member relationships
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
@@ -596,10 +621,11 @@ describe("/api/fetchCommitteeList", () => {
 
       it("should validate committee-district relationship integrity", async () => {
         // Arrange
-        const mockCommittee = createMockCommittee({
+        const mockCommittee = createEmptyCommitteeMock({
           cityTown: "Test City",
           legDistrict: 5,
           electionDistrict: 10,
+          committeeMemberList: [],
         });
         const mockSession = createMockSession({
           user: { privilegeLevel: PrivilegeLevel.Admin },
@@ -617,7 +643,10 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+          success: true,
+          data: mockCommittee,
+        });
 
         // Verify the lookup used the exact district parameters
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
@@ -710,9 +739,43 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+          success: true,
+          data: mockCommittee,
+        });
 
         // Verify the request completed successfully with valid session
+        expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();
+      });
+    });
+
+    describe("Multiple legDistrict parameter validation", () => {
+      it("should handle multiple legDistrict parameters", async () => {
+        // Arrange
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+        prismaMock.committeeList.findUnique.mockResolvedValue(
+          createMockCommittee(),
+        );
+
+        const request = new NextRequest(
+          "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1&legDistrict=2",
+        );
+
+        // Act
+        const response = await GET(request);
+
+        // Assert
+        await expectSuccessResponse(response, {
+          success: true,
+          data: createMockCommittee(),
+        });
+
+        // Verify the request completed successfully with multiple legDistrict parameters
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();
       });
     });
