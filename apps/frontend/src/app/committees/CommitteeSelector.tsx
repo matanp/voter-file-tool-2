@@ -1,12 +1,11 @@
 "use client";
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useState } from "react";
 
 import { type CommitteeList } from "@prisma/client";
 import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
-import { GlobalContext } from "~/components/providers/GlobalContext";
 import { useCommitteePermissions } from "~/hooks/useCommitteePermissions";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
@@ -25,7 +24,6 @@ interface CommitteeSelectorProps {
 const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
 }) => {
-  const { actingPermissions } = useContext(GlobalContext);
   const { toast } = useToast();
   const { isAdmin, canRequest } = useCommitteePermissions();
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -210,7 +208,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   const handleRequestRemove = async (
     e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    record: VoterRecord,
+    record: VoterRecordAPI,
   ): Promise<void> => {
     e.preventDefault();
 

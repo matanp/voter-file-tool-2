@@ -1,15 +1,12 @@
-import { PrivilegeLevel } from "@prisma/client";
 import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
-import { useContext, useState } from "react";
-import { GlobalContext } from "~/components/providers/GlobalContext";
+import { useState } from "react";
 import { useToast } from "~/components/ui/use-toast";
 import { useCommitteePermissions } from "~/hooks/useCommitteePermissions";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
-import { Button } from "~/components/ui/button";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { useApiMutation } from "~/hooks/useApiMutation";
-import { useCommitteeMemberStatus } from "~/hooks/useCommitteeMemberStatus";
+import { CommitteeMemberAction } from "../../components/CommitteeMemberAction";
 import {
   type AddCommitteeResponse,
   type CommitteeData,
@@ -133,30 +130,15 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
               records={records.slice(0, 5)}
               paginated={false}
               fieldsList={[]}
-              extraContent={(record) => {
-                const memberStatus = useCommitteeMemberStatus(
-                  record,
-                  committeeList,
-                );
-
-                return (
-                  <>
-                    <Button
-                      onClick={() => handleAddCommitteeMember(record)}
-                      disabled={
-                        !memberStatus.canAdd ||
-                        !validCommittee ||
-                        !!record.committeeId ||
-                        loadingVRCNUM === record.VRCNUM
-                      }
-                    >
-                      {loadingVRCNUM === record.VRCNUM
-                        ? "Adding..."
-                        : memberStatus.message}
-                    </Button>
-                  </>
-                );
-              }}
+              extraContent={(record) => (
+                <CommitteeMemberAction
+                  record={record}
+                  committeeList={committeeList}
+                  onAdd={handleAddCommitteeMember}
+                  disabled={!validCommittee}
+                  loading={loadingVRCNUM === record.VRCNUM}
+                />
+              )}
             />
           </>
         )}

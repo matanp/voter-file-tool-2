@@ -77,6 +77,9 @@ importers:
       '@vercel/speed-insights':
         specifier: ^1.0.12
         version: 1.2.0(next@15.5.2)(react@19.1.1)
+      '@voter-file-tool/shared-prisma':
+        specifier: workspace:^
+        version: link:../../packages/shared-prisma
       '@voter-file-tool/shared-validators':
         specifier: workspace:^
         version: link:../../packages/shared-validators

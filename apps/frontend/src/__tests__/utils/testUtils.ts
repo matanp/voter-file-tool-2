@@ -2,10 +2,10 @@ import { NextRequest } from "next/server";
 import type { RequestInit as NextRequestInit } from "next/dist/server/web/spec-extension/request";
 import {
   PrivilegeLevel,
-  type CommitteeList,
   type VoterRecord,
   type CommitteeRequest,
 } from "@prisma/client";
+import type { CommitteeListWithMembers } from "@voter-file-tool/shared-prisma";
 import type { Session } from "next-auth";
 import {
   committeeDataSchema,
@@ -64,10 +64,44 @@ export const createMockCommitteeData = (
 };
 
 export const createMockCommittee = (
-  overrides: Partial<
-    CommitteeList & { committeeMemberList: VoterRecord[] }
-  > = {},
-): CommitteeList & { committeeMemberList: VoterRecord[] } => ({
+  overrides: Partial<CommitteeListWithMembers> = {},
+): CommitteeListWithMembers => ({
+  id: 1,
+  cityTown: "Test City",
+  legDistrict: 1,
+  electionDistrict: 1,
+  committeeMemberList: [createMockVoterRecord()],
+  ...overrides,
+});
+
+// Consistent mock strategies for different committee scenarios
+export const createEmptyCommitteeMock = (
+  overrides: Partial<CommitteeListWithMembers> = {},
+): CommitteeListWithMembers => ({
+  id: 1,
+  cityTown: "Test City",
+  legDistrict: 1,
+  electionDistrict: 1,
+  committeeMemberList: [],
+  ...overrides,
+});
+
+export const createFullCommitteeMock = (
+  overrides: Partial<CommitteeListWithMembers> = {},
+): CommitteeListWithMembers => ({
+  id: 1,
+  cityTown: "Test City",
+  legDistrict: 1,
+  electionDistrict: 1,
+  committeeMemberList: Array.from({ length: 4 }, (_, i) =>
+    createMockVoterRecord({ VRCNUM: `MEMBER${i + 1}` }),
+  ), // 4 members (at capacity)
+  ...overrides,
+});
+
+export const createCommitteeWithMemberMock = (
+  overrides: Partial<CommitteeListWithMembers> = {},
+): CommitteeListWithMembers => ({
   id: 1,
   cityTown: "Test City",
   legDistrict: 1,
@@ -98,6 +132,10 @@ export const createMockVoterRecord = (
     congressionalDistrict: "1",
     townCode: "001",
     electionDistrict: 1,
+    // Additional fields that may be present in API responses
+    DOB: null,
+    lastUpdate: null,
+    originalRegDate: null,
     ...overrides,
   }) as VoterRecord;
 
