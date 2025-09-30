@@ -56,3 +56,6 @@ certs/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# stryker temp files
+.stryker-tmp
