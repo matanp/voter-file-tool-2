@@ -15,8 +15,9 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Voter File Tool",
-  description: "A tool for managing voter files",
+  title: "Open Source Politics",
+  description:
+    "A comprehensive platform for political campaigns, committees, and activists to manage voter data, organize committee structures, and generate professional political documents.",
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
