@@ -30,6 +30,7 @@ async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
     // use cursor based pagination if performance becomes a problem
     const records = await prisma.voterRecord.findMany({
       where: query,
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     });
