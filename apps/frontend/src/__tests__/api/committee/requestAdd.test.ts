@@ -1,8 +1,11 @@
 import { POST } from "~/app/api/committee/requestAdd/route";
+import { NextRequest } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
   createMockCommittee,
+  createEmptyCommitteeMock,
+  createCommitteeWithMemberMock,
   createMockCommitteeRequest,
   createMockRequest,
   expectSuccessResponse,
@@ -41,7 +44,7 @@ describe("/api/committee/requestAdd", () => {
     it("should successfully create a committee request with add member", async () => {
       // Arrange
       const mockRequestData = createMockRequestData();
-      const mockCommittee = createMockCommittee();
+      const mockCommittee = createEmptyCommitteeMock();
       const mockCommitteeRequest = createMockCommitteeRequest();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.RequestAccess },
@@ -91,7 +94,7 @@ describe("/api/committee/requestAdd", () => {
       const mockRequestData = createMockRequestData({
         legDistrict: undefined,
       });
-      const mockCommittee = createMockCommittee();
+      const mockCommittee = createEmptyCommitteeMock();
       const mockCommitteeRequest = createMockCommitteeRequest();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.RequestAccess },
@@ -142,7 +145,7 @@ describe("/api/committee/requestAdd", () => {
         addMemberId: null,
         removeMemberId: "TEST123456",
       });
-      const mockCommittee = createMockCommittee();
+      const mockCommittee = createCommitteeWithMemberMock();
       const mockCommitteeRequest = createMockCommitteeRequest();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.RequestAccess },
@@ -185,7 +188,7 @@ describe("/api/committee/requestAdd", () => {
         addMemberId: "TEST123456",
         removeMemberId: "TEST789012",
       });
-      const mockCommittee = createMockCommittee();
+      const mockCommittee = createCommitteeWithMemberMock();
       const mockCommitteeRequest = createMockCommitteeRequest();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.RequestAccess },
@@ -227,7 +230,7 @@ describe("/api/committee/requestAdd", () => {
         addMemberId: "  TEST123456  ",
         removeMemberId: "  ",
       });
-      const mockCommittee = createMockCommittee();
+      const mockCommittee = createEmptyCommitteeMock();
       const mockCommitteeRequest = createMockCommitteeRequest();
       mockAuthSession(
         createMockSession({
@@ -443,7 +446,7 @@ describe("/api/committee/requestAdd", () => {
       const mockRequestData = createMockRequestData({
         requestNotes: undefined,
       });
-      const mockCommittee = createMockCommittee();
+      const mockCommittee = createEmptyCommitteeMock();
       const mockCommitteeRequest = createMockCommitteeRequest();
       const mockSession = createMockSession({
         user: { privilegeLevel: PrivilegeLevel.RequestAccess },
@@ -648,7 +651,7 @@ describe("/api/committee/requestAdd", () => {
         const mockRequestData = createMockRequestData({
           legDistrict: undefined, // At-large district
         });
-        const mockCommittee = createMockCommittee();
+        const mockCommittee = createEmptyCommitteeMock();
         const mockCommitteeRequest = createMockCommitteeRequest();
         const mockSession = createMockSession({
           user: { privilegeLevel: PrivilegeLevel.RequestAccess },
@@ -685,6 +688,86 @@ describe("/api/committee/requestAdd", () => {
             include: { committeeMemberList: false },
           }),
         );
+      });
+    });
+
+    describe("JSON parsing error handling", () => {
+      it("should handle invalid JSON format", async () => {
+        // Arrange
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        const request = new NextRequest(
+          "http://localhost:3000/api/committee/requestAdd",
+          {
+            method: "POST",
+            body: "invalid json",
+          },
+        );
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 422, "Invalid request data");
+      });
+    });
+
+    describe("legDistrict conversion error handling", () => {
+      it("should handle legDistrict conversion errors", async () => {
+        // Arrange
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        const requestData = {
+          cityTown: "Test City",
+          legDistrict: "invalid-leg-district", // This should cause conversion error
+          electionDistrict: 1,
+          addMemberId: "TEST123456",
+        };
+
+        const request = createMockRequest(requestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 422, "Invalid request data");
+      });
+    });
+
+    describe("Validation error handling", () => {
+      it("should require at least one action (add or remove)", async () => {
+        // Arrange
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+
+        const requestData = {
+          cityTown: "Test City",
+          legDistrict: "1",
+          electionDistrict: 1,
+          // No addMemberId or removeMemberId
+        };
+
+        const request = createMockRequest(requestData);
+
+        // Act
+        const response = await POST(request);
+
+        // Assert
+        await expectErrorResponse(response, 422, "Invalid request data");
       });
     });
   });

@@ -1,5 +1,5 @@
 "use client";
-import type { VoterRecord } from "@prisma/client";
+import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -14,7 +14,7 @@ import {
 } from "@voter-file-tool/shared-validators";
 
 type RecordSearchProps = {
-  handleResults: (results: VoterRecord[]) => void;
+  handleResults: (results: VoterRecordAPI[]) => void;
   submitButtonText: string;
   extraSearchQuery?: SearchQueryField[];
   headerText?: string;
@@ -40,7 +40,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
 
   // API mutation hook
   const searchMutation = useApiMutation<
-    { data: VoterRecord[] },
+    { data: VoterRecordAPI[] },
     {
       searchQuery: SearchQueryField[];
       page: number;

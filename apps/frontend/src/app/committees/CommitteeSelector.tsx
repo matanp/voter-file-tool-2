@@ -1,21 +1,21 @@
 "use client";
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useState } from "react";
 
-import {
-  PrivilegeLevel,
-  type CommitteeList,
-  type VoterRecord,
-} from "@prisma/client";
+import { type CommitteeList } from "@prisma/client";
+import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
-import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { useCommitteePermissions } from "~/hooks/useCommitteePermissions";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
+import { typeSafeFetch } from "~/lib/validators/api";
+import { committeeWithMembersSchema } from "~/lib/validators/committee";
+import { requiresLegislativeDistrict } from "~/lib/utils/committee";
+import { COMMITTEE_MESSAGES } from "~/lib/constants/committee";
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
@@ -24,16 +24,16 @@ interface CommitteeSelectorProps {
 const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
 }) => {
-  const { actingPermissions } = useContext(GlobalContext);
   const { toast } = useToast();
+  const { isAdmin, canRequest } = useCommitteePermissions();
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedLegDistrict, setSelectedLegDistrict] = useState<string>("");
   const [useLegDistrict, setUseLegDistrict] = useState<boolean>(false);
   const [selectedDistrict, setSelectedDistrict] = useState<number>(-1);
-  const [committeeList, setCommitteeList] = useState<VoterRecord[]>([]);
+  const [committeeList, setCommitteeList] = useState<VoterRecordAPI[]>([]);
   const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
   const [requestRemoveRecord, setRequestRemoveRecord] =
-    useState<VoterRecord | null>(null);
+    useState<VoterRecordAPI | null>(null);
   const [legDistricts, setLegDistricts] = useState<string[]>([]);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
@@ -119,11 +119,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       setSelectedDistrict(-1);
       setSelectedLegDistrict("");
     }
-    if (city.toUpperCase() === "ROCHESTER") {
-      setUseLegDistrict(true);
-    } else {
-      setUseLegDistrict(false);
-    }
+    setUseLegDistrict(requiresLegislativeDistrict(city));
 
     const legDistricts = Array.from(
       new Set(
@@ -162,19 +158,21 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           electionDistrict: String(district),
         });
         if (legDistrict) params.set("legDistrict", legDistrict);
-        const response = await fetch(
+
+        const result = await typeSafeFetch(
           `/api/fetchCommitteeList/?${params.toString()}`,
+          { method: "GET" },
+          committeeWithMembersSchema,
         );
-        if (response.ok) {
-          const data: unknown = await response.json();
-          setCommitteeList(
-            (data as { committeeMemberList: VoterRecord[] })
-              .committeeMemberList || [],
-          );
-        } else if (response.status === 403) {
+
+        if (result.success && result.data) {
+          setCommitteeList(result.data.committeeMemberList);
+        } else if (result.error?.includes("403")) {
           // User doesn't have permission to view member data
           setCommitteeList([]);
         } else {
+          console.error("Error fetching committee list:", result.error);
+          console.error("Result details:", result);
           setCommitteeList([]);
         }
       } catch (error) {
@@ -210,7 +208,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   const handleRequestRemove = async (
     e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    record: VoterRecord,
+    record: VoterRecordAPI,
   ): Promise<void> => {
     e.preventDefault();
 
@@ -220,14 +218,14 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   const noContentMessage = () => {
     if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
-      return "Select a committee to view members.";
+      return COMMITTEE_MESSAGES.SELECT_COMMITTEE;
     }
 
-    if (!hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
-      return "You don't have permission to view committee member details. Contact an administrator for access.";
+    if (!isAdmin) {
+      return COMMITTEE_MESSAGES.NO_PERMISSION;
     }
 
-    return "No committee members found.";
+    return COMMITTEE_MESSAGES.NO_MEMBERS;
   };
 
   const getCommitteeListHeader = () => {
@@ -324,10 +322,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                         <VoterCard record={member} committee={true} />
                       </CardContent>
                       <CardFooter className="h-full">
-                        {hasPermissionFor(
-                          actingPermissions,
-                          PrivilegeLevel.Admin,
-                        ) && (
+                        {isAdmin && (
                           <div className="h-full">
                             <Button
                               className="mt-auto"
@@ -344,7 +339,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                             </Button>
                           </div>
                         )}
-                        {actingPermissions === PrivilegeLevel.RequestAccess && (
+                        {canRequest && !isAdmin && (
                           <Button
                             onClick={(e) => handleRequestRemove(e, member)}
                           >
