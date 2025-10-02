@@ -115,7 +115,7 @@ export function MultiStreetSearch({
     <>
       {/* Show matches dropdown */}
       {matches.length > 0 && inputValue !== "" && debouncedSearch !== "" && (
-        <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+        <div className="absolute top-full left-0 w-full z-10 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
           <div className="space-y-1 p-2">
             {matches.map((match, index) => (
               <div
