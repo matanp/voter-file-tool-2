@@ -23,6 +23,15 @@ const nextConfig = {
     locales: ["en"],
     defaultLocale: "en",
   },
+  redirects: async () => {
+    return [
+      {
+        source: "/",
+        destination: "/recordsearch",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
