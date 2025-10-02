@@ -17,7 +17,7 @@ Senior full-stack 10x developer: balances speed, clarity, and maintainability.
 ## Coding
 
 - Use **early returns**, avoid deep nesting.
-- Strictly enforce **nullish coalescing (`??`)** over `||` when possible.
+- Prefer **nullish coalescing (`??`)** over `||`.
 - Use **descriptive names**. Prefix event handlers with `handle*`.
 - Use **constants** instead of functions when recomputation isn’t needed.
 - Always use **pnpm** over `npm` or `yarn`.
