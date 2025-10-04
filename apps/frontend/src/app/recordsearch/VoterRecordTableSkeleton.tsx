@@ -17,6 +17,7 @@ interface BaseVoterRecordTableProps {
   extraHeaders?: Array<string>;
   seeMoreDetailsText?: string;
   extraContent?: (record: VoterRecord) => React.ReactNode;
+  scrollId?: string;
 }
 
 type VoterRecordTableProps = BaseVoterRecordTableProps;
@@ -25,9 +26,10 @@ export const VoterRecordTableSkeleton: React.FC<VoterRecordTableProps> = ({
   fieldsList,
   fullWidth,
   extraHeaders,
+  scrollId,
 }) => {
   return (
-    <div>
+    <div id={scrollId}>
       <Table
         id="voter-record-table"
         className={`${!fullWidth && "max-w-[80vw] min-w-[800px]"}`}

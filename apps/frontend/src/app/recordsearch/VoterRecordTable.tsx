@@ -17,6 +17,7 @@ import {
 import { VoterCard } from "./RecordsList";
 import { EllipsisVertical } from "~/components/icons/ellipsisVertical";
 import { fields, type FieldName } from "./fieldsConfig";
+import { scrollToElement } from "~/lib/scrollUtils";
 
 interface BaseVoterRecordTableProps {
   records: VoterRecord[];
@@ -49,16 +50,6 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
   ...paginationProps
 }) => {
   const { totalRecords, loadMore } = paginationProps as PaginationProps;
-
-  const jumpToTop = () => {
-    const tableElement = document.getElementById("voter-record-table");
-    if (tableElement) {
-      const offset = 300; // Adjust this value as needed
-      const topPos =
-        tableElement.getBoundingClientRect().top + window.scrollY - offset;
-      window.scrollTo({ top: topPos, behavior: "smooth" });
-    }
-  };
 
   return (
     <div>
@@ -128,7 +119,12 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
                     <Button onClick={loadMore}>Load More</Button>
                   )}
                   {records.length > 10 && (
-                    <Button onClick={jumpToTop} variant={"outline"}>
+                    <Button
+                      onClick={() => {
+                        scrollToElement("voter-record-table", 300);
+                      }}
+                      variant={"outline"}
+                    >
                       Jump to Top
                     </Button>
                   )}

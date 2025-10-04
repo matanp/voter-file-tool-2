@@ -18,8 +18,15 @@ import {
 import type { SearchField } from "~/types/searchFields";
 import { SearchFieldProcessor } from "~/lib/searchFieldProcessor";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
+import { scrollToElement } from "~/lib/scrollUtils";
 import { Info } from "lucide-react";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { useContext } from "react";
+import { GlobalContext } from "~/components/providers/GlobalContext";
+import { PrivilegeLevel } from "@prisma/client";
+import { hasPermissionFor } from "~/lib/utils";
+
+const LOADING_SECTION_ID = "loading-section";
 
 interface RecordsListProps {
   dropdownList: DropdownLists;
@@ -31,6 +38,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const router = useRouter();
   const { toast } = useToast();
   const { status } = useSession();
+  const { actingPermissions } = useContext(GlobalContext);
   const {
     setSearchQuery: setContextSearchQuery,
     fieldsList: contextFieldsList,
@@ -91,6 +99,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     return createSmartFieldsList(contextFieldsList);
   }, [contextFieldsList]);
 
+  const canExport = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+
   const handleSubmit = React.useCallback(
     async (searchQueryParam: SearchField[]) => {
       setPage(1);
@@ -108,6 +118,10 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       });
 
       setContextSearchQuery(searchQueryParam, flattenedQuery);
+
+      setTimeout(() => {
+        scrollToElement(LOADING_SECTION_ID);
+      }, 100);
     },
     [searchMutation, setContextSearchQuery],
   );
@@ -163,7 +177,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       <div className="w-full flex justify-center text-2xl text-primary font-bold pt-2">
         <h1>Voter Records</h1>
       </div>
-      {hasSearched && totalRecords > 0 && (
+      {hasSearched && totalRecords > 0 && canExport && (
         <div className="w-full flex flex-col items-center pt-4 space-y-4">
           <div className="flex items-center gap-4">
             <Button
@@ -200,7 +214,10 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       )}
       <div className="m-10">
         {searchMutation.loading && (
-          <VoterRecordTableSkeleton fieldsList={fieldsList} />
+          <VoterRecordTableSkeleton
+            fieldsList={fieldsList}
+            scrollId={LOADING_SECTION_ID}
+          />
         )}
 
         {records.length > 0 && !searchMutation.loading && (
