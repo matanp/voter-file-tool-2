@@ -155,7 +155,7 @@ export const XLSXConfigForm: React.FC = () => {
     <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-none">
       <Accordion
         type="multiple"
-        defaultValue={["report-info", "field-selection"]}
+        defaultValue={["report-info", "field-selection", "xlsx-config"]}
         className="w-full space-y-4"
       >
         <ReportInfo

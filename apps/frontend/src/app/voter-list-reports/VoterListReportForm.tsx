@@ -474,7 +474,11 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
               </div>
 
               {/* Field Selection and XLSX Configuration */}
-              <Accordion type="multiple" className="w-full">
+              <Accordion
+                type="multiple"
+                defaultValue={["field-selection", "xlsx-config"]}
+                className="w-full"
+              >
                 <FieldSelection
                   formData={formData}
                   onFormDataChange={handleXLSXFormDataChange}
