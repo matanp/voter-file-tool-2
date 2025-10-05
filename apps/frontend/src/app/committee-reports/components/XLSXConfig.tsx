@@ -27,10 +27,6 @@ export const XLSXConfig: React.FC<XLSXConfigProps> = ({
     });
   };
 
-  if (formData.includeFields.length === 0) {
-    return null;
-  }
-
   return (
     <AccordionItem
       value="xlsx-config"
@@ -41,7 +37,9 @@ export const XLSXConfig: React.FC<XLSXConfigProps> = ({
       </AccordionTrigger>
       <AccordionContent className="space-y-4 bg-white p-6 pt-0 rounded-lg">
         <p className="text-sm text-muted-foreground mb-4">
-          Customize column headers for the selected fields
+          {formData.includeFields.length === 0
+            ? "Select fields above to customize their headers"
+            : "Customize column headers for the selected fields"}
         </p>
         {/* Column Headers */}
         <div className="space-y-2">
