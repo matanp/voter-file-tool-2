@@ -17,5 +17,8 @@ export * from './searchQueryNormalizers';
 // Export shared constants
 export * from './constants';
 
+// Export report type mappings
+export * from './reportTypeMapping';
+
 // Re-export commonly used Zod utilities
 export { z } from 'zod';

@@ -63,12 +63,6 @@ export const searchQueryFieldSchema = z.union([
   stringFieldSchema, // Has 'values' property
 ]);
 
-// Shared format enum
-export const reportFormatEnum = z
-  .enum(['pdf', 'xlsx'])
-  .optional()
-  .default('pdf');
-
 // Shared XLSX configuration schema
 export const xlsxConfigSchema = z
   .object({
@@ -97,6 +91,7 @@ export const baseApiSchema = z.object({
 const designatedPetitionReportSchema = z.object({
   type: z.literal('designatedPetition'),
   ...baseApiSchema.shape,
+  format: z.literal('pdf'),
   payload: generateDesignatedPetitionDataSchema,
 });
 
@@ -115,7 +110,7 @@ const committeeSelectionSchema = z.object({
 const ldCommitteesReportSchema = z.object({
   type: z.literal('ldCommittees'),
   ...baseApiSchema.shape,
-  format: reportFormatEnum,
+  format: z.enum(['pdf', 'xlsx']),
   // Optional field to specify which VoterRecord fields to include
   includeFields: z.array(z.string()).optional().default([]),
   // XLSX-specific configuration (only applies when format is 'xlsx')
@@ -131,11 +126,18 @@ const voterListReportSchema = z.object({
   xlsxConfig: xlsxConfigSchema,
 });
 
+const absenteeReportSchema = z.object({
+  type: z.literal('absenteeReport'),
+  format: z.literal('xlsx'),
+  ...baseApiSchema.shape,
+});
+
 // Generate Report Schema - discriminated union for different report types
 export const generateReportSchema = z.discriminatedUnion('type', [
   designatedPetitionReportSchema,
   ldCommitteesReportSchema,
   voterListReportSchema,
+  absenteeReportSchema,
 ]);
 
 // Additional fields for enriched report data
@@ -156,6 +158,10 @@ export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     ...voterListReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...absenteeReportSchema.shape,
     ...enrichedFieldsSchema.shape,
   }),
 ]);

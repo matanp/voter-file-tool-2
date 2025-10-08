@@ -1,4 +1,3 @@
-import { Readable } from 'stream';
 import * as XLSX from 'xlsx';
 import {
   type VoterRecordField,
@@ -9,7 +8,17 @@ import {
   applyCompoundFields,
   type CompoundFieldConfig,
 } from '@voter-file-tool/shared-validators';
-import { uploadFileToR2 } from './s3Utils';
+import {
+  sanitizeWorksheetName,
+  uploadXLSXBuffer,
+  createWorksheetWithFieldWidths,
+  generateXLSXBuffer,
+  createWorkbook,
+  addWorksheetToWorkbook,
+} from './utils/xlsxUtils';
+
+type ColumnHeaders = Record<string, string>;
+type FieldWidths = Record<string, number>;
 
 // XLSX generation configuration
 export interface XLSXGenerationConfig {
@@ -20,7 +29,7 @@ export interface XLSXGenerationConfig {
   // Column order (if not specified, uses default order)
   columnOrder?: string[];
   // Custom column headers (if not specified, uses field names)
-  columnHeaders?: Record<string, string>;
+  columnHeaders?: ColumnHeaders;
 }
 
 // Default column order and headers
@@ -81,7 +90,7 @@ const DEFAULT_COLUMN_HEADERS: Record<string, string> = {
 };
 
 // Field width configuration
-const FIELD_WIDTHS: Record<string, number> = {
+const FIELD_WIDTHS: FieldWidths = {
   electionDistrict: 15,
   name: 25,
   address: 30,
@@ -110,29 +119,6 @@ const FIELD_WIDTHS: Record<string, number> = {
 };
 
 /**
- * Sanitizes worksheet names for Excel compatibility
- * Excel limits worksheet names to 31 characters and disallows: / \ ? * [ ]
- * @param name - The original worksheet name
- * @returns Sanitized worksheet name that meets Excel requirements
- */
-function sanitizeWorksheetName(name: string): string {
-  // Remove or replace disallowed characters
-  let sanitized = name.replace(/[/\\?*[\]]/g, '');
-
-  // Truncate to 31 characters (Excel's limit)
-  if (sanitized.length > 31) {
-    sanitized = sanitized.substring(0, 31);
-  }
-
-  // Ensure the name is not empty after sanitization
-  if (!sanitized.trim()) {
-    sanitized = 'Sheet';
-  }
-
-  return sanitized;
-}
-
-/**
  * Creates a worksheet with headers and data
  * @param data - Array of data rows
  * @param columnsToInclude - Array of column names to include
@@ -142,40 +128,9 @@ function sanitizeWorksheetName(name: string): string {
 function createWorksheet(
   data: any[][],
   columnsToInclude: string[],
-  columnHeaders: Record<string, string>
+  columnHeaders: ColumnHeaders
 ): XLSX.WorkSheet {
-  const worksheet = XLSX.utils.aoa_to_sheet(data);
-
-  // Set column widths
-  const columnWidths = columnsToInclude.map((field) => ({
-    wch: FIELD_WIDTHS[field] || 15,
-  }));
-  worksheet['!cols'] = columnWidths;
-
-  return worksheet;
-}
-
-/**
- * Uploads XLSX buffer to R2 storage
- * @param xlsxBuffer - The XLSX file buffer
- * @param fileName - The filename for the upload
- * @returns Promise<boolean> - Success status
- */
-async function uploadXLSXBuffer(
-  xlsxBuffer: Buffer,
-  fileName: string
-): Promise<boolean> {
-  console.log('started upload via stream');
-
-  const stream = Readable.from(xlsxBuffer);
-  const successfulUpload = await uploadFileToR2(stream, fileName, 'xlsx');
-
-  if (!successfulUpload) {
-    throw new Error('failed to upload xlsx to file storage');
-  }
-
-  console.log('xlsx upload completed');
-  return true;
+  return createWorksheetWithFieldWidths(data, columnsToInclude, FIELD_WIDTHS);
 }
 
 /**
@@ -201,7 +156,7 @@ export async function generateUnifiedXLSXAndUpload(
     columnHeaders = DEFAULT_COLUMN_HEADERS,
   } = config;
 
-  const workbook = XLSX.utils.book_new();
+  const workbook = createWorkbook();
 
   if (dataType === 'ldCommittees') {
     // Process LD committees data
@@ -244,7 +199,7 @@ export async function generateUnifiedXLSXAndUpload(
           ? `LD ${ld.legDistrict.toString().padStart(2, '0')}`
           : ld.cityTown;
       const sheetName = sanitizeWorksheetName(rawSheetName);
-      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      addWorksheetToWorkbook(workbook, worksheet, sheetName);
     }
   } else {
     // Process voter list data
@@ -280,10 +235,10 @@ export async function generateUnifiedXLSXAndUpload(
       columnHeaders
     );
     const sheetName = sanitizeWorksheetName('Voter List');
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    addWorksheetToWorkbook(workbook, worksheet, sheetName);
   }
 
-  const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  const xlsxBuffer = generateXLSXBuffer(workbook);
   await uploadXLSXBuffer(xlsxBuffer, fileName);
 }
 

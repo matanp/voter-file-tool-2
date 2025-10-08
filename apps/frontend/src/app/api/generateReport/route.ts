@@ -5,10 +5,12 @@ import {
   type EnrichedReportData,
   type GenerateReportFrontendResponse,
   type ErrorResponse,
+  getPrismaReportType,
+  validateReportType,
 } from "@voter-file-tool/shared-validators";
 import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
-import { PrivilegeLevel, ReportType, JobStatus } from "@prisma/client";
+import { PrivilegeLevel, JobStatus } from "@prisma/client";
 import type { Session } from "next-auth";
 import { gzipSync } from "node:zlib";
 import { createWebhookSignature } from "~/lib/webhookUtils";
@@ -46,15 +48,14 @@ export const POST = withPrivilege(
         throw new Error("Error getting user from session");
       }
 
+      const reportType = getPrismaReportType(
+        validateReportType(reportData.type),
+      );
+
       const report = await prisma.report.create({
         data: {
           generatedById: session.user.id,
-          ReportType:
-            reportData.type === "ldCommittees"
-              ? ReportType.CommitteeReport
-              : reportData.type === "voterList"
-                ? ReportType.VoterList
-                : ReportType.DesignatedPetition,
+          ReportType: reportType,
           title: reportData.name,
           description: reportData.description,
           status: JobStatus.PENDING,

@@ -24,6 +24,7 @@
     "@voter-file-tool/shared-prisma": "workspace:^",
     "@voter-file-tool/shared-validators": "workspace:^",
     "async": "^3.2.6",
+    "csv-parse": "^6.1.0",
     "dotenv": "^17.2.1",
     "express": "^4.21.0",
     "puppeteer": "^23.4.0",

@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import { gunzipSync } from 'node:zlib';
 import { config } from 'dotenv';
 import async from 'async';
+import { resolve } from 'path';
 
 import path from 'path';
 import {
@@ -12,6 +13,7 @@ import {
   sanitizeForS3Key,
 } from './utils';
 import { generateUnifiedXLSXAndUpload } from './xlsxGenerator';
+import { processAbsenteeReport } from './reportProcessors';
 import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
@@ -22,11 +24,11 @@ import {
   type CallbackUrl,
   type VoterRecordField,
   type SearchQueryField,
-  type CommitteeSelection,
-  type CommitteeWithMembers,
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
   normalizeSearchQuery,
+  getFilenameReportType,
+  validateReportType,
 } from '@voter-file-tool/shared-validators';
 import {
   mapCommitteesToReportShape,
@@ -51,14 +53,7 @@ function generateFilename(
 
   const namePart = sanitizedName ? `${sanitizedName}-` : '';
   const getTypePart = (reportType: string): string => {
-    switch (reportType) {
-      case 'ldCommittees':
-        return 'committeeReport';
-      case 'voterList':
-        return 'voterList';
-      default:
-        return 'designatedPetition';
-    }
+    return getFilenameReportType(validateReportType(reportType));
   };
 
   const typePart = getTypePart(reportType);
@@ -213,11 +208,7 @@ function extractXLSXConfig(jobData: EnrichedReportData) {
 async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName: string;
-    const { type, reportAuthor, jobId, name } = jobData;
-    const format =
-      (type === 'ldCommittees' || type === 'voterList') && 'format' in jobData
-        ? (jobData as any).format
-        : 'pdf';
+    const { type, reportAuthor, jobId, name, format } = jobData;
 
     // Sanitize reportAuthor for safe S3 key usage
     const sanitizedAuthor = sanitizeForS3Key(reportAuthor, true);
@@ -291,6 +282,13 @@ async function processJob(jobData: EnrichedReportData) {
         numPages
       );
       await generatePDFAndUpload(html, false, fileName);
+    } else if (type === 'absenteeReport') {
+      const csvFilePath = resolve(
+        process.cwd(),
+        process.env.ABSENTEE_CSV_PATH ||
+          'data/absentee/StandardBallotRequestReport_20251007.csv'
+      );
+      await processAbsenteeReport(fileName, jobId, csvFilePath);
     } else {
       throw new Error('Unknown job type');
     }
