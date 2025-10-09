@@ -1,7 +1,6 @@
 // src/utils/csvProcessor.ts
 // Purpose: Generic CSV processing utility to eliminate duplication across report processors
 
-import { promises as fs } from 'fs';
 import { parse } from 'csv-parse/sync';
 
 // Utility types for cleaner definitions
@@ -11,7 +10,6 @@ type RequiredConfig = Required<CsvProcessorConfig>;
 export interface CsvLoadResult<T> {
   rows: T[];
   totalRecords: number;
-  filePath: string;
 }
 
 export interface CsvProcessorConfig {
@@ -27,16 +25,16 @@ export interface CsvProcessorConfig {
 export class CsvProcessor<T extends CsvRow> {
   private readonly headers: readonly string[];
   private readonly createEmptyRow: () => T;
-  private readonly csvFilePath: string;
+  private readonly csvContent: string;
   private readonly config: RequiredConfig;
 
   constructor(
-    csvFilePath: string,
+    csvContent: string, // CSV content string only
     headers: readonly string[],
     createEmptyRow: () => T,
     config: CsvProcessorConfig = {}
   ) {
-    this.csvFilePath = csvFilePath;
+    this.csvContent = csvContent;
     this.headers = headers;
     this.createEmptyRow = createEmptyRow;
     this.config = {
@@ -48,29 +46,26 @@ export class CsvProcessor<T extends CsvRow> {
   }
 
   /**
-   * Loads and validates CSV data from the configured file path
+   * Loads and validates CSV data from the provided content
    * @returns Promise<CsvLoadResult<T>> - Processed data with metadata
    */
   async loadData(): Promise<CsvLoadResult<T>> {
     try {
-      console.log(`Loading CSV data from: ${this.csvFilePath}`);
+      console.log('Loading CSV data from content');
 
-      // Check if file exists and is readable
-      const csvContent = await fs.readFile(this.csvFilePath, 'utf-8');
-
-      if (!csvContent.trim()) {
-        throw new Error('CSV file is empty');
+      if (!this.csvContent.trim()) {
+        throw new Error('CSV content is empty');
       }
 
       // Parse CSV content
-      const records = parse(csvContent, {
+      const records = parse(this.csvContent, {
         columns: true,
         skip_empty_lines: this.config.skipEmptyLines,
         trim: this.config.trim,
       });
 
       if (!records.length) {
-        throw new Error('No records found in CSV file');
+        throw new Error('No records found in CSV content');
       }
 
       console.log(`Found ${records.length} records in CSV`);
@@ -86,7 +81,6 @@ export class CsvProcessor<T extends CsvRow> {
       return {
         rows,
         totalRecords: rows.length,
-        filePath: this.csvFilePath,
       };
     } catch (error) {
       if (error instanceof Error) {
@@ -142,17 +136,17 @@ export class CsvProcessor<T extends CsvRow> {
 
 /**
  * Convenience function to create a CSV processor for a specific type
- * @param csvFilePath - Path to the CSV file
+ * @param csvContent - CSV content string
  * @param headers - Required CSV headers
  * @param createEmptyRow - Function to create empty row instance
  * @param config - Optional configuration
  * @returns Configured CSV processor instance
  */
 export function createCsvProcessor<T extends CsvRow>(
-  csvFilePath: string,
+  csvContent: string,
   headers: readonly string[],
   createEmptyRow: () => T,
   config?: CsvProcessorConfig
 ): CsvProcessor<T> {
-  return new CsvProcessor(csvFilePath, headers, createEmptyRow, config);
+  return new CsvProcessor(csvContent, headers, createEmptyRow, config);
 }
