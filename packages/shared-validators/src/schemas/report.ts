@@ -130,6 +130,7 @@ const absenteeReportSchema = z.object({
   type: z.literal('absenteeReport'),
   format: z.literal('xlsx'),
   ...baseApiSchema.shape,
+  csvFileKey: z.string().min(1, 'CSV file key is required'),
 });
 
 // Generate Report Schema - discriminated union for different report types

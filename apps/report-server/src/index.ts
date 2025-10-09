@@ -251,12 +251,11 @@ async function processJob(jobData: EnrichedReportData) {
       );
       await generatePDFAndUpload(html, false, fileName);
     } else if (type === 'absenteeReport') {
-      const csvFilePath = resolve(
-        process.cwd(),
-        process.env.ABSENTEE_CSV_PATH ||
-          'data/absentee/StandardBallotRequestReport_20251007.csv'
-      );
-      await processAbsenteeReport(fileName, jobId, csvFilePath);
+      if (!('csvFileKey' in jobData) || !jobData.csvFileKey) {
+        throw new Error('csvFileKey is required for absentee reports');
+      }
+
+      await processAbsenteeReport(fileName, jobId, jobData.csvFileKey);
     } else {
       throw new Error('Unknown job type');
     }

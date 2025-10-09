@@ -1,4 +1,8 @@
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from 'dotenv';
@@ -37,6 +41,49 @@ export async function getPresignedReadUrl(
 }
 
 export type FileType = 'pdf' | 'xlsx';
+
+/**
+ * Generate a presigned URL for uploading a file to R2
+ * @param key - The object key (filename) in the bucket
+ * @param contentType - MIME type of the file
+ * @param expiresIn - Expiration time in seconds (default 1 hour)
+ */
+export async function getPresignedUploadUrl(
+  key: string,
+  contentType: string,
+  expiresIn: number = 3600
+): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME!,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  return await getSignedUrl(s3, command, { expiresIn });
+}
+
+/**
+ * Download file from R2 as buffer
+ * @param key - The object key (filename) in the bucket
+ * @returns Promise<Buffer> - File contents as buffer
+ */
+export async function downloadFileFromR2(key: string): Promise<Buffer> {
+  const command = new GetObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME!,
+    Key: key,
+  });
+
+  const response = await s3.send(command);
+  const chunks: Uint8Array[] = [];
+
+  if (response.Body) {
+    for await (const chunk of response.Body as any) {
+      chunks.push(chunk);
+    }
+  }
+
+  return Buffer.concat(chunks);
+}
 
 export async function uploadFileToR2(
   stream: Readable,

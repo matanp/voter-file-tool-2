@@ -7,6 +7,7 @@ import {
   ABSENTEE_STANDARD_BALLOT_REQUEST_HEADERS,
 } from '../../reportTypes/absenteeStandardBallotRequest';
 import { CsvProcessor } from '../../utils/csvProcessor';
+import { downloadFileFromR2 } from '../../s3Utils';
 
 export interface AbsenteeDataLoadResult {
   rows: AbsenteeStandardBallotRequestRow[];
@@ -15,26 +16,28 @@ export interface AbsenteeDataLoadResult {
 }
 
 export class AbsenteeDataLoader {
-  private readonly csvProcessor: CsvProcessor<AbsenteeStandardBallotRequestRow>;
-
-  constructor(csvFilePath: string) {
-    this.csvProcessor = new CsvProcessor(
-      csvFilePath,
-      ABSENTEE_STANDARD_BALLOT_REQUEST_HEADERS,
-      createEmptyAbsenteeStandardBallotRequestRow
-    );
-  }
+  constructor(private csvFileKey: string) {}
 
   /**
    * Loads and validates CSV data for absentee report processing
    */
   async loadData(): Promise<AbsenteeDataLoadResult> {
-    const result = await this.csvProcessor.loadData();
+    const csvBuffer = await downloadFileFromR2(this.csvFileKey);
+
+    const csvContent = csvBuffer.toString('utf-8');
+
+    const csvProcessor = new CsvProcessor(
+      csvContent,
+      ABSENTEE_STANDARD_BALLOT_REQUEST_HEADERS,
+      createEmptyAbsenteeStandardBallotRequestRow
+    );
+
+    const result = await csvProcessor.loadData();
 
     return {
       rows: result.rows,
       totalRecords: result.totalRecords,
-      filePath: result.filePath,
+      filePath: this.csvFileKey,
     };
   }
 }

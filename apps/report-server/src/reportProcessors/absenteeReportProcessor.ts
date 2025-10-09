@@ -11,18 +11,18 @@ import {
  * Processes absentee ward/town report by analyzing CSV data and generating XLSX
  * @param fileName - The output filename for the XLSX report
  * @param jobId - The job ID for tracking
- * @param csvFilePath - Path to the CSV file
+ * @param csvFileKey - R2 file key for the CSV file
  */
 export async function processAbsenteeReport(
   fileName: string,
   jobId: string,
-  csvFilePath: string
+  csvFileKey: string
 ): Promise<void> {
   console.log(`Starting absentee report processing for job ${jobId}...`);
 
   try {
     // Step 1: Load and validate data
-    const dataLoader = new AbsenteeDataLoader(csvFilePath);
+    const dataLoader = new AbsenteeDataLoader(csvFileKey);
     const dataResult = await dataLoader.loadData();
     console.log(
       `Data loaded: ${dataResult.totalRecords} records from ${dataResult.filePath}`
@@ -44,11 +44,7 @@ export async function processAbsenteeReport(
 
     // Step 3: Export to XLSX
     const reportExporter = new AbsenteeReportExporter();
-    await reportExporter.exportToXLSX(
-      statistics,
-      fileName,
-      dataResult.filePath
-    );
+    await reportExporter.exportToXLSX(statistics, fileName, csvFileKey);
 
     const exportMetadata = reportExporter.getExportMetadata(statistics);
     console.log('Export completed:', exportMetadata);

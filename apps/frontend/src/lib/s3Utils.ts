@@ -76,6 +76,27 @@ export async function getPresignedReadUrl(
 }
 
 /**
+ * Generate a presigned URL for uploading a file to R2
+ *
+ * @param key - The object key (filename) in the bucket
+ * @param contentType - MIME type of the file
+ * @param expiresIn - Expiration time in seconds (default 1 hour)
+ */
+export async function getPresignedUploadUrl(
+  key: string,
+  contentType: string,
+  expiresIn = 3600,
+): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME!,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  return await getSignedUrl(s3, command, { expiresIn });
+}
+
+/**
  * Get file metadata including size from R2
  *
  * @param key - The object key (filename) in the bucket
