@@ -432,23 +432,44 @@ export class AbsenteeReportExporter {
   }
 
   /**
-   * Creates the daily return curve sheet showing ballot returns by date
+   * Creates the daily return curve sheet showing ballot returns by date with party breakdown
    */
   private createDailyReturnCurveSheet(
     statistics: AbsenteeStatisticsResult
   ): XLSX.WorkSheet {
     const data: any[][] = [];
 
-    // Add daily return curve data
+    // Add daily return curve data with party breakdown
     for (const day of statistics.dailyReturnCurve) {
-      data.push([day.date, day.returned, day.cumulative]);
+      const row = [day.date, day.returned, day.cumulative];
+
+      // Add party-specific returned and cumulative columns for each party
+      for (const party of PARTY_TYPES) {
+        row.push(day.partyBreakdown.returned[party]);
+        row.push(day.partyBreakdown.cumulative[party]);
+      }
+
+      data.push(row);
+    }
+
+    // Create headers for party breakdown columns
+    const headers = ['Date', 'Returned', 'Cumulative'];
+    for (const party of PARTY_TYPES) {
+      headers.push(`${party} Returned`);
+      headers.push(`${party} Cumulative`);
+    }
+
+    // Create column widths (base columns + party columns)
+    const columnWidths = [15, 12, 12]; // Base columns
+    for (const party of PARTY_TYPES) {
+      columnWidths.push(12, 12); // Party returned and cumulative columns
     }
 
     return this.createGenericSheet({
       title: 'Daily Return Curve',
-      headers: ['Date', 'Returned', 'Cumulative'],
+      headers,
       data,
-      columnWidths: [15, 12, 12],
+      columnWidths,
     });
   }
 

@@ -17,6 +17,7 @@ import {
   isBallotSent,
   isBallotReturned,
   calculatePercentage,
+  PARTY_TYPES,
   type PartyType,
 } from '../../reportTypes/wardTownMapping';
 import {
@@ -88,11 +89,15 @@ export interface SummaryStatistics {
   wardTownCount: number;
 }
 
-// Daily return curve entry
+// Daily return curve entry with party breakdown
 export interface DailyReturnEntry {
   date: string;
   returned: number;
   cumulative: number;
+  partyBreakdown: {
+    returned: Record<PartyType, number>;
+    cumulative: Record<PartyType, number>;
+  };
 }
 
 // Simplified main result interface
@@ -251,7 +256,7 @@ export class AbsenteeStatisticsCalculator {
   }
 
   /**
-   * Calculates daily return curve data from ballot return dates
+   * Calculates daily return curve data from ballot return dates with party breakdown
    */
   private calculateDailyReturnCurve(
     rows: AbsenteeStandardBallotRequestRow[]
@@ -259,8 +264,11 @@ export class AbsenteeStatisticsCalculator {
     // Filter rows that have been returned (have a return date)
     const returnedRows = rows.filter(isBallotReturned);
 
-    // Group by date
-    const dateGroups: Record<string, number> = {};
+    // Group by date and party
+    const dateGroups: Record<
+      string,
+      { total: number; byParty: Record<PartyType, number> }
+    > = {};
 
     for (const row of returnedRows) {
       const returnDate = row['Ballot Last Received Date']?.trim();
@@ -268,21 +276,78 @@ export class AbsenteeStatisticsCalculator {
         // Normalize date format (assuming YYYY-MM-DD format)
         const normalizedDate = this.normalizeDate(returnDate);
         if (normalizedDate) {
-          dateGroups[normalizedDate] = (dateGroups[normalizedDate] ?? 0) + 1;
+          // Initialize date group if it doesn't exist
+          if (!dateGroups[normalizedDate]) {
+            dateGroups[normalizedDate] = {
+              total: 0,
+              byParty: {
+                DEM: 0,
+                REP: 0,
+                BLK: 0,
+                CON: 0,
+                WOR: 0,
+                OTH: 0,
+                IND: 0,
+              },
+            };
+          }
+
+          // Increment total count
+          dateGroups[normalizedDate].total++;
+
+          // Increment party-specific count
+          const normalizedParty = row.Party.trim().toUpperCase() as PartyType;
+          if (
+            dateGroups[normalizedDate].byParty[normalizedParty] !== undefined
+          ) {
+            dateGroups[normalizedDate].byParty[normalizedParty]++;
+          }
         }
       }
     }
 
     // Convert to array and sort by date
     const dailyData = Object.entries(dateGroups)
-      .map(([date, count]) => ({ date, returned: count, cumulative: 0 }))
+      .map(([date, data]) => ({
+        date,
+        returned: data.total,
+        cumulative: 0,
+        partyBreakdown: {
+          returned: data.byParty,
+          cumulative: {
+            DEM: 0,
+            REP: 0,
+            BLK: 0,
+            CON: 0,
+            WOR: 0,
+            OTH: 0,
+            IND: 0,
+          },
+        },
+      }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Calculate cumulative totals
-    let cumulative = 0;
+    // Calculate cumulative totals for overall and by party
+    const cumulativeTotals: Record<PartyType, number> = {
+      DEM: 0,
+      REP: 0,
+      BLK: 0,
+      CON: 0,
+      WOR: 0,
+      OTH: 0,
+      IND: 0,
+    };
+    let totalCumulative = 0;
+
     for (const day of dailyData) {
-      cumulative += day.returned;
-      day.cumulative = cumulative;
+      totalCumulative += day.returned;
+      day.cumulative = totalCumulative;
+
+      // Calculate cumulative totals for each party
+      for (const party of PARTY_TYPES) {
+        cumulativeTotals[party] += day.partyBreakdown.returned[party];
+        day.partyBreakdown.cumulative[party] = cumulativeTotals[party];
+      }
     }
 
     return dailyData;
