@@ -3,6 +3,7 @@
 import React from "react";
 import { CommitteeUploadDiscrepancies } from "./CommitteeUploadDiscrepancies";
 import { InviteManagement } from "./InviteManagement";
+import { SpecialReports } from "./SpecialReports";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ElectionDates } from "../dashboard/ElectionDates";
 import { ElectionOffices } from "../dashboard/ElectionOffices";
@@ -20,13 +21,14 @@ export const AdminDataClient = ({
   return (
     <div className="w-full m-4 h-full">
       <Tabs defaultValue="invites" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="invites">User Invites</TabsTrigger>
           <TabsTrigger value="discrepancies">
             Committee Upload Discrepancies
           </TabsTrigger>
           <TabsTrigger value="election-dates">Election Dates</TabsTrigger>
           <TabsTrigger value="election-offices">Office Names</TabsTrigger>
+          <TabsTrigger value="special-reports">Special Reports</TabsTrigger>
         </TabsList>
         <TabsContent value="invites">
           <InviteManagement />
@@ -39,6 +41,9 @@ export const AdminDataClient = ({
         </TabsContent>
         <TabsContent value="election-offices">
           <ElectionOffices officeNames={officeNames} />
+        </TabsContent>
+        <TabsContent value="special-reports">
+          <SpecialReports />
         </TabsContent>
       </Tabs>
     </div>

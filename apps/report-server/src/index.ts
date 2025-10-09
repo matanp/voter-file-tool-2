@@ -9,9 +9,9 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
-  sanitizeForS3Key,
 } from './utils';
 import { generateUnifiedXLSXAndUpload } from './xlsxGenerator';
+import { processAbsenteeReport } from './reportProcessors';
 import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
@@ -22,50 +22,16 @@ import {
   type CallbackUrl,
   type VoterRecordField,
   type SearchQueryField,
-  type CommitteeSelection,
-  type CommitteeWithMembers,
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
   normalizeSearchQuery,
+  generateReportFilename,
 } from '@voter-file-tool/shared-validators';
 import {
   mapCommitteesToReportShape,
   fetchCommitteeData,
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
-
-// Function to generate a descriptive filename
-function generateFilename(
-  reportName: string | undefined,
-  reportType: string,
-  format: string,
-  sanitizedAuthor: string
-): string {
-  const now = new Date();
-  const isoString = now.toISOString();
-  const [datePart, timePart] = isoString.split('T');
-  const timestamp = datePart; // YYYY-MM-DD format
-  const time = timePart.split('.')[0].replace(/:/g, '-'); // HH-MM-SS format
-
-  const sanitizedName = reportName ? sanitizeForS3Key(reportName) : '';
-
-  const namePart = sanitizedName ? `${sanitizedName}-` : '';
-  const getTypePart = (reportType: string): string => {
-    switch (reportType) {
-      case 'ldCommittees':
-        return 'committeeReport';
-      case 'voterList':
-        return 'voterList';
-      default:
-        return 'designatedPetition';
-    }
-  };
-
-  const typePart = getTypePart(reportType);
-  const formatPart = format === 'xlsx' ? 'xlsx' : 'pdf';
-
-  return `${sanitizedAuthor}/${typePart}/${namePart}${timestamp}-${time}.${formatPart}`;
-}
 
 config();
 
@@ -213,17 +179,9 @@ function extractXLSXConfig(jobData: EnrichedReportData) {
 async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName: string;
-    const { type, reportAuthor, jobId, name } = jobData;
-    const format =
-      (type === 'ldCommittees' || type === 'voterList') && 'format' in jobData
-        ? (jobData as any).format
-        : 'pdf';
+    const { type, reportAuthor, jobId, name, format } = jobData;
 
-    // Sanitize reportAuthor for safe S3 key usage
-    const sanitizedAuthor = sanitizeForS3Key(reportAuthor, true);
-
-    // Generate descriptive filename using report name, type, and timestamp
-    fileName = generateFilename(name, type, format, sanitizedAuthor);
+    fileName = generateReportFilename(name, type, format, reportAuthor);
 
     if (type === 'ldCommittees') {
       console.log('Fetching committee data from database...');
@@ -291,6 +249,12 @@ async function processJob(jobData: EnrichedReportData) {
         numPages
       );
       await generatePDFAndUpload(html, false, fileName);
+    } else if (type === 'absenteeReport') {
+      if (!('csvFileKey' in jobData) || !jobData.csvFileKey) {
+        throw new Error('csvFileKey is required for absentee reports');
+      }
+
+      await processAbsenteeReport(fileName, jobId, jobData.csvFileKey);
     } else {
       throw new Error('Unknown job type');
     }
