@@ -3,7 +3,7 @@
 
 import * as XLSX from 'xlsx';
 import { AbsenteeStatisticsResult } from './AbsenteeStatisticsCalculator';
-import { PARTY_TYPES } from '../../reportTypes/wardTownMapping';
+import { PARTY_TYPES } from '../../utils/absenteeDataUtils';
 import {
   sanitizeWorksheetName,
   uploadXLSXBuffer,
@@ -23,7 +23,6 @@ interface SheetConfig {
 
 interface PartySheetConfig extends SheetConfig {
   includePartyColumns: boolean;
-  partyColumnCount?: number; // Number of party columns per party (default: 4 for Req, Sent, Ret, %)
 }
 
 export class AbsenteeReportExporter {
@@ -63,20 +62,12 @@ export class AbsenteeReportExporter {
     // Create headers
     const headers = [...config.headers];
 
-    // Add party column headers if requested
+    // Add party column headers if requested (always 3 columns: Req, Ret, %)
     if (config.includePartyColumns) {
-      const partyColumnCount = config.partyColumnCount ?? 4;
       for (const party of PARTY_TYPES) {
-        if (partyColumnCount === 4) {
-          headers.push(`${party} Req`);
-          headers.push(`${party} Sent`);
-          headers.push(`${party} Ret`);
-          headers.push(`${party} %`);
-        } else if (partyColumnCount === 3) {
-          headers.push(`${party} Req`);
-          headers.push(`${party} Ret`);
-          headers.push(`${party} %`);
-        }
+        headers.push(`${party} Req`);
+        headers.push(`${party} Ret`);
+        headers.push(`${party} %`);
       }
     }
 
@@ -86,13 +77,10 @@ export class AbsenteeReportExporter {
     // Create column widths
     const columnWidths = [...config.columnWidths];
 
-    // Add widths for party columns if requested
+    // Add widths for party columns if requested (always 3 columns per party)
     if (config.includePartyColumns) {
-      const partyColumnCount = config.partyColumnCount ?? 4;
       for (const party of PARTY_TYPES) {
-        for (let i = 0; i < partyColumnCount; i++) {
-          columnWidths.push(10); // Standard party column width
-        }
+        columnWidths.push(10, 10, 10); // Standard party column widths
       }
     }
 
@@ -208,14 +196,10 @@ export class AbsenteeReportExporter {
       ['Raw Rows Read', statistics.totalRecords.toString()],
       ['Rows After Dedupe', statistics.totalRecords.toString()],
       ['Rows After Filters', statistics.totalRecords.toString()],
-      ['Elapsed (ms) to diagnostics', '0'],
       [], // Empty row for spacing
       ['Universe Totals'],
       ['Metric', 'Value'],
-      [
-        'Requested (filtered universe)',
-        statistics.summaryMetrics.requested.toString(),
-      ],
+      ['Ballots Requested', statistics.summaryMetrics.requested.toString()],
       [
         'Ballots Sent (have date)',
         statistics.summaryMetrics.ballotsSent.toString(),
@@ -252,11 +236,10 @@ export class AbsenteeReportExporter {
         `${stat.returnPercentage}%`,
       ];
 
-      // Add party-specific statistics (Req, Sent, Ret, % for each party)
+      // Add party-specific statistics (Req, Ret, % for each party)
       for (const party of PARTY_TYPES) {
         const partyStat = stat.partyStats[party];
         row.push(partyStat.requested);
-        row.push(partyStat.ballotsSent);
         row.push(partyStat.returned);
         row.push(`${partyStat.percentage}%`);
       }
@@ -275,7 +258,6 @@ export class AbsenteeReportExporter {
       data,
       columnWidths: [20, 12, 12, 12, 12], // Base columns
       includePartyColumns: true,
-      partyColumnCount: 4,
     });
   }
 
@@ -313,7 +295,6 @@ export class AbsenteeReportExporter {
       data,
       columnWidths: [20, 12, 12, 12], // Base columns
       includePartyColumns: true,
-      partyColumnCount: 3,
     });
   }
 
@@ -351,7 +332,6 @@ export class AbsenteeReportExporter {
       data,
       columnWidths: [15, 12, 12, 12], // Base columns
       includePartyColumns: true,
-      partyColumnCount: 3,
     });
   }
 
@@ -389,7 +369,6 @@ export class AbsenteeReportExporter {
       data,
       columnWidths: [15, 12, 12, 12], // Base columns
       includePartyColumns: true,
-      partyColumnCount: 3,
     });
   }
 
@@ -427,7 +406,6 @@ export class AbsenteeReportExporter {
       data,
       columnWidths: [15, 12, 12, 12], // Base columns
       includePartyColumns: true,
-      partyColumnCount: 3,
     });
   }
 
@@ -485,7 +463,7 @@ export class AbsenteeReportExporter {
     countyLegCount: number;
     columnCount: number;
   } {
-    const columnCount = 5 + PARTY_TYPES.length * 4; // Base columns (5) + party columns (4 each)
+    const columnCount = 5 + PARTY_TYPES.length * 3; // Base columns (5) + party columns (3 each: Req, Ret, %)
 
     return {
       totalRecords: statistics.totalRecords,

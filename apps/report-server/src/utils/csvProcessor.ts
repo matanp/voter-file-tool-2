@@ -62,6 +62,7 @@ export class CsvProcessor<T extends CsvRow> {
         columns: true,
         skip_empty_lines: this.config.skipEmptyLines,
         trim: this.config.trim,
+        bom: true, // Strip UTF-8 BOM if present
       });
 
       if (!records.length) {

@@ -1,7 +1,7 @@
-// src/reportTypes/wardTownMapping.ts
-// Purpose: Define Ward-to-Town mapping and processing utilities for Absentee Standard Ballot Request data
+// src/utils/absenteeDataUtils.ts
+// Purpose: Utility functions for processing Absentee Standard Ballot Request data including Ward-to-Town mapping and statistics
 
-import { AbsenteeStandardBallotRequestRow } from './absenteeStandardBallotRequest';
+import { AbsenteeStandardBallotRequestRow } from '../reportTypes/absenteeStandardBallotRequest';
 
 /**
  * Hardcoded mapping of Ward numbers to Town names.

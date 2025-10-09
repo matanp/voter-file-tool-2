@@ -2,7 +2,7 @@
 // Purpose: Generic statistics processor to eliminate repetitive grouping and calculation patterns
 
 import { AbsenteeStandardBallotRequestRow } from '../reportTypes/absenteeStandardBallotRequest';
-import { PartyType } from '../reportTypes/wardTownMapping';
+import { PartyType } from '../utils/absenteeDataUtils';
 
 /**
  * Configuration for different grouping types

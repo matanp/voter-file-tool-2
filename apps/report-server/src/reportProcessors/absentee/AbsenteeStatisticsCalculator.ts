@@ -19,7 +19,7 @@ import {
   calculatePercentage,
   PARTY_TYPES,
   type PartyType,
-} from '../../reportTypes/wardTownMapping';
+} from '../../utils/absenteeDataUtils';
 import {
   createGroupingConfig,
   calculateGroupedStatistics,

@@ -3,7 +3,6 @@ import express, { Request, Response } from 'express';
 import { gunzipSync } from 'node:zlib';
 import { config } from 'dotenv';
 import async from 'async';
-import { resolve } from 'path';
 
 import path from 'path';
 import {

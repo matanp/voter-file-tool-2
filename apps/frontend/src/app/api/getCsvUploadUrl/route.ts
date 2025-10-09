@@ -1,8 +1,20 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getPresignedUploadUrl } from "~/lib/s3Utils";
+import { withPrivilege } from "../lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
+import type { Session } from "next-auth";
+import { sanitizeForS3Key } from "@voter-file-tool/shared-validators";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
+
+// Valid CSV content types
+const VALID_CSV_CONTENT_TYPES = [
+  "text/csv",
+  "application/csv",
+  "text/plain",
+  "application/vnd.ms-excel", // Excel CSV export
+] as const;
 
 interface UploadRequest {
   fileName: string;
@@ -10,12 +22,34 @@ interface UploadRequest {
   contentType: string;
 }
 
-export async function POST(req: NextRequest) {
+/**
+ * Validates that the provided content type is valid for CSV files
+ */
+function isValidCsvContentType(
+  contentType: string,
+): contentType is (typeof VALID_CSV_CONTENT_TYPES)[number] {
+  return VALID_CSV_CONTENT_TYPES.includes(
+    contentType as (typeof VALID_CSV_CONTENT_TYPES)[number],
+  );
+}
+
+async function getCsvUploadUrlHandler(req: NextRequest, _session: Session) {
   try {
     const { fileName, fileSize, contentType } =
       (await req.json()) as UploadRequest;
 
-    // Basic validation for admin use
+    // Validate required fields
+    if (!fileName || !contentType || fileSize === undefined) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing required fields: fileName, contentType, and fileSize are required",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Validate file extension
     if (!fileName.endsWith(".csv")) {
       return NextResponse.json(
         { error: "Only CSV files are allowed" },
@@ -23,6 +57,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate content type
+    if (!isValidCsvContentType(contentType)) {
+      return NextResponse.json(
+        {
+          error: "Invalid content type. Only CSV content types are allowed",
+          allowedTypes: VALID_CSV_CONTENT_TYPES,
+          providedType: contentType,
+        },
+        { status: 400 },
+      );
+    }
+
+    // Validate file size
     if (fileSize > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: "File too large (max 50MB)" },
@@ -32,10 +79,10 @@ export async function POST(req: NextRequest) {
 
     // Generate unique key to avoid conflicts
     const timestamp = Date.now();
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const sanitizedFileName = sanitizeForS3Key(fileName);
     const fileKey = `csv-uploads/${timestamp}-${sanitizedFileName}`;
 
-    // Get presigned URL
+    // Get presigned URL with validated content type
     const uploadUrl = await getPresignedUploadUrl(fileKey, contentType);
 
     return NextResponse.json({ uploadUrl, fileKey });
@@ -49,3 +96,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// Export the authenticated handler
+export const POST = withPrivilege(PrivilegeLevel.Admin, getCsvUploadUrlHandler);

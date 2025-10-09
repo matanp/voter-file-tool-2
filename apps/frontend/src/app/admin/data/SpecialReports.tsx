@@ -7,6 +7,9 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import { type ReportTypeKey } from "@voter-file-tool/shared-validators";
+
+const ABSENTEE_REPORT_TYPE: ReportTypeKey = "absenteeReport";
 
 interface AbsenteeReportFormData {
   name: string;
@@ -109,7 +112,7 @@ export const SpecialReports = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          type: "absenteeReport",
+          type: ABSENTEE_REPORT_TYPE,
           name: formData.name,
           format: "xlsx",
           csvFileKey,
@@ -246,7 +249,7 @@ export const SpecialReports = () => {
                   Generating...
                 </>
               ) : (
-                "Uplolad File and Generate Report"
+                "Upload File and Generate Report"
               )}
             </Button>
           </form>
