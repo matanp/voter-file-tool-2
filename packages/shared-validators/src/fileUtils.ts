@@ -94,7 +94,13 @@ export function getUserDisplayName(
     const fallbackIdentifier = email
       ? getEmailUsername(email)
       : 'unidentified-user';
-    displayName = `${fallbackIdentifier}-${shortHash}`;
+
+    const sanitizedFallback = sanitizeForS3Key(fallbackIdentifier, false);
+
+    const safeFallback =
+      sanitizedFallback || sanitizeForS3Key('unidentified-user', false);
+
+    displayName = `${safeFallback}-${shortHash}`;
   }
 
   return displayName;

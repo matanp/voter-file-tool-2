@@ -45,10 +45,11 @@ export type WardNumber = keyof typeof WARD_TO_TOWN_MAPPING;
 export type TownName = (typeof WARD_TO_TOWN_MAPPING)[WardNumber];
 
 /**
- * Strips leading zeros from a ward number string
+ * Strips leading zeros from a ward number string and trims whitespace
  */
 export const stripLeadingZeros = (wardNumber: string): string => {
-  return wardNumber.replace(/^0+/, '') || '0';
+  const trimmed = wardNumber.trim();
+  return trimmed.replace(/^0+/, '') || '0';
 };
 
 /**
@@ -152,7 +153,8 @@ export const getPartyStats = (rows: AbsenteeStandardBallotRequestRow[]) => {
   let invalidPartyCount = 0;
   const invalidPartyValues = new Set<string>();
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const normalizedParty = row.Party.trim().toUpperCase();
     const ballotsSent = isBallotSent(row);
     const returned = isBallotReturned(row);
@@ -162,10 +164,10 @@ export const getPartyStats = (rows: AbsenteeStandardBallotRequestRow[]) => {
       invalidPartyCount++;
       invalidPartyValues.add(normalizedParty);
 
-      // Log warning with raw value and row identifier for debugging
+      // Log warning with raw value and row index for debugging (no PII)
       console.warn(
         `Invalid party value found: "${row.Party}" (normalized: "${normalizedParty}") ` +
-          `in row with Last Name: "${row['Last Name']}", First Name: "${row['First Name']}"`
+          `at row index ${i}`
       );
       continue; // Skip this row
     }

@@ -286,28 +286,16 @@ export class AbsenteeStatisticsCalculator {
           if (!dateGroups[normalizedDate]) {
             dateGroups[normalizedDate] = {
               total: 0,
-              byParty: {
-                DEM: 0,
-                REP: 0,
-                BLK: 0,
-                CON: 0,
-                WOR: 0,
-                OTH: 0,
-                IND: 0,
-              },
+              byParty: this.createZeroedPartyMap(),
             };
           }
 
           // Increment total count
           dateGroups[normalizedDate].total++;
 
-          // Increment party-specific count
-          const normalizedParty = row.Party.trim().toUpperCase() as PartyType;
-          if (
-            dateGroups[normalizedDate].byParty[normalizedParty] !== undefined
-          ) {
-            dateGroups[normalizedDate].byParty[normalizedParty]++;
-          }
+          // Increment party-specific count using normalized party
+          const normalizedParty = this.normalizeParty(row.Party);
+          dateGroups[normalizedDate].byParty[normalizedParty]++;
         }
       }
     }
@@ -320,29 +308,13 @@ export class AbsenteeStatisticsCalculator {
         cumulative: 0,
         partyBreakdown: {
           returned: data.byParty,
-          cumulative: {
-            DEM: 0,
-            REP: 0,
-            BLK: 0,
-            CON: 0,
-            WOR: 0,
-            OTH: 0,
-            IND: 0,
-          },
+          cumulative: this.createZeroedPartyMap(),
         },
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // Calculate cumulative totals for overall and by party
-    const cumulativeTotals: Record<PartyType, number> = {
-      DEM: 0,
-      REP: 0,
-      BLK: 0,
-      CON: 0,
-      WOR: 0,
-      OTH: 0,
-      IND: 0,
-    };
+    const cumulativeTotals = this.createZeroedPartyMap();
     let totalCumulative = 0;
 
     for (const day of dailyData) {
@@ -360,21 +332,57 @@ export class AbsenteeStatisticsCalculator {
   }
 
   /**
-   * Normalizes date strings to YYYY-MM-DD format
+   * Creates a zeroed party statistics map using PARTY_TYPES
+   */
+  private createZeroedPartyMap(): Record<PartyType, number> {
+    const partyMap: Record<PartyType, number> = {} as Record<PartyType, number>;
+    for (const party of PARTY_TYPES) {
+      partyMap[party] = 0;
+    }
+    return partyMap;
+  }
+
+  /**
+   * Maps party string to valid PartyType, defaulting unknown parties to OTH
+   */
+  private normalizeParty(partyStr: string): PartyType {
+    const normalizedParty = partyStr.trim().toUpperCase() as PartyType;
+    return PARTY_TYPES.includes(normalizedParty) ? normalizedParty : 'OTH';
+  }
+
+  /**
+   * Deterministically parses date strings to YYYY-MM-DD format without timezone math
+   * Handles YYYY-MM-DD, MM/DD/YYYY, and ISO datetime strings
    */
   private normalizeDate(dateStr: string): string | null {
-    try {
-      // Handle various date formats
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) {
-        return null;
-      }
-
-      // Return in YYYY-MM-DD format
-      return date.toISOString().split('T')[0];
-    } catch {
+    if (!dateStr?.trim()) {
       return null;
     }
+
+    const trimmed = dateStr.trim();
+
+    // Handle YYYY-MM-DD format (already correct)
+    const yyyyMmDdMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (yyyyMmDdMatch) {
+      const [, year, month, day] = yyyyMmDdMatch;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    // Handle MM/DD/YYYY format
+    const mmDdYyyyMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmDdYyyyMatch) {
+      const [, month, day, year] = mmDdYyyyMatch;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    // Handle ISO datetime format (YYYY-MM-DDTHH:mm:ss...)
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})T/);
+    if (isoMatch) {
+      const [, year, month, day] = isoMatch;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    return null;
   }
 
   /**
