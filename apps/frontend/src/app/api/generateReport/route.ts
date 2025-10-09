@@ -14,6 +14,7 @@ import { PrivilegeLevel, JobStatus } from "@prisma/client";
 import type { Session } from "next-auth";
 import { gzipSync } from "node:zlib";
 import { createWebhookSignature } from "~/lib/webhookUtils";
+import { getUserDisplayName } from "@voter-file-tool/shared-validators";
 
 const PDF_API_BASE = process.env.PDF_SERVER_URL
   ? process.env.PDF_SERVER_URL
@@ -66,7 +67,11 @@ export const POST = withPrivilege(
 
       const enrichedReportData: EnrichedReportData = {
         ...reportData,
-        reportAuthor: session.user.id,
+        reportAuthor: getUserDisplayName(
+          session.user.id,
+          session.user.name,
+          session.user.email,
+        ),
         jobId: reportId,
       };
 

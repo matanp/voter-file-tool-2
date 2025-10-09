@@ -10,7 +10,6 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
-  sanitizeForS3Key,
 } from './utils';
 import { generateUnifiedXLSXAndUpload } from './xlsxGenerator';
 import { processAbsenteeReport } from './reportProcessors';
@@ -27,40 +26,13 @@ import {
   convertPrismaVoterRecordToAPI,
   buildPrismaWhereClause,
   normalizeSearchQuery,
-  getFilenameReportType,
-  validateReportType,
+  generateReportFilename,
 } from '@voter-file-tool/shared-validators';
 import {
   mapCommitteesToReportShape,
   fetchCommitteeData,
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
-
-// Function to generate a descriptive filename
-function generateFilename(
-  reportName: string | undefined,
-  reportType: string,
-  format: string,
-  sanitizedAuthor: string
-): string {
-  const now = new Date();
-  const isoString = now.toISOString();
-  const [datePart, timePart] = isoString.split('T');
-  const timestamp = datePart; // YYYY-MM-DD format
-  const time = timePart.split('.')[0].replace(/:/g, '-'); // HH-MM-SS format
-
-  const sanitizedName = reportName ? sanitizeForS3Key(reportName) : '';
-
-  const namePart = sanitizedName ? `${sanitizedName}-` : '';
-  const getTypePart = (reportType: string): string => {
-    return getFilenameReportType(validateReportType(reportType));
-  };
-
-  const typePart = getTypePart(reportType);
-  const formatPart = format === 'xlsx' ? 'xlsx' : 'pdf';
-
-  return `${sanitizedAuthor}/${typePart}/${namePart}${timestamp}-${time}.${formatPart}`;
-}
 
 config();
 
@@ -210,11 +182,7 @@ async function processJob(jobData: EnrichedReportData) {
     let fileName: string;
     const { type, reportAuthor, jobId, name, format } = jobData;
 
-    // Sanitize reportAuthor for safe S3 key usage
-    const sanitizedAuthor = sanitizeForS3Key(reportAuthor, true);
-
-    // Generate descriptive filename using report name, type, and timestamp
-    fileName = generateFilename(name, type, format, sanitizedAuthor);
+    fileName = generateReportFilename(name, type, format, reportAuthor);
 
     if (type === 'ldCommittees') {
       console.log('Fetching committee data from database...');
