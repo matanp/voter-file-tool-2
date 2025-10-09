@@ -136,7 +136,10 @@ export class AbsenteeStatisticsCalculator {
       this.validateInputData(rows);
 
       // Process all grouping types using individual configurations
-      const wardTownConfig = createGroupingConfig<WardTownStatistics>(
+      const wardTownConfig = createGroupingConfig<
+        AbsenteeStandardBallotRequestRow,
+        WardTownStatistics
+      >(
         groupRowsByWardTown,
         getWardTownDetailedStats,
         'wardTownId',
@@ -144,29 +147,30 @@ export class AbsenteeStatisticsCalculator {
         parseWardTownId
       );
 
-      const deliveryMethodConfig =
-        createGroupingConfig<DeliveryMethodStatistics>(
-          groupRowsByDeliveryMethod,
-          getDeliveryMethodDetailedStats,
-          'deliveryMethod',
-          'Delivery Method'
-        );
-
-      const stSenConfig = createGroupingConfig<StSenStatistics>(
-        groupRowsByStSen,
-        getStSenDetailedStats,
-        'stSen',
-        'State Senate'
+      const deliveryMethodConfig = createGroupingConfig<
+        AbsenteeStandardBallotRequestRow,
+        DeliveryMethodStatistics
+      >(
+        groupRowsByDeliveryMethod,
+        getDeliveryMethodDetailedStats,
+        'deliveryMethod',
+        'Delivery Method'
       );
 
-      const stLegConfig = createGroupingConfig<StLegStatistics>(
-        groupRowsByStLeg,
-        getStLegDetailedStats,
-        'stLeg',
-        'State Legislature'
-      );
+      const stSenConfig = createGroupingConfig<
+        AbsenteeStandardBallotRequestRow,
+        StSenStatistics
+      >(groupRowsByStSen, getStSenDetailedStats, 'stSen', 'State Senate');
 
-      const countyLegConfig = createGroupingConfig<CountyLegStatistics>(
+      const stLegConfig = createGroupingConfig<
+        AbsenteeStandardBallotRequestRow,
+        StLegStatistics
+      >(groupRowsByStLeg, getStLegDetailedStats, 'stLeg', 'State Legislature');
+
+      const countyLegConfig = createGroupingConfig<
+        AbsenteeStandardBallotRequestRow,
+        CountyLegStatistics
+      >(
         groupRowsByCountyLeg,
         getCountyLegDetailedStats,
         'countyLeg',
@@ -174,24 +178,26 @@ export class AbsenteeStatisticsCalculator {
       );
 
       // Process each grouping type
-      const wardTownResult = calculateGroupedStatistics<WardTownStatistics>(
-        rows,
-        [wardTownConfig]
-      )[0];
-      const deliveryMethodResult =
-        calculateGroupedStatistics<DeliveryMethodStatistics>(rows, [
-          deliveryMethodConfig,
-        ])[0];
-      const stSenResult = calculateGroupedStatistics<StSenStatistics>(rows, [
-        stSenConfig,
-      ])[0];
-      const stLegResult = calculateGroupedStatistics<StLegStatistics>(rows, [
-        stLegConfig,
-      ])[0];
-      const countyLegResult = calculateGroupedStatistics<CountyLegStatistics>(
-        rows,
-        [countyLegConfig]
-      )[0];
+      const wardTownResult = calculateGroupedStatistics<
+        AbsenteeStandardBallotRequestRow,
+        WardTownStatistics
+      >(rows, [wardTownConfig])[0];
+      const deliveryMethodResult = calculateGroupedStatistics<
+        AbsenteeStandardBallotRequestRow,
+        DeliveryMethodStatistics
+      >(rows, [deliveryMethodConfig])[0];
+      const stSenResult = calculateGroupedStatistics<
+        AbsenteeStandardBallotRequestRow,
+        StSenStatistics
+      >(rows, [stSenConfig])[0];
+      const stLegResult = calculateGroupedStatistics<
+        AbsenteeStandardBallotRequestRow,
+        StLegStatistics
+      >(rows, [stLegConfig])[0];
+      const countyLegResult = calculateGroupedStatistics<
+        AbsenteeStandardBallotRequestRow,
+        CountyLegStatistics
+      >(rows, [countyLegConfig])[0];
 
       // Calculate summary metrics
       const summaryMetrics = this.calculateSummaryMetrics(rows);
