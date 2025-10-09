@@ -131,6 +131,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       type: "designatedPetition",
       name: reportName.trim() || undefined,
       description: reportDescription.trim() || undefined,
+      format: "pdf",
       payload: {
         candidates: candidatesData,
         vacancyAppointments: vacancyAppointmentsData,
