@@ -7,13 +7,13 @@ import { uploadFileToR2 } from '../s3Utils';
 
 /**
  * Sanitizes worksheet names for Excel compatibility
- * Excel limits worksheet names to 31 characters and disallows: / \ ? * [ ]
+ * Excel limits worksheet names to 31 characters and disallows: / \ ? * [ ] :
  * @param name - The original worksheet name
  * @returns Sanitized worksheet name that meets Excel requirements
  */
 export function sanitizeWorksheetName(name: string): string {
   // Remove or replace disallowed characters
-  let sanitized = name.replace(/[/\\?*[\]]/g, '');
+  let sanitized = name.replace(/[/\\?*[\]:]/g, '');
 
   // Truncate to 31 characters (Excel's limit)
   if (sanitized.length > 31) {

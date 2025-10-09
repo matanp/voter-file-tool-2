@@ -13,6 +13,10 @@ import {
   getStLegDetailedStats,
   groupRowsByCountyLeg,
   getCountyLegDetailedStats,
+  parseWardTownId,
+  isBallotSent,
+  isBallotReturned,
+  calculatePercentage,
   type PartyType,
 } from '../../reportTypes/wardTownMapping';
 import {
@@ -132,11 +136,7 @@ export class AbsenteeStatisticsCalculator {
         getWardTownDetailedStats,
         'wardTownId',
         'Ward/Town',
-        (wardTownId: string) => {
-          const [town, wardWithParens] = wardTownId.split(' (');
-          const ward = wardWithParens.replace(')', '');
-          return { town, ward };
-        }
+        parseWardTownId
       );
 
       const deliveryMethodConfig =
@@ -234,20 +234,13 @@ export class AbsenteeStatisticsCalculator {
     const requested = rows.length;
 
     // Ballots sent: records with Ballot Last Issued Date
-    const ballotsSent = rows.filter(
-      (row) => row['Ballot Last Issued Date']?.trim() !== ''
-    ).length;
+    const ballotsSent = rows.filter(isBallotSent).length;
 
-    // Ballots returned: records with Ballot Last Received Date
-    const ballotsReturned = rows.filter(
-      (row) => row['Ballot Last Received Date']?.trim() !== ''
-    ).length;
+    // Ballots returned: records with Last Received Delivery Status === 'Received'
+    const ballotsReturned = rows.filter(isBallotReturned).length;
 
     // Calculate return rate as percentage
-    const returnRate =
-      ballotsSent > 0
-        ? Math.round((ballotsReturned / ballotsSent) * 100 * 100) / 100
-        : 0;
+    const returnRate = calculatePercentage(ballotsReturned, ballotsSent);
 
     return {
       requested,
@@ -264,15 +257,13 @@ export class AbsenteeStatisticsCalculator {
     rows: AbsenteeStandardBallotRequestRow[]
   ): DailyReturnEntry[] {
     // Filter rows that have been returned (have a return date)
-    const returnedRows = rows.filter(
-      (row) => row['Ballot Last Received Date']?.trim() !== ''
-    );
+    const returnedRows = rows.filter(isBallotReturned);
 
     // Group by date
     const dateGroups: Record<string, number> = {};
 
     for (const row of returnedRows) {
-      const returnDate = row['Ballot Last Received Date'].trim();
+      const returnDate = row['Ballot Last Received Date']?.trim();
       if (returnDate) {
         // Normalize date format (assuming YYYY-MM-DD format)
         const normalizedDate = this.normalizeDate(returnDate);
@@ -363,23 +354,10 @@ export class AbsenteeStatisticsCalculator {
    * Gets summary statistics for quick overview
    */
   getSummaryStatistics(result: AbsenteeStatisticsResult): SummaryStatistics {
-    const totalRequested = result.statistics.reduce(
-      (sum, stat) => sum + stat.requested,
-      0
-    );
-    const totalReturned = result.statistics.reduce(
-      (sum, stat) => sum + stat.returned,
-      0
-    );
-    const overallReturnPercentage =
-      totalRequested > 0
-        ? Math.round((totalReturned / totalRequested) * 100 * 100) / 100
-        : 0;
-
     return {
-      totalRequested,
-      totalReturned,
-      overallReturnPercentage,
+      totalRequested: result.summaryMetrics.requested,
+      totalReturned: result.summaryMetrics.ballotsReturned,
+      overallReturnPercentage: result.summaryMetrics.returnRate,
       wardTownCount: result.wardTownCount,
     };
   }

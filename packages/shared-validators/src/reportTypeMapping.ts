@@ -53,7 +53,7 @@ export function getFilenameReportType(type: ReportTypeKey): string {
  * @throws Error if the report type is unknown
  */
 export function validateReportType(type: string): ReportTypeKey {
-  if (type in REPORT_TYPE_MAPPINGS) {
+  if (Object.prototype.hasOwnProperty.call(REPORT_TYPE_MAPPINGS, type)) {
     return type as ReportTypeKey;
   }
 

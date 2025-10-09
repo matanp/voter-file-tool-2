@@ -102,6 +102,15 @@ export const PARTY_TYPES = [
   'IND',
 ] as const;
 
+/**
+ * Type guard to safely validate party strings against allowed party types
+ * @param party - The party string to validate
+ * @returns true if the party is a valid PartyType, false otherwise
+ */
+export function isValidPartyType(party: string): party is PartyType {
+  return PARTY_TYPES.includes(party as PartyType);
+}
+
 export type PartyType = (typeof PARTY_TYPES)[number];
 
 /**
@@ -139,23 +148,58 @@ export const getPartyStats = (rows: AbsenteeStandardBallotRequestRow[]) => {
     IND: { requested: 0, ballotsSent: 0, returned: 0 },
   };
 
+  // Data quality tracking
+  let invalidPartyCount = 0;
+  const invalidPartyValues = new Set<string>();
+
   for (const row of rows) {
-    const party = row.Party.trim().toUpperCase() as PartyType;
+    const normalizedParty = row.Party.trim().toUpperCase();
     const ballotsSent = isBallotSent(row);
     const returned = isBallotReturned(row);
 
-    if (party in stats) {
-      stats[party].requested++;
-      if (ballotsSent) {
-        stats[party].ballotsSent++;
-      }
-      if (returned) {
-        stats[party].returned++;
-      }
+    // Validate party type before casting
+    if (!isValidPartyType(normalizedParty)) {
+      invalidPartyCount++;
+      invalidPartyValues.add(normalizedParty);
+
+      // Log warning with raw value and row identifier for debugging
+      console.warn(
+        `Invalid party value found: "${row.Party}" (normalized: "${normalizedParty}") ` +
+          `in row with Last Name: "${row['Last Name']}", First Name: "${row['First Name']}"`
+      );
+      continue; // Skip this row
+    }
+
+    const party = normalizedParty as PartyType;
+    stats[party].requested++;
+    if (ballotsSent) {
+      stats[party].ballotsSent++;
+    }
+    if (returned) {
+      stats[party].returned++;
     }
   }
 
+  // Log data quality summary
+  if (invalidPartyCount > 0) {
+    console.warn(
+      `Data quality issue: Found ${invalidPartyCount} rows with invalid party values. ` +
+        `Invalid values: ${Array.from(invalidPartyValues).join(', ')}`
+    );
+  }
+
   return stats;
+};
+
+/**
+ * Parses wardTownId string into town and ward components
+ */
+export const parseWardTownId = (
+  wardTownId: string
+): { town: string; ward: string } => {
+  const [town, wardWithParens] = wardTownId.split(' (');
+  const ward = wardWithParens.replace(')', '');
+  return { town, ward };
 };
 
 /**
@@ -168,6 +212,12 @@ export const calculatePercentage = (
   if (requested === 0) return 0;
   return Math.round((returned / requested) * 100 * 100) / 100; // Round to 2 decimal places
 };
+
+/**
+ * Creates a localeCompare sort function for a given field
+ */
+const localeCompareSortFn = (identifierField: string) => (a: any, b: any) =>
+  a[identifierField].localeCompare(b[identifierField]);
 
 /**
  * Configuration for different grouping types
@@ -196,7 +246,7 @@ const calculateDetailedStats = <T extends Record<string, any>>(
       );
 
       const partyStats = getPartyStats(rows);
-      const formattedPartyStats: Record<
+      const formattedPartyStats = {} as Record<
         PartyType,
         {
           requested: number;
@@ -204,7 +254,7 @@ const calculateDetailedStats = <T extends Record<string, any>>(
           returned: number;
           percentage: number;
         }
-      > = {} as any;
+      >;
 
       for (const party of PARTY_TYPES) {
         const stats = partyStats[party];
@@ -259,11 +309,7 @@ export const getWardTownDetailedStats = (
   const config: GroupingConfig = {
     identifierField: 'wardTownId',
     sortFunction: (a, b) => parseInt(a.ward) - parseInt(b.ward),
-    parseIdentifier: (wardTownId: string) => {
-      const [town, wardWithParens] = wardTownId.split(' (');
-      const ward = wardWithParens.replace(')', '');
-      return { town, ward };
-    },
+    parseIdentifier: parseWardTownId,
   };
 
   return calculateDetailedStats(groupedRows, config);
@@ -282,8 +328,7 @@ export const getWardTownSummary = (
 }> => {
   return Object.entries(groupedRows)
     .map(([wardTownId, rows]) => {
-      const [town, wardWithParens] = wardTownId.split(' (');
-      const ward = wardWithParens.replace(')', '');
+      const { town, ward } = parseWardTownId(wardTownId);
 
       return {
         wardTownId,
@@ -296,25 +341,34 @@ export const getWardTownSummary = (
 };
 
 /**
- * Groups Absentee Standard Ballot Request rows by Delivery Method
+ * Generic function to group rows by a field
  */
-export const groupRowsByDeliveryMethod = (
-  rows: AbsenteeStandardBallotRequestRow[]
+const groupRowsByField = (
+  rows: AbsenteeStandardBallotRequestRow[],
+  fieldName: keyof AbsenteeStandardBallotRequestRow,
+  defaultValue = 'Unknown'
 ): Record<string, AbsenteeStandardBallotRequestRow[]> => {
   const grouped: Record<string, AbsenteeStandardBallotRequestRow[]> = {};
 
   for (const row of rows) {
-    const deliveryMethod = row['Delivery Method']?.trim() || 'Unknown';
+    const key = row[fieldName]?.trim() || defaultValue;
 
-    if (!grouped[deliveryMethod]) {
-      grouped[deliveryMethod] = [];
+    if (!grouped[key]) {
+      grouped[key] = [];
     }
 
-    grouped[deliveryMethod].push(row);
+    grouped[key].push(row);
   }
 
   return grouped;
 };
+
+/**
+ * Groups Absentee Standard Ballot Request rows by Delivery Method
+ */
+export const groupRowsByDeliveryMethod = (
+  rows: AbsenteeStandardBallotRequestRow[]
+) => groupRowsByField(rows, 'Delivery Method');
 
 /**
  * Detailed statistics for Delivery Method groups including party breakdowns
@@ -339,7 +393,7 @@ export const getDeliveryMethodDetailedStats = (
 }> => {
   const config: GroupingConfig = {
     identifierField: 'deliveryMethod',
-    sortFunction: (a, b) => a.deliveryMethod.localeCompare(b.deliveryMethod),
+    sortFunction: localeCompareSortFn('deliveryMethod'),
   };
 
   return calculateDetailedStats(groupedRows, config);
@@ -348,44 +402,14 @@ export const getDeliveryMethodDetailedStats = (
 /**
  * Groups Absentee Standard Ballot Request rows by State Senate district
  */
-export const groupRowsByStSen = (
-  rows: AbsenteeStandardBallotRequestRow[]
-): Record<string, AbsenteeStandardBallotRequestRow[]> => {
-  const grouped: Record<string, AbsenteeStandardBallotRequestRow[]> = {};
-
-  for (const row of rows) {
-    const stSen = row['St.Sen']?.trim() || 'Unknown';
-
-    if (!grouped[stSen]) {
-      grouped[stSen] = [];
-    }
-
-    grouped[stSen].push(row);
-  }
-
-  return grouped;
-};
+export const groupRowsByStSen = (rows: AbsenteeStandardBallotRequestRow[]) =>
+  groupRowsByField(rows, 'St.Sen');
 
 /**
  * Groups Absentee Standard Ballot Request rows by State Legislature district
  */
-export const groupRowsByStLeg = (
-  rows: AbsenteeStandardBallotRequestRow[]
-): Record<string, AbsenteeStandardBallotRequestRow[]> => {
-  const grouped: Record<string, AbsenteeStandardBallotRequestRow[]> = {};
-
-  for (const row of rows) {
-    const stLeg = row['St.Leg']?.trim() || 'Unknown';
-
-    if (!grouped[stLeg]) {
-      grouped[stLeg] = [];
-    }
-
-    grouped[stLeg].push(row);
-  }
-
-  return grouped;
-};
+export const groupRowsByStLeg = (rows: AbsenteeStandardBallotRequestRow[]) =>
+  groupRowsByField(rows, 'St.Leg');
 
 /**
  * Detailed statistics for State Senate district groups including party breakdowns
@@ -410,7 +434,7 @@ export const getStSenDetailedStats = (
 }> => {
   const config: GroupingConfig = {
     identifierField: 'stSen',
-    sortFunction: (a, b) => a.stSen.localeCompare(b.stSen),
+    sortFunction: localeCompareSortFn('stSen'),
   };
 
   return calculateDetailedStats(groupedRows, config);
@@ -439,7 +463,7 @@ export const getStLegDetailedStats = (
 }> => {
   const config: GroupingConfig = {
     identifierField: 'stLeg',
-    sortFunction: (a, b) => a.stLeg.localeCompare(b.stLeg),
+    sortFunction: localeCompareSortFn('stLeg'),
   };
 
   return calculateDetailedStats(groupedRows, config);
@@ -447,24 +471,11 @@ export const getStLegDetailedStats = (
 
 /**
  * Groups Absentee Standard Ballot Request rows by County Legislature district
+ * Note: Uses 'Other1' field which contains County Legislature district information
  */
 export const groupRowsByCountyLeg = (
   rows: AbsenteeStandardBallotRequestRow[]
-): Record<string, AbsenteeStandardBallotRequestRow[]> => {
-  const grouped: Record<string, AbsenteeStandardBallotRequestRow[]> = {};
-
-  for (const row of rows) {
-    const countyLeg = row['Other1']?.trim() || 'Unknown';
-
-    if (!grouped[countyLeg]) {
-      grouped[countyLeg] = [];
-    }
-
-    grouped[countyLeg].push(row);
-  }
-
-  return grouped;
-};
+) => groupRowsByField(rows, 'Other1');
 
 /**
  * Detailed statistics for County Legislature district groups including party breakdowns
@@ -489,7 +500,7 @@ export const getCountyLegDetailedStats = (
 }> => {
   const config: GroupingConfig = {
     identifierField: 'countyLeg',
-    sortFunction: (a, b) => a.countyLeg.localeCompare(b.countyLeg),
+    sortFunction: localeCompareSortFn('countyLeg'),
   };
 
   return calculateDetailedStats(groupedRows, config);

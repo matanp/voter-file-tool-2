@@ -115,7 +115,6 @@ export function generateReportFilename(
     validateReportType,
   } = require('./reportTypeMapping');
   const typePart = getFilenameReportType(validateReportType(reportType));
-  const formatPart = format === 'xlsx' ? 'xlsx' : 'pdf';
 
-  return `${sanitizedAuthor}/${typePart}/${namePart}${timestamp}-${time}.${formatPart}`;
+  return `${sanitizedAuthor}/${typePart}/${namePart}${timestamp}-${time}.${format}`;
 }
