@@ -9,7 +9,6 @@ import {
   type CompoundFieldConfig,
 } from '@voter-file-tool/shared-validators';
 import {
-  sanitizeWorksheetName,
   uploadXLSXBuffer,
   createWorksheetWithFieldWidths,
   generateXLSXBuffer,
@@ -122,13 +121,11 @@ const FIELD_WIDTHS: FieldWidths = {
  * Creates a worksheet with headers and data
  * @param data - Array of data rows
  * @param columnsToInclude - Array of column names to include
- * @param columnHeaders - Mapping of column names to display headers
  * @returns XLSX worksheet object
  */
 function createWorksheet(
   data: any[][],
-  columnsToInclude: string[],
-  columnHeaders: ColumnHeaders
+  columnsToInclude: string[]
 ): XLSX.WorkSheet {
   return createWorksheetWithFieldWidths(data, columnsToInclude, FIELD_WIDTHS);
 }
@@ -188,17 +185,12 @@ export async function generateUnifiedXLSXAndUpload(
         }
       }
 
-      const worksheet = createWorksheet(
-        worksheetData,
-        columnsToInclude,
-        columnHeaders
-      );
+      const worksheet = createWorksheet(worksheetData, columnsToInclude);
 
-      const rawSheetName =
+      const sheetName =
         ld.cityTown === 'ROCHESTER'
           ? `LD ${ld.legDistrict.toString().padStart(2, '0')}`
           : ld.cityTown;
-      const sheetName = sanitizeWorksheetName(rawSheetName);
       addWorksheetToWorkbook(workbook, worksheet, sheetName);
     }
   } else {
@@ -229,13 +221,8 @@ export async function generateUnifiedXLSXAndUpload(
       worksheetData.push(rowData);
     }
 
-    const worksheet = createWorksheet(
-      worksheetData,
-      columnsToInclude,
-      columnHeaders
-    );
-    const sheetName = sanitizeWorksheetName('Voter List');
-    addWorksheetToWorkbook(workbook, worksheet, sheetName);
+    const worksheet = createWorksheet(worksheetData, columnsToInclude);
+    addWorksheetToWorkbook(workbook, worksheet, 'Voter List');
   }
 
   const xlsxBuffer = generateXLSXBuffer(workbook);

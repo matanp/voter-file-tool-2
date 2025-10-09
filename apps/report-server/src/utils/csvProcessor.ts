@@ -1,7 +1,7 @@
 // src/utils/csvProcessor.ts
 // Purpose: Generic CSV processing utility to eliminate duplication across report processors
 
-import { readFileSync } from 'fs';
+import { promises as fs } from 'fs';
 import { parse } from 'csv-parse/sync';
 
 // Utility types for cleaner definitions
@@ -56,7 +56,7 @@ export class CsvProcessor<T extends CsvRow> {
       console.log(`Loading CSV data from: ${this.csvFilePath}`);
 
       // Check if file exists and is readable
-      const csvContent = readFileSync(this.csvFilePath, 'utf-8');
+      const csvContent = await fs.readFile(this.csvFilePath, 'utf-8');
 
       if (!csvContent.trim()) {
         throw new Error('CSV file is empty');

@@ -7,17 +7,13 @@ import { PartyType } from '../reportTypes/wardTownMapping';
 /**
  * Configuration for different grouping types
  */
-export interface GroupingConfig<T = Record<string, any>> {
+export interface GroupingConfig<TRow = any, TStats = Record<string, any>> {
   /** Function to group rows by a specific field */
-  groupFunction: (
-    rows: AbsenteeStandardBallotRequestRow[]
-  ) => Record<string, AbsenteeStandardBallotRequestRow[]>;
+  groupFunction: (rows: TRow[]) => Record<string, TRow[]>;
   /** Function to calculate detailed statistics from grouped rows */
-  statsFunction: (
-    grouped: Record<string, AbsenteeStandardBallotRequestRow[]>
-  ) => T[];
-  /** Field name for the identifier in the result */
-  identifierField: string;
+  statsFunction: (grouped: Record<string, TRow[]>) => TStats[];
+  /** Field name for the identifier in the result - type-safe to ensure it exists on TStats */
+  identifierField: keyof TStats;
   /** Human-readable name for logging */
   displayName: string;
   /** Optional function to parse identifier into additional fields */
@@ -26,35 +22,56 @@ export interface GroupingConfig<T = Record<string, any>> {
 
 /**
  * Generic function to calculate statistics for multiple grouping types
- * @param rows - Array of absentee ballot request rows
+ * @param rows - Array of input rows
  * @param configs - Array of grouping configurations
  * @returns Object with grouped data and statistics for each configuration
  */
-export function calculateGroupedStatistics<T = Record<string, any>>(
-  rows: AbsenteeStandardBallotRequestRow[],
-  configs: GroupingConfig<T>[]
+export function calculateGroupedStatistics<
+  TRow = any,
+  TStats = Record<string, any>,
+>(
+  rows: TRow[],
+  configs: GroupingConfig<TRow, TStats>[]
 ): Array<{
-  config: GroupingConfig<T>;
-  grouped: Record<string, AbsenteeStandardBallotRequestRow[]>;
-  statistics: T[];
+  config: GroupingConfig<TRow, TStats>;
+  grouped: Record<string, TRow[]>;
+  statistics: TStats[];
   count: number;
 }> {
+  // Input validation
+  if (!rows || rows.length === 0) {
+    console.warn('calculateGroupedStatistics called with empty rows');
+    return [];
+  }
+
+  if (!configs || configs.length === 0) {
+    console.warn('calculateGroupedStatistics called with empty configs');
+    return [];
+  }
+
   return configs.map((config) => {
     console.log(`Grouping by ${config.displayName}...`);
 
-    const grouped = config.groupFunction(rows);
-    const count = Object.keys(grouped).length;
+    try {
+      const grouped = config.groupFunction(rows);
+      const count = Object.keys(grouped).length;
 
-    console.log(`Grouped into ${count} ${config.displayName} combinations`);
+      console.log(`Grouped into ${count} ${config.displayName} combinations`);
 
-    const statistics = config.statsFunction(grouped);
+      const statistics = config.statsFunction(grouped);
 
-    return {
-      config,
-      grouped,
-      statistics,
-      count,
-    };
+      return {
+        config,
+        grouped,
+        statistics,
+        count,
+      };
+    } catch (error) {
+      console.error(`Error processing ${config.displayName}:`, error);
+      throw new Error(
+        `Failed to calculate statistics for ${config.displayName}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   });
 }
 
@@ -62,22 +79,18 @@ export function calculateGroupedStatistics<T = Record<string, any>>(
  * Generic function to create a grouping configuration
  * @param groupFunction - Function to group rows
  * @param statsFunction - Function to calculate statistics
- * @param identifierField - Field name for identifier
+ * @param identifierField - Field name for identifier (type-safe)
  * @param displayName - Human-readable name
  * @param parseIdentifier - Optional identifier parser
  * @returns GroupingConfig object
  */
-export function createGroupingConfig<T = Record<string, any>>(
-  groupFunction: (
-    rows: AbsenteeStandardBallotRequestRow[]
-  ) => Record<string, AbsenteeStandardBallotRequestRow[]>,
-  statsFunction: (
-    grouped: Record<string, AbsenteeStandardBallotRequestRow[]>
-  ) => T[],
-  identifierField: string,
+export function createGroupingConfig<TRow = any, TStats = Record<string, any>>(
+  groupFunction: (rows: TRow[]) => Record<string, TRow[]>,
+  statsFunction: (grouped: Record<string, TRow[]>) => TStats[],
+  identifierField: keyof TStats,
   displayName: string,
   parseIdentifier?: (identifier: string) => Record<string, any>
-): GroupingConfig<T> {
+): GroupingConfig<TRow, TStats> {
   return {
     groupFunction,
     statsFunction,
@@ -104,24 +117,4 @@ export interface StatisticsWithParties {
       percentage: number;
     }
   >;
-}
-
-/**
- * Generic function to create statistics processor for party-based statistics
- * @param configs - Array of grouping configurations
- * @returns Function that processes rows and returns statistics
- */
-export function createPartyStatisticsProcessor<T extends StatisticsWithParties>(
-  configs: GroupingConfig<T>[]
-) {
-  return function processStatistics(
-    rows: AbsenteeStandardBallotRequestRow[]
-  ): Array<{
-    config: GroupingConfig<T>;
-    grouped: Record<string, AbsenteeStandardBallotRequestRow[]>;
-    statistics: T[];
-    count: number;
-  }> {
-    return calculateGroupedStatistics(rows, configs);
-  };
 }

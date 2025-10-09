@@ -2,6 +2,7 @@
 // Purpose: Shared file utilities to eliminate duplication between frontend and report-server
 
 import { randomUUID } from 'crypto';
+import { getFilenameReportType, validateReportType } from './reportTypeMapping';
 
 /**
  * Sanitizes a string for safe S3 key usage
@@ -59,15 +60,19 @@ export function getUserDisplayName(
   name?: string | null,
   email?: string | null
 ): string {
+  // Helper function to extract username from email
+  const getEmailUsername = (email: string): string => {
+    const [username] = email.split('@');
+    return username ?? email;
+  };
+
   // Primary identifier: use name if available, otherwise email username
   let primaryIdentifier: string;
 
   if (name && name.trim()) {
     primaryIdentifier = name.trim();
   } else if (email) {
-    // Extract username from email
-    const [username] = email.split('@');
-    primaryIdentifier = username ?? email;
+    primaryIdentifier = getEmailUsername(email);
   } else {
     // Fallback to user ID (required field)
     primaryIdentifier = id;
@@ -80,8 +85,19 @@ export function getUserDisplayName(
   // Using first 8 characters of UUID hash for readability
   const shortHash = id.slice(-8); // Last 8 chars of UUID
 
-  // Combine sanitized name with short hash
-  return `${sanitized}-${shortHash}`;
+  // If sanitized result is empty (e.g., only special characters), use a safe fallback
+  let displayName: string;
+  if (sanitized) {
+    displayName = `${sanitized}-${shortHash}`;
+  } else {
+    // Fallback: try email username if available, otherwise use "unidentified-user"
+    const fallbackIdentifier = email
+      ? getEmailUsername(email)
+      : 'unidentified-user';
+    displayName = `${fallbackIdentifier}-${shortHash}`;
+  }
+
+  return displayName;
 }
 
 /**
@@ -109,11 +125,6 @@ export function generateReportFilename(
 
   const namePart = sanitizedName ? `${sanitizedName}-` : '';
 
-  // Import the report type mapping functions
-  const {
-    getFilenameReportType,
-    validateReportType,
-  } = require('./reportTypeMapping');
   const typePart = getFilenameReportType(validateReportType(reportType));
 
   return `${sanitizedAuthor}/${typePart}/${namePart}${timestamp}-${time}.${format}`;

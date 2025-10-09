@@ -119,7 +119,7 @@ export type PartyType = (typeof PARTY_TYPES)[number];
 export const isBallotSent = (
   row: AbsenteeStandardBallotRequestRow
 ): boolean => {
-  return row['Ballot Last Issued Date']?.trim() !== '';
+  return !!row['Ballot Last Issued Date']?.trim();
 };
 
 /**
@@ -128,7 +128,7 @@ export const isBallotSent = (
 export const isBallotReturned = (
   row: AbsenteeStandardBallotRequestRow
 ): boolean => {
-  return row['Last Received Delivery Status'].trim() === 'Received';
+  return row['Last Received Delivery Status']?.trim() === 'Received';
 };
 
 /**

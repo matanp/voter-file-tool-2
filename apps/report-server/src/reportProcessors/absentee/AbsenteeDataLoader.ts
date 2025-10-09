@@ -16,10 +16,8 @@ export interface AbsenteeDataLoadResult {
 
 export class AbsenteeDataLoader {
   private readonly csvProcessor: CsvProcessor<AbsenteeStandardBallotRequestRow>;
-  private readonly csvFilePath: string;
 
   constructor(csvFilePath: string) {
-    this.csvFilePath = csvFilePath;
     this.csvProcessor = new CsvProcessor(
       csvFilePath,
       ABSENTEE_STANDARD_BALLOT_REQUEST_HEADERS,
