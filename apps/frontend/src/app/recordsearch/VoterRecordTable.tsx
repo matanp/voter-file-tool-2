@@ -1,4 +1,5 @@
 import { type VoterRecord } from "@prisma/client";
+import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import {
   Popover,
   PopoverTrigger,
@@ -20,13 +21,13 @@ import { fields, type FieldName } from "./fieldsConfig";
 import { scrollToElement } from "~/lib/scrollUtils";
 
 interface BaseVoterRecordTableProps {
-  records: VoterRecord[];
+  records: VoterRecordAPI[];
   fieldsList: FieldName[];
   fullWidth?: boolean;
   compactView?: boolean;
   extraHeaders?: Array<string>;
   seeMoreDetailsText?: string;
-  extraContent?: (record: VoterRecord) => React.ReactNode;
+  extraContent?: (record: VoterRecordAPI) => React.ReactNode;
 }
 
 interface PaginationProps {

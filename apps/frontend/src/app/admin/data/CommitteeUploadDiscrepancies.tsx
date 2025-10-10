@@ -14,6 +14,8 @@ import {
   AccordionTrigger,
 } from "~/components/ui/accordion";
 import { AccordionContent } from "@radix-ui/react-accordion";
+import { Skeleton } from "~/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 
 const discrepanciesPrintMap = {
   Add1: "Address",
@@ -42,6 +44,9 @@ export const CommitteeUploadDiscrepancies: React.FC = () => {
   const [rejectedDiscrepancies, setRejectedDiscrepancies] = useState<string[]>(
     [],
   );
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const groupByCommittee = (map: Record<string, DiscrepanciesAndCommittee>) => {
     const grouped: Record<
@@ -80,10 +85,19 @@ export const CommitteeUploadDiscrepancies: React.FC = () => {
   ) => {
     e?.preventDefault();
 
+    setLoading(true);
+    setError(null);
+
     try {
       const response = await fetch("/api/committee/fetchLoaded", {
         method: "POST",
       });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch committee discrepancies (${response.status})`,
+        );
+      }
 
       const data = (await response.json()) as {
         recordsWithDiscrepancies: VoterRecord[];
@@ -121,6 +135,13 @@ export const CommitteeUploadDiscrepancies: React.FC = () => {
       setDiscrepanciesMap(discrepancyMap);
     } catch (error) {
       console.error("Error uploading committee list:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load committee discrepancies",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -131,6 +152,64 @@ export const CommitteeUploadDiscrepancies: React.FC = () => {
   }, []);
 
   const discrepancyKeys = Object.keys(groupedDiscrepancies);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Loading committee discrepancies...</span>
+        </div>
+
+        {/* Skeleton for records with discrepancies */}
+        <div className="space-y-4">
+          <Skeleton className="h-6 w-64" />
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Skeleton for records without saved record */}
+        <div className="space-y-4">
+          <Skeleton className="h-6 w-80" />
+          <div className="space-y-2">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-500 mb-4">
+          <p className="text-lg font-semibold">
+            Error loading committee discrepancies
+          </p>
+          <p className="text-sm">{error}</p>
+        </div>
+        <button
+          onClick={() => handleUploadCommittee()}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

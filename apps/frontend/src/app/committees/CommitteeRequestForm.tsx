@@ -1,4 +1,4 @@
-import type { VoterRecord } from "@prisma/client";
+import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import { Switch } from "~/components/ui/switch";
 import { toast } from "~/components/ui/use-toast";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { CommitteeMemberAction } from "../../components/CommitteeMemberAction";
 import type {
   CommitteeRequestData,
   CommitteeRequestResponse,
@@ -24,10 +25,10 @@ type CommitteeRequestFormProps = {
   electionDistrict: number;
   defaultOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  committeeList: VoterRecord[];
+  committeeList: VoterRecordAPI[];
   onSubmit: () => void;
-  addMember?: VoterRecord;
-  removeMember?: VoterRecord;
+  addMember?: VoterRecordAPI;
+  removeMember?: VoterRecordAPI;
 };
 
 export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
@@ -43,12 +44,11 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
 }) => {
   const [requestNotes, setRequestNotes] = useState<string>("");
   const [removeFormOpen, setRemoveFormOpen] = useState<boolean>(false);
-  const [requestAddMember, setRequestAddMember] = useState<VoterRecord | null>(
-    addMember ?? null,
-  );
+  const [requestAddMember, setRequestAddMember] =
+    useState<VoterRecordAPI | null>(addMember ?? null);
   const [requestRemoveMember, setRequestRemoveMember] =
-    useState<VoterRecord | null>(removeMember ?? null);
-  const [addFormRecords, setAddFormRecords] = useState<VoterRecord[]>([]);
+    useState<VoterRecordAPI | null>(removeMember ?? null);
+  const [addFormRecords, setAddFormRecords] = useState<VoterRecordAPI[]>([]);
   const [addMemberFormOpen, setAddMemberFormOpen] = useState<boolean>(false);
 
   // API mutation hook
@@ -139,7 +139,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       {addMemberFormOpen && (
         <>
           <RecordSearchForm
-            handleResults={setAddFormRecords}
+            handleResults={(results) => setAddFormRecords(results)}
             submitButtonText="Find Members to Add"
           />
           {
@@ -147,39 +147,16 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
               records={addFormRecords.slice(0, 4)}
               paginated={false}
               fieldsList={[]}
-              extraContent={(record) => {
-                const member = committeeList.find(
-                  (member) => member.VRCNUM === record.VRCNUM,
-                );
-
-                const getMessage = () => {
-                  if (member) {
-                    return "Already in this committee";
-                  } else if (!!record.committeeId) {
-                    return "Already in a different committee";
-                  } else if (committeeList.length >= 4) {
-                    return "Committee Full";
-                  } else {
-                    return "Add to Committee";
-                  }
-                };
-                return (
-                  <>
-                    <div className="flex gap-4">
-                      <Button
-                        onClick={() => setRequestAddMember(record)}
-                        disabled={
-                          !!member ||
-                          committeeList.length >= 4 ||
-                          !!record.committeeId
-                        }
-                      >
-                        {getMessage()}
-                      </Button>
-                    </div>
-                  </>
-                );
-              }}
+              extraContent={(record) => (
+                <div className="flex gap-4">
+                  <CommitteeMemberAction
+                    record={record}
+                    committeeList={committeeList}
+                    onAdd={setRequestAddMember}
+                    disabled={committeeList.length >= 4}
+                  />
+                </div>
+              )}
             />
           }
         </>

@@ -13,3 +13,4 @@ terraform.tfstate*
 
 **/data/**
 
+.env_n8n
