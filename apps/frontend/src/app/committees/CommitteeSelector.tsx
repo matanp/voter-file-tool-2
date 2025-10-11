@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useState } from "react";
 
 import {
   PrivilegeLevel,
@@ -9,8 +9,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
-import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { useIsAdmin, useRequiresPrivilege } from "~/hooks/useAuthorization";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
@@ -24,7 +23,10 @@ interface CommitteeSelectorProps {
 const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
 }) => {
-  const { actingPermissions } = useContext(GlobalContext);
+  const isAdmin = useIsAdmin();
+  const { currentLevel: actingPermissions } = useRequiresPrivilege(
+    PrivilegeLevel.ReadAccess,
+  );
   const { toast } = useToast();
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedLegDistrict, setSelectedLegDistrict] = useState<string>("");
@@ -223,7 +225,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       return "Select a committee to view members.";
     }
 
-    if (!hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+    if (!isAdmin) {
       return "You don't have permission to view committee member details. Contact an administrator for access.";
     }
 
@@ -324,10 +326,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                         <VoterCard record={member} committee={true} />
                       </CardContent>
                       <CardFooter className="h-full">
-                        {hasPermissionFor(
-                          actingPermissions,
-                          PrivilegeLevel.Admin,
-                        ) && (
+                        {isAdmin && (
                           <div className="h-full">
                             <Button
                               className="mt-auto"

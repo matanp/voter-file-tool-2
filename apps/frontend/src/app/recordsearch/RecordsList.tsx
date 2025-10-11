@@ -21,10 +21,7 @@ import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { scrollToElement } from "~/lib/scrollUtils";
 import { Info } from "lucide-react";
 import { useApiMutation } from "~/hooks/useApiMutation";
-import { useContext } from "react";
-import { GlobalContext } from "~/components/providers/GlobalContext";
-import { PrivilegeLevel } from "@prisma/client";
-import { hasPermissionFor } from "~/lib/utils";
+import { useIsAdmin } from "~/hooks/useAuthorization";
 
 const LOADING_SECTION_ID = "loading-section";
 
@@ -38,7 +35,6 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const router = useRouter();
   const { toast } = useToast();
   const { status } = useSession();
-  const { actingPermissions } = useContext(GlobalContext);
   const {
     setSearchQuery: setContextSearchQuery,
     fieldsList: contextFieldsList,
@@ -99,7 +95,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     return createSmartFieldsList(contextFieldsList);
   }, [contextFieldsList]);
 
-  const canExport = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const canExport = useIsAdmin();
 
   const handleSubmit = React.useCallback(
     async (searchQueryParam: SearchField[]) => {

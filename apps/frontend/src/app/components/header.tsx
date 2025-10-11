@@ -1,20 +1,13 @@
 "use client";
-import { PrivilegeLevel } from "@prisma/client";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "~/components/ui/button";
 import { SignInButton } from "~/components/ui/signInButton";
-import { hasPermissionFor } from "~/lib/utils";
+import { useIsAdmin } from "~/hooks/useAuthorization";
 
 const Header: React.FC = () => {
   const pathname = usePathname();
-  const { data: session } = useSession();
-
-  const showDataTab = hasPermissionFor(
-    session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
-    PrivilegeLevel.Admin,
-  );
+  const showDataTab = useIsAdmin();
 
   const sharedTabStyle =
     "h-16 text-xl font-semibold w-42 flex items-center justify-center";
