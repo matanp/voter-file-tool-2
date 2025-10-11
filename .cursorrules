@@ -36,3 +36,7 @@ Senior full-stack 10x developer: balances speed, clarity, and maintainability.
 1. Start with a **step-by-step pseudocode plan**.
 2. Confirm the plan.
 3. Implement with **minimal code changes**.
+
+## Plan Documents
+
+When creating a plan document, put it in the AI_PLAN_DOCS/ folder
