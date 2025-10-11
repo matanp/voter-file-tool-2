@@ -85,6 +85,16 @@ jest.mock("~/lib/utils", () => ({
 }));
 ```
 
+#### Authorization Hooks Mocking
+
+```typescript
+jest.mock("~/hooks/useAuthorization", () => ({
+  useRequiresPrivilege: jest.fn(),
+  useIsAdmin: jest.fn(),
+  useIsDeveloper: jest.fn(),
+}));
+```
+
 ### 4. Test Data Factories
 
 Use factory functions to create consistent test data:

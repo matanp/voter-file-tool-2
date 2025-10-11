@@ -118,6 +118,13 @@ jest.mock("~/lib/utils", () => {
   };
 });
 
+// Mock authorization hooks
+jest.mock("~/hooks/useAuthorization", () => ({
+  useRequiresPrivilege: jest.fn(),
+  useIsAdmin: jest.fn(),
+  useIsDeveloper: jest.fn(),
+}));
+
 // Mock ResizeObserver for components that use it
 class MockResizeObserver {
   observe = jest.fn();
@@ -142,6 +149,9 @@ beforeEach(() => {
   mockReset(prismaMock);
   globalThis.mockAuth.mockReset();
   globalThis.mockHasPermissionFor.mockReset();
+  globalThis.mockUseRequiresPrivilege.mockReset();
+  globalThis.mockUseIsAdmin.mockReset();
+  globalThis.mockUseIsDeveloper.mockReset();
 });
 
 // Global test utilities
@@ -153,4 +163,19 @@ globalThis.mockAuth = jest.mocked(auth) as unknown as jest.MockedFunction<
 globalThis.mockHasPermissionFor = jest.mocked(
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   require("~/lib/utils").hasPermissionFor,
+);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+globalThis.mockUseRequiresPrivilege = jest.mocked(
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+  require("~/hooks/useAuthorization").useRequiresPrivilege,
+);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+globalThis.mockUseIsAdmin = jest.mocked(
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+  require("~/hooks/useAuthorization").useIsAdmin,
+);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+globalThis.mockUseIsDeveloper = jest.mocked(
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+  require("~/hooks/useAuthorization").useIsDeveloper,
 );

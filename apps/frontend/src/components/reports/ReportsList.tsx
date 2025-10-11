@@ -23,9 +23,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import ReportCard from "./ReportCard";
-import { type Report, PrivilegeLevel } from "@prisma/client";
-import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { type Report } from "@prisma/client";
+import { useIsAdmin } from "~/hooks/useAuthorization";
 import { useApiPatch, useApiDelete } from "~/hooks/useApiMutation";
 
 interface ReportsListProps {
@@ -54,8 +53,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
   title,
   description,
 }) => {
-  const { actingPermissions } = useContext(GlobalContext);
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const isAdmin = useIsAdmin();
   const [reports, setReports] = useState<ReportsResponse["reports"]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

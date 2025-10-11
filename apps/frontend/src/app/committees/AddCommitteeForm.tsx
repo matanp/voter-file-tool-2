@@ -1,8 +1,7 @@
-import { PrivilegeLevel, type VoterRecord } from "@prisma/client";
-import { useContext, useState } from "react";
-import { GlobalContext } from "~/components/providers/GlobalContext";
+import { type VoterRecord } from "@prisma/client";
+import { useState } from "react";
 import { useToast } from "~/components/ui/use-toast";
-import { hasPermissionFor } from "~/lib/utils";
+import { useIsAdmin } from "~/hooks/useAuthorization";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
@@ -33,7 +32,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   onAdd,
 }) => {
   const { toast } = useToast();
-  const { actingPermissions } = useContext(GlobalContext);
+  const isAdmin = useIsAdmin();
   const [records, setRecords] = useState<VoterRecord[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [showConfirm, setShowConfirm] = useState<boolean>(false);
@@ -80,7 +79,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     city !== "" && legDistrict !== "" && electionDistrict > 0;
 
   const handleAddCommitteeMember = async (record: VoterRecord) => {
-    if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+    if (isAdmin) {
       setLoadingVRCNUM(record.VRCNUM); // Set loading state for this specific record
       await addCommitteeMemberMutation.mutate({
         cityTown: city,
