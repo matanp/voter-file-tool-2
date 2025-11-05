@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import VoterRecordSearch from "./VoterRecordSearch";
 import { type DropdownLists, type VoterRecord } from "@prisma/client";
+import { type VoterRecordAPI } from "@voter-file-tool/shared-validators";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { getAddress } from "../api/lib/utils";
 import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
@@ -43,7 +44,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     setSearchQuery: setContextSearchQuery,
     fieldsList: contextFieldsList,
   } = useVoterSearch();
-  const [records, setRecords] = React.useState<VoterRecord[]>([]);
+  const [records, setRecords] = React.useState<VoterRecordAPI[]>([]);
   const [totalRecords, setTotalRecords] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState<SearchQueryField[]>([]);
   const [page, setPage] = React.useState(1);
@@ -54,7 +55,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   // API mutation hooks
   const searchMutation = useApiMutation<
     {
-      data: VoterRecord[];
+      data: VoterRecordAPI[];
       totalRecords: number;
     },
     {
@@ -77,7 +78,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
 
   const loadMoreMutation = useApiMutation<
     {
-      data: VoterRecord[];
+      data: VoterRecordAPI[];
       totalRecords: number;
     },
     {
@@ -248,7 +249,7 @@ export const VoterCard = ({
   record,
   committee,
 }: {
-  record: VoterRecord;
+  record: VoterRecordAPI;
   committee?: boolean;
 }) => {
   return (

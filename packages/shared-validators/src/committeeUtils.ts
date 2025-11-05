@@ -1,12 +1,16 @@
 import type {
   CommitteeList,
   VoterRecord,
+  CommitteeListWithMembers,
 } from '@voter-file-tool/shared-prisma';
 import { LEG_DISTRICT_SENTINEL } from './constants';
 
 export type CommitteeWithMembers = CommitteeList & {
   committeeMemberList?: VoterRecord[];
 };
+
+// Re-export the required version for consistency
+export type { CommitteeListWithMembers };
 
 /**
  * Normalizes sentinel values for committee data to ensure consistent handling

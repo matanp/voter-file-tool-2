@@ -25,6 +25,12 @@ export type {
   VotingHistoryRecord,
 } from '@prisma/client';
 
+// Shared composite types
+export type CommitteeListWithMembers =
+  import('@prisma/client').CommitteeList & {
+    committeeMemberList: import('@prisma/client').VoterRecord[];
+  };
+
 // Re-export PrismaClient class
 export { PrismaClient } from '@prisma/client';
 
