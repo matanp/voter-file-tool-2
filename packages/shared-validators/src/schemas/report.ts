@@ -7,6 +7,7 @@ import {
   DATE_FIELDS,
   STRING_FIELDS,
 } from '../constants';
+import { voterImportJobDataSchema } from '../voterImport';
 
 // Discriminated union schemas for each field type
 const numberFieldSchema = z.object({
@@ -133,12 +134,30 @@ const absenteeReportSchema = z.object({
   csvFileKey: z.string().min(1, 'CSV file key is required'),
 });
 
+const voterImportReportSchema = z.object({
+  type: z.literal('voterImport'),
+  format: z.literal('txt'),
+  ...baseApiSchema.shape,
+  fileKey: z.string().min(1, 'File key is required'),
+  fileName: z.string().min(1, 'File name is required'),
+  year: z
+    .number()
+    .int()
+    .min(2000)
+    .max(2100, 'Year must be between 2000 and 2100'),
+  recordEntryNumber: z
+    .number()
+    .int()
+    .min(1, 'Record entry number must be at least 1'),
+});
+
 // Generate Report Schema - discriminated union for different report types
 export const generateReportSchema = z.discriminatedUnion('type', [
   designatedPetitionReportSchema,
   ldCommitteesReportSchema,
   voterListReportSchema,
   absenteeReportSchema,
+  voterImportReportSchema,
 ]);
 
 // Additional fields for enriched report data
@@ -165,7 +184,19 @@ export const enrichedReportDataSchema = z.discriminatedUnion('type', [
     ...absenteeReportSchema.shape,
     ...enrichedFieldsSchema.shape,
   }),
+  z.object({
+    ...voterImportReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
 ]);
+
+// Voter import metadata schema (reusable)
+export const voterImportMetadataSchema = z.object({
+  recordsProcessed: z.number(),
+  recordsCreated: z.number(),
+  recordsUpdated: z.number(),
+  dropdownsUpdated: z.boolean(),
+});
 
 // Report complete webhook payload schema
 export const reportCompleteWebhookPayloadSchema = z.object({
@@ -174,6 +205,7 @@ export const reportCompleteWebhookPayloadSchema = z.object({
   type: z.string().optional(),
   url: z.string().optional(),
   error: z.string().optional(),
+  metadata: voterImportMetadataSchema.optional(),
 });
 
 // API response schemas
@@ -220,6 +252,7 @@ export type FieldValueType<T extends SearchableFieldName> =
 // Type exports
 export type GenerateReportData = z.infer<typeof generateReportSchema>;
 export type EnrichedReportData = z.infer<typeof enrichedReportDataSchema>;
+export type VoterImportMetadata = z.infer<typeof voterImportMetadataSchema>;
 export type ReportCompleteWebhookPayload = z.infer<
   typeof reportCompleteWebhookPayloadSchema
 >;

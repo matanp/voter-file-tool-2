@@ -13,3 +13,6 @@ terraform.tfstate*
 
 **/data/**
 
+.env_n8n
+
+AI_PLAN_DOCS/

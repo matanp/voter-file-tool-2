@@ -23,6 +23,7 @@
     "@types/async": "^3.2.25",
     "@voter-file-tool/shared-prisma": "workspace:^",
     "@voter-file-tool/shared-validators": "workspace:^",
+    "@voter-file-tool/voter-import-processor": "workspace:^",
     "async": "^3.2.6",
     "csv-parse": "^6.1.0",
     "dotenv": "^17.2.1",

@@ -18,8 +18,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         where: { email: user.email },
       });
 
-      // If user doesn't exist, check for valid invite
+      // If user doesn't exist, check PrivilegedUser first, then invites
       if (!existingUser) {
+        const privilegedUser = await prisma.privilegedUser.findUnique({
+          where: { email: user.email },
+        });
+
+        // Allow sign-in if user is in PrivilegedUser table
+        if (privilegedUser) {
+          return true;
+        }
+
+        // Fall back to invite system
         const validInvite = await prisma.invite.findFirst({
           where: {
             email: user.email,

@@ -24,6 +24,10 @@ export const REPORT_TYPE_MAPPINGS = {
     databaseValue: 'DesignatedPetition' as ReportType,
     filename: 'designatedPetition',
   },
+  voterImport: {
+    databaseValue: 'VoterImport' as ReportType,
+    filename: 'voterImport',
+  },
 } as const;
 
 export type ReportTypeKey = keyof typeof REPORT_TYPE_MAPPINGS;

@@ -285,7 +285,8 @@ model Report {
   status        JobStatus  @default(PENDING)
   requestedAt   DateTime   @default(now())
   completedAt   DateTime?
-  deleted       Boolean   @default(false)
+  deleted       Boolean    @default(false)
+  metadata      Json?      // Store report-specific metadata (voter import stats, etc.)
 
   @@index([generatedById])
   @@index([status])
@@ -300,6 +301,7 @@ enum ReportType {
   DesignatedPetition
   VoterList
   AbsenteeReport
+  VoterImport
 }
 
 
