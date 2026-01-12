@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "postinstall": "prisma generate --schema=../../apps/frontend/prisma/schema.prisma",
+    "build": "prisma generate --schema=../../apps/frontend/prisma/schema.prisma && tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "prebuild": "pnpm clean",
@@ -15,7 +16,8 @@
     "@prisma/client": "^5.15.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "prisma": "^5.15.0"
   },
   "peerDependencies": {
     "@prisma/client": "^5.15.0"
