@@ -12,6 +12,7 @@ import {
 } from './utils';
 import { generateUnifiedXLSXAndUpload } from './xlsxGenerator';
 import { processAbsenteeReport } from './reportProcessors';
+import { processVoterImport } from './reportProcessors/voterImportProcessor';
 import { createWebhookSignature } from './webhookUtils';
 import {
   enrichedReportDataSchema,
@@ -179,6 +180,12 @@ function extractXLSXConfig(jobData: EnrichedReportData) {
 async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName: string;
+    let metadata: {
+      recordsProcessed: number;
+      recordsCreated: number;
+      recordsUpdated: number;
+      dropdownsUpdated: boolean;
+    } | undefined;
     const { type, reportAuthor, jobId, name, format } = jobData;
 
     fileName = generateReportFilename(name, type, format, reportAuthor);
@@ -255,6 +262,38 @@ async function processJob(jobData: EnrichedReportData) {
       }
 
       await processAbsenteeReport(fileName, jobId, jobData.csvFileKey);
+    } else if (type === 'voterImport') {
+      console.log('Processing voter import...');
+      
+      // Validate required fields
+      if (!('fileKey' in jobData) || !jobData.fileKey) {
+        throw new Error('fileKey is required for voter import');
+      }
+      if (!('year' in jobData) || typeof jobData.year !== 'number') {
+        throw new Error('year is required for voter import');
+      }
+      if (!('recordEntryNumber' in jobData) || typeof jobData.recordEntryNumber !== 'number') {
+        throw new Error('recordEntryNumber is required for voter import');
+      }
+
+      // Process voter import and capture statistics
+      const importStats = await processVoterImport(
+        jobData.fileKey,
+        jobData.year,
+        jobData.recordEntryNumber,
+        jobId
+      );
+      
+      // For voter import, we don't generate a file to download, so fileName is empty
+      fileName = '';
+      
+      // Store statistics in metadata for webhook
+      metadata = {
+        recordsProcessed: importStats.recordsProcessed,
+        recordsCreated: importStats.recordsCreated,
+        recordsUpdated: importStats.recordsUpdated,
+        dropdownsUpdated: importStats.dropdownsUpdated,
+      };
     } else {
       throw new Error('Unknown job type');
     }
@@ -263,8 +302,9 @@ async function processJob(jobData: EnrichedReportData) {
     const callbackPayloadData: ReportCompleteWebhookPayload = {
       success: true,
       type: type,
-      url: fileName,
+      url: fileName || undefined, // Empty string becomes undefined for voter imports
       jobId,
+      ...(metadata ? { metadata } : {}),
     };
     const callbackPayload = JSON.stringify(callbackPayloadData);
 

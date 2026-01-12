@@ -83,8 +83,13 @@ export const POST = async (
       return NextResponse.json(errorResponse, { status: 400 });
     }
 
-    const { success, jobId, url, error }: ReportCompleteWebhookPayload =
-      validationResult.data;
+    const {
+      success,
+      jobId,
+      url,
+      error,
+      metadata,
+    }: ReportCompleteWebhookPayload = validationResult.data;
 
     const existingReport = await prisma.report.findUnique({
       where: { id: jobId },
@@ -119,12 +124,9 @@ export const POST = async (
     }
 
     if (success) {
-      if (!url) {
-        const errorResponse: ErrorResponse = {
-          error: "missing url for successful job",
-        };
-        return NextResponse.json(errorResponse, { status: 400 });
-      }
+      // Data-driven approach: If the report-server provides a URL, the job generated a file.
+      // If no URL is provided, the job completed without generating a downloadable file (e.g., voter imports).
+      // This makes the code maintainable - no need to hardcode which report types produce files.
 
       await prisma.report.update({
         where: {
@@ -133,7 +135,12 @@ export const POST = async (
         data: {
           status: JobStatus.COMPLETED,
           completedAt: new Date(),
-          fileKey: url,
+          // Only set fileKey if URL is provided
+          ...(url ? { fileKey: url } : {}),
+          // Store metadata if provided (e.g., voter import statistics)
+          ...(metadata
+            ? { metadata: metadata as Record<string, unknown> }
+            : {}),
         },
       });
     } else {
