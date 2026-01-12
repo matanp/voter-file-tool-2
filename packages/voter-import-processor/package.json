@@ -1,0 +1,21 @@
+{
+  "name": "@voter-file-tool/voter-import-processor",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "peerDependencies": {
+    "@prisma/client": "*"
+  },
+  "dependencies": {
+    "csv-parser": "^3.0.0",
+    "@voter-file-tool/shared-validators": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
