@@ -24,6 +24,10 @@ import { ReportType, type Report } from "@prisma/client";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { formatReportType } from "./reportUtils";
+import {
+  isVoterImportMetadata,
+  type VoterImportMetadata,
+} from "~/types/reportMetadata";
 
 // Utility function to format file sizes in human-readable format
 const formatFileSize = (bytes: number | null): string => {
@@ -72,6 +76,45 @@ const getFileType = (report: ReportCardProps["report"]): string => {
   }
 
   return "Unknown";
+};
+
+// Display voter import statistics with type-safe metadata
+const VoterImportStats: React.FC<{ metadata: VoterImportMetadata }> = ({
+  metadata,
+}) => {
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium text-muted-foreground">
+        Import Statistics
+      </h4>
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">Records Processed</span>
+          <span className="font-semibold text-lg">
+            {metadata.recordsProcessed.toLocaleString()}
+          </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">Records Created</span>
+          <span className="font-semibold text-lg text-green-600">
+            {metadata.recordsCreated.toLocaleString()}
+          </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">Records Updated</span>
+          <span className="font-semibold text-lg text-blue-600">
+            {metadata.recordsUpdated.toLocaleString()}
+          </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">Dropdowns Updated</span>
+          <span className="font-semibold text-lg">
+            {metadata.dropdownsUpdated ? "Yes" : "No"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 interface ReportCardProps {
@@ -362,44 +405,58 @@ const ReportCard: React.FC<ReportCardProps> = ({
           </div>
         </div>
 
-        {/* File information */}
-        <div className="flex items-center space-x-4 text-sm text-gray-600">
-          <div className="flex items-center space-x-1">
-            <span className="font-medium">File type:</span>
-            <Badge variant="outline" className="text-xs" hoverable={false}>
-              {getFileType(report)}
-            </Badge>
-          </div>
-          {report.fileSize && (
-            <div className="flex items-center space-x-1">
-              <span className="font-medium">Size:</span>
-              <span>{formatFileSize(report.fileSize ?? null)}</span>
+        {/* Conditional rendering: Statistics for VoterImport, File info + buttons for others */}
+        {report.ReportType === ReportType.VoterImport ? (
+          // Show statistics for voter imports
+          isVoterImportMetadata(report.metadata, report.ReportType) ? (
+            <VoterImportStats metadata={report.metadata} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No statistics available for this import
+            </p>
+          )
+        ) : (
+          // Show file info and download buttons for all other report types
+          <>
+            <div className="flex items-center space-x-4 text-sm text-gray-600">
+              <div className="flex items-center space-x-1">
+                <span className="font-medium">File type:</span>
+                <Badge variant="outline" className="text-xs" hoverable={false}>
+                  {getFileType(report)}
+                </Badge>
+              </div>
+              {report.fileSize && (
+                <div className="flex items-center space-x-1">
+                  <span className="font-medium">Size:</span>
+                  <span>{formatFileSize(report.fileSize ?? null)}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <div className="flex space-x-2">
-          {getFileType(report) !== "XLSX" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleView}
-              className="flex items-center space-x-1"
-            >
-              <Eye className="h-4 w-4" />
-              <span>View</span>
-            </Button>
-          )}
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleDownload}
-            className="flex items-center space-x-1"
-          >
-            <Download className="h-4 w-4" />
-            <span>Download</span>
-          </Button>
-        </div>
+            <div className="flex space-x-2">
+              {getFileType(report) !== "XLSX" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleView}
+                  className="flex items-center space-x-1"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>View</span>
+                </Button>
+              )}
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleDownload}
+                className="flex items-center space-x-1"
+              >
+                <Download className="h-4 w-4" />
+                <span>Download</span>
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
