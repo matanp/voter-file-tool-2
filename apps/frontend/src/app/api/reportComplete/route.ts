@@ -1,4 +1,4 @@
-import { JobStatus } from "@prisma/client";
+import { JobStatus, type Prisma } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
 import {
   reportCompleteWebhookPayloadSchema,
@@ -139,7 +139,7 @@ export const POST = async (
           ...(url ? { fileKey: url } : {}),
           // Store metadata if provided (e.g., voter import statistics)
           ...(metadata
-            ? { metadata: metadata as Record<string, unknown> }
+            ? { metadata: metadata as Prisma.InputJsonValue }
             : {}),
         },
       });
