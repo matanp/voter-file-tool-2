@@ -24,8 +24,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { email: user.email },
         });
 
-        console.log("privilegedUser", privilegedUser);
-
         // Allow sign-in if user is in PrivilegedUser table
         if (privilegedUser) {
           return true;

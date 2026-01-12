@@ -138,9 +138,7 @@ export const POST = async (
           // Only set fileKey if URL is provided
           ...(url ? { fileKey: url } : {}),
           // Store metadata if provided (e.g., voter import statistics)
-          ...(metadata
-            ? { metadata: metadata as Prisma.InputJsonValue }
-            : {}),
+          ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
         },
       });
     } else {

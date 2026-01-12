@@ -11,6 +11,7 @@ import { type ReportTypeKey } from "@voter-file-tool/shared-validators";
 
 const ABSENTEE_REPORT_TYPE: ReportTypeKey = "absenteeReport";
 const VOTER_IMPORT_TYPE: ReportTypeKey = "voterImport";
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB - matches server limit
 
 interface AbsenteeReportFormData {
   name: string;
@@ -170,13 +171,26 @@ export const SpecialReports = () => {
   // Voter Import handlers
   const handleVoterFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
+
+    // Clear previous errors
+    setVoterImportError(null);
+
+    // Validate file size
+    if (file && file.size > MAX_FILE_SIZE) {
+      setVoterImportError(
+        `File is too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 500 MB.`,
+      );
+      // Clear the file input
+      e.target.value = "";
+      return;
+    }
+
     setVoterImportForm((prev) => ({
       ...prev,
       voterFile: file,
       fileKey: null,
       isUploading: false,
     }));
-    setVoterImportError(null);
   };
 
   const uploadVoterFile = async (file: File): Promise<string> => {

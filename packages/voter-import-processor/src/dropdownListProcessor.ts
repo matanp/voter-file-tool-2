@@ -24,6 +24,14 @@ export type DropdownItem = (typeof dropdownItems)[number];
 const dropdownLists = new Map<DropdownItem, Set<string>>();
 
 /**
+ * Safely get dropdown array with empty fallback
+ */
+function getDropdownArray(key: DropdownItem): string[] {
+  const values = dropdownLists.get(key);
+  return values ? Array.from(values) : [];
+}
+
+/**
  * Process a voter record to extract dropdown list values
  */
 export function processRecordForDropdownLists(
@@ -70,42 +78,28 @@ export async function bulkSaveDropdownLists(prisma: PrismaClient) {
       id: existingLists?.id ?? 1,
     },
     create: {
-      city: Array.from(dropdownLists.get('city')!).sort(),
-      zipCode: Array.from(dropdownLists.get('zipCode')!).sort(),
-      street: Array.from(dropdownLists.get('street')!).sort(),
-      countyLegDistrict: Array.from(
-        dropdownLists.get('countyLegDistrict')!
-      ).sort(),
-      stateAssmblyDistrict: Array.from(
-        dropdownLists.get('stateAssmblyDistrict')!
-      ).sort(),
-      stateSenateDistrict: Array.from(
-        dropdownLists.get('stateSenateDistrict')!
-      ).sort(),
-      congressionalDistrict: Array.from(
-        dropdownLists.get('congressionalDistrict')!
-      ).sort(),
-      townCode: Array.from(dropdownLists.get('townCode')!).sort(),
-      electionDistrict: Array.from(dropdownLists.get('electionDistrict')!),
-      party: Array.from(dropdownLists.get('party')!).sort(),
+      city: getDropdownArray('city').sort(),
+      zipCode: getDropdownArray('zipCode').sort(),
+      street: getDropdownArray('street').sort(),
+      countyLegDistrict: getDropdownArray('countyLegDistrict').sort(),
+      stateAssmblyDistrict: getDropdownArray('stateAssmblyDistrict').sort(),
+      stateSenateDistrict: getDropdownArray('stateSenateDistrict').sort(),
+      congressionalDistrict: getDropdownArray('congressionalDistrict').sort(),
+      townCode: getDropdownArray('townCode').sort(),
+      electionDistrict: getDropdownArray('electionDistrict'),
+      party: getDropdownArray('party').sort(),
     },
     update: {
-      city: Array.from(dropdownLists.get('city')!),
-      zipCode: Array.from(dropdownLists.get('zipCode')!),
-      street: Array.from(dropdownLists.get('street')!),
-      countyLegDistrict: Array.from(dropdownLists.get('countyLegDistrict')!),
-      stateAssmblyDistrict: Array.from(
-        dropdownLists.get('stateAssmblyDistrict')!
-      ),
-      stateSenateDistrict: Array.from(
-        dropdownLists.get('stateSenateDistrict')!
-      ),
-      congressionalDistrict: Array.from(
-        dropdownLists.get('congressionalDistrict')!
-      ),
-      townCode: Array.from(dropdownLists.get('townCode')!),
-      electionDistrict: Array.from(dropdownLists.get('electionDistrict')!),
-      party: Array.from(dropdownLists.get('party')!),
+      city: getDropdownArray('city'),
+      zipCode: getDropdownArray('zipCode'),
+      street: getDropdownArray('street'),
+      countyLegDistrict: getDropdownArray('countyLegDistrict'),
+      stateAssmblyDistrict: getDropdownArray('stateAssmblyDistrict'),
+      stateSenateDistrict: getDropdownArray('stateSenateDistrict'),
+      congressionalDistrict: getDropdownArray('congressionalDistrict'),
+      townCode: getDropdownArray('townCode'),
+      electionDistrict: getDropdownArray('electionDistrict'),
+      party: getDropdownArray('party'),
     },
   });
 }
