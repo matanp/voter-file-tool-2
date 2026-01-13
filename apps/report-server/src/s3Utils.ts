@@ -63,6 +63,28 @@ export async function getPresignedUploadUrl(
 }
 
 /**
+ * Stream file from R2
+ * Returns a readable stream for memory-efficient processing of large files
+ * @param key - The object key (filename) in the bucket
+ * @returns Promise<Readable> - Readable stream of file contents
+ */
+export async function streamFileFromR2(key: string): Promise<Readable> {
+  const command = new GetObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME!,
+    Key: key,
+  });
+
+  const response = await s3.send(command);
+
+  if (!response.Body) {
+    throw new Error('No body in R2 response');
+  }
+
+  // AWS SDK v3 returns a readable stream
+  return response.Body as Readable;
+}
+
+/**
  * Download file from R2 as buffer
  * @param key - The object key (filename) in the bucket
  * @returns Promise<Buffer> - File contents as buffer

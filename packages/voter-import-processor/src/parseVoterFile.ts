@@ -17,7 +17,7 @@ import {
 } from "./dropdownListProcessor";
 
 const PRINT_COUNT = 100000;
-const BUFFER_SIZE = 25000;
+const BUFFER_SIZE = 5000; // Reduced from 25000 for lower memory usage
 
 /**
  * Clean up existing records from the database for a specific year and entry number
@@ -68,7 +68,7 @@ export async function parseVoterFileFromPath(
  * Parse voter file from a Readable stream
  * Core parsing logic shared by both buffer and path-based parsing
  */
-async function parseVoterFileFromStream(
+export async function parseVoterFileFromStream(
   stream: Readable,
   year: number,
   recordEntryNumber: number,
