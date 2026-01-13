@@ -1,16 +1,16 @@
 // Voter import processor for report-server
 // Purpose: Process voter file uploads from R2 and import them into the database
 
-import { downloadFileFromR2 } from "../s3Utils";
+import { streamFileFromR2 } from "../s3Utils";
 import {
-  parseVoterFileFromBuffer,
+  parseVoterFileFromStream,
   type ParseResult,
 } from "@voter-file-tool/voter-import-processor";
 import { prisma } from "../lib/prisma";
 
 /**
  * Process voter import job
- * Downloads the voter file from R2 and processes it using the shared processor
+ * Streams the voter file from R2 and processes it using the shared processor
  */
 export async function processVoterImport(
   fileKey: string,
@@ -22,15 +22,15 @@ export async function processVoterImport(
   console.log(`File: ${fileKey}, Year: ${year}, Entry: ${recordEntryNumber}`);
 
   try {
-    // Step 1: Download file from R2
-    console.log("Downloading voter file from R2...");
-    const buffer = await downloadFileFromR2(fileKey);
-    console.log(`Downloaded ${buffer.length} bytes`);
+    // Step 1: Stream file from R2 (memory-efficient, no buffering)
+    console.log("Streaming voter file from R2...");
+    const stream = await streamFileFromR2(fileKey);
+    console.log("Stream obtained, beginning processing...");
 
     // Step 2: Process the file
     console.log("Processing voter file...");
-    const result = await parseVoterFileFromBuffer(
-      buffer,
+    const result = await parseVoterFileFromStream(
+      stream,
       year,
       recordEntryNumber,
       prisma,
