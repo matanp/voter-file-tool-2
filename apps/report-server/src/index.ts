@@ -47,7 +47,7 @@ const q = async.queue(async (requestData: EnrichedReportData) => {
 }, QUEUE_CONCURRENCY);
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = Number.parseInt(process.env.PORT ?? '8080', 10);
 
 const callbackUrlResult = callbackUrlSchema.safeParse(
   process.env.CALLBACK_URL || 'http://localhost:3000/api/reportComplete'
