@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { SignInButton } from "./signInButton";
 import { PrivilegeLevel } from "@prisma/client";
-import { hasPermissionFor } from "~/lib/utils";
+import { useRequiresPrivilege } from "~/hooks/useAuthorization";
 
 export default function AuthCheck({
   children,
@@ -12,16 +12,13 @@ export default function AuthCheck({
   children: React.ReactNode;
   privilegeLevel?: PrivilegeLevel;
 }) {
-  const { status, data: session } = useSession();
+  const { status } = useSession();
+  const { hasAccess } = useRequiresPrivilege(
+    privilegeLevel ?? PrivilegeLevel.ReadAccess,
+  );
 
   if (status === "authenticated") {
-    if (
-      privilegeLevel &&
-      !hasPermissionFor(
-        session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
-        privilegeLevel,
-      )
-    ) {
+    if (privilegeLevel && !hasAccess) {
       return (
         <div className="w-full flex flex-col items-center">
           <h1>
