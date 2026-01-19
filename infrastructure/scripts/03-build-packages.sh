@@ -15,6 +15,10 @@ PROJECT_DIR="/opt/voter-file-tool"
 
 echo "🔨 Building workspace packages..."
 
+# Fix ownership if needed (ensure current user owns the directory)
+ACTUAL_USER=$(whoami)
+sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR" 2>/dev/null || true
+
 cd "$PROJECT_DIR" || {
   echo "❌ Failed to navigate to project directory"
   exit 1

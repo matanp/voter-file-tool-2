@@ -115,15 +115,23 @@ resource "aws_lightsail_instance" "nodejs_server" {
               
               # Step 2: Clone repository (scripts will be run from here)
               echo "📥 Cloning repository..."
+              # Detect the actual user running this script
+              ACTUAL_USER=$(whoami)
               if [ -d "$PROJECT_DIR/.git" ]; then
+                # Fix ownership if needed
+                sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR" || true
                 cd "$PROJECT_DIR"
-                git reset --hard
-                git pull origin main
+                # Configure git safe directory
+                git config --global --add safe.directory "$PROJECT_DIR" || true
+                git reset --hard || true
+                git pull origin main || echo "⚠️  Could not pull latest (may be on correct branch)"
               else
                 sudo mkdir -p "$PROJECT_DIR"
-                sudo chown -R $USER:$USER "$PROJECT_DIR"
+                sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR"
                 git clone https://matanp:${var.github_token}@github.com/matanp/voter-file-tool-2.git "$PROJECT_DIR"
                 cd "$PROJECT_DIR"
+                # Configure git safe directory
+                git config --global --add safe.directory "$PROJECT_DIR" || true
               fi
               
               # Step 3: Generate .env file from template
