@@ -51,7 +51,7 @@ sudo apt-get install -y \
 # This ensures consistency with 00-setup-all.sh
 if [ -z "$NVM_DIR" ]; then
   USER_HOME="${HOME:-$(eval echo ~$(whoami))}"
-  export NVM_DIR="$USER_HOME/.nvm"
+  NVM_DIR="$USER_HOME/.nvm"
 else
   USER_HOME="$(dirname "$NVM_DIR")"
 fi
@@ -62,10 +62,15 @@ if [ ! -f "$USER_HOME/.bashrc" ]; then
 fi
 
 # Install Node.js from NodeSource via nvm
-# The nvm install script respects NVM_DIR if set, otherwise uses $HOME/.nvm
+# Temporarily unset NVM_DIR to let the install script detect the location automatically
+# The install script will use $HOME/.nvm by default, which matches our intended location
 echo "📦 Installing Node.js via nvm..."
-echo "   Installing to: $NVM_DIR"
+echo "   Will install to: $NVM_DIR"
+# Unset NVM_DIR temporarily - the install script will create $HOME/.nvm automatically
+unset NVM_DIR
 curl -fsSL -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+# Now set NVM_DIR to the location where nvm was installed
+export NVM_DIR="$USER_HOME/.nvm"
 
 # Add nvm to .bashrc (only if not already present)
 if ! grep -q 'NVM_DIR' "$USER_HOME/.bashrc"; then
