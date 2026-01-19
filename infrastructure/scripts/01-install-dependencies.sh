@@ -47,21 +47,43 @@ sudo apt-get install -y \
   lsb-release \
   xdg-utils
 
-# Setup bashrc if it doesn't exist
-if [ ! -f /root/.bashrc ]; then
-  touch /root/.bashrc
+# Use NVM_DIR from master script if set, otherwise detect user home
+# This ensures consistency with 00-setup-all.sh
+if [ -z "$NVM_DIR" ]; then
+  USER_HOME="${HOME:-$(eval echo ~$(whoami))}"
+  export NVM_DIR="$USER_HOME/.nvm"
+else
+  USER_HOME="$(dirname "$NVM_DIR")"
+fi
+
+# Setup bashrc if it doesn't exist (use detected user's home)
+if [ ! -f "$USER_HOME/.bashrc" ]; then
+  touch "$USER_HOME/.bashrc"
 fi
 
 # Install Node.js from NodeSource via nvm
+# The nvm install script respects NVM_DIR if set, otherwise uses $HOME/.nvm
 echo "📦 Installing Node.js via nvm..."
+echo "   Installing to: $NVM_DIR"
 curl -fsSL -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
 
-# Add nvm to .bashrc
-echo 'export NVM_DIR="$HOME/.nvm"' >> /root/.bashrc
-echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> /root/.bashrc
+# Add nvm to .bashrc (only if not already present)
+if ! grep -q 'NVM_DIR' "$USER_HOME/.bashrc"; then
+  echo 'export NVM_DIR="$HOME/.nvm"' >> "$USER_HOME/.bashrc"
+  echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> "$USER_HOME/.bashrc"
+fi
+
+# Also add to .profile for better compatibility (login shells)
+if [ ! -f "$USER_HOME/.profile" ]; then
+  touch "$USER_HOME/.profile"
+fi
+if ! grep -q 'NVM_DIR' "$USER_HOME/.profile"; then
+  echo 'export NVM_DIR="$HOME/.nvm"' >> "$USER_HOME/.profile"
+  echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> "$USER_HOME/.profile"
+fi
 
 # Load nvm into the current session
-export NVM_DIR="$HOME/.nvm"
+# Use the NVM_DIR we set (should match what master script set)
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
 # Install Node.js 22

@@ -19,13 +19,25 @@ npm install -g pm2
 # Create logs directory
 mkdir -p /opt/voter-file-tool/apps/report-server/logs
 
-# Copy ecosystem config (will be done by Terraform)
-# The ecosystem.config.js will be copied to /opt/voter-file-tool/apps/report-server/
+# Ensure start.sh wrapper script is executable
+if [ -f /opt/voter-file-tool/apps/report-server/start.sh ]; then
+  chmod +x /opt/voter-file-tool/apps/report-server/start.sh
+  echo "✅ start.sh wrapper script is executable"
+else
+  echo "⚠️  start.sh wrapper script not found (will be created from repo)"
+fi
 
 # Save pm2 process list
 pm2 save || true
 
 # Setup pm2 to start on boot
-pm2 startup | grep -v PM2 || true
+# The startup command generates a systemd service that runs as the current user
+# This ensures PM2 processes have access to the user's nvm installation
+STARTUP_OUTPUT=$(pm2 startup 2>&1 | grep -v PM2 || true)
+if [ -n "$STARTUP_OUTPUT" ]; then
+  echo "📋 PM2 startup command output:"
+  echo "$STARTUP_OUTPUT"
+  # Note: The user may need to run the generated command manually if sudo is required
+fi
 
 echo "✅ pm2 installed and configured successfully"

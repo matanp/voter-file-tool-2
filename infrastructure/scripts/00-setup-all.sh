@@ -14,10 +14,16 @@ echo "🚀 Starting complete setup process..."
 USER_HOME="${HOME:-$(eval echo ~$(whoami))}"
 export NVM_DIR="$USER_HOME/.nvm"
 
+# Export NVM_DIR so it's available to all sourced scripts
+# This ensures 01-install-dependencies.sh uses the same directory
+export USER_HOME
+
 # Load nvm if it exists, otherwise it will be installed by 01-install-dependencies.sh
 if [ -s "$NVM_DIR/nvm.sh" ]; then
-  echo "📦 Loading nvm..."
+  echo "📦 Loading nvm from $NVM_DIR..."
   \. "$NVM_DIR/nvm.sh"
+else
+  echo "📦 nvm not found at $NVM_DIR (will be installed by dependency script)"
 fi
 
 # Ensure pnpm is available after nvm loads (if nvm was already installed)
