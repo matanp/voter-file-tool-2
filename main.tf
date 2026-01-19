@@ -163,6 +163,10 @@ NGINXEOF
                 sudo cp infrastructure/configs/nginx-report-server-http-only.conf /tmp/nginx-report-server.conf
               fi
               
+              # Create nginx config directories if they don't exist
+              sudo mkdir -p /etc/nginx/sites-available
+              sudo mkdir -p /etc/nginx/sites-enabled
+              
               sudo mv /tmp/nginx-report-server.conf /etc/nginx/sites-available/report-server
               sudo ln -sf /etc/nginx/sites-available/report-server /etc/nginx/sites-enabled/report-server
               
