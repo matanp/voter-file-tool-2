@@ -16,6 +16,13 @@ fi
 
 cd "$PROJECT_DIR"
 
+# Fix ownership if needed (in case directory was created with sudo)
+ACTUAL_USER=$(whoami)
+sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR" 2>/dev/null || true
+
+# Configure git safe directory (fixes "dubious ownership" error)
+git config --global --add safe.directory "$PROJECT_DIR" 2>/dev/null || true
+
 # Ensure we're on the latest code
 echo "🔄 Ensuring latest code..."
 git reset --hard HEAD || true
