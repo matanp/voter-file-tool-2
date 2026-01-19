@@ -2,10 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'report-server',
-      script: 'pnpm',
-      args: 'start',
+      script: './start.sh',
       cwd: '/opt/voter-file-tool/apps/report-server',
-      interpreter: 'none',
+      interpreter: 'bash',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
