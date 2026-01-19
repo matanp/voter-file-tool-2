@@ -1,13 +1,15 @@
 #!/bin/bash
 # Start pm2 and nginx services
+# Note: This script is designed to be sourced by 00-setup-all.sh
+# nvm, npm, and pm2 should already be available in the environment
 
 set -e
 
-# Load nvm to access Node.js and pm2
-# Detect home directory (works for both root and regular users)
-USER_HOME="${HOME:-$(eval echo ~$(whoami))}"
-export NVM_DIR="$USER_HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+# Verify pm2 is available (safety check - should already be installed by 06-setup-pm2.sh)
+if ! command -v pm2 &> /dev/null; then
+  echo "❌ pm2 is not available. This script should be sourced by 00-setup-all.sh"
+  exit 1
+fi
 
 PROJECT_DIR="/opt/voter-file-tool"
 
