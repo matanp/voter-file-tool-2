@@ -1,13 +1,15 @@
 #!/bin/bash
 # Install and configure pm2 for process management
+# Note: This script is designed to be sourced by 00-setup-all.sh
+# nvm and npm should already be available in the environment
 
 set -e
 
-# Load nvm to access Node.js and npm
-# Detect home directory (works for both root and regular users)
-USER_HOME="${HOME:-$(eval echo ~$(whoami))}"
-export NVM_DIR="$USER_HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+# Verify npm is available (safety check - should already be loaded by master script)
+if ! command -v npm &> /dev/null; then
+  echo "❌ npm is not available. This script should be sourced by 00-setup-all.sh"
+  exit 1
+fi
 
 echo "🔧 Setting up pm2..."
 

@@ -144,17 +144,8 @@ ${templatefile("${path.module}/infrastructure/templates/report-server.env.tpl", 
 ENVEOF
               chmod 600 "$PROJECT_DIR/apps/report-server/.env"
               
-              # Step 4: Run setup scripts from cloned repo
-              echo "🚀 Running setup scripts from repository..."
-              cd "$PROJECT_DIR"
-              
-              bash infrastructure/scripts/01-install-dependencies.sh
-              bash infrastructure/scripts/02-setup-project.sh
-              bash infrastructure/scripts/03-build-packages.sh
-              bash infrastructure/scripts/04-setup-env.sh
-              bash infrastructure/scripts/05-setup-nginx.sh
-              
-              # Step 5: Setup nginx config (conditional based on SSL settings)
+              # Step 4: Setup nginx config (conditional based on SSL settings)
+              # This must be done before running the setup scripts so nginx config is ready
               if [ "${var.use_self_signed_ssl}" = "true" ]; then
                 echo "🔐 Using self-signed SSL certificate..."
                 bash infrastructure/scripts/generate-self-signed-cert.sh
@@ -175,12 +166,14 @@ NGINXEOF
               sudo mv /tmp/nginx-report-server.conf /etc/nginx/sites-available/report-server
               sudo ln -sf /etc/nginx/sites-available/report-server /etc/nginx/sites-enabled/report-server
               
-              bash infrastructure/scripts/06-setup-pm2.sh
-              
-              # Copy ecosystem.config.js
+              # Copy ecosystem.config.js (needed before starting services)
               cp apps/report-server/ecosystem.config.js "$PROJECT_DIR/apps/report-server/ecosystem.config.js"
               
-              bash infrastructure/scripts/07-start-services.sh
+              # Step 5: Run master setup script (sources all individual scripts)
+              # This ensures environment variables persist across all setup steps
+              echo "🚀 Running master setup script..."
+              cd "$PROJECT_DIR"
+              bash infrastructure/scripts/00-setup-all.sh
               
               echo "✅ Deployment complete!"
               EOF
