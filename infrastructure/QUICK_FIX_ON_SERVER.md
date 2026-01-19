@@ -63,3 +63,79 @@ source infrastructure/scripts/05-setup-nginx.sh
 source infrastructure/scripts/06-setup-pm2.sh
 source infrastructure/scripts/07-start-services.sh
 ```
+
+## Accessing PM2 Commands in New Shell
+
+If you get "pm2: command not found" in a new shell session, you need to load nvm first:
+
+```bash
+# Load nvm into current session
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Now pm2 will be available
+pm2 status
+pm2 logs report-server
+pm2 restart report-server
+```
+
+**Note**: The report-server is already running from the setup script. You can verify it's working by checking:
+
+- `pm2 status` (after loading nvm)
+- `curl http://localhost:8080` (if the server has a health endpoint)
+- Check nginx status: `sudo systemctl status nginx`
+
+## Check if Services are Running
+
+```bash
+# Load nvm first
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Check PM2 status
+pm2 status
+
+# Check PM2 logs
+pm2 logs report-server --lines 50
+
+# Check nginx status
+sudo systemctl status nginx
+
+# Check nginx error logs
+sudo tail -n 50 /var/log/nginx/error.log
+```
+
+## Make PM2 Available on Login (One-Time Fix)
+
+To make pm2 commands available immediately when you login, run these commands once:
+
+```bash
+# Ensure .bash_profile sources .bashrc (for login shells)
+if [ ! -f ~/.bash_profile ]; then
+  cat > ~/.bash_profile << 'EOF'
+# ~/.bash_profile: executed by bash for login shells.
+if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi
+EOF
+elif ! grep -q '\.bashrc' ~/.bash_profile; then
+  echo '' >> ~/.bash_profile
+  echo '# Source .bashrc for consistent behavior' >> ~/.bash_profile
+  echo 'if [ -f ~/.bashrc ]; then' >> ~/.bash_profile
+  echo '    . ~/.bashrc' >> ~/.bash_profile
+  echo 'fi' >> ~/.bash_profile
+fi
+
+# Ensure default node version is used automatically
+if ! grep -q 'nvm use default' ~/.bashrc; then
+  echo '' >> ~/.bashrc
+  echo '# Use default node version automatically' >> ~/.bashrc
+  echo 'nvm use default > /dev/null 2>&1 || true' >> ~/.bashrc
+fi
+
+# Test it by opening a new shell or running:
+source ~/.bashrc
+pm2 status
+```
+
+After running these commands, pm2 will be available in all new shell sessions.
