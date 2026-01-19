@@ -3,6 +3,12 @@
 
 set -e
 
+# Load nvm to access Node.js and npm
+# Detect home directory (works for both root and regular users)
+USER_HOME="${HOME:-$(eval echo ~$(whoami))}"
+export NVM_DIR="$USER_HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 echo "🔧 Setting up pm2..."
 
 # Install pm2 globally
