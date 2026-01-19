@@ -170,9 +170,6 @@ NGINXEOF
               sudo mv /tmp/nginx-report-server.conf /etc/nginx/sites-available/report-server
               sudo ln -sf /etc/nginx/sites-available/report-server /etc/nginx/sites-enabled/report-server
               
-              # Copy ecosystem.config.js (needed before starting services)
-              cp apps/report-server/ecosystem.config.js "$PROJECT_DIR/apps/report-server/ecosystem.config.js"
-              
               # Step 5: Run master setup script (sources all individual scripts)
               # This ensures environment variables persist across all setup steps
               echo "🚀 Running master setup script..."
