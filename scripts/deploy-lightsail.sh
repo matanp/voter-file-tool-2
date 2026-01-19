@@ -8,7 +8,7 @@ set -e  # Exit on error
 echo "🚀 Starting deployment..."
 
 # Navigate to project root
-cd /home/bitnami/your-project
+cd /opt/voter-file-tool
 
 # Pull latest changes
 echo "📥 Pulling latest changes..."
