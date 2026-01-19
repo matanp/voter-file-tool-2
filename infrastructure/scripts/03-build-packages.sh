@@ -3,6 +3,12 @@
 
 set -e
 
+# Load nvm to access Node.js and pnpm
+# Detect home directory (works for both root and regular users)
+USER_HOME="${HOME:-$(eval echo ~$(whoami))}"
+export NVM_DIR="$USER_HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 PROJECT_DIR="/opt/voter-file-tool"
 
 echo "🔨 Building workspace packages..."
