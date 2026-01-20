@@ -5,5 +5,5 @@ R2_ACCOUNT_ID=${r2_account_id}
 R2_ACCESS_KEY_ID=${r2_access_key_id}
 R2_SECRET_ACCESS_KEY=${r2_secret_access_key}
 R2_BUCKET_NAME=${r2_bucket_name}
-DATABASE_URL=${database_url}
+POSTGRES_PRISMA_URL=${database_url}
 NODE_ENV=${node_env}

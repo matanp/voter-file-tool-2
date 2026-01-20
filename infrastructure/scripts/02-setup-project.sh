@@ -17,7 +17,9 @@ fi
 cd "$PROJECT_DIR"
 
 # Fix ownership if needed (in case directory was created with sudo)
-ACTUAL_USER=$(whoami)
+# Use SSH_USER from master script if available, otherwise fall back to whoami
+ACTUAL_USER="${SSH_USER:-$(whoami)}"
+echo "📋 Setting ownership to: $ACTUAL_USER"
 sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR" 2>/dev/null || true
 
 # Configure git safe directory (fixes "dubious ownership" error)
