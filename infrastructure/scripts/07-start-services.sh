@@ -13,7 +13,11 @@ fi
 
 PROJECT_DIR="/opt/voter-file-tool"
 
-echo "🚀 Starting services..."
+# Get SSH user from master script if set
+SSH_USER="${SSH_USER:-$(whoami)}"
+SSH_USER_HOME="${SSH_USER_HOME:-${USER_HOME:-$HOME}}"
+
+echo "🚀 Starting services as user: $SSH_USER..."
 
 # Navigate to report-server directory
 cd "$PROJECT_DIR/apps/report-server" || {
@@ -21,14 +25,24 @@ cd "$PROJECT_DIR/apps/report-server" || {
   exit 1
 }
 
+# Function to run pm2 commands (as SSH user if we're root)
+run_pm2() {
+  local cmd="$1"
+  if [ "$(whoami)" = "root" ] && [ -n "$SSH_USER" ] && [ "$SSH_USER" != "root" ]; then
+    sudo -u "$SSH_USER" bash -c "export HOME='$SSH_USER_HOME' && export NVM_DIR='$SSH_USER_HOME/.nvm' && [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\" && nvm use default && cd '$PROJECT_DIR/apps/report-server' && $cmd"
+  else
+    eval "$cmd"
+  fi
+}
+
 # Stop existing pm2 process if running
-pm2 delete report-server || true
+run_pm2 "pm2 delete report-server || true"
 
 # Start the application with pm2 using ecosystem config
-pm2 start ecosystem.config.js
+run_pm2 "pm2 start ecosystem.config.js"
 
 # Save pm2 process list
-pm2 save
+run_pm2 "pm2 save"
 
 # Start nginx (may fail if SSL certificates don't exist yet)
 sudo systemctl enable nginx
@@ -113,7 +127,7 @@ else
 fi
 
 # Show pm2 status
-pm2 status
+run_pm2 "pm2 status"
 
 echo "✅ Services started successfully"
 echo ""
