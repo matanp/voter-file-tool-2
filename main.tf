@@ -176,7 +176,7 @@ NGINXEOF
               sudo mkdir -p /etc/nginx/sites-enabled
               
               sudo mv /tmp/nginx-report-server.conf /etc/nginx/sites-available/report-server
-              sudo ln -sf /etc/nginx/sites-available/report-server /etc/nginx/sites-enabled/report-server
+              # Don't symlink yet - let 05-setup-nginx.sh handle it after nginx is installed
               
               # Step 5: Run master setup script (sources all individual scripts)
               # This ensures environment variables persist across all setup steps
@@ -224,6 +224,11 @@ resource "aws_lightsail_static_ip_attachment" "nodejs-report-server-ip-attachmen
   static_ip_name = aws_lightsail_static_ip.nodejs-report-server-ip.name
   instance_name  = aws_lightsail_instance.nodejs_server.name
 
+  depends_on = [
+    aws_lightsail_instance.nodejs_server,
+    aws_lightsail_instance_public_ports.public_ports
+  ]
+
   lifecycle {
     prevent_destroy = true
   }
@@ -232,4 +237,10 @@ resource "aws_lightsail_static_ip_attachment" "nodejs-report-server-ip-attachmen
 # Output the public IP of the Lightsail instance
 output "nodejs_server_ip" {
   value = aws_lightsail_instance.nodejs_server.public_ip_address
+}
+
+# Output the static IP address
+output "static_ip_address" {
+  value       = aws_lightsail_static_ip.nodejs-report-server-ip.ip_address
+  description = "The static IP address attached to the report server"
 }
