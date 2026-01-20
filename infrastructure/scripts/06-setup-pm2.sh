@@ -40,8 +40,11 @@ else
   npm install -g pm2
 fi
 
-# Create logs directory
+# Create logs directory and set ownership
 mkdir -p /opt/voter-file-tool/apps/report-server/logs
+if [ "$(whoami)" = "root" ] && [ -n "$SSH_USER" ] && [ "$SSH_USER" != "root" ]; then
+  chown -R "$SSH_USER:$SSH_USER" /opt/voter-file-tool/apps/report-server/logs
+fi
 
 # Ensure start.sh wrapper script is executable
 if [ -f /opt/voter-file-tool/apps/report-server/start.sh ]; then
