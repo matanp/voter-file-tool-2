@@ -9,17 +9,50 @@ PROJECT_DIR="/opt/voter-file-tool"
 
 echo "🚀 Starting complete setup process..."
 
+# Detect the SSH user (the user who will actually log in via SSH)
+# This is typically the first non-root user with a home directory
+# For Bitnami images, it's usually "bitnami"
+# For Ubuntu/Debian, it might be "ubuntu" or the first user created
+if [ "$(whoami)" = "root" ]; then
+  # If running as root, detect the SSH user
+  # Check for common SSH users in order of preference
+  if id "bitnami" &>/dev/null; then
+    SSH_USER="bitnami"
+  elif id "ubuntu" &>/dev/null; then
+    SSH_USER="ubuntu"
+  else
+    # Find the first non-root user with a home directory
+    SSH_USER=$(getent passwd | awk -F: '$3 >= 1000 && $1 != "nobody" {print $1; exit}')
+  fi
+  
+  if [ -z "$SSH_USER" ]; then
+    echo "⚠️  Could not detect SSH user, using root"
+    SSH_USER="root"
+  fi
+else
+  # Already running as a non-root user
+  SSH_USER="$(whoami)"
+fi
+
+SSH_USER_HOME=$(eval echo ~$SSH_USER)
+echo "📋 Detected SSH user: $SSH_USER (home: $SSH_USER_HOME)"
+
 # Load nvm once at the start (will be available to all sourced scripts)
-# Detect home directory (works for both root and regular users)
-USER_HOME="${HOME:-$(eval echo ~$(whoami))}"
+# Use SSH user's home for installation (even if running as root)
+USER_HOME="$SSH_USER_HOME"
 export NVM_DIR="$USER_HOME/.nvm"
 
-# Export NVM_DIR so it's available to all sourced scripts
-# This ensures 01-install-dependencies.sh uses the same directory
+# Export variables so they're available to all sourced scripts
 export USER_HOME
+export SSH_USER
+export SSH_USER_HOME
 
 # Load nvm if it exists, otherwise it will be installed by 01-install-dependencies.sh
-if [ -s "$NVM_DIR/nvm.sh" ]; then
+# If running as root but installing for SSH user, we'll load nvm after installation
+if [ "$(whoami)" = "root" ] && [ -n "$SSH_USER" ] && [ "$SSH_USER" != "root" ]; then
+  echo "📦 Will install nvm for SSH user: $SSH_USER"
+  # Don't try to load nvm yet - it will be installed by 01-install-dependencies.sh
+elif [ -s "$NVM_DIR/nvm.sh" ]; then
   echo "📦 Loading nvm from $NVM_DIR..."
   \. "$NVM_DIR/nvm.sh"
 else
@@ -27,11 +60,14 @@ else
 fi
 
 # Ensure pnpm is available after nvm loads (if nvm was already installed)
-if command -v npm &> /dev/null && ! command -v pnpm &> /dev/null; then
-  echo "📦 Installing pnpm globally..."
-  npm install -g pnpm || {
-    echo "⚠️  Failed to install pnpm (will be installed by 01-install-dependencies.sh)"
-  }
+# Skip if we're root installing for another user (will be done in dependency script)
+if [ "$(whoami)" != "root" ] || [ -z "$SSH_USER" ] || [ "$SSH_USER" = "root" ]; then
+  if command -v npm &> /dev/null && ! command -v pnpm &> /dev/null; then
+    echo "📦 Installing pnpm globally..."
+    npm install -g pnpm || {
+      echo "⚠️  Failed to install pnpm (will be installed by 01-install-dependencies.sh)"
+    }
+  fi
 fi
 
 # Source all setup scripts in order
