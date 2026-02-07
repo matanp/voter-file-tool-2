@@ -2,6 +2,7 @@
 import express, { Request, Response } from 'express';
 import { gunzipSync } from 'node:zlib';
 import { config } from 'dotenv';
+import { expand } from 'dotenv-expand';
 import async from 'async';
 
 import path from 'path';
@@ -34,7 +35,7 @@ import {
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
 
-config();
+expand(config());
 
 const QUEUE_CONCURRENCY = 2;
 
@@ -180,12 +181,14 @@ function extractXLSXConfig(jobData: EnrichedReportData) {
 async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName: string;
-    let metadata: {
-      recordsProcessed: number;
-      recordsCreated: number;
-      recordsUpdated: number;
-      dropdownsUpdated: boolean;
-    } | undefined;
+    let metadata:
+      | {
+          recordsProcessed: number;
+          recordsCreated: number;
+          recordsUpdated: number;
+          dropdownsUpdated: boolean;
+        }
+      | undefined;
     const { type, reportAuthor, jobId, name, format } = jobData;
 
     fileName = generateReportFilename(name, type, format, reportAuthor);
@@ -264,7 +267,7 @@ async function processJob(jobData: EnrichedReportData) {
       await processAbsenteeReport(fileName, jobId, jobData.csvFileKey);
     } else if (type === 'voterImport') {
       console.log('Processing voter import...');
-      
+
       // Validate required fields
       if (!('fileKey' in jobData) || !jobData.fileKey) {
         throw new Error('fileKey is required for voter import');
@@ -272,7 +275,10 @@ async function processJob(jobData: EnrichedReportData) {
       if (!('year' in jobData) || typeof jobData.year !== 'number') {
         throw new Error('year is required for voter import');
       }
-      if (!('recordEntryNumber' in jobData) || typeof jobData.recordEntryNumber !== 'number') {
+      if (
+        !('recordEntryNumber' in jobData) ||
+        typeof jobData.recordEntryNumber !== 'number'
+      ) {
         throw new Error('recordEntryNumber is required for voter import');
       }
 
@@ -283,10 +289,10 @@ async function processJob(jobData: EnrichedReportData) {
         jobData.recordEntryNumber,
         jobId
       );
-      
+
       // For voter import, we don't generate a file to download, so fileName is empty
       fileName = '';
-      
+
       // Store statistics in metadata for webhook
       metadata = {
         recordsProcessed: importStats.recordsProcessed,

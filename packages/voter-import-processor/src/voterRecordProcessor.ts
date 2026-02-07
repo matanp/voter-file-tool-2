@@ -5,6 +5,148 @@ import { searchableFieldEnum } from '@voter-file-tool/shared-validators';
 import type { VoterRecordArchiveStrings } from './types';
 
 /**
+ * Fields to update in batch update query, organized by type for proper SQL casting
+ */
+const VOTER_RECORD_UPDATE_FIELDS = {
+  string: [
+    'lastName',
+    'firstName',
+    'middleInitial',
+    'suffixName',
+    'street',
+    'apartment',
+    'halfAddress',
+    'resAddrLine2',
+    'resAddrLine3',
+    'city',
+    'state',
+    'zipCode',
+    'zipSuffix',
+    'telephone',
+    'email',
+    'mailingAddress1',
+    'mailingAddress2',
+    'mailingAddress3',
+    'mailingAddress4',
+    'mailingCity',
+    'mailingState',
+    'mailingZip',
+    'mailingZipSuffix',
+    'party',
+    'gender',
+    'L_T',
+    'countyLegDistrict',
+    'stateAssmblyDistrict',
+    'stateSenateDistrict',
+    'congressionalDistrict',
+    'CC_WD_Village',
+    'townCode',
+    'statevid',
+  ],
+  integer: [
+    'houseNum',
+    'electionDistrict',
+    'latestRecordEntryYear',
+    'latestRecordEntryNumber',
+  ],
+  datetime: ['DOB', 'lastUpdate', 'originalRegDate'],
+  boolean: ['hasDiscrepancy'],
+} as const;
+
+/**
+ * Format a value for SQL based on its type
+ */
+function formatSqlValue(
+  value: unknown,
+  type: 'string' | 'integer' | 'datetime' | 'boolean'
+): string {
+  if (value === null || value === undefined) {
+    return 'NULL';
+  }
+
+  switch (type) {
+    case 'string':
+      // Escape single quotes by doubling them
+      return `'${String(value).replace(/'/g, "''")}'`;
+    case 'integer':
+      return value === null || value === undefined
+        ? 'NULL'
+        : String(Number(value));
+    case 'datetime':
+      if (value instanceof Date) {
+        return `'${value.toISOString()}'::timestamp`;
+      }
+      return 'NULL';
+    case 'boolean':
+      return value ? 'true' : 'false';
+    default:
+      return 'NULL';
+  }
+}
+
+/**
+ * Build and execute a batch UPDATE query for VoterRecords
+ * Uses PostgreSQL's UPDATE ... FROM (VALUES ...) syntax for efficient bulk updates
+ */
+async function batchUpdateVoterRecords(
+  updates: { vrcnum: string; data: Record<string, unknown> }[],
+  prisma: PrismaClient
+): Promise<number> {
+  if (updates.length === 0) {
+    return 0;
+  }
+
+  // Build column list for VALUES clause (VRCNUM + all update fields)
+  const allFields = [
+    ...VOTER_RECORD_UPDATE_FIELDS.string,
+    ...VOTER_RECORD_UPDATE_FIELDS.integer,
+    ...VOTER_RECORD_UPDATE_FIELDS.datetime,
+    ...VOTER_RECORD_UPDATE_FIELDS.boolean,
+  ];
+
+  // Build the VALUES rows
+  const valuesRows = updates.map((update) => {
+    const values: string[] = [formatSqlValue(update.vrcnum, 'string')];
+
+    for (const field of VOTER_RECORD_UPDATE_FIELDS.string) {
+      values.push(formatSqlValue(update.data[field], 'string'));
+    }
+    for (const field of VOTER_RECORD_UPDATE_FIELDS.integer) {
+      values.push(formatSqlValue(update.data[field], 'integer'));
+    }
+    for (const field of VOTER_RECORD_UPDATE_FIELDS.datetime) {
+      values.push(formatSqlValue(update.data[field], 'datetime'));
+    }
+    for (const field of VOTER_RECORD_UPDATE_FIELDS.boolean) {
+      values.push(formatSqlValue(update.data[field], 'boolean'));
+    }
+
+    return `(${values.join(', ')})`;
+  });
+
+  // Column names only for VALUES alias (PostgreSQL does not allow types here)
+  const tmpColumnNames = ['"VRCNUM"', ...allFields.map((f) => `"${f}"`)];
+
+  // Build the SET clause
+  const setClause = allFields
+    .map((field) => `"${field}" = tmp."${field}"`)
+    .join(', ');
+
+  // Build the full UPDATE query
+  const sql = `
+    UPDATE "VoterRecord" AS v SET
+      ${setClause}
+    FROM (VALUES
+      ${valuesRows.join(',\n      ')}
+    ) AS tmp(${tmpColumnNames.join(', ')})
+    WHERE v."VRCNUM" = tmp."VRCNUM"
+  `;
+
+  const result = await prisma.$executeRawUnsafe(sql);
+  return result;
+}
+
+/**
  * Convert date string from mm/dd/yyyy format to Date object
  */
 export function convertStringToDateTime(dateString: string): Date {
@@ -213,7 +355,8 @@ export async function bulkSaveVoterRecords(
   );
 
   const voterCreateTransactions: Prisma.VoterRecordCreateManyInput[] = [];
-  const voterUpdateTransactions: Prisma.VoterRecordUpdateManyArgs[] = [];
+  const voterUpdateData: { vrcnum: string; data: Record<string, unknown> }[] =
+    [];
 
   for (const record of records) {
     const existingRecord = existingRecordMap.get(record.VRCNUM);
@@ -222,10 +365,8 @@ export async function bulkSaveVoterRecords(
       record;
 
     if (existingRecord && isRecordNewer(record, existingRecord)) {
-      voterUpdateTransactions.push({
-        where: {
-          VRCNUM: record.VRCNUM,
-        },
+      voterUpdateData.push({
+        vrcnum: record.VRCNUM,
         data: {
           ...otherRecordFields,
           latestRecordEntryNumber: recordEntryNumber,
@@ -244,30 +385,23 @@ export async function bulkSaveVoterRecords(
     }
   }
 
-  // Execute updates with limited concurrency to avoid connection pool exhaustion
-  const CONCURRENT_UPDATE_LIMIT = 3;
-
-  for (
-    let i = 0;
-    i < voterUpdateTransactions.length;
-    i += CONCURRENT_UPDATE_LIMIT
-  ) {
-    const batch = voterUpdateTransactions.slice(i, i + CONCURRENT_UPDATE_LIMIT);
-    const batchPromises = batch.map((transaction) =>
-      prisma.voterRecord.updateMany(transaction)
-    );
-    await Promise.all(batchPromises);
-  }
+  // Execute batch update using raw SQL (single query instead of individual updates)
+  console.time('batchUpdateVoterRecords');
+  const updatedCount = await batchUpdateVoterRecords(voterUpdateData, prisma);
+  console.timeEnd('batchUpdateVoterRecords');
+  console.log(`Batch updated ${updatedCount} voter records`);
 
   // Execute creates
+  console.time('createManyVoterRecords');
   await prisma.voterRecord.createMany({
     data: voterCreateTransactions,
   });
+  console.timeEnd('createManyVoterRecords');
 
   console.timeEnd('bulkSaveVoterRecords');
 
   return {
     created: voterCreateTransactions.length,
-    updated: voterUpdateTransactions.length,
+    updated: voterUpdateData.length,
   };
 }
