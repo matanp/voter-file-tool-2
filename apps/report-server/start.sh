@@ -28,5 +28,26 @@ cd "$(dirname "$0")" || {
   exit 1
 }
 
+# Ensure public directory exists and is writable
+PUBLIC_DIR="./public"
+TAILWIND_CSS="$PUBLIC_DIR/tailwind.css"
+
+mkdir -p "$PUBLIC_DIR"
+
+# If tailwind.css exists but isn't writable, remove it so Tailwind can recreate it
+if [ -f "$TAILWIND_CSS" ] && [ ! -w "$TAILWIND_CSS" ]; then
+  echo "Warning: $TAILWIND_CSS not writable, removing for rebuild..." >&2
+  rm -f "$TAILWIND_CSS" || {
+    echo "ERROR: Cannot remove $TAILWIND_CSS. Run: sudo chown $(whoami) $TAILWIND_CSS" >&2
+    exit 1
+  }
+fi
+
+# Verify public directory is writable
+if [ ! -w "$PUBLIC_DIR" ]; then
+  echo "ERROR: $PUBLIC_DIR not writable. Run: sudo chown -R $(whoami) $PUBLIC_DIR" >&2
+  exit 1
+fi
+
 # Run pnpm start
 exec pnpm start

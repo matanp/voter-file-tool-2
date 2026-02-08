@@ -25,6 +25,14 @@ cd "$PROJECT_DIR/apps/report-server" || {
   exit 1
 }
 
+# Ensure report-server files are owned by the correct user (fixes issues from manual root fixes)
+echo "📋 Ensuring correct file ownership..."
+sudo chown -R "$SSH_USER:$SSH_USER" "$PROJECT_DIR/apps/report-server" 2>/dev/null || true
+
+# Ensure public directory exists and is writable for Tailwind CSS build
+mkdir -p "$PROJECT_DIR/apps/report-server/public"
+sudo chown -R "$SSH_USER:$SSH_USER" "$PROJECT_DIR/apps/report-server/public"
+
 # Function to run pm2 commands (as SSH user if we're root)
 run_pm2() {
   local cmd="$1"
