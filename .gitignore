@@ -16,3 +16,5 @@ terraform.tfstate*
 .env_n8n
 
 AI_PLAN_DOCS/
+
+*.tsbuildinfo
