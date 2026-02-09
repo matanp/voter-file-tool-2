@@ -51,6 +51,8 @@ The heart of the application is its data model, defined in `prisma/schema.prisma
 
 ## Getting Started
 
+For full local dev (database, R2, report-server, frontend), see [docs/LOCAL_DEVELOPMENT.md](../../docs/LOCAL_DEVELOPMENT.md). Required env vars are listed in [.env.example](.env.example).
+
 1.  Install dependencies: `pnpm install`
 2.  Set up your `.env` file with the required environment variables (database URL, auth secrets).
 3.  Run database migrations: `pnpm db_migrate`

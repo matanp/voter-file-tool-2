@@ -38,9 +38,11 @@ This architecture allows for creating complex, data-driven PDF layouts using fam
 
 ## Getting Started
 
+For full local dev (database, R2, report-server, frontend), see [docs/LOCAL_DEVELOPMENT.md](../../docs/LOCAL_DEVELOPMENT.md). Required env vars are listed in [.env.example](.env.example).
+
 1.  Install dependencies: `pnpm install`
-2.  Create a `.env` file if any environment variables are needed.
+2.  Create a `.env` file from `.env.example` and fill in the required environment variables.
 3.  Start the development server: `pnpm dev`
-4.  Build the CSS: `pnpm build:css`
+4.  Build the CSS: `pnpm build:css` (if needed; prestart/build may run it)
 
 The server will start on the port defined in the code (e.g., 8080) and will be ready to accept requests for PDF generation.
