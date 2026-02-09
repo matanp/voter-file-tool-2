@@ -81,11 +81,8 @@ app.post(
       const rawRequestData = JSON.parse(jsonString);
 
       // Validate the request data using the enriched schema
-      const validationResult = enrichedReportDataSchema.safeParse(
-        rawRequestData
-      ) as
-        | { success: true; data: EnrichedReportData }
-        | { success: false; error: any };
+      const validationResult =
+        enrichedReportDataSchema.safeParse(rawRequestData);
 
       if (!validationResult.success) {
         console.log('Validation errors:', validationResult.error.errors);

@@ -12,12 +12,13 @@ import {
   createWorkbook,
   addWorksheetToWorkbook,
 } from '../../utils/xlsxUtils';
+import type { WorksheetData } from '../../types';
 
 // Configuration interfaces for sheet creation
 interface SheetConfig {
   title?: string;
   headers: string[];
-  data: any[][];
+  data: WorksheetData;
   columnWidths: number[];
 }
 
@@ -30,7 +31,7 @@ export class AbsenteeReportExporter {
    * Generic method to create worksheets with consistent formatting
    */
   private createGenericSheet(config: SheetConfig): XLSX.WorkSheet {
-    const data: any[][] = [];
+    const data: WorksheetData = [];
 
     // Add title if provided
     if (config.title) {
@@ -51,7 +52,7 @@ export class AbsenteeReportExporter {
    * Generic method to create party-based worksheets with consistent formatting
    */
   private createPartySheet(config: PartySheetConfig): XLSX.WorkSheet {
-    const data: any[][] = [];
+    const data: WorksheetData = [];
 
     // Add title if provided
     if (config.title) {
@@ -188,7 +189,7 @@ export class AbsenteeReportExporter {
       ? (originalCsvFileName.split('/').pop() ?? originalCsvFileName)
       : (fileName.split('/').pop() ?? fileName);
 
-    const data: any[][] = [
+    const data: WorksheetData = [
       ['Diagnostics'],
       ['Metric', 'Value'],
       ['Data Tab', 'ALL Countywide'],
@@ -224,7 +225,7 @@ export class AbsenteeReportExporter {
   private createWardTownSheet(
     statistics: AbsenteeStatisticsResult
   ): XLSX.WorkSheet {
-    const data: any[][] = [];
+    const data: WorksheetData = [];
 
     // Add detailed ward/town statistics
     for (const stat of statistics.statistics) {
@@ -267,7 +268,7 @@ export class AbsenteeReportExporter {
   private createDeliveryMethodSheet(
     statistics: AbsenteeStatisticsResult
   ): XLSX.WorkSheet {
-    const data: any[][] = [];
+    const data: WorksheetData = [];
 
     // Add detailed delivery method statistics
     for (const stat of statistics.deliveryMethodStatistics) {
@@ -304,7 +305,7 @@ export class AbsenteeReportExporter {
   private createStSenSheet(
     statistics: AbsenteeStatisticsResult
   ): XLSX.WorkSheet {
-    const data: any[][] = [];
+    const data: WorksheetData = [];
 
     // Add detailed State Senate statistics
     for (const stat of statistics.stSenStatistics) {
@@ -341,7 +342,7 @@ export class AbsenteeReportExporter {
   private createStLegSheet(
     statistics: AbsenteeStatisticsResult
   ): XLSX.WorkSheet {
-    const data: any[][] = [];
+    const data: WorksheetData = [];
 
     // Add detailed State Legislature statistics
     for (const stat of statistics.stLegStatistics) {
@@ -378,7 +379,7 @@ export class AbsenteeReportExporter {
   private createCountyLegSheet(
     statistics: AbsenteeStatisticsResult
   ): XLSX.WorkSheet {
-    const data: any[][] = [];
+    const data: WorksheetData = [];
 
     // Add detailed County Legislature statistics
     for (const stat of statistics.countyLegStatistics) {
@@ -415,7 +416,7 @@ export class AbsenteeReportExporter {
   private createDailyReturnCurveSheet(
     statistics: AbsenteeStatisticsResult
   ): XLSX.WorkSheet {
-    const data: any[][] = [];
+    const data: WorksheetData = [];
 
     // Add daily return curve data with party breakdown
     for (const day of statistics.dailyReturnCurve) {

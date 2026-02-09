@@ -4,6 +4,7 @@
 import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
 import { uploadFileToR2 } from '../s3Utils';
+import type { WorksheetData } from '../types';
 
 /**
  * Sanitizes worksheet names for Excel compatibility
@@ -57,7 +58,7 @@ export async function uploadXLSXBuffer(
  * @returns XLSX worksheet object
  */
 export function createWorksheet(
-  data: any[][],
+  data: WorksheetData,
   columnWidths?: number[]
 ): XLSX.WorkSheet {
   const worksheet = XLSX.utils.aoa_to_sheet(data);
@@ -78,7 +79,7 @@ export function createWorksheet(
  * @returns XLSX worksheet object
  */
 export function createWorksheetWithFieldWidths(
-  data: any[][],
+  data: WorksheetData,
   columnsToInclude: string[],
   fieldWidths: Record<string, number>
 ): XLSX.WorkSheet {

@@ -4,7 +4,7 @@
 import { parse } from 'csv-parse/sync';
 
 // Utility types for cleaner definitions
-type CsvRow = Record<string, any>;
+type CsvRow = Record<string, string>;
 type RequiredConfig = Required<CsvProcessorConfig>;
 
 export interface CsvLoadResult<T> {
@@ -73,11 +73,11 @@ export class CsvProcessor<T extends CsvRow> {
 
       // Validate CSV structure if enabled
       if (this.config.validateHeaders) {
-        this.validateCsvStructure(records[0] as Record<string, any>);
+        this.validateCsvStructure(records[0] as Record<string, string>);
       }
 
       // Convert to typed rows
-      const rows = this.convertToTypedRows(records as Record<string, any>[]);
+      const rows = this.convertToTypedRows(records as Record<string, string>[]);
 
       return {
         rows,
@@ -123,7 +123,7 @@ export class CsvProcessor<T extends CsvRow> {
         // Map CSV columns to typed row
         for (const [key, value] of Object.entries(record)) {
           if (key in row) {
-            (row as any)[key] = value ?? '';
+            (row as Record<string, string>)[key] = value ?? '';
           }
         }
 
