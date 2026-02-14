@@ -1,9 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import prisma from "~/lib/prisma";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
+import type { Session } from "next-auth";
 
-export async function GET() {
+async function getElectionDatesHandler(_req: NextRequest, _session: Session) {
   try {
     const dates = await prisma.electionDate.findMany({
       orderBy: { date: "asc" },
@@ -29,9 +32,9 @@ const createDateSchema = z.object({
   ),
 });
 
-export async function POST(request: Request) {
+async function postElectionDateHandler(req: NextRequest, _session: Session) {
   try {
-    const body = (await request.json()) as unknown;
+    const body = (await req.json()) as unknown;
     const parsed = createDateSchema.parse(body);
 
     // Normalize to midnight UTC for day-level uniqueness
@@ -64,7 +67,7 @@ export async function POST(request: Request) {
       error &&
       typeof error === "object" &&
       "code" in error &&
-      error.code === "P2002"
+      (error as { code: string }).code === "P2002"
     ) {
       return NextResponse.json(
         { error: "Election date already exists" },
@@ -75,3 +78,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 }
+
+export const GET = withPrivilege(PrivilegeLevel.Admin, getElectionDatesHandler);
+export const POST = withPrivilege(PrivilegeLevel.Admin, postElectionDateHandler);

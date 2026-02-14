@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { auth } from "~/auth";
 import { z } from "zod";
 import { PrivilegeLevel } from "@prisma/client";
 import { hasPermissionFor } from "~/lib/utils";
+import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
 
 const updateReportSchema = z.object({
   title: z.string().optional(),
@@ -11,16 +11,19 @@ const updateReportSchema = z.object({
   public: z.boolean().optional(),
 });
 
-export const PATCH = async (
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) => {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+type RouteContext = { params?: Promise<{ id: string }> };
 
+async function patchReportHandler(
+  req: NextRequest,
+  session: SessionWithUser,
+  ...contextArgs: unknown[]
+) {
+  try {
+    const context = contextArgs[0] as RouteContext | undefined;
+    const params = context?.params;
+    if (!params) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     const { id: reportId } = await params;
 
     const contentType = req.headers.get("content-type") ?? "";
@@ -131,30 +134,31 @@ export const PATCH = async (
 
     return NextResponse.json({ report: updatedReport });
   } catch (error) {
-    console.error("Error updating report:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Validation failed", issues: error.issues },
         { status: 400 },
       );
     }
+    console.error("Error updating report:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
     );
   }
-};
+}
 
-export const DELETE = async (
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) => {
+async function deleteReportHandler(
+  _req: NextRequest,
+  session: SessionWithUser,
+  ...contextArgs: unknown[]
+) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const context = contextArgs[0] as RouteContext | undefined;
+    const params = context?.params;
+    if (!params) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-
     const { id: reportId } = await params;
 
     // Check if the report exists and belongs to the user
@@ -199,4 +203,7 @@ export const DELETE = async (
       { status: 500 },
     );
   }
-};
+}
+
+export const PATCH = withPrivilege("Authenticated", patchReportHandler);
+export const DELETE = withPrivilege("Authenticated", deleteReportHandler);

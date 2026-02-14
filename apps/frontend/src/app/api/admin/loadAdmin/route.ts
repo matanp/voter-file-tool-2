@@ -1,9 +1,13 @@
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
+import type { NextRequest } from "next/server";
+import type { Session } from "next-auth";
 
 const developerEmails = ["mpresberg@gmail.com", "avi.presberg@gmail.com"];
 
-export async function POST() {
+async function loadAdminHandler(_req: NextRequest, _session: Session) {
   try {
     for (const email of developerEmails) {
       const user = await prisma.user.findUnique({
@@ -33,3 +37,5 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Developer, loadAdminHandler);

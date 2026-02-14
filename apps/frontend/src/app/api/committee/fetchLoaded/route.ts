@@ -1,8 +1,10 @@
 import prisma from "~/lib/prisma";
-import { NextResponse } from "next/server";
-import type { CommitteeList } from "@prisma/client";
+import { NextResponse, type NextRequest } from "next/server";
+import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import type { Session } from "next-auth";
 
-export async function POST() {
+async function fetchLoadedHandler(_req: NextRequest, _session: Session) {
   try {
     const discrepanciesMap = await prisma.committeeUploadDiscrepancy.findMany({
       include: { committee: true },
@@ -50,3 +52,5 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Admin, fetchLoadedHandler);

@@ -1,18 +1,27 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { auth } from "~/auth";
 import { getPresignedReadUrl, getFileMetadata } from "~/lib/s3Utils";
 import { JobStatus } from "@prisma/client";
+import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
+import { hasPermissionFor } from "~/lib/utils";
+import { PrivilegeLevel } from "@prisma/client";
 
-export const GET = async (req: NextRequest) => {
+async function getReportsHandler(req: NextRequest, session: SessionWithUser) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const url = new URL(req.url);
     const type = url.searchParams.get("type"); // "public", "my-reports", or "all"
+
+    const isAdmin = hasPermissionFor(
+      session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+      PrivilegeLevel.Admin,
+    );
+    // Restrict type=all to Admin+; default non-admin to my-reports when type is "all" or unspecified
+    const effectiveType =
+      type === "public"
+        ? "public"
+        : type === "all" && isAdmin
+          ? "all"
+          : "my-reports";
 
     // Parse and validate pagination parameters
     const MAX_PAGE_SIZE = 100;
@@ -35,16 +44,15 @@ export const GET = async (req: NextRequest) => {
       status?: JobStatus;
     } = { deleted: false };
 
-    if (type === "public") {
+    if (effectiveType === "public") {
       whereClause = { ...whereClause, public: true };
-    } else if (type === "my-reports") {
+    } else if (effectiveType === "my-reports") {
       whereClause = {
         ...whereClause,
         generatedById: session.user.id,
         status: JobStatus.COMPLETED, // Only show completed reports in My Reports
       };
     }
-    // If type is "all" or not specified, we don't add any additional filters beyond deleted: false
 
     const [reports, totalCount] = await Promise.all([
       prisma.report.findMany({
@@ -67,7 +75,6 @@ export const GET = async (req: NextRequest) => {
       }),
     ]);
 
-    // Generate presigned URLs and file metadata for each report
     const reportsWithUrls = await Promise.all(
       reports.map(async (report) => {
         try {
@@ -111,4 +118,6 @@ export const GET = async (req: NextRequest) => {
       { status: 500 },
     );
   }
-};
+}
+
+export const GET = withPrivilege("Authenticated", getReportsHandler);

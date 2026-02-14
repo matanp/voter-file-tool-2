@@ -1,6 +1,9 @@
 import fs from "fs";
 import readline from "readline";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
+import type { Session } from "next-auth";
 
 async function filterCsvRows(): Promise<void> {
   if (process.env.NODE_ENV === "production") {
@@ -32,7 +35,10 @@ async function filterCsvRows(): Promise<void> {
   fs.writeFileSync(outputFile, filteredRows.join("\n"));
 }
 
-export async function POST() {
+async function specialVoterFileHandler(
+  _req: NextRequest,
+  _session: Session,
+) {
   try {
     await filterCsvRows();
     return NextResponse.json(
@@ -48,9 +54,14 @@ export async function POST() {
     return NextResponse.json(
       {
         success: false,
-        message: err,
+        message: String(err),
       },
       { status: 500 },
     );
   }
 }
+
+export const POST = withPrivilege(
+  PrivilegeLevel.Admin,
+  specialVoterFileHandler,
+);

@@ -10,10 +10,31 @@ import prisma from "~/lib/prisma";
 import { verifyWebhookSignature } from "~/lib/webhookUtils";
 import * as Ably from "ably";
 import { getPresignedReadUrl } from "~/lib/s3Utils";
+import { withBackendCheck } from "~/app/api/lib/withPrivilege";
 
-export const POST = async (
+export function reportCompleteVerifier(
   req: NextRequest,
-): Promise<NextResponse<ReportCompleteResponse | ErrorResponse>> => {
+): Promise<{ rawBody: string }> {
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    throw new Error("Server configuration error");
+  }
+  return req.text().then((rawBody) => {
+    const signature = req.headers.get("x-webhook-signature");
+    if (!signature) {
+      throw new Error("Missing signature");
+    }
+    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
+      throw new Error("Invalid signature");
+    }
+    return { rawBody };
+  });
+}
+
+async function reportCompleteHandler(
+  req: NextRequest,
+  { rawBody }: { rawBody: string },
+): Promise<NextResponse<ReportCompleteResponse | ErrorResponse>> {
   if (!process.env.ABLY_API_KEY) {
     const errorResponse: ErrorResponse = {
       error: `Missing ABLY_API_KEY environment variable.
@@ -29,37 +50,6 @@ export const POST = async (
     });
   }
   try {
-    // Get the raw body for HMAC verification
-    const rawBody = await req.text();
-
-    // Verify HMAC signature
-    const signature = req.headers.get("x-webhook-signature");
-    const webhookSecret = process.env.WEBHOOK_SECRET;
-
-    if (!webhookSecret) {
-      console.error("WEBHOOK_SECRET environment variable is not set");
-      const errorResponse: ErrorResponse = {
-        error: "Server configuration error",
-      };
-      return NextResponse.json(errorResponse, { status: 500 });
-    }
-
-    if (!signature) {
-      console.warn("Missing webhook signature header");
-      const errorResponse: ErrorResponse = {
-        error: "Missing signature",
-      };
-      return NextResponse.json(errorResponse, { status: 401 });
-    }
-
-    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-      console.warn("Invalid webhook signature");
-      const errorResponse: ErrorResponse = {
-        error: "Invalid signature",
-      };
-      return NextResponse.json(errorResponse, { status: 403 });
-    }
-
     // Parse and validate the JSON payload
     let body: unknown;
     try {
@@ -124,10 +114,7 @@ export const POST = async (
     }
 
     if (success) {
-      // Data-driven approach: If the report-server provides a URL, the job generated a file.
-      // If no URL is provided, the job completed without generating a downloadable file (e.g., voter imports).
-      // This makes the code maintainable - no need to hardcode which report types produce files.
-
+      // Data-driven: if report-server provides a URL, the job generated a file; otherwise no downloadable file (e.g. voter imports)
       await prisma.report.update({
         where: {
           id: jobId,
@@ -137,7 +124,7 @@ export const POST = async (
           completedAt: new Date(),
           // Only set fileKey if URL is provided
           ...(url ? { fileKey: url } : {}),
-          // Store metadata if provided (e.g., voter import statistics)
+          // Store metadata if provided (e.g. voter import statistics)
           ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
         },
       });
@@ -175,4 +162,9 @@ export const POST = async (
     };
     return NextResponse.json(errorResponse, { status: 500 });
   }
-};
+}
+
+export const POST = withBackendCheck(
+  reportCompleteVerifier,
+  reportCompleteHandler,
+);
