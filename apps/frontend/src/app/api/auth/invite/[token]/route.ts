@@ -8,12 +8,9 @@ const tokenSchema = z.string().trim().min(1, "Token is required");
 
 type RouteContext = { params?: Promise<{ token: string }> };
 
-async function getInviteHandler(
-  _req: NextRequest,
-  ...contextArgs: unknown[]
-) {
+/** Handle GET invite by token and return invite data or appropriate error (404/400/409/410/500). */
+async function getInviteHandler(_req: NextRequest, context?: RouteContext) {
   try {
-    const context = contextArgs[0] as RouteContext | undefined;
     const params = context?.params;
     if (!params) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -110,4 +107,4 @@ async function getInviteHandler(
 }
 
 // GET /api/auth/invite/[token] - Validate invite token (intentionally public)
-export const GET = withPublic(getInviteHandler);
+export const GET = withPublic<NextRequest, RouteContext>(getInviteHandler);
