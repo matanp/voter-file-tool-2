@@ -30,8 +30,8 @@ echo "📋 Ensuring correct file ownership..."
 sudo chown -R "$SSH_USER:$SSH_USER" "$PROJECT_DIR/apps/report-server" 2>/dev/null || true
 
 # Ensure public directory exists and is writable for Tailwind CSS build
-mkdir -p "$PROJECT_DIR/apps/report-server/public"
-sudo chown -R "$SSH_USER:$SSH_USER" "$PROJECT_DIR/apps/report-server/public"
+sudo mkdir -p "$PROJECT_DIR/apps/report-server/public"
+sudo chown -R "$SSH_USER:$SSH_USER" "$PROJECT_DIR/apps/report-server/public" 2>/dev/null || true
 
 # Function to run pm2 commands (as SSH user if we're root)
 run_pm2() {
