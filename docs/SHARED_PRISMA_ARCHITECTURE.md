@@ -182,7 +182,7 @@ Both applications use the same database connection:
 POSTGRES_PRISMA_URL="postgresql://user:password@localhost:5432/voter_file_db"
 ```
 
-For local development you can use a local database via Docker ([scripts/README.md](scripts/README.md)) or point `POSTGRES_PRISMA_URL` at a remote/prod DB; see [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md).
+For local development you can use a local database via Docker ([scripts/README.md](../scripts/README.md)) or point `POSTGRES_PRISMA_URL` at a remote/prod DB; see [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md).
 
 ### **Connection Pooling**
 

@@ -73,7 +73,6 @@ use_self_signed_ssl = false
 ## Getting a Free Domain
 
 If you don't have a domain, consider:
-- **Freenom** (free .tk, .ml, .ga domains)
 - **No-IP** (free dynamic DNS)
 - **DuckDNS** (free subdomain)
 - **Cloudflare** (free domain registration for some TLDs)

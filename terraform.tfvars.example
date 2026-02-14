@@ -1,5 +1,5 @@
 # Terraform variables for report-server deployment
-# Copy this file to terraform.tfvars and fill in your values
+# Copy this file to infrastructure/terraform.tfvars (the path used by pnpm run terraform:apply)
 # terraform.tfvars is gitignored for security
 
 # Domain configuration
