@@ -13,6 +13,7 @@ const updateReportSchema = z.object({
 
 type RouteContext = { params?: Promise<{ id: string }> };
 
+// Handles PATCH requests to update a report (title, description, public); expects req, session: SessionWithUser; validates ownership, updates DB, returns updated report.
 async function patchReportHandler(
   req: NextRequest,
   session: SessionWithUser,
@@ -148,6 +149,7 @@ async function patchReportHandler(
   }
 }
 
+// Handles DELETE requests to soft-delete a report; expects _req, session: SessionWithUser; validates ownership, marks report deleted in DB.
 async function deleteReportHandler(
   _req: NextRequest,
   session: SessionWithUser,

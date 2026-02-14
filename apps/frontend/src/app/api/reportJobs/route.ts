@@ -44,6 +44,7 @@ function validatePaginationParams(
   return { page, pageSize };
 }
 
+/** Handles GET requests to list report jobs for the current session/user, applies pagination and filtering, and returns job metadata. */
 async function getReportJobsHandler(req: NextRequest, session: SessionWithUser) {
   try {
     const url = new URL(req.url);

@@ -10,7 +10,10 @@ import prisma from "~/lib/prisma";
 import { verifyWebhookSignature } from "~/lib/webhookUtils";
 import * as Ably from "ably";
 import { getPresignedReadUrl } from "~/lib/s3Utils";
-import { withBackendCheck } from "~/app/api/lib/withPrivilege";
+import {
+  withBackendCheck,
+  BackendAuthError,
+} from "~/app/api/lib/withPrivilege";
 
 export function reportCompleteVerifier(
   req: NextRequest,
@@ -22,10 +25,10 @@ export function reportCompleteVerifier(
   return req.text().then((rawBody) => {
     const signature = req.headers.get("x-webhook-signature");
     if (!signature) {
-      throw new Error("Missing signature");
+      throw new BackendAuthError("Missing signature");
     }
     if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-      throw new Error("Invalid signature");
+      throw new BackendAuthError("Invalid signature");
     }
     return { rawBody };
   });
@@ -114,7 +117,10 @@ async function reportCompleteHandler(
     }
 
     if (success) {
-      // Data-driven: if report-server provides a URL, the job generated a file; otherwise no downloadable file (e.g. voter imports)
+      // Data-driven approach: If the report-server provides a URL, the job generated a file.
+      // If no URL is provided, the job completed without generating a downloadable file (e.g., voter imports).
+      // This makes the code maintainable - no need to hardcode which report types produce files.
+
       await prisma.report.update({
         where: {
           id: jobId,
@@ -124,7 +130,7 @@ async function reportCompleteHandler(
           completedAt: new Date(),
           // Only set fileKey if URL is provided
           ...(url ? { fileKey: url } : {}),
-          // Store metadata if provided (e.g. voter import statistics)
+          // Store metadata if provided (e.g., voter import statistics)
           ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
         },
       });
