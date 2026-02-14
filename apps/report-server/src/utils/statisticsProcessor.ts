@@ -23,12 +23,7 @@ export interface GroupingConfig<
   parseIdentifier?: (identifier: string) => Record<string, string>;
 }
 
-/**
- * Generic function to calculate statistics for multiple grouping types
- * @param rows - Array of input rows
- * @param configs - Array of grouping configurations
- * @returns Object with grouped data and statistics for each configuration
- */
+// Calculate statistics for multiple grouping configurations.
 export function calculateGroupedStatistics<
   TRow = unknown,
   TStats = Record<string, unknown>,

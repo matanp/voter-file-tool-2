@@ -111,26 +111,38 @@ export class CsvProcessor<T extends CsvRow> {
   }
 
   /**
-   * Converts raw CSV records to typed rows
-   * @param records - Raw CSV records
-   * @returns Array of typed row objects
+   * Validates a single record has expected shape (object with required headers).
+   * Throws with index so callers can report which row failed.
+   */
+  private validateRecordShape(record: CsvRow, index: number): void {
+    if (record === null || typeof record !== 'object' || Array.isArray(record)) {
+      throw new Error(`Invalid record at index ${index}: expected object`);
+    }
+    const missing = this.headers.filter((h) => !(h in record));
+    if (missing.length > 0) {
+      throw new Error(
+        `Record at index ${index} missing headers: ${missing.join(', ')}`
+      );
+    }
+  }
+
+  /**
+   * Converts raw CSV records to typed rows.
+   * Validates all records first, then maps with a flat callback (no per-iteration try-catch).
    */
   private convertToTypedRows(records: CsvRow[]): T[] {
-    return records.map((record, index) => {
-      try {
-        const row = this.createEmptyRow();
+    for (let i = 0; i < records.length; i++) {
+      this.validateRecordShape(records[i], i);
+    }
 
-        // Map CSV columns to typed row
-        for (const [key, value] of Object.entries(record)) {
-          if (key in row) {
-            (row as Record<string, string>)[key] = value ?? '';
-          }
+    return records.map((record) => {
+      const row = this.createEmptyRow();
+      for (const [key, value] of Object.entries(record)) {
+        if (key in row) {
+          (row as Record<string, string>)[key] = value ?? '';
         }
-
-        return row;
-      } catch (error) {
-        throw new Error(`Failed to convert record at index ${index}: ${error}`);
       }
+      return row;
     });
   }
 }
