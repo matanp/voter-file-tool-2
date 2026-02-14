@@ -6,6 +6,7 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import type { Session } from "next-auth";
 
+/** Fetch and return all electionDate records ordered by date for the admin API. */
 async function getElectionDatesHandler(_req: NextRequest, _session: Session) {
   try {
     const dates = await prisma.electionDate.findMany({

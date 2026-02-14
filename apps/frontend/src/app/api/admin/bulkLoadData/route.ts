@@ -7,7 +7,10 @@ import type { Session } from "next-auth";
 
 async function bulkLoadDataHandler(_req: NextRequest, _session: Session) {
   if (process.env.VERCEL) {
-    return NextResponse.json({ error: "Not available in this environment" });
+    return NextResponse.json(
+      { error: "Not available in this environment" },
+      { status: 503 },
+    );
   }
 
   console.log("Loading data BULK");

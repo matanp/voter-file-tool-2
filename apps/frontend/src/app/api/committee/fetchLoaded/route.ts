@@ -26,6 +26,18 @@ async function fetchLoadedHandler(_req: NextRequest, _session: Session) {
       return acc;
     }, {});
 
+    if (Object.keys(discrepanciesMapProcessed).length === 0) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Discrepancies fetched and processed successfully",
+          discrepanciesMap: [],
+          recordsWithDiscrepancies: [],
+        },
+        { status: 200 },
+      );
+    }
+
     const recordsWithDiscrepancies = await prisma.voterRecord.findMany({
       where: {
         OR: Object.keys(discrepanciesMapProcessed).map((voterId) => ({

@@ -7,6 +7,7 @@ import type { Session } from "next-auth";
 
 const developerEmails = ["mpresberg@gmail.com", "avi.presberg@gmail.com"];
 
+/** Handles loading admin data for the admin API route; accepts NextRequest and Session and returns admin payload or error response. */
 async function loadAdminHandler(_req: NextRequest, _session: Session) {
   try {
     for (const email of developerEmails) {
@@ -16,16 +17,14 @@ async function loadAdminHandler(_req: NextRequest, _session: Session) {
         },
       });
 
-      if (user) {
-        await prisma.user.update({
-          where: {
-            email: user.email,
-          },
-          data: {
-            privilegeLevel: "Developer",
-          },
-        });
-      }
+      if (!user) continue;
+
+      await prisma.user.update({
+        where: { email },
+        data: {
+          privilegeLevel: "Developer",
+        },
+      });
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
