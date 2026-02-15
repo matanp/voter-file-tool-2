@@ -4,6 +4,7 @@ import {
   createMockSession,
   createMockCommittee,
   createMockCommitteeRequest,
+  createMockVoterRecord,
   createMockRequest,
   expectSuccessResponse,
   expectErrorResponse,
@@ -349,6 +350,71 @@ describe("/api/committee/requestAdd", () => {
         await expectErrorResponse(response, 422, expectedError);
       },
     );
+
+    it("should return 400 when add member is already in another committee", async () => {
+      // Arrange
+      const mockRequestData = createMockRequestData();
+      const mockCommittee = createMockCommittee({ id: 1 });
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ committeeId: 999 }),
+      );
+
+      const request = createMockRequest(mockRequestData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(
+        response,
+        400,
+        "Member is already in another committee",
+      );
+      expect(prismaMock.committeeRequest.create).not.toHaveBeenCalled();
+    });
+
+    it("should succeed when add member has no committee", async () => {
+      // Arrange
+      const mockRequestData = createMockRequestData();
+      const mockCommittee = createMockCommittee();
+      const mockCommitteeRequest = createMockCommitteeRequest();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.RequestAccess },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ committeeId: null }),
+      );
+      prismaMock.committeeRequest.create.mockResolvedValue(
+        mockCommitteeRequest,
+      );
+
+      const request = createMockRequest(mockRequestData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectSuccessResponse(
+        response,
+        {
+          success: true,
+          message: "Request created",
+        },
+        201,
+      );
+      expect(prismaMock.committeeRequest.create).toHaveBeenCalled();
+    });
 
     it("should return 404 when committee is not found", async () => {
       // Arrange

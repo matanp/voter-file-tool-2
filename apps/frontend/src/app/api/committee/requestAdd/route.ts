@@ -5,6 +5,10 @@ import { committeeRequestDataSchema } from "~/lib/validations/committee";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
+import {
+  isVoterInAnotherCommittee,
+  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+} from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 
 async function requestAddHandler(req: NextRequest, _session: Session) {
@@ -79,6 +83,23 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
         { success: false, error: "Committee not found" },
         { status: 404 },
       );
+    }
+
+    // SRS §7.1: Reject if add member is already in another committee
+    if (sanitizedAddMemberId) {
+      const voter = await prisma.voterRecord.findUnique({
+        where: { VRCNUM: sanitizedAddMemberId },
+        select: { committeeId: true },
+      });
+      if (
+        voter &&
+        isVoterInAnotherCommittee(voter.committeeId, committeeRequested.id)
+      ) {
+        return NextResponse.json(
+          { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
+          { status: 400 },
+        );
+      }
     }
 
     await prisma.committeeRequest.create({

@@ -63,11 +63,14 @@ export const createMockCommitteeData = (
   return data as CommitteeData;
 };
 
+/** CommitteeList with included committeeMemberList (for findUnique with include) */
+export type CommitteeListWithMembers = CommitteeList & {
+  committeeMemberList: VoterRecord[];
+};
+
 export const createMockCommittee = (
-  overrides: Partial<
-    CommitteeList & { committeeMemberList: VoterRecord[] }
-  > = {},
-): CommitteeList & { committeeMemberList: VoterRecord[] } => ({
+  overrides: Partial<CommitteeListWithMembers> = {},
+): CommitteeListWithMembers => ({
   id: 1,
   cityTown: "Test City",
   legDistrict: 1,

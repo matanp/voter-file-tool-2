@@ -5,6 +5,10 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { committeeDataSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
+import {
+  isVoterInAnotherCommittee,
+  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+} from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
 
@@ -48,6 +52,22 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           idempotent: true,
         },
         { status: 200 },
+      );
+    }
+
+    // SRS §7.1: Reject if voter is already in another committee
+    const voter = await prisma.voterRecord.findUnique({
+      where: { VRCNUM: memberId },
+      select: { committeeId: true },
+    });
+    const targetCommitteeId = existingCommittee?.id ?? null;
+    if (
+      voter &&
+      isVoterInAnotherCommittee(voter.committeeId, targetCommitteeId)
+    ) {
+      return NextResponse.json(
+        { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
+        { status: 400 },
       );
     }
 

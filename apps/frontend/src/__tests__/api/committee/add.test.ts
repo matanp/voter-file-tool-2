@@ -1,5 +1,5 @@
 import { POST } from "~/app/api/committee/add/route";
-import { PrivilegeLevel, Prisma } from "@prisma/client";
+import { PrivilegeLevel, Prisma, type CommitteeList } from "@prisma/client";
 import {
   createMockSession,
   createMockCommitteeData,
@@ -226,6 +226,100 @@ describe("/api/committee/add", () => {
 
       // Assert
       await expectErrorResponse(response, 404, "Member not found");
+    });
+
+    it("should return 400 when member is already in another committee", async () => {
+      // Arrange: committee exists but member is not in it; voter has committeeId set to different committee
+      const mockCommitteeData = createMockCommitteeData();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        createMockCommittee({ id: 1, committeeMemberList: [] }) as CommitteeList,
+      );
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ committeeId: 999 }),
+      );
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(
+        response,
+        400,
+        "Member is already in another committee",
+      );
+      expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
+    });
+
+    it("should return 400 when member is in another committee and target committee does not exist", async () => {
+      // Arrange: creating new committee, but voter is already in some committee
+      const mockCommitteeData = createMockCommitteeData();
+      const mockCommittee = createMockCommittee();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(null);
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ committeeId: 1 }),
+      );
+      prismaMock.committeeList.upsert.mockResolvedValue(mockCommittee);
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectErrorResponse(
+        response,
+        400,
+        "Member is already in another committee",
+      );
+      expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
+    });
+
+    it("should succeed when member has no committee (committeeId null)", async () => {
+      // Arrange
+      const mockCommitteeData = createMockCommitteeData();
+      const mockCommittee = createMockCommittee();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(null);
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ committeeId: null }),
+      );
+      prismaMock.committeeList.upsert.mockResolvedValue(mockCommittee);
+
+      const request = createMockRequest(mockCommitteeData);
+
+      // Act
+      const response = await POST(request);
+
+      // Assert
+      await expectSuccessResponse(
+        response,
+        {
+          success: true,
+          committee: mockCommittee,
+          message: "Committee created and member added",
+        },
+        201,
+      );
+      expect(prismaMock.committeeList.upsert).toHaveBeenCalled();
     });
 
     it("should return 200 with idempotent success when member already exists in committee", async () => {
