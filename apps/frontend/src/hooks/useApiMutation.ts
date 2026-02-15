@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 export interface ApiMutationOptions<TData = unknown, TPayload = unknown> {
   onSuccess?: (data: TData, payload?: TPayload) => void;
@@ -33,13 +33,16 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TData | null>(null);
 
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   const mutate = useCallback(
     async (payload?: TPayload, customEndpoint?: string): Promise<TData> => {
       setLoading(true);
       setError(null);
 
       const url = customEndpoint ?? endpoint;
-      const timeoutMs = options?.timeout ?? 10000;
+      const timeoutMs = optionsRef.current?.timeout ?? 10000;
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -91,7 +94,7 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
         }
         setData(result);
 
-        options?.onSuccess?.(result, payload);
+        optionsRef.current?.onSuccess?.(result, payload);
         return result;
       } catch (err) {
         // Clear timeout in case of error
@@ -110,14 +113,14 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
         }
 
         setError(errorMessage);
-        options?.onError?.(errorToThrow);
+        optionsRef.current?.onError?.(errorToThrow);
         throw errorToThrow;
       } finally {
         setLoading(false);
-        options?.onFinally?.();
+        optionsRef.current?.onFinally?.();
       }
     },
-    [endpoint, method, options],
+    [endpoint, method],
   );
 
   const reset = useCallback(() => {
