@@ -11,6 +11,7 @@ import {
   createAuthTestSuite,
   expectSuccessResponse,
   expectErrorResponse,
+  parseJsonResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
@@ -242,7 +243,9 @@ describe("/api/reports/[id]", () => {
       );
 
       expect(response.status).toBe(200);
-      const json = (await response.json()) as { report: { title: string } };
+      const json = await parseJsonResponse<{ report: { title: string } }>(
+        response,
+      );
       expect(json.report).toMatchObject({ title: "Updated Title" });
       expect(prismaMock.report.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -280,7 +283,9 @@ describe("/api/reports/[id]", () => {
       );
 
       expect(response.status).toBe(200);
-      const json = (await response.json()) as { report: { public: boolean } };
+      const json = await parseJsonResponse<{ report: { public: boolean } }>(
+        response,
+      );
       expect(json.report.public).toBe(true);
     });
   });

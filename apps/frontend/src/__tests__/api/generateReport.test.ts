@@ -11,6 +11,7 @@ import {
   createMockSession,
   createAuthTestSuite,
   expectSuccessResponse,
+  mockJsonResponse,
   parseJsonResponse,
   type ErrorResponseBody,
   type AuthTestConfig,
@@ -26,10 +27,11 @@ describe("/api/generateReport", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv, WEBHOOK_SECRET: "test-webhook-secret" };
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ success: true, numJobs: 0 }),
-    });
+    globalThis.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        mockJsonResponse({ success: true, numJobs: 0 }),
+      );
   });
 
   afterAll(() => {
@@ -144,11 +146,11 @@ describe("/api/generateReport", () => {
         id: MOCK_REPORT_ID,
       } as never);
       prismaMock.report.update.mockResolvedValue({} as never);
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        statusText: "OK",
-        json: () => Promise.resolve({ success: false, message: "Queue full" }),
-      });
+      globalThis.fetch = jest
+        .fn()
+        .mockResolvedValue(
+          mockJsonResponse({ success: false, message: "Queue full" }),
+        );
 
       const request = createMockRequest({
         type: "ldCommittees",
@@ -232,11 +234,14 @@ describe("/api/generateReport", () => {
         id: MOCK_REPORT_ID,
       } as never);
       prismaMock.report.update.mockResolvedValue({} as never);
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        statusText: "Internal Server Error",
-        json: () => Promise.resolve({ success: false, message: "Error" }),
-      });
+      globalThis.fetch = jest
+        .fn()
+        .mockResolvedValue(
+          mockJsonResponse(
+            { success: false, message: "Error" },
+            { status: 500 },
+          ),
+        );
 
       const request = createMockRequest({
         type: "ldCommittees",

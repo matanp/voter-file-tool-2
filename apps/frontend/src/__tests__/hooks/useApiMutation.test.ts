@@ -10,34 +10,7 @@ import {
   useApiPatch,
   useApiPut,
 } from "~/hooks/useApiMutation";
-
-/** Creates a Response-like object for mocking fetch. */
-function mockJsonResponse<T>(
-  data: T,
-  init: { status?: number; contentType?: string } = {},
-) {
-  const status = init.status ?? 200;
-  const contentType = init.contentType ?? "application/json";
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: "OK",
-    headers: new Headers({ "content-type": contentType }),
-    json: () => Promise.resolve(data),
-    body: {},
-  };
-}
-
-/** Creates a 204 No Content response. */
-function mock204Response() {
-  return {
-    ok: true,
-    status: 204,
-    statusText: "No Content",
-    headers: new Headers(),
-    body: null as unknown,
-  };
-}
+import { mockJsonResponse, mock204Response } from "../utils/testUtils";
 
 describe("useApiMutation", () => {
   const originalFetch = globalThis.fetch;
@@ -160,18 +133,12 @@ describe("useApiMutation", () => {
 
   describe("error handling", () => {
     it("prefers error or message from JSON body on HTTP error", async () => {
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        statusText: "Bad Request",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: () =>
-          Promise.resolve({
-            error: "Validation failed",
-            message: "Different message",
-          }),
-        body: {},
-      });
+      globalThis.fetch = jest.fn().mockResolvedValue(
+        mockJsonResponse(
+          { error: "Validation failed", message: "Different message" },
+          { status: 400 },
+        ),
+      );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST"),
@@ -189,14 +156,9 @@ describe("useApiMutation", () => {
     });
 
     it("falls back to message when error is missing in JSON body", async () => {
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: () => Promise.resolve({ message: "Server exploded" }),
-        body: {},
-      });
+      globalThis.fetch = jest.fn().mockResolvedValue(
+        mockJsonResponse({ message: "Server exploded" }, { status: 500 }),
+      );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST"),
@@ -214,14 +176,12 @@ describe("useApiMutation", () => {
     });
 
     it("uses statusText when error body is not JSON", async () => {
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 503,
-        statusText: "Service Unavailable",
-        headers: new Headers(),
-        json: () => Promise.reject(new Error("Not JSON")),
-        body: {},
-      });
+      globalThis.fetch = jest.fn().mockResolvedValue(
+        mockJsonResponse(null, {
+          status: 503,
+          json: () => Promise.reject(new Error("Not JSON")),
+        }),
+      );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST"),
@@ -263,15 +223,18 @@ describe("useApiMutation", () => {
       const abortError = new Error("Aborted");
       abortError.name = "AbortError";
 
-      globalThis.fetch = jest.fn().mockImplementation(
-        (_url: string, opts?: RequestInit) => {
-          return new Promise<never>((_, reject) => {
-            opts?.signal?.addEventListener?.("abort", () => {
-              reject(abortError);
+      globalThis.fetch = jest
+        .fn()
+        .mockImplementation(
+          (_url: string, init?: RequestInit): Promise<never> => {
+            return new Promise<never>((_, reject) => {
+              const signal = init?.signal;
+              if (signal) {
+                signal.addEventListener("abort", () => reject(abortError));
+              }
             });
-          });
-        },
-      );
+          },
+        );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST", { timeout: 1000 }),
@@ -302,15 +265,18 @@ describe("useApiMutation", () => {
       const abortError = new Error("Aborted");
       abortError.name = "AbortError";
 
-      globalThis.fetch = jest.fn().mockImplementation(
-        (_url: string, opts?: RequestInit) => {
-          return new Promise<never>((_, reject) => {
-            opts?.signal?.addEventListener?.("abort", () => {
-              reject(abortError);
+      globalThis.fetch = jest
+        .fn()
+        .mockImplementation(
+          (_url: string, init?: RequestInit): Promise<never> => {
+            return new Promise<never>((_, reject) => {
+              const signal = init?.signal;
+              if (signal) {
+                signal.addEventListener("abort", () => reject(abortError));
+              }
             });
-          });
-        },
-      );
+          },
+        );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST", { timeout: 500 }),
@@ -358,14 +324,9 @@ describe("useApiMutation", () => {
     });
 
     it("calls onError with Error on failure", async () => {
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        statusText: "Bad Request",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: () => Promise.resolve({ error: "Bad input" }),
-        body: {},
-      });
+      globalThis.fetch = jest.fn().mockResolvedValue(
+        mockJsonResponse({ error: "Bad input" }, { status: 400 }),
+      );
 
       const onError = jest.fn();
       const { result } = renderHook(() =>
@@ -405,14 +366,13 @@ describe("useApiMutation", () => {
     });
 
     it("calls onFinally after error", async () => {
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Error",
-        headers: new Headers(),
-        json: () => Promise.reject(new Error("Not JSON")),
-        body: {},
-      });
+      globalThis.fetch = jest.fn().mockResolvedValue(
+        mockJsonResponse(null, {
+          status: 500,
+          statusText: "Error",
+          json: () => Promise.reject(new Error("Not JSON")),
+        }),
+      );
 
       const onFinally = jest.fn();
       const { result } = renderHook(() =>
@@ -461,14 +421,13 @@ describe("useApiMutation", () => {
 
   describe("reset", () => {
     it("clears loading, error, and data", async () => {
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Error",
-        headers: new Headers(),
-        json: () => Promise.reject(new Error("Not JSON")),
-        body: {},
-      });
+      globalThis.fetch = jest.fn().mockResolvedValue(
+        mockJsonResponse(null, {
+          status: 500,
+          statusText: "Error",
+          json: () => Promise.reject(new Error("Not JSON")),
+        }),
+      );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST"),
@@ -527,14 +486,14 @@ describe("useApiMutation", () => {
 
   describe("edge cases", () => {
     it("throws when successful response is not JSON", async () => {
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: new Headers({ "content-type": "text/plain" }),
-        json: () => Promise.reject(new Error("Not JSON")),
-        body: {},
-      });
+      globalThis.fetch = jest.fn().mockResolvedValue(
+        mockJsonResponse(null, {
+          status: 200,
+          contentType: "text/plain",
+          body: "plain text",
+          json: () => Promise.reject(new Error("Not JSON")),
+        }),
+      );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST"),
@@ -567,14 +526,7 @@ describe("useApiPost", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({}),
-      body: {},
-    });
+    globalThis.fetch = jest.fn().mockResolvedValue(mockJsonResponse({}));
   });
 
   afterAll(() => {
@@ -600,13 +552,7 @@ describe("useApiDelete", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 204,
-      statusText: "No Content",
-      headers: new Headers(),
-      body: null,
-    });
+    globalThis.fetch = jest.fn().mockResolvedValue(mock204Response());
   });
 
   afterAll(() => {
@@ -632,14 +578,7 @@ describe("useApiPatch", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({}),
-      body: {},
-    });
+    globalThis.fetch = jest.fn().mockResolvedValue(mockJsonResponse({}));
   });
 
   afterAll(() => {
@@ -665,14 +604,7 @@ describe("useApiPut", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: new Headers({ "content-type": "application/json" }),
-      json: () => Promise.resolve({}),
-      body: {},
-    });
+    globalThis.fetch = jest.fn().mockResolvedValue(mockJsonResponse({}));
   });
 
   afterAll(() => {

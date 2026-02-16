@@ -23,9 +23,56 @@ export type MockResponse<T = unknown> = Pick<Response, "status" | "json"> & {
   json: () => Promise<T>;
 };
 
+/** Creates a Response-like object for mocking fetch. Typed to satisfy Response usage. */
+export function mockJsonResponse<T>(
+  data: T,
+  init: {
+    status?: number;
+    contentType?: string;
+    statusText?: string;
+    /** Override json() e.g. to simulate rejection. */
+    json?: () => Promise<unknown>;
+    /** Set body for 200 responses with non-JSON content-type (avoids 204/empty fallback). */
+    body?: unknown;
+  } = {},
+): Pick<Response, "ok" | "status" | "statusText" | "headers" | "json"> & {
+  json: () => Promise<unknown>;
+  body: unknown;
+} {
+  const status = init.status ?? 200;
+  const ok = status >= 200 && status < 300;
+  return {
+    ok,
+    status,
+    statusText:
+      init.statusText ??
+      (ok ? "OK" : status === 400 ? "Bad Request" : status === 500 ? "Internal Server Error" : status === 503 ? "Service Unavailable" : "Error"),
+    headers: new Headers({
+      "content-type": init.contentType ?? "application/json",
+    }),
+    json: init.json ?? (() => Promise.resolve(data)),
+    body: init.body ?? {},
+  };
+}
+
+/** Creates a 204 No Content response. */
+export function mock204Response(): Pick<
+  Response,
+  "ok" | "status" | "statusText" | "headers"
+> & { body: null } {
+  return {
+    ok: true,
+    status: 204,
+    statusText: "No Content",
+    headers: new Headers(),
+    body: null,
+  };
+}
+
 /** Parse response JSON with type assertion. Use for test assertions. */
 export async function parseJsonResponse<T>(response: Response): Promise<T> {
-  return (await response.json()) as T;
+  const raw = (await response.json()) as unknown;
+  return raw as T;
 }
 
 /** Common error response body shape for typed assertions. */
@@ -179,7 +226,7 @@ export const expectSuccessResponse = async <
 ): Promise<void> => {
   expect(response.status).toBe(expectedStatus);
   if (expectedData !== undefined) {
-    const json = (await response.json()) as T;
+    const json = (await response.json()) as unknown as T;
     expect(json).toEqual(expectedData);
   }
 };
@@ -191,7 +238,7 @@ export const expectErrorResponse = async (
 ): Promise<void> => {
   expect(response.status).toBe(expectedStatus);
   if (expectedError !== undefined) {
-    const json = (await response.json()) as Record<string, unknown>;
+    const json = (await response.json()) as unknown as Record<string, unknown>;
 
     // Validate response structure
     if (typeof json !== "object" || json === null) {
