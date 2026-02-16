@@ -1,12 +1,14 @@
 /**
  * Tests for POST /api/generateReport.
- * Tested: 401/403 auth, ldCommittees success path, 400 for invalid body (fetch/Prisma mocked).
- * Not tested: other report types (designatedPetition, voterList, etc.), PDF API error handling, WEBHOOK_SECRET failure.
+ * Tested: 401/403 auth, ldCommittees + voterList success, 400 for invalid body,
+ * 500 when WEBHOOK_SECRET missing, 500 + FAILED when PDF API fails or returns success=false.
+ * Not tested: session missing user.id.
  */
 import { POST } from "~/app/api/generateReport/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, JobStatus } from "@prisma/client";
 import {
   createMockRequest,
+  createMockSession,
   createAuthTestSuite,
   expectSuccessResponse,
   type AuthTestConfig,
@@ -67,15 +69,11 @@ describe("/api/generateReport", () => {
     });
 
     it("should return reportId and jobsAhead on success", async () => {
-      const mockSession = {
-        user: {
-          id: "user-1",
-          privilegeLevel: PrivilegeLevel.RequestAccess,
-          name: "Test User",
-          email: "test@example.com",
-        },
-      };
-      mockAuthSession(mockSession as never);
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.RequestAccess },
+        }),
+      );
       mockHasPermission(true);
       prismaMock.report.create.mockResolvedValue({
         id: MOCK_REPORT_ID,
@@ -96,13 +94,85 @@ describe("/api/generateReport", () => {
       });
       expect(prismaMock.report.create).toHaveBeenCalled();
       expect(globalThis.fetch).toHaveBeenCalled();
+      expect(prismaMock.report.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MOCK_REPORT_ID },
+          data: expect.objectContaining({
+            status: JobStatus.PROCESSING,
+          }),
+        }),
+      );
+    });
+
+    it("should succeed with absenteeReport type", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.RequestAccess },
+        }),
+      );
+      mockHasPermission(true);
+      prismaMock.report.create.mockResolvedValue({
+        id: MOCK_REPORT_ID,
+      } as never);
+      prismaMock.report.update.mockResolvedValue({} as never);
+
+      const request = createMockRequest({
+        type: "absenteeReport",
+        name: "Absentee Report",
+        format: "xlsx",
+        csvFileKey: "csv-uploads/12345-data.csv",
+      });
+
+      const response = await POST(request);
+
+      await expectSuccessResponse(response, {
+        reportId: MOCK_REPORT_ID,
+        jobsAhead: 0,
+      });
+    });
+
+    it("should return 500 and mark FAILED when PDF API returns ok but success=false", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.RequestAccess },
+        }),
+      );
+      mockHasPermission(true);
+      prismaMock.report.create.mockResolvedValue({
+        id: MOCK_REPORT_ID,
+      } as never);
+      prismaMock.report.update.mockResolvedValue({} as never);
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        statusText: "OK",
+        json: () => Promise.resolve({ success: false, message: "Queue full" }),
+      });
+
+      const request = createMockRequest({
+        type: "ldCommittees",
+        name: "Test Report",
+        format: "pdf",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(500);
+      expect(prismaMock.report.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MOCK_REPORT_ID },
+          data: expect.objectContaining({
+            status: JobStatus.FAILED,
+          }),
+        }),
+      );
     });
 
     it("should return 400 for invalid request body", async () => {
-      const mockSession = {
-        user: { id: "1", privilegeLevel: PrivilegeLevel.RequestAccess },
-      };
-      mockAuthSession(mockSession as never);
+      mockAuthSession(
+        createMockSession({
+          user: { id: "1", privilegeLevel: PrivilegeLevel.RequestAccess },
+        }),
+      );
       mockHasPermission(true);
 
       const request = createMockRequest({
@@ -115,6 +185,74 @@ describe("/api/generateReport", () => {
       expect(response.status).toBe(400);
       const json = await response.json();
       expect(json.error).toBe("Validation failed");
+    });
+
+    it("should return 500 when WEBHOOK_SECRET is not set", async () => {
+      const savedSecret = process.env.WEBHOOK_SECRET;
+      delete process.env.WEBHOOK_SECRET;
+
+      try {
+        mockAuthSession(
+          createMockSession({
+            user: { id: "user-1", privilegeLevel: PrivilegeLevel.RequestAccess },
+          }),
+        );
+        mockHasPermission(true);
+        prismaMock.report.create.mockResolvedValue({
+          id: MOCK_REPORT_ID,
+        } as never);
+        prismaMock.report.update.mockResolvedValue({} as never);
+
+        const request = createMockRequest({
+          type: "ldCommittees",
+          name: "Test Report",
+          format: "pdf",
+        });
+
+        const response = await POST(request);
+
+        expect(response.status).toBe(500);
+        const json = await response.json();
+        expect(json.error).toBe("Internal Server Error");
+      } finally {
+        process.env.WEBHOOK_SECRET = savedSecret;
+      }
+    });
+
+    it("should return 500 and mark report FAILED when PDF API fails", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.RequestAccess },
+        }),
+      );
+      mockHasPermission(true);
+      prismaMock.report.create.mockResolvedValue({
+        id: MOCK_REPORT_ID,
+      } as never);
+      prismaMock.report.update.mockResolvedValue({} as never);
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        statusText: "Internal Server Error",
+        json: () => Promise.resolve({ success: false, message: "Error" }),
+      });
+
+      const request = createMockRequest({
+        type: "ldCommittees",
+        name: "Test Report",
+        format: "pdf",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(500);
+      expect(prismaMock.report.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MOCK_REPORT_ID },
+          data: expect.objectContaining({
+            status: JobStatus.FAILED,
+          }),
+        }),
+      );
     });
   });
 });
