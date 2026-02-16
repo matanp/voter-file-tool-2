@@ -1,6 +1,5 @@
 import { HeroSection } from "~/components/home/HeroSection";
 import { FeaturesGrid } from "~/components/home/FeaturesGrid";
-import { KeyCapabilities } from "~/components/home/KeyCapabilities";
 import { QuickActions } from "~/components/home/QuickActions";
 import { Footer } from "~/components/home/Footer";
 

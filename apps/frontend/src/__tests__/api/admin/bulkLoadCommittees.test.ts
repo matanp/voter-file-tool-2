@@ -8,7 +8,6 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockRequest,
   createAuthTestSuite,
-  expectSuccessResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";

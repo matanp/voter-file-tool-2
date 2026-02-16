@@ -13,7 +13,6 @@ import {
   createMockSession,
   createMockRequest,
   createAuthTestSuite,
-  expectSuccessResponse,
   expectErrorResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";

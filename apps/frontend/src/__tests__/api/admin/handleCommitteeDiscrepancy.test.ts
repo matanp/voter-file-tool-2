@@ -9,7 +9,6 @@ import {
   createMockRequest,
   createAuthTestSuite,
   expectErrorResponse,
-  expectSuccessResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
