@@ -8,9 +8,17 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockRequest,
   createAuthTestSuite,
+  parseJsonResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+
+type BulkLoadCommitteesResponse = {
+  success: boolean;
+  message: string;
+  discrepanciesMap: unknown[];
+  recordsWithDiscrepancies: unknown[];
+};
 
 jest.mock("~/app/api/admin/bulkLoadCommittees/bulkLoadUtils", () => ({
   loadCommitteeLists: jest.fn().mockResolvedValue(new Map()),
@@ -72,7 +80,9 @@ describe("/api/admin/bulkLoadCommittees", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
-      const json = await response.json();
+      const json = await parseJsonResponse<BulkLoadCommitteesResponse>(
+        response,
+      );
       expect(json.success).toBe(true);
       expect(json.message).toBe("Committee lists loaded successfully");
       expect(json.discrepanciesMap).toEqual([]);

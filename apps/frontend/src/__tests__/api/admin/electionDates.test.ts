@@ -14,6 +14,8 @@ import {
   createMockRequest,
   createAuthTestSuite,
   expectErrorResponse,
+  parseJsonResponse,
+  type ErrorResponseBody,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
@@ -66,7 +68,8 @@ describe("/api/admin/electionDates", () => {
       const response = await GET(request);
 
       expect(response.status).toBe(200);
-      const json = await response.json();
+      type ElectionDateItem = { id: number; date: string };
+      const json = await parseJsonResponse<ElectionDateItem[]>(response);
       expect(json).toHaveLength(2);
       expect(prismaMock.electionDate.findMany).toHaveBeenCalledWith({
         orderBy: { date: "asc" },
@@ -135,7 +138,9 @@ describe("/api/admin/electionDates", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(201);
-      const json = await response.json();
+      type CreateElectionDateResponse = { id: number };
+      const json =
+        await parseJsonResponse<CreateElectionDateResponse>(response);
       expect(json).toMatchObject({ id: 1 });
     });
 
@@ -165,7 +170,7 @@ describe("/api/admin/electionDates", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(400);
-      const json = await response.json();
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
       expect(json.error).toBe("Invalid input");
     });
 

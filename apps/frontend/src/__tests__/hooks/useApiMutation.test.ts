@@ -263,13 +263,15 @@ describe("useApiMutation", () => {
       const abortError = new Error("Aborted");
       abortError.name = "AbortError";
 
-      globalThis.fetch = jest.fn().mockImplementation((_url, opts) => {
-        return new Promise<never>((_, reject) => {
-          opts?.signal?.addEventListener?.("abort", () => {
-            reject(abortError);
+      globalThis.fetch = jest.fn().mockImplementation(
+        (_url: string, opts?: RequestInit) => {
+          return new Promise<never>((_, reject) => {
+            opts?.signal?.addEventListener?.("abort", () => {
+              reject(abortError);
+            });
           });
-        });
-      });
+        },
+      );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST", { timeout: 1000 }),
@@ -300,13 +302,15 @@ describe("useApiMutation", () => {
       const abortError = new Error("Aborted");
       abortError.name = "AbortError";
 
-      globalThis.fetch = jest.fn().mockImplementation((_url, opts) => {
-        return new Promise<never>((_, reject) => {
-          opts?.signal?.addEventListener?.("abort", () => {
-            reject(abortError);
+      globalThis.fetch = jest.fn().mockImplementation(
+        (_url: string, opts?: RequestInit) => {
+          return new Promise<never>((_, reject) => {
+            opts?.signal?.addEventListener?.("abort", () => {
+              reject(abortError);
+            });
           });
-        });
-      });
+        },
+      );
 
       const { result } = renderHook(() =>
         useApiMutation("/api/test", "POST", { timeout: 500 }),

@@ -10,9 +10,18 @@ import {
   createAuthTestSuite,
   expectSuccessResponse,
   expectErrorResponse,
+  parseJsonResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+
+type FetchLoadedResponse = {
+  success: boolean;
+  discrepanciesMap: Array<
+    [string, { discrepancies: Record<string, string>; committee: unknown }]
+  >;
+  recordsWithDiscrepancies: unknown[];
+};
 
 describe("/api/committee/fetchLoaded", () => {
   beforeEach(() => {
@@ -95,7 +104,7 @@ describe("/api/committee/fetchLoaded", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
-      const json = await response.json();
+      const json = await parseJsonResponse<FetchLoadedResponse>(response);
       expect(json.success).toBe(true);
       expect(json.discrepanciesMap).toHaveLength(1);
       expect(json.discrepanciesMap[0]).toEqual([
@@ -146,7 +155,7 @@ describe("/api/committee/fetchLoaded", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
-      const json = await response.json();
+      const json = await parseJsonResponse<FetchLoadedResponse>(response);
       // reduce overwrites: last entry wins
       expect(json.discrepanciesMap).toHaveLength(1);
       expect(json.discrepanciesMap[0][1].discrepancies).toEqual({
@@ -183,7 +192,7 @@ describe("/api/committee/fetchLoaded", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
-      const json = await response.json();
+      const json = await parseJsonResponse<FetchLoadedResponse>(response);
       expect(json.discrepanciesMap).toHaveLength(1);
       expect(json.discrepanciesMap[0][0]).toBe("VRC_MISSING");
       expect(json.recordsWithDiscrepancies).toEqual([]);

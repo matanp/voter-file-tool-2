@@ -11,6 +11,8 @@ import {
   createMockSession,
   createAuthTestSuite,
   expectSuccessResponse,
+  parseJsonResponse,
+  type ErrorResponseBody,
   type AuthTestConfig,
 } from "../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
@@ -183,7 +185,7 @@ describe("/api/generateReport", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(400);
-      const json = await response.json();
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
       expect(json.error).toBe("Validation failed");
     });
 
@@ -212,7 +214,7 @@ describe("/api/generateReport", () => {
         const response = await POST(request);
 
         expect(response.status).toBe(500);
-        const json = await response.json();
+        const json = await parseJsonResponse<ErrorResponseBody>(response);
         expect(json.error).toBe("Internal Server Error");
       } finally {
         process.env.WEBHOOK_SECRET = savedSecret;

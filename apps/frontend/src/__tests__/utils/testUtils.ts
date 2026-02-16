@@ -23,6 +23,14 @@ export type MockResponse<T = unknown> = Pick<Response, "status" | "json"> & {
   json: () => Promise<T>;
 };
 
+/** Parse response JSON with type assertion. Use for test assertions. */
+export async function parseJsonResponse<T>(response: Response): Promise<T> {
+  return (await response.json()) as T;
+}
+
+/** Common error response body shape for typed assertions. */
+export type ErrorResponseBody = { error: string };
+
 // Mock data factories
 export const createMockSession = (
   overrides: Partial<Session> = {},

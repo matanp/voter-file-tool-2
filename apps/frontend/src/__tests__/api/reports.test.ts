@@ -11,9 +11,18 @@ import {
   createAuthTestSuite,
   expectSuccessResponse,
   expectErrorResponse,
+  parseJsonResponse,
   type AuthTestConfig,
 } from "../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
+
+type ReportsListResponse = {
+  reports: Array<{
+    presignedUrl: string | null;
+    fileSize: number | null;
+    fileContentType: string | null;
+  }>;
+};
 
 const mockGetPresignedReadUrl = jest.fn();
 const mockGetFileMetadata = jest.fn();
@@ -231,7 +240,7 @@ describe("/api/reports", () => {
         const response = await GET(request);
 
         expect(response.status).toBe(200);
-        const json = await response.json();
+        const json = await parseJsonResponse<ReportsListResponse>(response);
         expect(json.reports).toHaveLength(1);
         expect(json.reports[0]).toMatchObject({
           presignedUrl: "https://presigned.example/read",
@@ -258,7 +267,7 @@ describe("/api/reports", () => {
         const response = await GET(request);
 
         expect(response.status).toBe(200);
-        const json = await response.json();
+        const json = await parseJsonResponse<ReportsListResponse>(response);
         expect(json.reports[0]).toMatchObject({
           presignedUrl: null,
           fileSize: null,
@@ -286,7 +295,7 @@ describe("/api/reports", () => {
         const response = await GET(request);
 
         expect(response.status).toBe(200);
-        const json = await response.json();
+        const json = await parseJsonResponse<ReportsListResponse>(response);
         expect(json.reports).toHaveLength(1);
         expect(json.reports[0]).toMatchObject({
           presignedUrl: null,

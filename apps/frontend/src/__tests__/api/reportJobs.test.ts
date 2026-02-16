@@ -11,9 +11,18 @@ import {
   createAuthTestSuite,
   expectSuccessResponse,
   expectErrorResponse,
+  parseJsonResponse,
   type AuthTestConfig,
 } from "../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
+
+type ReportJobsErrorResponse = { error: string; provided: string };
+type ReportJobsSuccessResponse = {
+  reports: unknown[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};
 
 describe("/api/reportJobs", () => {
   beforeEach(() => {
@@ -138,7 +147,8 @@ describe("/api/reportJobs", () => {
         const response = await GET(request);
 
         expect(response.status).toBe(400);
-        const json = await response.json();
+        const json =
+          await parseJsonResponse<ReportJobsErrorResponse>(response);
         expect(json.error).toContain("Invalid status");
         expect(json.provided).toBe("invalid");
       });
@@ -182,7 +192,8 @@ describe("/api/reportJobs", () => {
         );
         const response = await GET(request);
 
-        const json = await response.json();
+        const json =
+          await parseJsonResponse<ReportJobsSuccessResponse>(response);
         expect(json.pageSize).toBe(100);
       });
 
@@ -197,7 +208,8 @@ describe("/api/reportJobs", () => {
         );
         const response = await GET(request);
 
-        const json = await response.json();
+        const json =
+          await parseJsonResponse<ReportJobsSuccessResponse>(response);
         expect(json.page).toBe(1);
       });
     });
@@ -228,7 +240,8 @@ describe("/api/reportJobs", () => {
         const response = await GET(request);
 
         expect(response.status).toBe(200);
-        const json = await response.json();
+        const json =
+          await parseJsonResponse<ReportJobsSuccessResponse>(response);
         expect(json.reports).toHaveLength(1);
         expect(json.reports[0]).toMatchObject({
           id: "r1",

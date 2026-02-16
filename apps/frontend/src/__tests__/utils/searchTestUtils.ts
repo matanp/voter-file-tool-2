@@ -240,13 +240,13 @@ export const testSearchFields: {
   compoundNameField: {
     ...(JSON.parse(
       JSON.stringify(findCompoundSearchFieldByName("name")!),
-    ) as CompoundSearchField),
+    ) as unknown as CompoundSearchField),
     id: "test-compound-name-1",
   } as CompoundSearchField,
   compoundAddressField: {
     ...(JSON.parse(
       JSON.stringify(findCompoundSearchFieldByName("address")!),
-    ) as CompoundSearchField),
+    ) as unknown as CompoundSearchField),
     id: "test-compound-address-1",
   } as CompoundSearchField,
 };

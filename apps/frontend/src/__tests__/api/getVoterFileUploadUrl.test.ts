@@ -10,9 +10,13 @@ import {
   createMockRequest,
   createAuthTestSuite,
   expectErrorResponse,
+  parseJsonResponse,
+  type ErrorResponseBody,
   type AuthTestConfig,
 } from "../utils/testUtils";
 import { mockAuthSession, mockHasPermission } from "../utils/mocks";
+
+type VoterFileUploadSuccessResponse = { uploadUrl: string; fileKey: string };
 
 const mockGetPresignedUploadUrl = jest.fn();
 jest.mock("~/lib/s3Utils", () => ({
@@ -113,7 +117,7 @@ describe("/api/getVoterFileUploadUrl", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(400);
-      const json = await response.json();
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
       expect(json.error).toContain("Invalid content type");
     });
 
@@ -154,7 +158,8 @@ describe("/api/getVoterFileUploadUrl", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
-      const json = await response.json();
+      const json =
+        await parseJsonResponse<VoterFileUploadSuccessResponse>(response);
       expect(json.uploadUrl).toBe("https://presigned.example/upload");
       expect(json.fileKey).toMatch(/^voter-file-uploads\/\d+-.+/);
       expect(mockGetPresignedUploadUrl).toHaveBeenCalled();

@@ -8,6 +8,8 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockRequest,
   createAuthTestSuite,
+  parseJsonResponse,
+  type ErrorResponseBody,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission } from "../../utils/mocks";
@@ -61,7 +63,7 @@ describe("/api/admin/bulkLoadData", () => {
       const response = await POST(request);
 
       expect(response.status).toBe(503);
-      const json = await response.json();
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
       expect(json.error).toBe("Not available in this environment");
     });
   });
