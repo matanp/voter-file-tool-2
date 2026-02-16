@@ -103,7 +103,7 @@ describe("/api/generateReport", () => {
           where: { id: MOCK_REPORT_ID },
           data: expect.objectContaining({
             status: JobStatus.PROCESSING,
-          }),
+          }) as Record<string, unknown>,
         }),
       );
     });
@@ -166,7 +166,7 @@ describe("/api/generateReport", () => {
           where: { id: MOCK_REPORT_ID },
           data: expect.objectContaining({
             status: JobStatus.FAILED,
-          }),
+          }) as Record<string, unknown>,
         }),
       );
     });
@@ -257,7 +257,7 @@ describe("/api/generateReport", () => {
           where: { id: MOCK_REPORT_ID },
           data: expect.objectContaining({
             status: JobStatus.FAILED,
-          }),
+          }) as Record<string, unknown>,
         }),
       );
     });

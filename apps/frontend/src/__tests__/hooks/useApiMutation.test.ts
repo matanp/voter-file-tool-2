@@ -61,7 +61,7 @@ describe("useApiMutation", () => {
           headers: expect.objectContaining({
             Accept: "application/json",
             "Content-Type": "application/json",
-          }),
+          }) as Record<string, unknown>,
           body: JSON.stringify({ name: "Test" }),
         }),
       );

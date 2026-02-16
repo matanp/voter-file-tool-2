@@ -20,8 +20,8 @@ type VoterFileUploadSuccessResponse = { uploadUrl: string; fileKey: string };
 
 const mockGetPresignedUploadUrl = jest.fn();
 jest.mock("~/lib/s3Utils", () => ({
-  getPresignedUploadUrl: (...args: unknown[]) =>
-    mockGetPresignedUploadUrl(...args),
+  getPresignedUploadUrl: (...args: unknown[]): Promise<string> =>
+    mockGetPresignedUploadUrl(...args) as Promise<string>,
 }));
 
 describe("/api/getVoterFileUploadUrl", () => {

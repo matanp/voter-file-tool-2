@@ -97,7 +97,7 @@ describe("/api/reportJobs", () => {
               status: JobStatus.COMPLETED,
               generatedById: "u1",
               deleted: false,
-            }),
+            }) as Record<string, unknown>,
           }),
         );
       });
@@ -117,7 +117,7 @@ describe("/api/reportJobs", () => {
           expect.objectContaining({
             where: expect.objectContaining({
               status: { in: [JobStatus.COMPLETED, JobStatus.FAILED] },
-            }),
+            }) as Record<string, unknown>,
           }),
         );
       });

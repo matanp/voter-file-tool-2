@@ -27,9 +27,15 @@ type ReportsListResponse = {
 const mockGetPresignedReadUrl = jest.fn();
 const mockGetFileMetadata = jest.fn();
 jest.mock("~/lib/s3Utils", () => ({
-  getPresignedReadUrl: (...args: unknown[]) =>
-    mockGetPresignedReadUrl(...args),
-  getFileMetadata: (...args: unknown[]) => mockGetFileMetadata(...args),
+  getPresignedReadUrl: (...args: unknown[]): Promise<string> =>
+    mockGetPresignedReadUrl(...args) as Promise<string>,
+  getFileMetadata: (
+    ...args: unknown[]
+  ): Promise<{ size: number; contentType: string }> =>
+    mockGetFileMetadata(...args) as Promise<{
+      size: number;
+      contentType: string;
+    }>,
 }));
 
 describe("/api/reports", () => {
@@ -103,7 +109,10 @@ describe("/api/reports", () => {
 
         expect(prismaMock.report.findMany).toHaveBeenCalledWith(
           expect.objectContaining({
-            where: expect.objectContaining({ public: true, deleted: false }),
+            where: expect.objectContaining({
+              public: true,
+              deleted: false,
+            }) as Record<string, unknown>,
           }),
         );
       });
@@ -126,7 +135,7 @@ describe("/api/reports", () => {
               generatedById: "user-123",
               status: JobStatus.COMPLETED,
               deleted: false,
-            }),
+            }) as Record<string, unknown>,
           }),
         );
       });
@@ -168,7 +177,7 @@ describe("/api/reports", () => {
             where: expect.objectContaining({
               generatedById: "user-456",
               status: JobStatus.COMPLETED,
-            }),
+            }) as Record<string, unknown>,
           }),
         );
       });
