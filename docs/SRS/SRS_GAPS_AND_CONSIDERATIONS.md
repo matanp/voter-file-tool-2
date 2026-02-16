@@ -154,8 +154,8 @@ This document captures gaps, open questions, and items to resolve before or duri
 | 1.1 | LTED weight source                      | Open                   | High     | Decide BOE vs manual; document                                                       |
 | 1.2 | Voter status field for inactive warning | Open                   | High     | Confirm with MCDC; defer if unavailable                                              |
 | 2.1 | Crosswalk data format & source          | Open                   | Medium   | Define format and import path                                                        |
-| 3.1 | Admin override UX/API                   | **Resolved**           | Medium   | See [SRS_IMPLEMENTATION_ADMIN_OVERRIDE.md](SRS_IMPLEMENTATION_ADMIN_OVERRIDE.md)      |
-| 4.1 | Replacement request migration spec      | **Resolved**           | —        | N/A — re-importing committee data; new model handles replacements natively            |
+| 3.1 | Admin override UX/API                   | **Resolved**           | Medium   | See [SRS_IMPLEMENTATION_ADMIN_OVERRIDE.md](SRS_IMPLEMENTATION_ADMIN_OVERRIDE.md)     |
+| 4.1 | Replacement request migration spec      | **Resolved**           | —        | N/A — re-importing committee data; new model handles replacements natively           |
 | 4.2 | Migration rollback/recovery             | **Resolved**           | Low      | Out of scope (see SRS_DATA_MODEL_CHANGES §5.3)                                       |
 | 5.1 | Access import                           | Open                   | Low      | Mark out of scope or v2                                                              |
 | 5.2 | Email/phone on submission               | **Resolved**           | Low      | Use submissionMetadata (see §5.2)                                                    |

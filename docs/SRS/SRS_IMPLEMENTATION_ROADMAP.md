@@ -31,7 +31,7 @@ These items can be done immediately with the current schema. They close correctn
 
 ---
 
-### 0.1 Backend Enforcement for "Already in Another Committee"
+### 0.1 Backend Enforcement for "Already in Another Committee" — **Done**
 
 |                |                                                    |
 | -------------- | -------------------------------------------------- |
