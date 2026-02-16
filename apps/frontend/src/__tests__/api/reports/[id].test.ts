@@ -70,7 +70,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 404 when params missing", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
 
       const response = await PATCH(
@@ -82,7 +82,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 400 when request body is invalid JSON", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
@@ -104,7 +104,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 404 when updateMany returns count 0 (race condition)", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
@@ -125,7 +125,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 500 when updateMany throws in PATCH", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
@@ -142,7 +142,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 400 when Content-Type is not application/json", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
@@ -163,7 +163,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 404 when report not found or not owned", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue(null);
 
@@ -180,7 +180,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 403 when non-admin tries to set public", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(false);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
@@ -200,7 +200,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 400 when no updatable fields provided", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
@@ -227,7 +227,7 @@ describe("/api/reports/[id]", () => {
         public: false,
         generatedBy: { id: USER_ID, name: "User", email: "u@e.com" },
       };
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
@@ -242,7 +242,7 @@ describe("/api/reports/[id]", () => {
       );
 
       expect(response.status).toBe(200);
-      const json = await response.json();
+      const json = (await response.json()) as { report: { title: string } };
       expect(json.report).toMatchObject({ title: "Updated Title" });
       expect(prismaMock.report.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -280,7 +280,7 @@ describe("/api/reports/[id]", () => {
       );
 
       expect(response.status).toBe(200);
-      const json = await response.json();
+      const json = (await response.json()) as { report: { public: boolean } };
       expect(json.report.public).toBe(true);
     });
   });
@@ -315,7 +315,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 404 when params missing", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
 
       const response = await DELETE(
@@ -327,7 +327,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 404 when report not found or not owned", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue(null);
 
@@ -344,7 +344,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should successfully soft-delete report", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
@@ -369,7 +369,7 @@ describe("/api/reports/[id]", () => {
     });
 
     it("should return 500 when updateMany throws", async () => {
-      mockAuthSession(createMockSession({ user: { id: USER_ID } }));
+      mockAuthSession(createMockSession({ user: { id: USER_ID, privilegeLevel: PrivilegeLevel.RequestAccess } }));
       mockHasPermission(true);
       prismaMock.report.findFirst.mockResolvedValue({
         id: REPORT_ID,
