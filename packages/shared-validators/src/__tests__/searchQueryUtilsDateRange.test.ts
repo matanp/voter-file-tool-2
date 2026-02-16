@@ -1,4 +1,7 @@
-import { buildPrismaWhereClause } from '@voter-file-tool/shared-validators';
+import {
+  buildPrismaWhereClause,
+  getHasEmailConditions,
+} from '@voter-file-tool/shared-validators';
 import type { SearchQueryField } from '@voter-file-tool/shared-validators';
 
 describe('buildPrismaWhereClause - DateRange', () => {
@@ -177,21 +180,7 @@ describe('buildPrismaWhereClause - DateRange', () => {
             { DOB: { lte: '2023-12-31T23:59:59.999Z' } },
           ],
         },
-        {
-          AND: [{ email: { not: null } }, { email: { not: '' } }],
-          NOT: {
-            OR: [
-              { email: { not: { contains: '@' } } },
-              { email: { startsWith: '@' } },
-              { email: { endsWith: '@' } },
-              { email: { not: { contains: '.' } } },
-              { email: { startsWith: '.' } },
-              { email: { endsWith: '.' } },
-              { email: { contains: ' ' } },
-              { email: { contains: '@@' } },
-            ],
-          },
-        },
+        getHasEmailConditions(),
       ],
     });
   });
