@@ -1,4 +1,4 @@
-import { reportCompleteVerifier } from "~/app/api/reportComplete/route";
+import { reportCompleteVerifier } from "~/app/api/reportComplete/reportCompleteVerifier";
 import { createWebhookSignature } from "~/lib/webhookUtils";
 import type { NextRequest } from "next/server";
 

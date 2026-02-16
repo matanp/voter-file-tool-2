@@ -7,32 +7,10 @@ import {
   type ErrorResponse,
 } from "@voter-file-tool/shared-validators";
 import prisma from "~/lib/prisma";
-import { verifyWebhookSignature } from "~/lib/webhookUtils";
 import * as Ably from "ably";
 import { getPresignedReadUrl } from "~/lib/s3Utils";
-import {
-  withBackendCheck,
-  BackendAuthError,
-} from "~/app/api/lib/withPrivilege";
-
-export function reportCompleteVerifier(
-  req: NextRequest,
-): Promise<{ rawBody: string }> {
-  const webhookSecret = process.env.WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    throw new Error("Server configuration error");
-  }
-  return req.text().then((rawBody) => {
-    const signature = req.headers.get("x-webhook-signature");
-    if (!signature) {
-      throw new BackendAuthError("Missing signature");
-    }
-    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-      throw new BackendAuthError("Invalid signature");
-    }
-    return { rawBody };
-  });
-}
+import { withBackendCheck } from "~/app/api/lib/withPrivilege";
+import { reportCompleteVerifier } from "./reportCompleteVerifier";
 
 async function reportCompleteHandler(
   req: NextRequest,
