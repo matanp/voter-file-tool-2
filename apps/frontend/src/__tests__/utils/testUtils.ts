@@ -405,10 +405,13 @@ export const authTestCases = {
   ],
 };
 
+/** Privilege level or "Authenticated" (any valid session, no privilege check). */
+export type AuthLevel = PrivilegeLevel | "Authenticated";
+
 // Authentication test configuration types
 export interface AuthTestConfig {
   endpointName: string;
-  requiredPrivilege: PrivilegeLevel;
+  requiredPrivilege: AuthLevel;
   mockRequest: () => NextRequest;
   mockData?: Record<string, unknown>;
 }
@@ -507,10 +510,18 @@ export const createAuthTestSuite = (
   testCase: AuthTestCase;
   runTest: () => Promise<void>;
 }> => {
+  const insufficientCases =
+    config.requiredPrivilege === "Authenticated"
+      ? []
+      : createInsufficientPrivilegeTestCases(config.requiredPrivilege);
+  const successPrivilege =
+    config.requiredPrivilege === "Authenticated"
+      ? PrivilegeLevel.ReadAccess
+      : config.requiredPrivilege;
   const testCases: AuthTestCase[] = [
     createUnauthenticatedTestCase(),
-    ...createInsufficientPrivilegeTestCases(config.requiredPrivilege),
-    createAuthenticatedTestCase(config.requiredPrivilege, successStatus),
+    ...insufficientCases,
+    createAuthenticatedTestCase(successPrivilege, successStatus),
   ];
 
   return testCases.map((testCase) => ({

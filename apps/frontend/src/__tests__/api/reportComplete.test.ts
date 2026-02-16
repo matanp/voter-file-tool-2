@@ -30,7 +30,7 @@ describe("reportCompleteVerifier", () => {
     process.env = originalEnv;
   });
 
-  it("throws when WEBHOOK_SECRET is missing", async () => {
+  it("throws when WEBHOOK_SECRET is missing", () => {
     delete process.env.WEBHOOK_SECRET;
     const body = '{"success":true,"jobId":"job-1"}';
     const req = createVerifierRequest(
@@ -38,7 +38,7 @@ describe("reportCompleteVerifier", () => {
       createWebhookSignature(body, TEST_SECRET),
     );
 
-    await expect(reportCompleteVerifier(req)).rejects.toThrow(
+    expect(() => reportCompleteVerifier(req)).toThrow(
       "Server configuration error",
     );
   });
