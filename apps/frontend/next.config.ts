@@ -2,14 +2,14 @@
  * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially useful
  * for Docker builds.
  */
+import "./src/env.js";
+import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
-await import("./src/env.js");
 
 const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const POSTHOG_ASSETS_HOST = process.env.NEXT_PUBLIC_POSTHOG_ASSETS_HOST;
 
-/** @type {import("next").NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   // :OHNO: look into this
   output: "standalone" /* for docker hosting */,
   reactStrictMode: true,
@@ -39,13 +39,16 @@ const nextConfig = {
       },
     ];
   },
+  // Next.js types the webpack config param as `any`; no way to narrow it without
+  // installing webpack's type declarations as a dev dependency.
+  /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
   webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // Don’t try to bundle ably’s Node deps into the client
+    if (!isServer && Array.isArray(config.externals)) {
       config.externals.push("keyv", "got", "cacheable-request");
     }
     return config;
   },
+  /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 };
 
 const sentryConfig = {
@@ -69,10 +72,7 @@ const sentryConfig = {
     enabled: true,
   },
 
-  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  // This can increase your server load as well as your hosting bill.
-  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-  // side errors will fail.
+  // Route browser requests through Sentry rewrite to circumvent ad-blockers
   tunnelRoute: "/monitoring",
 
   // Hides source maps from generated client bundles
@@ -81,10 +81,6 @@ const sentryConfig = {
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,
 
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  // See the following for more information:
-  // https://docs.sentry.io/product/crons/
-  // https://vercel.com/docs/cron-jobs
   automaticVercelMonitors: true,
 };
 
