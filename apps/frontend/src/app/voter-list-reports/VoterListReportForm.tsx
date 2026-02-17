@@ -254,7 +254,8 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       }
     };
     void fetchSearchResults();
-  }, [flattenedSearchQuery, fetchDataMutation.mutate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchDataMutation is a stable ref
+  }, [flattenedSearchQuery]);
 
   // Handle report completion
   const handleReportComplete = (url: string) => {
