@@ -9,6 +9,7 @@ import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
 import type { CommitteeWithMembers } from "@voter-file-tool/shared-validators";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 
 const CommitteeLists = async () => {
   const permissions = await auth();
@@ -18,9 +19,12 @@ const CommitteeLists = async () => {
     PrivilegeLevel.Admin,
   );
 
-  // Only include PII data for admin users
+  const activeTermId = await getActiveTermId();
+
+  // Only include PII data for admin users; filter by active term (SRS §5.1)
   const committeeLists: CommitteeWithMembers[] =
     await prisma.committeeList.findMany({
+      where: { termId: activeTermId },
       include: isAdminUser
         ? {
             committeeMemberList: true,

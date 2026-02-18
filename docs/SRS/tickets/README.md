@@ -9,8 +9,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 ## Quick Start (New Implementers)
 
 1. ~~[0.1 Backend enforcement](0.1-backend-enforcement-already-in-committee.md)~~ — **Done**
-2. **Start with** [1.1 Committee Term Model](1.1-committee-term-model.md) — critical foundation
-3. **In parallel:** [T1.1 handleRequest route tests](T1.1-handleRequest-route-tests.md) — testing can run alongside Phase 1
+2. ~~[1.1 Committee Term Model](1.1-committee-term-model.md)~~ — **Done**
+3. **Start with** [1.1b LTED-to-Assembly-District Mapping](1.1b-lted-assembly-district-mapping.md) — next foundation item
 
 ---
 
@@ -19,7 +19,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | ID                                                     | Title                                                  | Status | Roadmap                  |
 | ------------------------------------------------------ | ------------------------------------------------------ | ------ | ------------------------ |
 | [0.1](0.1-backend-enforcement-already-in-committee.md) | Backend enforcement for "Already in Another Committee" | Done   | Tier 0 §0.1              |
-| [1.1](1.1-committee-term-model.md)                     | Committee Term Model                                   | Open   | Tier 1 §1.1              |
+| [1.1](1.1-committee-term-model.md)                     | Committee Term Model                                   | Done   | Tier 1 §1.1              |
 | [1.1b](1.1b-lted-assembly-district-mapping.md)         | LTED-to-Assembly-District Mapping                      | Open   | Tier 1 §1.1b             |
 | [1.1c](1.1c-committee-governance-config.md)            | Committee Governance Config                            | Done   | Tier 1 §1.1c             |
 | [T1.1](T1.1-handleRequest-route-tests.md)              | handleRequest route tests                              | Done   | Testing Tier 1 §T1.1     |

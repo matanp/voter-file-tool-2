@@ -217,16 +217,29 @@ model VotingHistoryRecord {
   value         String
 }
 
+model CommitteeTerm {
+  id        String   @id @default(cuid())
+  label     String   @unique // e.g. "2024–2026"
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false) // Only one term active at a time
+  createdAt DateTime @default(now())
+
+  committeeLists CommitteeList[]
+}
+
 model CommitteeList {
   id                          Int                          @id @default(autoincrement())
   cityTown                    String
   legDistrict                 Int
   electionDistrict            Int
+  termId                      String
+  term                        CommitteeTerm                @relation(fields: [termId], references: [id], onDelete: Restrict)
   committeeMemberList         VoterRecord[]
   CommitteeRequest            CommitteeRequest[]
   CommitteeDiscrepancyRecords CommitteeUploadDiscrepancy[]
 
-  @@unique([cityTown, legDistrict, electionDistrict])
+  @@unique([cityTown, legDistrict, electionDistrict, termId])
 }
 
 model CommitteeRequest {

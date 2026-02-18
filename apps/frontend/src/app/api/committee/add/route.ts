@@ -8,6 +8,7 @@ import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
   isVoterInAnotherCommittee,
   ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+  getActiveTermId,
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
@@ -26,13 +27,16 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
   const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   try {
+    const activeTermId = await getActiveTermId();
+
     // First check if the member is already connected to this committee
     const existingCommittee = await prisma.committeeList.findUnique({
       where: {
-        cityTown_legDistrict_electionDistrict: {
-          cityTown: cityTown,
+        cityTown_legDistrict_electionDistrict_termId: {
+          cityTown,
           legDistrict: legDistrictForDb,
-          electionDistrict: electionDistrict,
+          electionDistrict,
+          termId: activeTermId,
         },
       },
       include: {
@@ -73,10 +77,11 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
 
     const updatedCommittee = await prisma.committeeList.upsert({
       where: {
-        cityTown_legDistrict_electionDistrict: {
-          cityTown: cityTown,
+        cityTown_legDistrict_electionDistrict_termId: {
+          cityTown,
           legDistrict: legDistrictForDb,
-          electionDistrict: electionDistrict,
+          electionDistrict,
+          termId: activeTermId,
         },
       },
       update: {
@@ -85,9 +90,10 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
         },
       },
       create: {
-        cityTown: cityTown,
+        cityTown,
         legDistrict: legDistrictForDb,
-        electionDistrict: electionDistrict,
+        electionDistrict,
+        termId: activeTermId,
         committeeMemberList: {
           connect: { VRCNUM: memberId },
         },

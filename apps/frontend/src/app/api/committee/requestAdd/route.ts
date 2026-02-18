@@ -8,6 +8,7 @@ import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
   isVoterInAnotherCommittee,
   ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+  getActiveTermId,
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 
@@ -68,19 +69,27 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
   }
 
   try {
+    const activeTermId = await getActiveTermId();
+
+    // SRS §5.1: Leaders can only submit to the active term
     const committeeRequested = await prisma.committeeList.findUnique({
       where: {
-        cityTown_legDistrict_electionDistrict: {
-          cityTown: cityTown,
+        cityTown_legDistrict_electionDistrict_termId: {
+          cityTown,
           legDistrict: legDistrictForDb,
-          electionDistrict: electionDistrict,
+          electionDistrict,
+          termId: activeTermId,
         },
       },
     });
 
     if (!committeeRequested) {
       return NextResponse.json(
-        { success: false, error: "Committee not found" },
+        {
+          success: false,
+          error:
+            "Committee not found. Ensure you are submitting to the active term.",
+        },
         { status: 404 },
       );
     }

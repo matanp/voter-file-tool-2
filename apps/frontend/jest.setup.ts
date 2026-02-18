@@ -150,9 +150,22 @@ globalThis.mockAuth = mockedAuth;
 const mockedHasPermissionFor = jest.mocked(hasPermissionFor);
 globalThis.mockHasPermissionFor = mockedHasPermissionFor;
 
+// Default active term for committee tests (SRS §5.1)
+const DEFAULT_ACTIVE_TERM = {
+  id: "term-default-2024-2026",
+  label: "2024–2026",
+  startDate: new Date("2024-01-01"),
+  endDate: new Date("2026-12-31"),
+  isActive: true,
+  createdAt: new Date(),
+};
+
 // Reset mocks before each test
 beforeEach(() => {
   mockReset(prismaMock);
   mockedAuth.mockReset();
   mockedHasPermissionFor.mockReset();
+  // Mock active term for routes that call getActiveTermId()
+  (prismaMock.committeeTerm as { findFirst: jest.Mock }).findFirst =
+    jest.fn().mockResolvedValue(DEFAULT_ACTIVE_TERM);
 });

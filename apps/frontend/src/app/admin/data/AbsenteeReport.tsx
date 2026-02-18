@@ -66,6 +66,8 @@ export const AbsenteeReport = () => {
     }
   };
 
+  const displayError = error ? error : fileUpload.error;
+
   return (
     <Card>
       <CardHeader>
@@ -144,13 +146,11 @@ export const AbsenteeReport = () => {
             )}
           </div>
 
-          {(error || fileUpload.error) && (
+          {displayError ? (
             <Alert variant="destructive">
-              <AlertDescription>
-                {error || fileUpload.error}
-              </AlertDescription>
+              <AlertDescription>{displayError}</AlertDescription>
             </Alert>
-          )}
+          ) : null}
 
           {success && (
             <Alert>

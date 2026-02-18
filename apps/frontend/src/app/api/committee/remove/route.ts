@@ -5,6 +5,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 
 async function removeCommitteeHandler(req: NextRequest, _session: Session) {
@@ -21,12 +22,15 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
   const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   try {
+    const activeTermId = await getActiveTermId();
+
     const existingElectionDistrict = await prisma.committeeList.findUnique({
       where: {
-        cityTown_legDistrict_electionDistrict: {
-          cityTown: cityTown,
+        cityTown_legDistrict_electionDistrict_termId: {
+          cityTown,
           legDistrict: legDistrictForDb,
-          electionDistrict: electionDistrict,
+          electionDistrict,
+          termId: activeTermId,
         },
       },
     });

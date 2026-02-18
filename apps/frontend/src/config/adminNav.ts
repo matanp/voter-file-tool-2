@@ -7,7 +7,7 @@ export interface AdminNavItem {
 
 export const adminSidebarConfig: AdminNavItem[] = [
   { id: "data", label: "Data", href: "/admin", enabled: true },
-  { id: "terms", label: "Terms", href: "/admin/terms", enabled: false },
+  { id: "terms", label: "Terms", href: "/admin/terms", enabled: true },
   { id: "meetings", label: "Meetings", href: "/admin/meetings", enabled: false },
   { id: "users", label: "Users", href: "/admin/users", enabled: false },
   { id: "eligibility", label: "Eligibility Flags", href: "/admin/eligibility-flags", enabled: false },

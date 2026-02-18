@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { loadCommitteeLists } from "./bulkLoadUtils";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { NextRequest } from "next/server";
 import type { Session } from "next-auth";
 
@@ -18,6 +19,7 @@ async function bulkLoadCommitteesHandler(
     await prisma.committeeUploadDiscrepancy.deleteMany({});
 
     const discrepanciesMap = await loadCommitteeLists();
+    const activeTermId = await getActiveTermId();
 
     const transactionOperations = Array.from(discrepanciesMap.entries()).map(
       ([voterId, discrepancyAndCommittee]) =>
@@ -27,11 +29,12 @@ async function bulkLoadCommitteesHandler(
             discrepancy: discrepancyAndCommittee.discrepancies,
             committee: {
               connect: {
-                cityTown_legDistrict_electionDistrict: {
+                cityTown_legDistrict_electionDistrict_termId: {
                   cityTown: discrepancyAndCommittee.committee.cityTown,
                   legDistrict: discrepancyAndCommittee.committee.legDistrict,
                   electionDistrict:
                     discrepancyAndCommittee.committee.electionDistrict,
+                  termId: activeTermId,
                 },
               },
             },
