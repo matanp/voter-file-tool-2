@@ -1,13 +1,14 @@
 import { POST } from "~/app/api/committee/handleRequest/route";
-import { PrivilegeLevel, type VoterRecord } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
-  createMockCommittee,
-  createMockCommitteeRequest,
-  createMockVoterRecord,
   createMockRequest,
   expectSuccessResponse,
   expectErrorResponse,
+  createMockGovernanceConfig,
+  createMockMembership,
+  expectMembershipUpdate,
+  getMembershipMock,
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../../utils/testUtils";
@@ -17,32 +18,8 @@ import {
   prismaMock,
 } from "../../utils/mocks";
 
-// Helper to create committee request with included committeList (schema typo)
-function createMockCommitteeRequestWithInclude(overrides: {
-  id?: number;
-  committeeListId?: number;
-  addVoterRecordId?: string | null;
-  removeVoterRecordId?: string | null;
-  committeeMemberList?: VoterRecord[];
-} = {}) {
-  const base = createMockCommitteeRequest({
-    id: overrides.id ?? 1,
-    committeeListId: overrides.committeeListId ?? 1,
-    addVoterRecordId: overrides.addVoterRecordId ?? "TEST123456",
-    removeVoterRecordId: overrides.removeVoterRecordId ?? null,
-  });
-  const committee = createMockCommittee({
-    id: base.committeeListId,
-    committeeMemberList: overrides.committeeMemberList ?? [],
-  });
-  return {
-    ...base,
-    committeList: committee,
-  };
-}
-
 const createMockHandleRequestData = (overrides = {}) => ({
-  committeeRequestId: 1,
+  membershipId: "membership-test-id-001",
   acceptOrReject: "accept" as const,
   ...overrides,
 });
@@ -53,348 +30,208 @@ describe("/api/committee/handleRequest", () => {
   });
 
   describe("POST /api/committee/handleRequest", () => {
-    it("should return 404 when committee request not found", async () => {
-      const mockRequestData = createMockHandleRequestData();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-      prismaMock.committeeRequest.findUnique.mockResolvedValue(null);
-
-      const request = createMockRequest(mockRequestData);
-
-      const response = await POST(request);
-
-      await expectErrorResponse(response, 404, "Committee request not found");
-      expect(prismaMock.committeeRequest.delete).not.toHaveBeenCalled();
-    });
-
-    it("should return 400 when accepting add and member is already in another committee", async () => {
+    it("should successfully accept a SUBMITTED membership request", async () => {
       const mockRequestData = createMockHandleRequestData({
         acceptOrReject: "accept",
       });
-      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
-        id: 1,
-        committeeListId: 1,
-        addVoterRecordId: "TEST123456",
-        committeeMemberList: [],
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
-      prismaMock.committeeRequest.findUnique.mockResolvedValue(
-        mockCommitteeRequest,
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "SUBMITTED" }),
       );
-      prismaMock.voterRecord.findUnique.mockResolvedValue(
-        createMockVoterRecord({ committeeId: 999 }),
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null); // not in another committee
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
       );
-
-      const request = createMockRequest(mockRequestData);
-
-      const response = await POST(request);
-
-      await expectErrorResponse(
-        response,
-        400,
-        "Member is already in another committee",
-      );
-      expect(prismaMock.committeeList.update).not.toHaveBeenCalled();
-      expect(prismaMock.committeeRequest.delete).not.toHaveBeenCalled();
-    });
-
-    it("should succeed when accepting add and member has no committee", async () => {
-      const mockRequestData = createMockHandleRequestData({
-        acceptOrReject: "accept",
-      });
-      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
-        addVoterRecordId: "TEST123456",
-        committeeMemberList: [],
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-      prismaMock.committeeRequest.findUnique.mockResolvedValue(
-        mockCommitteeRequest,
-      );
-      prismaMock.voterRecord.findUnique.mockResolvedValue(
-        createMockVoterRecord({ committeeId: null }),
-      );
-      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
-        id: "config-1",
-        requiredPartyCode: "DEM",
-        maxSeatsPerLted: 4,
-        requireAssemblyDistrictMatch: true,
-        nonOverridableIneligibilityReasons: [],
-        updatedAt: new Date(),
-      });
-      prismaMock.committeeList.update.mockResolvedValue(createMockCommittee());
-      prismaMock.committeeRequest.delete.mockResolvedValue(
-        createMockCommitteeRequest(),
+      getMembershipMock(prismaMock).count.mockResolvedValue(2); // under capacity
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
       );
 
-      const request = createMockRequest(mockRequestData);
-
-      const response = await POST(request);
+      const response = await POST(createMockRequest(mockRequestData));
 
       await expectSuccessResponse(
         response,
         { message: "Request accepted" },
         200,
       );
-      expect(prismaMock.committeeList.update).toHaveBeenCalled();
-      expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          { status: "ACTIVE" },
+          { id: "membership-test-id-001" },
+        ),
+      );
     });
 
-    it("should succeed when rejecting", async () => {
+    it("should successfully reject a SUBMITTED membership request", async () => {
       const mockRequestData = createMockHandleRequestData({
         acceptOrReject: "reject",
       });
-      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
-        addVoterRecordId: null,
-        removeVoterRecordId: null,
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
-      prismaMock.committeeRequest.findUnique.mockResolvedValue(
-        mockCommitteeRequest,
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "SUBMITTED" }),
       );
-      prismaMock.committeeRequest.delete.mockResolvedValue(
-        createMockCommitteeRequest(),
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ status: "REJECTED" }),
       );
 
-      const request = createMockRequest(mockRequestData);
-
-      const response = await POST(request);
+      const response = await POST(createMockRequest(mockRequestData));
 
       await expectSuccessResponse(
         response,
         { message: "Request rejected" },
         200,
       );
-      expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
-      expect(prismaMock.voterRecord.findUnique).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          { status: "REJECTED" },
+          { id: "membership-test-id-001" },
+        ),
+      );
+      // Reject should not check governance config or capacity
+      expect(
+        prismaMock.committeeGovernanceConfig.findFirst,
+      ).not.toHaveBeenCalled();
     });
 
-    // Capacity check: committee already full
-    it("should return 200 with full message and delete request when committee is at capacity", async () => {
-      const existingMembers = [
-        createMockVoterRecord({ VRCNUM: "MEMBER1" }),
-        createMockVoterRecord({ VRCNUM: "MEMBER2" }),
-        createMockVoterRecord({ VRCNUM: "MEMBER3" }),
-        createMockVoterRecord({ VRCNUM: "MEMBER4" }),
-      ];
+    it("should return 404 when membership is not found", async () => {
+      const mockRequestData = createMockHandleRequestData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(
+        response,
+        404,
+        "Committee membership request not found",
+      );
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+    });
+
+    it("should return 400 when membership is not in SUBMITTED state", async () => {
       const mockRequestData = createMockHandleRequestData({
         acceptOrReject: "accept",
       });
-      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
-        addVoterRecordId: "NEWMEMBER",
-        committeeMemberList: existingMembers,
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
-      prismaMock.committeeRequest.findUnique.mockResolvedValue(
-        mockCommitteeRequest,
-      );
-      prismaMock.voterRecord.findUnique.mockResolvedValue(
-        createMockVoterRecord({ VRCNUM: "NEWMEMBER", committeeId: null }),
-      );
-      // getGovernanceConfig calls committeeGovernanceConfig.findFirst
-      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
-        id: "config-1",
-        requiredPartyCode: "DEM",
-        maxSeatsPerLted: 4,
-        requireAssemblyDistrictMatch: true,
-        nonOverridableIneligibilityReasons: [],
-        updatedAt: new Date(),
-      });
-      prismaMock.committeeRequest.delete.mockResolvedValue(
-        createMockCommitteeRequest(),
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
       );
 
-      const request = createMockRequest(mockRequestData);
+      const response = await POST(createMockRequest(mockRequestData));
 
-      const response = await POST(request);
-
-      await expectSuccessResponse(
+      await expectErrorResponse(
         response,
-        {
-          message:
-            "Request processed - Committee already full, no changes made",
-        },
-        200,
+        400,
+        "This membership is not in a pending (SUBMITTED) state",
       );
-      // Request should be deleted but member should NOT be connected
-      expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
-      expect(prismaMock.committeeList.update).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
     });
 
-    // Replacement flow: remove + add in one request
-    it("should disconnect old member and connect new member on accept with replacement", async () => {
+    it("should return 400 when accepting and member is ACTIVE in another committee", async () => {
       const mockRequestData = createMockHandleRequestData({
         acceptOrReject: "accept",
       });
-      const existingMembers = [
-        createMockVoterRecord({ VRCNUM: "OLD_MEMBER" }),
-        createMockVoterRecord({ VRCNUM: "MEMBER2" }),
-      ];
-      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
-        addVoterRecordId: "NEW_MEMBER",
-        removeVoterRecordId: "OLD_MEMBER",
-        committeeMemberList: existingMembers,
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
-      prismaMock.committeeRequest.findUnique.mockResolvedValue(
-        mockCommitteeRequest,
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "SUBMITTED" }),
       );
-      prismaMock.committeeList.update.mockResolvedValue(createMockCommittee());
-      prismaMock.voterRecord.findUnique.mockResolvedValue(
-        createMockVoterRecord({ VRCNUM: "NEW_MEMBER", committeeId: null }),
-      );
-      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
-        id: "config-1",
-        requiredPartyCode: "DEM",
-        maxSeatsPerLted: 4,
-        requireAssemblyDistrictMatch: true,
-        nonOverridableIneligibilityReasons: [],
-        updatedAt: new Date(),
-      });
-      prismaMock.committeeRequest.delete.mockResolvedValue(
-        createMockCommitteeRequest(),
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(
+        createMockMembership({ committeeListId: 999, status: "ACTIVE" }),
       );
 
-      const request = createMockRequest(mockRequestData);
+      const response = await POST(createMockRequest(mockRequestData));
 
-      const response = await POST(request);
-
-      await expectSuccessResponse(
+      await expectErrorResponse(
         response,
-        { message: "Request accepted" },
-        200,
+        400,
+        "Member is already in another committee",
       );
-      // First update: disconnect old member
-      expect(prismaMock.committeeList.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: {
-            committeeMemberList: {
-              disconnect: { VRCNUM: "OLD_MEMBER" },
-            },
-          },
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+    });
+
+    it("should reject (REJECTED) when committee is at capacity and return 400", async () => {
+      const mockRequestData = createMockHandleRequestData({
+        acceptOrReject: "accept",
+      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "SUBMITTED" }),
+      );
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(4); // at capacity
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ status: "REJECTED" }),
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(
+        response,
+        400,
+        "Committee already at capacity",
+      );
+      // Should update membership to REJECTED with rejectionNote
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate({
+          status: "REJECTED",
+          rejectionNote: "Committee already full",
         }),
       );
-      // Second update: connect new member
-      expect(prismaMock.committeeList.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: {
-            committeeMemberList: {
-              connect: { VRCNUM: "NEW_MEMBER" },
-            },
-          },
-        }),
-      );
-      expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
     });
 
-    // Replacement: capacity accounts for the removal
-    it("should allow replacement even when committee is at capacity", async () => {
-      const existingMembers = [
-        createMockVoterRecord({ VRCNUM: "OLD_MEMBER" }),
-        createMockVoterRecord({ VRCNUM: "MEMBER2" }),
-        createMockVoterRecord({ VRCNUM: "MEMBER3" }),
-        createMockVoterRecord({ VRCNUM: "MEMBER4" }),
-      ];
-      const mockRequestData = createMockHandleRequestData({
-        acceptOrReject: "accept",
-      });
-      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
-        addVoterRecordId: "NEW_MEMBER",
-        removeVoterRecordId: "OLD_MEMBER",
-        committeeMemberList: existingMembers,
-      });
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
+    it("should return 500 for database error", async () => {
+      const mockRequestData = createMockHandleRequestData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
-      prismaMock.committeeRequest.findUnique.mockResolvedValue(
-        mockCommitteeRequest,
-      );
-      prismaMock.committeeList.update.mockResolvedValue(createMockCommittee());
-      prismaMock.voterRecord.findUnique.mockResolvedValue(
-        createMockVoterRecord({ VRCNUM: "NEW_MEMBER", committeeId: null }),
-      );
-      // 4 members, but one is being removed, so effective count = 3 < maxSeatsPerLted (4)
-      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
-        id: "config-1",
-        requiredPartyCode: "DEM",
-        maxSeatsPerLted: 4,
-        requireAssemblyDistrictMatch: true,
-        nonOverridableIneligibilityReasons: [],
-        updatedAt: new Date(),
-      });
-      prismaMock.committeeRequest.delete.mockResolvedValue(
-        createMockCommitteeRequest(),
+      getMembershipMock(prismaMock).findUnique.mockRejectedValue(
+        new Error("Database error"),
       );
 
-      const request = createMockRequest(mockRequestData);
+      const response = await POST(createMockRequest(mockRequestData));
 
-      const response = await POST(request);
-
-      await expectSuccessResponse(
-        response,
-        { message: "Request accepted" },
-        200,
-      );
-      // Both disconnect and connect should have happened
-      expect(prismaMock.committeeList.update).toHaveBeenCalledTimes(2);
-      expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
+      await expectErrorResponse(response, 500, "Internal server error");
     });
 
     // Validation tests
     test.each([
-      { field: "committeeRequestId", value: 0 },
-      { field: "committeeRequestId", value: -1 },
+      { field: "membershipId", value: "" },
       { field: "acceptOrReject", value: "invalid" },
     ])(
       "should return 422 for invalid $field",
       async ({ field, value }: { field: string; value: unknown }) => {
-        const mockRequestData = createMockHandleRequestData({
-          [field]: value,
-        });
-        const mockSession = createMockSession({
-          user: { privilegeLevel: PrivilegeLevel.Admin },
-        });
-
-        mockAuthSession(mockSession);
+        const mockRequestData = createMockHandleRequestData({ [field]: value });
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
         mockHasPermission(true);
 
-        const request = createMockRequest(mockRequestData);
-
-        const response = await POST(request);
+        const response = await POST(createMockRequest(mockRequestData));
 
         await expectErrorResponse(response, 422, "Invalid request data");
-        expect(prismaMock.committeeRequest.findUnique).not.toHaveBeenCalled();
+        expect(getMembershipMock(prismaMock).findUnique).not.toHaveBeenCalled();
       },
     );
 
@@ -404,18 +241,17 @@ describe("/api/committee/handleRequest", () => {
         endpointName: "/api/committee/handleRequest",
         requiredPrivilege: PrivilegeLevel.Admin,
         mockRequest: () =>
-          createMockRequest(createMockHandleRequestData({ acceptOrReject: "reject" })),
+          createMockRequest(
+            createMockHandleRequestData({ acceptOrReject: "reject" }),
+          ),
       };
 
       const setupMocks = () => {
-        prismaMock.committeeRequest.findUnique.mockResolvedValue(
-          createMockCommitteeRequestWithInclude({
-            addVoterRecordId: null,
-            removeVoterRecordId: null,
-          }),
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+          createMockMembership({ status: "SUBMITTED" }),
         );
-        prismaMock.committeeRequest.delete.mockResolvedValue(
-          createMockCommitteeRequest(),
+        getMembershipMock(prismaMock).update.mockResolvedValue(
+          createMockMembership({ status: "REJECTED" }),
         );
       };
 

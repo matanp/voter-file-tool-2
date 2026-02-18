@@ -6,17 +6,17 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
-  isVoterInAnotherCommittee,
   ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
   getActiveTermId,
+  isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 
-async function requestAddHandler(req: NextRequest, _session: Session) {
+async function requestAddHandler(req: NextRequest, session: Session) {
   let body: unknown;
   try {
     body = await req.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         error: "Invalid JSON format",
@@ -42,11 +42,23 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
     requestNotes,
   } = validation.data;
 
-  // Convert undefined legDistrict to sentinel value for database storage
+  // SRS 1.2: addMemberId is required for the new CommitteeMembership flow.
+  // Remove-only requests are an admin action; leaders should contact an admin.
+  if (!addMemberId) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "An add member ID is required. To remove a committee member, please contact your administrator.",
+      },
+      { status: 422 },
+    );
+  }
+
   let legDistrictForDb;
   try {
     legDistrictForDb = toDbSentinelValue(legDistrict);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         error: "Invalid legDistrict value",
@@ -57,21 +69,11 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
     );
   }
 
-  const sanitizedAddMemberId = addMemberId?.trim();
-  const sanitizedRemoveMemberId = removeMemberId?.trim();
-
-  // Require at least one action
-  if (!sanitizedAddMemberId && !sanitizedRemoveMemberId) {
-    return NextResponse.json(
-      { error: "Invalid request data", success: false },
-      { status: 422 },
-    );
-  }
+  const sanitizedAddMemberId = addMemberId.trim();
 
   try {
     const activeTermId = await getActiveTermId();
 
-    // SRS §5.1: Leaders can only submit to the active term
     const committeeRequested = await prisma.committeeList.findUnique({
       where: {
         cityTown_legDistrict_electionDistrict_termId: {
@@ -94,33 +96,58 @@ async function requestAddHandler(req: NextRequest, _session: Session) {
       );
     }
 
-    // SRS §7.1: Reject if add member is already in another committee
-    if (sanitizedAddMemberId) {
-      const voter = await prisma.voterRecord.findUnique({
-        where: { VRCNUM: sanitizedAddMemberId },
-        select: { committeeId: true },
-      });
-      if (
-        voter &&
-        isVoterInAnotherCommittee(voter.committeeId, committeeRequested.id)
-      ) {
-        return NextResponse.json(
-          { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
-          { status: 400 },
-        );
-      }
+    // SRS §7.1: Reject if add member is already ACTIVE in another committee
+    if (
+      await isVoterActiveInAnotherCommittee(
+        sanitizedAddMemberId,
+        committeeRequested.id,
+        activeTermId,
+      )
+    ) {
+      return NextResponse.json(
+        { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
+        { status: 400 },
+      );
     }
 
-    await prisma.committeeRequest.create({
+    // Check for existing SUBMITTED membership (idempotent)
+    const existing = await prisma.committeeMembership.findUnique({
+      where: {
+        voterRecordId_committeeListId_termId: {
+          voterRecordId: sanitizedAddMemberId,
+          committeeListId: committeeRequested.id,
+          termId: activeTermId,
+        },
+      },
+    });
+
+    if (existing?.status === "SUBMITTED") {
+      return NextResponse.json(
+        { success: true, message: "Request already submitted" },
+        { status: 200 },
+      );
+    }
+
+    if (existing?.status === "ACTIVE") {
+      return NextResponse.json(
+        { success: false, error: "Member is already active in this committee" },
+        { status: 400 },
+      );
+    }
+
+    // Create CommitteeMembership with status=SUBMITTED
+    await prisma.committeeMembership.create({
       data: {
+        voterRecordId: sanitizedAddMemberId,
         committeeListId: committeeRequested.id,
-        addVoterRecordId: sanitizedAddMemberId
-          ? sanitizedAddMemberId
-          : undefined,
-        removeVoterRecordId: sanitizedRemoveMemberId
-          ? sanitizedRemoveMemberId
-          : undefined,
-        requestNotes: requestNotes,
+        termId: activeTermId,
+        status: "SUBMITTED",
+        submittedById: session.user?.id ?? null,
+        // Store intended replacement target and notes for admin review
+        submissionMetadata: {
+          ...(removeMemberId ? { removeMemberId: removeMemberId.trim() } : {}),
+          ...(requestNotes ? { requestNotes } : {}),
+        },
       },
     });
 

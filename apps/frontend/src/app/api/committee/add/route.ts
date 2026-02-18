@@ -6,9 +6,11 @@ import { committeeDataSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
-  isVoterInAnotherCommittee,
   ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
   getActiveTermId,
+  getGovernanceConfig,
+  isVoterActiveInAnotherCommittee,
+  countActiveMembers,
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
@@ -23,14 +25,14 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
 
   const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
-  // Convert undefined legDistrict to sentinel value for database storage
   const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   try {
     const activeTermId = await getActiveTermId();
+    const config = await getGovernanceConfig();
 
-    // First check if the member is already connected to this committee
-    const existingCommittee = await prisma.committeeList.findUnique({
+    // Upsert the CommitteeList record (still needed as the FK target for CommitteeMembership)
+    const committee = await prisma.committeeList.upsert({
       where: {
         cityTown_legDistrict_electionDistrict_termId: {
           cityTown,
@@ -39,35 +41,40 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           termId: activeTermId,
         },
       },
-      include: {
-        committeeMemberList: {
-          where: { VRCNUM: memberId },
+      update: {},
+      create: {
+        cityTown,
+        legDistrict: legDistrictForDb,
+        electionDistrict,
+        termId: activeTermId,
+      },
+    });
+
+    // Check for existing CommitteeMembership (idempotent — any non-terminal status)
+    const existingMembership = await prisma.committeeMembership.findUnique({
+      where: {
+        voterRecordId_committeeListId_termId: {
+          voterRecordId: memberId,
+          committeeListId: committee.id,
+          termId: activeTermId,
         },
       },
     });
 
-    // If committee exists and member is already connected, return idempotent success
-    if (existingCommittee && existingCommittee.committeeMemberList.length > 0) {
+    if (existingMembership?.status === "ACTIVE") {
       return NextResponse.json(
         {
           success: true,
-          message: "Member already connected to committee",
-          committee: existingCommittee,
+          message: "Member already active in this committee",
           idempotent: true,
         },
         { status: 200 },
       );
     }
 
-    // SRS §7.1: Reject if voter is already in another committee
-    const voter = await prisma.voterRecord.findUnique({
-      where: { VRCNUM: memberId },
-      select: { committeeId: true },
-    });
-    const targetCommitteeId = existingCommittee?.id ?? null;
+    // SRS §7.1: Reject if voter is already ACTIVE in another committee for this term
     if (
-      voter &&
-      isVoterInAnotherCommittee(voter.committeeId, targetCommitteeId)
+      await isVoterActiveInAnotherCommittee(memberId, committee.id, activeTermId)
     ) {
       return NextResponse.json(
         { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
@@ -75,50 +82,45 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       );
     }
 
-    const updatedCommittee = await prisma.committeeList.upsert({
-      where: {
-        cityTown_legDistrict_electionDistrict_termId: {
-          cityTown,
-          legDistrict: legDistrictForDb,
-          electionDistrict,
-          termId: activeTermId,
-        },
-      },
-      update: {
-        committeeMemberList: {
-          connect: { VRCNUM: memberId },
-        },
-      },
-      create: {
-        cityTown,
-        legDistrict: legDistrictForDb,
-        electionDistrict,
-        termId: activeTermId,
-        committeeMemberList: {
-          connect: { VRCNUM: memberId },
-        },
-      },
-      include: {
-        committeeMemberList: true,
-      },
-    });
+    // SRS §7.1: Capacity check — count ACTIVE CommitteeMembership records for this committee+term
+    const activeCount = await countActiveMembers(committee.id, activeTermId);
+    if (activeCount >= config.maxSeatsPerLted) {
+      return NextResponse.json(
+        { success: false, error: "Committee is at capacity" },
+        { status: 400 },
+      );
+    }
 
-    // Determine if this was a creation or update based on whether committee existed
-    const wasCreated = !existingCommittee;
-    const statusCode = wasCreated ? 201 : 200;
+    // Create CommitteeMembership with status=ACTIVE (admin direct-add)
+    if (existingMembership) {
+      // Re-activate a previously non-active membership
+      await prisma.committeeMembership.update({
+        where: { id: existingMembership.id },
+        data: {
+          status: "ACTIVE",
+          activatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.committeeMembership.create({
+        data: {
+          voterRecordId: memberId,
+          committeeListId: committee.id,
+          termId: activeTermId,
+          status: "ACTIVE",
+          activatedAt: new Date(),
+        },
+      });
+    }
 
     return NextResponse.json(
       {
         success: true,
-        committee: updatedCommittee,
-        message: wasCreated
-          ? "Committee created and member added"
-          : "Member added to committee",
+        message: "Member added to committee",
       },
-      { status: statusCode },
+      { status: 200 },
     );
   } catch (error) {
-    // Use structured logging with Sentry
     Sentry.captureException(error, {
       tags: {
         operation: "addCommittee",
@@ -132,17 +134,13 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       },
     });
 
-    // Handle Prisma known errors with specific status codes
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2025") {
-        // Record not found (member to connect not found)
         return NextResponse.json(
           { success: false, error: "Member not found" },
           { status: 404 },
         );
       } else if (error.code === "P2002") {
-        // Unique constraint violation (duplicate relation) - treat as idempotent success
-        // This handles concurrent race conditions where the same relation is created simultaneously
         return NextResponse.json(
           {
             success: true,
@@ -154,7 +152,6 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       }
     }
 
-    // Default fallback for all other errors
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 },

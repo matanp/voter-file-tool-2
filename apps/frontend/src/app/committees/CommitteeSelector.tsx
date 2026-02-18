@@ -6,6 +6,7 @@ import {
   type CommitteeList,
   type VoterRecord,
 } from "@prisma/client";
+import type { FetchCommitteeListResponse } from "~/lib/validations/committee";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
@@ -31,6 +32,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [useLegDistrict, setUseLegDistrict] = useState<boolean>(false);
   const [selectedDistrict, setSelectedDistrict] = useState<number>(-1);
   const [committeeList, setCommitteeList] = useState<VoterRecord[]>([]);
+  const [maxSeatsPerLted, setMaxSeatsPerLted] = useState<number>(4);
   const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
   const [requestRemoveRecord, setRequestRemoveRecord] =
     useState<VoterRecord | null>(null);
@@ -166,11 +168,11 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           `/api/fetchCommitteeList/?${params.toString()}`,
         );
         if (response.ok) {
-          const data: unknown = await response.json();
+          const data = (await response.json()) as FetchCommitteeListResponse;
           setCommitteeList(
-            (data as { committeeMemberList: VoterRecord[] })
-              .committeeMemberList || [],
+            data.memberships?.map((m) => m.voterRecord) ?? [],
           );
+          setMaxSeatsPerLted(data.maxSeatsPerLted ?? 4);
         } else if (response.status === 403) {
           // User doesn't have permission to view member data
           setCommitteeList([]);
@@ -365,6 +367,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             city={selectedCity}
             legDistrict={selectedLegDistrict}
             committeeList={committeeList}
+            maxSeatsPerLted={maxSeatsPerLted}
             onAdd={fetchCommitteeList}
           />
         </div>
@@ -375,6 +378,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           legDistrict={selectedLegDistrict}
           electionDistrict={selectedDistrict}
           removeMember={requestRemoveRecord}
+          maxSeatsPerLted={maxSeatsPerLted}
           defaultOpen={showConfirmForm}
           onOpenChange={setShowConfirmForm}
           committeeList={committeeList}

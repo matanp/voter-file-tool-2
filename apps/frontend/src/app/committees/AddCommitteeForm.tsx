@@ -22,6 +22,7 @@ interface AddCommitteeFormProps {
   city: string;
   legDistrict: string;
   committeeList: VoterRecord[];
+  maxSeatsPerLted?: number;
   onAdd: (city: string, district: number, legDistrict?: string) => void;
 }
 
@@ -30,6 +31,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   city,
   legDistrict,
   committeeList,
+  maxSeatsPerLted = 4,
   onAdd,
 }) => {
   const { toast } = useToast();
@@ -139,9 +141,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                 const getMessage = () => {
                   if (member) {
                     return "Already in this committee";
-                  } else if (!!record.committeeId) {
-                    return "Already in a different committee";
-                  } else if (committeeList.length >= 4) {
+                  } else if (committeeList.length >= maxSeatsPerLted) {
                     return "Committee Full";
                   } else {
                     return "Add to Committee";
@@ -154,9 +154,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                       onClick={() => handleAddCommitteeMember(record)}
                       disabled={
                         !!member ||
-                        committeeList.length >= 4 ||
+                        committeeList.length >= maxSeatsPerLted ||
                         !validCommittee ||
-                        !!record.committeeId ||
                         loadingVRCNUM === record.VRCNUM
                       }
                     >
@@ -184,6 +183,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
           electionDistrict={electionDistrict}
           defaultOpen={showConfirm}
           committeeList={committeeList}
+          maxSeatsPerLted={maxSeatsPerLted}
           onOpenChange={(open) => setShowConfirm(open)}
           addMember={requestedRecord}
           onSubmit={() => setShowConfirm(false)}

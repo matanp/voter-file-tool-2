@@ -16,8 +16,39 @@ datasource db {
 enum PrivilegeLevel {
   Developer
   Admin
+  Leader      // SRS §3.2 — jurisdiction-scoped committee leaders
   RequestAccess
   ReadAccess
+}
+
+enum MembershipStatus {
+  SUBMITTED       // Leader/admin submitted candidate; awaiting confirmation
+  REJECTED        // Executive Committee rejected — terminal state
+  CONFIRMED       // Executive Committee confirmed at a meeting
+  ACTIVE          // Fully active committee member
+  RESIGNED        // Voluntarily resigned (date + method recorded)
+  REMOVED         // Administratively removed (reason recorded)
+  PETITIONED_WON  // Won a primary election
+  PETITIONED_LOST // Lost a primary election
+  PETITIONED_TIE  // Tied in primary (seat vacant)
+}
+
+enum MembershipType {
+  PETITIONED // Gained seat through petition/primary process
+  APPOINTED  // Filled a vacancy via Executive Committee vote
+}
+
+enum RemovalReason {
+  PARTY_CHANGE
+  MOVED_OUT_OF_DISTRICT
+  INACTIVE_REGISTRATION
+  DECEASED
+  OTHER
+}
+
+enum ResignationMethod {
+  EMAIL
+  MAIL
 }
 
 model User {
@@ -32,9 +63,12 @@ model User {
   // Optional for WebAuthn support
   Authenticator  Authenticator[]
 
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  Report    Report[]
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  Report               Report[]
+
+  // SRS 1.2 — CommitteeMembership relations
+  submittedMemberships CommitteeMembership[]  @relation("SubmittedMemberships")
 }
 
 model Account {
@@ -162,7 +196,7 @@ model VoterRecord {
   VRCNUM                     String                @id
   votingRecords              VotingHistoryRecord[]
   committee                  CommitteeList?        @relation(fields: [committeeId], references: [id], onDelete: SetNull)
-  committeeId                Int?
+  committeeId                Int?  // DEPRECATED (SRS 1.2): replaced by CommitteeMembership; removal deferred to ticket 3.0
   addressForCommittee        String?
   latestRecordEntryYear      Int
   latestRecordEntryNumber    Int
@@ -207,6 +241,9 @@ model VoterRecord {
   hasDiscrepancy             Boolean?
   addToCommitteeRequest      CommitteeRequest[]    @relation(name: "addToCommitteeRequest")
   removeFromCommitteeRequest CommitteeRequest[]    @relation(name: "removeFromCommitteeRequest")
+
+  // SRS 1.2 — CommitteeMembership (replaces committeeId FK in ticket 3.0)
+  memberships                CommitteeMembership[]
 }
 
 model VotingHistoryRecord {
@@ -226,6 +263,7 @@ model CommitteeTerm {
   createdAt DateTime @default(now())
 
   committeeLists CommitteeList[]
+  memberships    CommitteeMembership[]
 }
 
 model CommitteeList {
@@ -235,9 +273,10 @@ model CommitteeList {
   electionDistrict            Int
   termId                      String
   term                        CommitteeTerm                @relation(fields: [termId], references: [id], onDelete: Restrict)
-  committeeMemberList         VoterRecord[]
+  committeeMemberList         VoterRecord[]                // deprecated — see ticket 3.0
   CommitteeRequest            CommitteeRequest[]
   CommitteeDiscrepancyRecords CommitteeUploadDiscrepancy[]
+  memberships                 CommitteeMembership[]
 
   @@unique([cityTown, legDistrict, electionDistrict, termId])
 }
@@ -251,6 +290,56 @@ model CommitteeRequest {
   removeVoterRecord   VoterRecord?  @relation(name: "removeFromCommitteeRequest", fields: [removeVoterRecordId], references: [VRCNUM], onDelete: Cascade)
   removeVoterRecordId String?
   requestNotes        String?
+}
+
+// ============================================================================
+// SRS §6 — Authoritative record of a voter's relationship to a committee.
+// Replaces VoterRecord.committeeId (deferred removal to ticket 3.0).
+// Never deleted — status transitions only.
+// ============================================================================
+model CommitteeMembership {
+  id              String           @id @default(cuid())
+
+  voterRecord     VoterRecord      @relation(fields: [voterRecordId], references: [VRCNUM])
+  voterRecordId   String
+  committeeList   CommitteeList    @relation(fields: [committeeListId], references: [id])
+  committeeListId Int
+  term            CommitteeTerm    @relation(fields: [termId], references: [id])
+  termId          String
+
+  status          MembershipStatus @default(SUBMITTED)
+  membershipType  MembershipType?
+  seatNumber      Int?
+
+  submittedAt     DateTime         @default(now())
+  confirmedAt     DateTime?
+  activatedAt     DateTime?
+  resignedAt      DateTime?
+  removedAt       DateTime?
+  rejectedAt      DateTime?
+  rejectionNote   String?
+
+  submittedById   String?
+  submittedBy     User?            @relation("SubmittedMemberships", fields: [submittedById], references: [id])
+  // submissionMetadata.removeMemberId stores the intended replacement target for leader requests
+  submissionMetadata Json?
+
+  // meetingRecordId: FK to future MeetingRecord model (relation added in later ticket)
+  meetingRecordId String?
+
+  resignationDateReceived DateTime?
+  resignationMethod       ResignationMethod?
+
+  removalReason   RemovalReason?
+  removalNotes    String?
+
+  petitionVoteCount   Int?
+  petitionPrimaryDate DateTime?
+
+  @@unique([voterRecordId, committeeListId, termId])
+  @@index([committeeListId, termId, status])
+  @@index([termId, status])
+  @@index([voterRecordId])
 }
 
 model DropdownLists {

@@ -25,19 +25,16 @@ const CommitteeLists = async () => {
   const committeeLists: CommitteeWithMembers[] =
     await prisma.committeeList.findMany({
       where: { termId: activeTermId },
-      include: isAdminUser
-        ? {
-            committeeMemberList: true,
-          }
-        : {},
     });
 
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
-  let committeeRequests = [];
-
+  // SRS 1.2 — Count SUBMITTED CommitteeMemberships instead of CommitteeRequests
+  let pendingRequestCount = 0;
   if (isAdminUser) {
-    committeeRequests = await prisma.committeeRequest.findMany({});
+    pendingRequestCount = await prisma.committeeMembership.count({
+      where: { status: "SUBMITTED", termId: activeTermId },
+    });
   }
 
   if (!committeeLists || !dropdownLists) {
@@ -48,10 +45,10 @@ const CommitteeLists = async () => {
     <div className="w-full p-4">
       {isAdminUser && (
         <div className="flex gap-4 mb-4">
-          {committeeRequests.length > 0 && (
+          {pendingRequestCount > 0 && (
             <div className="flex gap-4 items-center pb-4">
               <h1>
-                There are {committeeRequests.length} pending committee requests
+                There are {pendingRequestCount} pending committee requests
               </h1>
               <Link href="/committees/requests">
                 <Button>View Requests</Button>

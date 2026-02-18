@@ -4,6 +4,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
   createMockCommittee,
+  createMockGovernanceConfig,
   createMockVoterRecord,
   expectSuccessResponse,
   expectErrorResponse,
@@ -37,6 +38,9 @@ describe("/api/fetchCommitteeList", () => {
         prismaMock.committeeList.findUnique.mockResolvedValue(
           createMockCommittee(),
         );
+        prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+          createMockGovernanceConfig(),
+        );
       };
 
       const authTestSuite = createAuthTestSuite(
@@ -62,6 +66,9 @@ describe("/api/fetchCommitteeList", () => {
       mockAuthSession(mockSession);
       mockHasPermission(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+      );
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1",
@@ -71,7 +78,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -79,6 +89,26 @@ describe("/api/fetchCommitteeList", () => {
           electionDistrict: 1,
         }),
       );
+    });
+
+    it("should include maxSeatsPerLted from governance config in response", async () => {
+      const mockCommittee = createMockCommittee();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
+      );
+
+      const request = new NextRequest(
+        "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1",
+      );
+      const response = await GET(request);
+
+      const data = (await response.json()) as { maxSeatsPerLted?: number };
+      expect(data.maxSeatsPerLted).toBe(2);
     });
 
     describe.each([
@@ -193,7 +223,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -223,7 +256,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -253,7 +289,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -323,7 +362,10 @@ describe("/api/fetchCommitteeList", () => {
       const response = await GET(request);
 
       // Assert
-      await expectSuccessResponse(response, mockCommittee);
+      await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
           cityTown: "Test City",
@@ -455,7 +497,10 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
           createCommitteeFindUniqueArgs({
             cityTown: expectedCityTown,
@@ -505,7 +550,10 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
           createCommitteeFindUniqueArgs(expectedArgs),
         );
@@ -581,15 +629,17 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
 
-        // Verify the committee lookup included member relationships
+        // Verify the committee lookup included active memberships
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
           createCommitteeFindUniqueArgs({
             cityTown: "Test City",
             legDistrict: 1,
             electionDistrict: 1,
-            include: { committeeMemberList: true },
           }),
         );
       });
@@ -617,7 +667,10 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
 
         // Verify the lookup used the exact district parameters
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
@@ -710,7 +763,10 @@ describe("/api/fetchCommitteeList", () => {
         const response = await GET(request);
 
         // Assert
-        await expectSuccessResponse(response, mockCommittee);
+        await expectSuccessResponse(response, {
+        ...mockCommittee,
+        maxSeatsPerLted: 4,
+      });
 
         // Verify the request completed successfully with valid session
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();

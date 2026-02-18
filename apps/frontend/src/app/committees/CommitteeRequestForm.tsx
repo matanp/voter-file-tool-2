@@ -25,6 +25,7 @@ type CommitteeRequestFormProps = {
   defaultOpen: boolean;
   onOpenChange: (open: boolean) => void;
   committeeList: VoterRecord[];
+  maxSeatsPerLted?: number;
   onSubmit: () => void;
   addMember?: VoterRecord;
   removeMember?: VoterRecord;
@@ -37,6 +38,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   defaultOpen,
   onOpenChange,
   committeeList,
+  maxSeatsPerLted = 4,
   onSubmit,
   addMember,
   removeMember,
@@ -155,9 +157,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
                 const getMessage = () => {
                   if (member) {
                     return "Already in this committee";
-                  } else if (!!record.committeeId) {
-                    return "Already in a different committee";
-                  } else if (committeeList.length >= 4) {
+                  } else if (committeeList.length >= maxSeatsPerLted) {
                     return "Committee Full";
                   } else {
                     return "Add to Committee";
@@ -168,11 +168,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
                     <div className="flex gap-4">
                       <Button
                         onClick={() => setRequestAddMember(record)}
-                        disabled={
-                          !!member ||
-                          committeeList.length >= 4 ||
-                          !!record.committeeId
-                        }
+                        disabled={!!member || committeeList.length >= maxSeatsPerLted}
                       >
                         {getMessage()}
                       </Button>
@@ -216,6 +212,11 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
             <label>Notes about this request:</label>
             <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
           </div>
+          {requestRemoveMember && !requestAddMember && (
+            <p className="text-sm text-muted-foreground py-2">
+              To remove a member without replacement, contact your administrator.
+            </p>
+          )}
           <Button
             type="button"
             className="w-full max-w-[85vw]"
@@ -223,11 +224,13 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
             aria-busy={requestMutation.loading}
             aria-disabled={
               requestMutation.loading ||
-              (!requestAddMember && !requestRemoveMember)
+              (!requestAddMember && !requestRemoveMember) ||
+              (!!requestRemoveMember && !requestAddMember)
             }
             disabled={
               requestMutation.loading ||
-              (!requestAddMember && !requestRemoveMember)
+              (!requestAddMember && !requestRemoveMember) ||
+              (!!requestRemoveMember && !requestAddMember)
             }
           >
             {requestMutation.loading ? "Submitting..." : "Submit Request"}

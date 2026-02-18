@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import prisma from "~/lib/prisma";
-import { committeeDataSchema } from "~/lib/validations/committee";
+import { removeCommitteeDataSchema } from "~/lib/validations/committee";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
@@ -10,21 +11,27 @@ import type { Session } from "next-auth";
 
 async function removeCommitteeHandler(req: NextRequest, _session: Session) {
   const body = (await req.json()) as unknown;
-  const validation = validateRequest(body, committeeDataSchema);
+  const validation = validateRequest(body, removeCommitteeDataSchema);
 
   if (!validation.success) {
     return validation.response;
   }
 
-  const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
+  const {
+    cityTown,
+    legDistrict,
+    electionDistrict,
+    memberId,
+    removalReason,
+    removalNotes,
+  } = validation.data;
 
-  // Convert undefined legDistrict to sentinel value for database storage
   const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   try {
     const activeTermId = await getActiveTermId();
 
-    const existingElectionDistrict = await prisma.committeeList.findUnique({
+    const committee = await prisma.committeeList.findUnique({
       where: {
         cityTown_legDistrict_electionDistrict_termId: {
           cityTown,
@@ -35,45 +42,57 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
       },
     });
 
-    if (!existingElectionDistrict) {
+    if (!committee) {
       return NextResponse.json(
         { status: "error", error: "Committee not found" },
         { status: 404 },
       );
     }
 
-    // Verify the member actually belongs to this committee before removal
-    const memberToRemove = await prisma.voterRecord.findUnique({
-      where: { VRCNUM: memberId },
-      select: { committeeId: true },
+    // Find the active CommitteeMembership for this voter+committee+term
+    const membership = await prisma.committeeMembership.findUnique({
+      where: {
+        voterRecordId_committeeListId_termId: {
+          voterRecordId: memberId,
+          committeeListId: committee.id,
+          termId: activeTermId,
+        },
+      },
     });
 
-    if (!memberToRemove) {
+    if (!membership) {
       return NextResponse.json(
-        { status: "error", error: "Member not found" },
+        { status: "error", error: "Member not found in this committee" },
         { status: 404 },
       );
     }
 
-    if (memberToRemove.committeeId !== existingElectionDistrict.id) {
+    if (membership.status !== "ACTIVE") {
       return NextResponse.json(
-        { status: "error", error: "Member does not belong to this committee" },
+        {
+          status: "error",
+          error: "Member does not have an active membership in this committee",
+        },
         { status: 400 },
       );
     }
 
-    await prisma.voterRecord.update({
-      where: { VRCNUM: memberId },
+    await prisma.committeeMembership.update({
+      where: { id: membership.id },
       data: {
-        committeeId: null,
+        status: "REMOVED",
+        removedAt: new Date(),
+        ...(removalReason ? { removalReason } : {}),
+        ...(removalNotes ? { removalNotes } : {}),
       },
     });
 
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
-    console.error(error);
-
-    // Default fallback for all other errors
+    Sentry.captureException(error, {
+      tags: { operation: "removeCommittee" },
+      extra: { cityTown, legDistrict, electionDistrict, memberId },
+    });
     return NextResponse.json(
       { status: "error", error: "Internal server error" },
       { status: 500 },
