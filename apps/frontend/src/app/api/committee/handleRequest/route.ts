@@ -6,6 +6,7 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import {
   isVoterInAnotherCommittee,
   ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+  getGovernanceConfig,
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
@@ -82,7 +83,8 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
           committeeRequest.committeList.committeeMemberList.length -
           (committeeRequest.removeVoterRecordId ? 1 : 0);
 
-        if (currentMemberCount >= 4) {
+        const config = await getGovernanceConfig();
+        if (currentMemberCount >= config.maxSeatsPerLted) {
           await prisma.committeeRequest.delete({
             where: {
               id: committeeRequestId,

@@ -311,3 +311,20 @@ enum JobStatus {
   COMPLETED
   FAILED
 }
+
+enum IneligibilityReason {
+  NOT_REGISTERED
+  PARTY_MISMATCH
+  ASSEMBLY_DISTRICT_MISMATCH
+  CAPACITY
+  ALREADY_IN_ANOTHER_COMMITTEE
+}
+
+model CommitteeGovernanceConfig {
+  id                                 String              @id @default(cuid())
+  requiredPartyCode                  String
+  maxSeatsPerLted                    Int                 @default(4)
+  requireAssemblyDistrictMatch       Boolean             @default(true)
+  nonOverridableIneligibilityReasons IneligibilityReason[] @default([])
+  updatedAt                          DateTime            @updatedAt
+}

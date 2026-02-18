@@ -23,6 +23,25 @@ async function main() {
     developer.privilegeLevel,
     "privileges",
   );
+
+  // Upsert committee governance config (singleton)
+  const governanceConfig = await prisma.committeeGovernanceConfig.upsert({
+    where: { id: "mcdc-default" },
+    update: {},
+    create: {
+      id: "mcdc-default",
+      requiredPartyCode: "DEM",
+      maxSeatsPerLted: 4,
+      requireAssemblyDistrictMatch: true,
+      nonOverridableIneligibilityReasons: [],
+    },
+  });
+
+  console.log(
+    "✓ Seeded committee governance config:",
+    governanceConfig.id,
+    `(maxSeats=${governanceConfig.maxSeatsPerLted}, party=${governanceConfig.requiredPartyCode})`,
+  );
 }
 
 main()
