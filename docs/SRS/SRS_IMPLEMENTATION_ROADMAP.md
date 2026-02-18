@@ -105,7 +105,7 @@ These items restructure the core data model. Almost everything else depends on t
 
 ---
 
-### 1.1c Committee Governance Config
+### 1.1c Committee Governance Config — **Done**
 
 |                |                              |
 | -------------- | ---------------------------- |

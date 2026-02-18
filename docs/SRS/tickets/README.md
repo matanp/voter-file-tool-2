@@ -21,7 +21,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [0.1](0.1-backend-enforcement-already-in-committee.md) | Backend enforcement for "Already in Another Committee" | Done   | Tier 0 §0.1              |
 | [1.1](1.1-committee-term-model.md)                     | Committee Term Model                                   | Open   | Tier 1 §1.1              |
 | [1.1b](1.1b-lted-assembly-district-mapping.md)         | LTED-to-Assembly-District Mapping                      | Open   | Tier 1 §1.1b             |
-| [1.1c](1.1c-committee-governance-config.md)            | Committee Governance Config                            | Open   | Tier 1 §1.1c             |
+| [1.1c](1.1c-committee-governance-config.md)            | Committee Governance Config                            | Done   | Tier 1 §1.1c             |
 | [T1.1](T1.1-handleRequest-route-tests.md)              | handleRequest route tests                              | Open   | Testing Tier 1 §T1.1     |
 | [IA-01](IA-01-admin-ia-v1-spec.md)                     | Admin IA v1 spec                                       | Done   | SRS_UI_PLANNING_GAPS §16 |
 
