@@ -1,20 +1,6 @@
-import React from "react";
-import AuthCheck from "~/components/ui/authcheck";
-import { AdminDataClient } from "./AdminDataClient";
-import prisma from "~/lib/prisma";
+import { redirect } from "next/navigation";
 
-const AdminDataPage = async () => {
-  const electionDates = await prisma.electionDate.findMany();
-  const officeNames = await prisma.officeName.findMany();
-
-  return (
-    <AuthCheck privilegeLevel="Admin">
-      <AdminDataClient
-        electionDates={electionDates}
-        officeNames={officeNames}
-      />
-    </AuthCheck>
-  );
-};
-
-export default AdminDataPage;
+// Redirect /admin/data to /admin (Data is now the admin landing page)
+export default function AdminDataPage() {
+  redirect("/admin");
+}
