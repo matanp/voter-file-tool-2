@@ -127,6 +127,14 @@ describe("/api/committee/handleRequest", () => {
       prismaMock.voterRecord.findUnique.mockResolvedValue(
         createMockVoterRecord({ committeeId: null }),
       );
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
+        id: "config-1",
+        requiredPartyCode: "DEM",
+        maxSeatsPerLted: 4,
+        requireAssemblyDistrictMatch: true,
+        nonOverridableIneligibilityReasons: [],
+        updatedAt: new Date(),
+      });
       prismaMock.committeeList.update.mockResolvedValue(createMockCommittee());
       prismaMock.committeeRequest.delete.mockResolvedValue(
         createMockCommitteeRequest(),
@@ -177,6 +185,190 @@ describe("/api/committee/handleRequest", () => {
       );
       expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
       expect(prismaMock.voterRecord.findUnique).not.toHaveBeenCalled();
+    });
+
+    // Capacity check: committee already full
+    it("should return 200 with full message and delete request when committee is at capacity", async () => {
+      const existingMembers = [
+        createMockVoterRecord({ VRCNUM: "MEMBER1" }),
+        createMockVoterRecord({ VRCNUM: "MEMBER2" }),
+        createMockVoterRecord({ VRCNUM: "MEMBER3" }),
+        createMockVoterRecord({ VRCNUM: "MEMBER4" }),
+      ];
+      const mockRequestData = createMockHandleRequestData({
+        acceptOrReject: "accept",
+      });
+      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
+        addVoterRecordId: "NEWMEMBER",
+        committeeMemberList: existingMembers,
+      });
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeRequest.findUnique.mockResolvedValue(
+        mockCommitteeRequest,
+      );
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ VRCNUM: "NEWMEMBER", committeeId: null }),
+      );
+      // getGovernanceConfig calls committeeGovernanceConfig.findFirst
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
+        id: "config-1",
+        requiredPartyCode: "DEM",
+        maxSeatsPerLted: 4,
+        requireAssemblyDistrictMatch: true,
+        nonOverridableIneligibilityReasons: [],
+        updatedAt: new Date(),
+      });
+      prismaMock.committeeRequest.delete.mockResolvedValue(
+        createMockCommitteeRequest(),
+      );
+
+      const request = createMockRequest(mockRequestData);
+
+      const response = await POST(request);
+
+      await expectSuccessResponse(
+        response,
+        {
+          message:
+            "Request processed - Committee already full, no changes made",
+        },
+        200,
+      );
+      // Request should be deleted but member should NOT be connected
+      expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
+      expect(prismaMock.committeeList.update).not.toHaveBeenCalled();
+    });
+
+    // Replacement flow: remove + add in one request
+    it("should disconnect old member and connect new member on accept with replacement", async () => {
+      const mockRequestData = createMockHandleRequestData({
+        acceptOrReject: "accept",
+      });
+      const existingMembers = [
+        createMockVoterRecord({ VRCNUM: "OLD_MEMBER" }),
+        createMockVoterRecord({ VRCNUM: "MEMBER2" }),
+      ];
+      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
+        addVoterRecordId: "NEW_MEMBER",
+        removeVoterRecordId: "OLD_MEMBER",
+        committeeMemberList: existingMembers,
+      });
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeRequest.findUnique.mockResolvedValue(
+        mockCommitteeRequest,
+      );
+      prismaMock.committeeList.update.mockResolvedValue(createMockCommittee());
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ VRCNUM: "NEW_MEMBER", committeeId: null }),
+      );
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
+        id: "config-1",
+        requiredPartyCode: "DEM",
+        maxSeatsPerLted: 4,
+        requireAssemblyDistrictMatch: true,
+        nonOverridableIneligibilityReasons: [],
+        updatedAt: new Date(),
+      });
+      prismaMock.committeeRequest.delete.mockResolvedValue(
+        createMockCommitteeRequest(),
+      );
+
+      const request = createMockRequest(mockRequestData);
+
+      const response = await POST(request);
+
+      await expectSuccessResponse(
+        response,
+        { message: "Request accepted" },
+        200,
+      );
+      // First update: disconnect old member
+      expect(prismaMock.committeeList.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            committeeMemberList: {
+              disconnect: { VRCNUM: "OLD_MEMBER" },
+            },
+          },
+        }),
+      );
+      // Second update: connect new member
+      expect(prismaMock.committeeList.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            committeeMemberList: {
+              connect: { VRCNUM: "NEW_MEMBER" },
+            },
+          },
+        }),
+      );
+      expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
+    });
+
+    // Replacement: capacity accounts for the removal
+    it("should allow replacement even when committee is at capacity", async () => {
+      const existingMembers = [
+        createMockVoterRecord({ VRCNUM: "OLD_MEMBER" }),
+        createMockVoterRecord({ VRCNUM: "MEMBER2" }),
+        createMockVoterRecord({ VRCNUM: "MEMBER3" }),
+        createMockVoterRecord({ VRCNUM: "MEMBER4" }),
+      ];
+      const mockRequestData = createMockHandleRequestData({
+        acceptOrReject: "accept",
+      });
+      const mockCommitteeRequest = createMockCommitteeRequestWithInclude({
+        addVoterRecordId: "NEW_MEMBER",
+        removeVoterRecordId: "OLD_MEMBER",
+        committeeMemberList: existingMembers,
+      });
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeRequest.findUnique.mockResolvedValue(
+        mockCommitteeRequest,
+      );
+      prismaMock.committeeList.update.mockResolvedValue(createMockCommittee());
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ VRCNUM: "NEW_MEMBER", committeeId: null }),
+      );
+      // 4 members, but one is being removed, so effective count = 3 < maxSeatsPerLted (4)
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
+        id: "config-1",
+        requiredPartyCode: "DEM",
+        maxSeatsPerLted: 4,
+        requireAssemblyDistrictMatch: true,
+        nonOverridableIneligibilityReasons: [],
+        updatedAt: new Date(),
+      });
+      prismaMock.committeeRequest.delete.mockResolvedValue(
+        createMockCommitteeRequest(),
+      );
+
+      const request = createMockRequest(mockRequestData);
+
+      const response = await POST(request);
+
+      await expectSuccessResponse(
+        response,
+        { message: "Request accepted" },
+        200,
+      );
+      // Both disconnect and connect should have happened
+      expect(prismaMock.committeeList.update).toHaveBeenCalledTimes(2);
+      expect(prismaMock.committeeRequest.delete).toHaveBeenCalled();
     });
 
     // Validation tests

@@ -780,7 +780,7 @@ These are features that are already shipping to users with zero automated test c
 
 ---
 
-### T1.1 `handleRequest` Route
+### T1.1 `handleRequest` Route ✅ Done
 
 |                  |                                                                  |
 | ---------------- | ---------------------------------------------------------------- |
