@@ -38,7 +38,7 @@ const Header: React.FC = () => {
           </Link>
           <Link href="/committees">
             <Button
-              className={`${sharedTabStyle} ${pathname?.endsWith("committees") ? tabStyleActive : tabStyleInactive}`}
+              className={`${sharedTabStyle} ${pathname?.startsWith("/committees") ? tabStyleActive : tabStyleInactive}`}
             >
               Committee List
             </Button>
@@ -52,17 +52,17 @@ const Header: React.FC = () => {
           </Link>
           <Link href="/reports">
             <Button
-              className={`${sharedTabStyle} ${pathname?.endsWith("reports") && !pathname?.endsWith("committee-reports") && !pathname?.endsWith("voter-list-reports") ? tabStyleActive : tabStyleInactive}`}
+              className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/voter-list-reports"].some(p => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
             >
               Reports
             </Button>
           </Link>
           {showDataTab && (
-            <Link href="/admin/data">
+            <Link href="/admin">
               <Button
-                className={`${sharedTabStyle} ${pathname?.endsWith("admin/data") ? tabStyleActive : tabStyleInactive}`}
+                className={`${sharedTabStyle} ${pathname?.startsWith("/admin") ? tabStyleActive : tabStyleInactive}`}
               >
-                Data
+                Admin
               </Button>
             </Link>
           )}
