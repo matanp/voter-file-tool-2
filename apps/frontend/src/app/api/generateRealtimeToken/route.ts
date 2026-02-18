@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import * as Ably from "ably";
-import { auth } from "~/auth";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import type { SessionWithUser } from "~/app/api/lib/withPrivilege";
+import type { NextRequest } from "next/server";
 
-export async function POST() {
+async function generateRealtimeTokenHandler(
+  _req: NextRequest,
+  session: SessionWithUser,
+) {
   if (!process.env.ABLY_API_KEY) {
     return NextResponse.json(
       { error: "Missing ABLY_API_KEY in environment." },
@@ -10,14 +15,7 @@ export async function POST() {
     );
   }
 
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const clientId = session.user.id;
-
   const ably = new Ably.Rest(process.env.ABLY_API_KEY);
   try {
     const tokenRequest = await ably.auth.createTokenRequest({ clientId });
@@ -30,3 +28,5 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withPrivilege("Authenticated", generateRealtimeTokenHandler);

@@ -218,6 +218,10 @@ resource "aws_lightsail_instance_public_ports" "public_ports" {
 
 resource "aws_lightsail_static_ip" "nodejs-report-server-ip" {
   name = "nodejs-report-server-ip"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_lightsail_static_ip_attachment" "nodejs-report-server-ip-attachment" {
@@ -230,7 +234,7 @@ resource "aws_lightsail_static_ip_attachment" "nodejs-report-server-ip-attachmen
   ]
 
   lifecycle {
-    prevent_destroy = true
+    replace_triggered_by = [aws_lightsail_instance.nodejs_server.id]
   }
 }
 

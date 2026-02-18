@@ -7,13 +7,15 @@ import {
   type ErrorResponse,
 } from "@voter-file-tool/shared-validators";
 import prisma from "~/lib/prisma";
-import { verifyWebhookSignature } from "~/lib/webhookUtils";
 import * as Ably from "ably";
 import { getPresignedReadUrl } from "~/lib/s3Utils";
+import { withBackendCheck } from "~/app/api/lib/withPrivilege";
+import { reportCompleteVerifier } from "./reportCompleteVerifier";
 
-export const POST = async (
+async function reportCompleteHandler(
   req: NextRequest,
-): Promise<NextResponse<ReportCompleteResponse | ErrorResponse>> => {
+  { rawBody }: { rawBody: string },
+): Promise<NextResponse<ReportCompleteResponse | ErrorResponse>> {
   if (!process.env.ABLY_API_KEY) {
     const errorResponse: ErrorResponse = {
       error: `Missing ABLY_API_KEY environment variable.
@@ -29,37 +31,6 @@ export const POST = async (
     });
   }
   try {
-    // Get the raw body for HMAC verification
-    const rawBody = await req.text();
-
-    // Verify HMAC signature
-    const signature = req.headers.get("x-webhook-signature");
-    const webhookSecret = process.env.WEBHOOK_SECRET;
-
-    if (!webhookSecret) {
-      console.error("WEBHOOK_SECRET environment variable is not set");
-      const errorResponse: ErrorResponse = {
-        error: "Server configuration error",
-      };
-      return NextResponse.json(errorResponse, { status: 500 });
-    }
-
-    if (!signature) {
-      console.warn("Missing webhook signature header");
-      const errorResponse: ErrorResponse = {
-        error: "Missing signature",
-      };
-      return NextResponse.json(errorResponse, { status: 401 });
-    }
-
-    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-      console.warn("Invalid webhook signature");
-      const errorResponse: ErrorResponse = {
-        error: "Invalid signature",
-      };
-      return NextResponse.json(errorResponse, { status: 403 });
-    }
-
     // Parse and validate the JSON payload
     let body: unknown;
     try {
@@ -175,4 +146,9 @@ export const POST = async (
     };
     return NextResponse.json(errorResponse, { status: 500 });
   }
-};
+}
+
+export const POST = withBackendCheck(
+  reportCompleteVerifier,
+  reportCompleteHandler,
+);

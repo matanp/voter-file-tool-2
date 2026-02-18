@@ -1,21 +1,37 @@
 # Production Deployment Guide
 
-## Problem
+## Primary Deployment Path
+
+**Use Terraform + automated setup** for new deployments. See [infrastructure/DEPLOYMENT_SETUP.md](infrastructure/DEPLOYMENT_SETUP.md) for the full flow. Terraform provisions the Lightsail instance and runs `infrastructure/scripts/00-setup-all.sh`, which installs dependencies, builds packages, configures nginx/PM2, and attempts certbot automatically.
+
+---
+
+## Manual Deployment (When Not Using Terraform)
+
+Use these steps when you deploy the report-server manually (e.g. existing server, troubleshooting, or non-Terraform setup).
+
+### Problem
 
 The `@voter-file-tool/voter-import-processor` and other workspace packages need to be built before the report-server can run in production. TypeScript declaration files (`.d.ts`) are generated during the build step and are required for ts-node to work properly.
 
-## Solution
+### Solution
 
-### Automated Build on Start
+#### Build Order
 
-The `report-server` now has a `prestart` script that automatically builds all required packages before starting the server.
+Packages must be built in dependency order. From the project root:
 
-### Deployment Steps for AWS Lightsail
+```bash
+pnpm run build:packages
+```
+
+This builds: `shared-prisma` → `shared-validators` → `voter-import-processor` → (other packages). The `prestart` script in report-server builds a minimal subset when you run `pnpm start`; for a clean deploy, run `pnpm run build:packages` from root first.
+
+### Manual Deployment Steps for AWS Lightsail
 
 1. **SSH into your Lightsail instance**
 
    ```bash
-   ssh bitnami@your-instance-ip
+   ssh <your-user>@your-instance-ip
    ```
 
 2. **Navigate to your project directory**
@@ -39,11 +55,10 @@ The `report-server` now has a `prestart` script that automatically builds all re
 5. **Build all workspace packages** ⚠️ **REQUIRED** ⚠️
 
    ```bash
-   # From project root - this MUST be run before starting the server:
    pnpm run build:packages
    ```
 
-   This generates TypeScript declaration files (.d.ts) that are required for the report-server to run.
+   This generates TypeScript declaration files (`.d.ts`) required for the report-server.
 
 6. **Start the report server**
    ```bash
@@ -51,17 +66,9 @@ The `report-server` now has a `prestart` script that automatically builds all re
    pnpm start
    ```
 
-### What the `prestart` Script Does
+### Using PM2 for Production
 
-```json
-"prestart": "pnpm --filter '@voter-file-tool/voter-import-processor' run build && pnpm --filter '@voter-file-tool/shared-validators' run build && pnpm --filter '@voter-file-tool/shared-prisma' run build"
-```
-
-⚠️ **Note**: While the `prestart` script will build packages automatically when you run `pnpm start`, it's better to run `pnpm run build:packages` from the project root first to ensure all packages build correctly before starting the server.
-
-### Recommended: Use PM2 for Production
-
-Instead of running `pnpm start` directly, use PM2 to keep the server running:
+Use PM2 to keep the server running (note: `00-setup-all.sh` configures PM2 automatically; use this when deploying manually):
 
 ```bash
 # Install PM2 globally (one-time)
@@ -108,7 +115,7 @@ pm2 status
 ```bash
 cd /opt/voter-file-tool
 pnpm run build:packages
-# OR
+# OR (minimal subset)
 cd apps/report-server
 pnpm run prestart
 ```
@@ -163,13 +170,6 @@ If you want to avoid building on the server, you can commit the `dist` folders t
 
 **Why not recommended**: This adds build artifacts to version control, increases repo size, and can cause merge conflicts.
 
-### Best Practice: CI/CD Pipeline
+### Future Consideration: CI/CD
 
-For a more robust solution, set up a GitHub Actions workflow to:
-
-1. Build all packages
-2. Run tests
-3. Deploy to AWS Lightsail
-4. Restart the server
-
-This ensures packages are always built correctly before deployment.
+A GitHub Actions workflow could automate build, test, deploy, and server restart. Not currently implemented.

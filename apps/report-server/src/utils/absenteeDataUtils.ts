@@ -218,22 +218,27 @@ export const calculatePercentage = (
 /**
  * Creates a localeCompare sort function for a given field
  */
-const localeCompareSortFn = (identifierField: string) => (a: any, b: any) =>
-  a[identifierField].localeCompare(b[identifierField]);
+const localeCompareSortFn =
+  (identifierField: string) =>
+  (a: Record<string, unknown>, b: Record<string, unknown>) =>
+    String(a[identifierField]).localeCompare(String(b[identifierField]));
 
 /**
  * Configuration for different grouping types
  */
 interface GroupingConfig {
   identifierField: string;
-  sortFunction: (a: any, b: any) => number;
-  parseIdentifier?: (identifier: string) => Record<string, any>;
+  sortFunction: (
+    a: Record<string, unknown>,
+    b: Record<string, unknown>
+  ) => number;
+  parseIdentifier?: (identifier: string) => Record<string, string>;
 }
 
 /**
  * Generic function to calculate detailed statistics for any grouping type
  */
-const calculateDetailedStats = <T extends Record<string, any>>(
+const calculateDetailedStats = <T extends Record<string, unknown>>(
   groupedRows: Record<string, AbsenteeStandardBallotRequestRow[]>,
   config: GroupingConfig
 ): T[] => {
@@ -310,7 +315,7 @@ export const getWardTownDetailedStats = (
 }> => {
   const config: GroupingConfig = {
     identifierField: 'wardTownId',
-    sortFunction: (a, b) => parseInt(a.ward) - parseInt(b.ward),
+    sortFunction: (a, b) => parseInt(String(a.ward)) - parseInt(String(b.ward)),
     parseIdentifier: parseWardTownId,
   };
 

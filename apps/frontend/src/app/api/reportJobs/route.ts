@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { auth } from "~/auth";
 import { JobStatus } from "@prisma/client";
+import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
 
 // Helper function to validate and clamp pagination parameters
 function validatePaginationParams(
@@ -44,13 +44,9 @@ function validatePaginationParams(
   return { page, pageSize };
 }
 
-export const GET = async (req: NextRequest) => {
+/** Handles GET requests to list report jobs for the current session/user, applies pagination and filtering, and returns job metadata. */
+async function getReportJobsHandler(req: NextRequest, session: SessionWithUser) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const url = new URL(req.url);
     const status = url.searchParams.get("status"); // "pending", "processing", "completed", "failed", or "all"
     const pageParam = url.searchParams.get("page");
@@ -68,7 +64,6 @@ export const GET = async (req: NextRequest) => {
     if (status && status !== "all") {
       // Define valid JobStatus values
       const validStatuses = new Set(Object.values(JobStatus));
-
       // Parse and validate status values
       const statusValues = status
         .split(",")
@@ -141,4 +136,6 @@ export const GET = async (req: NextRequest) => {
       { status: 500 },
     );
   }
-};
+}
+
+export const GET = withPrivilege("Authenticated", getReportJobsHandler);

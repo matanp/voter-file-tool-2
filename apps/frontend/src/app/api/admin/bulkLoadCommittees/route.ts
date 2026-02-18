@@ -1,8 +1,15 @@
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
 import { loadCommitteeLists } from "./bulkLoadUtils";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
+import type { NextRequest } from "next/server";
+import type { Session } from "next-auth";
 
-export async function POST() {
+async function bulkLoadCommitteesHandler(
+  _req: NextRequest,
+  _session: Session,
+) {
   try {
     if (process.env.VERCEL) {
       return NextResponse.json({ error: "Not available in this environment" });
@@ -60,3 +67,8 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withPrivilege(
+  PrivilegeLevel.Admin,
+  bulkLoadCommitteesHandler,
+);

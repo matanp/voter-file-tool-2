@@ -193,9 +193,6 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     onError: handleFetchDataError,
   });
 
-  const mutateRef = useRef(fetchDataMutation.mutate);
-  mutateRef.current = fetchDataMutation.mutate;
-
   const generateReportMutation = useApiMutation<
     { reportId: string },
     GenerateReportData
@@ -228,7 +225,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
 
       try {
         const normalized = normalizeSearchQuery(flattenedSearchQuery);
-        await mutateRef.current({
+        await fetchDataMutation.mutate({
           searchQuery: normalized,
           pageSize: 100, // Only fetch first 100 for preview
           page: 1,
@@ -257,6 +254,7 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
       }
     };
     void fetchSearchResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchDataMutation is a stable ref
   }, [flattenedSearchQuery]);
 
   // Handle report completion

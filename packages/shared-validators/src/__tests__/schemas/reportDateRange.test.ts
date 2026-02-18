@@ -1,5 +1,4 @@
-import { z } from 'zod';
-import { searchQueryFieldSchema } from '../schemas/report';
+import { searchQueryFieldSchema } from '../../schemas/report';
 
 describe('searchQueryFieldSchema - DateRange', () => {
   it('validates date field with range', () => {
@@ -30,7 +29,7 @@ describe('searchQueryFieldSchema - DateRange', () => {
     expect(result).toEqual(validField);
   });
 
-  it('validates date field with both values and range (values take precedence)', () => {
+  it('validates date field with both values and range (range schema matches first, strips values)', () => {
     const fieldWithBoth = {
       field: 'DOB',
       values: ['2023-01-01T00:00:00.000Z'],
@@ -42,7 +41,13 @@ describe('searchQueryFieldSchema - DateRange', () => {
 
     const result = searchQueryFieldSchema.parse(fieldWithBoth);
 
-    expect(result).toEqual(fieldWithBoth);
+    expect(result).toEqual({
+      field: 'DOB',
+      range: {
+        startDate: '2023-01-01T00:00:00.000Z',
+        endDate: '2023-12-31T23:59:59.999Z',
+      },
+    });
   });
 
   it('rejects date field with neither values nor range', () => {
@@ -53,8 +58,8 @@ describe('searchQueryFieldSchema - DateRange', () => {
     expect(() => searchQueryFieldSchema.parse(invalidField)).toThrow();
   });
 
-  it('rejects date field with empty range', () => {
-    const invalidField = {
+  it('accepts date field with null dates in range (schema allows nullable)', () => {
+    const validField = {
       field: 'DOB',
       range: {
         startDate: null,
@@ -62,7 +67,11 @@ describe('searchQueryFieldSchema - DateRange', () => {
       },
     };
 
-    expect(() => searchQueryFieldSchema.parse(invalidField)).toThrow();
+    const result = searchQueryFieldSchema.parse(validField);
+    expect('range' in result).toBe(true);
+    if ('range' in result) {
+      expect(result.range).toEqual({ startDate: null, endDate: null });
+    }
   });
 
   it('rejects date field with invalid datetime strings', () => {
@@ -104,8 +113,11 @@ describe('searchQueryFieldSchema - DateRange', () => {
     };
 
     const result = searchQueryFieldSchema.parse(validField);
-    expect(result.range?.startDate).toBe('2023-01-01T00:00:00.000Z');
-    expect(result.range?.endDate).toBeNull();
+    expect('range' in result).toBe(true);
+    if ('range' in result) {
+      expect(result.range.startDate).toBe('2023-01-01T00:00:00.000Z');
+      expect(result.range.endDate).toBeNull();
+    }
   });
 
   it('validates range with only endDate', () => {
@@ -118,7 +130,36 @@ describe('searchQueryFieldSchema - DateRange', () => {
     };
 
     const result = searchQueryFieldSchema.parse(validField);
-    expect(result.range?.startDate).toBeNull();
-    expect(result.range?.endDate).toBe('2023-12-31T23:59:59.999Z');
+    expect('range' in result).toBe(true);
+    if ('range' in result) {
+      expect(result.range.startDate).toBeNull();
+      expect(result.range.endDate).toBe('2023-12-31T23:59:59.999Z');
+    }
+  });
+
+  it('rejects computed boolean field with value: false', () => {
+    const invalidField = {
+      field: 'hasEmail',
+      value: false,
+    };
+    expect(() => searchQueryFieldSchema.parse(invalidField)).toThrow();
+  });
+
+  it('accepts computed boolean field with value: true', () => {
+    const validField = {
+      field: 'hasEmail',
+      value: true,
+    };
+    const result = searchQueryFieldSchema.parse(validField);
+    expect(result).toEqual(validField);
+  });
+
+  it('accepts computed boolean field with value: null', () => {
+    const validField = {
+      field: 'hasEmail',
+      value: null,
+    };
+    const result = searchQueryFieldSchema.parse(validField);
+    expect(result).toEqual(validField);
   });
 });

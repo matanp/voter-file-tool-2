@@ -45,6 +45,12 @@ const config = {
         "@typescript-eslint/unbound-method": "off",
       },
     },
+    {
+      files: ["next-env.d.ts"],
+      rules: {
+        "@typescript-eslint/triple-slash-reference": "off",
+      },
+    },
   ],
 };
 module.exports = config;

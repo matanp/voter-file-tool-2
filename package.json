@@ -6,7 +6,8 @@
   "scripts": {
     "build:packages": "pnpm --filter './packages/**' run build",
     "prepare": "pnpm run build:packages",
-    "terraform:apply": "terraform apply -var-file=infrastructure/terraform.tfvars"
+    "terraform:apply": "terraform apply -var-file=infrastructure/terraform.tfvars",
+    "terraform:recreate": "terraform apply -replace=aws_lightsail_instance.nodejs_server -var-file=infrastructure/terraform.tfvars"
   },
   "pnpm": {
     "overrides": {

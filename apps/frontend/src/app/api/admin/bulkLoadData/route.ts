@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { parseCSV } from "./bulkLoadUtils";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
+import type { NextRequest } from "next/server";
+import type { Session } from "next-auth";
 
-export async function POST() {
+async function bulkLoadDataHandler(_req: NextRequest, _session: Session) {
   if (process.env.VERCEL) {
-    return NextResponse.json({ error: "Not available in this environment" });
+    return NextResponse.json(
+      { error: "Not available in this environment" },
+      { status: 503 },
+    );
   }
 
   console.log("Loading data BULK");
@@ -11,9 +18,6 @@ export async function POST() {
 
   try {
     const files = ["2024_5_2_voter_records.txt"];
-
-    // const files = ["2024_1_voter_records-partial25000.txt"];
-
     const years = [2024];
     const recordEntryNumbers = [1];
 
@@ -49,3 +53,5 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withPrivilege(PrivilegeLevel.Admin, bulkLoadDataHandler);

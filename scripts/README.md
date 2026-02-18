@@ -1,5 +1,7 @@
 # Development Scripts
 
+For full local dev (DB + R2 + report-server + frontend), see [docs/LOCAL_DEVELOPMENT.md](../docs/LOCAL_DEVELOPMENT.md).
+
 ## setup-dev-db.sh
 
 Automated script to set up your development database environment with Docker and Prisma.

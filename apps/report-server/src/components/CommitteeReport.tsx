@@ -1,6 +1,6 @@
 import React from 'react';
 
-type CommitteeMember = {
+export type CommitteeMember = {
   name: string;
   address: string;
   city: string;

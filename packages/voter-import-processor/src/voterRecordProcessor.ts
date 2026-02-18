@@ -58,7 +58,7 @@ const VOTER_RECORD_UPDATE_FIELDS = {
  */
 function formatSqlValue(
   value: unknown,
-  type: 'string' | 'integer' | 'datetime' | 'boolean'
+  type: 'string' | 'integer' | 'datetime' | 'boolean',
 ): string {
   if (value === null || value === undefined) {
     return 'NULL';
@@ -90,7 +90,7 @@ function formatSqlValue(
  */
 async function batchUpdateVoterRecords(
   updates: { vrcnum: string; data: Record<string, unknown> }[],
-  prisma: PrismaClient
+  prisma: PrismaClient,
 ): Promise<number> {
   if (updates.length === 0) {
     return 0;
@@ -219,7 +219,7 @@ export const exampleVoterRecord = {
  * Type guard to check if key is valid for VoterRecordArchive
  */
 function isKeyOfVoterRecordArchiveStrings(
-  key: string
+  key: string,
 ): key is keyof typeof exampleVoterRecord {
   return key in exampleVoterRecord;
 }
@@ -228,7 +228,7 @@ function isKeyOfVoterRecordArchiveStrings(
  * Type guard to check if record has required fields
  */
 function hasRequiredVoterArchiveFields(
-  record: Partial<Prisma.VoterRecordArchiveCreateManyInput>
+  record: Partial<Prisma.VoterRecordArchiveCreateManyInput>,
 ): record is Prisma.VoterRecordArchiveCreateManyInput {
   return (
     typeof record.VRCNUM === 'string' &&
@@ -242,7 +242,7 @@ function hasRequiredVoterArchiveFields(
  */
 export function isRecordNewer(
   newRecord: Prisma.VoterRecordArchiveCreateManyInput,
-  existingRecord: VoterRecord
+  existingRecord: VoterRecord,
 ): boolean {
   if (newRecord.recordEntryYear > existingRecord.latestRecordEntryYear) {
     return true;
@@ -262,7 +262,7 @@ export function isRecordNewer(
 export function transformVoterRecord(
   record: VoterRecordArchiveStrings,
   year: number,
-  recordEntryNumber: number
+  recordEntryNumber: number,
 ): Prisma.VoterRecordArchiveCreateManyInput | null {
   const VRCNUM = record.VRCNUM;
 
@@ -327,7 +327,7 @@ export function transformVoterRecord(
  */
 export async function bulkSaveVoterRecords(
   records: Prisma.VoterRecordArchiveCreateManyInput[],
-  prisma: PrismaClient
+  prisma: PrismaClient,
 ): Promise<{ created: number; updated: number }> {
   console.time('bulkSaveVoterRecords');
 
@@ -351,7 +351,7 @@ export async function bulkSaveVoterRecords(
   });
 
   const existingRecordMap = new Map(
-    existingRecords.map((record) => [record.VRCNUM, record])
+    existingRecords.map((record) => [record.VRCNUM, record]),
   );
 
   const voterCreateTransactions: Prisma.VoterRecordCreateManyInput[] = [];
@@ -402,6 +402,6 @@ export async function bulkSaveVoterRecords(
 
   return {
     created: voterCreateTransactions.length,
-    updated: voterUpdateData.length,
+    updated: updatedCount,
   };
 }

@@ -1,5 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import prisma from "~/lib/prisma";
+import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { PrivilegeLevel } from "@prisma/client";
+import type { Session } from "next-auth";
 
 export interface HandleDiscrepancyRequest {
   VRCNUM: string;
@@ -8,7 +11,10 @@ export interface HandleDiscrepancyRequest {
   takeAddress: string;
 }
 
-export async function POST(req: Request) {
+async function handleCommitteeDiscrepancyHandler(
+  req: NextRequest,
+  _session: Session,
+) {
   try {
     const { VRCNUM, accept, takeAddress } =
       (await req.json()) as HandleDiscrepancyRequest;
@@ -87,3 +93,8 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withPrivilege(
+  PrivilegeLevel.Admin,
+  handleCommitteeDiscrepancyHandler,
+);

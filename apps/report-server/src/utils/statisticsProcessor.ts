@@ -7,7 +7,10 @@ import { PartyType } from '../utils/absenteeDataUtils';
 /**
  * Configuration for different grouping types
  */
-export interface GroupingConfig<TRow = any, TStats = Record<string, any>> {
+export interface GroupingConfig<
+  TRow = unknown,
+  TStats = Record<string, unknown>,
+> {
   /** Function to group rows by a specific field */
   groupFunction: (rows: TRow[]) => Record<string, TRow[]>;
   /** Function to calculate detailed statistics from grouped rows */
@@ -17,18 +20,13 @@ export interface GroupingConfig<TRow = any, TStats = Record<string, any>> {
   /** Human-readable name for logging */
   displayName: string;
   /** Optional function to parse identifier into additional fields */
-  parseIdentifier?: (identifier: string) => Record<string, any>;
+  parseIdentifier?: (identifier: string) => Record<string, string>;
 }
 
-/**
- * Generic function to calculate statistics for multiple grouping types
- * @param rows - Array of input rows
- * @param configs - Array of grouping configurations
- * @returns Object with grouped data and statistics for each configuration
- */
+// Calculate statistics for multiple grouping configurations.
 export function calculateGroupedStatistics<
-  TRow = any,
-  TStats = Record<string, any>,
+  TRow = unknown,
+  TStats = Record<string, unknown>,
 >(
   rows: TRow[],
   configs: GroupingConfig<TRow, TStats>[]
@@ -84,12 +82,15 @@ export function calculateGroupedStatistics<
  * @param parseIdentifier - Optional identifier parser
  * @returns GroupingConfig object
  */
-export function createGroupingConfig<TRow = any, TStats = Record<string, any>>(
+export function createGroupingConfig<
+  TRow = unknown,
+  TStats = Record<string, unknown>,
+>(
   groupFunction: (rows: TRow[]) => Record<string, TRow[]>,
   statsFunction: (grouped: Record<string, TRow[]>) => TStats[],
   identifierField: keyof TStats,
   displayName: string,
-  parseIdentifier?: (identifier: string) => Record<string, any>
+  parseIdentifier?: (identifier: string) => Record<string, string>
 ): GroupingConfig<TRow, TStats> {
   return {
     groupFunction,

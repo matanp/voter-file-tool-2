@@ -15,6 +15,7 @@ import {
   createWorkbook,
   addWorksheetToWorkbook,
 } from './utils/xlsxUtils';
+import type { WorksheetData, WorksheetRow, WorksheetCell } from './types';
 
 type ColumnHeaders = Record<string, string>;
 type FieldWidths = Record<string, number>;
@@ -124,7 +125,7 @@ const FIELD_WIDTHS: FieldWidths = {
  * @returns XLSX worksheet object
  */
 function createWorksheet(
-  data: any[][],
+  data: WorksheetData,
   columnsToInclude: string[]
 ): XLSX.WorkSheet {
   return createWorksheetWithFieldWidths(data, columnsToInclude, FIELD_WIDTHS);
@@ -160,7 +161,7 @@ export async function generateUnifiedXLSXAndUpload(
     const groupedCommittees = data as LDCommitteesArrayWithFields;
 
     for (const ld of groupedCommittees) {
-      const worksheetData: any[] = [];
+      const worksheetData: WorksheetData = [];
 
       const columnsToInclude = determineColumnsToInclude(
         selectedFields,
@@ -175,11 +176,11 @@ export async function generateUnifiedXLSXAndUpload(
 
       for (const [electionDistrict, members] of Object.entries(ld.committees)) {
         for (const member of members) {
-          const rowData = columnsToInclude.map((field) => {
+          const rowData: WorksheetRow = columnsToInclude.map((field) => {
             if (field === 'electionDistrict') {
               return electionDistrict.padStart(3, '0');
             }
-            return extractFieldValue(member, field);
+            return extractFieldValue(member, field) as WorksheetCell;
           });
           worksheetData.push(rowData);
         }
@@ -196,7 +197,7 @@ export async function generateUnifiedXLSXAndUpload(
   } else {
     // Process voter list data
     const voterRecords = data as PartialVoterRecordAPI[];
-    const worksheetData: any[] = [];
+    const worksheetData: WorksheetData = [];
 
     const columnsToInclude = determineColumnsToInclude(
       selectedFields,
@@ -215,8 +216,8 @@ export async function generateUnifiedXLSXAndUpload(
         includeCompoundFields
       );
 
-      const rowData = columnsToInclude.map((field) => {
-        return extractFieldValue(recordWithCompoundFields, field);
+      const rowData: WorksheetRow = columnsToInclude.map((field) => {
+        return extractFieldValue(recordWithCompoundFields, field) as WorksheetCell;
       });
       worksheetData.push(rowData);
     }

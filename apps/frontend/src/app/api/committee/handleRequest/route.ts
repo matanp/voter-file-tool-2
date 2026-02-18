@@ -3,6 +3,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
+import {
+  isVoterInAnotherCommittee,
+  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+} from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 
@@ -56,6 +60,24 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
       // Only check committee capacity when adding a member
       // For replacements (remove + add), we need to account for the removal
       if (committeeRequest.addVoterRecordId) {
+        // SRS §7.1: Reject if member is already in another committee
+        const voter = await prisma.voterRecord.findUnique({
+          where: { VRCNUM: committeeRequest.addVoterRecordId },
+          select: { committeeId: true },
+        });
+        if (
+          voter &&
+          isVoterInAnotherCommittee(
+            voter.committeeId,
+            committeeRequest.committeeListId,
+          )
+        ) {
+          return NextResponse.json(
+            { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
+            { status: 400 },
+          );
+        }
+
         const currentMemberCount =
           committeeRequest.committeList.committeeMemberList.length -
           (committeeRequest.removeVoterRecordId ? 1 : 0);

@@ -9,7 +9,10 @@ import { randomUUID } from 'crypto';
 import {
   createCompoundNameField,
   createCompoundAddressField,
+  type EnrichedPartialVoterRecordAPI,
 } from '@voter-file-tool/shared-validators';
+import type { CommitteeReportStructure } from './committeeMappingHelpers';
+import type { CommitteeMember } from './components/CommitteeReport';
 // Helper function to convert YYYY-MM-DD format to "Month Day, Year" format
 function formatElectionDateForPetition(dateString: string): string {
   if (!dateString) return '';
@@ -129,13 +132,22 @@ export async function generatePDFAndUpload(
   await browser.close();
 }
 
-function transformToCommitteeMemberFormat(groupedCommittees: any[]): any[] {
+/** Transformed committee structure with simplified member fields for report rendering */
+type CommitteeForReport = {
+  cityTown: string;
+  legDistrict: number;
+  committees: Record<string, CommitteeMember[]>;
+};
+
+function transformToCommitteeMemberFormat(
+  groupedCommittees: CommitteeReportStructure[]
+): CommitteeForReport[] {
   return groupedCommittees.map((ld) => ({
     ...ld,
     committees: Object.fromEntries(
       Object.entries(ld.committees).map(([electionDistrict, members]) => [
         electionDistrict,
-        (members as any[]).map((member: any) => {
+        (members as EnrichedPartialVoterRecordAPI[]).map((member) => {
           const name = createCompoundNameField(member);
           const address = createCompoundAddressField(member);
 
@@ -153,7 +165,9 @@ function transformToCommitteeMemberFormat(groupedCommittees: any[]): any[] {
   }));
 }
 
-export const generateCommitteeReportHTML = (groupedCommittees: any[]) => {
+export const generateCommitteeReportHTML = (
+  groupedCommittees: CommitteeReportStructure[]
+) => {
   const tailwindCSS =
     '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
 

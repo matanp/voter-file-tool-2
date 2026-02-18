@@ -2,14 +2,19 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { z } from "zod";
+import { withPublic } from "~/app/api/lib/withPrivilege";
 
 const tokenSchema = z.string().trim().min(1, "Token is required");
 
-async function getInviteHandler(
-  req: NextRequest,
-  { params }: { params: Promise<{ token: string }> },
-) {
+type RouteContext = { params?: Promise<{ token: string }> };
+
+/** Handle GET invite by token and return invite data or appropriate error (404/400/409/410/500). */
+async function getInviteHandler(_req: NextRequest, context?: RouteContext) {
   try {
+    const params = context?.params;
+    if (!params) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     const { token } = await params;
 
     const tokenValidation = tokenSchema.safeParse(token);
@@ -101,5 +106,5 @@ async function getInviteHandler(
   }
 }
 
-// GET /api/auth/invite/[token] - Validate invite token
-export const GET = getInviteHandler;
+// GET /api/auth/invite/[token] - Validate invite token (intentionally public)
+export const GET = withPublic<NextRequest, RouteContext>(getInviteHandler);

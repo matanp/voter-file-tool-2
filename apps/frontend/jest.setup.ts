@@ -4,8 +4,11 @@
 import "@testing-library/jest-dom";
 import { mockDeep, mockReset } from "jest-mock-extended";
 import type { PrismaClient } from "@prisma/client";
+import type * as PrismaClientModule from "@prisma/client";
 import type { Session } from "next-auth";
 import { auth } from "~/auth";
+import { hasPermissionFor } from "~/lib/utils";
+import type * as UtilsModule from "~/lib/utils";
 
 // Mock Next.js modules
 jest.mock("next/server", () => ({
@@ -60,10 +63,12 @@ jest.mock("next/server", () => ({
         };
       },
     ),
-    redirect: jest.fn((url: string, status = 307) => ({
-      status,
-      headers: new Headers([["location", url]]),
-    })),
+    redirect: jest.fn(
+      (url: string, init?: { status?: number }) => ({
+        status: init?.status ?? 307,
+        headers: new Headers([["location", url]]),
+      }),
+    ),
   },
 }));
 
@@ -81,37 +86,36 @@ jest.mock("~/lib/prisma", () => ({
 }));
 
 // Mock @prisma/client to provide error classes
-// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-jest.mock("@prisma/client", () => ({
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  ...jest.requireActual("@prisma/client"),
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  Prisma: {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-    ...jest.requireActual("@prisma/client").Prisma,
-    PrismaClientKnownRequestError: class extends Error {
-      code: string;
-      clientVersion?: string;
-      meta?: unknown;
-      constructor(
-        message: string,
-        opts: { code: string; clientVersion?: string; meta?: unknown },
-      ) {
-        super(message);
-        this.name = "PrismaClientKnownRequestError";
-        this.code = opts.code;
-        this.clientVersion = opts.clientVersion;
-        this.meta = opts.meta;
-      }
+jest.mock("@prisma/client", () => {
+  const actual: typeof PrismaClientModule =
+    jest.requireActual("@prisma/client");
+  return {
+    ...actual,
+    Prisma: {
+      ...actual.Prisma,
+      PrismaClientKnownRequestError: class extends Error {
+        code: string;
+        clientVersion?: string;
+        meta?: unknown;
+        constructor(
+          message: string,
+          opts: { code: string; clientVersion?: string; meta?: unknown },
+        ) {
+          super(message);
+          this.name = "PrismaClientKnownRequestError";
+          this.code = opts.code;
+          this.clientVersion = opts.clientVersion;
+          this.meta = opts.meta;
+        }
+      },
     },
-  },
-}));
+  };
+});
 
 // Mock utility functions
 jest.mock("~/lib/utils", () => {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return
-  const actual = jest.requireActual("~/lib/utils");
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  const actual: typeof UtilsModule =
+    jest.requireActual("~/lib/utils");
   return {
     ...actual,
     hasPermissionFor: jest.fn(),
@@ -137,20 +141,18 @@ afterAll(() => {
   console.error = originalConsoleError;
 });
 
+// Global test utilities
+globalThis.mockPrisma = prismaMock;
+const mockedAuth = jest.mocked(auth) as unknown as jest.MockedFunction<
+  () => Promise<Session | null>
+>;
+globalThis.mockAuth = mockedAuth;
+const mockedHasPermissionFor = jest.mocked(hasPermissionFor);
+globalThis.mockHasPermissionFor = mockedHasPermissionFor;
+
 // Reset mocks before each test
 beforeEach(() => {
   mockReset(prismaMock);
-  globalThis.mockAuth.mockReset();
-  globalThis.mockHasPermissionFor.mockReset();
+  mockedAuth.mockReset();
+  mockedHasPermissionFor.mockReset();
 });
-
-// Global test utilities
-globalThis.mockPrisma = prismaMock;
-globalThis.mockAuth = jest.mocked(auth) as unknown as jest.MockedFunction<
-  () => Promise<Session | null>
->;
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-globalThis.mockHasPermissionFor = jest.mocked(
-  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  require("~/lib/utils").hasPermissionFor,
-);
