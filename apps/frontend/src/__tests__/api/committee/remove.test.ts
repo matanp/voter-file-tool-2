@@ -4,13 +4,15 @@ import {
   createMockSession,
   createMockCommitteeData,
   createMockCommittee,
-  createMockVoterRecord,
   createMockRequest,
   expectSuccessResponse,
   expectErrorResponse,
   validationTestCases,
   createAuthTestSuite,
   createCommitteeFindUniqueWhereArgs,
+  createMockMembership,
+  expectMembershipUpdate,
+  getMembershipMock,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import type { CommitteeData } from "~/lib/validations/committee";
@@ -21,35 +23,35 @@ import {
   prismaMock,
 } from "../../utils/mocks";
 
-// Global mocks are available from jest.setup.js
-
 describe("/api/committee/remove", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe("POST /api/committee/remove", () => {
+    /** Set up mocks for a successful removal (ACTIVE membership → REMOVED). */
+    const setupHappyPath = () => {
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        createMockCommittee(),
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ status: "REMOVED" }),
+      );
+    };
+
     it("should successfully remove a member from a committee", async () => {
-      // Arrange
       const mockCommitteeData = createMockCommitteeData();
-      const mockCommittee = createMockCommittee();
-      const mockVoterRecord = createMockVoterRecord();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
-      prismaMock.voterRecord.findUnique.mockResolvedValue(mockVoterRecord);
-      prismaMock.voterRecord.update.mockResolvedValue(mockVoterRecord);
+      setupHappyPath();
 
-      const request = createMockRequest(mockCommitteeData);
+      const response = await POST(createMockRequest(mockCommitteeData));
 
-      // Act
-      const response = await POST(request);
-
-      // Assert
       await expectSuccessResponse(response, { status: "success" });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueWhereArgs({
@@ -58,12 +60,56 @@ describe("/api/committee/remove", () => {
           electionDistrict: mockCommitteeData.electionDistrict,
         }),
       );
-      expect(prismaMock.voterRecord.update).toHaveBeenCalledWith({
-        where: { VRCNUM: mockCommitteeData.memberId },
-        data: {
-          committeeId: null,
-        },
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate({ status: "REMOVED" }),
+      );
+    });
+
+    it("should pass removalReason and removalNotes to the membership update", async () => {
+      const mockCommitteeData = {
+        ...createMockCommitteeData(),
+        removalReason: "OTHER" as const,
+        removalNotes: "Test note",
+      };
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      setupHappyPath();
+
+      const response = await POST(createMockRequest(mockCommitteeData));
+
+      await expectSuccessResponse(response, { status: "success" });
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate({
+          status: "REMOVED",
+          removalReason: "OTHER",
+          removalNotes: "Test note",
+        }),
+      );
+    });
+
+    it("should handle numeric conversion correctly", async () => {
+      const mockCommitteeData = createMockCommitteeData({
+        legDistrict: 5,
+        electionDistrict: 10,
       });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      setupHappyPath();
+
+      const response = await POST(createMockRequest(mockCommitteeData));
+
+      await expectSuccessResponse(response, { status: "success" });
+      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
+        createCommitteeFindUniqueWhereArgs({
+          cityTown: mockCommitteeData.cityTown,
+          legDistrict: mockCommitteeData.legDistrict ?? LEG_DISTRICT_SENTINEL,
+          electionDistrict: mockCommitteeData.electionDistrict,
+        }),
+      );
     });
 
     // Authentication tests using shared test suite
@@ -74,17 +120,7 @@ describe("/api/committee/remove", () => {
         mockRequest: () => createMockRequest(createMockCommitteeData()),
       };
 
-      const setupMocks = () => {
-        prismaMock.committeeList.findUnique.mockResolvedValue(
-          createMockCommittee(),
-        );
-        prismaMock.voterRecord.findUnique.mockResolvedValue(
-          createMockVoterRecord(),
-        );
-        prismaMock.voterRecord.update.mockResolvedValue(
-          createMockVoterRecord(),
-        );
-      };
+      const setupMocks = () => setupHappyPath();
 
       const authTestSuite = createAuthTestSuite(
         authConfig,
@@ -106,24 +142,17 @@ describe("/api/committee/remove", () => {
     ])(
       "should return 422 for $field validation",
       async ({ field, value, expectedError }) => {
-        // Arrange
         const mockCommitteeData = createMockCommitteeData(
           { [field]: value } as Partial<CommitteeData>,
           false,
         );
-        const mockSession = createMockSession({
-          user: { privilegeLevel: PrivilegeLevel.Admin },
-        });
-
-        mockAuthSession(mockSession);
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
         mockHasPermission(true);
 
-        const request = createMockRequest(mockCommitteeData);
+        const response = await POST(createMockRequest(mockCommitteeData));
 
-        // Act
-        const response = await POST(request);
-
-        // Assert
         await expectErrorResponse(response, 422, expectedError);
       },
     );
@@ -131,203 +160,128 @@ describe("/api/committee/remove", () => {
     test.each(validationTestCases.invalidNumeric)(
       "should return 422 for invalid numeric $field",
       async ({ field, value, expectedError }) => {
-        // Arrange
         const mockCommitteeData = createMockCommitteeData(
-          {
-            [field]: value,
-          } as Partial<CommitteeData>,
+          { [field]: value } as Partial<CommitteeData>,
           false,
         );
-        const mockSession = createMockSession({
-          user: { privilegeLevel: PrivilegeLevel.Admin },
-        });
-
-        mockAuthSession(mockSession);
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
         mockHasPermission(true);
 
-        const request = createMockRequest(mockCommitteeData);
+        const response = await POST(createMockRequest(mockCommitteeData));
 
-        // Act
-        const response = await POST(request);
-
-        // Assert
         await expectErrorResponse(response, 422, expectedError);
       },
     );
 
-    it("should return 404 when committee is not found", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
+    it("should return 400 for negative legDistrict (sentinel value)", async () => {
+      const mockCommitteeData = createMockCommitteeData(
+        {
+          legDistrict: LEG_DISTRICT_SENTINEL.toString() as unknown as number,
+        },
+        false,
+      );
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
 
-      mockAuthSession(mockSession);
+      const response = await POST(createMockRequest(mockCommitteeData));
+
+      await expectErrorResponse(response, 422, "Invalid request data");
+    });
+
+    it("should return 404 when committee is not found", async () => {
+      const mockCommitteeData = createMockCommitteeData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(null);
 
-      const request = createMockRequest(mockCommitteeData);
+      const response = await POST(createMockRequest(mockCommitteeData));
 
-      // Act
-      const response = await POST(request);
-
-      // Assert
       await expectErrorResponse(response, 404, "Committee not found");
     });
 
-    it("should return 500 for database error during committee lookup", async () => {
-      // Arrange
+    it("should return 404 when membership is not found in this committee", async () => {
       const mockCommitteeData = createMockCommitteeData();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        createMockCommittee(),
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
 
-      mockAuthSession(mockSession);
+      const response = await POST(createMockRequest(mockCommitteeData));
+
+      await expectErrorResponse(
+        response,
+        404,
+        "Member not found in this committee",
+      );
+    });
+
+    it("should return 400 when membership exists but is not ACTIVE", async () => {
+      const mockCommitteeData = createMockCommitteeData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        createMockCommittee(),
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "REMOVED" }),
+      );
+
+      const response = await POST(createMockRequest(mockCommitteeData));
+
+      await expectErrorResponse(
+        response,
+        400,
+        "Member does not have an active membership in this committee",
+      );
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+    });
+
+    it("should return 500 for database error during committee lookup", async () => {
+      const mockCommitteeData = createMockCommitteeData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
       prismaMock.committeeList.findUnique.mockRejectedValue(
         new Error("Database error"),
       );
 
-      const request = createMockRequest(mockCommitteeData);
+      const response = await POST(createMockRequest(mockCommitteeData));
 
-      // Act
-      const response = await POST(request);
-
-      // Assert
       await expectErrorResponse(response, 500, "Internal server error");
     });
 
-    it("should return 500 for database error during voter record update", async () => {
-      // Arrange
+    it("should return 500 for database error during membership update", async () => {
       const mockCommitteeData = createMockCommitteeData();
-      const mockCommittee = createMockCommittee();
-      const mockVoterRecord = createMockVoterRecord();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
-      prismaMock.voterRecord.findUnique.mockResolvedValue(mockVoterRecord);
-      prismaMock.voterRecord.update.mockRejectedValue(
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        createMockCommittee(),
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+      getMembershipMock(prismaMock).update.mockRejectedValue(
         new Error("Database error"),
       );
 
-      const request = createMockRequest(mockCommitteeData);
+      const response = await POST(createMockRequest(mockCommitteeData));
 
-      // Act
-      const response = await POST(request);
-
-      // Assert
       await expectErrorResponse(response, 500, "Internal server error");
-    });
-
-    it("should handle numeric conversion correctly", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData({
-        legDistrict: 5,
-        electionDistrict: 10,
-      });
-      const mockCommittee = createMockCommittee();
-      const mockVoterRecord = createMockVoterRecord();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
-      prismaMock.voterRecord.findUnique.mockResolvedValue(mockVoterRecord);
-      prismaMock.voterRecord.update.mockResolvedValue(mockVoterRecord);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      await expectSuccessResponse(response, { status: "success" });
-      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
-        createCommitteeFindUniqueWhereArgs({
-          cityTown: mockCommitteeData.cityTown,
-          legDistrict: mockCommitteeData.legDistrict ?? LEG_DISTRICT_SENTINEL,
-          electionDistrict: mockCommitteeData.electionDistrict,
-        }),
-      );
-    });
-
-    it("should return 400 for negative legDistrict", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData(
-        {
-          legDistrict: LEG_DISTRICT_SENTINEL.toString() as unknown as number, // intentionally unsafe to test validation
-        },
-        false,
-      );
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      await expectErrorResponse(response, 422, "Invalid request data");
-    });
-
-    it("should return 404 when member is not found", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData();
-      const mockCommittee = createMockCommittee();
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
-      prismaMock.voterRecord.findUnique.mockResolvedValue(null);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      await expectErrorResponse(response, 404, "Member not found");
-    });
-
-    it("should return 400 when member does not belong to this committee", async () => {
-      // Arrange
-      const mockCommitteeData = createMockCommitteeData();
-      const mockCommittee = createMockCommittee({ id: 1 });
-      const mockVoterRecord = createMockVoterRecord({ committeeId: 2 }); // Different committee ID
-      const mockSession = createMockSession({
-        user: { privilegeLevel: PrivilegeLevel.Admin },
-      });
-
-      mockAuthSession(mockSession);
-      mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
-      prismaMock.voterRecord.findUnique.mockResolvedValue(mockVoterRecord);
-
-      const request = createMockRequest(mockCommitteeData);
-
-      // Act
-      const response = await POST(request);
-
-      // Assert
-      await expectErrorResponse(
-        response,
-        400,
-        "Member does not belong to this committee",
-      );
     });
   });
 });

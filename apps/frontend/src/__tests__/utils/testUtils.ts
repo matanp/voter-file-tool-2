@@ -5,6 +5,7 @@ import {
   type CommitteeList,
   type VoterRecord,
   type CommitteeRequest,
+  type CommitteeGovernanceConfig,
 } from "@prisma/client";
 import type { Session } from "next-auth";
 import {
@@ -123,6 +124,121 @@ export type CommitteeListWithMembers = CommitteeList & {
   committeeMemberList: VoterRecord[];
 };
 
+// ---------------------------------------------------------------------------
+// CommitteeMembership mock helpers (pre-migration: not yet in PrismaClient)
+// ---------------------------------------------------------------------------
+
+/** Shape of a CommitteeMembership record returned by Prisma (pre-migration stub). */
+export type MockMembership = {
+  id: string;
+  voterRecordId: string;
+  committeeListId: number;
+  termId: string;
+  /** MembershipStatus enum value — string until `prisma generate` runs. */
+  status: string;
+  membershipType: string | null;
+  seatNumber: number | null;
+  submittedAt: Date;
+  confirmedAt: Date | null;
+  activatedAt: Date | null;
+  resignedAt: Date | null;
+  removedAt: Date | null;
+  rejectedAt: Date | null;
+  rejectionNote: string | null;
+  submittedById: string | null;
+  submissionMetadata: Record<string, unknown> | null;
+  meetingRecordId: string | null;
+  resignationDateReceived: Date | null;
+  resignationMethod: string | null;
+  removalReason: string | null;
+  removalNotes: string | null;
+  petitionVoteCount: number | null;
+  petitionPrimaryDate: Date | null;
+};
+
+export const createMockMembership = (
+  overrides: Partial<MockMembership> = {},
+): MockMembership => ({
+  id: "membership-test-id-001",
+  voterRecordId: "TEST123456",
+  committeeListId: 1,
+  termId: DEFAULT_ACTIVE_TERM_ID,
+  status: "SUBMITTED",
+  membershipType: null,
+  seatNumber: null,
+  submittedAt: new Date("2024-01-01"),
+  confirmedAt: null,
+  activatedAt: null,
+  resignedAt: null,
+  removedAt: null,
+  rejectedAt: null,
+  rejectionNote: null,
+  submittedById: "test-user-id",
+  submissionMetadata: null,
+  meetingRecordId: null,
+  resignationDateReceived: null,
+  resignationMethod: null,
+  removalReason: null,
+  removalNotes: null,
+  petitionVoteCount: null,
+  petitionPrimaryDate: null,
+  ...overrides,
+});
+
+/** Typed mock model accessor for committeeMembership (pre-migration cast helper). */
+type MockMembershipModel = {
+  findUnique: jest.Mock;
+  findFirst: jest.Mock;
+  count: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+};
+
+/**
+ * Access prismaMock.committeeMembership with a pre-migration type cast.
+ * After `prisma generate` runs post-migration, replace with direct access.
+ */
+export const getMembershipMock = (mock: unknown): MockMembershipModel =>
+  (mock as { committeeMembership: MockMembershipModel }).committeeMembership;
+
+/** Wraps expect.objectContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
+function objectContainingMatcher<T extends object>(obj: T): unknown {
+  return expect.objectContaining(obj) as unknown;
+}
+
+/**
+ * Typed matcher for prisma.committeeMembership.update calls.
+ * Wraps expect.objectContaining with typed inputs.
+ */
+export function expectMembershipUpdate(
+  data: Partial<Pick<MockMembership, "status" | "rejectionNote" | "removalReason" | "removalNotes" | "activatedAt">>,
+  where?: { id: string },
+): unknown {
+  if (where) {
+    return objectContainingMatcher({
+      where,
+      data: objectContainingMatcher(data),
+    });
+  }
+  return objectContainingMatcher({
+    data: objectContainingMatcher(data),
+  });
+}
+
+/**
+ * Typed matcher for prisma.committeeMembership.create calls.
+ * Wraps expect.objectContaining with typed inputs.
+ */
+export function expectMembershipCreate(
+  data: Partial<
+    Pick<MockMembership, "voterRecordId" | "committeeListId" | "termId" | "status" | "submissionMetadata">
+  >,
+): unknown {
+  return objectContainingMatcher({
+    data: objectContainingMatcher(data),
+  });
+}
+
 /** Default term ID used in tests (matches migration seed). */
 export const DEFAULT_ACTIVE_TERM_ID = "term-default-2024-2026";
 
@@ -175,6 +291,19 @@ export const createMockCommitteeRequest = (
     requestNotes: "Test request",
     ...overrides,
   }) as CommitteeRequest;
+
+export const createMockGovernanceConfig = (
+  overrides: Partial<CommitteeGovernanceConfig> = {},
+): CommitteeGovernanceConfig =>
+  ({
+    id: "mcdc-default",
+    requiredPartyCode: "DEM",
+    maxSeatsPerLted: 4,
+    requireAssemblyDistrictMatch: true,
+    nonOverridableIneligibilityReasons: [],
+    updatedAt: new Date("2024-01-01"),
+    ...overrides,
+  }) as CommitteeGovernanceConfig;
 
 // Test request factory
 export const createMockRequest = <T = Record<string, unknown>>(
@@ -267,45 +396,36 @@ export const expectErrorResponse = async (
 };
 
 // Prisma query object helpers
+
+/**
+ * Expected args for `prisma.committeeList.findUnique` in the fetchCommitteeList route (SRS 1.2).
+ * Returns active memberships with voterRecord included.
+ */
 export const createCommitteeFindUniqueArgs = (
   overrides: {
     cityTown?: string;
     legDistrict?: number;
     electionDistrict?: number;
     termId?: string;
-    include?: { committeeMemberList?: boolean };
   } = {},
 ) => {
-  const args: {
-    where: {
-      cityTown_legDistrict_electionDistrict_termId: {
-        cityTown: string;
-        legDistrict: number;
-        electionDistrict: number;
-        termId: string;
-      };
-    };
-    include?: {
-      committeeMemberList: boolean;
-    };
-  } = {
+  const termId = overrides.termId ?? DEFAULT_ACTIVE_TERM_ID;
+  return {
     where: {
       cityTown_legDistrict_electionDistrict_termId: {
         cityTown: overrides.cityTown ?? "Test City",
         legDistrict: overrides.legDistrict ?? 1,
         electionDistrict: overrides.electionDistrict ?? 1,
-        termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
+        termId,
+      },
+    },
+    include: {
+      memberships: {
+        where: { status: "ACTIVE", termId },
+        include: { voterRecord: true },
       },
     },
   };
-
-  if (overrides.include?.committeeMemberList !== false) {
-    args.include = {
-      committeeMemberList: overrides.include?.committeeMemberList ?? true,
-    };
-  }
-
-  return args;
 };
 
 /** Where clause only, for routes that don't use include (e.g. remove). */
@@ -327,14 +447,17 @@ export const createCommitteeFindUniqueWhereArgs = (
   },
 });
 
+/**
+ * Expected args for `prisma.committeeList.upsert` in the add route (SRS 1.2).
+ * The member connection is now handled separately via CommitteeMembership.create,
+ * so the upsert only creates/finds the CommitteeList record.
+ */
 export const createCommitteeUpsertArgs = (
   overrides: {
     cityTown?: string;
     legDistrict?: number;
     electionDistrict?: number;
     termId?: string;
-    memberId?: string;
-    include?: { committeeMemberList?: boolean };
   } = {},
 ) => ({
   where: {
@@ -345,22 +468,12 @@ export const createCommitteeUpsertArgs = (
       termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
     },
   },
-  update: {
-    committeeMemberList: {
-      connect: { VRCNUM: overrides.memberId ?? "TEST123456" },
-    },
-  },
+  update: {},
   create: {
     cityTown: overrides.cityTown ?? "Test City",
     legDistrict: overrides.legDistrict ?? 1,
     electionDistrict: overrides.electionDistrict ?? 1,
     termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
-    committeeMemberList: {
-      connect: { VRCNUM: overrides.memberId ?? "TEST123456" },
-    },
-  },
-  include: {
-    committeeMemberList: overrides.include?.committeeMemberList ?? true,
   },
 });
 

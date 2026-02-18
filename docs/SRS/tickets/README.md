@@ -12,7 +12,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 2. ~~[1.1 Committee Term Model](1.1-committee-term-model.md)~~ — **Done**
 3. ~~[1.1b LTED-to-Assembly-District Mapping](1.1b-lted-assembly-district-mapping.md)~~ — **Done**
 4. ~~[1.1c Committee Governance Config](1.1c-committee-governance-config.md)~~ — **Done**
-5. **Next:** [1.2 CommitteeMembership Model](1.2-committee-membership-model.md) — unblocks all of Tier 2
+5. ~~[1.2 CommitteeMembership Model](1.2-committee-membership-model.md)~~ — **Done**
+6. **Next:** [1.3 Membership Type](1.3-membership-type.md) or [1.4 Seat Model](1.4-seat-model.md) — unblocks Tier 2 work
 
 ---
 
@@ -31,7 +32,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.1](1.1-committee-term-model.md) | Committee Term Model | Done | Tier 1 §1.1 |
 | [1.1b](1.1b-lted-assembly-district-mapping.md) | LTED-to-Assembly-District Mapping | Done | Tier 1 §1.1b |
 | [1.1c](1.1c-committee-governance-config.md) | Committee Governance Config | Done | Tier 1 §1.1c |
-| [1.2](1.2-committee-membership-model.md) | CommitteeMembership Model | Open | Tier 1 §1.2 |
+| [1.2](1.2-committee-membership-model.md) | CommitteeMembership Model | Done | Tier 1 §1.2 |
 | [1.3](1.3-membership-type.md) | Membership Type (Petitioned vs. Appointed) | Open | Tier 1 §1.3 |
 | [1.4](1.4-seat-model.md) | Seat Model | Open | Tier 1 §1.4 |
 | [1.5](1.5-audit-trail-infrastructure.md) | Audit Trail Infrastructure | Open | Tier 1 §1.5 |

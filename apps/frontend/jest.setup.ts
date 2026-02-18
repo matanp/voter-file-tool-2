@@ -85,12 +85,20 @@ jest.mock("~/lib/prisma", () => ({
   default: prismaMock,
 }));
 
-// Mock @prisma/client to provide error classes
+// Mock @prisma/client to provide error classes and pre-migration enum stubs
 jest.mock("@prisma/client", () => {
   const actual: typeof PrismaClientModule =
     jest.requireActual("@prisma/client");
   return {
     ...actual,
+    // Pre-migration enum stubs — remove after `prisma migrate dev && prisma generate`
+    RemovalReason: {
+      PARTY_CHANGE: "PARTY_CHANGE",
+      MOVED_OUT_OF_DISTRICT: "MOVED_OUT_OF_DISTRICT",
+      INACTIVE_REGISTRATION: "INACTIVE_REGISTRATION",
+      DECEASED: "DECEASED",
+      OTHER: "OTHER",
+    },
     Prisma: {
       ...actual.Prisma,
       PrismaClientKnownRequestError: class extends Error {
@@ -168,4 +176,34 @@ beforeEach(() => {
   // Mock active term for routes that call getActiveTermId()
   (prismaMock.committeeTerm as { findFirst: jest.Mock }).findFirst =
     jest.fn().mockResolvedValue(DEFAULT_ACTIVE_TERM);
+  // Mock governance config for routes that call getGovernanceConfig()
+  (prismaMock.committeeGovernanceConfig as { findFirst: jest.Mock }).findFirst =
+    jest.fn().mockResolvedValue({
+      id: "mcdc-default",
+      requiredPartyCode: "DEM",
+      maxSeatsPerLted: 4,
+      requireAssemblyDistrictMatch: true,
+      nonOverridableIneligibilityReasons: [],
+      updatedAt: new Date("2024-01-01"),
+    });
+  // Pre-migration: CommitteeMembership is not yet in PrismaClient types.
+  // Inject a mock object so tests can access it via getMembershipMock(prismaMock).
+  // After `prisma migrate dev && prisma generate`, this block can be removed.
+  (
+    prismaMock as unknown as {
+      committeeMembership: {
+        findUnique: jest.Mock;
+        findFirst: jest.Mock;
+        count: jest.Mock;
+        create: jest.Mock;
+        update: jest.Mock;
+      };
+    }
+  ).committeeMembership = {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    count: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  };
 });

@@ -4,7 +4,6 @@ import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
 import {
   type CommitteeList,
-  type CommitteeRequest,
   PrivilegeLevel,
   type VoterRecord,
 } from "@prisma/client";
@@ -16,11 +15,14 @@ import {
   AccordionTrigger,
 } from "~/components/ui/accordion";
 import { RequestCard } from "./RequestCard";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 
-export type CommitteeRequestWithDetails = CommitteeRequest & {
-  committeList: CommitteeList;
-  addVoterRecord: VoterRecord | null;
-  removeVoterRecord: VoterRecord | null;
+export type MembershipRequestWithDetails = {
+  id: string;
+  committeeListId: number;
+  committeeList: CommitteeList;
+  voterRecord: VoterRecord;
+  submissionMetadata: unknown;
 };
 
 const getCommitteeName = (committeeList: CommitteeList) => {
@@ -32,27 +34,19 @@ const getCommitteeName = (committeeList: CommitteeList) => {
 };
 
 const groupByCommitteeId = (
-  requests: CommitteeRequestWithDetails[],
-): Record<string, CommitteeRequestWithDetails[]> => {
+  requests: MembershipRequestWithDetails[],
+): Record<string, MembershipRequestWithDetails[]> => {
   return requests.reduce(
     (acc, request) => {
-      const { committeeListId } = request;
-      if (!acc[committeeListId]) {
-        acc[committeeListId] = [];
-      }
-
-      const groupedCommitteeList = acc[committeeListId];
-
-      if (groupedCommitteeList) {
-        groupedCommitteeList.push(request);
-      }
+      const key = String(request.committeeListId);
+      (acc[key] ??= []).push(request);
       return acc;
     },
-    {} as Record<string, CommitteeRequestWithDetails[]>,
+    {} as Record<string, MembershipRequestWithDetails[]>,
   );
 };
 
-const CommitteeLists: React.FC = async () => {
+const CommitteeRequests: React.FC = async () => {
   const permissions = await auth();
 
   if (
@@ -62,44 +56,56 @@ const CommitteeLists: React.FC = async () => {
     return <div>You do not have permission to view this page</div>;
   }
 
-  const committeeRequests: CommitteeRequestWithDetails[] =
-    await prisma.committeeRequest.findMany({
-      include: {
-        committeList: true,
-        addVoterRecord: true,
-        removeVoterRecord: true,
-      },
-    });
+  const activeTermId = await getActiveTermId();
 
-  const groupedRequests = groupByCommitteeId(committeeRequests);
-  const committeListIds = Object.keys(groupedRequests);
-  const firstCommitteeListId = committeListIds[0];
+  // SRS 1.2 — Query SUBMITTED CommitteeMemberships instead of CommitteeRequests
+  const pendingMemberships = await prisma.committeeMembership.findMany({
+    where: { status: "SUBMITTED", termId: activeTermId },
+    include: {
+      committeeList: true,
+      voterRecord: true,
+    },
+  });
+
+  const requests: MembershipRequestWithDetails[] = pendingMemberships.map(
+    (m) => ({
+      id: m.id,
+      committeeListId: m.committeeListId,
+      committeeList: m.committeeList,
+      voterRecord: m.voterRecord,
+      submissionMetadata: m.submissionMetadata,
+    }),
+  );
+
+  const groupedRequests = groupByCommitteeId(requests);
+  const committeeListIds = Object.keys(groupedRequests);
+  const firstCommitteeListId = committeeListIds[0];
   const defaultOpenItems =
-    firstCommitteeListId && committeListIds.length === 1
+    firstCommitteeListId && committeeListIds.length === 1
       ? [firstCommitteeListId]
       : [];
 
-  if (committeListIds.length === 0) {
-    return <div>No requests found</div>;
+  if (committeeListIds.length === 0) {
+    return <div>No pending committee requests found</div>;
   }
 
   return (
     <div className="w-96 m-4">
       <Accordion type="multiple" defaultValue={defaultOpenItems}>
-        {Object.keys(groupedRequests).map((committeeListId) => {
-          const requests = groupedRequests[committeeListId];
+        {committeeListIds.map((committeeListId) => {
+          const reqs = groupedRequests[committeeListId];
 
-          if (!requests || requests.length === 0) return null;
-          const firstRequest = requests[0];
-          if (!firstRequest) return null;
+          if (!reqs || reqs.length === 0) return null;
+          const firstReq = reqs[0];
+          if (!firstReq) return null;
 
           return (
-            <AccordionItem key={committeeListId} value={`${committeeListId}`}>
+            <AccordionItem key={committeeListId} value={committeeListId}>
               <AccordionTrigger>
-                {getCommitteeName(firstRequest.committeList)}
+                {getCommitteeName(firstReq.committeeList)}
               </AccordionTrigger>
               <AccordionContent>
-                {requests.map((request) => (
+                {reqs.map((request) => (
                   <RequestCard request={request} key={request.id} />
                 ))}
               </AccordionContent>
@@ -111,4 +117,4 @@ const CommitteeLists: React.FC = async () => {
   );
 };
 
-export default CommitteeLists;
+export default CommitteeRequests;

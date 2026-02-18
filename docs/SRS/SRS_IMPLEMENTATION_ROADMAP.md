@@ -125,11 +125,11 @@ These items restructure the core data model. Almost everything else depends on t
 
 ---
 
-### 1.2 Membership Status Enum
+### 1.2 Membership Status Enum + CommitteeMembership Model — **Done**
 
 |                |                                             |
 | -------------- | ------------------------------------------- |
-| **Ticket**     | *(Created when 1.1 complete)*                |
+| **Ticket**     | [1.2 CommitteeMembership Model](tickets/1.2-committee-membership-model.md) |
 | **SRS Ref**    | §6.2                                        |
 | **Effort**     | Medium (3–5 days)                           |
 | **Depends on** | 1.1 (Term Model)                            |

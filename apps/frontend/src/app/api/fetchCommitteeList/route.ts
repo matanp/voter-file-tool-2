@@ -5,7 +5,10 @@ import { PrivilegeLevel } from "@prisma/client";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { fetchCommitteeListQuerySchema } from "~/lib/validations/committee";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import {
+  getActiveTermId,
+  getGovernanceConfig,
+} from "~/app/api/lib/committeeValidation";
 
 async function getCommitteeList(req: NextRequest) {
   // Extract query parameters
@@ -41,11 +44,7 @@ async function getCommitteeList(req: NextRequest) {
     legDistrict: legDistrictParam ?? undefined,
   };
 
-  // Validate query parameters using the schema
-  const validation = validateRequest(
-    queryParams,
-    fetchCommitteeListQuerySchema,
-  );
+  const validation = validateRequest(queryParams, fetchCommitteeListQuerySchema);
 
   if (!validation.success) {
     return validation.response;
@@ -68,7 +67,11 @@ async function getCommitteeList(req: NextRequest) {
         },
       },
       include: {
-        committeeMemberList: true,
+        // SRS 1.2 — Return active memberships with voter data
+        memberships: {
+          where: { status: "ACTIVE", termId: activeTermId },
+          include: { voterRecord: true },
+        },
       },
     });
 
@@ -79,7 +82,11 @@ async function getCommitteeList(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(committee, { status: 200 });
+    const config = await getGovernanceConfig();
+    return NextResponse.json(
+      { ...committee, maxSeatsPerLted: config.maxSeatsPerLted },
+      { status: 200 },
+    );
   } catch (error) {
     console.error(error);
     return NextResponse.json(
