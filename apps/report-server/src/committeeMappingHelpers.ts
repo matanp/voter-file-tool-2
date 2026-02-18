@@ -77,12 +77,27 @@ export const mapCommitteesToReportShape = (
 };
 
 /**
- * Retrieves all committee data with member lists from the database
+ * Fetches the active CommitteeTerm ID (SRS §5.1).
+ */
+async function getActiveTermId(): Promise<string> {
+  const term = await prisma.committeeTerm.findFirst({
+    where: { isActive: true },
+  });
+  if (!term) throw new Error('No active CommitteeTerm — create one in Admin > Terms');
+  return term.id;
+}
+
+/**
+ * Retrieves all committee data with member lists from the database.
+ * Filters by active term (SRS §5.1).
  * @returns Committee records with included member data
  */
 export async function fetchCommitteeData(): Promise<CommitteeWithMembers[]> {
   try {
+    const activeTermId = await getActiveTermId();
+
     const committees = await prisma.committeeList.findMany({
+      where: { termId: activeTermId },
       include: {
         committeeMemberList: true,
       },

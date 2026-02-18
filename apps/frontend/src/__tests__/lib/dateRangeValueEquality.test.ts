@@ -1,5 +1,5 @@
 import { SearchFieldProcessor } from "~/lib/searchFieldProcessor";
-import type { DateRange } from "~/types/searchFields";
+import type { BaseSearchField, DateRange } from "~/types/searchFields";
 
 // Test the isValueEqual function indirectly through SearchFieldProcessor
 describe("DateRange Value Equality", () => {
@@ -19,12 +19,12 @@ describe("DateRange Value Equality", () => {
       endDate: new Date("2023-12-30"), // Different end date
     };
 
-    // Test through SearchFieldProcessor normalization
-    const mockField = {
-      name: "DOBRange" as const,
+    // Test through SearchFieldProcessor normalization (DOBRange used in mapping)
+    const mockField: BaseSearchField = {
+      name: "DOBRange" as BaseSearchField["name"],
       displayName: "Date of Birth (Range)",
-      compoundType: false as const,
-      type: "DateRange" as const,
+      compoundType: false,
+      type: "DateRange",
     };
 
     const normalized1 = SearchFieldProcessor.normalizeForStorage(
@@ -60,11 +60,11 @@ describe("DateRange Value Equality", () => {
       endDate: new Date("2023-12-31"),
     };
 
-    const mockField = {
-      name: "DOBRange" as const,
+    const mockField: BaseSearchField = {
+      name: "DOBRange" as BaseSearchField["name"],
       displayName: "Date of Birth (Range)",
-      compoundType: false as const,
-      type: "DateRange" as const,
+      compoundType: false,
+      type: "DateRange",
     };
 
     const normalized1 = SearchFieldProcessor.normalizeForStorage(

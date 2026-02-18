@@ -5,6 +5,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { fetchCommitteeListQuerySchema } from "~/lib/validations/committee";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 
 async function getCommitteeList(req: NextRequest) {
   // Extract query parameters
@@ -55,13 +56,15 @@ async function getCommitteeList(req: NextRequest) {
   try {
     const parsedLegDistrict = toDbSentinelValue(legDistrict ?? undefined);
     const parsedElectionDistrict = Number(electionDistrict);
+    const activeTermId = await getActiveTermId();
 
     const committee = await prisma.committeeList.findUnique({
       where: {
-        cityTown_legDistrict_electionDistrict: {
-          cityTown: cityTown,
+        cityTown_legDistrict_electionDistrict_termId: {
+          cityTown: cityTown ?? "",
           legDistrict: parsedLegDistrict,
           electionDistrict: parsedElectionDistrict,
+          termId: activeTermId,
         },
       },
       include: {

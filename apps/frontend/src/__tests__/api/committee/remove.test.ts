@@ -10,6 +10,7 @@ import {
   expectErrorResponse,
   validationTestCases,
   createAuthTestSuite,
+  createCommitteeFindUniqueWhereArgs,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import type { CommitteeData } from "~/lib/validations/committee";
@@ -50,15 +51,13 @@ describe("/api/committee/remove", () => {
 
       // Assert
       await expectSuccessResponse(response, { status: "success" });
-      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith({
-        where: {
-          cityTown_legDistrict_electionDistrict: {
-            cityTown: mockCommitteeData.cityTown,
-            legDistrict: mockCommitteeData.legDistrict ?? LEG_DISTRICT_SENTINEL,
-            electionDistrict: mockCommitteeData.electionDistrict,
-          },
-        },
-      });
+      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
+        createCommitteeFindUniqueWhereArgs({
+          cityTown: mockCommitteeData.cityTown,
+          legDistrict: mockCommitteeData.legDistrict ?? LEG_DISTRICT_SENTINEL,
+          electionDistrict: mockCommitteeData.electionDistrict,
+        }),
+      );
       expect(prismaMock.voterRecord.update).toHaveBeenCalledWith({
         where: { VRCNUM: mockCommitteeData.memberId },
         data: {
@@ -249,15 +248,13 @@ describe("/api/committee/remove", () => {
 
       // Assert
       await expectSuccessResponse(response, { status: "success" });
-      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith({
-        where: {
-          cityTown_legDistrict_electionDistrict: {
-            cityTown: mockCommitteeData.cityTown,
-            legDistrict: mockCommitteeData.legDistrict ?? LEG_DISTRICT_SENTINEL,
-            electionDistrict: mockCommitteeData.electionDistrict,
-          },
-        },
-      });
+      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
+        createCommitteeFindUniqueWhereArgs({
+          cityTown: mockCommitteeData.cityTown,
+          legDistrict: mockCommitteeData.legDistrict ?? LEG_DISTRICT_SENTINEL,
+          electionDistrict: mockCommitteeData.electionDistrict,
+        }),
+      );
     });
 
     it("should return 400 for negative legDistrict", async () => {

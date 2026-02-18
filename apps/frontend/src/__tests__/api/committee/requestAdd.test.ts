@@ -433,7 +433,11 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(request);
 
       // Assert
-      await expectErrorResponse(response, 404, "Committee not found");
+      await expectErrorResponse(
+        response,
+        404,
+        "Committee not found. Ensure you are submitting to the active term.",
+      );
     });
 
     it("should return 500 for database error during committee lookup", async () => {
@@ -702,7 +706,11 @@ describe("/api/committee/requestAdd", () => {
         const response = await POST(request);
 
         // Assert
-        await expectErrorResponse(response, 404, "Committee not found");
+        await expectErrorResponse(
+        response,
+        404,
+        "Committee not found. Ensure you are submitting to the active term.",
+      );
 
         // Verify committee lookup was attempted but request creation was not
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalled();

@@ -42,10 +42,11 @@ async function handleCommitteeDiscrepancyHandler(
     if (accept) {
       await prisma.committeeList.update({
         where: {
-          cityTown_legDistrict_electionDistrict: {
+          cityTown_legDistrict_electionDistrict_termId: {
             cityTown: discrepancy.committee.cityTown,
             legDistrict: discrepancy.committee.legDistrict,
             electionDistrict: discrepancy.committee.electionDistrict,
+            termId: discrepancy.committee.termId,
           },
         },
         data: {

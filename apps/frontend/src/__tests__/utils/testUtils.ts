@@ -123,16 +123,21 @@ export type CommitteeListWithMembers = CommitteeList & {
   committeeMemberList: VoterRecord[];
 };
 
+/** Default term ID used in tests (matches migration seed). */
+export const DEFAULT_ACTIVE_TERM_ID = "term-default-2024-2026";
+
 export const createMockCommittee = (
   overrides: Partial<CommitteeListWithMembers> = {},
-): CommitteeListWithMembers => ({
-  id: 1,
-  cityTown: "Test City",
-  legDistrict: 1,
-  electionDistrict: 1,
-  committeeMemberList: [createMockVoterRecord()],
-  ...overrides,
-});
+): CommitteeListWithMembers =>
+  ({
+    id: 1,
+    cityTown: "Test City",
+    legDistrict: 1,
+    electionDistrict: 1,
+    termId: DEFAULT_ACTIVE_TERM_ID,
+    committeeMemberList: [createMockVoterRecord()],
+    ...overrides,
+  }) as CommitteeListWithMembers;
 
 export const createMockVoterRecord = (
   overrides: Partial<VoterRecord> = {},
@@ -267,15 +272,17 @@ export const createCommitteeFindUniqueArgs = (
     cityTown?: string;
     legDistrict?: number;
     electionDistrict?: number;
+    termId?: string;
     include?: { committeeMemberList?: boolean };
   } = {},
 ) => {
   const args: {
     where: {
-      cityTown_legDistrict_electionDistrict: {
+      cityTown_legDistrict_electionDistrict_termId: {
         cityTown: string;
         legDistrict: number;
         electionDistrict: number;
+        termId: string;
       };
     };
     include?: {
@@ -283,10 +290,11 @@ export const createCommitteeFindUniqueArgs = (
     };
   } = {
     where: {
-      cityTown_legDistrict_electionDistrict: {
+      cityTown_legDistrict_electionDistrict_termId: {
         cityTown: overrides.cityTown ?? "Test City",
         legDistrict: overrides.legDistrict ?? 1,
         electionDistrict: overrides.electionDistrict ?? 1,
+        termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
       },
     },
   };
@@ -300,20 +308,41 @@ export const createCommitteeFindUniqueArgs = (
   return args;
 };
 
+/** Where clause only, for routes that don't use include (e.g. remove). */
+export const createCommitteeFindUniqueWhereArgs = (
+  overrides: {
+    cityTown?: string;
+    legDistrict?: number;
+    electionDistrict?: number;
+    termId?: string;
+  } = {},
+) => ({
+  where: {
+    cityTown_legDistrict_electionDistrict_termId: {
+      cityTown: overrides.cityTown ?? "Test City",
+      legDistrict: overrides.legDistrict ?? 1,
+      electionDistrict: overrides.electionDistrict ?? 1,
+      termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
+    },
+  },
+});
+
 export const createCommitteeUpsertArgs = (
   overrides: {
     cityTown?: string;
     legDistrict?: number;
     electionDistrict?: number;
+    termId?: string;
     memberId?: string;
     include?: { committeeMemberList?: boolean };
   } = {},
 ) => ({
   where: {
-    cityTown_legDistrict_electionDistrict: {
+    cityTown_legDistrict_electionDistrict_termId: {
       cityTown: overrides.cityTown ?? "Test City",
       legDistrict: overrides.legDistrict ?? 1,
       electionDistrict: overrides.electionDistrict ?? 1,
+      termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
     },
   },
   update: {
@@ -325,6 +354,7 @@ export const createCommitteeUpsertArgs = (
     cityTown: overrides.cityTown ?? "Test City",
     legDistrict: overrides.legDistrict ?? 1,
     electionDistrict: overrides.electionDistrict ?? 1,
+    termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
     committeeMemberList: {
       connect: { VRCNUM: overrides.memberId ?? "TEST123456" },
     },

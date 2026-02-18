@@ -79,6 +79,8 @@ export const VoterImport = () => {
     }
   };
 
+  const displayError = error ? error : fileUpload.error;
+
   return (
     <Card>
       <CardHeader>
@@ -188,13 +190,11 @@ export const VoterImport = () => {
             )}
           </div>
 
-          {(error || fileUpload.error) && (
+          {displayError ? (
             <Alert variant="destructive">
-              <AlertDescription>
-                {error || fileUpload.error}
-              </AlertDescription>
+              <AlertDescription>{displayError}</AlertDescription>
             </Alert>
-          )}
+          ) : null}
 
           {success && (
             <Alert>

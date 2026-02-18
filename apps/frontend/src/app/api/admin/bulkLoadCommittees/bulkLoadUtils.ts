@@ -8,6 +8,7 @@ import {
   type DiscrepanciesAndCommittee,
   findDiscrepancies,
 } from "../../lib/utils";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 
 const committeeData = new Map<
   string,
@@ -35,6 +36,8 @@ export async function loadCommitteeLists() {
     xlsx.utils.sheet_to_json(committeeExportSheet);
 
   const committeeExportData = unkownCommitteeData as Record<string, string>[];
+
+  const activeTermId = await getActiveTermId();
 
   let count = 0;
   let found = 0;
@@ -86,6 +89,7 @@ export async function loadCommitteeLists() {
             cityTown: city,
             legDistrict,
             electionDistrict,
+            termId: activeTermId,
           },
         });
         foundDiscrepancy++;
@@ -101,6 +105,7 @@ export async function loadCommitteeLists() {
           cityTown: city,
           legDistrict,
           electionDistrict,
+          termId: activeTermId,
         },
       });
     }
@@ -119,6 +124,7 @@ export async function loadCommitteeLists() {
           cityTown: city,
           legDistrict: legDistrict,
           electionDistrict: electionDistrict,
+          termId: activeTermId,
         },
         committeeMembers: recordHasDiscrepancies ? [] : [VRCNUM],
       });
@@ -132,13 +138,14 @@ export async function loadCommitteeLists() {
 
     const committee = await prisma.committeeList.upsert({
       where: {
-        cityTown_legDistrict_electionDistrict: {
+        cityTown_legDistrict_electionDistrict_termId: {
           cityTown: committeeList.cityTown,
           legDistrict: committeeList.legDistrict,
           electionDistrict: committeeList.electionDistrict,
+          termId: activeTermId,
         },
       },
-      create: committeeList,
+      create: { ...committeeList, termId: activeTermId },
       update: committeeList,
     });
 

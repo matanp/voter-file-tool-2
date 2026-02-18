@@ -118,7 +118,9 @@ describe("/api/reports", () => {
       });
 
       it("should filter by type=my-reports with generatedById and COMPLETED", async () => {
-        const mockSession = createMockSession({ user: { id: "user-123" } });
+        const mockSession = createMockSession({
+          user: { id: "user-123", privilegeLevel: PrivilegeLevel.Admin },
+        });
         mockAuthSession(mockSession);
         mockHasPermission(true);
         prismaMock.report.findMany.mockResolvedValue([]);
@@ -162,7 +164,11 @@ describe("/api/reports", () => {
       });
 
       it("should fall back to my-reports when non-admin requests type=all", async () => {
-        mockAuthSession(createMockSession({ user: { id: "user-456" } }));
+        mockAuthSession(
+          createMockSession({
+            user: { id: "user-456", privilegeLevel: PrivilegeLevel.Admin },
+          }),
+        );
         mockHasPermission(false); // not admin
         prismaMock.report.findMany.mockResolvedValue([]);
         prismaMock.report.count.mockResolvedValue(0);
@@ -242,7 +248,7 @@ describe("/api/reports", () => {
         };
         mockAuthSession(createMockSession());
         mockHasPermission(true);
-        prismaMock.report.findMany.mockResolvedValue([mockReport]);
+        prismaMock.report.findMany.mockResolvedValue([mockReport] as never);
         prismaMock.report.count.mockResolvedValue(1);
 
         const request = new NextRequest("http://localhost:3000/api/reports");
@@ -269,7 +275,7 @@ describe("/api/reports", () => {
         };
         mockAuthSession(createMockSession());
         mockHasPermission(true);
-        prismaMock.report.findMany.mockResolvedValue([mockReport]);
+        prismaMock.report.findMany.mockResolvedValue([mockReport] as never);
         prismaMock.report.count.mockResolvedValue(1);
 
         const request = new NextRequest("http://localhost:3000/api/reports");
@@ -295,7 +301,7 @@ describe("/api/reports", () => {
         };
         mockAuthSession(createMockSession());
         mockHasPermission(true);
-        prismaMock.report.findMany.mockResolvedValue([mockReport]);
+        prismaMock.report.findMany.mockResolvedValue([mockReport] as never);
         prismaMock.report.count.mockResolvedValue(1);
         mockGetPresignedReadUrl.mockRejectedValue(new Error("S3 error"));
         mockGetFileMetadata.mockRejectedValue(new Error("S3 error"));
