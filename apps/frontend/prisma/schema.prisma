@@ -341,3 +341,20 @@ model CommitteeGovernanceConfig {
   nonOverridableIneligibilityReasons IneligibilityReason[] @default([])
   updatedAt                          DateTime            @updatedAt
 }
+
+// SRS §4.2 — LTED-to-district crosswalk. Maps (cityTown, legDistrict, electionDistrict) to Assembly,
+// Senate, Congressional, and local districts. Used for eligibility validation (§7.1) when requireAssemblyDistrictMatch.
+// Populated from MCDC-provided data (format TBD; empty table acceptable until Gaps §2.1 resolved).
+model LtedDistrictCrosswalk {
+  id                    String  @id @default(cuid())
+  cityTown              String
+  legDistrict           Int
+  electionDistrict      Int
+  stateAssemblyDistrict String
+  stateSenateDistrict   String?
+  congressionalDistrict String?
+  countyLegDistrict     String?
+
+  @@unique([cityTown, legDistrict, electionDistrict])
+  @@index([cityTown, legDistrict, electionDistrict])
+}
