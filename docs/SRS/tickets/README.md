@@ -11,25 +11,75 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 1. ~~[0.1 Backend enforcement](0.1-backend-enforcement-already-in-committee.md)~~ — **Done**
 2. ~~[1.1 Committee Term Model](1.1-committee-term-model.md)~~ — **Done**
 3. ~~[1.1b LTED-to-Assembly-District Mapping](1.1b-lted-assembly-district-mapping.md)~~ — **Done**
-4. **Next:** 1.2 Membership Status Enum — see [SRS_IMPLEMENTATION_ROADMAP.md](../SRS_IMPLEMENTATION_ROADMAP.md) §1.2 (no ticket yet)
+4. ~~[1.1c Committee Governance Config](1.1c-committee-governance-config.md)~~ — **Done**
+5. **Next:** [1.2 CommitteeMembership Model](1.2-committee-membership-model.md) — unblocks all of Tier 2
 
 ---
 
 ## Ticket Index
 
-| ID                                                     | Title                                                  | Status | Roadmap                  |
-| ------------------------------------------------------ | ------------------------------------------------------ | ------ | ------------------------ |
-| [0.1](0.1-backend-enforcement-already-in-committee.md) | Backend enforcement for "Already in Another Committee" | Done   | Tier 0 §0.1              |
-| [1.1](1.1-committee-term-model.md)                     | Committee Term Model                                   | Done   | Tier 1 §1.1              |
-| [1.1b](1.1b-lted-assembly-district-mapping.md)         | LTED-to-Assembly-District Mapping                      | Done   | Tier 1 §1.1b             |
-| [1.1c](1.1c-committee-governance-config.md)            | Committee Governance Config                            | Done   | Tier 1 §1.1c             |
-| [T1.1](T1.1-handleRequest-route-tests.md)              | handleRequest route tests                              | Done   | Testing Tier 1 §T1.1     |
-| [IA-01](IA-01-admin-ia-v1-spec.md)                     | Admin IA v1 spec                                       | Done   | SRS_UI_PLANNING_GAPS §16 |
+### Tier 0 — Done
 
-**Implementation plan:** [IA-01-implementation-action-items.md](../IA-01-implementation-action-items.md) — suggested action items and decisions from the ticket.
+| ID | Title | Status | Roadmap |
+| --- | --- | --- | --- |
+| [0.1](0.1-backend-enforcement-already-in-committee.md) | Backend enforcement for "Already in Another Committee" | Done | Tier 0 §0.1 |
+
+### Tier 1 — Foundation
+
+| ID | Title | Status | Roadmap |
+| --- | --- | --- | --- |
+| [1.1](1.1-committee-term-model.md) | Committee Term Model | Done | Tier 1 §1.1 |
+| [1.1b](1.1b-lted-assembly-district-mapping.md) | LTED-to-Assembly-District Mapping | Done | Tier 1 §1.1b |
+| [1.1c](1.1c-committee-governance-config.md) | Committee Governance Config | Done | Tier 1 §1.1c |
+| [1.2](1.2-committee-membership-model.md) | CommitteeMembership Model | Open | Tier 1 §1.2 |
+| [1.3](1.3-membership-type.md) | Membership Type (Petitioned vs. Appointed) | Open | Tier 1 §1.3 |
+| [1.4](1.4-seat-model.md) | Seat Model | Open | Tier 1 §1.4 |
+| [1.5](1.5-audit-trail-infrastructure.md) | Audit Trail Infrastructure | Open | Tier 1 §1.5 |
+
+### Tier 1 — Testing
+
+| ID | Title | Status | Roadmap |
+| --- | --- | --- | --- |
+| [T1.1](T1.1-handleRequest-route-tests.md) | handleRequest Route Tests | Done | Testing Tier 1 §T1.1 |
+| [T1.2](T1.2-report-generation-api-tests.md) | Report Generation API Tests | Open | Testing Tier 1 §T1.2 |
+| [T1.3](T1.3-discrepancy-handling-tests.md) | Committee Discrepancy Handling Tests | Open | Testing Tier 1 §T1.3 |
+
+### Tier 1 — Admin IA
+
+| ID | Title | Status | Roadmap |
+| --- | --- | --- | --- |
+| [IA-01](IA-01-admin-ia-v1-spec.md) | Admin IA v1 spec | Done | SRS_UI_PLANNING_GAPS §16 |
+
+### Tier 2 — Lifecycle Workflows
+
+| ID | Title | Status | Roadmap | Depends on |
+| --- | --- | --- | --- | --- |
+| [2.1](2.1-eligibility-validation.md) | Eligibility Validation (Hard Stops) | Open | Tier 2 §2.1 | 1.1b, 1.1c, 1.2 |
+| [2.1a](2.1a-email-phone-submission.md) | Email/Phone During Leader Submission | Open | Tier 2 §2.1a | 1.2 |
+| [2.3](2.3-resignation-workflow.md) | Resignation Workflow | Open | Tier 2 §2.3 | 1.2 |
+
+---
+
+## Dependency Summary
+
+```
+1.1 (done) ──► 1.2 ──► 1.3
+                │  ──► 2.1 ──► (Tier 2 eligibility-gated work)
+                │  ──► 2.1a
+                │  ──► 2.3
+                │
+1.1b (done) ──► 2.1
+1.1c (done) ──► 1.4 (also needs 1.2)
+                │
+                └──► 1.5 (needs all models stable)
+
+T1.2, T1.3 — parallel, no blockers
+```
 
 ---
 
 ## Roadmap Reference
 
 See [SRS_IMPLEMENTATION_ROADMAP.md](../SRS_IMPLEMENTATION_ROADMAP.md) for the full implementation sequence, dependencies, and timeline.
+
+**Implementation plan:** [IA-01-implementation-action-items.md](../IA-01-implementation-action-items.md) — suggested action items and decisions from the IA-01 ticket.
