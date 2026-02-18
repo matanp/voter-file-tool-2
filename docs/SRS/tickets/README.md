@@ -56,7 +56,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | --- | --- | --- | --- | --- |
 | [2.1](2.1-eligibility-validation.md) | Eligibility Validation (Hard Stops) | Open | Tier 2 §2.1 | 1.1b, 1.1c, 1.2 |
 | [2.1a](2.1a-email-phone-submission.md) | Email/Phone During Leader Submission | Open | Tier 2 §2.1a | 1.2 |
-| [2.3](2.3-resignation-workflow.md) | Resignation Workflow | Open | Tier 2 §2.3 | 1.2 |
+| [2.3](2.3-resignation-workflow.md) | Resignation Workflow | Open | Tier 2 §2.3 | 1.2, 1.4 |
 
 ---
 
@@ -66,10 +66,9 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 1.1 (done) ──► 1.2 ──► 1.3
                 │  ──► 2.1 ──► (Tier 2 eligibility-gated work)
                 │  ──► 2.1a
-                │  ──► 2.3
                 │
 1.1b (done) ──► 2.1
-1.1c (done) ──► 1.4 (also needs 1.2)
+1.1c (done) ──► 1.4 (also needs 1.2) ──► 2.3
                 │
                 └──► 1.5 (needs all models stable)
 
