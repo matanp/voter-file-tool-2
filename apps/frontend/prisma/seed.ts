@@ -42,6 +42,9 @@ async function main() {
     governanceConfig.id,
     `(maxSeats=${governanceConfig.maxSeatsPerLted}, party=${governanceConfig.requiredPartyCode})`,
   );
+
+  // LtedDistrictCrosswalk: Run `pnpm --filter voter-file-tool db:seed-lted-crosswalk [path/to/2024 LTED Matrix.xlsx]`
+  // when MCDC Matrix file is available. Empty table acceptable; set requireAssemblyDistrictMatch=false to run without AD validation.
 }
 
 main()
