@@ -64,6 +64,10 @@ Senior full-stack 10x developer: balances speed, clarity, and maintainability.
 - Prisma schema (single source of truth) → `apps/frontend/prisma/schema.prisma`
 - Tests → `__tests__/` mirroring `src/` structure
 
+## Migrations
+
+- **Never edit existing migration files** (`prisma/migrations/**/*.sql`). Migrations are immutable; create new migrations for schema changes.
+
 ## Gotchas
 
 - `CommitteeRequest.committeList` — typo (missing 't') in DB schema
