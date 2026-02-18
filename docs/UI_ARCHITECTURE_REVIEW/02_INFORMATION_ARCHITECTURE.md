@@ -6,6 +6,105 @@ This document defines the current and planned information architecture, with a M
 
 ---
 
+## v1 IA Summary
+
+This section consolidates confirmed decisions for the v1 information architecture. For detailed implementation action items, see [IA-01-implementation-action-items.md](../SRS/IA-01-implementation-action-items.md).
+
+### Confirmed Decisions
+
+| Decision | Choice |
+|----------|--------|
+| Admin navigation | **Sidebar layout** at `/admin`; tabs rejected (7+ sections makes tabs unwieldy) |
+| Header "Data" tab | Rename to **"Admin"**, link to `/admin` |
+| Admin landing page | Data content serves as landing page at `/admin` (no separate dashboard) |
+| Requests page fate | **Keep** `/committees/requests` as simplified one-off view; primary bulk workflow moves to `/admin/meetings` (phased — see [§5.3](#53-requests-page-phased-transition)) |
+| New report types | Add to `/reports` hub as "Generate Report" card grid; each report type gets a dedicated route under `/reports/` |
+| Petition naming | Header "Petitions" = form generation; Admin sidebar "Petition Outcomes" = outcome entry |
+| Orphaned routes | `/admin/dashboard` and `/admin/colors` — remove or integrate into sidebar |
+| Sidebar visibility | Config-driven; all planned sections shown; unimplemented = "Coming soon" badge |
+| Mobile sidebar | Collapsible hamburger using `Sheet` (side: left) |
+| Data sub-tabs | Split "Special Reports" → "Voter Import" + "Absentee Report"; merge "Election Dates" + "Office Names" → "Election Config" |
+
+### v1 Route Map
+
+```
+Header Navigation:
+├── Record Search         → /recordsearch
+├── Committee List        → /committees
+│   └── Requests          → /committees/requests
+├── Petitions             → /petitions            (form generation)
+├── Reports               → /reports              (hub + generated reports list)
+│   ├── Committee Reports → /committee-reports
+│   └── Voter List Reports → /voter-list-reports
+└── Admin                 → /admin                (sidebar layout)
+    ├── Data              → /admin                (sub-tabs: Invites, Election Config, Voter Import, Discrepancies, Absentee Report)
+    ├── Terms             → /admin/terms          (Roadmap 1.1)
+    ├── Meetings          → /admin/meetings       (Roadmap 2.4)
+    ├── Users             → /admin/users          (Roadmap 3.1)
+    ├── Eligibility       → /admin/eligibility-flags (Roadmap 2.8)
+    ├── Petition Outcomes → /admin/petition-outcomes (Roadmap 2.6)
+    └── Audit Trail       → /admin/audit          (Roadmap 3.5)
+```
+
+### v1 IA Diagram
+
+```mermaid
+flowchart TB
+    subgraph Header["Header Navigation"]
+        H1[Record Search]
+        H2[Committee List]
+        H3[Petitions]
+        H4[Reports]
+        H5["Admin ★"]
+    end
+
+    subgraph CommitteesSection["Committees"]
+        committees["/committees"]
+        requests["/committees/requests"]
+        committees --> requests
+    end
+
+    subgraph ReportsSection["Reports Hub — /reports"]
+        reportsHub["/reports"]
+        committeeReports["/committee-reports"]
+        voterListReports["/voter-list-reports"]
+        signIn["Sign-In Sheet (3.2)"]
+        designationWeight["Designation Weight (3.3)"]
+        vacancy["Vacancy Report (3.4)"]
+        changes["Changes Report (3.4)"]
+        petitionReport["Petition Outcomes Report (3.4)"]
+        reportsHub --> committeeReports
+        reportsHub --> voterListReports
+        reportsHub --> signIn
+        reportsHub --> designationWeight
+        reportsHub --> vacancy
+        reportsHub --> changes
+        reportsHub --> petitionReport
+    end
+
+    subgraph AdminSection["/admin — Sidebar Layout"]
+        adminData["Data (landing)"]
+        adminTerms["Terms (1.1)"]
+        adminMeetings["Meetings (2.4)"]
+        adminUsers["Users (3.1)"]
+        adminEligibility["Eligibility Flags (2.8)"]
+        adminPetitions["Petition Outcomes (2.6)"]
+        adminAudit["Audit Trail (3.5)"]
+    end
+
+    H1 --> |"/recordsearch"| RS[Record Search]
+    H2 --> committees
+    H3 --> |"/petitions"| PET[Petitions]
+    H4 --> reportsHub
+    H5 --> adminData
+
+    RS --> voterListReports
+    committees --> committeeReports
+    requests -.->|"CTA: bulk confirm"| adminMeetings
+```
+
+---
+
 ## 1. Current IA Diagram
 
 ```mermaid
@@ -171,65 +270,64 @@ flowchart TB
 
 ---
 
-## 5. IA Gaps and Decisions Needed
+## 5. IA Decisions
 
 ### 5.1 Admin Section Structure
+
+**Decision: Sidebar layout at `/admin`.**
 
 **Current:** Single "Data" tab linking to `/admin/data` with 5 sub-tabs.
 
 **Planned additions (Roadmap):** Meetings, Terms, Users, Eligibility, Petition Outcomes, Audit, Crosswalk import.
 
-**Options:**
+**Options considered:**
 
-1. **Tabs only** — Add more tabs to Admin Data. Becomes crowded (10+ tabs).
-2. **Admin sidebar** — `/admin` layout with sidebar: Data | Meetings | Terms | Users | Eligibility | Petitions | Audit. Each section can have sub-routes.
-3. **Nested routes** — `/admin/data`, `/admin/meetings`, `/admin/terms`, etc. Header "Admin" dropdown or single Admin tab that navigates to dashboard with links.
+1. ~~**Tabs only**~~ — Rejected. 10+ tabs becomes crowded and unwieldy.
+2. **Admin sidebar** — `/admin` layout with sidebar. **Selected.** Scales well, supports nested routes, matches common admin UI patterns.
+3. ~~**Nested routes with dropdown**~~ — Rejected. Sidebar is more discoverable than a dropdown.
 
-**Recommendation:** Introduce `/admin` layout with sidebar for v1 expansion. Data tab becomes "Data" section (invites, discrepancies, election dates, offices, special reports, crosswalk). New sections: Meetings, Terms, Users, Eligibility, Petition Outcomes, Audit.
+**v1 sidebar sections:** Data (landing) | Terms | Meetings | Users | Eligibility Flags | Petition Outcomes | Audit Trail. Config-driven — unimplemented sections show "Coming soon" badge. See [IA-01 action items AC2](../SRS/IA-01-implementation-action-items.md#ac2-define-placement-of-new-admin-pages) for implementation details.
 
 ### 5.2 Reports Hub
 
+**Decision: "Generate Report" card grid on `/reports`.**
+
 **Current:** `/reports` lists existing reports. No links to generate new reports.
 
-**Planned:** Multiple new report types.
-
-**Recommendation:** Add "Generate Report" dropdown or card grid on `/reports`:
+`/reports` hub will display a "Generate Report" section with cards linking to each report type:
 
 - Committee Roster (PDF/XLSX) → `/committee-reports`
-- Voter List (XLSX) → `/voter-list-reports` (requires search first; show message)
-- Sign-In Sheet → (new)
-- Designation Weight Summary → (new)
-- Vacancy Report → (new)
-- Changes Report → (new)
-- Petition Outcomes Report → (new)
+- Voter List (XLSX) → `/voter-list-reports` (note: "Requires search from Record Search first")
+- Designated Petition → `/petitions`
+- Sign-In Sheet → (new; Roadmap 3.2)
+- Designation Weight Summary → (new; Roadmap 3.3)
+- Vacancy Report → (new; Roadmap 3.4)
+- Changes Report → (new; Roadmap 3.4)
+- Petition Outcomes Report → (new; Roadmap 3.4)
 
-Each link explains context (e.g., "From Record Search" for voter list).
+Each card explains context. New report types get per-type routes (e.g., `/reports/sign-in-sheet`).
 
-### 5.3 Requests Page Fate
+### 5.3 Requests Page — Phased Transition
+
+**Decision: Keep `/committees/requests`; add `/admin/meetings` as primary bulk workflow.**
 
 **Current:** `/committees/requests` — accordion by committee, RequestCard per request, Accept/Reject.
 
-**Planned (Roadmap 2.4):** Meeting-based bulk confirmation. Create meeting → attach pending submissions → bulk confirm/reject.
+**Phased transition plan:**
 
-**Options:**
+1. **Phase 1 (now):** No changes to `/committees/requests`. Continues to work with the existing `CommitteeRequest` model.
+2. **Phase 2 (Roadmap 1.2 — Membership Status):** `/committees/requests` reads `CommitteeMembership` records with status `SUBMITTED` instead of `CommitteeRequest` records. Same UI, new data source.
+3. **Phase 3 (Roadmap 2.4 — Meeting Record):** `/admin/meetings` becomes the primary bulk confirmation workflow. `/committees/requests` remains as a simplified one-off view. Add a CTA link from requests page: "For bulk confirmation, go to Meeting Management."
 
-1. Replace requests page with meeting management page. Requests become a sub-step of "create meeting + select pendings."
-2. Keep requests page for quick one-off accept/reject; add separate "Meetings" page for bulk workflow.
-3. Merge: Requests page shows pending; "Create Meeting" action opens flow to create meeting and attach selected requests; bulk confirm from meeting view.
+### 5.4 Petition Naming
 
-**Recommendation:** Under IA diagram, create `/admin/meetings` as primary workflow. Requests page could redirect to meetings with a "pending" filter, or remain as a simplified view for admins who prefer one-off actions. Clarify in implementation spec.
-
-### 5.4 Petition Overlap
+**Decision: Header "Petitions" = form generation; Admin "Petition Outcomes" = outcome entry.**
 
 **Current:** `/petitions` — designated petition form generation (PDF).
 
-**Planned:** `/admin/petition-outcomes` (or similar) — record petition challengers and primary results.
+**Planned:** `/admin/petition-outcomes` — record petition challengers and primary results.
 
-**Naming risk:** "Petitions" in header = form generation. "Petition Outcomes" = outcome entry. Different purposes. Consider:
-
-- Header "Petitions" → form generation (current)
-- Admin section "Petition Outcomes" or "Petition Results" — no confusion with form generation
-- Or: "Designated Petition Forms" vs "Petition Outcome Entry"
+The two concepts are distinct: "Petitions" generates petition forms; "Petition Outcomes" records results after petitions are filed. The sidebar label "Petition Outcomes" avoids confusion with the header "Petitions" tab.
 
 ---
 

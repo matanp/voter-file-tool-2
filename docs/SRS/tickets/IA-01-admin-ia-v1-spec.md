@@ -1,6 +1,6 @@
 # IA-01 Admin IA v1 Spec
 
-**Status:** Open
+**Status:** Done
 **Roadmap:** [SRS_UI_PLANNING_GAPS.md](../SRS_UI_PLANNING_GAPS.md) §16
 **Effort:** 0.5 day
 **Depends on:** None
@@ -11,11 +11,11 @@ Create a simple IA diagram for v1 that defines where new admin features (meeting
 
 ## Acceptance Criteria
 
-- [ ] IA diagram covering: admin sections, committees sections, reports
-- [ ] Define placement of new admin pages: meetings, terms, jurisdictions, eligibility flags, audit
-- [ ] Clarify: Will `/admin` get sidebar or tab navigation? Nested routes?
-- [ ] Clarify: Committees flow — does `/committees/requests` remain? Merge? Redirect? What happens when requests become SUBMITTED memberships?
-- [ ] Clarify: Report pages — where do new report types (SignInSheet, DesignationWeightSummary, VacancyReport, etc.) go?
+- [x] IA diagram covering: admin sections, committees sections, reports
+- [x] Define placement of new admin pages: meetings, terms, jurisdictions, eligibility flags, audit
+- [x] Clarify: Will `/admin` get sidebar or tab navigation? Nested routes?
+- [x] Clarify: Committees flow — does `/committees/requests` remain? Merge? Redirect? What happens when requests become SUBMITTED memberships?
+- [x] Clarify: Report pages — where do new report types (SignInSheet, DesignationWeightSummary, VacancyReport, etc.) go?
 
 ## Implementation Notes
 
@@ -25,5 +25,6 @@ Create a simple IA diagram for v1 that defines where new admin features (meeting
 
 ## Related
 
+- [IA-01-implementation-action-items.md](../IA-01-implementation-action-items.md) — implementation plan and action items
 - [SRS_UI_PLANNING_GAPS.md](../SRS_UI_PLANNING_GAPS.md) §16 — Navigation & Information Architecture
 - [UI_ARCHITECTURE_REVIEW/02_INFORMATION_ARCHITECTURE.md](../../UI_ARCHITECTURE_REVIEW/02_INFORMATION_ARCHITECTURE.md) — current IA diagram
