@@ -224,6 +224,121 @@ describe("/api/committee/add", () => {
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
+    it("enforces capacity under concurrent add requests", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
+      );
+      prismaMock.committeeList.upsert.mockResolvedValue(createMockCommittee());
+      prismaMock.$queryRaw.mockResolvedValue([] as never);
+
+      const activeSeatByVoter = new Map<string, number>();
+
+      let txQueue = Promise.resolve();
+      (prismaMock.$transaction as jest.Mock).mockImplementation(
+        async (arg: unknown): Promise<unknown> => {
+          if (typeof arg !== "function") {
+            return arg;
+          }
+
+          const run = txQueue.then(() =>
+            (arg as (tx: typeof prismaMock) => Promise<unknown>)(prismaMock),
+          );
+
+          txQueue = run.then(
+            () => undefined,
+            () => undefined,
+          );
+          return run;
+        },
+      );
+
+      getMembershipMock(prismaMock).findUnique.mockImplementation(
+        async (args: {
+          where: {
+            voterRecordId_committeeListId_termId: { voterRecordId: string };
+          };
+        }) => {
+          const voterId =
+            args.where.voterRecordId_committeeListId_termId.voterRecordId;
+          const seatNumber = activeSeatByVoter.get(voterId);
+          if (!seatNumber) return null;
+          return createMockMembership({
+            voterRecordId: voterId,
+            status: "ACTIVE",
+            seatNumber,
+          });
+        },
+      );
+
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      getMembershipMock(prismaMock).count.mockImplementation(
+        async () => activeSeatByVoter.size,
+      );
+      getMembershipMock(prismaMock).findMany.mockImplementation(
+        async () =>
+          Array.from(activeSeatByVoter.values()).map((seatNumber) => ({
+            seatNumber,
+          })),
+      );
+      getMembershipMock(prismaMock).create.mockImplementation(
+        async (args: {
+          data: {
+            voterRecordId: string;
+            committeeListId: number;
+            termId: string;
+            status: string;
+            seatNumber: number | null;
+          };
+        }) => {
+          if (args.data.seatNumber != null) {
+            activeSeatByVoter.set(args.data.voterRecordId, args.data.seatNumber);
+          }
+
+          return createMockMembership({
+            voterRecordId: args.data.voterRecordId,
+            committeeListId: args.data.committeeListId,
+            termId: args.data.termId,
+            status: args.data.status,
+            seatNumber: args.data.seatNumber,
+          });
+        },
+      );
+
+      const memberIds = ["CONC-1", "CONC-2", "CONC-3", "CONC-4"];
+      const responses = await Promise.all(
+        memberIds.map((memberId) =>
+          POST(createMockRequest(createMockCommitteeData({ memberId }))),
+        ),
+      );
+
+      const outcomes = await Promise.all(
+        responses.map(async (response) => ({
+          status: response.status,
+          body: (await response.json()) as Record<string, unknown>,
+        })),
+      );
+
+      const acceptedCount = outcomes.filter(
+        (outcome) =>
+          outcome.status === 200 &&
+          outcome.body.message === "Member added to committee",
+      ).length;
+      const capacityRejectedCount = outcomes.filter(
+        (outcome) =>
+          outcome.status === 400 &&
+          outcome.body.error === "Committee is at capacity",
+      ).length;
+
+      expect(acceptedCount).toBe(2);
+      expect(capacityRejectedCount).toBe(2);
+      expect(activeSeatByVoter.size).toBe(2);
+    });
+
     it("should return 404 when member not found (P2025)", async () => {
       const mockCommitteeData = createMockCommitteeData();
       const mockSession = createMockSession({

@@ -304,6 +304,149 @@ describe("/api/committee/handleRequest", () => {
       );
     });
 
+    it("enforces capacity under concurrent accept requests", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
+      );
+      prismaMock.$queryRaw.mockResolvedValue([] as never);
+
+      const membershipIds = ["m-conc-1", "m-conc-2", "m-conc-3", "m-conc-4"];
+      const membershipStore = new Map(
+        membershipIds.map((id, index) => [
+          id,
+          createMockMembership({
+            id,
+            voterRecordId: `VRC-CONC-${index + 1}`,
+            committeeListId: 1,
+            termId: "term-default-2024-2026",
+            status: "SUBMITTED",
+            seatNumber: null,
+          }),
+        ]),
+      );
+
+      let txQueue = Promise.resolve();
+      (prismaMock.$transaction as jest.Mock).mockImplementation(
+        async (arg: unknown): Promise<unknown> => {
+          if (typeof arg !== "function") {
+            return arg;
+          }
+
+          const run = txQueue.then(() =>
+            (arg as (tx: typeof prismaMock) => Promise<unknown>)(prismaMock),
+          );
+
+          txQueue = run.then(
+            () => undefined,
+            () => undefined,
+          );
+          return run;
+        },
+      );
+
+      getMembershipMock(prismaMock).findUnique.mockImplementation(
+        async (args: {
+          where:
+            | { id: string }
+            | {
+                voterRecordId_committeeListId_termId: {
+                  voterRecordId: string;
+                  committeeListId: number;
+                  termId: string;
+                };
+              };
+        }) => {
+          if ("id" in args.where) {
+            return membershipStore.get(args.where.id) ?? null;
+          }
+
+          const composite = args.where.voterRecordId_committeeListId_termId;
+          return (
+            Array.from(membershipStore.values()).find(
+              (membership) =>
+                membership.voterRecordId === composite.voterRecordId &&
+                membership.committeeListId === composite.committeeListId &&
+                membership.termId === composite.termId,
+            ) ?? null
+          );
+        },
+      );
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      getMembershipMock(prismaMock).count.mockImplementation(async () => {
+        return Array.from(membershipStore.values()).filter(
+          (membership) =>
+            membership.committeeListId === 1 &&
+            membership.termId === "term-default-2024-2026" &&
+            membership.status === "ACTIVE",
+        ).length;
+      });
+      getMembershipMock(prismaMock).findMany.mockImplementation(async () => {
+        return Array.from(membershipStore.values())
+          .filter((membership) => membership.status === "ACTIVE")
+          .map((membership) => ({ seatNumber: membership.seatNumber }));
+      });
+      getMembershipMock(prismaMock).update.mockImplementation(
+        async (args: {
+          where: { id: string };
+          data: Record<string, unknown>;
+        }) => {
+          const existing = membershipStore.get(args.where.id);
+          if (!existing) {
+            throw new Error("Membership not found");
+          }
+
+          const updated = {
+            ...existing,
+            ...args.data,
+            status: (args.data.status as string | undefined) ?? existing.status,
+            seatNumber:
+              (args.data.seatNumber as number | null | undefined) ??
+              existing.seatNumber,
+          };
+          membershipStore.set(args.where.id, updated);
+          return updated;
+        },
+      );
+
+      const responses = await Promise.all(
+        membershipIds.map((membershipId) =>
+          POST(createMockRequest({ membershipId, acceptOrReject: "accept" })),
+        ),
+      );
+
+      const outcomes = await Promise.all(
+        responses.map(async (response) => ({
+          status: response.status,
+          body: (await response.json()) as Record<string, unknown>,
+        })),
+      );
+
+      const acceptedCount = outcomes.filter(
+        (outcome) => outcome.status === 200 && outcome.body.message === "Request accepted",
+      ).length;
+      const capacityRejectedCount = outcomes.filter(
+        (outcome) =>
+          outcome.status === 400 &&
+          outcome.body.error === "Committee already at capacity",
+      ).length;
+
+      const activeInStore = Array.from(membershipStore.values()).filter(
+        (membership) => membership.status === "ACTIVE",
+      );
+      const rejectedInStore = Array.from(membershipStore.values()).filter(
+        (membership) => membership.status === "REJECTED",
+      );
+
+      expect(acceptedCount).toBe(2);
+      expect(capacityRejectedCount).toBe(2);
+      expect(activeInStore).toHaveLength(2);
+      expect(rejectedInStore).toHaveLength(2);
+    });
+
     it("should return 500 for database error", async () => {
       const mockRequestData = createMockHandleRequestData();
       mockAuthSession(
