@@ -204,6 +204,9 @@ beforeEach(() => {
         findMany: jest.Mock;
         createMany: jest.Mock;
       };
+      auditLog: {
+        create: jest.Mock;
+      };
     }
   ).committeeMembership = {
     findUnique: jest.fn(),
@@ -227,5 +230,12 @@ beforeEach(() => {
     findMany: jest.fn().mockResolvedValue([]),
     createMany: jest.fn().mockResolvedValue({ count: 4 }),
     updateMany: jest.fn().mockResolvedValue({ count: 4 }),
+  };
+  (
+    prismaMock as unknown as {
+      auditLog: { create: jest.Mock };
+    }
+  ).auditLog = {
+    create: jest.fn(),
   };
 });

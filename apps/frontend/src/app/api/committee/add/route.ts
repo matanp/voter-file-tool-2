@@ -18,8 +18,9 @@ import {
 } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
+import { logAuditEvent } from "~/lib/auditLog";
 
-async function addCommitteeHandler(req: NextRequest, _session: Session) {
+async function addCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
   const validation = validateRequest(body, committeeDataSchema);
 
@@ -117,8 +118,17 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           seatNumber,
         },
       });
+      await logAuditEvent(
+        session.user.id,
+        session.user.privilegeLevel as PrivilegeLevel,
+        "MEMBER_ACTIVATED",
+        "CommitteeMembership",
+        existingMembership.id,
+        { status: existingMembership.status },
+        { status: "ACTIVE" },
+      );
     } else {
-      await prisma.committeeMembership.create({
+      const newMembership = await prisma.committeeMembership.create({
         data: {
           voterRecordId: memberId,
           committeeListId: committee.id,
@@ -129,6 +139,15 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           seatNumber,
         },
       });
+      await logAuditEvent(
+        session.user.id,
+        session.user.privilegeLevel as PrivilegeLevel,
+        "MEMBER_ACTIVATED",
+        "CommitteeMembership",
+        newMembership.id,
+        null,
+        { status: "ACTIVE" },
+      );
     }
 
     return NextResponse.json(

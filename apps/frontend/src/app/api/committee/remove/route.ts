@@ -8,8 +8,9 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
+import { logAuditEvent } from "~/lib/auditLog";
 
-async function removeCommitteeHandler(req: NextRequest, _session: Session) {
+async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
   const validation = validateRequest(body, removeCommitteeDataSchema);
 
@@ -86,6 +87,20 @@ async function removeCommitteeHandler(req: NextRequest, _session: Session) {
         ...(removalNotes ? { removalNotes } : {}),
       },
     });
+
+    await logAuditEvent(
+      session.user.id,
+      session.user.privilegeLevel as PrivilegeLevel,
+      "MEMBER_REMOVED",
+      "CommitteeMembership",
+      membership.id,
+      { status: "ACTIVE" },
+      {
+        status: "REMOVED",
+        ...(removalReason ? { removalReason } : {}),
+        ...(removalNotes ? { removalNotes } : {}),
+      },
+    );
 
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {

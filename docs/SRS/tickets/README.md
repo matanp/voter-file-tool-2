@@ -15,7 +15,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 5. ~~[1.2 CommitteeMembership Model](1.2-committee-membership-model.md)~~ — **Done**
 6. ~~[1.3 Membership Type](1.3-membership-type.md)~~ — **Done**
 7. ~~[1.4 Seat Model](1.4-seat-model.md)~~ — **Done**
-8. **Next:** [1.5 Audit Trail Infrastructure](1.5-audit-trail-infrastructure.md) — 1.5a → 1.5b → 1.5c
+8. ~~[1.5 Audit Trail Infrastructure](1.5-audit-trail-infrastructure.md)~~ — **Done** (1.5a → 1.5b → 1.5c)
+9. **Next:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
 
 ---
 
@@ -37,10 +38,10 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.2](1.2-committee-membership-model.md) | CommitteeMembership Model | Done | Tier 1 §1.2 |
 | [1.3](1.3-membership-type.md) | Membership Type (Petitioned vs. Appointed) | Done | Tier 1 §1.3 |
 | [1.4](1.4-seat-model.md) | Seat Model | Done | Tier 1 §1.4 |
-| [1.5](1.5-audit-trail-infrastructure.md) | Audit Trail Infrastructure | Open | Tier 1 §1.5 |
-| [1.5a](1.5a-audit-log-schema-and-seed.md) | ↳ AuditLog Schema & SYSTEM User Seed | Open | Tier 1 §1.5 |
-| [1.5b](1.5b-audit-log-utility-and-immutability.md) | ↳ Audit Log Utility & Immutability Guard | Open | Tier 1 §1.5 |
-| [1.5c](1.5c-audit-log-route-wiring.md) | ↳ Audit Log Route Wiring | Open | Tier 1 §1.5 |
+| [1.5](1.5-audit-trail-infrastructure.md) | Audit Trail Infrastructure | Done | Tier 1 §1.5 |
+| [1.5a](1.5a-audit-log-schema-and-seed.md) | ↳ AuditLog Schema & SYSTEM User Seed | Done | Tier 1 §1.5 |
+| [1.5b](1.5b-audit-log-utility-and-immutability.md) | ↳ Audit Log Utility & Immutability Guard | Done | Tier 1 §1.5 |
+| [1.5c](1.5c-audit-log-route-wiring.md) | ↳ Audit Log Route Wiring | Done | Tier 1 §1.5 |
 
 ### Tier 1 — Testing
 
@@ -76,7 +77,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 1.1b (done) ──► 2.1
 1.1c (done) ──► 1.4 (done, also needs 1.2) ──► 2.3
                 │
-                └──► 1.5a ──► 1.5b ──► 1.5c
+                └──► 1.5a (done) ──► 1.5b (done) ──► 1.5c (done)
 
 T1.2, T1.3 — parallel, no blockers
 ```
