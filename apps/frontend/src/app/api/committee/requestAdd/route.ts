@@ -11,6 +11,7 @@ import {
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
+import { logAuditEvent } from "~/lib/auditLog";
 
 async function requestAddHandler(req: NextRequest, session: Session) {
   let body: unknown;
@@ -136,7 +137,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     }
 
     // Create CommitteeMembership with status=SUBMITTED
-    await prisma.committeeMembership.create({
+    const newMembership = await prisma.committeeMembership.create({
       data: {
         voterRecordId: sanitizedAddMemberId,
         committeeListId: committeeRequested.id,
@@ -150,6 +151,16 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         },
       },
     });
+
+    await logAuditEvent(
+      session.user.id,
+      session.user.privilegeLevel as PrivilegeLevel,
+      "MEMBER_SUBMITTED",
+      "CommitteeMembership",
+      newMembership.id,
+      null,
+      { status: "SUBMITTED" },
+    );
 
     return NextResponse.json(
       { success: true, message: "Request created" },

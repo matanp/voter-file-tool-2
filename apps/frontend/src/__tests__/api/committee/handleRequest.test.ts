@@ -8,7 +8,9 @@ import {
   createMockGovernanceConfig,
   createMockMembership,
   expectMembershipUpdate,
+  expectAuditLogCreate,
   getMembershipMock,
+  getAuditLogMock,
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../../utils/testUtils";
@@ -217,6 +219,106 @@ describe("/api/committee/handleRequest", () => {
       const response = await POST(createMockRequest(mockRequestData));
 
       await expectErrorResponse(response, 500, "Internal server error");
+    });
+
+    // Audit log tests (SRS 1.5c)
+    describe("Audit logging", () => {
+      it("should log MEMBER_ACTIVATED audit event after accept", async () => {
+        const mockRequestData = createMockHandleRequestData({
+          acceptOrReject: "accept",
+        });
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+          createMockMembership({ status: "SUBMITTED" }),
+        );
+        getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+        prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+          createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+        );
+        getMembershipMock(prismaMock).count.mockResolvedValue(2);
+        getMembershipMock(prismaMock).update.mockResolvedValue(
+          createMockMembership({ status: "ACTIVE" }),
+        );
+
+        await POST(createMockRequest(mockRequestData));
+
+        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+          expectAuditLogCreate({
+            action: "MEMBER_ACTIVATED",
+            entityType: "CommitteeMembership",
+            entityId: "membership-test-id-001",
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            afterValue: expect.objectContaining({
+              status: "ACTIVE",
+              membershipType: "APPOINTED",
+            }),
+          }),
+        );
+      });
+
+      it("should log MEMBER_REJECTED audit event after reject", async () => {
+        const mockRequestData = createMockHandleRequestData({
+          acceptOrReject: "reject",
+        });
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+          createMockMembership({ status: "SUBMITTED" }),
+        );
+        getMembershipMock(prismaMock).update.mockResolvedValue(
+          createMockMembership({ status: "REJECTED" }),
+        );
+
+        await POST(createMockRequest(mockRequestData));
+
+        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+          expectAuditLogCreate({
+            action: "MEMBER_REJECTED",
+            entityType: "CommitteeMembership",
+            entityId: "membership-test-id-001",
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            afterValue: expect.objectContaining({ status: "REJECTED" }),
+          }),
+        );
+      });
+
+      it("should log MEMBER_REJECTED with capacity metadata when committee is full", async () => {
+        const mockRequestData = createMockHandleRequestData({
+          acceptOrReject: "accept",
+        });
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+          createMockMembership({ status: "SUBMITTED" }),
+        );
+        getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+        prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+          createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+        );
+        getMembershipMock(prismaMock).count.mockResolvedValue(4); // at capacity
+        getMembershipMock(prismaMock).update.mockResolvedValue(
+          createMockMembership({ status: "REJECTED" }),
+        );
+
+        await POST(createMockRequest(mockRequestData));
+
+        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+          expectAuditLogCreate({
+            action: "MEMBER_REJECTED",
+            entityType: "CommitteeMembership",
+            entityId: "membership-test-id-001",
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            metadata: expect.objectContaining({ reason: "capacity" }),
+          }),
+        );
+      });
     });
 
     // Validation tests

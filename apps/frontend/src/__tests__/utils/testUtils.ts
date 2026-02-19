@@ -203,6 +203,18 @@ type MockMembershipModel = {
 export const getMembershipMock = (mock: unknown): MockMembershipModel =>
   (mock as { committeeMembership: MockMembershipModel }).committeeMembership;
 
+/** Typed mock model accessor for auditLog (pre-migration cast helper). */
+type MockAuditLogModel = {
+  create: jest.Mock;
+};
+
+/**
+ * Access prismaMock.auditLog with a pre-migration type cast.
+ * After `prisma generate` runs post-migration, replace with direct access.
+ */
+export const getAuditLogMock = (mock: unknown): MockAuditLogModel =>
+  (mock as { auditLog: MockAuditLogModel }).auditLog;
+
 /** Wraps expect.objectContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
 function objectContainingMatcher<T extends object>(obj: T): unknown {
   return expect.objectContaining(obj) as unknown;

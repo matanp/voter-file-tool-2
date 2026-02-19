@@ -12,7 +12,9 @@ import {
   createMockMembership,
   expectMembershipCreate,
   expectMembershipUpdate,
+  expectAuditLogCreate,
   getMembershipMock,
+  getAuditLogMock,
   validationTestCases,
   createAuthTestSuite,
   type AuthTestConfig,
@@ -325,6 +327,75 @@ describe("/api/committee/add", () => {
       const response = await POST(createMockRequest(mockCommitteeData));
 
       await expectErrorResponse(response, 500, "Internal server error");
+    });
+
+    // Audit log tests (SRS 1.5c)
+    describe("Audit logging", () => {
+      it("should log MEMBER_ACTIVATED audit event after successful add", async () => {
+        const mockCommitteeData = createMockCommitteeData();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+        setupHappyPath();
+
+        await POST(createMockRequest(mockCommitteeData));
+
+        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+          expectAuditLogCreate({
+            action: "MEMBER_ACTIVATED",
+            entityType: "CommitteeMembership",
+            entityId: "membership-test-id-001",
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            afterValue: expect.objectContaining({ status: "ACTIVE" }),
+          }),
+        );
+      });
+
+      it("should NOT log audit event for idempotent no-op (already ACTIVE)", async () => {
+        const mockCommitteeData = createMockCommitteeData();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+        prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+          createMockGovernanceConfig(),
+        );
+        prismaMock.committeeList.upsert.mockResolvedValue(createMockCommittee());
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+          createMockMembership({ status: "ACTIVE" }),
+        );
+
+        await POST(createMockRequest(mockCommitteeData));
+
+        expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+      });
+
+      it("should still return success if audit log fails", async () => {
+        const mockCommitteeData = createMockCommitteeData();
+        const mockSession = createMockSession({
+          user: { privilegeLevel: PrivilegeLevel.Admin },
+        });
+
+        mockAuthSession(mockSession);
+        mockHasPermission(true);
+        setupHappyPath();
+        getAuditLogMock(prismaMock).create.mockRejectedValue(
+          new Error("Audit log write failed"),
+        );
+
+        const response = await POST(createMockRequest(mockCommitteeData));
+
+        await expectSuccessResponse(
+          response,
+          { success: true, message: "Member added to committee" },
+          200,
+        );
+      });
     });
 
     // Parameterized validation tests

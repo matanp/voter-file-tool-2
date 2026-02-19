@@ -15,8 +15,9 @@ import {
 } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
+import { logAuditEvent } from "~/lib/auditLog";
 
-async function handleRequestHandler(req: NextRequest, _session: Session) {
+async function handleRequestHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
   const validation = validateRequest(body, handleCommitteeRequestDataSchema);
 
@@ -77,6 +78,16 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
             rejectionNote: "Committee already full",
           },
         });
+        await logAuditEvent(
+          session.user.id,
+          session.user.privilegeLevel as PrivilegeLevel,
+          "MEMBER_REJECTED",
+          "CommitteeMembership",
+          membershipId,
+          { status: "SUBMITTED" },
+          { status: "REJECTED", rejectionNote: "Committee already full" },
+          { reason: "capacity" },
+        );
         return NextResponse.json(
           { success: false, error: "Committee already at capacity" },
           { status: 400 },
@@ -99,6 +110,15 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
           seatNumber,
         },
       });
+      await logAuditEvent(
+        session.user.id,
+        session.user.privilegeLevel as PrivilegeLevel,
+        "MEMBER_ACTIVATED",
+        "CommitteeMembership",
+        membershipId,
+        { status: "SUBMITTED" },
+        { status: "ACTIVE", membershipType: "APPOINTED" },
+      );
     } else if (acceptOrReject === "reject") {
       // Transition SUBMITTED → REJECTED
       await prisma.committeeMembership.update({
@@ -108,6 +128,15 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
           rejectedAt: new Date(),
         },
       });
+      await logAuditEvent(
+        session.user.id,
+        session.user.privilegeLevel as PrivilegeLevel,
+        "MEMBER_REJECTED",
+        "CommitteeMembership",
+        membershipId,
+        { status: "SUBMITTED" },
+        { status: "REJECTED" },
+      );
     }
 
     return NextResponse.json(
