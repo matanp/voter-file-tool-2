@@ -18,6 +18,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 8. ~~[1.5 Audit Trail Infrastructure](1.5-audit-trail-infrastructure.md)~~ — **Done** (1.5a → 1.5b → 1.5c)
 9. **Next:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
 
+10. **Phase 1 Remediation (blocking):** [1.R.1 Leader Privilege Escalation](1.R.1-leader-privilege-escalation.md) (P0)
+
 ---
 
 ## Ticket Index
@@ -57,13 +59,31 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | --- | --- | --- | --- |
 | [IA-01](IA-01-admin-ia-v1-spec.md) | Admin IA v1 spec | Done | SRS_UI_PLANNING_GAPS §16 |
 
+### Phase 1 — Remediation (Bugs / Gaps from Scope Check)
+
+| ID | Title | Status | Priority | Depends on |
+| --- | --- | --- | --- | --- |
+| [1.R.1](1.R.1-leader-privilege-escalation.md) | Leader Privilege Escalation | Open | P0 (Critical) | — |
+| [1.R.2](1.R.2-requestAdd-resubmission-non-active.md) | requestAdd Resubmission for Non-Active Memberships | Open | P1 | 1.2 |
+| [1.R.3](1.R.3-replacement-flow-not-implemented.md) | Replacement Flow Not Implemented in handleRequest | Open | P1 | 1.2, T1.1 |
+| [1.R.4](1.R.4-bulk-import-phase1-incompatible.md) | Bulk Import Incompatible with Phase 1 Schema | Open | P1 | 1.2, 1.4 |
+| [1.R.5](1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | Open | P1 | 1.2, 1.R.4 |
+| [1.R.6](1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | Open | P2 | 1.5b |
+| [1.R.7](1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | Open | P2 | 1.2, 1.4 |
+
 ### Tier 2 — Lifecycle Workflows
 
 | ID | Title | Status | Roadmap | Depends on |
 | --- | --- | --- | --- | --- |
 | [2.1](2.1-eligibility-validation.md) | Eligibility Validation (Hard Stops) | Open | Tier 2 §2.1 | 1.1b, 1.1c, 1.2 |
 | [2.1a](2.1a-email-phone-submission.md) | Email/Phone During Leader Submission | Open | Tier 2 §2.1a | 1.2 |
+| [2.2](2.2-warning-system.md) | Warning System (Non-blocking Eligibility Warnings) | Open | Tier 2 §2.2 | 2.1, 1.2 |
 | [2.3](2.3-resignation-workflow.md) | Resignation Workflow | Open | Tier 2 §2.3 | 1.2, 1.4 |
+| [2.4](2.4-meeting-record-confirmation-workflow.md) | Meeting Record + Executive Confirmation Workflow | Open | Tier 2 §2.4 | 1.2, 1.4, IA-01 |
+| [2.5](2.5-structured-removal-reasons.md) | Structured Removal with Reasons | Open | Tier 2 §2.5 | 1.2, 2.3 |
+| [2.6](2.6-petition-primary-outcome-tracking.md) | Petition + Primary Outcome Tracking | Open | Tier 2 §2.6 | 1.2, 1.3, 1.4, 2.4 |
+| [2.7](2.7-weight-designation-logic.md) | Weight / Designation Logic | Open | Tier 2 §2.7 | 1.4, 2.6 |
+| [2.8](2.8-boe-driven-automatic-eligibility-flagging.md) | BOE-Driven Automatic Eligibility Flagging | Open | Tier 2 §2.8 | 1.2, 2.1, 2.2, 2.5 |
 
 ---
 
@@ -71,15 +91,25 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 
 ```
 1.1 (done) ──► 1.2 (done) ──► 1.3 (done)
-                │  ──► 2.1 ──► (Tier 2 eligibility-gated work)
+                │  ──► 2.1 ──► 2.2 ──► 2.8
                 │  ──► 2.1a
+                │  ──► 2.3 ──► 2.5 ──► 2.8
+                │
+                └──► 2.4 ──► 2.6 ──► 2.7
                 │
 1.1b (done) ──► 2.1
-1.1c (done) ──► 1.4 (done, also needs 1.2) ──► 2.3
+1.1c (done) ──► 1.4 (done, also needs 1.2) ──► 2.3, 2.4, 2.6, 2.7
                 │
                 └──► 1.5a (done) ──► 1.5b (done) ──► 1.5c (done)
 
 T1.2, T1.3 — parallel, no blockers
+
+Phase 1 Remediation (1.R.x):
+  1.R.1 — no deps (P0, do first)
+  1.R.2, 1.R.3, 1.R.7 — 1.2
+  1.R.4 — 1.2, 1.4
+  1.R.5 — 1.2, 1.R.4
+  1.R.6 — 1.5b
 ```
 
 ---
