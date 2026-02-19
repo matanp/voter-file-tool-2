@@ -3,6 +3,19 @@
 **Date:** February 19, 2026  
 **Scope:** `develop...feat/srs-implementation` (code + tests, not docs-only)
 
+## Resolution (P1)
+
+All four P1 findings have been verified as fixed in code and covered by tests on the current branch. See the table below for where each fix and test lives.
+
+| Finding | Code | Tests |
+| --- | --- | --- |
+| **P1#1** Stale `removeMemberId` on resubmission | `requestAdd/route.ts`: `requestMetadata` built from current body only; resubmission sets `submissionMetadata: requestMetadata` (no merge). | `requestAdd.test.ts`: "should clear stale removeMemberId on add-only resubmission" |
+| **P1#2** Discrepancy accept dual ACTIVE | `handleCommitteeDiscrepancy/route.ts`: `findFirst` for same voter + other committee + ACTIVE; returns 400 for `anotherCommittee`. | `handleCommitteeDiscrepancy.test.ts`: "returns 400 when voter is ACTIVE in another committee for the term" |
+| **P1#3** Bulk import dual ACTIVE | `bulkLoadUtils.ts`: duplicate-assignment voters excluded from `importedVoterIds`; per-voter `initiallyActiveElsewhere` / `currentlyActiveElsewhere` checks create discrepancies instead of activating. | `bulkLoadUtils.test.ts`: "flags duplicate voter assignments across committees and avoids activation" |
+| **P1#4** Weighted-table ambiguous key | `weightedTable/import/route.ts`: Matrix for full key when provided; fallback disambiguates via crosswalk or skips ambiguous. Updates single committee per row. | `weightedTableImport.test.ts`: "skips ambiguous LD/ED rows...", "uses LTED matrix mapping to target the correct committee..." |
+
+P2 findings (5–6) remain open.
+
 ## Review Outcome
 
 Phase 1 is **not fully finalizable** from a code-quality/risk perspective yet.

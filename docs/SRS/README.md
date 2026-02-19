@@ -5,7 +5,7 @@ Use this index as the starting point for implementation planning.
 ## Current Canonical Docs
 
 1. [PHASE1_FINALIZATION.md](PHASE1_FINALIZATION.md) — final Phase 1 closure record and Phase 2 handoff
-2. [PHASE1_CODE_REVIEW_FINDINGS.md](PHASE1_CODE_REVIEW_FINDINGS.md) — detailed code review findings against develop
+2. [PHASE1_CODE_REVIEW_FINDINGS.md](PHASE1_CODE_REVIEW_FINDINGS.md) — post-closeout code review findings; addressing P1s recommended before Phase 2
 3. [SRS_IMPLEMENTATION_ROADMAP.md](SRS_IMPLEMENTATION_ROADMAP.md) — roadmap and sequence
 4. [tickets/README.md](tickets/README.md) — ticket index and statuses
 5. [SRS_DATA_MODEL_CHANGES.md](SRS_DATA_MODEL_CHANGES.md) — schema/migration spec
@@ -22,4 +22,4 @@ Use this index as the starting point for implementation planning.
 
 ## Notes
 
-- Phase 1 review artifacts were consolidated during closeout. See [PHASE1_FINALIZATION.md](PHASE1_FINALIZATION.md) §6.
+- Phase 1 review artifacts were consolidated during closeout. See [PHASE1_FINALIZATION.md](PHASE1_FINALIZATION.md) §7.
