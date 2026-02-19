@@ -278,14 +278,57 @@ describe("/api/committee/requestAdd", () => {
         expectMembershipUpdate(
           {
             status: "SUBMITTED",
-            submissionMetadata: expect.objectContaining({
-              requestNotes: "Original notes",
-            }),
+            submissionMetadata: {},
           },
           { id: "membership-rejected-1" },
         ),
       );
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("should clear stale removeMemberId on add-only resubmission", async () => {
+      const mockRequestData = createMockRequestData({
+        removeMemberId: null,
+        requestNotes: "Fresh add-only request",
+      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: "membership-rejected-2",
+          status: "REJECTED",
+          submissionMetadata: {
+            removeMemberId: "STALE_MEMBER",
+            requestNotes: "Old replacement request",
+          },
+        }),
+      );
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ id: "membership-rejected-2", status: "SUBMITTED" }),
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectSuccessResponse(
+        response,
+        { success: true, message: "Request created" },
+        201,
+      );
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          {
+            status: "SUBMITTED",
+            submissionMetadata: {
+              requestNotes: "Fresh add-only request",
+            },
+          },
+          { id: "membership-rejected-2" },
+        ),
+      );
     });
 
     it("should resubmit an existing REMOVED membership and update submissionMetadata", async () => {

@@ -13,13 +13,6 @@ import {
 import type { Session } from "next-auth";
 import { logAuditEvent } from "~/lib/auditLog";
 
-function toSubmissionMetadataRecord(
-  value: unknown,
-): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
-
 async function requestAddHandler(req: NextRequest, session: Session) {
   let body: unknown;
   try {
@@ -156,10 +149,6 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     }
 
     if (existing) {
-      const previousMetadata = toSubmissionMetadataRecord(
-        existing.submissionMetadata,
-      );
-
       const resubmitted = await prisma.committeeMembership.update({
         where: { id: existing.id },
         data: {
@@ -180,10 +169,8 @@ async function requestAddHandler(req: NextRequest, session: Session) {
           removalNotes: null,
           petitionVoteCount: null,
           petitionPrimaryDate: null,
-          submissionMetadata: {
-            ...(previousMetadata ?? {}),
-            ...requestMetadata,
-          },
+          // Rebuild metadata from the current request intent.
+          submissionMetadata: requestMetadata,
         },
       });
 
