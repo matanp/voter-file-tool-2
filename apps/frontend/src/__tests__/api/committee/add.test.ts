@@ -68,7 +68,10 @@ describe("/api/committee/add", () => {
         }),
       );
       expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
-        expectMembershipCreate({ membershipType: "APPOINTED" }),
+        expectMembershipCreate({
+          membershipType: "APPOINTED",
+          seatNumber: 1,
+        }),
       );
     });
 
@@ -92,7 +95,10 @@ describe("/api/committee/add", () => {
         200,
       );
       expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
-        expectMembershipCreate({ membershipType: "PETITIONED" }),
+        expectMembershipCreate({
+          membershipType: "PETITIONED",
+          seatNumber: 1,
+        }),
       );
     });
 
@@ -129,6 +135,7 @@ describe("/api/committee/add", () => {
         expectMembershipUpdate({
           status: "ACTIVE",
           membershipType: "APPOINTED",
+          seatNumber: 1,
         }),
       );
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();

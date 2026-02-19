@@ -194,16 +194,38 @@ beforeEach(() => {
       committeeMembership: {
         findUnique: jest.Mock;
         findFirst: jest.Mock;
+        findMany: jest.Mock;
         count: jest.Mock;
         create: jest.Mock;
         update: jest.Mock;
+      };
+      seat: {
+        count: jest.Mock;
+        findMany: jest.Mock;
+        createMany: jest.Mock;
       };
     }
   ).committeeMembership = {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]), // assignNextAvailableSeat: no occupied seats
     count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+  };
+  (
+    prismaMock as unknown as {
+      seat: {
+        count: jest.Mock;
+        findMany: jest.Mock;
+        createMany: jest.Mock;
+        updateMany: jest.Mock;
+      };
+    }
+  ).seat = {
+    count: jest.fn().mockResolvedValue(4), // ensureSeatsExist: already has max seats
+    findMany: jest.fn().mockResolvedValue([]),
+    createMany: jest.fn().mockResolvedValue({ count: 4 }),
+    updateMany: jest.fn().mockResolvedValue({ count: 4 }),
   };
 });

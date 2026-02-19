@@ -190,6 +190,7 @@ export const createMockMembership = (
 type MockMembershipModel = {
   findUnique: jest.Mock;
   findFirst: jest.Mock;
+  findMany: jest.Mock;
   count: jest.Mock;
   create: jest.Mock;
   update: jest.Mock;
@@ -205,6 +206,11 @@ export const getMembershipMock = (mock: unknown): MockMembershipModel =>
 /** Wraps expect.objectContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
 function objectContainingMatcher<T extends object>(obj: T): unknown {
   return expect.objectContaining(obj) as unknown;
+}
+
+/** Jest "anything" matcher wrapped to return unknown (avoids no-unsafe-assignment). */
+export function expectAnything(): unknown {
+  return expect.anything();
 }
 
 /**
@@ -228,13 +234,41 @@ export function expectMembershipUpdate(
 
 /**
  * Typed matcher for prisma.committeeMembership.create calls.
- * Uses Prisma-generated CommitteeMembershipCreateInput (schema is source of truth).
+ * Accepts partial create input (voterRecordId, committeeListId, etc.).
  */
 export function expectMembershipCreate(
-  data: Partial<Prisma.CommitteeMembershipCreateInput>,
+  data: Partial<Prisma.CommitteeMembershipCreateInput> & Record<string, unknown>,
 ): unknown {
   return objectContainingMatcher({
     data: objectContainingMatcher(data),
+  });
+}
+
+/**
+ * Typed matcher for prisma.seat.createMany calls.
+ * Accepts array of partial SeatCreateManyInput items (checked via arrayContaining).
+ */
+export function expectSeatCreateMany(args: {
+  data: Array<Partial<Prisma.SeatCreateManyInput>>;
+}): unknown {
+  return expect.objectContaining({
+    data: expect.arrayContaining(
+      args.data.map((item) => expect.objectContaining(item)),
+    ),
+  }) as unknown;
+}
+
+/**
+ * Typed matcher for prisma.seat.updateMany calls.
+ * data accepts Partial<SeatUpdateManyMutationInput> or matchers (e.g. expectAnything()).
+ */
+export function expectSeatUpdateMany(args: {
+  where: { committeeListId: number };
+  data: Record<string, unknown>;
+}): unknown {
+  return objectContainingMatcher({
+    where: args.where,
+    data: objectContainingMatcher(args.data),
   });
 }
 
@@ -423,6 +457,7 @@ export const createCommitteeFindUniqueArgs = (
         where: { status: "ACTIVE", termId },
         include: { voterRecord: true },
       },
+      seats: { orderBy: { seatNumber: "asc" } },
     },
   };
 };

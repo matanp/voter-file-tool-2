@@ -9,6 +9,10 @@ import {
   isVoterActiveInAnotherCommittee,
   countActiveMembers,
 } from "~/app/api/lib/committeeValidation";
+import {
+  assignNextAvailableSeat,
+  ensureSeatsExist,
+} from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 
@@ -79,6 +83,12 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
         );
       }
 
+      await ensureSeatsExist(membership.committeeListId, membership.termId);
+      const seatNumber = await assignNextAvailableSeat(
+        membership.committeeListId,
+        membership.termId,
+      );
+
       // Transition SUBMITTED → ACTIVE; leader submissions are vacancy fills (APPOINTED)
       await prisma.committeeMembership.update({
         where: { id: membershipId },
@@ -86,6 +96,7 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
           status: "ACTIVE",
           activatedAt: new Date(),
           membershipType: "APPOINTED",
+          seatNumber,
         },
       });
     } else if (acceptOrReject === "reject") {

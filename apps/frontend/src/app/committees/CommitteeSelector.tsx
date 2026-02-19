@@ -16,6 +16,8 @@ import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
 
@@ -33,9 +35,21 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [useLegDistrict, setUseLegDistrict] = useState<boolean>(false);
   const [selectedDistrict, setSelectedDistrict] = useState<number>(-1);
   const [memberships, setMemberships] = useState<
-    Array<{ voterRecord: VoterRecord; membershipType: MembershipType | null }>
+    Array<{
+      voterRecord: VoterRecord;
+      membershipType: MembershipType | null;
+      seatNumber?: number | null;
+    }>
   >([]);
   const [maxSeatsPerLted, setMaxSeatsPerLted] = useState<number>(4);
+  const [selectedCommitteeId, setSelectedCommitteeId] = useState<
+    number | null
+  >(null);
+  const [ltedWeight, setLtedWeight] = useState<number | null>(null);
+  const [ltedWeightInput, setLtedWeightInput] = useState<string>("");
+  const [seats, setSeats] = useState<
+    Array<{ seatNumber: number; isPetitioned: boolean; weight: number | string | null }>
+  >([]);
   const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
   const [requestRemoveRecord, setRequestRemoveRecord] =
     useState<VoterRecord | null>(null);
@@ -103,6 +117,47 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     },
   });
 
+  const updateLtedWeightMutation = useApiMutation<
+    { success: boolean },
+    { committeeListId: number; ltedWeight: number | null }
+  >("/api/committee/updateLtedWeight", "PATCH", {
+    onSuccess: () => {
+      toast({ title: "LTED weight updated" });
+      if (selectedCity && selectedDistrict >= 0) {
+        fetchCommitteeList(
+          selectedCity,
+          selectedDistrict,
+          selectedLegDistrict || undefined,
+        ).catch(console.error);
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update LTED weight: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveLtedWeight = () => {
+    if (selectedCommitteeId == null) return;
+    const trimmed = ltedWeightInput.trim();
+    const value = trimmed === "" ? null : Number(trimmed);
+    if (value !== null && (Number.isNaN(value) || value < 0)) {
+      toast({
+        title: "Invalid weight",
+        description: "LTED weight must be a non-negative number",
+        variant: "destructive",
+      });
+      return;
+    }
+    void updateLtedWeightMutation.mutate({
+      committeeListId: selectedCommitteeId,
+      ltedWeight: value,
+    });
+  };
+
   const cities = new Set(committeeLists.map((list) => list.cityTown));
 
   const handleDistrictChange = (districtString: string) => {
@@ -145,6 +200,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     }
 
     setMemberships([]);
+    setSelectedCommitteeId(null);
+    setLtedWeight(null);
+    setLtedWeightInput("");
+    setSeats([]);
   };
 
   const handleLegChange = (legDistrict: string) => {
@@ -156,6 +215,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
     setSelectedDistrict(-1);
     setMemberships([]);
+    setSelectedCommitteeId(null);
+    setLtedWeight(null);
+    setLtedWeightInput("");
+    setSeats([]);
   };
 
   const fetchCommitteeList = useCallback(
@@ -176,23 +239,50 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             data.memberships?.map((m) => ({
               voterRecord: m.voterRecord,
               membershipType: m.membershipType ?? null,
+              seatNumber: m.seatNumber ?? null,
             })) ?? [],
           );
           setMaxSeatsPerLted(data.maxSeatsPerLted ?? 4);
+          setSelectedCommitteeId(data.id);
+          const w = data.ltedWeight;
+          setLtedWeight(
+            w != null ? (typeof w === "number" ? w : Number(w)) : null,
+          );
+          setLtedWeightInput(
+            w != null ? String(w) : "",
+          );
+          setSeats(
+            data.seats?.map((s) => ({
+              seatNumber: s.seatNumber,
+              isPetitioned: s.isPetitioned,
+              weight: s.weight,
+            })) ?? [],
+          );
         } else if (response.status === 403) {
-          // User doesn't have permission to view member data
           setMemberships([]);
+          setSelectedCommitteeId(null);
+          setLtedWeight(null);
+          setLtedWeightInput("");
+          setSeats([]);
         } else {
           setMemberships([]);
+          setSelectedCommitteeId(null);
+          setLtedWeight(null);
+          setLtedWeightInput("");
+          setSeats([]);
         }
       } catch (error) {
         console.error("Error fetching committee list:", error);
         setMemberships([]);
+        setSelectedCommitteeId(null);
+        setLtedWeight(null);
+        setLtedWeightInput("");
+        setSeats([]);
       } finally {
         setListLoading(false);
       }
     },
-    [setListLoading, setMemberships],
+    [],
   );
 
   const handleRemoveCommitteeMember = async (vrcnum: string) => {
@@ -322,6 +412,65 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         <p>Loading...</p>
       ) : (
         <div>
+          {selectedCommitteeId != null &&
+            hasPermissionFor(actingPermissions, PrivilegeLevel.Admin) && (
+              <div className="pt-2 pb-4 flex flex-wrap gap-4 items-end">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="lted-weight">LTED Total Weight</Label>
+                  <Input
+                    id="lted-weight"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="Enter weight"
+                    value={ltedWeightInput}
+                    onChange={(e) => setLtedWeightInput(e.target.value)}
+                    className="w-32"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleSaveLtedWeight}
+                  disabled={updateLtedWeightMutation.loading}
+                >
+                  {updateLtedWeightMutation.loading ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
+          {selectedCommitteeId != null && seats.length > 0 && (
+            <div className="pt-2 pb-4">
+              <h2 className="font-semibold pb-2">Seat Roster</h2>
+              <div className="grid gap-2">
+                {seats.map((seat) => {
+                  const occupant = memberships.find(
+                    (m) => m.seatNumber === seat.seatNumber,
+                  );
+                  const weightStr =
+                    seat.weight != null ? String(seat.weight) : "—";
+                  return (
+                    <div
+                      key={seat.seatNumber}
+                      className="flex gap-4 items-center py-1 border-b border-primary-200"
+                    >
+                      <span className="w-8 font-medium">
+                        Seat {seat.seatNumber}
+                      </span>
+                      <span className="flex-1">
+                        {occupant
+                          ? `${occupant.voterRecord.lastName ?? ""}, ${occupant.voterRecord.firstName ?? ""}`.trim() ||
+                            occupant.voterRecord.VRCNUM
+                          : "—"}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {seat.isPetitioned ? "Petitioned" : "Appointed"}
+                      </span>
+                      <span className="w-16 text-right">{weightStr}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="pt-2 pb-4">
             {memberships.length > 0 ? (
               <div className="flex gap-4 w-full flex-wrap min-h-66 h-max">

@@ -14,7 +14,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 4. ~~[1.1c Committee Governance Config](1.1c-committee-governance-config.md)~~ — **Done**
 5. ~~[1.2 CommitteeMembership Model](1.2-committee-membership-model.md)~~ — **Done**
 6. ~~[1.3 Membership Type](1.3-membership-type.md)~~ — **Done**
-7. **Next:** [1.4 Seat Model](1.4-seat-model.md) — unblocks Tier 2 work
+7. ~~[1.4 Seat Model](1.4-seat-model.md)~~ — **Done**
+8. **Next:** [1.5 Audit Trail Infrastructure](1.5-audit-trail-infrastructure.md) — 1.5a → 1.5b → 1.5c
 
 ---
 
@@ -35,7 +36,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.1c](1.1c-committee-governance-config.md) | Committee Governance Config | Done | Tier 1 §1.1c |
 | [1.2](1.2-committee-membership-model.md) | CommitteeMembership Model | Done | Tier 1 §1.2 |
 | [1.3](1.3-membership-type.md) | Membership Type (Petitioned vs. Appointed) | Done | Tier 1 §1.3 |
-| [1.4](1.4-seat-model.md) | Seat Model | Open | Tier 1 §1.4 |
+| [1.4](1.4-seat-model.md) | Seat Model | Done | Tier 1 §1.4 |
 | [1.5](1.5-audit-trail-infrastructure.md) | Audit Trail Infrastructure | Open | Tier 1 §1.5 |
 | [1.5a](1.5a-audit-log-schema-and-seed.md) | ↳ AuditLog Schema & SYSTEM User Seed | Open | Tier 1 §1.5 |
 | [1.5b](1.5b-audit-log-utility-and-immutability.md) | ↳ Audit Log Utility & Immutability Guard | Open | Tier 1 §1.5 |
@@ -73,7 +74,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
                 │  ──► 2.1a
                 │
 1.1b (done) ──► 2.1
-1.1c (done) ──► 1.4 (also needs 1.2) ──► 2.3
+1.1c (done) ──► 1.4 (done, also needs 1.2) ──► 2.3
                 │
                 └──► 1.5a ──► 1.5b ──► 1.5c
 
