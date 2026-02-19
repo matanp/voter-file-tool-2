@@ -55,6 +55,11 @@ Senior full-stack 10x developer: balances speed, clarity, and maintainability.
 - **Enums**: Use `PrivilegeLevel.Admin` not `"Admin"`
 - **Prisma models**: Never use `(prisma as unknown as {...})` casts. Add the model to [apps/frontend/prisma/schema.prisma](apps/frontend/prisma/schema.prisma), run migrations, then use `prisma.modelName` directly. The schema is the single source of truth.
 
+## Tests
+
+- Use typed matcher utilities from `__tests__/utils/testUtils.ts` instead of raw `expect.objectContaining` when asserting Prisma mock calls (e.g. `expectMembershipCreate`, `expectMembershipUpdate`). Avoids `@typescript-eslint/no-unsafe-assignment` and keeps assertions type-safe.
+- If no domain-specific matcher exists, add one to testUtils (e.g. `expectXCreate`) rather than using raw `expect.objectContaining`, which Jest types as `any`.
+
 ## File Locations
 
 - New Zod schemas → `packages/shared-validators/src/schemas/`
