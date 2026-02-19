@@ -59,7 +59,7 @@ describe("/api/committee/handleRequest", () => {
       );
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
         expectMembershipUpdate(
-          { status: "ACTIVE" },
+          { status: "ACTIVE", membershipType: "APPOINTED" },
           { id: "membership-test-id-001" },
         ),
       );

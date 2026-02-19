@@ -10,6 +10,7 @@ import {
   createCommitteeUpsertArgs,
   createMockGovernanceConfig,
   createMockMembership,
+  expectMembershipCreate,
   expectMembershipUpdate,
   getMembershipMock,
   validationTestCases,
@@ -66,7 +67,33 @@ describe("/api/committee/add", () => {
           electionDistrict: Number(mockCommitteeData.electionDistrict),
         }),
       );
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+        expectMembershipCreate({ membershipType: "APPOINTED" }),
+      );
+    });
+
+    it("should store PETITIONED when membershipType is provided", async () => {
+      const mockCommitteeData = createMockCommitteeData({
+        membershipType: "PETITIONED",
+      });
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      setupHappyPath();
+
+      const response = await POST(createMockRequest(mockCommitteeData));
+
+      await expectSuccessResponse(
+        response,
+        { success: true, message: "Member added to committee" },
+        200,
+      );
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+        expectMembershipCreate({ membershipType: "PETITIONED" }),
+      );
     });
 
     it("should re-activate an existing non-active membership instead of creating", async () => {
@@ -99,7 +126,10 @@ describe("/api/committee/add", () => {
         200,
       );
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate({ status: "ACTIVE" }),
+        expectMembershipUpdate({
+          status: "ACTIVE",
+          membershipType: "APPOINTED",
+        }),
       );
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });

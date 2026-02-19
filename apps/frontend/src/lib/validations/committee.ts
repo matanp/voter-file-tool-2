@@ -9,13 +9,17 @@ export type CommitteeMembershipSubmissionMetadata = {
 
 /** Response shape from /api/fetchCommitteeList with memberships + voterRecord + maxSeatsPerLted. */
 export type FetchCommitteeListResponse = CommitteeList & {
-  memberships: Array<{ voterRecord: VoterRecord }>;
+  memberships: Array<{
+    voterRecord: VoterRecord;
+    membershipType: MembershipType | null;
+  }>;
   maxSeatsPerLted?: number;
 };
 // TS error below resolves after running `prisma migrate dev` or `prisma generate`.
 import {
   type CommitteeList,
   type VoterRecord,
+  MembershipType,
   RemovalReason,
 } from "@prisma/client";
 
@@ -54,6 +58,7 @@ export const committeeDataSchema = z
       .int()
       .positive("Election District must be a positive integer"),
     memberId: z.string().trim().min(1, "Member ID is required"),
+    membershipType: z.nativeEnum(MembershipType).optional(),
   })
   .strict();
 

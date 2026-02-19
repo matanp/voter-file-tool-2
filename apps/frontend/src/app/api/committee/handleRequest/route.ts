@@ -79,12 +79,13 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
         );
       }
 
-      // Transition SUBMITTED → ACTIVE
+      // Transition SUBMITTED → ACTIVE; leader submissions are vacancy fills (APPOINTED)
       await prisma.committeeMembership.update({
         where: { id: membershipId },
         data: {
           status: "ACTIVE",
           activatedAt: new Date(),
+          membershipType: "APPOINTED",
         },
       });
     } else if (acceptOrReject === "reject") {

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import type { RequestInit as NextRequestInit } from "next/dist/server/web/spec-extension/request";
 import {
+  type Prisma,
   PrivilegeLevel,
   type CommitteeList,
   type VoterRecord,
@@ -208,10 +209,10 @@ function objectContainingMatcher<T extends object>(obj: T): unknown {
 
 /**
  * Typed matcher for prisma.committeeMembership.update calls.
- * Wraps expect.objectContaining with typed inputs.
+ * Uses Prisma-generated CommitteeMembershipUpdateInput (schema is source of truth).
  */
 export function expectMembershipUpdate(
-  data: Partial<Pick<MockMembership, "status" | "rejectionNote" | "removalReason" | "removalNotes" | "activatedAt">>,
+  data: Partial<Prisma.CommitteeMembershipUpdateInput>,
   where?: { id: string },
 ): unknown {
   if (where) {
@@ -227,12 +228,10 @@ export function expectMembershipUpdate(
 
 /**
  * Typed matcher for prisma.committeeMembership.create calls.
- * Wraps expect.objectContaining with typed inputs.
+ * Uses Prisma-generated CommitteeMembershipCreateInput (schema is source of truth).
  */
 export function expectMembershipCreate(
-  data: Partial<
-    Pick<MockMembership, "voterRecordId" | "committeeListId" | "termId" | "status" | "submissionMetadata">
-  >,
+  data: Partial<Prisma.CommitteeMembershipCreateInput>,
 ): unknown {
   return objectContainingMatcher({
     data: objectContainingMatcher(data),

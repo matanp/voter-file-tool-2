@@ -1,4 +1,8 @@
-import { PrivilegeLevel, type VoterRecord } from "@prisma/client";
+import {
+  type MembershipType,
+  PrivilegeLevel,
+  type VoterRecord,
+} from "@prisma/client";
 import { useContext, useState } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { useToast } from "~/components/ui/use-toast";
@@ -16,6 +20,13 @@ import {
   type SearchQueryField,
   searchableFieldEnum,
 } from "@voter-file-tool/shared-validators";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -43,6 +54,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     null,
   );
   const [loadingVRCNUM, setLoadingVRCNUM] = useState<string | null>(null);
+  const [membershipType, setMembershipType] =
+    useState<MembershipType>("APPOINTED");
 
   // API mutation hook
   const addCommitteeMemberMutation = useApiMutation<
@@ -89,6 +102,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         ...(legDistrict !== "" && { legDistrict: parseInt(legDistrict, 10) }),
         electionDistrict: electionDistrict,
         memberId: record.VRCNUM,
+        membershipType,
       });
     } else {
       setShowConfirm(true);
@@ -111,9 +125,33 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     },
   ];
 
+  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+
   return (
     <>
       <div className="flex flex-col gap-4">
+        {validCommittee && isAdmin && (
+          <div className="flex flex-col gap-2 max-w-xs">
+            <label
+              htmlFor="membership-type-select"
+              className="text-sm font-medium"
+            >
+              Membership Type
+            </label>
+            <Select
+              value={membershipType}
+              onValueChange={(val) => setMembershipType(val as MembershipType)}
+            >
+              <SelectTrigger id="membership-type-select">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="APPOINTED">Appointed</SelectItem>
+                <SelectItem value="PETITIONED">Petitioned</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {validCommittee && (
           <RecordSearchForm
             handleResults={(results) => {

@@ -23,7 +23,13 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
     return validation.response;
   }
 
-  const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
+  const {
+    cityTown,
+    legDistrict,
+    electionDistrict,
+    memberId,
+    membershipType = "APPOINTED",
+  } = validation.data;
 
   const legDistrictForDb = toDbSentinelValue(legDistrict);
 
@@ -99,6 +105,7 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
         data: {
           status: "ACTIVE",
           activatedAt: new Date(),
+          membershipType,
         },
       });
     } else {
@@ -109,6 +116,7 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           termId: activeTermId,
           status: "ACTIVE",
           activatedAt: new Date(),
+          membershipType,
         },
       });
     }

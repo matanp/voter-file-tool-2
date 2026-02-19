@@ -2,6 +2,7 @@
 import React, { useCallback, useContext, useState } from "react";
 
 import {
+  type MembershipType,
   PrivilegeLevel,
   type CommitteeList,
   type VoterRecord,
@@ -31,7 +32,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [selectedLegDistrict, setSelectedLegDistrict] = useState<string>("");
   const [useLegDistrict, setUseLegDistrict] = useState<boolean>(false);
   const [selectedDistrict, setSelectedDistrict] = useState<number>(-1);
-  const [committeeList, setCommitteeList] = useState<VoterRecord[]>([]);
+  const [memberships, setMemberships] = useState<
+    Array<{ voterRecord: VoterRecord; membershipType: MembershipType | null }>
+  >([]);
   const [maxSeatsPerLted, setMaxSeatsPerLted] = useState<number>(4);
   const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
   const [requestRemoveRecord, setRequestRemoveRecord] =
@@ -141,7 +144,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       setSelectedLegDistrict(legDistricts[0]);
     }
 
-    setCommitteeList([]);
+    setMemberships([]);
   };
 
   const handleLegChange = (legDistrict: string) => {
@@ -152,7 +155,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     }
 
     setSelectedDistrict(-1);
-    setCommitteeList([]);
+    setMemberships([]);
   };
 
   const fetchCommitteeList = useCallback(
@@ -169,24 +172,27 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         );
         if (response.ok) {
           const data = (await response.json()) as FetchCommitteeListResponse;
-          setCommitteeList(
-            data.memberships?.map((m) => m.voterRecord) ?? [],
+          setMemberships(
+            data.memberships?.map((m) => ({
+              voterRecord: m.voterRecord,
+              membershipType: m.membershipType ?? null,
+            })) ?? [],
           );
           setMaxSeatsPerLted(data.maxSeatsPerLted ?? 4);
         } else if (response.status === 403) {
           // User doesn't have permission to view member data
-          setCommitteeList([]);
+          setMemberships([]);
         } else {
-          setCommitteeList([]);
+          setMemberships([]);
         }
       } catch (error) {
         console.error("Error fetching committee list:", error);
-        setCommitteeList([]);
+        setMemberships([]);
       } finally {
         setListLoading(false);
       }
     },
-    [setListLoading, setCommitteeList],
+    [setListLoading, setMemberships],
   );
 
   const handleRemoveCommitteeMember = async (vrcnum: string) => {
@@ -317,13 +323,17 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       ) : (
         <div>
           <div className="pt-2 pb-4">
-            {committeeList.length > 0 ? (
+            {memberships.length > 0 ? (
               <div className="flex gap-4 w-full flex-wrap min-h-66 h-max">
-                {committeeList.map((member) => (
-                  <div key={member.VRCNUM}>
+                {memberships.map(({ voterRecord, membershipType }) => (
+                  <div key={voterRecord.VRCNUM}>
                     <Card className="w-full min-w-[600px] h-full flex flex-col">
                       <CardContent className="flex-1">
-                        <VoterCard record={member} committee={true} />
+                        <VoterCard
+                          record={voterRecord}
+                          committee={true}
+                          membershipType={membershipType}
+                        />
                       </CardContent>
                       <CardFooter className="h-full">
                         {hasPermissionFor(
@@ -334,13 +344,13 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                             <Button
                               className="mt-auto"
                               type="button"
-                              aria-busy={removingId === member.VRCNUM}
+                              aria-busy={removingId === voterRecord.VRCNUM}
                               onClick={() =>
-                                handleRemoveCommitteeMember(member.VRCNUM)
+                                handleRemoveCommitteeMember(voterRecord.VRCNUM)
                               }
-                              disabled={removingId === member.VRCNUM}
+                              disabled={removingId === voterRecord.VRCNUM}
                             >
-                              {removingId === member.VRCNUM
+                              {removingId === voterRecord.VRCNUM
                                 ? "Removing..."
                                 : "Remove from Committee"}
                             </Button>
@@ -348,7 +358,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                         )}
                         {actingPermissions === PrivilegeLevel.RequestAccess && (
                           <Button
-                            onClick={(e) => handleRequestRemove(e, member)}
+                            onClick={(e) =>
+                              handleRequestRemove(e, voterRecord)
+                            }
                           >
                             Remove or Replace Member
                           </Button>
@@ -366,7 +378,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             electionDistrict={selectedDistrict}
             city={selectedCity}
             legDistrict={selectedLegDistrict}
-            committeeList={committeeList}
+            committeeList={memberships.map((m) => m.voterRecord)}
             maxSeatsPerLted={maxSeatsPerLted}
             onAdd={fetchCommitteeList}
           />
@@ -381,7 +393,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           maxSeatsPerLted={maxSeatsPerLted}
           defaultOpen={showConfirmForm}
           onOpenChange={setShowConfirmForm}
-          committeeList={committeeList}
+          committeeList={memberships.map((m) => m.voterRecord)}
           onSubmit={() => setShowConfirmForm(false)}
         />
       )}
