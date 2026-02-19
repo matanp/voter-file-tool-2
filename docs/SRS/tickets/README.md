@@ -19,11 +19,11 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 9. **Current queue (Phase 1 follow-up remediation):** [1.R.1 Leader Privilege Escalation](1.R.1-leader-privilege-escalation.md) (P0, first)
 10. ~~[1.R.2 requestAdd Resubmission for Non-Active Memberships](1.R.2-requestAdd-resubmission-non-active.md)~~ — **Resolved**
 11. ~~[1.R.3 Replacement Flow Not Implemented](1.R.3-replacement-flow-not-implemented.md)~~ — **Resolved**
-12. [1.R.4 Bulk Import Incompatible with Phase 1 Schema](1.R.4-bulk-import-phase1-incompatible.md) — **In Progress**
-13. [1.R.5 Source-of-Truth Split](1.R.5-source-of-truth-split.md) — **In Progress**
+12. ~~[1.R.4 Bulk Import Incompatible with Phase 1 Schema](1.R.4-bulk-import-phase1-incompatible.md)~~ — **Resolved**
+13. ~~[1.R.5 Source-of-Truth Split](1.R.5-source-of-truth-split.md)~~ — **Resolved**
 14. ~~[1.R.6 Audit Tests Fail](1.R.6-audit-tests-fail.md)~~ — **Resolved**
-15. [1.R.7 Capacity + Seat Assignment Non-Atomic](1.R.7-capacity-seat-assignment-non-atomic.md) — **In Progress**
-16. [1.R.8 Phase 1 Remediation Closeout (Tests + Docs)](1.R.8-phase1-remediation-closeout.md) — **Open**
+15. ~~[1.R.7 Capacity + Seat Assignment Non-Atomic](1.R.7-capacity-seat-assignment-non-atomic.md)~~ — **Resolved**
+16. ~~[1.R.8 Phase 1 Remediation Closeout (Tests + Docs)](1.R.8-phase1-remediation-closeout.md)~~ — **Resolved**
 17. [1.R.9 FormData Support for useApiMutation](1.R.9-formdata-support-for-use-api-mutation.md) — **Open**
 18. [1.R.10 updateLtedWeight Atomicity for Weight Recompute](1.R.10-update-lted-weight-atomic-recompute.md) — **Open**
 19. [1.R.11 Admin GET Data Hook Standardization](1.R.11-admin-get-hook-standardization.md) — **Open**
@@ -76,11 +76,11 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.R.1](1.R.1-leader-privilege-escalation.md) | Leader Privilege Escalation | Open | P0 (Critical) | — |
 | [1.R.2](1.R.2-requestAdd-resubmission-non-active.md) | requestAdd Resubmission for Non-Active Memberships | Resolved | P1 | 1.2 |
 | [1.R.3](1.R.3-replacement-flow-not-implemented.md) | Replacement Flow Not Implemented in handleRequest | Resolved | P1 | 1.2, T1.1 |
-| [1.R.4](1.R.4-bulk-import-phase1-incompatible.md) | Bulk Import Incompatible with Phase 1 Schema | In Progress | P1 | 1.2, 1.4 |
-| [1.R.5](1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | In Progress | P1 | 1.2, 1.R.4 |
+| [1.R.4](1.R.4-bulk-import-phase1-incompatible.md) | Bulk Import Incompatible with Phase 1 Schema | Resolved | P1 | 1.2, 1.4 |
+| [1.R.5](1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | Resolved | P1 | 1.2, 1.R.4 |
 | [1.R.6](1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | Resolved | P2 | 1.5b |
-| [1.R.7](1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | In Progress | P2 | 1.2, 1.4 |
-| [1.R.8](1.R.8-phase1-remediation-closeout.md) | Phase 1 Remediation Closeout (Tests + Docs) | Open | P1 | 1.R.4, 1.R.5, 1.R.7 |
+| [1.R.7](1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | Resolved | P2 | 1.2, 1.4 |
+| [1.R.8](1.R.8-phase1-remediation-closeout.md) | Phase 1 Remediation Closeout (Tests + Docs) | Resolved | P1 | 1.R.4, 1.R.5, 1.R.7 |
 | [1.R.9](1.R.9-formdata-support-for-use-api-mutation.md) | FormData Support for useApiMutation | Open | P2 | 1.4 |
 | [1.R.10](1.R.10-update-lted-weight-atomic-recompute.md) | updateLtedWeight Atomicity for Weight Recompute | Open | P2 | 1.4 |
 | [1.R.11](1.R.11-admin-get-hook-standardization.md) | Admin GET Data Hook Standardization | Open | P3 | IA-01 |

@@ -155,6 +155,33 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       });
     });
 
+    it("accept resolution does not write legacy voterRecord.committeeId/committeeMemberList", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).create.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+      prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue(
+        {} as never,
+      );
+
+      const response = await POST(
+        createMockRequest({ VRCNUM: "TEST123", accept: true, takeAddress: "" }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
+    });
+
     it("reject resolution: does not add voter, still deletes discrepancy", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);

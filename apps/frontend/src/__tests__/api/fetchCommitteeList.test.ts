@@ -91,6 +91,35 @@ describe("/api/fetchCommitteeList", () => {
       );
     });
 
+    it("queries CommitteeMembership relations and does not include legacy committeeMemberList", async () => {
+      const mockCommittee = createMockCommittee();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
+
+      const request = new NextRequest(
+        "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1",
+      );
+      await GET(request);
+
+      expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
+        createCommitteeFindUniqueArgs({
+          cityTown: "Test City",
+          legDistrict: 1,
+          electionDistrict: 1,
+        }),
+      );
+      expect(prismaMock.committeeList.findUnique).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            committeeMemberList: expect.anything(),
+          }),
+        }),
+      );
+    });
+
     it("should include maxSeatsPerLted from governance config in response", async () => {
       const mockCommittee = createMockCommittee();
       mockAuthSession(
