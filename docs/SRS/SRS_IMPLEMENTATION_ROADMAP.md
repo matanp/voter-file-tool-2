@@ -21,7 +21,7 @@ Work items are organized into **tiers by effort/complexity**, then sequenced wit
 
 ## Implementation Tickets
 
-Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. **Next:** [1.R.1 Leader Privilege Escalation](tickets/1.R.1-leader-privilege-escalation.md) (P0), then [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). Phase 0 and Phase 1 (0.1, 1.1–1.5) are done, but **Phase 1 Remediation** tickets (1.R.1–1.R.7) address bugs/gaps from scope check — see [tickets/README.md §Phase 1 Remediation](tickets/README.md). Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
+Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Phase 0 and Phase 1 foundation work (0.1, 1.1–1.5) are done, but **Phase 1 Remediation** follow-up tickets remain active: [1.R.1](tickets/1.R.1-leader-privilege-escalation.md) → [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) / [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md) → [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md) → [1.R.5](tickets/1.R.5-source-of-truth-split.md) + [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md), then [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). See [tickets/README.md §Phase 1 Remediation](tickets/README.md) for ticket-level status. Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
 
 ---
 
@@ -236,6 +236,8 @@ These tickets address issues found during a full scope check of Phase 1 completi
 | [1.R.5](tickets/1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | P1 | 2–3 days |
 | [1.R.6](tickets/1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | P2 | 0.5 day |
 | [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | P2 | 1–2 days |
+
+**Recommended execution order:** [1.R.1](tickets/1.R.1-leader-privilege-escalation.md), then [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) + [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md), then [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md), then [1.R.5](tickets/1.R.5-source-of-truth-split.md), then [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md).
 
 See [tickets/README.md §Phase 1 Remediation](tickets/README.md) and [PHASE1_SCOPE_CHECK_NOTES.md](PHASE1_SCOPE_CHECK_NOTES.md) for assumptions and scope details.
 
@@ -700,7 +702,16 @@ Phase 1: Foundation — Done
 ├── 1.4 Seat Model Done
 └── 1.5 Audit Trail Infrastructure Done
 
-Phase 2: Core Business Logic (Weeks 4–7)
+Phase 1 Follow-Up: Remediation (Current)
+├── 1.R.1 Leader Privilege Escalation (P0)
+├── 1.R.2 requestAdd Resubmission for Non-Active Memberships
+├── 1.R.3 Replacement Flow Not Implemented in handleRequest
+├── 1.R.4 Bulk Import Incompatible with Phase 1 Schema
+├── 1.R.5 Source-of-Truth Split (committeeMemberList vs CommitteeMembership)
+├── 1.R.6 Audit Tests Fail (AuditAction Undefined)
+└── 1.R.7 Capacity + Seat Assignment Non-Atomic (Race Risk)
+
+Phase 2: Core Business Logic (after 1.R.x queue)
 ├── 2.1 Eligibility Validation (Hard Stops)
 ├── 2.1a Email/Phone During Leader Submission (SRS §9.1)
 ├── 2.2 Warning System
@@ -711,7 +722,7 @@ Phase 2: Core Business Logic (Weeks 4–7)
 ├── 2.7 Weight / Designation Logic
 └── 2.8 BOE-Driven Eligibility Flagging
 
-Phase 3: Workflows, Reports & Access (Weeks 8–10)
+Phase 3: Workflows, Reports & Access
 ├── 3.0 Report-server: Migrate ldCommittees to CommitteeMembership
 ├── 3.0a Audit and update all reports for CommitteeMembership
 ├── 3.1 Jurisdiction-Scoped Access
@@ -722,7 +733,7 @@ Phase 3: Workflows, Reports & Access (Weeks 8–10)
 └── 3.5 Audit Trail UI & Export
 ```
 
-**Total estimated effort:** 10–14 weeks for one developer, depending on iteration speed and review cycles.
+**Total estimated effort:** 11–16 weeks for one developer, depending on iteration speed and review cycles (includes Phase 1 follow-up remediation tickets 1.R.1–1.R.7).
 
 ---
 
@@ -1087,18 +1098,20 @@ With each new feature (Tier 3):
 
 ## Combined Timeline
 
-| Week | Implementation                                                                   | Testing                           |
-| ---- | -------------------------------------------------------------------------------- | --------------------------------- |
+| Week | Implementation                                                                                             | Testing                           |
+| ---- | ---------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | 0–4  | Phase 0 & 1 done: Backend enforcement, Foundation (Terms, LTED crosswalk, Governance Config, CommitteeMembership, Membership Type, Seat model, Audit Trail) | T1.1–T1.3 done                    |
-| 5    | 2.1 Eligibility Hard Stops, 2.1a Email/Phone + tests                             | T1.5 Report-server tests (start)   |
-| 6    | 2.2 Warnings, 2.3 Resignation + tests                                           | T1.5 Report-server tests (finish) |
-| 7    | 2.4 Meeting Record + Confirmation + tests                                        | T2.1 CommitteeSelector tests      |
-| 8    | 2.5 Removal Reasons, 2.6 Petition Tracking                                       | T2.2–T2.4 Component tests         |
-| 9    | 2.7 Weight Logic + tests                                                         | — (tests included in feature)     |
-| 10   | 2.8 BOE Flagging + tests                                                         | —                                 |
-| 11   | 3.1 Jurisdiction Scoping + tests                                                 | —                                 |
-| 12   | 3.2 Sign-In Sheet, 3.3 Weight Report                                             | —                                 |
-| 13   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                | —                                 |
-| 14   | 3.5 Audit Trail UI + Export                                                       | —                                 |
+| 5    | **Phase 1 follow-up remediation:** 1.R.1, 1.R.2, 1.R.3                                                    | T1.5 Report-server tests (start) |
+| 6    | **Phase 1 follow-up remediation:** 1.R.4, 1.R.5, 1.R.6, 1.R.7                                             | T1.5 Report-server tests (finish) |
+| 7    | 2.1 Eligibility Hard Stops, 2.1a Email/Phone + tests                                                       | T2.1 CommitteeSelector tests      |
+| 8    | 2.2 Warnings, 2.3 Resignation + tests                                                                      | T2.2–T2.4 Component tests         |
+| 9    | 2.4 Meeting Record + Confirmation + tests                                                                   | — (tests included in feature)     |
+| 10   | 2.5 Removal Reasons, 2.6 Petition Tracking                                                                  | —                                 |
+| 11   | 2.7 Weight Logic + tests                                                                                    | —                                 |
+| 12   | 2.8 BOE Flagging + tests                                                                                    | —                                 |
+| 13   | 3.1 Jurisdiction Scoping + tests                                                                            | —                                 |
+| 14   | 3.2 Sign-In Sheet, 3.3 Weight Report                                                                        | —                                 |
+| 15   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                                            | —                                 |
+| 16   | 3.5 Audit Trail UI + Export                                                                                 | —                                 |
 
-**Current status:** Phase 0, Phase 1, T1.1–T1.3 complete. **Remaining: ~9 weeks** (Phases 2–3, T1.4–T1.5, T2.x).
+**Current status:** Phase 0, Phase 1 foundation, and T1.1–T1.3 are complete. **Current focus:** Phase 1 follow-up remediation (1.R.1–1.R.7). **Remaining: ~11–12 weeks** (remediation + Phases 2–3, T1.4–T1.5, T2.x).

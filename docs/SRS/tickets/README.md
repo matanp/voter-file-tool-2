@@ -16,9 +16,14 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 6. ~~[1.3 Membership Type](1.3-membership-type.md)~~ — **Done**
 7. ~~[1.4 Seat Model](1.4-seat-model.md)~~ — **Done**
 8. ~~[1.5 Audit Trail Infrastructure](1.5-audit-trail-infrastructure.md)~~ — **Done** (1.5a → 1.5b → 1.5c)
-9. **Next:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
-
-10. **Phase 1 Remediation (blocking):** [1.R.1 Leader Privilege Escalation](1.R.1-leader-privilege-escalation.md) (P0)
+9. **Current queue (Phase 1 follow-up remediation):** [1.R.1 Leader Privilege Escalation](1.R.1-leader-privilege-escalation.md) (P0, first)
+10. [1.R.2 requestAdd Resubmission for Non-Active Memberships](1.R.2-requestAdd-resubmission-non-active.md) (P1)
+11. [1.R.3 Replacement Flow Not Implemented](1.R.3-replacement-flow-not-implemented.md) (P1)
+12. [1.R.4 Bulk Import Incompatible with Phase 1 Schema](1.R.4-bulk-import-phase1-incompatible.md) (P1)
+13. [1.R.5 Source-of-Truth Split](1.R.5-source-of-truth-split.md) (P1)
+14. [1.R.6 Audit Tests Fail](1.R.6-audit-tests-fail.md) (P2)
+15. [1.R.7 Capacity + Seat Assignment Non-Atomic](1.R.7-capacity-seat-assignment-non-atomic.md) (P2)
+16. **After follow-up queue:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
 
 ---
 
