@@ -21,7 +21,7 @@ Work items are organized into **tiers by effort/complexity**, then sequenced wit
 
 ## Implementation Tickets
 
-Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. **Next:** [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). Phase 0 and Phase 1 (0.1, 1.1–1.5) are done. Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
+Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. **Next:** [1.R.1 Leader Privilege Escalation](tickets/1.R.1-leader-privilege-escalation.md) (P0), then [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). Phase 0 and Phase 1 (0.1, 1.1–1.5) are done, but **Phase 1 Remediation** tickets (1.R.1–1.R.7) address bugs/gaps from scope check — see [tickets/README.md §Phase 1 Remediation](tickets/README.md). Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
 
 ---
 
@@ -220,6 +220,24 @@ Only `createdAt`/`updatedAt` timestamps. No action logging.
 5. Admin UI: filterable audit log viewer (Phase 2, see 3.5)
 
 **Recommendation:** Implement the model and utility early (Tier 1), build the admin UI later (Tier 3).
+
+---
+
+## Phase 1 Remediation — Bugs / Gaps from Scope Check
+
+These tickets address issues found during a full scope check of Phase 1 completion. **P0 (1.R.1) must be fixed before production**; P1/P2 should be addressed before or alongside Tier 2 work.
+
+| Ticket | Title | Priority | Effort |
+| ------ | ----- | -------- | ------ |
+| [1.R.1](tickets/1.R.1-leader-privilege-escalation.md) | Leader Privilege Escalation | P0 (Critical) | 0.5 day |
+| [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) | requestAdd Resubmission for Non-Active Memberships | P1 | 0.5–1 day |
+| [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md) | Replacement Flow Not Implemented in handleRequest | P1 | 1–2 days |
+| [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md) | Bulk Import Incompatible with Phase 1 Schema | P1 | 2–3 days |
+| [1.R.5](tickets/1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | P1 | 2–3 days |
+| [1.R.6](tickets/1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | P2 | 0.5 day |
+| [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | P2 | 1–2 days |
+
+See [tickets/README.md §Phase 1 Remediation](tickets/README.md) and [PHASE1_SCOPE_CHECK_NOTES.md](PHASE1_SCOPE_CHECK_NOTES.md) for assumptions and scope details.
 
 ---
 
