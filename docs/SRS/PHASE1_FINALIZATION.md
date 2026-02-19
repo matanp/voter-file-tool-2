@@ -28,13 +28,13 @@ Result: **All Phase 1 closure conditions are met.**
 
 ## 3. Completion Matrix
 
-| Track | Ticket range | Status |
-| --- | --- | --- |
-| Tier 0 quick fix | 0.1 | Done |
-| Tier 1 foundation | 1.1, 1.1b, 1.1c, 1.2, 1.3, 1.4, 1.5 (+1.5a-1.5c) | Done |
-| Tier 1 tests | T1.1, T1.2, T1.3 | Done |
-| Phase 1 remediation | 1.R.1-1.R.12 | Resolved |
-| Admin IA planning gate | IA-01 | Done |
+| Track                  | Ticket range                                     | Status   |
+| ---------------------- | ------------------------------------------------ | -------- |
+| Tier 0 quick fix       | 0.1                                              | Done     |
+| Tier 1 foundation      | 1.1, 1.1b, 1.1c, 1.2, 1.3, 1.4, 1.5 (+1.5a-1.5c) | Done     |
+| Tier 1 tests           | T1.1, T1.2, T1.3                                 | Done     |
+| Phase 1 remediation    | 1.R.1-1.R.12                                     | Resolved |
+| Admin IA planning gate | IA-01                                            | Done     |
 
 Detailed status remains in [tickets/README.md](tickets/README.md).
 
@@ -68,10 +68,20 @@ Use these as active references:
 
 ---
 
-## 6. Consolidation Notes
+## 6. Post-closeout code review
+
+A separate code review of `develop...feat/srs-implementation` (February 19, 2026) identified issues that do not change the Phase 1 closure criteria above but are **recommended to address before starting Phase 2**:
+
+- **[PHASE1_CODE_REVIEW_FINDINGS.md](PHASE1_CODE_REVIEW_FINDINGS.md)** — 4 P1 findings (stale `removeMemberId` on resubmission; dual ACTIVE memberships in discrepancy accept and bulk import; weighted-table import matching key ambiguous) and 2 P2 findings (missing audit events; under-tested high-risk paths).
+- **Recommended gate:** Fix the four P1 items and add/expand tests for those paths before beginning [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md).
+
+Phase 1 remains **closed by ticket/closure criteria**; the code review defines an optional Phase 1.1 / pre–Phase 2 quality gate.
+
+---
+
+## 7. Consolidation Notes
 
 The following review artifacts were removed from active SRS docs during closeout:
 
 - `PHASE1_SCOPE_CHECK_NOTES.md` (scope-check notes absorbed into remediation tickets + this closeout doc)
 - `SRS_v0.1_Committee_Membership_Governance_WORKING.md` (superseded by canonical SRS/roadmap/ticket docs)
-
