@@ -21,7 +21,7 @@ Work items are organized into **tiers by effort/complexity**, then sequenced wit
 
 ## Implementation Tickets
 
-Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Phase 0 and Phase 1 foundation work (0.1, 1.1–1.5) are done, but **Phase 1 Remediation** follow-up tickets remain active: [1.R.1](tickets/1.R.1-leader-privilege-escalation.md) → [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) / [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md) → [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md) → [1.R.5](tickets/1.R.5-source-of-truth-split.md) + [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md) → [1.R.8](tickets/1.R.8-phase1-remediation-closeout.md), with additional remediation cleanup tickets [1.R.9](tickets/1.R.9-formdata-support-for-use-api-mutation.md), [1.R.10](tickets/1.R.10-update-lted-weight-atomic-recompute.md), [1.R.11](tickets/1.R.11-admin-get-hook-standardization.md), and [1.R.12](tickets/1.R.12-drop-redundant-lted-crosswalk-index.md), then [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). See [tickets/README.md §Phase 1 Remediation](tickets/README.md) for ticket-level status. Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
+Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Phase 0 and Phase 1 foundation work (0.1, 1.1–1.5) are done, and the full Phase 1 remediation set (1.R.1–1.R.12) is now resolved. Next implementation queue starts at [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). See [tickets/README.md §Phase 1 Remediation](tickets/README.md) for ticket-level status. Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
 
 ---
 
@@ -225,7 +225,7 @@ Only `createdAt`/`updatedAt` timestamps. No action logging.
 
 ## Phase 1 Remediation — Bugs / Gaps from Scope Check
 
-These tickets address issues found during a full scope check of Phase 1 completion. **P0 (1.R.1) must be fixed before production**; P1/P2 should be addressed before or alongside Tier 2 work.
+These tickets addressed issues found during a full scope check of Phase 1 completion. They are now resolved and retained here for traceability.
 
 | Ticket | Title | Priority | Effort |
 | ------ | ----- | -------- | ------ |
@@ -1125,4 +1125,4 @@ With each new feature (Tier 3):
 | 16   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                                            | —                                 |
 | 17   | 3.5 Audit Trail UI + Export                                                                                 | —                                 |
 
-**Current status:** Phase 0, Phase 1 foundation, and T1.1–T1.3 are complete. **Current focus:** Phase 1 follow-up remediation (1.R.1–1.R.12). **Remaining: ~12–13 weeks** (remediation + Phases 2–3, T1.4–T1.5, T2.x).
+**Current status:** Phase 0, Phase 1 foundation, T1.1–T1.3, and Phase 1 remediation (1.R.1–1.R.12) are complete. **Current focus:** Tier 2 implementation starting at 2.1 Eligibility Validation.

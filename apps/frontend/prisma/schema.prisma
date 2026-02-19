@@ -504,5 +504,4 @@ model LtedDistrictCrosswalk {
   countyLegDistrict     String?
 
   @@unique([cityTown, legDistrict, electionDistrict])
-  @@index([cityTown, legDistrict, electionDistrict])
 }

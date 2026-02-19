@@ -50,14 +50,23 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
       }, timeoutMs);
 
       try {
+        const isFormDataPayload =
+          typeof FormData !== "undefined" && payload instanceof FormData;
         const headers: Record<string, string> = { Accept: "application/json" };
-        if (payload != null) {
+        if (payload != null && !isFormDataPayload) {
           headers["Content-Type"] = "application/json";
         }
+        const requestBody =
+          payload == null
+            ? undefined
+            : isFormDataPayload
+              ? (payload as FormData)
+              : JSON.stringify(payload);
+
         const response = await fetch(url, {
           method,
           headers,
-          body: payload != null ? JSON.stringify(payload) : undefined,
+          body: requestBody,
           signal: controller.signal,
         });
 

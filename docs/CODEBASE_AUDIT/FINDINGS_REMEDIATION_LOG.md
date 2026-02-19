@@ -20,7 +20,7 @@ This document tracks verification and remediation of audit findings. Updated as 
 
 **Finding:** Non-unique index `LtedDistrictCrosswalk_cityTown_legDistrict_electionDistrict_idx` duplicates the UNIQUE index on same columns.
 
-**Status:** ⏭️ **NOT FIXED** — Per .cursorrules: never edit migration files. Create new migration to DROP redundant index if desired.
+**Status:** ✅ **FIXED** — Added forward migration `20260219143000_drop_redundant_lted_crosswalk_index` to drop the redundant non-unique index while keeping the unique constraint.
 
 ---
 
@@ -114,7 +114,7 @@ This document tracks verification and remediation of audit findings. Updated as 
 
 **Finding:** Raw fetch + manual isSubmitting → useApiMutation.
 
-**Status:** ⏭️ **DEFERRED** — useApiMutation sends JSON; this endpoint expects FormData (multipart). Hook would need FormData support. Document as known gap.
+**Status:** ✅ **FIXED** — `useApiMutation` now supports `FormData` payloads (without forcing JSON headers), and `WeightedTableImport` now uses the shared hook.
 
 ---
 
@@ -124,7 +124,7 @@ This document tracks verification and remediation of audit findings. Updated as 
 
 **Finding:** Raw fetch in fetchTerms; no error handling.
 
-**Status:** ⏭️ **PARTIAL** — Added error handling (catch, toast). useApiMutation is for mutations (POST/PATCH); GET needs useSWR or similar. Project has no useSWR. Left fetch with improved error handling.
+**Status:** ✅ **FIXED** — Added shared `useApiQuery` GET hook and migrated `TermsManagement` to it with standardized loading, error, and retry behavior.
 
 ---
 
@@ -176,7 +176,7 @@ This document tracks verification and remediation of audit findings. Updated as 
 
 **Finding:** update + recomputeSeatWeights should be atomic.
 
-**Status:** ⏭️ **DEFERRED** — recomputeSeatWeights doesn't accept tx. Refactor would require passing tx through seatUtils. Document as enhancement.
+**Status:** ✅ **FIXED** — `updateLtedWeight` now runs LTED update + seat recompute in one transaction, and `recomputeSeatWeights` accepts a transaction client.
 
 ---
 

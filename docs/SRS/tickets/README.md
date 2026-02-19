@@ -16,7 +16,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 6. ~~[1.3 Membership Type](1.3-membership-type.md)~~ — **Done**
 7. ~~[1.4 Seat Model](1.4-seat-model.md)~~ — **Done**
 8. ~~[1.5 Audit Trail Infrastructure](1.5-audit-trail-infrastructure.md)~~ — **Done** (1.5a → 1.5b → 1.5c)
-9. **Current queue (Phase 1 follow-up remediation):** [1.R.1 Leader Privilege Escalation](1.R.1-leader-privilege-escalation.md) (P0, first)
+9. ~~[1.R.1 Leader Privilege Escalation](1.R.1-leader-privilege-escalation.md)~~ — **Resolved**
 10. ~~[1.R.2 requestAdd Resubmission for Non-Active Memberships](1.R.2-requestAdd-resubmission-non-active.md)~~ — **Resolved**
 11. ~~[1.R.3 Replacement Flow Not Implemented](1.R.3-replacement-flow-not-implemented.md)~~ — **Resolved**
 12. ~~[1.R.4 Bulk Import Incompatible with Phase 1 Schema](1.R.4-bulk-import-phase1-incompatible.md)~~ — **Resolved**
@@ -24,11 +24,11 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 14. ~~[1.R.6 Audit Tests Fail](1.R.6-audit-tests-fail.md)~~ — **Resolved**
 15. ~~[1.R.7 Capacity + Seat Assignment Non-Atomic](1.R.7-capacity-seat-assignment-non-atomic.md)~~ — **Resolved**
 16. ~~[1.R.8 Phase 1 Remediation Closeout (Tests + Docs)](1.R.8-phase1-remediation-closeout.md)~~ — **Resolved**
-17. [1.R.9 FormData Support for useApiMutation](1.R.9-formdata-support-for-use-api-mutation.md) — **Open**
-18. [1.R.10 updateLtedWeight Atomicity for Weight Recompute](1.R.10-update-lted-weight-atomic-recompute.md) — **Open**
-19. [1.R.11 Admin GET Data Hook Standardization](1.R.11-admin-get-hook-standardization.md) — **Open**
-20. [1.R.12 Drop Redundant LTED Crosswalk Index](1.R.12-drop-redundant-lted-crosswalk-index.md) — **Open**
-21. **After follow-up queue:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
+17. ~~[1.R.9 FormData Support for useApiMutation](1.R.9-formdata-support-for-use-api-mutation.md)~~ — **Resolved**
+18. ~~[1.R.10 updateLtedWeight Atomicity for Weight Recompute](1.R.10-update-lted-weight-atomic-recompute.md)~~ — **Resolved**
+19. ~~[1.R.11 Admin GET Data Hook Standardization](1.R.11-admin-get-hook-standardization.md)~~ — **Resolved**
+20. ~~[1.R.12 Drop Redundant LTED Crosswalk Index](1.R.12-drop-redundant-lted-crosswalk-index.md)~~ — **Resolved**
+21. **Current queue:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
 
 ---
 
@@ -73,7 +73,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 
 | ID | Title | Status | Priority | Depends on |
 | --- | --- | --- | --- | --- |
-| [1.R.1](1.R.1-leader-privilege-escalation.md) | Leader Privilege Escalation | Open | P0 (Critical) | — |
+| [1.R.1](1.R.1-leader-privilege-escalation.md) | Leader Privilege Escalation | Resolved | P0 (Critical) | — |
 | [1.R.2](1.R.2-requestAdd-resubmission-non-active.md) | requestAdd Resubmission for Non-Active Memberships | Resolved | P1 | 1.2 |
 | [1.R.3](1.R.3-replacement-flow-not-implemented.md) | Replacement Flow Not Implemented in handleRequest | Resolved | P1 | 1.2, T1.1 |
 | [1.R.4](1.R.4-bulk-import-phase1-incompatible.md) | Bulk Import Incompatible with Phase 1 Schema | Resolved | P1 | 1.2, 1.4 |
@@ -81,10 +81,10 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.R.6](1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | Resolved | P2 | 1.5b |
 | [1.R.7](1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | Resolved | P2 | 1.2, 1.4 |
 | [1.R.8](1.R.8-phase1-remediation-closeout.md) | Phase 1 Remediation Closeout (Tests + Docs) | Resolved | P1 | 1.R.4, 1.R.5, 1.R.7 |
-| [1.R.9](1.R.9-formdata-support-for-use-api-mutation.md) | FormData Support for useApiMutation | Open | P2 | 1.4 |
-| [1.R.10](1.R.10-update-lted-weight-atomic-recompute.md) | updateLtedWeight Atomicity for Weight Recompute | Open | P2 | 1.4 |
-| [1.R.11](1.R.11-admin-get-hook-standardization.md) | Admin GET Data Hook Standardization | Open | P3 | IA-01 |
-| [1.R.12](1.R.12-drop-redundant-lted-crosswalk-index.md) | Drop Redundant LTED Crosswalk Index | Open | P3 | 1.1b |
+| [1.R.9](1.R.9-formdata-support-for-use-api-mutation.md) | FormData Support for useApiMutation | Resolved | P2 | 1.4 |
+| [1.R.10](1.R.10-update-lted-weight-atomic-recompute.md) | updateLtedWeight Atomicity for Weight Recompute | Resolved | P2 | 1.4 |
+| [1.R.11](1.R.11-admin-get-hook-standardization.md) | Admin GET Data Hook Standardization | Resolved | P3 | IA-01 |
+| [1.R.12](1.R.12-drop-redundant-lted-crosswalk-index.md) | Drop Redundant LTED Crosswalk Index | Resolved | P3 | 1.1b |
 
 ### Tier 2 — Lifecycle Workflows
 
@@ -120,15 +120,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 T1.2, T1.3 — parallel, no blockers
 
 Phase 1 Remediation (1.R.x):
-  1.R.1 — no deps (P0, do first)
-  1.R.2, 1.R.3, 1.R.7 — 1.2
-  1.R.4 — 1.2, 1.4
-  1.R.5 — 1.2, 1.R.4
-  1.R.6 — 1.5b
-  1.R.8 — 1.R.4, 1.R.5, 1.R.7
-  1.R.9, 1.R.10 — 1.4
-  1.R.11 — IA-01
-  1.R.12 — 1.1b
+  1.R.1–1.R.12 — resolved
 ```
 
 ---

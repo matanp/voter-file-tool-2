@@ -135,17 +135,13 @@ Tickets 2.1–2.8 (Eligibility Validation, Warning System, Resignation, Meeting 
 
 ## 3. Remaining Work (Per Tickets)
 
-### 3.1 Phase 1 Remediation — Incomplete Items
+### 3.1 Historical Snapshot (Review-Time)
 
-| Ticket | Missing Work |
-|--------|--------------|
-| 1.R.4 | Add/update bulk import tests: assert CommitteeMembership creation, no committeeId writes; document migration path if committeeId was populated |
-| 1.R.5 | Update fetchCommitteeList, handleCommitteeDiscrepancy, report-generation tests to assert CommitteeMembership as source |
-| 1.R.7 | Add concurrency test (N requests exceeding capacity → exactly maxSeats succeed); document transaction boundaries and isolation |
+This section reflects the review snapshot at the time this branch analysis was written.
 
-### 3.2 Ticket README vs Ticket Files
+### 3.2 Current Status
 
-The tickets README lists 1.R.1 as **Open** (P0), but the ticket file `1.R.1-leader-privilege-escalation.md` shows **Status: Resolved** and all acceptance criteria checked. The branch implements the fix (`Leader` in PRIVILEGE_ORDER, fail-closed for unknown roles). **Recommendation:** Update README to mark 1.R.1 as Resolved.
+The stale README mismatch called out in this review has been resolved. Phase 1 remediation tickets now show as resolved in `/docs/SRS/tickets/README.md` and individual ticket files.
 
 ---
 
