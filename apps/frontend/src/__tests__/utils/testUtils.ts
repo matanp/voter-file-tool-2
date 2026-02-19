@@ -245,6 +245,17 @@ export function expectMembershipCreate(
 }
 
 /**
+ * Typed matcher for prisma.auditLog.create calls (SRS 1.5b).
+ */
+export function expectAuditLogCreate(
+  data: Partial<Prisma.AuditLogCreateInput> & Record<string, unknown>,
+): unknown {
+  return objectContainingMatcher({
+    data: objectContainingMatcher(data),
+  });
+}
+
+/**
  * Typed matcher for prisma.seat.createMany calls.
  * Accepts array of partial SeatCreateManyInput items (checked via arrayContaining).
  */
