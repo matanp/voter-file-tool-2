@@ -51,6 +51,21 @@ enum ResignationMethod {
   MAIL
 }
 
+enum AuditAction {
+  MEMBER_SUBMITTED
+  MEMBER_REJECTED
+  MEMBER_CONFIRMED
+  MEMBER_ACTIVATED
+  MEMBER_RESIGNED
+  MEMBER_REMOVED
+  PETITION_RECORDED
+  MEETING_CREATED
+  REPORT_GENERATED
+  TERM_CREATED
+  JURISDICTION_ASSIGNED
+  DISCREPANCY_RESOLVED
+}
+
 model User {
   id             String          @id @default(cuid())
   name           String?
@@ -69,6 +84,9 @@ model User {
 
   // SRS 1.2 — CommitteeMembership relations
   submittedMemberships CommitteeMembership[]  @relation("SubmittedMemberships")
+
+  // SRS 1.5 — Audit trail
+  auditLogs            AuditLog[]             @relation("AuditLogs")
 }
 
 model Account {
@@ -358,6 +376,29 @@ model CommitteeMembership {
   @@index([committeeListId, termId, status])
   @@index([termId, status])
   @@index([voterRecordId])
+}
+
+// ============================================================================
+// SRS §1.5 — Immutable audit trail for all system changes.
+// Write-once: no update or delete operations permitted.
+// ============================================================================
+model AuditLog {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation("AuditLogs", fields: [userId], references: [id])
+  userRole    PrivilegeLevel
+  action      AuditAction
+  entityType  String         // e.g. "CommitteeMembership", "MeetingRecord"
+  entityId    String         // ID of the affected record
+  timestamp   DateTime       @default(now())
+  beforeValue Json?          // Snapshot before change
+  afterValue  Json?          // Snapshot after change
+  metadata    Json?          // Additional context (override reason, bypass notes, etc.)
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([action])
 }
 
 model DropdownLists {
