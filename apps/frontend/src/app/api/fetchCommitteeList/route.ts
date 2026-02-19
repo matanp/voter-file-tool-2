@@ -72,6 +72,8 @@ async function getCommitteeList(req: NextRequest) {
           where: { status: "ACTIVE", termId: activeTermId },
           include: { voterRecord: true },
         },
+        // SRS 1.4 — Seat roster with weight
+        seats: { orderBy: { seatNumber: "asc" } },
       },
     });
 

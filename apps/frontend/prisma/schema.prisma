@@ -264,6 +264,7 @@ model CommitteeTerm {
 
   committeeLists CommitteeList[]
   memberships    CommitteeMembership[]
+  seats          Seat[]
 }
 
 model CommitteeList {
@@ -273,12 +274,29 @@ model CommitteeList {
   electionDistrict            Int
   termId                      String
   term                        CommitteeTerm                @relation(fields: [termId], references: [id], onDelete: Restrict)
+  ltedWeight                  Decimal?                     // SRS §8.1 — LTED total weight; seat weight = ltedWeight / maxSeatsPerLted
   committeeMemberList         VoterRecord[]                // deprecated — see ticket 3.0
   CommitteeRequest            CommitteeRequest[]
   CommitteeDiscrepancyRecords CommitteeUploadDiscrepancy[]
   memberships                 CommitteeMembership[]
+  seats                       Seat[]
 
   @@unique([cityTown, legDistrict, electionDistrict, termId])
+}
+
+// SRS 1.4 — Explicit seat model for weight tracking (§8.1, §8.2)
+model Seat {
+  id              String        @id @default(cuid())
+  committeeList   CommitteeList @relation(fields: [committeeListId], references: [id])
+  committeeListId Int
+  term            CommitteeTerm @relation(fields: [termId], references: [id])
+  termId          String
+  seatNumber      Int           // 1–maxSeatsPerLted
+  isPetitioned    Boolean       @default(false) // Immutable for term; set by petition workflow (future)
+  weight          Decimal?     // ltedWeight / maxSeatsPerLted — null until LTED weight known
+
+  @@unique([committeeListId, termId, seatNumber])
+  @@index([committeeListId, termId])
 }
 
 model CommitteeRequest {

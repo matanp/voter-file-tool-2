@@ -7,11 +7,19 @@ export type CommitteeMembershipSubmissionMetadata = {
   requestNotes?: string;
 };
 
-/** Response shape from /api/fetchCommitteeList with memberships + voterRecord + maxSeatsPerLted. */
+/** Response shape from /api/fetchCommitteeList with memberships + voterRecord + seats + maxSeatsPerLted. */
 export type FetchCommitteeListResponse = CommitteeList & {
+  ltedWeight?: number | string | null;
   memberships: Array<{
     voterRecord: VoterRecord;
     membershipType: MembershipType | null;
+    seatNumber?: number | null;
+  }>;
+  seats?: Array<{
+    id: string;
+    seatNumber: number;
+    isPetitioned: boolean;
+    weight: number | string | null;
   }>;
   maxSeatsPerLted?: number;
 };
@@ -164,6 +172,17 @@ export const handleCommitteeRequestDataSchema = z
         message: "Accept or reject must be either 'accept' or 'reject'",
       }),
     }),
+  })
+  .strict();
+
+// Update LTED weight (SRS 1.4)
+export const updateLtedWeightSchema = z
+  .object({
+    committeeListId: z.coerce.number().int().positive(),
+    ltedWeight: z
+      .number()
+      .nonnegative("LTED weight must be non-negative")
+      .nullable(),
   })
   .strict();
 

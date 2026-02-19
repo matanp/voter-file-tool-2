@@ -9,6 +9,7 @@ import {
   findDiscrepancies,
 } from "../../lib/utils";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import { ensureSeatsExist } from "~/app/api/lib/seatUtils";
 
 const committeeData = new Map<
   string,
@@ -90,6 +91,7 @@ export async function loadCommitteeLists() {
             legDistrict,
             electionDistrict,
             termId: activeTermId,
+            ltedWeight: null,
           },
         });
         foundDiscrepancy++;
@@ -106,6 +108,7 @@ export async function loadCommitteeLists() {
           legDistrict,
           electionDistrict,
           termId: activeTermId,
+          ltedWeight: null,
         },
       });
     }
@@ -148,6 +151,8 @@ export async function loadCommitteeLists() {
       create: { ...committeeList, termId: activeTermId },
       update: committeeList,
     });
+
+    await ensureSeatsExist(committee.id, activeTermId);
 
     await prisma.voterRecord.updateMany({
       where: {

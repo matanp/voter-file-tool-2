@@ -12,6 +12,10 @@ import {
   isVoterActiveInAnotherCommittee,
   countActiveMembers,
 } from "~/app/api/lib/committeeValidation";
+import {
+  assignNextAvailableSeat,
+  ensureSeatsExist,
+} from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
 
@@ -56,6 +60,8 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       },
     });
 
+    await ensureSeatsExist(committee.id, activeTermId);
+
     // Check for existing CommitteeMembership (idempotent — any non-terminal status)
     const existingMembership = await prisma.committeeMembership.findUnique({
       where: {
@@ -97,6 +103,8 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
       );
     }
 
+    const seatNumber = await assignNextAvailableSeat(committee.id, activeTermId);
+
     // Create CommitteeMembership with status=ACTIVE (admin direct-add)
     if (existingMembership) {
       // Re-activate a previously non-active membership
@@ -106,6 +114,7 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           status: "ACTIVE",
           activatedAt: new Date(),
           membershipType,
+          seatNumber,
         },
       });
     } else {
@@ -117,6 +126,7 @@ async function addCommitteeHandler(req: NextRequest, _session: Session) {
           status: "ACTIVE",
           activatedAt: new Date(),
           membershipType,
+          seatNumber,
         },
       });
     }

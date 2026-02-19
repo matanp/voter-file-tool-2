@@ -4,6 +4,7 @@ import React from "react";
 import { CommitteeUploadDiscrepancies } from "./CommitteeUploadDiscrepancies";
 import { InviteManagement } from "./InviteManagement";
 import { VoterImport } from "./VoterImport";
+import { WeightedTableImport } from "./WeightedTableImport";
 import { AbsenteeReport } from "./AbsenteeReport";
 import { ElectionConfigTab } from "./ElectionConfigTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
@@ -21,10 +22,11 @@ export const AdminDataClient = ({
   return (
     <div className="w-full m-4 h-full">
       <Tabs defaultValue="invites" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 overflow-x-auto">
+        <TabsList className="grid w-full grid-cols-6 overflow-x-auto">
           <TabsTrigger value="invites">Invites</TabsTrigger>
           <TabsTrigger value="election-config">Election Config</TabsTrigger>
           <TabsTrigger value="voter-import">Voter Import</TabsTrigger>
+          <TabsTrigger value="weighted-table">Weighted Table</TabsTrigger>
           <TabsTrigger value="discrepancies">Discrepancies</TabsTrigger>
           <TabsTrigger value="absentee-report">Absentee Report</TabsTrigger>
         </TabsList>
@@ -39,6 +41,9 @@ export const AdminDataClient = ({
         </TabsContent>
         <TabsContent value="voter-import">
           <VoterImport />
+        </TabsContent>
+        <TabsContent value="weighted-table">
+          <WeightedTableImport />
         </TabsContent>
         <TabsContent value="discrepancies">
           <CommitteeUploadDiscrepancies />
