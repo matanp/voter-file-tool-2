@@ -17,6 +17,49 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 
+type CommitteeIdentity = {
+  cityTown: string;
+  legDistrict: number;
+  electionDistrict: number;
+  termId: string;
+};
+
+function formatCommitteeIdentity(committee: CommitteeIdentity): string {
+  return `${committee.cityTown}-${committee.legDistrict}-${committee.electionDistrict}`;
+}
+
+function ensureImportDiscrepancy(
+  discrepanciesMap: Map<string, DiscrepanciesAndCommittee>,
+  voterRecordId: string,
+  committee: CommitteeIdentity,
+  key: string,
+  incoming: string,
+  existing: string,
+) {
+  const existingEntry = discrepanciesMap.get(voterRecordId);
+  const nextDiscrepancies = {
+    ...(existingEntry?.discrepancies ?? {}),
+    [key]: {
+      incoming,
+      existing,
+    },
+  };
+
+  discrepanciesMap.set(voterRecordId, {
+    discrepancies: nextDiscrepancies,
+    committee:
+      existingEntry?.committee ??
+      {
+        id: 0,
+        cityTown: committee.cityTown,
+        legDistrict: committee.legDistrict,
+        electionDistrict: committee.electionDistrict,
+        termId: committee.termId,
+        ltedWeight: null,
+      },
+  });
+}
+
 export async function loadCommitteeLists() {
   const committeeData = new Map<
     string,
@@ -144,9 +187,74 @@ export async function loadCommitteeLists() {
     }
   }
 
+  const voterAssignments = new Map<string, CommitteeIdentity[]>();
+
+  for (const [, value] of committeeData.entries()) {
+    const committeeIdentity: CommitteeIdentity = {
+      cityTown: value.data.cityTown,
+      legDistrict: value.data.legDistrict,
+      electionDistrict: value.data.electionDistrict,
+      termId: activeTermId,
+    };
+    const importedMembers = Array.from(new Set(value.committeeMembers));
+    for (const voterRecordId of importedMembers) {
+      const existingAssignments = voterAssignments.get(voterRecordId) ?? [];
+      existingAssignments.push(committeeIdentity);
+      voterAssignments.set(voterRecordId, existingAssignments);
+    }
+  }
+
+  const duplicateAssignments = new Set<string>();
+  for (const [voterRecordId, assignments] of voterAssignments.entries()) {
+    if (assignments.length <= 1) continue;
+    duplicateAssignments.add(voterRecordId);
+    ensureImportDiscrepancy(
+      discrepanciesMap,
+      voterRecordId,
+      assignments[0]!,
+      "committeeAssignmentConflict",
+      assignments.map((assignment) => formatCommitteeIdentity(assignment)).join(" | "),
+      "Voter appears in multiple committees in the same bulk import",
+    );
+  }
+
+  const importedVoterIds = Array.from(voterAssignments.keys()).filter(
+    (voterRecordId) => !duplicateAssignments.has(voterRecordId),
+  );
+
+  const activeMemberships = importedVoterIds.length
+    ? await prisma.committeeMembership.findMany({
+        where: {
+          voterRecordId: { in: importedVoterIds },
+          termId: activeTermId,
+          status: "ACTIVE",
+        },
+        select: {
+          voterRecordId: true,
+          committeeListId: true,
+        },
+      })
+    : [];
+
+  const initiallyActiveCommittees = new Map<string, Set<number>>();
+  for (const membership of activeMemberships) {
+    const existing = initiallyActiveCommittees.get(membership.voterRecordId);
+    if (existing) {
+      existing.add(membership.committeeListId);
+      continue;
+    }
+    initiallyActiveCommittees.set(
+      membership.voterRecordId,
+      new Set([membership.committeeListId]),
+    );
+  }
+
   for (const [, value] of committeeData.entries()) {
     const committeeList = value.data;
-    const importedMembers = Array.from(new Set(value.committeeMembers));
+    const uniqueImportedMembers = Array.from(new Set(value.committeeMembers));
+    const importedMembers = uniqueImportedMembers.filter(
+      (voterRecordId) => !duplicateAssignments.has(voterRecordId),
+    );
 
     if (importedMembers.length === 0) {
       await prisma.committeeList.upsert({
@@ -197,7 +305,14 @@ export async function loadCommitteeLists() {
         maxSeats: config.maxSeatsPerLted,
       });
 
-      const importedSet = new Set(importedMembers);
+      const importedSet = new Set(uniqueImportedMembers);
+      const committeeIdentity: CommitteeIdentity = {
+        cityTown: committee.cityTown,
+        legDistrict: committee.legDistrict,
+        electionDistrict: committee.electionDistrict,
+        termId: activeTermId,
+      };
+      const formattedCommittee = formatCommitteeIdentity(committeeIdentity);
 
       // Reconcile removals first so new activations can safely claim seats.
       const existingActiveMemberships = await tx.committeeMembership.findMany({
@@ -228,6 +343,44 @@ export async function loadCommitteeLists() {
       }
 
       for (const voterRecordId of importedMembers) {
+        const initiallyActiveElsewhere = Array.from(
+          initiallyActiveCommittees.get(voterRecordId) ?? [],
+        ).some((committeeListId) => committeeListId !== committee.id);
+
+        if (initiallyActiveElsewhere) {
+          ensureImportDiscrepancy(
+            discrepanciesMap,
+            voterRecordId,
+            committeeIdentity,
+            "alreadyActiveInAnotherCommittee",
+            formattedCommittee,
+            "Voter is already active in another committee for this term",
+          );
+          continue;
+        }
+
+        const currentlyActiveElsewhere = await tx.committeeMembership.findFirst({
+          where: {
+            voterRecordId,
+            termId: activeTermId,
+            status: "ACTIVE",
+            committeeListId: { not: committee.id },
+          },
+          select: { id: true },
+        });
+
+        if (currentlyActiveElsewhere) {
+          ensureImportDiscrepancy(
+            discrepanciesMap,
+            voterRecordId,
+            committeeIdentity,
+            "alreadyActiveInAnotherCommittee",
+            formattedCommittee,
+            "Voter is already active in another committee for this term",
+          );
+          continue;
+        }
+
         const existingMembership = await tx.committeeMembership.findUnique({
           where: {
             voterRecordId_committeeListId_termId: {
