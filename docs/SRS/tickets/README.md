@@ -17,12 +17,12 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 7. ~~[1.4 Seat Model](1.4-seat-model.md)~~ — **Done**
 8. ~~[1.5 Audit Trail Infrastructure](1.5-audit-trail-infrastructure.md)~~ — **Done** (1.5a → 1.5b → 1.5c)
 9. **Current queue (Phase 1 follow-up remediation):** [1.R.1 Leader Privilege Escalation](1.R.1-leader-privilege-escalation.md) (P0, first)
-10. [1.R.2 requestAdd Resubmission for Non-Active Memberships](1.R.2-requestAdd-resubmission-non-active.md) (P1)
-11. [1.R.3 Replacement Flow Not Implemented](1.R.3-replacement-flow-not-implemented.md) (P1)
-12. [1.R.4 Bulk Import Incompatible with Phase 1 Schema](1.R.4-bulk-import-phase1-incompatible.md) (P1)
-13. [1.R.5 Source-of-Truth Split](1.R.5-source-of-truth-split.md) (P1)
-14. [1.R.6 Audit Tests Fail](1.R.6-audit-tests-fail.md) (P2)
-15. [1.R.7 Capacity + Seat Assignment Non-Atomic](1.R.7-capacity-seat-assignment-non-atomic.md) (P2)
+10. ~~[1.R.2 requestAdd Resubmission for Non-Active Memberships](1.R.2-requestAdd-resubmission-non-active.md)~~ — **Resolved**
+11. ~~[1.R.3 Replacement Flow Not Implemented](1.R.3-replacement-flow-not-implemented.md)~~ — **Resolved**
+12. [1.R.4 Bulk Import Incompatible with Phase 1 Schema](1.R.4-bulk-import-phase1-incompatible.md) — **In Progress**
+13. [1.R.5 Source-of-Truth Split](1.R.5-source-of-truth-split.md) — **In Progress**
+14. ~~[1.R.6 Audit Tests Fail](1.R.6-audit-tests-fail.md)~~ — **Resolved**
+15. [1.R.7 Capacity + Seat Assignment Non-Atomic](1.R.7-capacity-seat-assignment-non-atomic.md) — **In Progress**
 16. **After follow-up queue:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
 
 ---
@@ -69,12 +69,12 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | ID | Title | Status | Priority | Depends on |
 | --- | --- | --- | --- | --- |
 | [1.R.1](1.R.1-leader-privilege-escalation.md) | Leader Privilege Escalation | Open | P0 (Critical) | — |
-| [1.R.2](1.R.2-requestAdd-resubmission-non-active.md) | requestAdd Resubmission for Non-Active Memberships | Open | P1 | 1.2 |
-| [1.R.3](1.R.3-replacement-flow-not-implemented.md) | Replacement Flow Not Implemented in handleRequest | Open | P1 | 1.2, T1.1 |
-| [1.R.4](1.R.4-bulk-import-phase1-incompatible.md) | Bulk Import Incompatible with Phase 1 Schema | Open | P1 | 1.2, 1.4 |
-| [1.R.5](1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | Open | P1 | 1.2, 1.R.4 |
-| [1.R.6](1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | Open | P2 | 1.5b |
-| [1.R.7](1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | Open | P2 | 1.2, 1.4 |
+| [1.R.2](1.R.2-requestAdd-resubmission-non-active.md) | requestAdd Resubmission for Non-Active Memberships | Resolved | P1 | 1.2 |
+| [1.R.3](1.R.3-replacement-flow-not-implemented.md) | Replacement Flow Not Implemented in handleRequest | Resolved | P1 | 1.2, T1.1 |
+| [1.R.4](1.R.4-bulk-import-phase1-incompatible.md) | Bulk Import Incompatible with Phase 1 Schema | In Progress | P1 | 1.2, 1.4 |
+| [1.R.5](1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | In Progress | P1 | 1.2, 1.R.4 |
+| [1.R.6](1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | Resolved | P2 | 1.5b |
+| [1.R.7](1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | In Progress | P2 | 1.2, 1.4 |
 
 ### Tier 2 — Lifecycle Workflows
 

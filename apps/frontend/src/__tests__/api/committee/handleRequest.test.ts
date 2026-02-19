@@ -105,6 +105,105 @@ describe("/api/committee/handleRequest", () => {
       ).not.toHaveBeenCalled();
     });
 
+    it("should remove replacement target when accepting a request with removeMemberId", async () => {
+      const mockRequestData = createMockHandleRequestData({
+        acceptOrReject: "accept",
+      });
+      const submittedMembership = createMockMembership({
+        id: "membership-test-id-001",
+        status: "SUBMITTED",
+        submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
+      });
+      const replacementTargetMembership = createMockMembership({
+        id: "membership-target-id-002",
+        voterRecordId: "OLD_MEMBER_ID",
+        status: "ACTIVE",
+        seatNumber: 2,
+      });
+
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      getMembershipMock(prismaMock).findUnique
+        .mockResolvedValueOnce(submittedMembership)
+        .mockResolvedValueOnce(submittedMembership)
+        .mockResolvedValueOnce(replacementTargetMembership);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectSuccessResponse(
+        response,
+        { message: "Request accepted" },
+        200,
+      );
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          {
+            status: "REMOVED",
+            removalReason: "OTHER",
+          },
+          { id: "membership-target-id-002" },
+        ),
+      );
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          {
+            status: "ACTIVE",
+            membershipType: "APPOINTED",
+          },
+          { id: "membership-test-id-001" },
+        ),
+      );
+    });
+
+    it("should return 422 when replacement target is not found or no longer active", async () => {
+      const mockRequestData = createMockHandleRequestData({
+        acceptOrReject: "accept",
+      });
+      const submittedMembership = createMockMembership({
+        id: "membership-test-id-001",
+        status: "SUBMITTED",
+        submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
+      });
+
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      getMembershipMock(prismaMock).findUnique
+        .mockResolvedValueOnce(submittedMembership)
+        .mockResolvedValueOnce(submittedMembership)
+        .mockResolvedValueOnce(null);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(
+        response,
+        422,
+        "Replacement target not found or no longer active",
+      );
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          { status: "ACTIVE" },
+          { id: "membership-test-id-001" },
+        ),
+      );
+    });
+
     it("should return 404 when membership is not found", async () => {
       const mockRequestData = createMockHandleRequestData();
       mockAuthSession(

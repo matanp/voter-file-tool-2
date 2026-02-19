@@ -8,15 +8,21 @@ import {
   type DiscrepanciesAndCommittee,
   findDiscrepancies,
 } from "../../lib/utils";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
-import { ensureSeatsExist } from "~/app/api/lib/seatUtils";
-
-const committeeData = new Map<
-  string,
-  { data: Prisma.CommitteeListCreateManyInput; committeeMembers: string[] }
->();
+import {
+  getActiveTermId,
+  getGovernanceConfig,
+} from "~/app/api/lib/committeeValidation";
+import {
+  assignNextAvailableSeat,
+  ensureSeatsExist,
+} from "~/app/api/lib/seatUtils";
 
 export async function loadCommitteeLists() {
+  const committeeData = new Map<
+    string,
+    { data: Prisma.CommitteeListCreateManyInput; committeeMembers: string[] }
+  >();
+
   const filePath = "data/Committee-File-2025-05-15.xlsx";
   // const filePath = "data/DemocraticCommitteeExport.xlsx";
 
@@ -33,12 +39,13 @@ export async function loadCommitteeLists() {
     throw new Error("Committee export sheet not found");
   }
 
-  const unkownCommitteeData: unknown[] =
+  const unknownCommitteeData: unknown[] =
     xlsx.utils.sheet_to_json(committeeExportSheet);
 
-  const committeeExportData = unkownCommitteeData as Record<string, string>[];
+  const committeeExportData = unknownCommitteeData as Record<string, string>[];
 
   const activeTermId = await getActiveTermId();
+  const config = await getGovernanceConfig();
 
   let count = 0;
   let found = 0;
@@ -119,8 +126,11 @@ export async function loadCommitteeLists() {
       throw new Error("Invalid committee data");
     }
 
-    if (committeeData.has(mapKey) && !recordHasDiscrepancies) {
-      committeeData.get(mapKey)?.committeeMembers.push(VRCNUM);
+    const existingCommittee = committeeData.get(mapKey);
+    if (existingCommittee) {
+      if (!recordHasDiscrepancies) {
+        existingCommittee.committeeMembers.push(VRCNUM);
+      }
     } else {
       committeeData.set(mapKey, {
         data: {
@@ -134,35 +144,143 @@ export async function loadCommitteeLists() {
     }
   }
 
-  await prisma.committeeList.deleteMany({});
-
   for (const [, value] of committeeData.entries()) {
     const committeeList = value.data;
+    const importedMembers = Array.from(new Set(value.committeeMembers));
 
-    const committee = await prisma.committeeList.upsert({
-      where: {
-        cityTown_legDistrict_electionDistrict_termId: {
-          cityTown: committeeList.cityTown,
-          legDistrict: committeeList.legDistrict,
-          electionDistrict: committeeList.electionDistrict,
+    if (importedMembers.length === 0) {
+      await prisma.committeeList.upsert({
+        where: {
+          cityTown_legDistrict_electionDistrict_termId: {
+            cityTown: committeeList.cityTown,
+            legDistrict: committeeList.legDistrict,
+            electionDistrict: committeeList.electionDistrict,
+            termId: activeTermId,
+          },
+        },
+        create: { ...committeeList, termId: activeTermId },
+        update: committeeList,
+      });
+      continue;
+    }
+
+    if (importedMembers.length > config.maxSeatsPerLted) {
+      throw new Error(
+        `Committee ${committeeList.cityTown}-${committeeList.legDistrict}-${committeeList.electionDistrict} has ${importedMembers.length} members, exceeding maxSeatsPerLted=${config.maxSeatsPerLted}`,
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const committee = await tx.committeeList.upsert({
+        where: {
+          cityTown_legDistrict_electionDistrict_termId: {
+            cityTown: committeeList.cityTown,
+            legDistrict: committeeList.legDistrict,
+            electionDistrict: committeeList.electionDistrict,
+            termId: activeTermId,
+          },
+        },
+        create: { ...committeeList, termId: activeTermId },
+        update: committeeList,
+      });
+
+      // Lock committee row while reconciling capacity + seat assignments.
+      await tx.$queryRaw`
+        SELECT id
+        FROM "CommitteeList"
+        WHERE id = ${committee.id}
+        FOR UPDATE
+      `;
+
+      await ensureSeatsExist(committee.id, activeTermId, {
+        tx,
+        maxSeats: config.maxSeatsPerLted,
+      });
+
+      const importedSet = new Set(importedMembers);
+
+      // Reconcile removals first so new activations can safely claim seats.
+      const existingActiveMemberships = await tx.committeeMembership.findMany({
+        where: {
+          committeeListId: committee.id,
           termId: activeTermId,
+          status: "ACTIVE",
         },
-      },
-      create: { ...committeeList, termId: activeTermId },
-      update: committeeList,
-    });
-
-    await ensureSeatsExist(committee.id, activeTermId);
-
-    await prisma.voterRecord.updateMany({
-      where: {
-        VRCNUM: {
-          in: value.committeeMembers,
+        select: {
+          id: true,
+          voterRecordId: true,
         },
-      },
-      data: {
-        committeeId: committee.id,
-      },
+      });
+
+      for (const membership of existingActiveMemberships) {
+        if (!importedSet.has(membership.voterRecordId)) {
+          await tx.committeeMembership.update({
+            where: { id: membership.id },
+            data: {
+              status: "REMOVED",
+              removedAt: new Date(),
+              removalReason: "OTHER",
+              removalNotes: "Removed by bulk import synchronization",
+              seatNumber: null,
+            },
+          });
+        }
+      }
+
+      for (const voterRecordId of importedMembers) {
+        const existingMembership = await tx.committeeMembership.findUnique({
+          where: {
+            voterRecordId_committeeListId_termId: {
+              voterRecordId,
+              committeeListId: committee.id,
+              termId: activeTermId,
+            },
+          },
+        });
+
+        let seatNumber = existingMembership?.seatNumber ?? null;
+        if (!(existingMembership?.status === "ACTIVE" && seatNumber !== null)) {
+          seatNumber = await assignNextAvailableSeat(committee.id, activeTermId, {
+            tx,
+            maxSeats: config.maxSeatsPerLted,
+          });
+        }
+
+        if (existingMembership) {
+          await tx.committeeMembership.update({
+            where: { id: existingMembership.id },
+            data: {
+              status: "ACTIVE",
+              activatedAt: existingMembership.activatedAt ?? new Date(),
+              membershipType: existingMembership.membershipType ?? "APPOINTED",
+              seatNumber,
+              confirmedAt: null,
+              resignedAt: null,
+              removedAt: null,
+              rejectedAt: null,
+              rejectionNote: null,
+              resignationDateReceived: null,
+              resignationMethod: null,
+              removalReason: null,
+              removalNotes: null,
+              petitionVoteCount: null,
+              petitionPrimaryDate: null,
+            },
+          });
+        } else {
+          await tx.committeeMembership.create({
+            data: {
+              voterRecordId,
+              committeeListId: committee.id,
+              termId: activeTermId,
+              status: "ACTIVE",
+              activatedAt: new Date(),
+              membershipType: "APPOINTED",
+              seatNumber,
+            },
+          });
+        }
+      }
     });
   }
 

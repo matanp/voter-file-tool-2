@@ -9,8 +9,6 @@ import {
   ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
   getActiveTermId,
   getGovernanceConfig,
-  isVoterActiveInAnotherCommittee,
-  countActiveMembers,
 } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
@@ -42,39 +40,149 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
     const activeTermId = await getActiveTermId();
     const config = await getGovernanceConfig();
 
-    // Upsert the CommitteeList record (still needed as the FK target for CommitteeMembership)
-    const committee = await prisma.committeeList.upsert({
-      where: {
-        cityTown_legDistrict_electionDistrict_termId: {
+    const outcome = await prisma.$transaction(async (tx) => {
+      // Upsert the CommitteeList record (still needed as the FK target for CommitteeMembership)
+      const committee = await tx.committeeList.upsert({
+        where: {
+          cityTown_legDistrict_electionDistrict_termId: {
+            cityTown,
+            legDistrict: legDistrictForDb,
+            electionDistrict,
+            termId: activeTermId,
+          },
+        },
+        update: {},
+        create: {
           cityTown,
           legDistrict: legDistrictForDb,
           electionDistrict,
           termId: activeTermId,
         },
-      },
-      update: {},
-      create: {
-        cityTown,
-        legDistrict: legDistrictForDb,
-        electionDistrict,
-        termId: activeTermId,
-      },
-    });
+      });
 
-    await ensureSeatsExist(committee.id, activeTermId);
+      // Lock committee row for atomic capacity+seat assignment (1.R.7).
+      await tx.$queryRaw`
+        SELECT id
+        FROM "CommitteeList"
+        WHERE id = ${committee.id}
+        FOR UPDATE
+      `;
 
-    // Check for existing CommitteeMembership (idempotent — any non-terminal status)
-    const existingMembership = await prisma.committeeMembership.findUnique({
-      where: {
-        voterRecordId_committeeListId_termId: {
+      await ensureSeatsExist(committee.id, activeTermId, {
+        tx,
+        maxSeats: config.maxSeatsPerLted,
+      });
+
+      // Check for existing CommitteeMembership (idempotent — any non-terminal status)
+      const existingMembership = await tx.committeeMembership.findUnique({
+        where: {
+          voterRecordId_committeeListId_termId: {
+            voterRecordId: memberId,
+            committeeListId: committee.id,
+            termId: activeTermId,
+          },
+        },
+      });
+
+      if (existingMembership?.status === "ACTIVE") {
+        return { kind: "idempotent" } as const;
+      }
+
+      // SRS §7.1: Reject if voter is already ACTIVE in another committee for this term
+      const activeInAnotherCommittee = await tx.committeeMembership.findFirst({
+        where: {
           voterRecordId: memberId,
+          termId: activeTermId,
+          status: "ACTIVE",
+          NOT: { committeeListId: committee.id },
+        },
+        select: { id: true },
+      });
+
+      if (activeInAnotherCommittee) {
+        return { kind: "anotherCommittee" } as const;
+      }
+
+      // SRS §7.1: Capacity check — count ACTIVE CommitteeMembership records for this committee+term
+      const activeCount = await tx.committeeMembership.count({
+        where: {
           committeeListId: committee.id,
           termId: activeTermId,
+          status: "ACTIVE",
         },
-      },
+      });
+      if (activeCount >= config.maxSeatsPerLted) {
+        return { kind: "atCapacity" } as const;
+      }
+
+      const seatNumber = await assignNextAvailableSeat(committee.id, activeTermId, {
+        tx,
+        maxSeats: config.maxSeatsPerLted,
+      });
+
+      // Create CommitteeMembership with status=ACTIVE (admin direct-add)
+      if (existingMembership) {
+        // Re-activate a previously non-active membership.
+        await tx.committeeMembership.update({
+          where: { id: existingMembership.id },
+          data: {
+            status: "ACTIVE",
+            activatedAt: new Date(),
+            membershipType,
+            seatNumber,
+            confirmedAt: null,
+            resignedAt: null,
+            removedAt: null,
+            rejectedAt: null,
+            rejectionNote: null,
+            resignationDateReceived: null,
+            resignationMethod: null,
+            removalReason: null,
+            removalNotes: null,
+            petitionVoteCount: null,
+            petitionPrimaryDate: null,
+          },
+        });
+        await logAuditEvent(
+          session.user.id,
+          session.user.privilegeLevel,
+          "MEMBER_ACTIVATED",
+          "CommitteeMembership",
+          existingMembership.id,
+          { status: existingMembership.status },
+          { status: "ACTIVE" },
+          undefined,
+          tx,
+        );
+      } else {
+        const newMembership = await tx.committeeMembership.create({
+          data: {
+            voterRecordId: memberId,
+            committeeListId: committee.id,
+            termId: activeTermId,
+            status: "ACTIVE",
+            activatedAt: new Date(),
+            membershipType,
+            seatNumber,
+          },
+        });
+        await logAuditEvent(
+          session.user.id,
+          session.user.privilegeLevel,
+          "MEMBER_ACTIVATED",
+          "CommitteeMembership",
+          newMembership.id,
+          null,
+          { status: "ACTIVE" },
+          undefined,
+          tx,
+        );
+      }
+
+      return { kind: "added" } as const;
     });
 
-    if (existingMembership?.status === "ACTIVE") {
+    if (outcome.kind === "idempotent") {
       return NextResponse.json(
         {
           success: true,
@@ -85,68 +193,17 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
       );
     }
 
-    // SRS §7.1: Reject if voter is already ACTIVE in another committee for this term
-    if (
-      await isVoterActiveInAnotherCommittee(memberId, committee.id, activeTermId)
-    ) {
+    if (outcome.kind === "anotherCommittee") {
       return NextResponse.json(
         { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
         { status: 400 },
       );
     }
 
-    // SRS §7.1: Capacity check — count ACTIVE CommitteeMembership records for this committee+term
-    const activeCount = await countActiveMembers(committee.id, activeTermId);
-    if (activeCount >= config.maxSeatsPerLted) {
+    if (outcome.kind === "atCapacity") {
       return NextResponse.json(
         { success: false, error: "Committee is at capacity" },
         { status: 400 },
-      );
-    }
-
-    const seatNumber = await assignNextAvailableSeat(committee.id, activeTermId);
-
-    // Create CommitteeMembership with status=ACTIVE (admin direct-add)
-    if (existingMembership) {
-      // Re-activate a previously non-active membership
-      await prisma.committeeMembership.update({
-        where: { id: existingMembership.id },
-        data: {
-          status: "ACTIVE",
-          activatedAt: new Date(),
-          membershipType,
-          seatNumber,
-        },
-      });
-      await logAuditEvent(
-        session.user.id,
-        session.user.privilegeLevel as PrivilegeLevel,
-        "MEMBER_ACTIVATED",
-        "CommitteeMembership",
-        existingMembership.id,
-        { status: existingMembership.status },
-        { status: "ACTIVE" },
-      );
-    } else {
-      const newMembership = await prisma.committeeMembership.create({
-        data: {
-          voterRecordId: memberId,
-          committeeListId: committee.id,
-          termId: activeTermId,
-          status: "ACTIVE",
-          activatedAt: new Date(),
-          membershipType,
-          seatNumber,
-        },
-      });
-      await logAuditEvent(
-        session.user.id,
-        session.user.privilegeLevel as PrivilegeLevel,
-        "MEMBER_ACTIVATED",
-        "CommitteeMembership",
-        newMembership.id,
-        null,
-        { status: "ACTIVE" },
       );
     }
 

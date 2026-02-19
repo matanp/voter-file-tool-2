@@ -99,6 +99,20 @@ jest.mock("@prisma/client", () => {
       DECEASED: "DECEASED",
       OTHER: "OTHER",
     },
+    AuditAction: {
+      MEMBER_SUBMITTED: "MEMBER_SUBMITTED",
+      MEMBER_REJECTED: "MEMBER_REJECTED",
+      MEMBER_CONFIRMED: "MEMBER_CONFIRMED",
+      MEMBER_ACTIVATED: "MEMBER_ACTIVATED",
+      MEMBER_RESIGNED: "MEMBER_RESIGNED",
+      MEMBER_REMOVED: "MEMBER_REMOVED",
+      PETITION_RECORDED: "PETITION_RECORDED",
+      MEETING_CREATED: "MEETING_CREATED",
+      REPORT_GENERATED: "REPORT_GENERATED",
+      TERM_CREATED: "TERM_CREATED",
+      JURISDICTION_ASSIGNED: "JURISDICTION_ASSIGNED",
+      DISCREPANCY_RESOLVED: "DISCREPANCY_RESOLVED",
+    },
     Prisma: {
       ...actual.Prisma,
       PrismaClientKnownRequestError: class extends Error {
@@ -238,4 +252,15 @@ beforeEach(() => {
   ).auditLog = {
     create: jest.fn(),
   };
+  (prismaMock.$transaction as jest.Mock).mockImplementation(
+    async (arg: unknown): Promise<unknown> => {
+      if (typeof arg === "function") {
+        return (arg as (tx: PrismaClient) => Promise<unknown>)(prismaMock);
+      }
+      if (Array.isArray(arg)) {
+        return Promise.all(arg as Promise<unknown>[]);
+      }
+      return arg;
+    },
+  );
 });

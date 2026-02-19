@@ -1,8 +1,13 @@
-import { type AuditAction, type PrivilegeLevel } from "@prisma/client";
+import { type AuditAction, type Prisma, type PrivilegeLevel } from "@prisma/client";
 import type { JsonValue } from "@prisma/client/runtime/library";
 import prisma from "./prisma";
 
 export const SYSTEM_USER_ID = "system";
+type AuditLogClient = {
+  auditLog: {
+    create: (args: Prisma.AuditLogCreateArgs) => Promise<unknown>;
+  };
+};
 
 export async function logAuditEvent(
   userId: string,
@@ -13,9 +18,10 @@ export async function logAuditEvent(
   before?: Record<string, unknown> | null,
   after?: Record<string, unknown> | null,
   metadata?: Record<string, unknown>,
+  client: AuditLogClient = prisma,
 ): Promise<void> {
   try {
-    await prisma.auditLog.create({
+    await client.auditLog.create({
       data: {
         userId,
         userRole,

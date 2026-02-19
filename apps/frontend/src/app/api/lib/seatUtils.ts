@@ -7,6 +7,32 @@ import prisma from "~/lib/prisma";
 import { getGovernanceConfig } from "./committeeValidation";
 
 const ACTIVE_STATUS = "ACTIVE";
+type SeatUtilsClient = Pick<
+  typeof prisma,
+  "seat" | "committeeMembership" | "committeeGovernanceConfig"
+>;
+
+type SeatUtilsOptions = {
+  tx?: Prisma.TransactionClient;
+  maxSeats?: number;
+};
+
+async function resolveMaxSeats(
+  db: SeatUtilsClient,
+  maxSeats?: number,
+): Promise<number> {
+  if (typeof maxSeats === "number") return maxSeats;
+  const config =
+    db === prisma
+      ? await getGovernanceConfig()
+      : await db.committeeGovernanceConfig.findFirst();
+
+  if (!config) {
+    throw new Error("CommitteeGovernanceConfig not found — run seed");
+  }
+
+  return config.maxSeatsPerLted;
+}
 
 /**
  * Ensures maxSeatsPerLted Seat records exist for the given committee+term.
@@ -15,17 +41,18 @@ const ACTIVE_STATUS = "ACTIVE";
 export async function ensureSeatsExist(
   committeeListId: number,
   termId: string,
+  options?: SeatUtilsOptions,
 ): Promise<void> {
-  const config = await getGovernanceConfig();
-  const maxSeats = config.maxSeatsPerLted;
+  const db = (options?.tx ?? prisma) as SeatUtilsClient;
+  const maxSeats = await resolveMaxSeats(db, options?.maxSeats);
 
-  const existingCount = await prisma.seat.count({
+  const existingCount = await db.seat.count({
     where: { committeeListId, termId },
   });
 
   if (existingCount >= maxSeats) return;
 
-  const existingNumbers = await prisma.seat
+  const existingNumbers = await db.seat
     .findMany({
       where: { committeeListId, termId },
       select: { seatNumber: true },
@@ -41,7 +68,7 @@ export async function ensureSeatsExist(
   }
 
   if (toCreate.length > 0) {
-    await prisma.seat.createMany({
+    await db.seat.createMany({
       data: toCreate.map((row) => ({
         ...row,
         isPetitioned: false,
@@ -59,11 +86,12 @@ export async function ensureSeatsExist(
 export async function assignNextAvailableSeat(
   committeeListId: number,
   termId: string,
+  options?: SeatUtilsOptions,
 ): Promise<number> {
-  const config = await getGovernanceConfig();
-  const maxSeats = config.maxSeatsPerLted;
+  const db = (options?.tx ?? prisma) as SeatUtilsClient;
+  const maxSeats = await resolveMaxSeats(db, options?.maxSeats);
 
-  const occupied = await prisma.committeeMembership.findMany({
+  const occupied = await db.committeeMembership.findMany({
     where: {
       committeeListId,
       termId,
