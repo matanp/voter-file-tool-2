@@ -70,6 +70,33 @@ describe("useApiMutation", () => {
       expect(result.current.error).toBeNull();
     });
 
+    it("sends FormData payload without forcing a JSON Content-Type header", async () => {
+      const mockData = { success: true };
+      globalThis.fetch = jest.fn().mockResolvedValue(
+        mockJsonResponse(mockData),
+      );
+
+      const { result } = renderHook(() =>
+        useApiMutation<{ success: boolean }, FormData>("/api/upload", "POST"),
+      );
+      const formData = new FormData();
+      formData.set("weightedTable", new Blob(["content"]), "weights.xlsx");
+
+      await act(async () => {
+        await result.current.mutate(formData);
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/upload",
+        expect.objectContaining({
+          method: "POST",
+          headers: { Accept: "application/json" },
+          body: formData,
+        }),
+      );
+      expect(result.current.data).toEqual(mockData);
+    });
+
     it("sends no Content-Type or body when payload is undefined (e.g. DELETE)", async () => {
       globalThis.fetch = jest.fn().mockResolvedValue(mock204Response());
 

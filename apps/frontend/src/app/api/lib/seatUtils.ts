@@ -9,7 +9,7 @@ import { getGovernanceConfig } from "./committeeValidation";
 const ACTIVE_STATUS = "ACTIVE";
 type SeatUtilsClient = Pick<
   typeof prisma,
-  "seat" | "committeeMembership" | "committeeGovernanceConfig"
+  "seat" | "committeeMembership" | "committeeGovernanceConfig" | "committeeList"
 >;
 
 type SeatUtilsOptions = {
@@ -120,23 +120,24 @@ export async function assignNextAvailableSeat(
  */
 export async function recomputeSeatWeights(
   committeeListId: number,
+  options?: Pick<SeatUtilsOptions, "tx" | "maxSeats">,
 ): Promise<void> {
-  const committee = await prisma.committeeList.findUnique({
+  const db = (options?.tx ?? prisma) as SeatUtilsClient;
+  const committee = await db.committeeList.findUnique({
     where: { id: committeeListId },
     select: { ltedWeight: true },
   });
 
   if (!committee) return;
 
-  const config = await getGovernanceConfig();
-  const maxSeats = config.maxSeatsPerLted;
+  const maxSeats = await resolveMaxSeats(db, options?.maxSeats);
 
   const seatWeight =
     committee.ltedWeight != null
       ? new Prisma.Decimal(committee.ltedWeight).div(maxSeats)
       : null;
 
-  await prisma.seat.updateMany({
+  await db.seat.updateMany({
     where: { committeeListId },
     data: { weight: seatWeight },
   });

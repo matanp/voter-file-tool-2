@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -8,58 +8,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { useToast } from "~/components/ui/use-toast";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { useApiQuery } from "~/hooks/useApiQuery";
 import type { CommitteeTerm } from "@prisma/client";
 import { format } from "date-fns";
 import { Check } from "lucide-react";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 
 interface TermsManagementProps {
   initialTerms: CommitteeTerm[];
 }
 
+type CommitteeTermApi = {
+  id: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+function parseTermList(rawData: unknown): CommitteeTerm[] {
+  const terms = rawData as CommitteeTermApi[];
+
+  return terms.map((term) => ({
+    ...term,
+    startDate: new Date(term.startDate),
+    endDate: new Date(term.endDate),
+    createdAt: new Date(term.createdAt),
+  }));
+}
+
 export function TermsManagement({ initialTerms }: TermsManagementProps) {
   const { toast } = useToast();
-  const [terms, setTerms] = useState<CommitteeTerm[]>(initialTerms);
   const [label, setLabel] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-
-  const fetchTerms = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/terms");
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        toast({
-          title: "Error fetching terms",
-          description: err.error ?? `Request failed (${res.status})`,
-          variant: "destructive",
-        });
-        return;
-      }
-      const data = (await res.json()) as Array<{
-        id: string;
-        label: string;
-        startDate: string;
-        endDate: string;
-        isActive: boolean;
-        createdAt: string;
-      }>;
-      setTerms(
-        data.map((t) => ({
-          ...t,
-          startDate: new Date(t.startDate),
-          endDate: new Date(t.endDate),
-          createdAt: new Date(t.createdAt),
-        })),
-      );
-    } catch (e) {
-      console.error("Error fetching terms:", e);
-      toast({
-        title: "Error fetching terms",
-        description: e instanceof Error ? e.message : "Failed to fetch",
-        variant: "destructive",
-      });
-    }
-  }, [toast]);
+  const termsQuery = useApiQuery<CommitteeTerm[]>("/api/admin/terms", {
+    initialData: initialTerms,
+    parseResponse: parseTermList,
+  });
+  const terms = termsQuery.data ?? [];
 
   const createTermMutation = useApiMutation<
     CommitteeTerm,
@@ -70,7 +58,7 @@ export function TermsManagement({ initialTerms }: TermsManagementProps) {
       setLabel("");
       setStartDate("");
       setEndDate("");
-      void fetchTerms();
+      void termsQuery.refetch();
     },
     onError: (error) => {
       toast({
@@ -87,7 +75,7 @@ export function TermsManagement({ initialTerms }: TermsManagementProps) {
     {
       onSuccess: () => {
         toast({ title: "Active term updated" });
-        void fetchTerms();
+        void termsQuery.refetch();
       },
       onError: (error) => {
         toast({
@@ -168,45 +156,69 @@ export function TermsManagement({ initialTerms }: TermsManagementProps) {
           <CardTitle>Terms</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
-            {terms.map((term: CommitteeTerm) => (
-              <li
-                key={term.id}
-                className="flex items-center justify-between py-2 border-b last:border-0"
-              >
-                <div>
-                  <span className="font-medium">{term.label}</span>
-                  <span className="text-muted-foreground text-sm ml-2">
-                    {format(
-                      new Date(term.startDate as string | Date),
-                      "MMM d, yyyy",
-                    )}{" "}
-                    –{" "}
-                    {format(
-                      new Date(term.endDate as string | Date),
-                      "MMM d, yyyy",
+          {termsQuery.error != null && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span>{termsQuery.error}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void termsQuery.refetch()}
+                  disabled={termsQuery.loading}
+                >
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {termsQuery.loading && terms.length === 0 ? (
+            <p className="text-muted-foreground text-sm">Loading terms...</p>
+          ) : terms.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No committee terms found.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {terms.map((term: CommitteeTerm) => (
+                <li
+                  key={term.id}
+                  className="flex items-center justify-between py-2 border-b last:border-0"
+                >
+                  <div>
+                    <span className="font-medium">{term.label}</span>
+                    <span className="text-muted-foreground text-sm ml-2">
+                      {format(
+                        new Date(term.startDate as string | Date),
+                        "MMM d, yyyy",
+                      )}{" "}
+                      –{" "}
+                      {format(
+                        new Date(term.endDate as string | Date),
+                        "MMM d, yyyy",
+                      )}
+                    </span>
+                    {term.isActive && (
+                      <Badge variant="default" className="ml-2">
+                        Active
+                      </Badge>
                     )}
-                  </span>
-                  {term.isActive && (
-                    <Badge variant="default" className="ml-2">
-                      Active
-                    </Badge>
+                  </div>
+                  {!term.isActive && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSetActive(term.id)}
+                      disabled={setActiveMutation.loading}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Set Active
+                    </Button>
                   )}
-                </div>
-                {!term.isActive && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSetActive(term.id)}
-                    disabled={setActiveMutation.loading}
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Set Active
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

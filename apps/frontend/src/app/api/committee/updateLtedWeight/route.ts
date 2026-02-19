@@ -12,6 +12,13 @@ import { updateLtedWeightSchema } from "~/lib/validations/committee";
 import { recomputeSeatWeights } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 
+class CommitteeNotFoundError extends Error {
+  constructor() {
+    super("Committee not found");
+    this.name = "CommitteeNotFoundError";
+  }
+}
+
 async function updateLtedWeightHandler(req: NextRequest, _session: Session) {
   const body = (await req.json()) as unknown;
   const validation = validateRequest(body, updateLtedWeightSchema);
@@ -23,25 +30,33 @@ async function updateLtedWeightHandler(req: NextRequest, _session: Session) {
   const { committeeListId, ltedWeight } = validation.data;
 
   try {
-    const committee = await prisma.committeeList.findUnique({
-      where: { id: committeeListId },
+    // Keep LTED update + seat recompute in one transaction so failures roll back together.
+    await prisma.$transaction(async (tx) => {
+      const committee = await tx.committeeList.findUnique({
+        where: { id: committeeListId },
+        select: { id: true },
+      });
+
+      if (!committee) {
+        throw new CommitteeNotFoundError();
+      }
+
+      await tx.committeeList.update({
+        where: { id: committeeListId },
+        data: { ltedWeight },
+      });
+      await recomputeSeatWeights(committeeListId, { tx });
     });
 
-    if (!committee) {
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    if (error instanceof CommitteeNotFoundError) {
       return NextResponse.json(
         { error: "Committee not found" },
         { status: 404 },
       );
     }
 
-    await prisma.committeeList.update({
-      where: { id: committeeListId },
-      data: { ltedWeight },
-    });
-    await recomputeSeatWeights(committeeListId);
-
-    return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error) {
     console.error("Error updating LTED weight:", error);
     return NextResponse.json(
       { error: "Internal server error" },
