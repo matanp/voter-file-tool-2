@@ -74,15 +74,13 @@ describe("seatUtils", () => {
 
       expect((prismaMock.seat as { createMany: jest.Mock }).createMany).toHaveBeenCalledWith(
         expectSeatCreateMany({
-          data: [
-            {
-              committeeListId: 1,
-              termId: "term-1",
-              seatNumber: 1,
-              isPetitioned: false,
-              weight: null,
-            },
-          ],
+          data: [1, 2, 3, 4].map((seatNumber) => ({
+            committeeListId: 1,
+            termId: "term-1",
+            seatNumber,
+            isPetitioned: false,
+            weight: null,
+          })),
         }),
       );
     });

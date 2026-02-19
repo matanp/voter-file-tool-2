@@ -52,7 +52,9 @@ function getCityTown(townCode: string): string {
   const city = TOWN_CODE_TO_CITY[normalized];
   if (city) return city;
   // Fallback: use code as-is (may not match CommitteeList; log warning)
-  console.warn(`Unknown town code "${townCode}" - using as cityTown (may not match CommitteeList)`);
+  console.warn(
+    `Unknown town code "${townCode}" - using as cityTown (may not match CommitteeList)`,
+  );
   return normalized.toUpperCase() || "UNKNOWN";
 }
 
@@ -65,7 +67,9 @@ async function main() {
 
   if (!fs.existsSync(filePath)) {
     console.error(`File not found: ${filePath}`);
-    console.error("Usage: pnpm exec tsx scripts/seedLtedCrosswalk.ts [path/to/2024 LTED Matrix.xlsx]");
+    console.error(
+      "Usage: pnpm exec tsx scripts/seedLtedCrosswalk.ts [path/to/2024 LTED Matrix.xlsx]",
+    );
     process.exit(1);
   }
 
@@ -73,7 +77,9 @@ async function main() {
   const fileBuffer = fs.readFileSync(filePath);
   const workbook = xlsx.read(fileBuffer);
   // eslint-disable-next-line @typescript-eslint/dot-notation -- sheet name from Matrix; xlsx types use index signature
-  const sheet = workbook.Sheets["NEW_LTED_Matrix"] ?? workbook.Sheets[workbook.SheetNames[0]!];
+  const sheet =
+    workbook.Sheets["NEW_LTED_Matrix"] ??
+    workbook.Sheets[workbook.SheetNames[0]!];
 
   if (!sheet) {
     throw new Error("Sheet NEW_LTED_Matrix not found");
@@ -96,12 +102,16 @@ async function main() {
     const district = String(row.district ?? row.District ?? "").trim();
     const town = String(row.town ?? row.Town ?? "").trim();
     const stlegDist = String(row.stleg_dist ?? "").trim();
-    const stsenDist = row.stsen_dist != null ? String(row.stsen_dist).trim() : "";
+    const stsenDist =
+      row.stsen_dist != null ? String(row.stsen_dist).trim() : "";
     const congDist = row.cong_dist != null ? String(row.cong_dist).trim() : "";
-    const othrDist1 = row.othr_dist1 != null ? String(row.othr_dist1).trim() : null;
+    const othrDist1 =
+      row.othr_dist1 != null ? String(row.othr_dist1).trim() : null;
 
     if (!lted || !ward || !district || !town || !stlegDist) {
-      console.warn(`Skipping incomplete row: LTED=${lted}, ward=${ward}, district=${district}, town=${town}`);
+      console.warn(
+        `Skipping incomplete row: LTED=${lted}, ward=${ward}, district=${district}, town=${town}`,
+      );
       continue;
     }
 
@@ -109,7 +119,9 @@ async function main() {
     const electionDistrict = parseInt(district.replace(/^0+/, "") || "0", 10);
 
     if (isNaN(legDistrict) || isNaN(electionDistrict)) {
-      console.warn(`Skipping invalid LD/ED: ward=${ward}, district=${district}`);
+      console.warn(
+        `Skipping invalid LD/ED: ward=${ward}, district=${district}`,
+      );
       continue;
     }
 
@@ -131,14 +143,13 @@ async function main() {
     process.exit(1);
   }
 
-  // Replace all crosswalk data (idempotent full refresh)
-  const deleted = await prisma.ltedDistrictCrosswalk.deleteMany({});
+  // Replace all crosswalk data atomically (delete + insert in single transaction)
+  const [deleted, result] = await prisma.$transaction([
+    prisma.ltedDistrictCrosswalk.deleteMany({}),
+    prisma.ltedDistrictCrosswalk.createMany({ data: records }),
+  ]);
+
   console.log(`Cleared ${deleted.count} existing records`);
-
-  const result = await prisma.ltedDistrictCrosswalk.createMany({
-    data: records,
-  });
-
   console.log(`Inserted ${result.count} LtedDistrictCrosswalk records`);
 }
 

@@ -212,6 +212,7 @@ beforeEach(() => {
         count: jest.Mock;
         create: jest.Mock;
         update: jest.Mock;
+        updateMany: jest.Mock;
       };
       seat: {
         count: jest.Mock;
@@ -229,6 +230,7 @@ beforeEach(() => {
     count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   };
   (
     prismaMock as unknown as {

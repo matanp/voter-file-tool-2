@@ -194,6 +194,7 @@ type MockMembershipModel = {
   count: jest.Mock;
   create: jest.Mock;
   update: jest.Mock;
+  updateMany: jest.Mock;
 };
 
 /**

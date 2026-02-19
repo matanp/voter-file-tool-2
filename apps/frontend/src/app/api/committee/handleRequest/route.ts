@@ -232,7 +232,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
 
       if (outcome.kind === "anotherCommittee") {
         return NextResponse.json(
-          { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
+          { error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
           { status: 400 },
         );
       }
@@ -246,28 +246,41 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
 
       if (outcome.kind === "atCapacity") {
         return NextResponse.json(
-          { success: false, error: "Committee already at capacity" },
+          { error: "Committee already at capacity" },
           { status: 400 },
         );
       }
     } else if (acceptOrReject === "reject") {
-      // Transition SUBMITTED → REJECTED
-      await prisma.committeeMembership.update({
-        where: { id: membershipId },
-        data: {
-          status: "REJECTED",
-          rejectedAt: new Date(),
-        },
+      // Transition SUBMITTED → REJECTED (conditional to avoid overwriting concurrent accept)
+      const updateResult = await prisma.$transaction(async (tx) => {
+        const updated = await tx.committeeMembership.updateMany({
+          where: { id: membershipId, status: "SUBMITTED" },
+          data: {
+            status: "REJECTED",
+            rejectedAt: new Date(),
+          },
+        });
+        if (updated.count > 0) {
+          await logAuditEvent(
+            session.user.id,
+            session.user.privilegeLevel,
+            "MEMBER_REJECTED",
+            "CommitteeMembership",
+            membershipId,
+            { status: "SUBMITTED" },
+            { status: "REJECTED" },
+            undefined,
+            tx,
+          );
+        }
+        return updated.count;
       });
-      await logAuditEvent(
-        session.user.id,
-        session.user.privilegeLevel,
-        "MEMBER_REJECTED",
-        "CommitteeMembership",
-        membershipId,
-        { status: "SUBMITTED" },
-        { status: "REJECTED" },
-      );
+      if (updateResult === 0) {
+        return NextResponse.json(
+          { error: "This membership is not in a pending (SUBMITTED) state" },
+          { status: 400 },
+        );
+      }
     }
 
     return NextResponse.json(

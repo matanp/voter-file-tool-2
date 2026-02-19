@@ -16,10 +16,19 @@ async function bulkLoadCommitteesHandler(
       return NextResponse.json({ error: "Not available in this environment" });
     }
 
+    let activeTermId: string;
+    try {
+      activeTermId = await getActiveTermId();
+    } catch {
+      return NextResponse.json(
+        { error: "No active committee term. Create one in Admin > Terms first." },
+        { status: 503 },
+      );
+    }
+
     await prisma.committeeUploadDiscrepancy.deleteMany({});
 
     const discrepanciesMap = await loadCommitteeLists();
-    const activeTermId = await getActiveTermId();
 
     const transactionOperations = Array.from(discrepanciesMap.entries()).map(
       ([voterId, discrepancyAndCommittee]) =>

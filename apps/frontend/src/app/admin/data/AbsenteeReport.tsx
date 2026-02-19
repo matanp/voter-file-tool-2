@@ -8,13 +8,13 @@ import { Label } from "~/components/ui/label";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { useFileUpload } from "~/hooks/useFileUpload";
+import { useApiMutation } from "~/hooks/useApiMutation";
 import { type ReportTypeKey } from "@voter-file-tool/shared-validators";
 
 const ABSENTEE_REPORT_TYPE: ReportTypeKey = "absenteeReport";
 
 export const AbsenteeReport = () => {
   const [name, setName] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -23,46 +23,48 @@ export const AbsenteeReport = () => {
     maxSize: 50 * 1024 * 1024,
   });
 
+  const generateReportMutation = useApiMutation<
+    { jobId?: string },
+    { type: ReportTypeKey; name: string; format: string; csvFileKey: string }
+  >("/api/generateReport", "POST", {
+    onSuccess: () => {
+      setSuccess("Report generation started successfully!");
+      setName("");
+      fileUpload.reset();
+    },
+    onError: (err) => {
+      setError(err.message);
+    },
+  });
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     fileUpload.setFile(e.target.files?.[0] ?? null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setError(null);
     setSuccess(null);
 
+    if (!name.trim()) {
+      setError("Report name is required");
+      return;
+    }
+    if (!fileUpload.file) {
+      setError("CSV file is required");
+      return;
+    }
+
     try {
-      if (!name.trim()) throw new Error("Report name is required");
-      if (!fileUpload.file) throw new Error("CSV file is required");
-
       const csvFileKey = fileUpload.fileKey ?? (await fileUpload.upload());
-
-      const response = await fetch("/api/generateReport", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: ABSENTEE_REPORT_TYPE,
-          name,
-          format: "xlsx",
-          csvFileKey,
-        }),
+      await generateReportMutation.mutate({
+        type: ABSENTEE_REPORT_TYPE,
+        name,
+        format: "xlsx",
+        csvFileKey,
       });
-
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok)
-        throw new Error(result.error ?? "Failed to generate report");
-
-      setSuccess("Report generation started successfully!");
-      setName("");
-      fileUpload.reset();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // Error already set in onError
     }
   };
 
@@ -160,7 +162,7 @@ export const AbsenteeReport = () => {
 
           <Button
             type="submit"
-            disabled={isSubmitting || fileUpload.isUploading}
+            disabled={generateReportMutation.loading || fileUpload.isUploading}
             className="w-full"
           >
             {fileUpload.isUploading ? (
@@ -168,7 +170,7 @@ export const AbsenteeReport = () => {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Uploading...
               </>
-            ) : isSubmitting ? (
+            ) : generateReportMutation.loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Generating...
