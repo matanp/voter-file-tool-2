@@ -2,6 +2,7 @@ import React from "react";
 import AuthCheck from "~/components/ui/authcheck";
 import ReportsList from "~/components/reports/ReportsList";
 import PendingJobsIndicator from "~/components/reports/PendingJobsIndicator";
+import GenerateReportGrid from "~/components/reports/GenerateReportGrid";
 import prisma from "~/lib/prisma";
 import { JobStatus } from "@prisma/client";
 import { auth } from "~/auth";
@@ -41,6 +42,9 @@ export default async function ReportsPage() {
         <div className="space-y-6">
           {/* Report Jobs - Always at the top */}
           <PendingJobsIndicator initialJobs={initialPendingReports} />
+
+          {/* Generate Report - Card grid of available report types */}
+          <GenerateReportGrid />
 
           {/* Reports Lists - Side by side with responsive layout */}
           <div className="flex flex-col xl:flex-row gap-6 overflow-hidden">

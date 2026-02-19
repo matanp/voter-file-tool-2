@@ -307,6 +307,21 @@ flowchart TB
 
 Each card explains context. New report types get per-type routes (e.g., `/reports/sign-in-sheet`).
 
+#### Report Parameters Matrix
+
+| Report Type | UI Label | Route | Parameters | Defaults | Access | Roadmap |
+|-------------|----------|-------|------------|----------|--------|---------|
+| `CommitteeReport` | Committee Roster | `/committee-reports` | Committee selection, format (PDF/XLSX) | — | All authenticated | Existing |
+| `VoterList` | Voter List | `/voter-list-reports` | Search criteria (from Record Search) | — | All authenticated | Existing |
+| `DesignatedPetition` | Designated Petition | `/petitions` | Committee, term | — | All authenticated | Existing |
+| `SignInSheet` | Sign-In Sheet | `/reports/sign-in-sheet` | Jurisdiction, date | Current user jurisdiction, today | Admin: all jurisdictions; Leader: own jurisdiction | 3.2 |
+| `DesignationWeightSummary` | Designation Weight Summary | `/reports/designation-weight` | Scope (county / jurisdiction) | County (Admin), own jurisdiction (Leader) | Admin: county + any jurisdiction; Leader: own jurisdiction | 3.3 |
+| `VacancyReport` | Vacancy Report | `/reports/vacancy` | Scope, committee filter | All committees in scope | Admin: countywide; Leader: own jurisdiction | 3.4 |
+| `ChangesReport` | Changes Report | `/reports/changes` | Date range (start, end) | Last 30 days | Admin: countywide; Leader: own jurisdiction | 3.4 |
+| `PetitionOutcomesReport` | Petition Outcomes | `/reports/petition-outcomes` | Term, date range | Current term, all dates | Admin: countywide; Leader: own jurisdiction | 3.4 |
+
+**Access control behavior:** For Leader users, scope/jurisdiction parameters are auto-set to their assigned jurisdiction and hidden or disabled. Admin users see a jurisdiction picker to choose scope.
+
 ### 5.3 Requests Page — Phased Transition
 
 **Decision: Keep `/committees/requests`; add `/admin/meetings` as primary bulk workflow.**

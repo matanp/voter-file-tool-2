@@ -53,6 +53,7 @@ Senior full-stack 10x developer: balances speed, clarity, and maintainability.
 - **Client API calls**: Use `useApiMutation` hook, not raw `fetch`
 - **Stale closures**: For callbacks/effects, use `useRef` when a dependency has unstable identity (e.g. `toastRef.current = toast`). `useApiMutation.mutate` is now stable; no `mutateRef` needed.
 - **Enums**: Use `PrivilegeLevel.Admin` not `"Admin"`
+- **Prisma models**: Never use `(prisma as unknown as {...})` casts. Add the model to [apps/frontend/prisma/schema.prisma](apps/frontend/prisma/schema.prisma), run migrations, then use `prisma.modelName` directly. The schema is the single source of truth.
 
 ## File Locations
 
@@ -62,6 +63,10 @@ Senior full-stack 10x developer: balances speed, clarity, and maintainability.
 - Hooks → `apps/frontend/src/hooks/`
 - Prisma schema (single source of truth) → `apps/frontend/prisma/schema.prisma`
 - Tests → `__tests__/` mirroring `src/` structure
+
+## Migrations
+
+- **Never edit existing migration files** (`prisma/migrations/**/*.sql`). Migrations are immutable; create new migrations for schema changes.
 
 ## Gotchas
 
