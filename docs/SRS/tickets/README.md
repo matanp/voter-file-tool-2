@@ -23,7 +23,12 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 13. [1.R.5 Source-of-Truth Split](1.R.5-source-of-truth-split.md) — **In Progress**
 14. ~~[1.R.6 Audit Tests Fail](1.R.6-audit-tests-fail.md)~~ — **Resolved**
 15. [1.R.7 Capacity + Seat Assignment Non-Atomic](1.R.7-capacity-seat-assignment-non-atomic.md) — **In Progress**
-16. **After follow-up queue:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
+16. [1.R.8 Phase 1 Remediation Closeout (Tests + Docs)](1.R.8-phase1-remediation-closeout.md) — **Open**
+17. [1.R.9 FormData Support for useApiMutation](1.R.9-formdata-support-for-use-api-mutation.md) — **Open**
+18. [1.R.10 updateLtedWeight Atomicity for Weight Recompute](1.R.10-update-lted-weight-atomic-recompute.md) — **Open**
+19. [1.R.11 Admin GET Data Hook Standardization](1.R.11-admin-get-hook-standardization.md) — **Open**
+20. [1.R.12 Drop Redundant LTED Crosswalk Index](1.R.12-drop-redundant-lted-crosswalk-index.md) — **Open**
+21. **After follow-up queue:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
 
 ---
 
@@ -75,6 +80,11 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.R.5](1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | In Progress | P1 | 1.2, 1.R.4 |
 | [1.R.6](1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | Resolved | P2 | 1.5b |
 | [1.R.7](1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | In Progress | P2 | 1.2, 1.4 |
+| [1.R.8](1.R.8-phase1-remediation-closeout.md) | Phase 1 Remediation Closeout (Tests + Docs) | Open | P1 | 1.R.4, 1.R.5, 1.R.7 |
+| [1.R.9](1.R.9-formdata-support-for-use-api-mutation.md) | FormData Support for useApiMutation | Open | P2 | 1.4 |
+| [1.R.10](1.R.10-update-lted-weight-atomic-recompute.md) | updateLtedWeight Atomicity for Weight Recompute | Open | P2 | 1.4 |
+| [1.R.11](1.R.11-admin-get-hook-standardization.md) | Admin GET Data Hook Standardization | Open | P3 | IA-01 |
+| [1.R.12](1.R.12-drop-redundant-lted-crosswalk-index.md) | Drop Redundant LTED Crosswalk Index | Open | P3 | 1.1b |
 
 ### Tier 2 — Lifecycle Workflows
 
@@ -115,6 +125,10 @@ Phase 1 Remediation (1.R.x):
   1.R.4 — 1.2, 1.4
   1.R.5 — 1.2, 1.R.4
   1.R.6 — 1.5b
+  1.R.8 — 1.R.4, 1.R.5, 1.R.7
+  1.R.9, 1.R.10 — 1.4
+  1.R.11 — IA-01
+  1.R.12 — 1.1b
 ```
 
 ---
