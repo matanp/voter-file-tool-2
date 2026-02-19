@@ -148,7 +148,7 @@ The stale README mismatch called out in this review has been resolved. Phase 1 r
 ## 4. Documentation Created/Updated
 
 - **SRS_IMPLEMENTATION_ROADMAP.md**: Phase 1 follow-up section, remediation ticket references
-- **PHASE1_SCOPE_CHECK_NOTES.md**: Assumptions and scope-check summary
+- **PHASE1_FINALIZATION.md**: Canonical Phase 1 closeout and Phase 2 handoff
 - **tickets/README.md**: Full ticket index, dependency graph, remediation status
 - **Individual tickets**: 1.1–1.5, 1.R.1–1.R.7, 2.1–2.8, T1.1–T1.3
 - **CODEBASE_AUDIT_ANALYSIS.md**: Cross-validation of audit findings against codebase
