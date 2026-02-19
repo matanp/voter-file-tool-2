@@ -203,4 +203,78 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
     expect(prismaMock.committeeList.deleteMany).not.toHaveBeenCalled();
   });
+
+  it("flags duplicate voter assignments across committees and avoids activation", async () => {
+    sheetToJsonMock.mockReturnValue([
+      {
+        Committee: "City One",
+        "Serve LT": "1",
+        "Serve ED": "1",
+        "voter id": "VRC_DUP",
+        name: "Casey Doe",
+        "res address1": "123 Main St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+      {
+        Committee: "City Two",
+        "Serve LT": "1",
+        "Serve ED": "2",
+        "voter id": "VRC_DUP",
+        name: "Casey Doe",
+        "res address1": "123 Main St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+    ]);
+
+    prismaMock.voterRecord.findUnique.mockResolvedValue(
+      createMockVoterRecord({
+        VRCNUM: "VRC_DUP",
+        firstName: "Casey",
+        middleInitial: null,
+        lastName: "Doe",
+        houseNum: 123,
+        street: "Main St",
+        apartment: null,
+        city: "Testville",
+        state: "NY",
+        zipCode: "14604",
+      }),
+    );
+
+    prismaMock.committeeList.upsert
+      .mockResolvedValueOnce({
+        id: 201,
+        cityTown: "CITY ONE",
+        legDistrict: 1,
+        electionDistrict: 1,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        ltedWeight: null,
+      } as never)
+      .mockResolvedValueOnce({
+        id: 202,
+        cityTown: "CITY TWO",
+        legDistrict: 1,
+        electionDistrict: 2,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        ltedWeight: null,
+      } as never);
+
+    const discrepancies = await loadCommitteeLists();
+
+    expect(prismaMock.committeeList.upsert).toHaveBeenCalledTimes(2);
+    expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+    expect(discrepancies.has("VRC_DUP")).toBe(true);
+    expect(
+      discrepancies.get("VRC_DUP")?.discrepancies.committeeAssignmentConflict,
+    ).toEqual(
+      expect.objectContaining({
+        existing: "Voter appears in multiple committees in the same bulk import",
+      }),
+    );
+  });
 });
