@@ -2,7 +2,7 @@
 import prisma from "~/lib/prisma";
 import * as xlsx from "xlsx";
 import * as fs from "fs";
-import type { Prisma } from "@prisma/client";
+import { PrivilegeLevel, type Prisma } from "@prisma/client";
 
 import {
   type DiscrepanciesAndCommittee,
@@ -16,6 +16,7 @@ import {
   assignNextAvailableSeat,
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
+import { logAuditEvent, SYSTEM_USER_ID } from "~/lib/auditLog";
 
 export type CommitteeAccumulationEntry = {
   data: Prisma.CommitteeListCreateManyInput;
@@ -59,6 +60,11 @@ type CommitteeIdentity = {
   termId: string;
 };
 
+type BulkLoadActor = {
+  userId: string;
+  userRole: PrivilegeLevel;
+};
+
 function formatCommitteeIdentity(committee: CommitteeIdentity): string {
   return `${committee.cityTown}-${committee.legDistrict}-${committee.electionDistrict}`;
 }
@@ -95,7 +101,12 @@ function ensureImportDiscrepancy(
   });
 }
 
-export async function loadCommitteeLists() {
+export async function loadCommitteeLists(
+  actor: BulkLoadActor = {
+    userId: SYSTEM_USER_ID,
+    userRole: PrivilegeLevel.Admin,
+  },
+) {
   const committeeData = new Map<string, CommitteeAccumulationEntry>();
 
   const filePath = "data/Committee-File-2025-05-15.xlsx";
@@ -367,6 +378,21 @@ export async function loadCommitteeLists() {
               seatNumber: null,
             },
           });
+          await logAuditEvent(
+            actor.userId,
+            actor.userRole,
+            "MEMBER_REMOVED",
+            "CommitteeMembership",
+            membership.id,
+            { status: "ACTIVE" },
+            { status: "REMOVED", removalReason: "OTHER" },
+            {
+              source: "bulk_import_sync",
+              reason: "not_in_import_file",
+              committeeId: committee.id,
+            },
+            tx,
+          );
         }
       }
 
@@ -448,8 +474,25 @@ export async function loadCommitteeLists() {
               petitionPrimaryDate: null,
             },
           });
+          await logAuditEvent(
+            actor.userId,
+            actor.userRole,
+            "MEMBER_ACTIVATED",
+            "CommitteeMembership",
+            existingMembership.id,
+            { status: existingMembership.status },
+            {
+              status: "ACTIVE",
+              membershipType: existingMembership.membershipType ?? "APPOINTED",
+            },
+            {
+              source: "bulk_import_sync",
+              committeeId: committee.id,
+            },
+            tx,
+          );
         } else {
-          await tx.committeeMembership.create({
+          const createdMembership = await tx.committeeMembership.create({
             data: {
               voterRecordId,
               committeeListId: committee.id,
@@ -460,6 +503,20 @@ export async function loadCommitteeLists() {
               seatNumber,
             },
           });
+          await logAuditEvent(
+            actor.userId,
+            actor.userRole,
+            "MEMBER_ACTIVATED",
+            "CommitteeMembership",
+            createdMembership.id,
+            null,
+            { status: "ACTIVE", membershipType: "APPOINTED" },
+            {
+              source: "bulk_import_sync",
+              committeeId: committee.id,
+            },
+            tx,
+          );
         }
       }
     });

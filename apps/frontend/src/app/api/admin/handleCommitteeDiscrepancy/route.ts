@@ -11,6 +11,7 @@ import {
   assignNextAvailableSeat,
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
+import { logAuditEvent } from "~/lib/auditLog";
 
 export interface HandleDiscrepancyRequest {
   VRCNUM: string;
@@ -21,7 +22,7 @@ export interface HandleDiscrepancyRequest {
 
 async function handleCommitteeDiscrepancyHandler(
   req: NextRequest,
-  _session: Session,
+  session: Session,
 ) {
   try {
     const { VRCNUM, accept, takeAddress } =
@@ -49,6 +50,8 @@ async function handleCommitteeDiscrepancyHandler(
 
     if (accept) {
       const config = await getGovernanceConfig();
+      const actorUserId = session.user?.id ?? "system";
+      const actorRole = session.user?.privilegeLevel ?? PrivilegeLevel.Admin;
 
       const outcome = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`
@@ -133,8 +136,22 @@ async function handleCommitteeDiscrepancyHandler(
               petitionPrimaryDate: null,
             },
           });
+          await logAuditEvent(
+            actorUserId,
+            actorRole,
+            "MEMBER_ACTIVATED",
+            "CommitteeMembership",
+            existingMembership.id,
+            { status: existingMembership.status },
+            { status: "ACTIVE" },
+            {
+              source: "discrepancy_accept",
+              discrepancyVrcnum: VRCNUM,
+            },
+            tx,
+          );
         } else {
-          await tx.committeeMembership.create({
+          const createdMembership = await tx.committeeMembership.create({
             data: {
               voterRecordId: VRCNUM,
               committeeListId: discrepancy.committee.id,
@@ -145,6 +162,20 @@ async function handleCommitteeDiscrepancyHandler(
               seatNumber,
             },
           });
+          await logAuditEvent(
+            actorUserId,
+            actorRole,
+            "MEMBER_ACTIVATED",
+            "CommitteeMembership",
+            createdMembership.id,
+            null,
+            { status: "ACTIVE" },
+            {
+              source: "discrepancy_accept",
+              discrepancyVrcnum: VRCNUM,
+            },
+            tx,
+          );
         }
 
         return { kind: "accepted" } as const;

@@ -9,7 +9,7 @@ import type { Session } from "next-auth";
 
 async function bulkLoadCommitteesHandler(
   _req: NextRequest,
-  _session: Session,
+  session: Session,
 ) {
   try {
     if (process.env.VERCEL) {
@@ -28,7 +28,10 @@ async function bulkLoadCommitteesHandler(
 
     await prisma.committeeUploadDiscrepancy.deleteMany({});
 
-    const discrepanciesMap = await loadCommitteeLists();
+    const discrepanciesMap = await loadCommitteeLists({
+      userId: session.user?.id ?? "system",
+      userRole: session.user?.privilegeLevel ?? PrivilegeLevel.Admin,
+    });
 
     const transactionOperations = Array.from(discrepanciesMap.entries()).map(
       ([voterId, discrepancyAndCommittee]) =>

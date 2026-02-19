@@ -4,6 +4,8 @@ import {
   createMockMembership,
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
+  expectAuditLogCreate,
+  getAuditLogMock,
   getMembershipMock,
 } from "../../utils/testUtils";
 
@@ -130,6 +132,15 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
         }),
       }),
     );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_ACTIVATED",
+        entityType: "CommitteeMembership",
+        metadata: expect.objectContaining({
+          source: "bulk_import_sync",
+        }) as unknown,
+      }),
+    );
     expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
     expect(prismaMock.committeeList.deleteMany).not.toHaveBeenCalled();
   });
@@ -198,6 +209,15 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
           membershipType: "APPOINTED",
           seatNumber: 2,
         }),
+      }),
+    );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_ACTIVATED",
+        entityType: "CommitteeMembership",
+        metadata: expect.objectContaining({
+          source: "bulk_import_sync",
+        }) as unknown,
       }),
     );
     expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
@@ -274,6 +294,86 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     ).toEqual(
       expect.objectContaining({
         existing: "Voter appears in multiple committees in the same bulk import",
+      }),
+    );
+  });
+
+  it("logs MEMBER_REMOVED when sync removes an active member not present in import", async () => {
+    sheetToJsonMock.mockReturnValue([
+      {
+        Committee: "Test City",
+        "Serve LT": "1",
+        "Serve ED": "1",
+        "voter id": "VRC_NEW",
+        name: "New Member",
+        "res address1": "10 Main St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+    ]);
+
+    prismaMock.voterRecord.findUnique.mockResolvedValue(
+      createMockVoterRecord({
+        VRCNUM: "VRC_NEW",
+        firstName: "New",
+        middleInitial: null,
+        lastName: "Member",
+        houseNum: 10,
+        street: "Main St",
+        apartment: null,
+        city: "Testville",
+        state: "NY",
+        zipCode: "14604",
+      }),
+    );
+
+    prismaMock.committeeList.upsert.mockResolvedValue({
+      id: 301,
+      cityTown: "TEST CITY",
+      legDistrict: 1,
+      electionDistrict: 1,
+      termId: DEFAULT_ACTIVE_TERM_ID,
+      ltedWeight: null,
+    } as never);
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
+
+    getMembershipMock(prismaMock).findMany
+      .mockResolvedValueOnce([]) // initial cross-committee snapshot
+      .mockResolvedValueOnce([
+        { id: "m-to-remove", voterRecordId: "VRC_OLD" },
+      ] as never); // existing active memberships in committee
+    getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+    getMembershipMock(prismaMock).create.mockResolvedValue(
+      createMockMembership({
+        id: "m-new",
+        voterRecordId: "VRC_NEW",
+        committeeListId: 301,
+        status: "ACTIVE",
+        seatNumber: 1,
+      }),
+    );
+
+    await loadCommitteeLists();
+
+    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "m-to-remove" },
+        data: expect.objectContaining({
+          status: "REMOVED",
+          removalReason: "OTHER",
+        }),
+      }),
+    );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_REMOVED",
+        entityType: "CommitteeMembership",
+        metadata: expect.objectContaining({
+          source: "bulk_import_sync",
+          reason: "not_in_import_file",
+        }) as unknown,
       }),
     );
   });
