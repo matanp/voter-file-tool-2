@@ -21,7 +21,7 @@ Work items are organized into **tiers by effort/complexity**, then sequenced wit
 
 ## Implementation Tickets
 
-Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Start with [0.1 Backend enforcement](tickets/0.1-backend-enforcement-already-in-committee.md) and [1.1 Committee Term Model](tickets/1.1-committee-term-model.md). Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
+Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. **Next:** [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). Phase 0 and Phase 1 (0.1, 1.1–1.5) are done. Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
 
 ---
 
@@ -60,7 +60,7 @@ These items restructure the core data model. Almost everything else depends on t
 
 ---
 
-### 1.1 Committee Term Model
+### 1.1 Committee Term Model — **Done**
 
 |                |                                                                       |
 | -------------- | --------------------------------------------------------------------- |
@@ -84,7 +84,7 @@ These items restructure the core data model. Almost everything else depends on t
 
 ---
 
-### 1.1b LTED-to-Assembly-District Mapping
+### 1.1b LTED-to-Assembly-District Mapping — **Done**
 
 |                |                                                             |
 | -------------- | ----------------------------------------------------------- |
@@ -155,7 +155,7 @@ Membership is binary: voter has `committeeId` (in committee) or `null` (not). `C
 
 ---
 
-### 1.3 Membership Type (Petitioned vs. Appointed)
+### 1.3 Membership Type (Petitioned vs. Appointed) — **Done**
 
 |                |                                  |
 | -------------- | -------------------------------- |
@@ -176,7 +176,7 @@ No distinction between petitioned and appointed members.
 
 ---
 
-### 1.4 Seat Model
+### 1.4 Seat Model — **Done**
 
 |                |                                                                               |
 | -------------- | ----------------------------------------------------------------------------- |
@@ -199,7 +199,7 @@ No distinction between petitioned and appointed members.
 
 ---
 
-### 1.5 Audit Trail Infrastructure
+### 1.5 Audit Trail Infrastructure — **Done**
 
 |                |                                                                                                |
 | -------------- | ---------------------------------------------------------------------------------------------- |
@@ -242,7 +242,7 @@ These items implement the SRS business rules on top of the Tier 1 foundation.
 
 - LTED capacity (max 4) — done, tested
 - Already in this committee (idempotent) — done, tested
-- Already in another committee — UI only, no backend enforcement (Tier 0 quick fix adds backend enforcement for current schema)
+- Already in another committee — backend-enforced (Tier 0 done), uses `CommitteeMembership`-based check
 
 **What to build:**
 
@@ -670,17 +670,17 @@ Adding new privilege levels requires: new enum value, update to permission-order
 ## Implementation Sequence Summary
 
 ```
-Phase 0: Quick Fixes (can run in parallel with Phase 1)
-└── 0.1 Backend enforcement — [ticket](tickets/0.1-backend-enforcement-already-in-committee.md)
+Phase 0: Quick Fixes — Done
+└── 0.1 Backend enforcement — [ticket](tickets/0.1-backend-enforcement-already-in-committee.md) Done
 
-Phase 1: Foundation (Weeks 1–3)
-├── 1.1 Committee Term Model — [ticket](tickets/1.1-committee-term-model.md)
-├── 1.1b LTED-to-Assembly-District Mapping — [ticket](tickets/1.1b-lted-assembly-district-mapping.md)
-├── 1.1c Committee Governance Config — [ticket](tickets/1.1c-committee-governance-config.md)
-├── 1.2 Membership Status Enum + CommitteeMembership model
-├── 1.3 Membership Type (Petitioned vs. Appointed)
-├── 1.4 Seat Model
-└── 1.5 Audit Trail Infrastructure
+Phase 1: Foundation — Done
+├── 1.1 Committee Term Model — [ticket](tickets/1.1-committee-term-model.md) Done
+├── 1.1b LTED-to-Assembly-District Mapping — [ticket](tickets/1.1b-lted-assembly-district-mapping.md) Done
+├── 1.1c Committee Governance Config — [ticket](tickets/1.1c-committee-governance-config.md) Done
+├── 1.2 Membership Status Enum + CommitteeMembership model Done
+├── 1.3 Membership Type (Petitioned vs. Appointed) Done
+├── 1.4 Seat Model Done
+└── 1.5 Audit Trail Infrastructure Done
 
 Phase 2: Core Business Logic (Weeks 4–7)
 ├── 2.1 Eligibility Validation (Hard Stops)
@@ -804,11 +804,12 @@ These are features that are already shipping to users with zero automated test c
 
 ---
 
-### T1.2 Report Generation API Route
+### T1.2 Report Generation API Route ✅ Done
 
-|                  |                                                     |
-| ---------------- | --------------------------------------------------- |
-| **Effort**       | Medium (1–2 days)                                   |
+|                  |                                                                  |
+| ---------------- | ---------------------------------------------------------------- |
+| **Ticket**       | [T1.2 Report generation API tests](tickets/T1.2-report-generation-api-tests.md) |
+| **Effort**       | Medium (1–2 days)                                                |
 | **Risk**         | Medium — report failures are user-visible           |
 | **File to test** | `apps/frontend/src/app/api/generateReport/route.ts` |
 
@@ -823,10 +824,11 @@ These are features that are already shipping to users with zero automated test c
 
 ---
 
-### T1.3 Committee Discrepancy Handling
+### T1.3 Committee Discrepancy Handling ✅ Done
 
 |                   |                                                                                                                                      |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Ticket**       | [T1.3 Committee discrepancy handling tests](tickets/T1.3-discrepancy-handling-tests.md)                                                 |
 | **Effort**        | Medium (1–2 days)                                                                                                                    |
 | **Risk**          | Medium — data integrity during BOE updates                                                                                           |
 | **Files to test** | `apps/frontend/src/app/api/admin/bulkLoadCommittees/route.ts`, `apps/frontend/src/app/api/admin/handleCommitteeDiscrepancy/route.ts` |
@@ -1045,9 +1047,9 @@ As each Tier 1/2 implementation item is built, tests should be written alongside
 
 ```
 Immediate (before new feature work):
-├── T1.1 handleRequest route tests — [ticket](tickets/T1.1-handleRequest-route-tests.md) (0.5–1 day)
-├── T1.2 Report generation API tests            (1–2 days)
-├── T1.3 Discrepancy handling tests             (1–2 days)
+├── T1.1 handleRequest route tests — [ticket](tickets/T1.1-handleRequest-route-tests.md) Done
+├── T1.2 Report generation API tests — [ticket](tickets/T1.2-report-generation-api-tests.md) Done
+├── T1.3 Discrepancy handling tests — [ticket](tickets/T1.3-discrepancy-handling-tests.md) Done
 ├── T1.4 Voter import processor tests           (2–3 days)
 └── T1.5 Report-server core tests               (3–5 days)
 
@@ -1069,20 +1071,16 @@ With each new feature (Tier 3):
 
 | Week | Implementation                                                                   | Testing                           |
 | ---- | -------------------------------------------------------------------------------- | --------------------------------- |
-| 0    | [0.1](tickets/0.1-backend-enforcement-already-in-committee.md) Backend enforcement (quick fix) | —                                 |
-| 1    | [1.1](tickets/1.1-committee-term-model.md), [1.1b](tickets/1.1b-lted-assembly-district-mapping.md), [1.1c](tickets/1.1c-committee-governance-config.md) | [T1.1](tickets/T1.1-handleRequest-route-tests.md) handleRequest tests |
-| 2    | 1.2 Membership Status + CommitteeMembership                                      | T1.2 Report generation API tests  |
-| 3    | 1.3 Membership Type, 1.4 Seat Model                                              | T1.3 Discrepancy handling tests   |
-| 4    | 1.5 Audit Trail Infrastructure                                                   | T1.4 Voter import processor tests |
-| 5    | 2.1 Eligibility Hard Stops, 2.1a Email/Phone + tests                             | T1.5 Report-server tests (start)  |
-| 6    | 2.2 Warnings, 2.3 Resignation + tests                                            | T1.5 Report-server tests (finish) |
+| 0–4  | Phase 0 & 1 done: Backend enforcement, Foundation (Terms, LTED crosswalk, Governance Config, CommitteeMembership, Membership Type, Seat model, Audit Trail) | T1.1–T1.3 done                    |
+| 5    | 2.1 Eligibility Hard Stops, 2.1a Email/Phone + tests                             | T1.5 Report-server tests (start)   |
+| 6    | 2.2 Warnings, 2.3 Resignation + tests                                           | T1.5 Report-server tests (finish) |
 | 7    | 2.4 Meeting Record + Confirmation + tests                                        | T2.1 CommitteeSelector tests      |
 | 8    | 2.5 Removal Reasons, 2.6 Petition Tracking                                       | T2.2–T2.4 Component tests         |
 | 9    | 2.7 Weight Logic + tests                                                         | — (tests included in feature)     |
 | 10   | 2.8 BOE Flagging + tests                                                         | —                                 |
 | 11   | 3.1 Jurisdiction Scoping + tests                                                 | —                                 |
 | 12   | 3.2 Sign-In Sheet, 3.3 Weight Report                                             | —                                 |
-| 13   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                 | —                                 |
-| 14   | 3.5 Audit Trail UI + Export                                                      | —                                 |
+| 13   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                | —                                 |
+| 14   | 3.5 Audit Trail UI + Export                                                       | —                                 |
 
-**Total: ~14 weeks** for one developer doing both implementation and testing remediation in parallel.
+**Current status:** Phase 0, Phase 1, T1.1–T1.3 complete. **Remaining: ~9 weeks** (Phases 2–3, T1.4–T1.5, T2.x).
