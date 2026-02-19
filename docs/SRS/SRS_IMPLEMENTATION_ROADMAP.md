@@ -21,7 +21,7 @@ Work items are organized into **tiers by effort/complexity**, then sequenced wit
 
 ## Implementation Tickets
 
-Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Phase 0 and Phase 1 foundation work (0.1, 1.1–1.5) are done, and the full Phase 1 remediation set (1.R.1–1.R.12) is now resolved. Next implementation queue starts at [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). See [tickets/README.md §Phase 1 Remediation](tickets/README.md) for ticket-level status. Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
+Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Phase 0 and Phase 1 foundation work (0.1, 1.1–1.5) are done, and the full Phase 1 remediation set (1.R.1–1.R.12) is now resolved. Next implementation queue starts at [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). See [tickets/README.md §Phase 1 Remediation](tickets/README.md) for ticket-level status and [PHASE1_FINALIZATION.md](PHASE1_FINALIZATION.md) for closeout criteria.
 
 ---
 
@@ -244,7 +244,7 @@ These tickets addressed issues found during a full scope check of Phase 1 comple
 
 **Recommended execution order:** [1.R.1](tickets/1.R.1-leader-privilege-escalation.md), then [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) + [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md), then [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md), then [1.R.5](tickets/1.R.5-source-of-truth-split.md), then [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md), then [1.R.8](tickets/1.R.8-phase1-remediation-closeout.md), then [1.R.10](tickets/1.R.10-update-lted-weight-atomic-recompute.md) + [1.R.9](tickets/1.R.9-formdata-support-for-use-api-mutation.md), with [1.R.11](tickets/1.R.11-admin-get-hook-standardization.md) and [1.R.12](tickets/1.R.12-drop-redundant-lted-crosswalk-index.md) as low-priority cleanup.
 
-See [tickets/README.md §Phase 1 Remediation](tickets/README.md) and [PHASE1_SCOPE_CHECK_NOTES.md](PHASE1_SCOPE_CHECK_NOTES.md) for assumptions and scope details.
+See [tickets/README.md §Phase 1 Remediation](tickets/README.md) and [PHASE1_FINALIZATION.md](PHASE1_FINALIZATION.md) for closeout scope details.
 
 ---
 
@@ -707,7 +707,7 @@ Phase 1: Foundation — Done
 ├── 1.4 Seat Model Done
 └── 1.5 Audit Trail Infrastructure Done
 
-Phase 1 Follow-Up: Remediation (Current)
+Phase 1 Follow-Up: Remediation (Done; historical execution order)
 ├── 1.R.1 Leader Privilege Escalation (P0)
 ├── 1.R.2 requestAdd Resubmission for Non-Active Memberships
 ├── 1.R.3 Replacement Flow Not Implemented in handleRequest
@@ -721,7 +721,7 @@ Phase 1 Follow-Up: Remediation (Current)
 ├── 1.R.11 Admin GET Data Hook Standardization
 └── 1.R.12 Drop Redundant LTED Crosswalk Index
 
-Phase 2: Core Business Logic (after 1.R.x queue)
+Phase 2: Core Business Logic (current queue)
 ├── 2.1 Eligibility Validation (Hard Stops)
 ├── 2.1a Email/Phone During Leader Submission (SRS §9.1)
 ├── 2.2 Warning System
