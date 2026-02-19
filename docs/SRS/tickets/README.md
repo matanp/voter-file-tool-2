@@ -47,7 +47,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | ID | Title | Status | Roadmap |
 | --- | --- | --- | --- |
 | [T1.1](T1.1-handleRequest-route-tests.md) | handleRequest Route Tests | Done | Testing Tier 1 §T1.1 |
-| [T1.2](T1.2-report-generation-api-tests.md) | Report Generation API Tests | Open | Testing Tier 1 §T1.2 |
+| [T1.2](T1.2-report-generation-api-tests.md) | Report Generation API Tests | Done | Testing Tier 1 §T1.2 |
 | [T1.3](T1.3-discrepancy-handling-tests.md) | Committee Discrepancy Handling Tests | Open | Testing Tier 1 §T1.3 |
 
 ### Tier 1 — Admin IA
