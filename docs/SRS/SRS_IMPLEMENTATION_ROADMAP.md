@@ -21,7 +21,7 @@ Work items are organized into **tiers by effort/complexity**, then sequenced wit
 
 ## Implementation Tickets
 
-Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Phase 0 and Phase 1 foundation work (0.1, 1.1–1.5) are done, but **Phase 1 Remediation** follow-up tickets remain active: [1.R.1](tickets/1.R.1-leader-privilege-escalation.md) → [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) / [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md) → [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md) → [1.R.5](tickets/1.R.5-source-of-truth-split.md) + [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md), then [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). See [tickets/README.md §Phase 1 Remediation](tickets/README.md) for ticket-level status. Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
+Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Phase 0 and Phase 1 foundation work (0.1, 1.1–1.5) are done, but **Phase 1 Remediation** follow-up tickets remain active: [1.R.1](tickets/1.R.1-leader-privilege-escalation.md) → [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) / [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md) → [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md) → [1.R.5](tickets/1.R.5-source-of-truth-split.md) + [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md) → [1.R.8](tickets/1.R.8-phase1-remediation-closeout.md), with additional remediation cleanup tickets [1.R.9](tickets/1.R.9-formdata-support-for-use-api-mutation.md), [1.R.10](tickets/1.R.10-update-lted-weight-atomic-recompute.md), [1.R.11](tickets/1.R.11-admin-get-hook-standardization.md), and [1.R.12](tickets/1.R.12-drop-redundant-lted-crosswalk-index.md), then [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). See [tickets/README.md §Phase 1 Remediation](tickets/README.md) for ticket-level status. Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
 
 ---
 
@@ -236,8 +236,13 @@ These tickets address issues found during a full scope check of Phase 1 completi
 | [1.R.5](tickets/1.R.5-source-of-truth-split.md) | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | P1 | 2–3 days |
 | [1.R.6](tickets/1.R.6-audit-tests-fail.md) | Audit Tests Fail (AuditAction Undefined) | P2 | 0.5 day |
 | [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md) | Capacity + Seat Assignment Non-Atomic (Race Risk) | P2 | 1–2 days |
+| [1.R.8](tickets/1.R.8-phase1-remediation-closeout.md) | Phase 1 Remediation Closeout (Tests + Docs) | P1 | 1–2 days |
+| [1.R.9](tickets/1.R.9-formdata-support-for-use-api-mutation.md) | FormData Support for useApiMutation | P2 | 1–2 days |
+| [1.R.10](tickets/1.R.10-update-lted-weight-atomic-recompute.md) | updateLtedWeight Atomicity for Weight Recompute | P2 | 1 day |
+| [1.R.11](tickets/1.R.11-admin-get-hook-standardization.md) | Admin GET Data Hook Standardization | P3 | 0.5–1 day |
+| [1.R.12](tickets/1.R.12-drop-redundant-lted-crosswalk-index.md) | Drop Redundant LTED Crosswalk Index | P3 | 0.5 day |
 
-**Recommended execution order:** [1.R.1](tickets/1.R.1-leader-privilege-escalation.md), then [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) + [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md), then [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md), then [1.R.5](tickets/1.R.5-source-of-truth-split.md), then [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md).
+**Recommended execution order:** [1.R.1](tickets/1.R.1-leader-privilege-escalation.md), then [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) + [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md), then [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md), then [1.R.5](tickets/1.R.5-source-of-truth-split.md), then [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md), then [1.R.8](tickets/1.R.8-phase1-remediation-closeout.md), then [1.R.10](tickets/1.R.10-update-lted-weight-atomic-recompute.md) + [1.R.9](tickets/1.R.9-formdata-support-for-use-api-mutation.md), with [1.R.11](tickets/1.R.11-admin-get-hook-standardization.md) and [1.R.12](tickets/1.R.12-drop-redundant-lted-crosswalk-index.md) as low-priority cleanup.
 
 See [tickets/README.md §Phase 1 Remediation](tickets/README.md) and [PHASE1_SCOPE_CHECK_NOTES.md](PHASE1_SCOPE_CHECK_NOTES.md) for assumptions and scope details.
 
@@ -709,7 +714,12 @@ Phase 1 Follow-Up: Remediation (Current)
 ├── 1.R.4 Bulk Import Incompatible with Phase 1 Schema
 ├── 1.R.5 Source-of-Truth Split (committeeMemberList vs CommitteeMembership)
 ├── 1.R.6 Audit Tests Fail (AuditAction Undefined)
-└── 1.R.7 Capacity + Seat Assignment Non-Atomic (Race Risk)
+├── 1.R.7 Capacity + Seat Assignment Non-Atomic (Race Risk)
+├── 1.R.8 Phase 1 Remediation Closeout (Tests + Docs)
+├── 1.R.9 FormData Support for useApiMutation
+├── 1.R.10 updateLtedWeight Atomicity for Weight Recompute
+├── 1.R.11 Admin GET Data Hook Standardization
+└── 1.R.12 Drop Redundant LTED Crosswalk Index
 
 Phase 2: Core Business Logic (after 1.R.x queue)
 ├── 2.1 Eligibility Validation (Hard Stops)
@@ -733,7 +743,7 @@ Phase 3: Workflows, Reports & Access
 └── 3.5 Audit Trail UI & Export
 ```
 
-**Total estimated effort:** 11–16 weeks for one developer, depending on iteration speed and review cycles (includes Phase 1 follow-up remediation tickets 1.R.1–1.R.7).
+**Total estimated effort:** 11–16 weeks for one developer, depending on iteration speed and review cycles (includes Phase 1 follow-up remediation tickets 1.R.1–1.R.12).
 
 ---
 
@@ -1102,16 +1112,17 @@ With each new feature (Tier 3):
 | ---- | ---------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | 0–4  | Phase 0 & 1 done: Backend enforcement, Foundation (Terms, LTED crosswalk, Governance Config, CommitteeMembership, Membership Type, Seat model, Audit Trail) | T1.1–T1.3 done                    |
 | 5    | **Phase 1 follow-up remediation:** 1.R.1, 1.R.2, 1.R.3                                                    | T1.5 Report-server tests (start) |
-| 6    | **Phase 1 follow-up remediation:** 1.R.4, 1.R.5, 1.R.6, 1.R.7                                             | T1.5 Report-server tests (finish) |
-| 7    | 2.1 Eligibility Hard Stops, 2.1a Email/Phone + tests                                                       | T2.1 CommitteeSelector tests      |
-| 8    | 2.2 Warnings, 2.3 Resignation + tests                                                                      | T2.2–T2.4 Component tests         |
-| 9    | 2.4 Meeting Record + Confirmation + tests                                                                   | — (tests included in feature)     |
-| 10   | 2.5 Removal Reasons, 2.6 Petition Tracking                                                                  | —                                 |
-| 11   | 2.7 Weight Logic + tests                                                                                    | —                                 |
-| 12   | 2.8 BOE Flagging + tests                                                                                    | —                                 |
-| 13   | 3.1 Jurisdiction Scoping + tests                                                                            | —                                 |
-| 14   | 3.2 Sign-In Sheet, 3.3 Weight Report                                                                        | —                                 |
-| 15   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                                            | —                                 |
-| 16   | 3.5 Audit Trail UI + Export                                                                                 | —                                 |
+| 6    | **Phase 1 follow-up remediation:** 1.R.4, 1.R.5, 1.R.6, 1.R.7, 1.R.8, 1.R.10                             | T1.5 Report-server tests (finish) |
+| 7    | **Phase 1 follow-up remediation cleanup:** 1.R.9, 1.R.11, 1.R.12                                          | T2.1 CommitteeSelector tests      |
+| 8    | 2.1 Eligibility Hard Stops, 2.1a Email/Phone + tests                                                       | T2.2–T2.4 Component tests         |
+| 9    | 2.2 Warnings, 2.3 Resignation + tests                                                                      | — (tests included in feature)     |
+| 10   | 2.4 Meeting Record + Confirmation + tests                                                                   | —                                 |
+| 11   | 2.5 Removal Reasons, 2.6 Petition Tracking                                                                  | —                                 |
+| 12   | 2.7 Weight Logic + tests                                                                                    | —                                 |
+| 13   | 2.8 BOE Flagging + tests                                                                                    | —                                 |
+| 14   | 3.1 Jurisdiction Scoping + tests                                                                            | —                                 |
+| 15   | 3.2 Sign-In Sheet, 3.3 Weight Report                                                                        | —                                 |
+| 16   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                                            | —                                 |
+| 17   | 3.5 Audit Trail UI + Export                                                                                 | —                                 |
 
-**Current status:** Phase 0, Phase 1 foundation, and T1.1–T1.3 are complete. **Current focus:** Phase 1 follow-up remediation (1.R.1–1.R.7). **Remaining: ~11–12 weeks** (remediation + Phases 2–3, T1.4–T1.5, T2.x).
+**Current status:** Phase 0, Phase 1 foundation, and T1.1–T1.3 are complete. **Current focus:** Phase 1 follow-up remediation (1.R.1–1.R.12). **Remaining: ~12–13 weeks** (remediation + Phases 2–3, T1.4–T1.5, T2.x).
