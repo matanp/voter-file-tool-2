@@ -14,21 +14,31 @@ export function isPrivilegeLevel(
   );
 }
 
+/**
+ * Ordered privilege levels (highest to lowest). Only roles listed here have
+ * any privileges; unknown roles (e.g. newly added enum values) are denied
+ * until explicitly supported. SRS §3.2: Developer > Admin > Leader > RequestAccess > ReadAccess.
+ */
+const PRIVILEGE_ORDER: readonly PrivilegeLevel[] = [
+  PrivilegeLevel.Developer,
+  PrivilegeLevel.Admin,
+  PrivilegeLevel.Leader,
+  PrivilegeLevel.RequestAccess,
+  PrivilegeLevel.ReadAccess,
+] as const;
+
+/** Returns true iff the user's privilege level meets or exceeds the required level. */
 export function hasPermissionFor(
   userPermission: PrivilegeLevel,
   permissionCheckLevel: PrivilegeLevel,
-) {
-  const permissionOrder: PrivilegeLevel[] = [
-    PrivilegeLevel.Developer,
-    PrivilegeLevel.Admin,
-    PrivilegeLevel.RequestAccess,
-    PrivilegeLevel.ReadAccess,
-  ];
+): boolean {
+  const userIdx = PRIVILEGE_ORDER.indexOf(userPermission);
+  const requiredIdx = PRIVILEGE_ORDER.indexOf(permissionCheckLevel);
 
-  return (
-    permissionOrder.indexOf(userPermission) <=
-    permissionOrder.indexOf(permissionCheckLevel)
-  );
+  // Unknown roles have no privileges; unknown required levels deny (fail closed).
+  if (userIdx === -1 || requiredIdx === -1) return false;
+
+  return userIdx <= requiredIdx;
 }
 
 /**
