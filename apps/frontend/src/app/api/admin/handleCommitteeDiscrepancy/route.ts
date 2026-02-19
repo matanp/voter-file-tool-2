@@ -3,7 +3,10 @@ import prisma from "~/lib/prisma";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import type { Session } from "next-auth";
-import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
+import {
+  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+  getGovernanceConfig,
+} from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
@@ -74,6 +77,20 @@ async function handleCommitteeDiscrepancyHandler(
           return { kind: "alreadyActive" } as const;
         }
 
+        const activeInAnotherCommittee = await tx.committeeMembership.findFirst({
+          where: {
+            voterRecordId: VRCNUM,
+            committeeListId: { not: discrepancy.committee.id },
+            termId: discrepancy.committee.termId,
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        });
+
+        if (activeInAnotherCommittee) {
+          return { kind: "anotherCommittee" } as const;
+        }
+
         const activeCount = await tx.committeeMembership.count({
           where: {
             committeeListId: discrepancy.committee.id,
@@ -136,6 +153,13 @@ async function handleCommitteeDiscrepancyHandler(
       if (outcome.kind === "atCapacity") {
         return NextResponse.json(
           { error: "Committee is at capacity" },
+          { status: 400 },
+        );
+      }
+
+      if (outcome.kind === "anotherCommittee") {
+        return NextResponse.json(
+          { error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
           { status: 400 },
         );
       }
