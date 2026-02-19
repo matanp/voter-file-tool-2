@@ -37,6 +37,9 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.3](1.3-membership-type.md) | Membership Type (Petitioned vs. Appointed) | Done | Tier 1 §1.3 |
 | [1.4](1.4-seat-model.md) | Seat Model | Open | Tier 1 §1.4 |
 | [1.5](1.5-audit-trail-infrastructure.md) | Audit Trail Infrastructure | Open | Tier 1 §1.5 |
+| [1.5a](1.5a-audit-log-schema-and-seed.md) | ↳ AuditLog Schema & SYSTEM User Seed | Open | Tier 1 §1.5 |
+| [1.5b](1.5b-audit-log-utility-and-immutability.md) | ↳ Audit Log Utility & Immutability Guard | Open | Tier 1 §1.5 |
+| [1.5c](1.5c-audit-log-route-wiring.md) | ↳ Audit Log Route Wiring | Open | Tier 1 §1.5 |
 
 ### Tier 1 — Testing
 
@@ -72,7 +75,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 1.1b (done) ──► 2.1
 1.1c (done) ──► 1.4 (also needs 1.2) ──► 2.3
                 │
-                └──► 1.5 (needs all models stable)
+                └──► 1.5a ──► 1.5b ──► 1.5c
 
 T1.2, T1.3 — parallel, no blockers
 ```
