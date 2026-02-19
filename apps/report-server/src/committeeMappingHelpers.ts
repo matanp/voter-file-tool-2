@@ -1,4 +1,4 @@
-import type { CommitteeList, VoterRecord } from '@prisma/client';
+import type { CommitteeList, CommitteeMembership, VoterRecord } from '@prisma/client';
 import type { EnrichedPartialVoterRecordAPI } from '@voter-file-tool/shared-validators';
 import {
   convertPrismaVoterRecordToAPI,
@@ -7,7 +7,7 @@ import {
 import { prisma } from './lib/prisma';
 
 export type CommitteeWithMembers = CommitteeList & {
-  committeeMemberList?: VoterRecord[];
+  memberships?: (CommitteeMembership & { voterRecord: VoterRecord })[];
 };
 
 export type CommitteeReportStructure = {
@@ -32,7 +32,7 @@ export const mapVoterRecordToMember = (
 
 /**
  * Transforms committee data into report structure
- * @param committees - Database committees with member lists
+ * @param committees - Database committees with active memberships
  * @returns Grouped committee data by location and election district
  */
 export const mapCommitteesToReportShape = (
@@ -54,7 +54,7 @@ export const mapCommitteesToReportShape = (
     }
 
     const members =
-      committee.committeeMemberList?.map(mapVoterRecordToMember) ?? [];
+      committee.memberships?.map((membership) => mapVoterRecordToMember(membership.voterRecord)) ?? [];
     const electionDistrictKey = String(committee.electionDistrict);
 
     if (!group.committees[electionDistrictKey]) {
@@ -88,7 +88,7 @@ async function getActiveTermId(): Promise<string> {
 }
 
 /**
- * Retrieves all committee data with member lists from the database.
+ * Retrieves all committee data with active memberships from the database.
  * Filters by active term (SRS §5.1).
  * @returns Committee records with included member data
  */
@@ -99,7 +99,15 @@ export async function fetchCommitteeData(): Promise<CommitteeWithMembers[]> {
     const committees = await prisma.committeeList.findMany({
       where: { termId: activeTermId },
       include: {
-        committeeMemberList: true,
+        memberships: {
+          where: {
+            termId: activeTermId,
+            status: 'ACTIVE',
+          },
+          include: {
+            voterRecord: true,
+          },
+        },
       },
     });
 

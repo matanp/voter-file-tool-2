@@ -9,6 +9,7 @@ import {
   createCommitteeFindUniqueWhereArgs,
   createMockMembership,
   expectMembershipCreate,
+  expectMembershipUpdate,
   getMembershipMock,
   validationTestCases,
   createAuthTestSuite,
@@ -241,6 +242,92 @@ describe("/api/committee/requestAdd", () => {
         response,
         400,
         "Member is already active in this committee",
+      );
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("should resubmit an existing REJECTED membership by updating to SUBMITTED", async () => {
+      const mockRequestData = createMockRequestData({
+        requestNotes: undefined,
+      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: "membership-rejected-1",
+          status: "REJECTED",
+          submissionMetadata: { requestNotes: "Original notes" },
+        }),
+      );
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ id: "membership-rejected-1", status: "SUBMITTED" }),
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectSuccessResponse(
+        response,
+        { success: true, message: "Request created" },
+        201,
+      );
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          {
+            status: "SUBMITTED",
+            submissionMetadata: expect.objectContaining({
+              requestNotes: "Original notes",
+            }),
+          },
+          { id: "membership-rejected-1" },
+        ),
+      );
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("should resubmit an existing REMOVED membership and update submissionMetadata", async () => {
+      const mockRequestData = createMockRequestData({
+        removeMemberId: "OLD_MEMBER",
+        requestNotes: "Replacement after removal",
+      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: "membership-removed-1",
+          status: "REMOVED",
+          submissionMetadata: { requestNotes: "Old note" },
+        }),
+      );
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ id: "membership-removed-1", status: "SUBMITTED" }),
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectSuccessResponse(
+        response,
+        { success: true, message: "Request created" },
+        201,
+      );
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          {
+            status: "SUBMITTED",
+            submissionMetadata: {
+              requestNotes: "Replacement after removal",
+              removeMemberId: "OLD_MEMBER",
+            },
+          },
+          { id: "membership-removed-1" },
+        ),
       );
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });

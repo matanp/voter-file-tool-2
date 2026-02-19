@@ -13,6 +13,13 @@ import {
 import type { Session } from "next-auth";
 import { logAuditEvent } from "~/lib/auditLog";
 
+function toSubmissionMetadataRecord(
+  value: unknown,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 async function requestAddHandler(req: NextRequest, session: Session) {
   let body: unknown;
   try {
@@ -111,7 +118,12 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
-    // Check for existing SUBMITTED membership (idempotent)
+    const requestMetadata: Record<string, unknown> = {
+      ...(removeMemberId ? { removeMemberId: removeMemberId.trim() } : {}),
+      ...(requestNotes ? { requestNotes } : {}),
+    };
+
+    // Check for existing membership (idempotent/transition)
     const existing = await prisma.committeeMembership.findUnique({
       where: {
         voterRecordId_committeeListId_termId: {
@@ -136,6 +148,54 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
+    if (existing) {
+      const previousMetadata = toSubmissionMetadataRecord(
+        existing.submissionMetadata,
+      );
+
+      const resubmitted = await prisma.committeeMembership.update({
+        where: { id: existing.id },
+        data: {
+          status: "SUBMITTED",
+          submittedAt: new Date(),
+          submittedById: session.user?.id ?? null,
+          membershipType: null,
+          seatNumber: null,
+          activatedAt: null,
+          confirmedAt: null,
+          resignedAt: null,
+          removedAt: null,
+          rejectedAt: null,
+          rejectionNote: null,
+          resignationDateReceived: null,
+          resignationMethod: null,
+          removalReason: null,
+          removalNotes: null,
+          petitionVoteCount: null,
+          petitionPrimaryDate: null,
+          submissionMetadata: {
+            ...(previousMetadata ?? {}),
+            ...requestMetadata,
+          },
+        },
+      });
+
+      await logAuditEvent(
+        session.user.id,
+        session.user.privilegeLevel,
+        "MEMBER_SUBMITTED",
+        "CommitteeMembership",
+        resubmitted.id,
+        { status: existing.status },
+        { status: "SUBMITTED" },
+      );
+
+      return NextResponse.json(
+        { success: true, message: "Request created" },
+        { status: 201 },
+      );
+    }
+
     // Create CommitteeMembership with status=SUBMITTED
     const newMembership = await prisma.committeeMembership.create({
       data: {
@@ -144,17 +204,14 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         termId: activeTermId,
         status: "SUBMITTED",
         submittedById: session.user?.id ?? null,
-        // Store intended replacement target and notes for admin review
-        submissionMetadata: {
-          ...(removeMemberId ? { removeMemberId: removeMemberId.trim() } : {}),
-          ...(requestNotes ? { requestNotes } : {}),
-        },
+        // Store intended replacement target and notes for admin review.
+        submissionMetadata: requestMetadata,
       },
     });
 
     await logAuditEvent(
       session.user.id,
-      session.user.privilegeLevel as PrivilegeLevel,
+      session.user.privilegeLevel,
       "MEMBER_SUBMITTED",
       "CommitteeMembership",
       newMembership.id,
