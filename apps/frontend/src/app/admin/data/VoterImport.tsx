@@ -8,6 +8,7 @@ import { Label } from "~/components/ui/label";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { useFileUpload } from "~/hooks/useFileUpload";
+import { useApiMutation } from "~/hooks/useApiMutation";
 import { type ReportTypeKey } from "@voter-file-tool/shared-validators";
 
 const VOTER_IMPORT_TYPE: ReportTypeKey = "voterImport";
@@ -16,7 +17,6 @@ export const VoterImport = () => {
   const [name, setName] = useState("");
   const [year, setYear] = useState(new Date().getFullYear());
   const [recordEntryNumber, setRecordEntryNumber] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -25,44 +25,19 @@ export const VoterImport = () => {
     maxSize: 500 * 1024 * 1024,
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    fileUpload.setFile(e.target.files?.[0] ?? null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      if (!name.trim()) throw new Error("Import name is required");
-      if (!fileUpload.file) throw new Error("Voter file is required");
-      if (year < 2000 || year > 2100)
-        throw new Error("Year must be between 2000 and 2100");
-      if (recordEntryNumber < 1)
-        throw new Error("Record entry number must be at least 1");
-
-      const fileKey = fileUpload.fileKey ?? (await fileUpload.upload());
-
-      const response = await fetch("/api/generateReport", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: VOTER_IMPORT_TYPE,
-          name,
-          format: "txt",
-          fileKey,
-          fileName: fileUpload.file.name,
-          year,
-          recordEntryNumber,
-        }),
-      });
-
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok)
-        throw new Error(result.error ?? "Failed to start voter import");
-
+  const generateReportMutation = useApiMutation<
+    { jobId?: string },
+    {
+      type: ReportTypeKey;
+      name: string;
+      format: string;
+      fileKey: string;
+      fileName: string;
+      year: number;
+      recordEntryNumber: number;
+    }
+  >("/api/generateReport", "POST", {
+    onSuccess: () => {
       setSuccess(
         "Voter import started successfully! You can track the progress in the Reports page.",
       );
@@ -70,12 +45,51 @@ export const VoterImport = () => {
       setYear(new Date().getFullYear());
       setRecordEntryNumber(1);
       fileUpload.reset();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
-    } finally {
-      setIsSubmitting(false);
+    },
+    onError: (err) => {
+      setError(err.message);
+    },
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    fileUpload.setFile(e.target.files?.[0] ?? null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!name.trim()) {
+      setError("Import name is required");
+      return;
+    }
+    if (!fileUpload.file) {
+      setError("Voter file is required");
+      return;
+    }
+    if (year < 2000 || year > 2100) {
+      setError("Year must be between 2000 and 2100");
+      return;
+    }
+    if (recordEntryNumber < 1) {
+      setError("Record entry number must be at least 1");
+      return;
+    }
+
+    try {
+      const fileKey = fileUpload.fileKey ?? (await fileUpload.upload());
+      await generateReportMutation.mutate({
+        type: VOTER_IMPORT_TYPE,
+        name,
+        format: "txt",
+        fileKey,
+        fileName: fileUpload.file.name,
+        year,
+        recordEntryNumber,
+      });
+    } catch {
+      // Error already set in onError
     }
   };
 
@@ -204,7 +218,7 @@ export const VoterImport = () => {
 
           <Button
             type="submit"
-            disabled={isSubmitting || fileUpload.isUploading}
+            disabled={generateReportMutation.loading || fileUpload.isUploading}
             className="w-full"
           >
             {fileUpload.isUploading ? (
@@ -212,7 +226,7 @@ export const VoterImport = () => {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Uploading...
               </>
-            ) : isSubmitting ? (
+            ) : generateReportMutation.loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Starting Import...

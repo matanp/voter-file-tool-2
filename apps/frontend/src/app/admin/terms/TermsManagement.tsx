@@ -24,8 +24,17 @@ export function TermsManagement({ initialTerms }: TermsManagementProps) {
   const [endDate, setEndDate] = useState("");
 
   const fetchTerms = useCallback(async () => {
-    const res = await fetch("/api/admin/terms");
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/admin/terms");
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        toast({
+          title: "Error fetching terms",
+          description: err.error ?? `Request failed (${res.status})`,
+          variant: "destructive",
+        });
+        return;
+      }
       const data = (await res.json()) as Array<{
         id: string;
         label: string;
@@ -42,8 +51,15 @@ export function TermsManagement({ initialTerms }: TermsManagementProps) {
           createdAt: new Date(t.createdAt),
         })),
       );
+    } catch (e) {
+      console.error("Error fetching terms:", e);
+      toast({
+        title: "Error fetching terms",
+        description: e instanceof Error ? e.message : "Failed to fetch",
+        variant: "destructive",
+      });
     }
-  }, []);
+  }, [toast]);
 
   const createTermMutation = useApiMutation<
     CommitteeTerm,

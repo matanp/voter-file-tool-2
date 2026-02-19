@@ -50,6 +50,13 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     requestNotes,
   } = validation.data;
 
+  if (!session.user) {
+    return NextResponse.json(
+      { success: false, error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+
   // SRS 1.2: addMemberId is required for the new CommitteeMembership flow.
   // Remove-only requests are an admin action; leaders should contact an admin.
   if (!addMemberId) {
@@ -158,7 +165,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         data: {
           status: "SUBMITTED",
           submittedAt: new Date(),
-          submittedById: session.user?.id ?? null,
+          submittedById: session.user.id,
           membershipType: null,
           seatNumber: null,
           activatedAt: null,
@@ -203,7 +210,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         committeeListId: committeeRequested.id,
         termId: activeTermId,
         status: "SUBMITTED",
-        submittedById: session.user?.id ?? null,
+        submittedById: session.user.id,
         // Store intended replacement target and notes for admin review.
         submissionMetadata: requestMetadata,
       },

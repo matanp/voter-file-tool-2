@@ -82,9 +82,7 @@ describe("/api/committee/handleRequest", () => {
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
-      getMembershipMock(prismaMock).update.mockResolvedValue(
-        createMockMembership({ status: "REJECTED" }),
-      );
+      getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
 
       const response = await POST(createMockRequest(mockRequestData));
 
@@ -93,12 +91,13 @@ describe("/api/committee/handleRequest", () => {
         { message: "Request rejected" },
         200,
       );
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          { status: "REJECTED" },
-          { id: "membership-test-id-001" },
-        ),
-      );
+      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith({
+        where: { id: "membership-test-id-001", status: "SUBMITTED" },
+        data: expect.objectContaining({
+          status: "REJECTED",
+          rejectedAt: expect.any(Date),
+        }),
+      });
       // Reject should not check governance config or capacity
       expect(
         prismaMock.committeeGovernanceConfig.findFirst,
@@ -369,9 +368,7 @@ describe("/api/committee/handleRequest", () => {
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
         );
-        getMembershipMock(prismaMock).update.mockResolvedValue(
-          createMockMembership({ status: "REJECTED" }),
-        );
+        getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
 
         await POST(createMockRequest(mockRequestData));
 
@@ -455,9 +452,7 @@ describe("/api/committee/handleRequest", () => {
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
         );
-        getMembershipMock(prismaMock).update.mockResolvedValue(
-          createMockMembership({ status: "REJECTED" }),
-        );
+        getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
       };
 
       const authTestSuite = createAuthTestSuite(

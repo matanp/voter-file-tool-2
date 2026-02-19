@@ -32,8 +32,17 @@ const createTermSchema = z.object({
   }),
 });
 
+/** Handles POST /terms: validates body and creates a new CommitteeTerm. */
 async function postTermHandler(req: NextRequest, _session: Session) {
-  const body = (await req.json()) as unknown;
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON in request body" },
+      { status: 400 },
+    );
+  }
   const validation = validateRequest(body, createTermSchema);
 
   if (!validation.success) {
