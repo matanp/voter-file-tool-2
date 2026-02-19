@@ -14,6 +14,8 @@ import {
   createMockSession,
   createMockMembership,
   getMembershipMock,
+  getAuditLogMock,
+  expectAuditLogCreate,
   DEFAULT_ACTIVE_TERM_ID,
   type AuthTestConfig,
 } from "../../utils/testUtils";
@@ -153,6 +155,16 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       expect(prismaMock.committeeUploadDiscrepancy.delete).toHaveBeenCalledWith({
         where: { VRCNUM: "TEST123" },
       });
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          entityType: "CommitteeMembership",
+          metadata: expect.objectContaining({
+            source: "discrepancy_accept",
+            discrepancyVrcnum: "TEST123",
+          }) as unknown,
+        }),
+      );
     });
 
     it("accept resolution does not write legacy voterRecord.committeeId/committeeMemberList", async () => {
@@ -208,6 +220,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       expect(prismaMock.committeeUploadDiscrepancy.delete).toHaveBeenCalledWith({
         where: { VRCNUM: "TEST123" },
       });
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
     it("returns 400 when accept would exceed committee capacity", async () => {
