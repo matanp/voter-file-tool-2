@@ -1,6 +1,7 @@
 import {
   fetchCommitteeData,
   mapCommitteesToReportShape,
+  type CommitteeWithMembers,
 } from '../committeeMappingHelpers';
 import { prisma } from '../lib/prisma';
 
@@ -69,7 +70,7 @@ describe('fetchCommitteeData', () => {
 
 describe('mapCommitteesToReportShape', () => {
   it('builds report members from memberships/voterRecord records', () => {
-    const output = mapCommitteesToReportShape([
+    const input: CommitteeWithMembers[] = [
       {
         id: 1,
         cityTown: 'ROCHESTER',
@@ -92,12 +93,9 @@ describe('mapCommitteesToReportShape', () => {
             resignedAt: null,
             removedAt: null,
             rejectedAt: null,
-            rejectedById: null,
             rejectionNote: null,
-            removedById: null,
             removalReason: null,
             removalNotes: null,
-            resignedById: null,
             resignationDateReceived: null,
             resignationMethod: null,
             petitionVoteCount: null,
@@ -142,28 +140,20 @@ describe('mapCommitteesToReportShape', () => {
               stateAssmblyDistrict: '1',
               stateSenateDistrict: '1',
               congressionalDistrict: '1',
-              ward: null,
+              CC_WD_Village: null,
               townCode: '001',
               lastUpdate: null,
               originalRegDate: null,
-              countyVoterRegNumber: null,
-              voterStatus: null,
-              statusReason: null,
-              inactiveDate: null,
-              purgeDate: null,
-              SBOEID: null,
-              voterHistory: null,
-              voterMailingAddress: null,
-              voterMailingCity: null,
-              voterMailingState: null,
-              voterMailingZip: null,
+              statevid: null,
+              hasDiscrepancy: null,
               addressForCommittee: null,
               committeeId: null,
             },
           },
         ],
-      } as never,
-    ]);
+      },
+    ];
+    const output = mapCommitteesToReportShape(input);
 
     expect(output).toHaveLength(1);
     expect(output[0]).toMatchObject({
