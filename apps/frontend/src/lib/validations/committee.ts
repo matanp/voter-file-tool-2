@@ -38,6 +38,20 @@ export type FetchCommitteeListResponse = CommitteeList & {
     isPetitioned: boolean;
     weight: number | string | null;
   }>;
+  designationWeightSummary?: {
+    totalWeight: number;
+    totalContributingSeats: number;
+    seats: Array<{
+      seatNumber: number;
+      isPetitioned: boolean;
+      isOccupied: boolean;
+      occupantMembershipType: "PETITIONED" | "APPOINTED" | null;
+      seatWeight: number | null;
+      contributes: boolean;
+      contributionWeight: number;
+    }>;
+    missingWeightSeatNumbers: number[];
+  };
   maxSeatsPerLted?: number;
 };
 
@@ -400,6 +414,17 @@ export const fetchCommitteeListQuerySchema = z
       .string()
       .trim()
       .regex(/^\d+$/, "Election District must contain only digits"),
+    // SRS 2.7 — include designation-weight summary payload when needed.
+    includeDesignationWeightSummary: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v == null ? undefined : v.toLowerCase()))
+      .refine((v) => v == null || v === "true" || v === "false", {
+        message:
+          "includeDesignationWeightSummary must be 'true' or 'false' when provided",
+      })
+      .transform((v) => (v == null ? undefined : v === "true")),
   })
   .strict();
 
@@ -494,3 +519,15 @@ export const bulkDecisionSchema = z
   });
 
 export type BulkDecisionData = z.infer<typeof bulkDecisionSchema>;
+
+// SRS 2.7 — Designation weight query params
+export const designationWeightQuerySchema = z
+  .object({
+    committeeListId: z.coerce.number().int().positive(),
+    termId: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+export type DesignationWeightQuery = z.infer<
+  typeof designationWeightQuerySchema
+>;
