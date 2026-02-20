@@ -13,10 +13,11 @@ export async function auditLogImmutabilityGuard(
     (params.action === "update" ||
       params.action === "updateMany" ||
       params.action === "delete" ||
-      params.action === "deleteMany")
+      params.action === "deleteMany" ||
+      params.action === "upsert")
   ) {
     throw new Error(
-      `AuditLog is immutable: ${params.action} operations are not allowed`,
+      "AuditLog is immutable: update, updateMany, delete, deleteMany, upsert operations are not allowed",
     );
   }
   return next(params);
