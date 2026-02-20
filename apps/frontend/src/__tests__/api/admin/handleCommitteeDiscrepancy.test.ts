@@ -167,6 +167,66 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       );
     });
 
+    it("accept resolution with existing non-ACTIVE membership: updates to ACTIVE and emits audit with source discrepancy_accept", async () => {
+      const existingMembershipId = "existing-membership-id";
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: existingMembershipId,
+          voterRecordId: "TEST123",
+          committeeListId: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          status: "REMOVED",
+          membershipType: "APPOINTED",
+          seatNumber: null,
+        }),
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(1);
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ id: existingMembershipId, status: "ACTIVE" }),
+      );
+      prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue(
+        {} as never,
+      );
+
+      const request = createMockRequest({
+        VRCNUM: "TEST123",
+        accept: true,
+        takeAddress: "",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: existingMembershipId },
+          data: expect.objectContaining({
+            status: "ACTIVE",
+            membershipType: "APPOINTED",
+          }) as unknown,
+        }),
+      );
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          entityType: "CommitteeMembership",
+          entityId: existingMembershipId,
+          beforeValue: expect.objectContaining({ status: "REMOVED" }) as Prisma.InputJsonValue,
+          afterValue: expect.objectContaining({ status: "ACTIVE" }) as Prisma.InputJsonValue,
+          metadata: expect.objectContaining({
+            source: "discrepancy_accept",
+            discrepancyVrcnum: "TEST123",
+          }) as Prisma.InputJsonValue,
+        }),
+      );
+    });
+
     it("accept resolution does not write legacy voterRecord.committeeId/committeeMemberList", async () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
