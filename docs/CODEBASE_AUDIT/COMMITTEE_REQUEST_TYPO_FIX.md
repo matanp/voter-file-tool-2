@@ -1,4 +1,4 @@
-# CommitteeRequest.committList Typo Fix
+# CommitteeRequest.committeList Typo Fix
 
 **Status:** Planned  
 **Source:** [CODEBASE_AUDIT_ANALYSIS.md](CODEBASE_AUDIT_ANALYSIS.md) (lines 91–92), [CODE_REVIEW_RECOMMENDATIONS.md](CODE_REVIEW_RECOMMENDATIONS.md) #10
