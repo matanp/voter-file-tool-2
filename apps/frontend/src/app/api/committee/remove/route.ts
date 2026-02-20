@@ -135,7 +135,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     }
 
     const removeData = validation.data as {
-      removalReason?: RemovalReason;
+      removalReason: RemovalReason;
       removalNotes?: string;
     };
     await prisma.committeeMembership.update({
@@ -143,8 +143,10 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       data: {
         status: "REMOVED",
         removedAt: new Date(),
-        ...(removeData.removalReason ? { removalReason: removeData.removalReason } : {}),
-        ...(removeData.removalNotes ? { removalNotes: removeData.removalNotes } : {}),
+        removalReason: removeData.removalReason,
+        ...(removeData.removalNotes != null && removeData.removalNotes !== ""
+          ? { removalNotes: removeData.removalNotes }
+          : {}),
       },
     });
 
@@ -154,12 +156,20 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       "MEMBER_REMOVED",
       "CommitteeMembership",
       membership.id,
-      { status: "ACTIVE" },
+      {
+        status: "ACTIVE",
+        ...(membership.seatNumber != null
+          ? { seatNumber: membership.seatNumber }
+          : {}),
+      },
       {
         status: "REMOVED",
-        ...(removeData.removalReason ? { removalReason: removeData.removalReason } : {}),
-        ...(removeData.removalNotes ? { removalNotes: removeData.removalNotes } : {}),
+        removalReason: removeData.removalReason,
+        ...(removeData.removalNotes != null && removeData.removalNotes !== ""
+          ? { removalNotes: removeData.removalNotes }
+          : {}),
       },
+      { source: "manual" },
     );
 
     return NextResponse.json({ status: "success" }, { status: 200 });
