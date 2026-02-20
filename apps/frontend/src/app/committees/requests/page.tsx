@@ -9,12 +9,14 @@ import {
   type VoterRecord,
 } from "@prisma/client";
 import { auth } from "~/auth";
+import Link from "next/link";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "~/components/ui/accordion";
+import { Button } from "~/components/ui/button";
 import { RequestCard } from "./RequestCard";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 
@@ -96,7 +98,14 @@ const CommitteeRequests: React.FC = async () => {
   }
 
   return (
-    <div className="w-96 m-4">
+    <div className="w-96 m-4 space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Review and accept or reject individually below, or process in bulk via a
+        meeting record.
+      </p>
+      <Button variant="outline" asChild>
+        <Link href="/admin/meetings">Process in bulk via Meetings</Link>
+      </Button>
       <Accordion type="multiple" defaultValue={defaultOpenItems}>
         {committeeListIds.map((committeeListId) => {
           const reqs = groupedRequests[committeeListId];
