@@ -362,6 +362,35 @@ export const createMockGovernanceConfig = (
     ...overrides,
   }) as CommitteeGovernanceConfig;
 
+/**
+ * Mocks Prisma so validateEligibility passes (SRS §2.1): voter exists with matching party/AD,
+ * crosswalk matches, under capacity, not in another committee.
+ * Use in committee add/requestAdd/handleRequest tests. For requestAdd, override
+ * committeeList.findUnique with an implementation that returns the committee for the route's
+ * composite-key lookup and list fields for eligibility's id lookup.
+ */
+export function setupEligibilityPass(prismaMock: unknown): void {
+  (
+    prismaMock as { voterRecord: { findUnique: jest.Mock } }
+  ).voterRecord.findUnique.mockResolvedValue(
+    createMockVoterRecord({ party: "DEM", stateAssmblyDistrict: "1" }),
+  );
+  (
+    prismaMock as { committeeList: { findUnique: jest.Mock } }
+  ).committeeList.findUnique.mockResolvedValue({
+    cityTown: "Test City",
+    legDistrict: 1,
+    electionDistrict: 1,
+  });
+  (
+    prismaMock as { ltedDistrictCrosswalk: { findUnique: jest.Mock } }
+  ).ltedDistrictCrosswalk.findUnique.mockResolvedValue({
+    stateAssemblyDistrict: "1",
+  });
+  getMembershipMock(prismaMock).count.mockResolvedValue(0);
+  getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+}
+
 // Test request factory
 export const createMockRequest = <T = Record<string, unknown>>(
   body: T = {} as T,

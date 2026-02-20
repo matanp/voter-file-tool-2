@@ -11,6 +11,7 @@ import {
   expectMembershipCreate,
   expectMembershipUpdate,
   getMembershipMock,
+  setupEligibilityPass,
   validationTestCases,
   createAuthTestSuite,
   DEFAULT_ACTIVE_TERM_ID,
@@ -41,10 +42,20 @@ describe("/api/committee/requestAdd", () => {
 
     /** Set up mocks for the full happy-path (SUBMITTED membership created). */
     const setupHappyPath = (committeeId = 1) => {
-      prismaMock.committeeList.findUnique.mockResolvedValue(
-        createMockCommittee({ id: committeeId }),
+      setupEligibilityPass(prismaMock);
+      // Route looks up by composite key; validateEligibility by id. Support both.
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee({ id: committeeId })) as never;
+        },
       );
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMock(prismaMock).create.mockResolvedValue(
         createMockMembership(),
@@ -204,10 +215,19 @@ describe("/api/committee/requestAdd", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(
-        createMockCommittee(),
+      setupEligibilityPass(prismaMock);
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee()) as never;
+        },
       );
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
@@ -228,10 +248,19 @@ describe("/api/committee/requestAdd", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(
-        createMockCommittee(),
+      setupEligibilityPass(prismaMock);
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee()) as never;
+        },
       );
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "ACTIVE" }),
       );
@@ -254,8 +283,19 @@ describe("/api/committee/requestAdd", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      setupEligibilityPass(prismaMock);
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee()) as never;
+        },
+      );
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
           id: "membership-rejected-1",
@@ -295,8 +335,19 @@ describe("/api/committee/requestAdd", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      setupEligibilityPass(prismaMock);
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee()) as never;
+        },
+      );
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
           id: "membership-rejected-2",
@@ -340,8 +391,19 @@ describe("/api/committee/requestAdd", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      setupEligibilityPass(prismaMock);
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee()) as never;
+        },
+      );
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
           id: "membership-removed-1",
@@ -375,27 +437,34 @@ describe("/api/committee/requestAdd", () => {
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
-    it("should return 400 when add member is ACTIVE in another committee", async () => {
+    it("should return 422 INELIGIBLE when add member is ACTIVE in another committee", async () => {
       const mockRequestData = createMockRequestData();
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
       mockHasPermission(true);
-      prismaMock.committeeList.findUnique.mockResolvedValue(
-        createMockCommittee({ id: 1 }),
+      setupEligibilityPass(prismaMock);
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee({ id: 1 })) as never;
+        },
       );
-      // Voter is ACTIVE in committee 999 (different from target 1)
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(
         createMockMembership({ committeeListId: 999, status: "ACTIVE" }),
       );
 
       const response = await POST(createMockRequest(mockRequestData));
 
-      await expectErrorResponse(
-        response,
-        400,
-        "Member is already in another committee",
-      );
+      await expectErrorResponse(response, 422, "INELIGIBLE");
+      const body = (await response.json()) as { reasons?: string[] };
+      expect(body.reasons).toContain("ALREADY_IN_ANOTHER_COMMITTEE");
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });
 

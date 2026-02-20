@@ -2,6 +2,7 @@ import { z } from "zod";
 // TS types below resolve after running `prisma migrate dev` or `prisma generate`.
 import {
   type CommitteeList,
+  type IneligibilityReason,
   type VoterRecord,
   MembershipType,
   RemovalReason,
@@ -66,6 +67,9 @@ export const committeeDataSchema = z
       .positive("Election District must be a positive integer"),
     memberId: z.string().trim().min(1, "Member ID is required"),
     membershipType: z.nativeEnum(MembershipType).optional(),
+    // SRS §2.1 — Admin override (honored only when user is Admin)
+    forceAdd: z.boolean().optional(),
+    overrideReason: z.string().trim().max(500).optional(),
   })
   .strict();
 
@@ -102,6 +106,9 @@ export const committeeRequestDataSchema = z
       .trim()
       .max(1000, "Notes must be 1000 characters or fewer")
       .optional(),
+    // SRS §2.1 — Admin override (honored only when user is Admin)
+    forceAdd: z.boolean().optional(),
+    overrideReason: z.string().trim().max(500).optional(),
   })
   .strict()
   .refine(
@@ -171,6 +178,9 @@ export const handleCommitteeRequestDataSchema = z
         message: "Accept or reject must be either 'accept' or 'reject'",
       }),
     }),
+    // SRS §2.1 — Admin override (accept path only; honored only when user is Admin)
+    forceAdd: z.boolean().optional(),
+    overrideReason: z.string().trim().max(500).optional(),
   })
   .strict();
 
@@ -212,14 +222,19 @@ export const fetchCommitteeListQuerySchema = z
   })
   .strict();
 
-// API Response types for committee operations
+// API Response types for committee operations (SRS §2.1 — INELIGIBLE with reasons)
 export type AddCommitteeResponse =
   | {
       success: true;
       message: string;
       idempotent?: true;
     }
-  | { success: false; error: string };
+  | { success: false; error: string }
+  | {
+      success: false;
+      error: "INELIGIBLE";
+      reasons: IneligibilityReason[];
+    };
 
 export type CommitteeRequestResponse =
   | {
