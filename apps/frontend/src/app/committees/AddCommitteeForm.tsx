@@ -29,6 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -61,6 +63,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [ineligibilityReasons, setIneligibilityReasons] = useState<
     IneligibilityReason[] | null
   >(null);
+  const [contactEmail, setContactEmail] = useState<string>("");
+  const [contactPhone, setContactPhone] = useState<string>("");
 
   // API mutation hook
   const addCommitteeMemberMutation = useApiMutation<
@@ -116,6 +120,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         electionDistrict: electionDistrict,
         memberId: record.VRCNUM,
         membershipType,
+        email: contactEmail.trim() || undefined,
+        phone: contactPhone.trim() || undefined,
       });
     } else {
       setShowConfirm(true);
@@ -163,6 +169,27 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                 <SelectItem value="PETITIONED">Petitioned</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        )}
+        {validCommittee && (
+          <div className="flex flex-col gap-2 max-w-sm">
+            <Label className="text-sm font-medium">
+              Contact info for this submission (optional)
+            </Label>
+            <Input
+              type="email"
+              placeholder="Email"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              aria-label="Contact email for submission"
+            />
+            <Input
+              type="tel"
+              placeholder="Phone"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              aria-label="Contact phone for submission"
+            />
           </div>
         )}
         {validCommittee && (

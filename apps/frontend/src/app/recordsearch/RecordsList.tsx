@@ -249,15 +249,28 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   );
 };
 
+/** SRS 2.1a — optional submission contact overrides (prefer over voter record when displaying committee member). */
+export type SubmissionContactOverrides = {
+  email?: string;
+  phone?: string;
+};
+
 export const VoterCard = ({
   record,
   committee,
   membershipType,
+  submissionMetadata,
 }: {
   record: VoterRecord;
   committee?: boolean;
   membershipType?: MembershipType | null;
+  /** SRS 2.1a — when present, display email/phone from submission over voter record. */
+  submissionMetadata?: SubmissionContactOverrides | null;
 }) => {
+  // SRS 2.1a: Prefer submission contact over voter record (BOE imports overwrite VoterRecord; submission preserves leader-provided contact).
+  const displayEmail = submissionMetadata?.email ?? record.email;
+  const displayPhone = submissionMetadata?.phone ?? record.telephone;
+
   return (
     <div className="max-w-lg mx-auto bg-white rounded-lg p-4">
       <div className="flex items-center gap-2 mb-4">
@@ -283,10 +296,10 @@ export const VoterCard = ({
             {record.DOB ? new Date(record.DOB).toLocaleDateString() : "-"}
           </p>
           <p>
-            <span>Telephone:</span> {record.telephone ?? "-"}
+            <span>Telephone:</span> {displayPhone ?? "-"}
           </p>
           <p className="break-words">
-            <span>Email:</span> {record.email ?? "-"}
+            <span>Email:</span> {displayEmail ?? "-"}
           </p>
           <p>
             <span>Voter Id:</span> {record.VRCNUM}

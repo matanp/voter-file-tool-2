@@ -104,6 +104,38 @@ describe("/api/committee/add", () => {
       );
     });
 
+    it("should store email and phone in submissionMetadata when provided (SRS 2.1a)", async () => {
+      const mockCommitteeData = createMockCommitteeData({
+        email: "contact@example.com",
+        phone: "555-1234",
+      });
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      setupHappyPath();
+
+      const response = await POST(createMockRequest(mockCommitteeData));
+
+      await expectSuccessResponse(
+        response,
+        { success: true, message: "Member added to committee" },
+        200,
+      );
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+        expectMembershipCreate({
+          membershipType: "APPOINTED",
+          seatNumber: 1,
+          submissionMetadata: {
+            email: "contact@example.com",
+            phone: "555-1234",
+          },
+        }),
+      );
+    });
+
     it("should re-activate an existing non-active membership instead of creating", async () => {
       const mockCommitteeData = createMockCommitteeData();
       const mockSession = createMockSession({

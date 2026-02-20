@@ -39,6 +39,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       voterRecord: VoterRecord;
       membershipType: MembershipType | null;
       seatNumber?: number | null;
+      submissionMetadata?: { email?: string; phone?: string } | null;
     }>
   >([]);
   const [maxSeatsPerLted, setMaxSeatsPerLted] = useState<number>(4);
@@ -240,6 +241,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               voterRecord: m.voterRecord,
               membershipType: m.membershipType ?? null,
               seatNumber: m.seatNumber ?? null,
+              submissionMetadata: m.submissionMetadata ?? null,
             })) ?? [],
           );
           setMaxSeatsPerLted(data.maxSeatsPerLted ?? 4);
@@ -475,7 +477,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           <div className="pt-2 pb-4">
             {memberships.length > 0 ? (
               <div className="flex gap-4 w-full flex-wrap min-h-66 h-max">
-                {memberships.map(({ voterRecord, membershipType }) => (
+                {memberships.map(
+                  ({ voterRecord, membershipType, submissionMetadata }) => (
                   <div key={voterRecord.VRCNUM}>
                     <Card className="w-full min-w-[600px] h-full flex flex-col">
                       <CardContent className="flex-1">
@@ -483,6 +486,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                           record={voterRecord}
                           committee={true}
                           membershipType={membershipType}
+                          submissionMetadata={submissionMetadata}
                         />
                       </CardContent>
                       <CardFooter className="h-full">
@@ -518,7 +522,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                       </CardFooter>
                     </Card>
                   </div>
-                ))}
+                  ),
+                )}
               </div>
             ) : (
               <p>{noContentMessage()}</p>

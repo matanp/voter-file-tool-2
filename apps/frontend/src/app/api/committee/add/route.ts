@@ -34,7 +34,18 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
     membershipType = "APPOINTED",
     forceAdd,
     overrideReason,
+    email,
+    phone,
   } = validation.data;
+
+  // SRS 2.1a — store in submissionMetadata only; never write to VoterRecord
+  const submissionMetadata: Record<string, unknown> = {};
+  if (email?.trim()) submissionMetadata.email = email.trim();
+  if (phone?.trim()) submissionMetadata.phone = phone.trim();
+  const metadataForDb: Prisma.InputJsonValue | undefined =
+    Object.keys(submissionMetadata).length > 0
+      ? (submissionMetadata as Prisma.InputJsonValue)
+      : undefined;
 
   if (!session.user?.id) {
     return NextResponse.json(
@@ -43,9 +54,9 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
     );
   }
   const userId = session.user.id;
-  const userRole = session.user.privilegeLevel;
+  const userPrivilegeLevel = session.user.privilegeLevel;
   const legDistrictForDb = toDbSentinelValue(legDistrict);
-  const isAdmin = userRole === PrivilegeLevel.Admin;
+  const isAdmin = userPrivilegeLevel === PrivilegeLevel.Admin;
   const eligibilityOptions =
     isAdmin && forceAdd
       ? { forceAdd: true, overrideReason: overrideReason ?? "" }
@@ -193,11 +204,12 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             removalNotes: null,
             petitionVoteCount: null,
             petitionPrimaryDate: null,
+            submissionMetadata: metadataForDb,
           },
         });
         await logAuditEvent(
           userId,
-          userRole,
+          userPrivilegeLevel,
           "MEMBER_ACTIVATED",
           "CommitteeMembership",
           existingMembership.id,
@@ -216,11 +228,12 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             activatedAt: new Date(),
             membershipType,
             seatNumber,
+            submissionMetadata: metadataForDb,
           },
         });
         await logAuditEvent(
           userId,
-          userRole,
+          userPrivilegeLevel,
           "MEMBER_ACTIVATED",
           "CommitteeMembership",
           newMembership.id,
