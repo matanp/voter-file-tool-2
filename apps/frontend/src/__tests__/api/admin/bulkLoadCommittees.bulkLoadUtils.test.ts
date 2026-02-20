@@ -11,35 +11,39 @@ import {
   getAuditLogMock,
   getMembershipMock,
 } from "../../utils/testUtils";
-
-const readFileSyncMock = jest.fn();
-const readWorkbookMock = jest.fn();
-const sheetToJsonMock = jest.fn();
-const getActiveTermIdMock = jest.fn();
-const getGovernanceConfigMock = jest.fn();
-const ensureSeatsExistMock = jest.fn();
-const assignNextAvailableSeatMock = jest.fn();
+import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import * as fs from "fs";
+import * as seatUtils from "~/app/api/lib/seatUtils";
+import * as xlsx from "xlsx";
 
 jest.mock("fs", () => ({
-  readFileSync: readFileSyncMock,
+  readFileSync: jest.fn(),
 }));
 
 jest.mock("xlsx", () => ({
-  read: readWorkbookMock,
+  read: jest.fn(),
   utils: {
-    sheet_to_json: sheetToJsonMock,
+    sheet_to_json: jest.fn(),
   },
 }));
 
 jest.mock("~/app/api/lib/committeeValidation", () => ({
-  getActiveTermId: getActiveTermIdMock,
-  getGovernanceConfig: getGovernanceConfigMock,
+  getActiveTermId: jest.fn(),
+  getGovernanceConfig: jest.fn(),
 }));
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
-  ensureSeatsExist: ensureSeatsExistMock,
-  assignNextAvailableSeat: assignNextAvailableSeatMock,
+  ensureSeatsExist: jest.fn(),
+  assignNextAvailableSeat: jest.fn(),
 }));
+
+const readFileSyncMock = fs.readFileSync as jest.Mock;
+const readWorkbookMock = xlsx.read as jest.Mock;
+const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
+const getActiveTermIdMock = committeeValidation.getActiveTermId as jest.Mock;
+const getGovernanceConfigMock = committeeValidation.getGovernanceConfig as jest.Mock;
+const ensureSeatsExistMock = seatUtils.ensureSeatsExist as jest.Mock;
+const assignNextAvailableSeatMock = seatUtils.assignNextAvailableSeat as jest.Mock;
 
 describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
   beforeEach(() => {
