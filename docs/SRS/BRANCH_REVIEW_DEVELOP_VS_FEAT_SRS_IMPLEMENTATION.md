@@ -189,7 +189,7 @@ The stale README mismatch called out in this review has been resolved. Phase 1 r
 ## 8. Recommendations
 
 1. **Merge readiness**: Core Phase 1 is implemented and tested. Remaining items (1.R.4/1.R.5/1.R.7 tests and docs) are important for production confidence but not blocking for staging.
-2. **README sync**: Update tickets/README.md so 1.R.1 status matches the ticket file (Resolved).
+2. **Resolved:** README sync: Update tickets/README.md so 1.R.1 status matches the ticket file (Resolved).
 3. **Post-merge**: Prioritize 1.R.4 tests, then 1.R.7 concurrency test; 1.R.5 test updates can follow.
 4. **Tier 2 planning**: With Phase 1 foundation complete, schedule 2.1 Eligibility Validation as the next major feature.
 

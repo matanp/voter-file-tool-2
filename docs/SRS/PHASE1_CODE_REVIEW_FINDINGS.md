@@ -15,13 +15,14 @@ All four P1 findings have been verified as fixed in code and covered by tests on
 | **P1#4** Weighted-table ambiguous key | `weightedTable/import/route.ts`: Matrix for full key when provided; fallback disambiguates via crosswalk or skips ambiguous. Updates single committee per row. | `weightedTableImport.test.ts`: "skips ambiguous LD/ED rows...", "uses LTED matrix mapping to target the correct committee..." |
 
 P2 findings (5–6) remain open.
+Tracking tickets: [1.R.20](tickets/1.R.20-admin-flow-audit-coverage.md), [1.R.21](tickets/1.R.21-high-risk-route-test-coverage.md).
 
 ## Review Outcome
 
-Phase 1 is **not fully finalizable** from a code-quality/risk perspective yet.
+Phase 1 is closed by ticket criteria. All four P1 items below have been fixed in code and covered by tests. P2 findings (5–6) remain open for Phase 2.
 
-- **P1 findings:** 4
-- **P2 findings:** 2
+- **P1 findings:** 4 (resolved)
+- **P2 findings:** 2 (open)
 
 ## What Was Reviewed
 
@@ -53,7 +54,9 @@ All passed (43/43), but they do not cover several high-risk paths below.
 
 ---
 
-## Findings (Ordered by Severity)
+## Historical Findings (Resolved in Current Branch)
+
+The P1 items below have been resolved as indicated in the Resolution (P1) table above. They are retained for traceability.
 
 ### 1. [P1] Resubmission can carry stale `removeMemberId` and remove the wrong active member
 
@@ -187,9 +190,18 @@ Regressions in Phase 1 invariants (single active committee membership, correct w
 
 ---
 
-## Suggested Closeout Gate Before Phase 2
+## Suggested Gate Before Phase 2 (Historical)
 
-1. Fix findings 1–4 (all P1).  
-2. Add/expand tests for those paths.  
-3. Re-run API test suite for committee/admin mutation routes.  
-4. Reconfirm ticket statuses after fixes (especially 1.R.4/1.R.5/1.R.7 closeout assumptions).
+The following were recommended before starting Phase 2; P1 items (1–4) have been addressed:
+
+1. ~~Fix findings 1–4 (all P1).~~ — Done (see Resolution table).  
+2. ~~Add/expand tests for those paths.~~ — Done.  
+3. Re-run API test suite for committee/admin mutation routes when making further changes.  
+4. P2 findings (5–6) remain open; consider addressing in Phase 1.1 or early Phase 2.
+
+## Retirement Gate
+
+This document can be retired from active SRS docs when both open P2 findings are resolved and their tracking tickets are marked done:
+
+- [1.R.20 Admin Flow Audit Coverage](tickets/1.R.20-admin-flow-audit-coverage.md)
+- [1.R.21 High-Risk Route Test Coverage](tickets/1.R.21-high-risk-route-test-coverage.md)
