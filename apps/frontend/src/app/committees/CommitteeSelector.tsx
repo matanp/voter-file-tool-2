@@ -457,8 +457,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                       </span>
                       <span className="flex-1">
                         {occupant
-                          ? `${occupant.voterRecord.lastName ?? ""}, ${occupant.voterRecord.firstName ?? ""}`.trim() ||
-                            occupant.voterRecord.VRCNUM
+                          ? [occupant.voterRecord.lastName, occupant.voterRecord.firstName]
+                              .filter(Boolean)
+                              .join(", ") || occupant.voterRecord.VRCNUM
                           : "—"}
                       </span>
                       <span className="text-sm text-muted-foreground">

@@ -76,7 +76,7 @@ This document consolidates code-review and audit findings with resolution guidan
 
 **Resolution:** Use `privilegeLevel={PrivilegeLevel.Admin}` and add/import `PrivilegeLevel` from `@prisma/client`.
 
-**Status:** Applied in `apps/frontend/src/app/admin/data/page.tsx` and `apps/frontend/src/app/admin/dashboard/page.tsx`. If `admin/layout.tsx` exists in your branch, apply the same change there.
+**Status:** ✅ Resolved. Applied in `admin/layout.tsx` — uses `PrivilegeLevel.Admin` enum imported from `@prisma/client`.
 
 **Tracked in:** [1.R.17](tickets/1.R.17-phase1-ui-fixes.md).
 
@@ -102,7 +102,7 @@ This document consolidates code-review and audit findings with resolution guidan
 
 **Resolution:** Either (a) ensure `parseTermList` always returns `Date` for `startDate`/`endDate` and use `format(term.startDate, "MMM d, yyyy")` (and same for `endDate`) without extra `new Date()` or cast, or (b) use a small helper that normalizes `string | Date` to `Date` and pass that to `format` to avoid ambiguous casting.
 
-**Status:** Verify in your branch; if the file exists, remove the redundant conversion and fix the type.
+**Status:** ✅ Resolved. Removed redundant `new Date()` casts and `as string | Date` assertions; `parseTermList` already normalizes to `Date`, so `format(term.startDate, "MMM d, yyyy")` is used directly.
 
 **Tracked in:** [1.R.17](tickets/1.R.17-phase1-ui-fixes.md).
 
@@ -116,7 +116,7 @@ This document consolidates code-review and audit findings with resolution guidan
 
 **Resolution:** Before the capacity check, compute effective active count: e.g. `effectiveActiveCount = activeCount - (removeMemberId ? 1 : 0)`, or perform the removal of the member being replaced (and validate `removeMemberId` belongs to the committee and is not the same as `membershipId`) then re-count. Use the effective count (or post-removal count) for the capacity comparison. Ensure `removeMemberId` is validated (same committee, ACTIVE, not the incoming membership).
 
-**Status:** Apply in the route that implements CommitteeMembership-based handleRequest (capacity + seat assignment). If your branch still uses the old CommitteeRequest flow, this applies after SRS handleRequest is in place.
+**Status:** ✅ Resolved. Replacement target is validated before the capacity check; `effectiveActiveCount = activeCount - (replacementTarget ? 1 : 0)` allows replacements at capacity. Test added for accept-with-replacement at capacity.
 
 **Tracked in:** [1.R.14](tickets/1.R.14-handleRequest-capacity-replacement.md).
 
@@ -144,7 +144,7 @@ This document consolidates code-review and audit findings with resolution guidan
 
 **Resolution:** Build the display name from non-empty parts: e.g. `[lastName, firstName].filter(Boolean).join(", ")` (or equivalent), and fall back to `occupant.voterRecord.VRCNUM` only when both name parts are empty.
 
-**Status:** Apply in the component that renders seat occupants (e.g. CommitteeSelector) when that code exists.
+**Status:** ✅ Resolved. Occupant name built with `[lastName, firstName].filter(Boolean).join(", ")` with VRCNUM fallback when both parts are empty.
 
 **Tracked in:** [1.R.17](tickets/1.R.17-phase1-ui-fixes.md).
 
@@ -160,7 +160,7 @@ This document consolidates code-review and audit findings with resolution guidan
 
 **Resolution:** Wrap the block that calls `getActiveTermId()` and runs `findMany` in try/catch; on error render an empty state or message. In the `where` clause use `status: CommitteeMembershipStatus.SUBMITTED` and import `CommitteeMembershipStatus` from `@prisma/client`.
 
-**Status:** Apply when the CommitteeMembership-based requests page exists.
+**Status:** ✅ Resolved. `getActiveTermId()` wrapped in try/catch with "No active term" message. Status uses `MembershipStatus.SUBMITTED` enum (Prisma enum is `MembershipStatus`, not `CommitteeMembershipStatus`).
 
 **Tracked in:** [1.R.17](tickets/1.R.17-phase1-ui-fixes.md).
 

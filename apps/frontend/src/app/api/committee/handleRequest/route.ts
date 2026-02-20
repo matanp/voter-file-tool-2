@@ -95,7 +95,36 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           return { kind: "anotherCommittee" } as const;
         }
 
-        // Capacity check.
+        // Extract removeMemberId before capacity check so replacements
+        // can account for the freed seat (1.R.14).
+        const removeMemberId = getRemoveMemberIdFromMetadata(
+          submittedMembership.submissionMetadata,
+        );
+
+        // Validate replacement target early so we can adjust the capacity check.
+        let replacementTarget: Awaited<ReturnType<typeof tx.committeeMembership.findUnique>> = null;
+        if (removeMemberId) {
+          replacementTarget = await tx.committeeMembership.findUnique({
+            where: {
+              voterRecordId_committeeListId_termId: {
+                voterRecordId: removeMemberId,
+                committeeListId: submittedMembership.committeeListId,
+                termId: submittedMembership.termId,
+              },
+            },
+          });
+
+          if (!replacementTarget || replacementTarget.status !== "ACTIVE") {
+            return { kind: "replacementTargetInvalid" } as const;
+          }
+
+          // Guard: replacement target must not be the incoming membership itself.
+          if (replacementTarget.id === submittedMembership.id) {
+            return { kind: "replacementTargetInvalid" } as const;
+          }
+        }
+
+        // Capacity check — subtract 1 when a valid replacement frees a seat.
         const activeCount = await tx.committeeMembership.count({
           where: {
             committeeListId: submittedMembership.committeeListId,
@@ -104,7 +133,9 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           },
         });
 
-        if (activeCount >= config.maxSeatsPerLted) {
+        const effectiveActiveCount = activeCount - (replacementTarget ? 1 : 0);
+
+        if (effectiveActiveCount >= config.maxSeatsPerLted) {
           await tx.committeeMembership.update({
             where: { id: membershipId },
             data: {
@@ -137,25 +168,8 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           },
         );
 
-        const removeMemberId = getRemoveMemberIdFromMetadata(
-          submittedMembership.submissionMetadata,
-        );
-
-        if (removeMemberId) {
-          const replacementTarget = await tx.committeeMembership.findUnique({
-            where: {
-              voterRecordId_committeeListId_termId: {
-                voterRecordId: removeMemberId,
-                committeeListId: submittedMembership.committeeListId,
-                termId: submittedMembership.termId,
-              },
-            },
-          });
-
-          if (!replacementTarget || replacementTarget.status !== "ACTIVE") {
-            return { kind: "replacementTargetInvalid" } as const;
-          }
-
+        // Remove the replacement target (already validated above).
+        if (replacementTarget) {
           await tx.committeeMembership.update({
             where: { id: replacementTarget.id },
             data: {

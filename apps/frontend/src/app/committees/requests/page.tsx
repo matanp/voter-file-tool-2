@@ -4,6 +4,7 @@ import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
 import {
   type CommitteeList,
+  MembershipStatus,
   PrivilegeLevel,
   type VoterRecord,
 } from "@prisma/client";
@@ -56,11 +57,16 @@ const CommitteeRequests: React.FC = async () => {
     return <div>You do not have permission to view this page</div>;
   }
 
-  const activeTermId = await getActiveTermId();
+  let activeTermId: string;
+  try {
+    activeTermId = await getActiveTermId();
+  } catch {
+    return <div>No active term found. Please set an active term in admin settings.</div>;
+  }
 
   // SRS 1.2 — Query SUBMITTED CommitteeMemberships instead of CommitteeRequests
   const pendingMemberships = await prisma.committeeMembership.findMany({
-    where: { status: "SUBMITTED", termId: activeTermId },
+    where: { status: MembershipStatus.SUBMITTED, termId: activeTermId },
     include: {
       committeeList: true,
       voterRecord: true,
