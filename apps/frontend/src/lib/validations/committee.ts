@@ -294,6 +294,87 @@ export const updateLtedWeightSchema = z
   })
   .strict();
 
+// SRS 2.6 — Record petition/primary outcome (admin)
+const petitionOutcomeEnum = z.enum([
+  "WON_PRIMARY",
+  "LOST_PRIMARY",
+  "TIE",
+  "UNOPPOSED",
+]);
+export const recordPetitionOutcomeSchema = z
+  .object({
+    committeeListId: z.coerce.number().int().positive(),
+    termId: z.string().trim().min(1).optional(),
+    seatNumber: z.coerce.number().int().positive(),
+    primaryDate: z
+      .string()
+      .trim()
+      .min(1, "Primary date is required")
+      .refine(
+        (s) => !Number.isNaN(new Date(s).getTime()),
+        { message: "Primary date must be a valid ISO date" },
+      ),
+    candidates: z
+      .array(
+        z.object({
+          voterRecordId: z.string().trim().min(1, "Voter record ID is required"),
+          voteCount: z.coerce.number().int().nonnegative().optional(),
+          outcome: petitionOutcomeEnum,
+        }),
+      )
+      .min(1, "At least one candidate is required"),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    const ids = data.candidates.map((c) => c.voterRecordId);
+    const seen = new Set<string>();
+    for (const id of ids) {
+      if (seen.has(id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Duplicate candidate voterRecordId in payload",
+          path: ["candidates"],
+        });
+        return;
+      }
+      seen.add(id);
+    }
+    const winners = data.candidates.filter(
+      (c) => c.outcome === "WON_PRIMARY" || c.outcome === "UNOPPOSED",
+    );
+    const ties = data.candidates.filter((c) => c.outcome === "TIE");
+    if (ties.length === data.candidates.length) {
+      return; // tie-only scenario: no winner required
+    }
+    if (winners.length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Exactly one winner (WON_PRIMARY or UNOPPOSED) is required unless all candidates are TIE",
+        path: ["candidates"],
+      });
+    }
+  });
+
+export type RecordPetitionOutcomeData = z.infer<
+  typeof recordPetitionOutcomeSchema
+>;
+
+// SRS 2.6 — List petition outcomes query (filter by petition outcome statuses)
+export const getPetitionOutcomesQuerySchema = z
+  .object({
+    termId: z.string().trim().min(1).optional(),
+    committeeListId: z.coerce.number().int().positive().optional(),
+    status: z
+      .enum(["ACTIVE", "PETITIONED_LOST", "PETITIONED_TIE"])
+      .optional(),
+  })
+  .strict();
+
+export type GetPetitionOutcomesQuery = z.infer<
+  typeof getPetitionOutcomesQuerySchema
+>;
+
 // Fetch committee list query parameters validation schema
 export const fetchCommitteeListQuerySchema = z
   .object({
