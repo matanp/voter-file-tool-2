@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { Switch } from "~/components/ui/switch";
@@ -44,6 +46,8 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   removeMember,
 }) => {
   const [requestNotes, setRequestNotes] = useState<string>("");
+  const [contactEmail, setContactEmail] = useState<string>("");
+  const [contactPhone, setContactPhone] = useState<string>("");
   const [removeFormOpen, setRemoveFormOpen] = useState<boolean>(false);
   const [requestAddMember, setRequestAddMember] = useState<VoterRecord | null>(
     addMember ?? null,
@@ -86,6 +90,8 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       addMemberId: requestAddMember?.VRCNUM,
       removeMemberId: requestRemoveMember?.VRCNUM,
       requestNotes: requestNotes,
+      email: contactEmail.trim() || undefined,
+      phone: contactPhone.trim() || undefined,
     });
   };
 
@@ -208,9 +214,30 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           {!requestRemoveMember && removeMemberForm}
         </DialogHeader>
         <div>
-          <div className="max-w-[85vw]">
-            <label>Notes about this request:</label>
-            <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
+          <div className="max-w-[85vw] space-y-4">
+            <div>
+              <label>Notes about this request:</label>
+              <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2 max-w-sm">
+              <Label className="text-sm font-medium">
+                Contact info for this submission (optional)
+              </Label>
+              <Input
+                type="email"
+                placeholder="Email"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                aria-label="Contact email for submission"
+              />
+              <Input
+                type="tel"
+                placeholder="Phone"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                aria-label="Contact phone for submission"
+              />
+            </div>
           </div>
           {requestRemoveMember && !requestAddMember && (
             <p className="text-sm text-muted-foreground py-2">

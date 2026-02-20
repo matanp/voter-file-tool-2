@@ -124,6 +124,37 @@ describe("/api/committee/requestAdd", () => {
       );
     });
 
+    it("should store email and phone in submissionMetadata when provided (SRS 2.1a)", async () => {
+      const mockRequestData = createMockRequestData({
+        addMemberId: "NEW_MEMBER",
+        email: "leader@example.com",
+        phone: "555-9999",
+      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+      setupHappyPath();
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectSuccessResponse(
+        response,
+        { success: true, message: "Request created" },
+        201,
+      );
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+        expectMembershipCreate({
+          voterRecordId: "NEW_MEMBER",
+          submissionMetadata: {
+            requestNotes: "Test request notes",
+            email: "leader@example.com",
+            phone: "555-9999",
+          },
+        }),
+      );
+    });
+
     it("should handle undefined legDistrict (at-large) by using sentinel value", async () => {
       const mockRequestData = createMockRequestData({ legDistrict: undefined });
       mockAuthSession(

@@ -109,7 +109,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | ID | Title | Status | Roadmap | Depends on |
 | --- | --- | --- | --- | --- |
 | [2.1](2.1-eligibility-validation.md) | Eligibility Validation (Hard Stops) | Open | Tier 2 §2.1 | 1.1b, 1.1c, 1.2 |
-| [2.1a](2.1a-email-phone-submission.md) | Email/Phone During Leader Submission | Open | Tier 2 §2.1a | 1.2 |
+| [2.1a](2.1a-email-phone-submission.md) | Email/Phone During Leader Submission | Done | Tier 2 §2.1a | 1.2 |
 | [2.2](2.2-warning-system.md) | Warning System (Non-blocking Eligibility Warnings) | Open | Tier 2 §2.2 | 2.1, 1.2 |
 | [2.3](2.3-resignation-workflow.md) | Resignation Workflow | Open | Tier 2 §2.3 | 1.2, 1.4 |
 | [2.4](2.4-meeting-record-confirmation-workflow.md) | Meeting Record + Executive Confirmation Workflow | Open | Tier 2 §2.4 | 1.2, 1.4, IA-01 |

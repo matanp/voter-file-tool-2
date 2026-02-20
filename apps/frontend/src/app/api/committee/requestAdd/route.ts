@@ -40,6 +40,8 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     requestNotes,
     forceAdd,
     overrideReason,
+    email,
+    phone,
   } = validation.data;
 
   if (!session.user?.id) {
@@ -138,10 +140,12 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
-    const requestMetadata: Record<string, unknown> = {
+    const requestMetadata = {
       ...(removeMemberId ? { removeMemberId: removeMemberId.trim() } : {}),
       ...(requestNotes ? { requestNotes } : {}),
-    };
+      ...(email?.trim() ? { email: email.trim() } : {}),
+      ...(phone?.trim() ? { phone: phone.trim() } : {}),
+    } as Prisma.InputJsonValue;
 
     // Check for existing membership (idempotent/transition)
     const existing = await prisma.committeeMembership.findUnique({
