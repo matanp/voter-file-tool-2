@@ -6,6 +6,8 @@ import {
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   expectAuditLogCreate,
+  expectMembershipCreate,
+  expectMembershipUpdate,
   getAuditLogMock,
   getMembershipMock,
 } from "../../utils/testUtils";
@@ -19,25 +21,24 @@ const ensureSeatsExistMock = jest.fn();
 const assignNextAvailableSeatMock = jest.fn();
 
 jest.mock("fs", () => ({
-  readFileSync: (...args: unknown[]) => readFileSyncMock(...args),
+  readFileSync: readFileSyncMock,
 }));
 
 jest.mock("xlsx", () => ({
-  read: (...args: unknown[]) => readWorkbookMock(...args),
+  read: readWorkbookMock,
   utils: {
-    sheet_to_json: (...args: unknown[]) => sheetToJsonMock(...args),
+    sheet_to_json: sheetToJsonMock,
   },
 }));
 
 jest.mock("~/app/api/lib/committeeValidation", () => ({
-  getActiveTermId: () => getActiveTermIdMock(),
-  getGovernanceConfig: () => getGovernanceConfigMock(),
+  getActiveTermId: getActiveTermIdMock,
+  getGovernanceConfig: getGovernanceConfigMock,
 }));
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
-  ensureSeatsExist: (...args: unknown[]) => ensureSeatsExistMock(...args),
-  assignNextAvailableSeat: (...args: unknown[]) =>
-    assignNextAvailableSeatMock(...args),
+  ensureSeatsExist: ensureSeatsExistMock,
+  assignNextAvailableSeat: assignNextAvailableSeatMock,
 }));
 
 describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
@@ -122,15 +123,13 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       }),
     );
     expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          voterRecordId: "VRC001",
-          committeeListId: 101,
-          termId: DEFAULT_ACTIVE_TERM_ID,
-          status: "ACTIVE",
-          membershipType: "APPOINTED",
-          seatNumber: 1,
-        }),
+      expectMembershipCreate({
+        voterRecordId: "VRC001",
+        committeeListId: 101,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        status: "ACTIVE",
+        membershipType: "APPOINTED",
+        seatNumber: 1,
       }),
     );
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
@@ -203,14 +202,14 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     await loadCommitteeLists();
 
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "m-existing" },
-        data: expect.objectContaining({
+      expectMembershipUpdate(
+        {
           status: "ACTIVE",
           membershipType: "APPOINTED",
           seatNumber: 2,
-        }),
-      }),
+        },
+        { id: "m-existing" },
+      ),
     );
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
       expectAuditLogCreate({
@@ -428,13 +427,13 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     await loadCommitteeLists();
 
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "m-to-remove" },
-        data: expect.objectContaining({
+      expectMembershipUpdate(
+        {
           status: "REMOVED",
           removalReason: "OTHER",
-        }),
-      }),
+        },
+        { id: "m-to-remove" },
+      ),
     );
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
       expectAuditLogCreate({
