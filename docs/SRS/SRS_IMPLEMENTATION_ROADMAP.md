@@ -486,7 +486,7 @@ No weight fields, no calculation logic.
 
 **Integration (triggers):**
 
-- **Auto after import:** In report-server, immediately after successful `processVoterImport()`, enqueue a new job type `boeEligibilityFlagging` on the same worker queue. The job creates its own Report record and runs asynchronously. No config toggle—runs after every BOE import.
+- **Auto after import:** In report-server, immediately after successful `processVoterImport()`, enqueue a new job type `boeEligibilityFlagging` on the same worker queue. The job creates its own Report record and runs asynchronously. No runtime feature toggle—runs after every BOE import. Implement this through a centralized internal orchestration map (for example: `voterImport -> boeEligibilityFlagging`) that can be injected/overridden in tests to decouple job chaining.
 - **Manual:** Admin "Run eligibility check" action (button/API) to re-run without re-importing (e.g., after governance config changes or data fixes).
 
 ---
