@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useContext, useMemo, useState } from "react";
 
 import {
   type MembershipType,
@@ -50,6 +50,10 @@ interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
 }
 
+type DesignationWeightSummary = NonNullable<
+  FetchCommitteeListResponse["designationWeightSummary"]
+>;
+
 const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
 }) => {
@@ -76,6 +80,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [seats, setSeats] = useState<
     Array<{ seatNumber: number; isPetitioned: boolean; weight: number | string | null }>
   >([]);
+  const [designationWeightSummary, setDesignationWeightSummary] =
+    useState<DesignationWeightSummary | null>(null);
   const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
   const [requestRemoveRecord, setRequestRemoveRecord] =
     useState<VoterRecord | null>(null);
@@ -257,6 +263,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setLtedWeight(null);
     setLtedWeightInput("");
     setSeats([]);
+    setDesignationWeightSummary(null);
   };
 
   const handleLegChange = (legDistrict: string) => {
@@ -272,6 +279,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setLtedWeight(null);
     setLtedWeightInput("");
     setSeats([]);
+    setDesignationWeightSummary(null);
   };
 
   const fetchCommitteeList = useCallback(
@@ -281,6 +289,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         const params = new URLSearchParams({
           cityTown: city,
           electionDistrict: String(district),
+          includeDesignationWeightSummary: "true",
         });
         if (legDistrict) params.set("legDistrict", legDistrict);
         const response = await fetch(
@@ -312,18 +321,21 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               weight: s.weight,
             })) ?? [],
           );
+          setDesignationWeightSummary(data.designationWeightSummary ?? null);
         } else if (response.status === 403) {
           setMemberships([]);
           setSelectedCommitteeId(null);
           setLtedWeight(null);
           setLtedWeightInput("");
           setSeats([]);
+          setDesignationWeightSummary(null);
         } else {
           setMemberships([]);
           setSelectedCommitteeId(null);
           setLtedWeight(null);
           setLtedWeightInput("");
           setSeats([]);
+          setDesignationWeightSummary(null);
         }
       } catch (error) {
         console.error("Error fetching committee list:", error);
@@ -332,6 +344,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         setLtedWeight(null);
         setLtedWeightInput("");
         setSeats([]);
+        setDesignationWeightSummary(null);
       } finally {
         setListLoading(false);
       }
@@ -411,6 +424,26 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setShowConfirmForm(true);
     setRequestRemoveRecord(record);
   };
+
+  /** SRS 2.7 — Vacancy count from seat occupancy. */
+  const vacancyCount = useMemo(() => {
+    if (seats.length === 0) return null;
+    const occupiedSeatNumbers = new Set(
+      memberships
+        .map((m) => m.seatNumber)
+        .filter((seatNumber): seatNumber is number => seatNumber != null),
+    );
+    return Math.max(seats.length - occupiedSeatNumbers.size, 0);
+  }, [seats, memberships]);
+
+  const designationDisplayWeight = useMemo(() => {
+    if (!designationWeightSummary) return null;
+    const hasAnyWeightSource = designationWeightSummary.seats.some(
+      (seat) => seat.isPetitioned && seat.seatWeight != null,
+    );
+    if (!hasAnyWeightSource) return null;
+    return parseFloat(designationWeightSummary.totalWeight.toFixed(4));
+  }, [designationWeightSummary]);
 
   const noContentMessage = () => {
     if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
@@ -531,6 +564,72 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                 >
                   {updateLtedWeightMutation.loading ? "Saving..." : "Save"}
                 </Button>
+              </div>
+            )}
+          {selectedCommitteeId != null &&
+            designationWeightSummary &&
+            vacancyCount != null && (
+            <div className="pt-2 pb-4 flex gap-6">
+              <div className="flex flex-col">
+                <span className="text-sm text-muted-foreground">Vacancy</span>
+                <span className="font-semibold text-lg">
+                  {vacancyCount}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm text-muted-foreground">
+                  Designation Weight
+                </span>
+                <span className="font-semibold text-lg">
+                  {designationDisplayWeight != null
+                    ? designationDisplayWeight
+                    : "—"}
+                </span>
+              </div>
+            </div>
+          )}
+          {selectedCommitteeId != null &&
+            designationWeightSummary &&
+            hasPermissionFor(actingPermissions, PrivilegeLevel.Admin) && (
+              <div className="pt-2 pb-4">
+                <h2 className="font-semibold pb-2">
+                  Designation Weight Verification
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border border-primary-200">
+                    <thead className="bg-primary-100">
+                      <tr>
+                        <th className="text-left px-2 py-1">Seat</th>
+                        <th className="text-left px-2 py-1">Petitioned</th>
+                        <th className="text-left px-2 py-1">Occupied</th>
+                        <th className="text-left px-2 py-1">Contribution</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {designationWeightSummary.seats.map((seat) => (
+                        <tr
+                          key={`designation-breakdown-${String(seat.seatNumber)}`}
+                          className="border-t border-primary-200"
+                        >
+                          <td className="px-2 py-1">{seat.seatNumber}</td>
+                          <td className="px-2 py-1">
+                            {seat.isPetitioned ? "Yes" : "No"}
+                          </td>
+                          <td className="px-2 py-1">
+                            {seat.isOccupied ? "Yes" : "No"}
+                          </td>
+                          <td className="px-2 py-1">
+                            {seat.contributes
+                              ? seat.contributionWeight.toFixed(4)
+                              : seat.isPetitioned && seat.seatWeight == null
+                                ? "—"
+                                : "0.0000"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           {selectedCommitteeId != null && seats.length > 0 && (

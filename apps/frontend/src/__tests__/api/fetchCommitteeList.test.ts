@@ -1,6 +1,7 @@
 import { GET } from "~/app/api/fetchCommitteeList/route";
 import { NextRequest } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
+import * as Sentry from "@sentry/nextjs";
 import {
   createMockSession,
   createMockCommittee,
@@ -18,6 +19,9 @@ import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 
 // Global mocks are available from jest.setup.js
+jest.mock("@sentry/nextjs", () => ({
+  captureException: jest.fn(),
+}));
 
 describe("/api/fetchCommitteeList", () => {
   beforeEach(() => {
@@ -140,6 +144,133 @@ describe("/api/fetchCommitteeList", () => {
 
       const data = (await response.json()) as { maxSeatsPerLted?: number };
       expect(data.maxSeatsPerLted).toBe(2);
+    });
+
+    it("returns designationWeightSummary when includeDesignationWeightSummary=true", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+
+      prismaMock.committeeList.findUnique.mockResolvedValue({
+        ...createMockCommittee(),
+        memberships: [
+          {
+            seatNumber: 1,
+            membershipType: "PETITIONED",
+            voterRecordId: "voter-1",
+          },
+        ],
+        seats: [
+          {
+            id: "seat-1",
+            seatNumber: 1,
+            isPetitioned: true,
+            weight: 0.25,
+          },
+          {
+            id: "seat-2",
+            seatNumber: 2,
+            isPetitioned: true,
+            weight: null,
+          },
+        ],
+      });
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+      );
+
+      const response = await GET(
+        new NextRequest(
+          "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1&includeDesignationWeightSummary=true",
+        ),
+      );
+
+      await expectSuccessResponse(response, undefined, 200);
+      const data = (await response.json()) as {
+        designationWeightSummary?: {
+          totalWeight: number;
+          totalContributingSeats: number;
+          missingWeightSeatNumbers: number[];
+        };
+      };
+      expect(data.designationWeightSummary).toMatchObject({
+        totalWeight: 0.25,
+        totalContributingSeats: 1,
+        missingWeightSeatNumbers: [2],
+      });
+    });
+
+    it("does not include designationWeightSummary when includeDesignationWeightSummary=false", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+
+      prismaMock.committeeList.findUnique.mockResolvedValue({
+        ...createMockCommittee(),
+        memberships: [],
+        seats: [],
+      });
+
+      const response = await GET(
+        new NextRequest(
+          "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1&includeDesignationWeightSummary=false",
+        ),
+      );
+
+      await expectSuccessResponse(response, undefined, 200);
+      const data = (await response.json()) as {
+        designationWeightSummary?: unknown;
+      };
+      expect("designationWeightSummary" in data).toBe(false);
+    });
+
+    it("returns 409 when designation summary detects duplicate seat occupants", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+
+      prismaMock.committeeList.findUnique.mockResolvedValue({
+        ...createMockCommittee(),
+        memberships: [
+          {
+            seatNumber: 1,
+            membershipType: "PETITIONED",
+            voterRecordId: "voter-1",
+          },
+          {
+            seatNumber: 1,
+            membershipType: "APPOINTED",
+            voterRecordId: "voter-2",
+          },
+        ],
+        seats: [
+          {
+            id: "seat-1",
+            seatNumber: 1,
+            isPetitioned: true,
+            weight: 0.25,
+          },
+        ],
+      });
+
+      const response = await GET(
+        new NextRequest(
+          "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1&includeDesignationWeightSummary=true",
+        ),
+      );
+
+      expect(response.status).toBe(409);
+      const data = (await response.json()) as { error: string };
+      expect(data.error).toMatch(/Data integrity error/);
+      expect(Sentry.captureException).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({
+          tags: { route: "fetchCommitteeList" },
+        }) as unknown,
+      );
     });
 
     describe.each([
