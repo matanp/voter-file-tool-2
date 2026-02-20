@@ -299,6 +299,75 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     );
   });
 
+  it("preserves single-active-membership invariant: duplicate assignments in same term create discrepancies only and never a second ACTIVE membership", async () => {
+    sheetToJsonMock.mockReturnValue([
+      {
+        Committee: "City A",
+        "Serve LT": "1",
+        "Serve ED": "1",
+        "voter id": "VRC_SAME",
+        name: "Same Voter",
+        "res address1": "1 Main St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+      {
+        Committee: "City B",
+        "Serve LT": "1",
+        "Serve ED": "2",
+        "voter id": "VRC_SAME",
+        name: "Same Voter",
+        "res address1": "1 Main St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+    ]);
+
+    prismaMock.voterRecord.findUnique.mockResolvedValue(
+      createMockVoterRecord({
+        VRCNUM: "VRC_SAME",
+        firstName: "Same",
+        middleInitial: null,
+        lastName: "Voter",
+        houseNum: 1,
+        street: "Main St",
+        apartment: null,
+        city: "Testville",
+        state: "NY",
+        zipCode: "14604",
+      }),
+    );
+
+    prismaMock.committeeList.upsert
+      .mockResolvedValueOnce({
+        id: 401,
+        cityTown: "CITY A",
+        legDistrict: 1,
+        electionDistrict: 1,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        ltedWeight: null,
+      } as never)
+      .mockResolvedValueOnce({
+        id: 402,
+        cityTown: "CITY B",
+        legDistrict: 1,
+        electionDistrict: 2,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        ltedWeight: null,
+      } as never);
+
+    const discrepancies = await loadCommitteeLists();
+
+    expect(discrepancies.has("VRC_SAME")).toBe(true);
+    expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+    expect(
+      discrepancies.get("VRC_SAME")?.discrepancies.committeeAssignmentConflict,
+    ).toBeDefined();
+  });
+
   it("logs MEMBER_REMOVED when sync removes an active member not present in import", async () => {
     sheetToJsonMock.mockReturnValue([
       {

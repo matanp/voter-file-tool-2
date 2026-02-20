@@ -155,4 +155,107 @@ describe("/api/admin/weightedTable/import", () => {
       expect.objectContaining({ where: { id: 2 } }),
     );
   });
+
+  it("full-key via crosswalk: when crosswalk resolves unique city for LD/ED with multiple committees, updates exactly one committee", async () => {
+    readWorkbookMock.mockReturnValue({
+      SheetNames: ["Weighted"],
+      Sheets: { Weighted: {} },
+    });
+    sheetToJsonMock.mockReturnValue([
+      { LTED: "17001", "Weighted Vote": 99 },
+    ]);
+
+    prismaMock.committeeList.findMany.mockResolvedValue([
+      {
+        id: 10,
+        cityTown: "ROCHESTER",
+        legDistrict: 17,
+        electionDistrict: 1,
+      },
+      {
+        id: 20,
+        cityTown: "BRIGHTON",
+        legDistrict: 17,
+        electionDistrict: 1,
+      },
+    ] as never);
+    prismaMock.ltedDistrictCrosswalk.findMany.mockResolvedValue([
+      { cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 1 },
+    ] as never);
+
+    const response = await POST(
+      createFormDataRequest({
+        weightedTable: createUploadFile(),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const json = await parseJsonResponse<WeightedImportResponse>(response);
+    expect(json).toEqual({
+      success: true,
+      matched: 1,
+      skippedNoCommittee: 0,
+      skippedAmbiguous: 0,
+    });
+    expect(prismaMock.committeeList.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.committeeList.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { ltedWeight: 99 },
+    });
+    expect(recomputeSeatWeightsMock).toHaveBeenCalledWith(10);
+  });
+
+  it("skips LTED rows that are ambiguous in the matrix (same LTED maps to different city/town)", async () => {
+    readWorkbookMock
+      .mockReturnValueOnce({
+        SheetNames: ["Weighted"],
+        Sheets: { Weighted: {} },
+      })
+      .mockReturnValueOnce({
+        SheetNames: ["NEW_LTED_Matrix"],
+        Sheets: { NEW_LTED_Matrix: {} },
+      });
+    sheetToJsonMock
+      .mockReturnValueOnce([{ LTED: "17001", "Weighted Vote": 50 }])
+      .mockReturnValueOnce(
+        [
+          { LTED: "17001", town: "080", ward: "017", district: "001" },
+          { LTED: "17001", town: "025", ward: "017", district: "001" },
+        ],
+      );
+
+    prismaMock.committeeList.findMany.mockResolvedValue([
+      {
+        id: 1,
+        cityTown: "ROCHESTER",
+        legDistrict: 17,
+        electionDistrict: 1,
+      },
+      {
+        id: 2,
+        cityTown: "BRIGHTON",
+        legDistrict: 17,
+        electionDistrict: 1,
+      },
+    ] as never);
+    prismaMock.ltedDistrictCrosswalk.findMany.mockResolvedValue([] as never);
+
+    const response = await POST(
+      createFormDataRequest({
+        weightedTable: createUploadFile(),
+        ltedMatrix: createUploadFile(),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const json = await parseJsonResponse<WeightedImportResponse>(response);
+    expect(json).toEqual({
+      success: true,
+      matched: 0,
+      skippedNoCommittee: 0,
+      skippedAmbiguous: 1,
+    });
+    expect(prismaMock.committeeList.update).not.toHaveBeenCalled();
+    expect(recomputeSeatWeightsMock).not.toHaveBeenCalled();
+  });
 });

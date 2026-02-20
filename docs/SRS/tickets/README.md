@@ -36,8 +36,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 26. ~~[1.R.18 Phase 1 Tests and Validations](1.R.18-phase1-tests-validations.md)~~ — **Resolved**
 27. ~~[1.R.19 Phase 1 Doc Consistency](1.R.19-phase1-doc-consistency.md)~~ — **Resolved**
 28. ~~[1.R.20 Admin Flow Audit Coverage](1.R.20-admin-flow-audit-coverage.md)~~ — **Resolved**
-29. [1.R.21 High-Risk Route Test Coverage](1.R.21-high-risk-route-test-coverage.md) — **Open**
-30. **Current queue:** 1.R.21, then 2.1–2.9, then 3.1–3.7
+29. ~~[1.R.21 High-Risk Route Test Coverage](1.R.21-high-risk-route-test-coverage.md)~~ — **Done**
+30. **Current queue:** 2.1–2.9, then 3.1–3.7
 
 ---
 
@@ -102,7 +102,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.R.18](1.R.18-phase1-tests-validations.md) | Phase 1 Tests and Validations | Resolved | P2 | 1.2, 1.4 |
 | [1.R.19](1.R.19-phase1-doc-consistency.md) | Phase 1 Doc Consistency | Resolved | P3 | — |
 | [1.R.20](1.R.20-admin-flow-audit-coverage.md) | Admin Flow Audit Coverage | Resolved | P2 | 1.5 |
-| [1.R.21](1.R.21-high-risk-route-test-coverage.md) | High-Risk Route Test Coverage | Open | P2 | 1.R.20, 1.4 |
+| [1.R.21](1.R.21-high-risk-route-test-coverage.md) | High-Risk Route Test Coverage | Done | P2 | 1.R.20, 1.4 |
 
 ### Tier 2 — Lifecycle Workflows
 
@@ -153,7 +153,7 @@ T1.2, T1.3 — parallel, no blockers
 
 Phase 1 Remediation (1.R.x):
   1.R.1–1.R.20 — resolved
-  1.R.21 — open
+  1.R.21 — done
 
 Tier 2:
   2.1–2.9 — open
