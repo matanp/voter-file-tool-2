@@ -37,7 +37,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 27. ~~[1.R.19 Phase 1 Doc Consistency](1.R.19-phase1-doc-consistency.md)~~ — **Resolved**
 28. ~~[1.R.20 Admin Flow Audit Coverage](1.R.20-admin-flow-audit-coverage.md)~~ — **Resolved**
 29. ~~[1.R.21 High-Risk Route Test Coverage](1.R.21-high-risk-route-test-coverage.md)~~ — **Done**
-30. **Current queue:** 2.1–2.9, then 3.1–3.7
+30. **Current queue:** 2.1–2.9, 3.0–3.7, T1.4–T1.5, T2.1–T2.4
 
 ---
 
@@ -71,6 +71,17 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [T1.1](T1.1-handleRequest-route-tests.md) | handleRequest Route Tests | Done | Testing Tier 1 §T1.1 |
 | [T1.2](T1.2-report-generation-api-tests.md) | Report Generation API Tests | Done | Testing Tier 1 §T1.2 |
 | [T1.3](T1.3-discrepancy-handling-tests.md) | Committee Discrepancy Handling Tests | Done | Testing Tier 1 §T1.3 |
+| [T1.4](T1.4-voter-import-processor-tests.md) | Voter Import Processor Tests | Open | Testing Tier 1 §T1.4 |
+| [T1.5](T1.5-report-server-core-tests.md) | Report-Server Core Tests | Open | Testing Tier 1 §T1.5 |
+
+### Tier 2 — Testing
+
+| ID | Title | Status | Roadmap |
+| --- | --- | --- | --- |
+| [T2.1](T2.1-committee-selector-component-tests.md) | CommitteeSelector Component Tests | Open | Testing Tier 2 §T2.1 |
+| [T2.2](T2.2-add-committee-form-component-tests.md) | AddCommitteeForm Component Tests | Open | Testing Tier 2 §T2.2 |
+| [T2.3](T2.3-committee-request-components-tests.md) | CommitteeRequestForm and RequestCard Tests | Open | Testing Tier 2 §T2.3 |
+| [T2.4](T2.4-report-generation-forms-tests.md) | Report Generation Forms Tests | Open | Testing Tier 2 §T2.4 |
 
 ### Tier 1 — Admin IA
 
@@ -123,6 +134,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 
 | ID | Title | Status | Roadmap | Depends on |
 | --- | --- | --- | --- | --- |
+| [3.0](3.0-report-server-committee-membership-migration.md) | Report-server: Migrate ldCommittees to CommitteeMembership | Open | Tier 3 §3.0 | 1.2 |
+| [3.0a](3.0a-report-audit-committee-membership.md) | Audit and Update All Reports for CommitteeMembership | Open | Tier 3 §3.0a | 3.0 |
 | [3.1](3.1-jurisdiction-assignment-ui.md) | Jurisdiction Assignment UI (Leader Access) | Open | Tier 3 §3.1 | 1.1, IA-01 |
 | [3.1a](3.1a-committee-selector-vacancy-weight-empty-states.md) | CommitteeSelector Vacancy/Weight + Empty States | Open | Tier 3 §3.1a | 2.7, 3.1 |
 | [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Open | Tier 3 §3.2 | 3.0, 3.0a |
@@ -149,7 +162,10 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
                 │
                 └──► 1.5a (done) ──► 1.5b (done) ──► 1.5c (done)
 
-T1.2, T1.3 — parallel, no blockers
+1.2 (done) ──► 3.0 ──► 3.0a ──► 3.2 ──► 3.3, 3.4
+
+T1.4, T1.5 — open, parallel test hardening
+T2.1, T2.2, T2.3, T2.4 — open UI coverage batch
 
 Phase 1 Remediation (1.R.x):
   1.R.1–1.R.20 — resolved
@@ -159,7 +175,7 @@ Tier 2:
   2.1–2.9 — open
 
 Tier 3:
-  3.1–3.7 — open
+  3.0–3.7 — open
 ```
 
 ---
