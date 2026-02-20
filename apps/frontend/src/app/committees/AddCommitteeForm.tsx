@@ -16,6 +16,8 @@ import {
   type AddCommitteeResponse,
   type CommitteeData,
 } from "~/lib/validations/committee";
+import { getIneligibilityMessage } from "~/lib/eligibilityMessages";
+import type { IneligibilityReason } from "~/lib/eligibility";
 import {
   type SearchQueryField,
   searchableFieldEnum,
@@ -56,6 +58,9 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [loadingVRCNUM, setLoadingVRCNUM] = useState<string | null>(null);
   const [membershipType, setMembershipType] =
     useState<MembershipType>("APPOINTED");
+  const [ineligibilityReasons, setIneligibilityReasons] = useState<
+    IneligibilityReason[] | null
+  >(null);
 
   // API mutation hook
   const addCommitteeMemberMutation = useApiMutation<
@@ -63,7 +68,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     CommitteeData
   >("/api/committee/add", "POST", {
     onSuccess: (res) => {
-      setLoadingVRCNUM(null); // Clear loading state
+      setLoadingVRCNUM(null);
+      setIneligibilityReasons(null);
       if (res?.success) {
         onAdd(city, electionDistrict, legDistrict);
         const isIdempotent = "idempotent" in res && res.idempotent;
@@ -82,12 +88,18 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       }
     },
     onError: (error) => {
-      setLoadingVRCNUM(null); // Clear loading state
-      toast({
-        title: "Error",
-        description: `Failed to add committee member: ${error.message}`,
-        variant: "destructive",
-      });
+      setLoadingVRCNUM(null);
+      const apiBody = (error as Error & { apiErrorBody?: { error?: string; reasons?: string[] } }).apiErrorBody;
+      if (apiBody?.error === "INELIGIBLE" && Array.isArray(apiBody.reasons)) {
+        setIneligibilityReasons(apiBody.reasons as IneligibilityReason[]);
+      } else {
+        setIneligibilityReasons(null);
+        toast({
+          title: "Error",
+          description: `Failed to add committee member: ${error.message}`,
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -95,6 +107,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     city !== "" && legDistrict !== "" && electionDistrict > 0;
 
   const handleAddCommitteeMember = async (record: VoterRecord) => {
+    setIneligibilityReasons(null);
     if (hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
       setLoadingVRCNUM(record.VRCNUM); // Set loading state for this specific record
       await addCommitteeMemberMutation.mutate({
@@ -167,6 +180,21 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         {records.length > 0 && validCommittee && (
           <>
             <h1 className="primary-header">Search Results</h1>
+            {ineligibilityReasons != null && ineligibilityReasons.length > 0 && (
+              <div
+                className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+              >
+                <p className="font-medium">Cannot add member:</p>
+                <ul className="mt-1 list-inside list-disc">
+                  {ineligibilityReasons.map((reason) => (
+                    <li key={reason}>
+                      {getIneligibilityMessage(reason)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <VoterRecordTable
               records={records.slice(0, 5)}
               paginated={false}

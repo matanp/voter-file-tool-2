@@ -1,4 +1,4 @@
-import { AuditAction, PrivilegeLevel } from "@prisma/client";
+import { AuditAction, Prisma, PrivilegeLevel } from "@prisma/client";
 import { logAuditEvent, SYSTEM_USER_ID } from "~/lib/auditLog";
 import { prismaMock } from "../utils/mocks";
 import {
@@ -16,11 +16,13 @@ describe("auditLog", () => {
   describe("logAuditEvent", () => {
     it("creates an AuditLog record with correct fields", async () => {
       const session = createMockSession();
+      const user = session.user!;
+      const userId = user.id ?? "test-user-id";
       prismaMock.auditLog.create.mockResolvedValue({} as never);
 
       await logAuditEvent(
-        session.user.id,
-        session.user.privilegeLevel ?? PrivilegeLevel.Admin,
+        userId,
+        user.privilegeLevel ?? PrivilegeLevel.Admin,
         AuditAction.MEMBER_ACTIVATED,
         "CommitteeMembership",
         "membership-123",
@@ -30,12 +32,12 @@ describe("auditLog", () => {
 
       expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
         expectAuditLogCreate({
-          userId: session.user.id,
-          userRole: session.user.privilegeLevel ?? PrivilegeLevel.Admin,
+          userId,
+          userRole: user.privilegeLevel ?? PrivilegeLevel.Admin,
           action: AuditAction.MEMBER_ACTIVATED,
           entityType: "CommitteeMembership",
           entityId: "membership-123",
-          beforeValue: null,
+          beforeValue: Prisma.JsonNull,
           afterValue: { status: "ACTIVE" },
         }),
       );
@@ -56,7 +58,7 @@ describe("auditLog", () => {
 
       expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
         expectAuditLogCreate({
-          beforeValue: null,
+          beforeValue: Prisma.JsonNull,
           afterValue: { status: "SUBMITTED" },
         }),
       );

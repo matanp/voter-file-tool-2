@@ -1,4 +1,4 @@
-import { type AuditAction, type Prisma, type PrivilegeLevel } from "@prisma/client";
+import { type AuditAction, Prisma, type PrivilegeLevel } from "@prisma/client";
 import type { JsonValue } from "@prisma/client/runtime/library";
 import prisma from "./prisma";
 
@@ -17,10 +17,19 @@ export async function logAuditEvent(
   entityId: string,
   before?: Record<string, unknown> | null,
   after?: Record<string, unknown> | null,
-  metadata?: Record<string, unknown>,
+  metadata?: Record<string, unknown> | Prisma.InputJsonValue,
   client: AuditLogClient = prisma,
 ): Promise<void> {
   try {
+    const beforeValue =
+      before === null
+        ? Prisma.JsonNull
+        : (before as unknown as Prisma.InputJsonValue);
+    const afterValue =
+      after === null
+        ? Prisma.JsonNull
+        : (after as unknown as Prisma.InputJsonValue);
+    const metadataValue = metadata as Prisma.InputJsonValue | undefined;
     await client.auditLog.create({
       data: {
         userId,
@@ -28,9 +37,9 @@ export async function logAuditEvent(
         action,
         entityType,
         entityId,
-        beforeValue: before as unknown as JsonValue | undefined,
-        afterValue: after as unknown as JsonValue | undefined,
-        metadata: metadata as unknown as JsonValue | undefined,
+        beforeValue,
+        afterValue,
+        metadata: metadataValue,
       },
     });
   } catch (error) {

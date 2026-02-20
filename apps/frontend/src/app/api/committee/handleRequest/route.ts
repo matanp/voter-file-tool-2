@@ -3,10 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import {
-  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
-  getGovernanceConfig,
-} from "~/app/api/lib/committeeValidation";
+import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
@@ -14,13 +11,15 @@ import {
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 import { logAuditEvent } from "~/lib/auditLog";
+import { validateEligibility } from "~/lib/eligibility";
 
 function getRemoveMemberIdFromMetadata(metadata: unknown): string | null {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     return null;
   }
 
-  const removeMemberId = (metadata as { removeMemberId?: unknown }).removeMemberId;
+  const removeMemberId = (metadata as { removeMemberId?: unknown })
+    .removeMemberId;
   if (typeof removeMemberId !== "string") return null;
 
   const trimmed = removeMemberId.trim();
@@ -35,7 +34,23 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
     return validation.response;
   }
 
-  const { membershipId, acceptOrReject } = validation.data;
+  const { membershipId, acceptOrReject, forceAdd, overrideReason } =
+    validation.data;
+
+  if (!session.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const user = session.user;
+  if (!user.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = user.id;
+
+  const isAdmin = user.privilegeLevel === PrivilegeLevel.Admin;
+  const eligibilityOptions =
+    isAdmin && forceAdd && acceptOrReject === "accept"
+      ? { forceAdd: true, overrideReason: overrideReason ?? "" }
+      : undefined;
 
   try {
     const membership = await prisma.committeeMembership.findUnique({
@@ -57,7 +72,36 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
     }
 
     if (acceptOrReject === "accept") {
+      const eligibility = await validateEligibility(
+        membership.voterRecordId,
+        membership.committeeListId,
+        membership.termId,
+        eligibilityOptions,
+      );
+
+      if (eligibility.validationError) {
+        return NextResponse.json(
+          { error: eligibility.validationError },
+          { status: 422 },
+        );
+      }
+
+      if (!eligibility.eligible) {
+        return NextResponse.json(
+          { error: "INELIGIBLE", reasons: eligibility.hardStops },
+          { status: 422 },
+        );
+      }
+
       const config = await getGovernanceConfig();
+      const auditMetadata =
+        eligibility.bypassedReasons?.length &&
+        eligibilityOptions?.overrideReason
+          ? {
+              bypassedReasons: eligibility.bypassedReasons,
+              overrideReason: eligibilityOptions.overrideReason,
+            }
+          : undefined;
 
       const outcome = await prisma.$transaction(async (tx) => {
         const submittedMembership = await tx.committeeMembership.findUnique({
@@ -81,15 +125,17 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         `;
 
         // SRS §7.1: Reject if voter is already ACTIVE in another committee.
-        const activeInAnotherCommittee = await tx.committeeMembership.findFirst({
-          where: {
-            voterRecordId: submittedMembership.voterRecordId,
-            committeeListId: { not: submittedMembership.committeeListId },
-            termId: submittedMembership.termId,
-            status: "ACTIVE",
+        const activeInAnotherCommittee = await tx.committeeMembership.findFirst(
+          {
+            where: {
+              voterRecordId: submittedMembership.voterRecordId,
+              committeeListId: { not: submittedMembership.committeeListId },
+              termId: submittedMembership.termId,
+              status: "ACTIVE",
+            },
+            select: { id: true },
           },
-          select: { id: true },
-        });
+        );
 
         if (activeInAnotherCommittee) {
           return { kind: "anotherCommittee" } as const;
@@ -102,7 +148,9 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         );
 
         // Validate replacement target early so we can adjust the capacity check.
-        let replacementTarget: Awaited<ReturnType<typeof tx.committeeMembership.findUnique>> = null;
+        let replacementTarget: Awaited<
+          ReturnType<typeof tx.committeeMembership.findUnique>
+        > = null;
         if (removeMemberId) {
           replacementTarget = await tx.committeeMembership.findUnique({
             where: {
@@ -145,8 +193,8 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
             },
           });
           await logAuditEvent(
-            session.user.id,
-            session.user.privilegeLevel,
+            userId,
+            user.privilegeLevel,
             "MEMBER_REJECTED",
             "CommitteeMembership",
             membershipId,
@@ -181,8 +229,8 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
             },
           });
           await logAuditEvent(
-            session.user.id,
-            session.user.privilegeLevel,
+            userId,
+            user.privilegeLevel,
             "MEMBER_REMOVED",
             "CommitteeMembership",
             replacementTarget.id,
@@ -216,14 +264,14 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           },
         });
         await logAuditEvent(
-          session.user.id,
-          session.user.privilegeLevel,
+          userId,
+          user.privilegeLevel,
           "MEMBER_ACTIVATED",
           "CommitteeMembership",
           membershipId,
           { status: "SUBMITTED" },
           { status: "ACTIVE", membershipType: "APPOINTED" },
-          undefined,
+          auditMetadata,
           tx,
         );
 
@@ -246,8 +294,8 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
 
       if (outcome.kind === "anotherCommittee") {
         return NextResponse.json(
-          { error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
-          { status: 400 },
+          { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },
+          { status: 422 },
         );
       }
 
@@ -260,8 +308,8 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
 
       if (outcome.kind === "atCapacity") {
         return NextResponse.json(
-          { error: "Committee already at capacity" },
-          { status: 400 },
+          { error: "INELIGIBLE", reasons: ["CAPACITY"] },
+          { status: 422 },
         );
       }
     } else if (acceptOrReject === "reject") {
@@ -276,8 +324,8 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         });
         if (updated.count > 0) {
           await logAuditEvent(
-            session.user.id,
-            session.user.privilegeLevel,
+            userId,
+            user.privilegeLevel,
             "MEMBER_REJECTED",
             "CommitteeMembership",
             membershipId,

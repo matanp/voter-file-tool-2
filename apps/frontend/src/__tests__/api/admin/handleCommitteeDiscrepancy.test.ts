@@ -5,7 +5,7 @@
  * already-resolved idempotency (404), voter not found at accept (500).
  */
 import { POST } from "~/app/api/admin/handleCommitteeDiscrepancy/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { type Prisma, PrivilegeLevel } from "@prisma/client";
 import {
   createMockRequest,
   createAuthTestSuite,
@@ -162,7 +162,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
           metadata: expect.objectContaining({
             source: "discrepancy_accept",
             discrepancyVrcnum: "TEST123",
-          }) as unknown,
+          }) as Prisma.InputJsonValue,
         }),
       );
     });

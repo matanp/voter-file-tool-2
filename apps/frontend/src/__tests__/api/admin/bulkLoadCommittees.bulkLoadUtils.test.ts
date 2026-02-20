@@ -1,5 +1,6 @@
 import { loadCommitteeLists } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import { prismaMock } from "../../utils/mocks";
+import type { Prisma } from "@prisma/client";
 import {
   createMockMembership,
   createMockVoterRecord,
@@ -138,7 +139,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
         entityType: "CommitteeMembership",
         metadata: expect.objectContaining({
           source: "bulk_import_sync",
-        }) as unknown,
+        }) as Prisma.InputJsonValue,
       }),
     );
     expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
@@ -217,7 +218,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
         entityType: "CommitteeMembership",
         metadata: expect.objectContaining({
           source: "bulk_import_sync",
-        }) as unknown,
+        }) as Prisma.InputJsonValue,
       }),
     );
     expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
@@ -373,7 +374,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
         metadata: expect.objectContaining({
           source: "bulk_import_sync",
           reason: "not_in_import_file",
-        }) as unknown,
+        }) as Prisma.InputJsonValue,
       }),
     );
   });

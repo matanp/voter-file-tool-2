@@ -132,7 +132,8 @@ describe("/api/generateReport", () => {
       const fetchCall = (globalThis.fetch as jest.Mock).mock.calls[0];
       const [, options] = fetchCall as [string, RequestInit];
 
-      const signature = options?.headers?.["x-webhook-signature"];
+      const headers = options?.headers as Record<string, string> | undefined;
+      const signature = headers?.["x-webhook-signature"];
       expect(signature).toBeTruthy();
       expect(typeof signature).toBe("string");
       expect(signature).toMatch(/^sha256=[a-f0-9]{64}$/);

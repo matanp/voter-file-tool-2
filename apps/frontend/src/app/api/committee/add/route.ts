@@ -6,7 +6,6 @@ import { committeeDataSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
-  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
   getActiveTermId,
   getGovernanceConfig,
 } from "~/app/api/lib/committeeValidation";
@@ -17,6 +16,7 @@ import {
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
 import { logAuditEvent } from "~/lib/auditLog";
+import { validateEligibility } from "~/lib/eligibility";
 
 async function addCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
@@ -32,34 +32,82 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
     electionDistrict,
     memberId,
     membershipType = "APPOINTED",
+    forceAdd,
+    overrideReason,
   } = validation.data;
 
+  if (!session.user?.id) {
+    return NextResponse.json(
+      { success: false, error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+  const userId = session.user.id;
+  const userRole = session.user.privilegeLevel;
   const legDistrictForDb = toDbSentinelValue(legDistrict);
+  const isAdmin = userRole === PrivilegeLevel.Admin;
+  const eligibilityOptions =
+    isAdmin && forceAdd
+      ? { forceAdd: true, overrideReason: overrideReason ?? "" }
+      : undefined;
 
   try {
     const activeTermId = await getActiveTermId();
     const config = await getGovernanceConfig();
 
-    const outcome = await prisma.$transaction(async (tx) => {
-      // Upsert the CommitteeList record (still needed as the FK target for CommitteeMembership)
-      const committee = await tx.committeeList.upsert({
-        where: {
-          cityTown_legDistrict_electionDistrict_termId: {
-            cityTown,
-            legDistrict: legDistrictForDb,
-            electionDistrict,
-            termId: activeTermId,
-          },
-        },
-        update: {},
-        create: {
+    // Upsert committee first so we have committeeListId for eligibility validation (SRS §2.1).
+    const committee = await prisma.committeeList.upsert({
+      where: {
+        cityTown_legDistrict_electionDistrict_termId: {
           cityTown,
           legDistrict: legDistrictForDb,
           electionDistrict,
           termId: activeTermId,
         },
-      });
+      },
+      update: {},
+      create: {
+        cityTown,
+        legDistrict: legDistrictForDb,
+        electionDistrict,
+        termId: activeTermId,
+      },
+    });
 
+    const eligibility = await validateEligibility(
+      memberId,
+      committee.id,
+      activeTermId,
+      eligibilityOptions,
+    );
+
+    if (eligibility.validationError) {
+      return NextResponse.json(
+        { error: eligibility.validationError, success: false },
+        { status: 422 },
+      );
+    }
+
+    if (!eligibility.eligible) {
+      return NextResponse.json(
+        {
+          error: "INELIGIBLE",
+          reasons: eligibility.hardStops,
+          success: false,
+        },
+        { status: 422 },
+      );
+    }
+
+    const auditMetadata =
+      eligibility.bypassedReasons?.length && eligibilityOptions?.overrideReason
+        ? {
+            bypassedReasons: eligibility.bypassedReasons,
+            overrideReason: eligibilityOptions.overrideReason,
+          }
+        : undefined;
+
+    const outcome = await prisma.$transaction(async (tx) => {
       // Lock committee row for atomic capacity+seat assignment (1.R.7).
       await tx.$queryRaw`
         SELECT id
@@ -115,10 +163,14 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         return { kind: "atCapacity" } as const;
       }
 
-      const seatNumber = await assignNextAvailableSeat(committee.id, activeTermId, {
-        tx,
-        maxSeats: config.maxSeatsPerLted,
-      });
+      const seatNumber = await assignNextAvailableSeat(
+        committee.id,
+        activeTermId,
+        {
+          tx,
+          maxSeats: config.maxSeatsPerLted,
+        },
+      );
 
       // Create CommitteeMembership with status=ACTIVE (admin direct-add)
       if (existingMembership) {
@@ -144,14 +196,14 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           },
         });
         await logAuditEvent(
-          session.user.id,
-          session.user.privilegeLevel,
+          userId,
+          userRole,
           "MEMBER_ACTIVATED",
           "CommitteeMembership",
           existingMembership.id,
           { status: existingMembership.status },
           { status: "ACTIVE" },
-          undefined,
+          auditMetadata,
           tx,
         );
       } else {
@@ -167,14 +219,14 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           },
         });
         await logAuditEvent(
-          session.user.id,
-          session.user.privilegeLevel,
+          userId,
+          userRole,
           "MEMBER_ACTIVATED",
           "CommitteeMembership",
           newMembership.id,
           null,
           { status: "ACTIVE" },
-          undefined,
+          auditMetadata,
           tx,
         );
       }
@@ -195,15 +247,23 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
 
     if (outcome.kind === "anotherCommittee") {
       return NextResponse.json(
-        { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
-        { status: 400 },
+        {
+          success: false,
+          error: "INELIGIBLE",
+          reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] as const,
+        },
+        { status: 422 },
       );
     }
 
     if (outcome.kind === "atCapacity") {
       return NextResponse.json(
-        { success: false, error: "Committee is at capacity" },
-        { status: 400 },
+        {
+          success: false,
+          error: "INELIGIBLE",
+          reasons: ["CAPACITY"] as const,
+        },
+        { status: 422 },
       );
     }
 

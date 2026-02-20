@@ -27,6 +27,14 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     removalNotes,
   } = validation.data;
 
+  if (!session.user?.id) {
+    return NextResponse.json(
+      { success: false, error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+  const userId = session.user.id;
+  const userRole = session.user.privilegeLevel;
   const legDistrictForDb = toDbSentinelValue(legDistrict);
 
   try {
@@ -89,8 +97,8 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     });
 
     await logAuditEvent(
-      session.user.id,
-      session.user.privilegeLevel as PrivilegeLevel,
+      userId,
+      userRole as PrivilegeLevel,
       "MEMBER_REMOVED",
       "CommitteeMembership",
       membership.id,

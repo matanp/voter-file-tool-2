@@ -166,7 +166,7 @@ describe("/api/reports", () => {
       it("should fall back to my-reports when non-admin requests type=all", async () => {
         mockAuthSession(
           createMockSession({
-            user: { id: "user-456", privilegeLevel: PrivilegeLevel.Member },
+            user: { id: "user-456", privilegeLevel: PrivilegeLevel.ReadAccess },
           }),
         );
         mockHasPermission(false); // not admin

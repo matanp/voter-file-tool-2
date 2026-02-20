@@ -11,6 +11,7 @@ import {
   expectAuditLogCreate,
   getMembershipMock,
   getAuditLogMock,
+  setupEligibilityPass,
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../../utils/testUtils";
@@ -40,14 +41,15 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null); // not in another committee
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
       );
-      getMembershipMock(prismaMock).count.mockResolvedValue(2); // under capacity
+      getMembershipMock(prismaMock).count.mockResolvedValue(2);
       getMembershipMock(prismaMock).update.mockResolvedValue(
         createMockMembership({ status: "ACTIVE" }),
       );
@@ -124,6 +126,7 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique
         .mockResolvedValueOnce(submittedMembership)
         .mockResolvedValueOnce(submittedMembership)
@@ -178,6 +181,7 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique
         .mockResolvedValueOnce(submittedMembership)
         .mockResolvedValueOnce(submittedMembership)
@@ -223,6 +227,10 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
+      getMembershipMock(prismaMock).count
+        .mockResolvedValueOnce(3) // validateEligibility: under capacity
+        .mockResolvedValue(4); // tx: at capacity (replacement frees one)
       getMembershipMock(prismaMock).findUnique
         .mockResolvedValueOnce(submittedMembership)
         .mockResolvedValueOnce(submittedMembership)
@@ -231,7 +239,6 @@ describe("/api/committee/handleRequest", () => {
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
       );
-      getMembershipMock(prismaMock).count.mockResolvedValue(4); // at capacity
       getMembershipMock(prismaMock).update.mockResolvedValue(
         createMockMembership({ status: "ACTIVE" }),
       );
@@ -306,7 +313,7 @@ describe("/api/committee/handleRequest", () => {
       expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
     });
 
-    it("should return 400 when accepting and member is ACTIVE in another committee", async () => {
+    it("should return 422 INELIGIBLE when accepting and member is ACTIVE in another committee", async () => {
       const mockRequestData = createMockHandleRequestData({
         acceptOrReject: "accept",
       });
@@ -314,6 +321,7 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
@@ -323,15 +331,13 @@ describe("/api/committee/handleRequest", () => {
 
       const response = await POST(createMockRequest(mockRequestData));
 
-      await expectErrorResponse(
-        response,
-        400,
-        "Member is already in another committee",
-      );
+      await expectErrorResponse(response, 422, "INELIGIBLE");
+      const body = (await response.json()) as { reasons?: string[] };
+      expect(body.reasons).toContain("ALREADY_IN_ANOTHER_COMMITTEE");
       expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
     });
 
-    it("should reject (REJECTED) when committee is at capacity and return 400", async () => {
+    it("should return 422 INELIGIBLE when committee is at capacity on accept", async () => {
       const mockRequestData = createMockHandleRequestData({
         acceptOrReject: "accept",
       });
@@ -339,6 +345,7 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
@@ -347,24 +354,13 @@ describe("/api/committee/handleRequest", () => {
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
       );
       getMembershipMock(prismaMock).count.mockResolvedValue(4); // at capacity
-      getMembershipMock(prismaMock).update.mockResolvedValue(
-        createMockMembership({ status: "REJECTED" }),
-      );
 
       const response = await POST(createMockRequest(mockRequestData));
 
-      await expectErrorResponse(
-        response,
-        400,
-        "Committee already at capacity",
-      );
-      // Should update membership to REJECTED with rejectionNote
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate({
-          status: "REJECTED",
-          rejectionNote: "Committee already full",
-        }),
-      );
+      await expectErrorResponse(response, 422, "INELIGIBLE");
+      const body = (await response.json()) as { reasons?: string[] };
+      expect(body.reasons).toContain("CAPACITY");
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
     });
 
     it("enforces capacity under concurrent accept requests", async () => {
@@ -372,6 +368,7 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
       );
@@ -493,8 +490,10 @@ describe("/api/committee/handleRequest", () => {
       ).length;
       const capacityRejectedCount = outcomes.filter(
         (outcome) =>
-          outcome.status === 400 &&
-          outcome.body.error === "Committee already at capacity",
+          outcome.status === 422 &&
+          outcome.body.error === "INELIGIBLE" &&
+          Array.isArray(outcome.body.reasons) &&
+          outcome.body.reasons.includes("CAPACITY"),
       ).length;
 
       const activeInStore = Array.from(membershipStore.values()).filter(
@@ -535,6 +534,7 @@ describe("/api/committee/handleRequest", () => {
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
         mockHasPermission(true);
+        setupEligibilityPass(prismaMock);
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
         );
@@ -589,7 +589,7 @@ describe("/api/committee/handleRequest", () => {
         );
       });
 
-      it("should log MEMBER_REJECTED with capacity metadata when committee is full", async () => {
+      it("should log MEMBER_REJECTED with capacity metadata when committee becomes full in tx", async () => {
         const mockRequestData = createMockHandleRequestData({
           acceptOrReject: "accept",
         });
@@ -597,6 +597,7 @@ describe("/api/committee/handleRequest", () => {
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
         mockHasPermission(true);
+        setupEligibilityPass(prismaMock);
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
         );
@@ -604,7 +605,9 @@ describe("/api/committee/handleRequest", () => {
         prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
           createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
         );
-        getMembershipMock(prismaMock).count.mockResolvedValue(4); // at capacity
+        getMembershipMock(prismaMock).count
+          .mockResolvedValueOnce(3) // validateEligibility: under capacity
+          .mockResolvedValue(4); // tx: at capacity
         getMembershipMock(prismaMock).update.mockResolvedValue(
           createMockMembership({ status: "REJECTED" }),
         );

@@ -1,17 +1,14 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { PrivilegeLevel } from "@prisma/client";
+import { type Prisma, PrivilegeLevel } from "@prisma/client";
 import { committeeRequestDataSchema } from "~/lib/validations/committee";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
-import {
-  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
-  getActiveTermId,
-  isVoterActiveInAnotherCommittee,
-} from "~/app/api/lib/committeeValidation";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { logAuditEvent } from "~/lib/auditLog";
+import { validateEligibility } from "~/lib/eligibility";
 
 async function requestAddHandler(req: NextRequest, session: Session) {
   let body: unknown;
@@ -41,14 +38,23 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     addMemberId,
     removeMemberId,
     requestNotes,
+    forceAdd,
+    overrideReason,
   } = validation.data;
 
-  if (!session.user) {
+  if (!session.user?.id) {
     return NextResponse.json(
       { success: false, error: "Authentication required" },
       { status: 401 },
     );
   }
+  const userId = session.user.id;
+  const userRole = session.user.privilegeLevel;
+  const isAdmin = userRole === PrivilegeLevel.Admin;
+  const eligibilityOptions =
+    isAdmin && forceAdd
+      ? { forceAdd: true, overrideReason: overrideReason ?? "" }
+      : undefined;
 
   // SRS 1.2: addMemberId is required for the new CommitteeMembership flow.
   // Remove-only requests are an admin action; leaders should contact an admin.
@@ -104,17 +110,31 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
-    // SRS §7.1: Reject if add member is already ACTIVE in another committee
-    if (
-      await isVoterActiveInAnotherCommittee(
-        sanitizedAddMemberId,
-        committeeRequested.id,
-        activeTermId,
-      )
-    ) {
+    const eligibility = await validateEligibility(
+      sanitizedAddMemberId,
+      committeeRequested.id,
+      activeTermId,
+      eligibilityOptions,
+    );
+
+    if (eligibility.validationError) {
       return NextResponse.json(
-        { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
-        { status: 400 },
+        {
+          success: false,
+          error: eligibility.validationError,
+        },
+        { status: 422 },
+      );
+    }
+
+    if (!eligibility.eligible) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "INELIGIBLE",
+          reasons: eligibility.hardStops,
+        },
+        { status: 422 },
       );
     }
 
@@ -148,13 +168,21 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
+    const auditMetadata =
+      eligibility.bypassedReasons?.length && eligibilityOptions?.overrideReason
+        ? ({
+            bypassedReasons: eligibility.bypassedReasons,
+            overrideReason: eligibilityOptions.overrideReason,
+          } as Record<string, unknown>)
+        : undefined;
+
     if (existing) {
       const resubmitted = await prisma.committeeMembership.update({
         where: { id: existing.id },
         data: {
           status: "SUBMITTED",
           submittedAt: new Date(),
-          submittedById: session.user.id,
+          submittedById: userId,
           membershipType: null,
           seatNumber: null,
           activatedAt: null,
@@ -170,18 +198,19 @@ async function requestAddHandler(req: NextRequest, session: Session) {
           petitionVoteCount: null,
           petitionPrimaryDate: null,
           // Rebuild metadata from the current request intent.
-          submissionMetadata: requestMetadata,
+          submissionMetadata: requestMetadata as Prisma.InputJsonValue,
         },
       });
 
       await logAuditEvent(
-        session.user.id,
-        session.user.privilegeLevel,
+        userId,
+        userRole,
         "MEMBER_SUBMITTED",
         "CommitteeMembership",
         resubmitted.id,
         { status: existing.status },
         { status: "SUBMITTED" },
+        auditMetadata as Prisma.InputJsonValue | undefined,
       );
 
       return NextResponse.json(
@@ -197,20 +226,21 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         committeeListId: committeeRequested.id,
         termId: activeTermId,
         status: "SUBMITTED",
-        submittedById: session.user.id,
+        submittedById: userId,
         // Store intended replacement target and notes for admin review.
-        submissionMetadata: requestMetadata,
+        submissionMetadata: requestMetadata as Prisma.InputJsonValue,
       },
     });
 
     await logAuditEvent(
-      session.user.id,
-      session.user.privilegeLevel,
+      userId,
+      userRole,
       "MEMBER_SUBMITTED",
       "CommitteeMembership",
       newMembership.id,
       null,
       { status: "SUBMITTED" },
+      auditMetadata as Prisma.InputJsonValue | undefined,
     );
 
     return NextResponse.json(

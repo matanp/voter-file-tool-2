@@ -1,5 +1,5 @@
 import { PATCH } from "~/app/api/committee/updateLtedWeight/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { Prisma, PrivilegeLevel } from "@prisma/client";
 import {
   createMockRequest,
   createMockSession,
@@ -25,9 +25,12 @@ describe("/api/committee/updateLtedWeight", () => {
 
   it("updates LTED weight and recomputes seat weights atomically", async () => {
     prismaMock.committeeList.findUnique
-      .mockResolvedValueOnce({ id: 1 })
-      .mockResolvedValueOnce({ ltedWeight: 120 });
-    prismaMock.committeeList.update.mockResolvedValue({ id: 1, ltedWeight: 120 });
+      .mockResolvedValueOnce({ id: 1 } as never)
+      .mockResolvedValueOnce({ ltedWeight: new Prisma.Decimal(120) } as never);
+    prismaMock.committeeList.update.mockResolvedValue({
+      id: 1,
+      ltedWeight: new Prisma.Decimal(120),
+    } as never);
     prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
       createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
     );
