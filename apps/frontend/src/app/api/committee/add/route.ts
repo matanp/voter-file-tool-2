@@ -32,7 +32,27 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
     electionDistrict,
     memberId,
     membershipType = "APPOINTED",
+    email,
+    phone,
   } = validation.data;
+
+  // SRS 2.1a — store in submissionMetadata only; never write to VoterRecord
+  const submissionMetadata: Record<string, unknown> = {};
+  if (email?.trim()) submissionMetadata.email = email.trim();
+  if (phone?.trim()) submissionMetadata.phone = phone.trim();
+  const metadataForDb: Prisma.InputJsonValue | undefined =
+    Object.keys(submissionMetadata).length > 0
+      ? (submissionMetadata as Prisma.InputJsonValue)
+      : undefined;
+
+  if (!session.user?.id) {
+    return NextResponse.json(
+      { success: false, error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+  const userId = session.user.id;
+  const userPrivilegeLevel = session.user.privilegeLevel;
 
   const legDistrictForDb = toDbSentinelValue(legDistrict);
 
@@ -141,11 +161,12 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             removalNotes: null,
             petitionVoteCount: null,
             petitionPrimaryDate: null,
+            submissionMetadata: metadataForDb,
           },
         });
         await logAuditEvent(
-          session.user.id,
-          session.user.privilegeLevel,
+          userId,
+          userPrivilegeLevel,
           "MEMBER_ACTIVATED",
           "CommitteeMembership",
           existingMembership.id,
@@ -164,11 +185,12 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             activatedAt: new Date(),
             membershipType,
             seatNumber,
+            submissionMetadata: metadataForDb,
           },
         });
         await logAuditEvent(
-          session.user.id,
-          session.user.privilegeLevel,
+          userId,
+          userPrivilegeLevel,
           "MEMBER_ACTIVATED",
           "CommitteeMembership",
           newMembership.id,

@@ -1,6 +1,6 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { committeeRequestDataSchema } from "~/lib/validations/committee";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
@@ -41,14 +41,18 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     addMemberId,
     removeMemberId,
     requestNotes,
+    email,
+    phone,
   } = validation.data;
 
-  if (!session.user) {
+  if (!session.user?.id) {
     return NextResponse.json(
       { success: false, error: "Authentication required" },
       { status: 401 },
     );
   }
+  const userId = session.user.id;
+  const userPrivilegeLevel = session.user.privilegeLevel;
 
   // SRS 1.2: addMemberId is required for the new CommitteeMembership flow.
   // Remove-only requests are an admin action; leaders should contact an admin.
@@ -118,10 +122,12 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
-    const requestMetadata: Record<string, unknown> = {
+    const requestMetadata = {
       ...(removeMemberId ? { removeMemberId: removeMemberId.trim() } : {}),
       ...(requestNotes ? { requestNotes } : {}),
-    };
+      ...(email?.trim() ? { email: email.trim() } : {}),
+      ...(phone?.trim() ? { phone: phone.trim() } : {}),
+    } as Prisma.InputJsonValue;
 
     // Check for existing membership (idempotent/transition)
     const existing = await prisma.committeeMembership.findUnique({
@@ -154,7 +160,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         data: {
           status: "SUBMITTED",
           submittedAt: new Date(),
-          submittedById: session.user.id,
+          submittedById: userId,
           membershipType: null,
           seatNumber: null,
           activatedAt: null,
@@ -175,8 +181,8 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       });
 
       await logAuditEvent(
-        session.user.id,
-        session.user.privilegeLevel,
+        userId,
+        userPrivilegeLevel,
         "MEMBER_SUBMITTED",
         "CommitteeMembership",
         resubmitted.id,
@@ -197,15 +203,15 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         committeeListId: committeeRequested.id,
         termId: activeTermId,
         status: "SUBMITTED",
-        submittedById: session.user.id,
+        submittedById: userId,
         // Store intended replacement target and notes for admin review.
         submissionMetadata: requestMetadata,
       },
     });
 
     await logAuditEvent(
-      session.user.id,
-      session.user.privilegeLevel,
+      userId,
+      userPrivilegeLevel,
       "MEMBER_SUBMITTED",
       "CommitteeMembership",
       newMembership.id,

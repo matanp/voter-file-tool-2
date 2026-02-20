@@ -11,6 +11,9 @@ import {
 export type CommitteeMembershipSubmissionMetadata = {
   removeMemberId?: string;
   requestNotes?: string;
+  /** SRS 2.1a — optional contact at time of submission; never written to VoterRecord. */
+  email?: string;
+  phone?: string;
 };
 
 /** Response shape from /api/fetchCommitteeList with memberships + voterRecord + seats + maxSeatsPerLted. */
@@ -20,6 +23,8 @@ export type FetchCommitteeListResponse = CommitteeList & {
     voterRecord: VoterRecord;
     membershipType: MembershipType | null;
     seatNumber?: number | null;
+    /** SRS 2.1a — submission contact overrides for display (email/phone). */
+    submissionMetadata?: CommitteeMembershipSubmissionMetadata | null;
   }>;
   seats?: Array<{
     id: string;
@@ -66,8 +71,21 @@ export const committeeDataSchema = z
       .positive("Election District must be a positive integer"),
     memberId: z.string().trim().min(1, "Member ID is required"),
     membershipType: z.nativeEnum(MembershipType).optional(),
+    // SRS 2.1a — optional contact for this submission; stored in submissionMetadata only
+    email: z
+      .string()
+      .trim()
+      .email("Invalid email format")
+      .optional()
+      .or(z.literal("")),
+    phone: z.string().trim().optional(),
   })
-  .strict();
+  .strict()
+  .transform((data) => ({
+    ...data,
+    email: data.email === "" ? undefined : data.email,
+    phone: data.phone === "" ? undefined : data.phone,
+  }));
 
 // Committee request data validation schema
 export const committeeRequestDataSchema = z
@@ -102,8 +120,21 @@ export const committeeRequestDataSchema = z
       .trim()
       .max(1000, "Notes must be 1000 characters or fewer")
       .optional(),
+    // SRS 2.1a — optional contact for this submission; stored in submissionMetadata only
+    email: z
+      .string()
+      .trim()
+      .email("Invalid email format")
+      .optional()
+      .or(z.literal("")),
+    phone: z.string().trim().optional(),
   })
   .strict()
+  .transform((data) => ({
+    ...data,
+    email: data.email === "" ? undefined : data.email,
+    phone: data.phone === "" ? undefined : data.phone,
+  }))
   .refine(
     (data) => {
       const hasAddMember = data.addMemberId && data.addMemberId.trim() !== "";
