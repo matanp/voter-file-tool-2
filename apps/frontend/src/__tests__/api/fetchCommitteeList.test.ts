@@ -9,6 +9,8 @@ import {
   expectSuccessResponse,
   expectErrorResponse,
   createCommitteeFindUniqueArgs,
+  objectContainingMatcher,
+  expectAnything,
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../utils/testUtils";
@@ -112,9 +114,9 @@ describe("/api/fetchCommitteeList", () => {
         }),
       );
       expect(prismaMock.committeeList.findUnique).not.toHaveBeenCalledWith(
-        expect.objectContaining({
-          include: expect.objectContaining({
-            committeeMemberList: expect.anything(),
+        objectContainingMatcher({
+          include: objectContainingMatcher({
+            committeeMemberList: expectAnything(),
           }),
         }),
       );

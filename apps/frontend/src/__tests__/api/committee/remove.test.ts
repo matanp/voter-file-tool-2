@@ -12,6 +12,8 @@ import {
   createCommitteeFindUniqueWhereArgs,
   createMockMembership,
   expectMembershipUpdate,
+  expectAnyDate,
+  jsonContaining,
   getMembershipMock,
   getAuditLogMock,
   expectAuditLogCreate,
@@ -185,16 +187,16 @@ describe("/api/committee/remove", () => {
           action: "MEMBER_REMOVED",
           entityType: "CommitteeMembership",
           entityId: "membership-test-id-001",
-          beforeValue: expect.objectContaining({
+          beforeValue: jsonContaining({
             status: "ACTIVE",
             seatNumber: 3,
           }),
-          afterValue: expect.objectContaining({
+          afterValue: jsonContaining({
             status: "REMOVED",
             removalReason: "MOVED_OUT_OF_DISTRICT",
             removalNotes: "Relocated",
           }),
-          metadata: expect.objectContaining({ source: "manual" }),
+          metadata: jsonContaining({ source: "manual" }),
         }),
       );
     });
@@ -440,7 +442,7 @@ describe("/api/committee/remove", () => {
         expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
           expectMembershipUpdate({
             status: "RESIGNED",
-            resignationDateReceived: expect.any(Date),
+            resignationDateReceived: expectAnyDate(),
             resignationMethod: "EMAIL",
           }),
         );
@@ -449,11 +451,11 @@ describe("/api/committee/remove", () => {
             action: "MEMBER_RESIGNED",
             entityType: "CommitteeMembership",
             entityId: "membership-test-id-001",
-            beforeValue: expect.objectContaining({
+            beforeValue: jsonContaining({
               status: "ACTIVE",
               seatNumber: 2,
             }),
-            afterValue: expect.objectContaining({
+            afterValue: jsonContaining({
               status: "RESIGNED",
               resignationDateReceived: "2025-02-19",
               resignationMethod: "EMAIL",

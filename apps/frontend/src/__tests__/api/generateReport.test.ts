@@ -13,6 +13,7 @@ import {
   expectSuccessResponse,
   mockJsonResponse,
   parseJsonResponse,
+  getMockCallArgs,
   type ErrorResponseBody,
   type AuthTestConfig,
 } from "../utils/testUtils";
@@ -129,16 +130,16 @@ describe("/api/generateReport", () => {
       await POST(request);
 
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-      const fetchCall = (globalThis.fetch as jest.Mock).mock.calls[0];
-      const [, options] = fetchCall as [string, RequestInit];
+      const fetchArgs = getMockCallArgs(globalThis.fetch as jest.Mock);
+      const fetchOptions = fetchArgs[1] as RequestInit | undefined;
 
-      const headers = options?.headers as Record<string, string> | undefined;
+      const headers = fetchOptions?.headers as Record<string, string> | undefined;
       const signature = headers?.["x-webhook-signature"];
       expect(signature).toBeTruthy();
       expect(typeof signature).toBe("string");
       expect(signature).toMatch(/^sha256=[a-f0-9]{64}$/);
 
-      const body = options?.body;
+      const body = fetchOptions?.body;
       expect(body).toBeDefined();
       expect(body).toBeInstanceOf(Uint8Array);
       const bytes = body as Uint8Array;
