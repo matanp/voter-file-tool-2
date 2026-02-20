@@ -3,21 +3,23 @@ import { PrivilegeLevel } from "@prisma/client";
 import { POST } from "~/app/api/admin/weightedTable/import/route";
 import { parseJsonResponse, createMockSession } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
-
-const readWorkbookMock = jest.fn();
-const sheetToJsonMock = jest.fn();
-const recomputeSeatWeightsMock = jest.fn();
+import * as seatUtils from "~/app/api/lib/seatUtils";
+import * as xlsx from "xlsx";
 
 jest.mock("xlsx", () => ({
-  read: readWorkbookMock,
+  read: jest.fn(),
   utils: {
-    sheet_to_json: sheetToJsonMock,
+    sheet_to_json: jest.fn(),
   },
 }));
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
-  recomputeSeatWeights: recomputeSeatWeightsMock,
+  recomputeSeatWeights: jest.fn(),
 }));
+
+const readWorkbookMock = xlsx.read as jest.Mock;
+const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
+const recomputeSeatWeightsMock = seatUtils.recomputeSeatWeights as jest.Mock;
 
 type UploadFile = {
   arrayBuffer: () => Promise<ArrayBuffer>;
