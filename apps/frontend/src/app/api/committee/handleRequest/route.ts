@@ -1,6 +1,6 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { PrivilegeLevel } from "@prisma/client";
+import { type Prisma, PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
@@ -94,6 +94,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
       }
 
       const config = await getGovernanceConfig();
+      const eligibilityWarnings = eligibility.warnings;
       const auditMetadata =
         eligibility.bypassedReasons?.length &&
         eligibilityOptions?.overrideReason
@@ -102,6 +103,10 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
               overrideReason: eligibilityOptions.overrideReason,
             }
           : undefined;
+      const auditMetadataWithWarnings =
+        eligibilityWarnings.length > 0
+          ? { ...auditMetadata, eligibilityWarnings }
+          : auditMetadata;
 
       const outcome = await prisma.$transaction(async (tx) => {
         const submittedMembership = await tx.committeeMembership.findUnique({
@@ -254,6 +259,18 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         );
 
         // Transition SUBMITTED → ACTIVE; leader submissions are vacancy fills (APPOINTED)
+        // SRS §2.2 — Persist eligibility warning snapshot at accept time
+        const existingMeta =
+          submittedMembership.submissionMetadata &&
+          typeof submittedMembership.submissionMetadata === "object" &&
+          !Array.isArray(submittedMembership.submissionMetadata)
+            ? (submittedMembership.submissionMetadata as Record<string, unknown>)
+            : {};
+        const updatedSubmissionMetadata =
+          eligibilityWarnings.length > 0
+            ? { ...existingMeta, eligibilityWarnings }
+            : existingMeta;
+
         await tx.committeeMembership.update({
           where: { id: membershipId },
           data: {
@@ -261,6 +278,10 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
             activatedAt: new Date(),
             membershipType: "APPOINTED",
             seatNumber,
+            submissionMetadata:
+              Object.keys(updatedSubmissionMetadata).length > 0
+                ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
+                : undefined,
           },
         });
         await logAuditEvent(
@@ -271,7 +292,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           membershipId,
           { status: "SUBMITTED" },
           { status: "ACTIVE", membershipType: "APPOINTED" },
-          auditMetadata,
+          auditMetadataWithWarnings,
           tx,
         );
 
@@ -312,6 +333,15 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           { status: 422 },
         );
       }
+      return NextResponse.json(
+        {
+          message: "Request accepted",
+          ...(eligibilityWarnings.length > 0
+            ? { warnings: eligibilityWarnings }
+            : {}),
+        },
+        { status: 200 },
+      );
     } else if (acceptOrReject === "reject") {
       // Transition SUBMITTED → REJECTED (conditional to avoid overwriting concurrent accept)
       const updateResult = await prisma.$transaction(async (tx) => {

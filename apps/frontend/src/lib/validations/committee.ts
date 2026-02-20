@@ -8,6 +8,7 @@ import {
   RemovalReason,
   ResignationMethod,
 } from "@prisma/client";
+import type { EligibilityWarning } from "~/lib/eligibility";
 
 /** Typed shape of CommitteeMembership.submissionMetadata (leader request context). */
 export type CommitteeMembershipSubmissionMetadata = {
@@ -16,6 +17,8 @@ export type CommitteeMembershipSubmissionMetadata = {
   /** SRS 2.1a — optional contact at time of submission; never written to VoterRecord. */
   email?: string;
   phone?: string;
+  /** SRS §2.2 — Snapshot of eligibility warnings at add/request/accept time. */
+  eligibilityWarnings?: EligibilityWarning[];
 };
 
 /** Response shape from /api/fetchCommitteeList with memberships + voterRecord + seats + maxSeatsPerLted. */
@@ -318,12 +321,14 @@ export const fetchCommitteeListQuerySchema = z
   })
   .strict();
 
-// API Response types for committee operations (SRS §2.1 — INELIGIBLE with reasons)
+// API Response types for committee operations (SRS §2.1 + §2.2)
 export type AddCommitteeResponse =
   | {
       success: true;
       message: string;
       idempotent?: true;
+      /** SRS §2.2 — Non-blocking warnings; frontend renders only server-returned warnings. */
+      warnings?: EligibilityWarning[];
     }
   | { success: false; error: string }
   | {
@@ -336,6 +341,8 @@ export type CommitteeRequestResponse =
   | {
       success: true;
       message: string;
+      /** SRS §2.2 — Non-blocking warnings. */
+      warnings?: EligibilityWarning[];
     }
   | { success: false; error: string };
 

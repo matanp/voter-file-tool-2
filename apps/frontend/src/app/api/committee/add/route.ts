@@ -39,13 +39,10 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
   } = validation.data;
 
   // SRS 2.1a — store in submissionMetadata only; never write to VoterRecord
+  // SRS §2.2 — eligibilityWarnings merged after validation (below)
   const submissionMetadata: Record<string, unknown> = {};
   if (email?.trim()) submissionMetadata.email = email.trim();
   if (phone?.trim()) submissionMetadata.phone = phone.trim();
-  const metadataForDb: Prisma.InputJsonValue | undefined =
-    Object.keys(submissionMetadata).length > 0
-      ? (submissionMetadata as Prisma.InputJsonValue)
-      : undefined;
 
   if (!session.user?.id) {
     return NextResponse.json(
@@ -110,6 +107,22 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
       );
     }
 
+    // SRS §2.2 — Persist warning snapshot and include in audit
+    const eligibilityWarnings = eligibility.warnings;
+    const metadataForDb: Prisma.InputJsonValue = {
+      ...submissionMetadata,
+      ...(eligibilityWarnings.length > 0
+        ? {
+            eligibilityWarnings:
+              eligibilityWarnings as unknown as Prisma.InputJsonValue,
+          }
+        : {}),
+    };
+    const metadataForDbOrUndefined =
+      Object.keys(metadataForDb as Record<string, unknown>).length > 0
+        ? metadataForDb
+        : undefined;
+
     const auditMetadata =
       eligibility.bypassedReasons?.length && eligibilityOptions?.overrideReason
         ? {
@@ -117,6 +130,10 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             overrideReason: eligibilityOptions.overrideReason,
           }
         : undefined;
+    const auditMetadataWithWarnings =
+      eligibilityWarnings.length > 0
+        ? { ...auditMetadata, eligibilityWarnings }
+        : auditMetadata;
 
     const outcome = await prisma.$transaction(async (tx) => {
       // Lock committee row for atomic capacity+seat assignment (1.R.7).
@@ -204,7 +221,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             removalNotes: null,
             petitionVoteCount: null,
             petitionPrimaryDate: null,
-            submissionMetadata: metadataForDb,
+            submissionMetadata: metadataForDbOrUndefined,
           },
         });
         await logAuditEvent(
@@ -215,7 +232,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           existingMembership.id,
           { status: existingMembership.status },
           { status: "ACTIVE" },
-          auditMetadata,
+          auditMetadataWithWarnings,
           tx,
         );
       } else {
@@ -228,7 +245,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             activatedAt: new Date(),
             membershipType,
             seatNumber,
-            submissionMetadata: metadataForDb,
+            submissionMetadata: metadataForDbOrUndefined,
           },
         });
         await logAuditEvent(
@@ -239,7 +256,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           newMembership.id,
           null,
           { status: "ACTIVE" },
-          auditMetadata,
+          auditMetadataWithWarnings,
           tx,
         );
       }
@@ -284,6 +301,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
       {
         success: true,
         message: "Member added to committee",
+        ...(eligibilityWarnings.length > 0 ? { warnings: eligibilityWarnings } : {}),
       },
       { status: 200 },
     );

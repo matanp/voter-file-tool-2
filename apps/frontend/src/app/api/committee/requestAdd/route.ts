@@ -1,6 +1,6 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { PrivilegeLevel, Prisma } from "@prisma/client";
+import { type Prisma, PrivilegeLevel } from "@prisma/client";
 import { committeeRequestDataSchema } from "~/lib/validations/committee";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
@@ -140,11 +140,19 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
+    // SRS §2.2 — Persist warning snapshot and include in audit
+    const eligibilityWarnings = eligibility.warnings;
     const requestMetadata = {
       ...(removeMemberId ? { removeMemberId: removeMemberId.trim() } : {}),
       ...(requestNotes ? { requestNotes } : {}),
       ...(email?.trim() ? { email: email.trim() } : {}),
       ...(phone?.trim() ? { phone: phone.trim() } : {}),
+      ...(eligibilityWarnings.length > 0
+        ? {
+            eligibilityWarnings:
+              eligibilityWarnings as unknown as Prisma.InputJsonValue,
+          }
+        : {}),
     } as Prisma.InputJsonValue;
 
     // Check for existing membership (idempotent/transition)
@@ -179,6 +187,10 @@ async function requestAddHandler(req: NextRequest, session: Session) {
             overrideReason: eligibilityOptions.overrideReason,
           } as Record<string, unknown>)
         : undefined;
+    const auditMetadataWithWarnings =
+      eligibilityWarnings.length > 0
+        ? { ...auditMetadata, eligibilityWarnings }
+        : auditMetadata;
 
     if (existing) {
       const resubmitted = await prisma.committeeMembership.update({
@@ -202,7 +214,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
           petitionVoteCount: null,
           petitionPrimaryDate: null,
           // Rebuild metadata from the current request intent.
-          submissionMetadata: requestMetadata as Prisma.InputJsonValue,
+          submissionMetadata: requestMetadata,
         },
       });
 
@@ -214,11 +226,16 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         resubmitted.id,
         { status: existing.status },
         { status: "SUBMITTED" },
-        auditMetadata as Prisma.InputJsonValue | undefined,
+        auditMetadataWithWarnings as Prisma.InputJsonValue | undefined,
       );
 
       return NextResponse.json(
-        { success: true, message: "Request created" },
+        {
+          success: true,
+          message: "Request created",
+          ...(eligibilityWarnings.length > 0
+            ? { warnings: eligibilityWarnings } : {}),
+        },
         { status: 201 },
       );
     }
@@ -232,7 +249,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         status: "SUBMITTED",
         submittedById: userId,
         // Store intended replacement target and notes for admin review.
-        submissionMetadata: requestMetadata as Prisma.InputJsonValue,
+        submissionMetadata: requestMetadata,
       },
     });
 
@@ -244,11 +261,15 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       newMembership.id,
       null,
       { status: "SUBMITTED" },
-      auditMetadata as Prisma.InputJsonValue | undefined,
+      auditMetadataWithWarnings as Prisma.InputJsonValue | undefined,
     );
 
     return NextResponse.json(
-      { success: true, message: "Request created" },
+      {
+        success: true,
+        message: "Request created",
+        ...(eligibilityWarnings.length > 0 ? { warnings: eligibilityWarnings } : {}),
+      },
       { status: 201 },
     );
   } catch (error) {

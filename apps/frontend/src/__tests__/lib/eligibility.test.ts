@@ -23,7 +23,14 @@ function setupGovernanceConfig(overrides: {
   );
 }
 
-function setupVoter(overrides: { party?: string; stateAssmblyDistrict?: string | null } = {}) {
+function setupVoter(
+  overrides: {
+    party?: string;
+    stateAssmblyDistrict?: string | null;
+    latestRecordEntryYear?: number;
+    latestRecordEntryNumber?: number;
+  } = {},
+) {
   prismaMock.voterRecord.findUnique.mockResolvedValue(
     createMockVoterRecord(overrides) as never,
   );
@@ -169,12 +176,116 @@ describe("validateEligibility", () => {
       setupCrosswalk("1");
       getMembershipMock(prismaMock).count.mockResolvedValue(0);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      (prismaMock.voterRecord.findFirst as jest.Mock)?.mockResolvedValue?.({
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 1,
+      });
 
       const result = await validateEligibility(voterId, committeeListId, termId);
 
       expect(result.eligible).toBe(true);
       expect(result.hardStops).toEqual([]);
       expect(result.warnings).toEqual([]);
+    });
+  });
+
+  describe("SRS §2.2 — warnings", () => {
+    it("adds POSSIBLY_INACTIVE when voter version is older than most recent import", async () => {
+      setupVoter({
+        party: "DEM",
+        stateAssmblyDistrict: "1",
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 1,
+      });
+      setupCommitteeList();
+      setupCrosswalk("1");
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 2,
+      });
+
+      const result = await validateEligibility(voterId, committeeListId, termId);
+
+      expect(result.eligible).toBe(true);
+      expect(
+        result.warnings.some(
+          (w) =>
+            w.code === "POSSIBLY_INACTIVE" &&
+            w.message.includes("most recent voter file import"),
+        ),
+      ).toBe(true);
+    });
+
+    it("does not add POSSIBLY_INACTIVE when voter version equals most recent", async () => {
+      setupVoter({ party: "DEM", stateAssmblyDistrict: "1" });
+      setupCommitteeList();
+      setupCrosswalk("1");
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 1,
+      });
+
+      const result = await validateEligibility(voterId, committeeListId, termId);
+
+      expect(result.eligible).toBe(true);
+      expect(result.warnings.filter((w) => w.code === "POSSIBLY_INACTIVE")).toHaveLength(0);
+    });
+
+    it("adds RECENT_RESIGNATION when voter has resigned within 90 days", async () => {
+      setupVoter({ party: "DEM", stateAssmblyDistrict: "1" });
+      setupCommitteeList();
+      setupCrosswalk("1");
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      // Order: recentResignation, pendingInOther, activeInOther
+      getMembershipMock(prismaMock).findFirst
+        .mockResolvedValueOnce({ id: "resigned-id" })
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 1,
+      });
+
+      const result = await validateEligibility(voterId, committeeListId, termId);
+
+      expect(result.eligible).toBe(true);
+      expect(
+        result.warnings.some(
+          (w) =>
+            w.code === "RECENT_RESIGNATION" && w.message.includes("90 days"),
+        ),
+      ).toBe(true);
+    });
+
+    it("adds PENDING_IN_ANOTHER_COMMITTEE when voter has SUBMITTED in another committee", async () => {
+      setupVoter({ party: "DEM", stateAssmblyDistrict: "1" });
+      setupCommitteeList();
+      setupCrosswalk("1");
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      // Order: recentResignation, pendingInOther, activeInOther
+      getMembershipMock(prismaMock).findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: "pending-other" })
+        .mockResolvedValueOnce(null);
+      (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 1,
+      });
+
+      const result = await validateEligibility(voterId, committeeListId, termId);
+
+      expect(result.eligible).toBe(true);
+      expect(
+        result.warnings.some(
+          (w) =>
+            w.code === "PENDING_IN_ANOTHER_COMMITTEE" &&
+            w.message.includes("pending submission"),
+        ),
+      ).toBe(true);
     });
   });
 

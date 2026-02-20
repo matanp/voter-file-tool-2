@@ -11,6 +11,7 @@ import {
   expectMembershipCreate,
   expectMembershipUpdate,
   getMembershipMock,
+  parseJsonResponse,
   setupEligibilityPass,
   validationTestCases,
   createAuthTestSuite,
@@ -153,6 +154,46 @@ describe("/api/committee/requestAdd", () => {
           },
         }),
       );
+    });
+
+    it("should return warnings and persist eligibilityWarnings in submissionMetadata when eligibility has warnings (SRS §2.2)", async () => {
+      const mockRequestData = createMockRequestData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+      setupHappyPath();
+      (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 2,
+      });
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      type RequestSuccessWithWarnings = {
+        success: boolean;
+        message: string;
+        warnings?: Array<{ code: string; message: string }>;
+      };
+      const data = await parseJsonResponse<RequestSuccessWithWarnings>(response);
+      expect(response.status).toBe(201);
+      expect(data.success).toBe(true);
+      expect(Array.isArray(data.warnings)).toBe(true);
+      expect(data.warnings?.length).toBeGreaterThan(0);
+      const firstWarning = data.warnings?.[0];
+      expect(firstWarning?.code).toBe("POSSIBLY_INACTIVE");
+      expect(firstWarning?.message).toContain("most recent voter file import");
+
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledTimes(1);
+      type CreateArg = { data: { submissionMetadata?: { eligibilityWarnings?: Array<{ code: string; message: string }> } } };
+      const createCalls = getMembershipMock(prismaMock).create.mock.calls as Array<[CreateArg]>;
+      const createCallArg = createCalls[0]?.[0]?.data;
+      expect(createCallArg?.submissionMetadata?.eligibilityWarnings).toBeDefined();
+      const storedWarnings =
+        createCallArg?.submissionMetadata?.eligibilityWarnings ?? [];
+      expect(storedWarnings.length).toBeGreaterThan(0);
+      expect(storedWarnings[0]?.code).toBe("POSSIBLY_INACTIVE");
+      expect(storedWarnings[0]?.message).toContain("most recent voter file import");
     });
 
     it("should handle undefined legDistrict (at-large) by using sentinel value", async () => {
