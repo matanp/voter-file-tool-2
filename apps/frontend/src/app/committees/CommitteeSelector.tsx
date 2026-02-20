@@ -20,6 +20,21 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "~/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import { Textarea } from "~/components/ui/textarea";
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
@@ -56,20 +71,37 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     useState<VoterRecord | null>(null);
   const [legDistricts, setLegDistricts] = useState<string[]>([]);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [resignModalMember, setResignModalMember] =
+    useState<VoterRecord | null>(null);
+  const [resignDateReceived, setResignDateReceived] = useState<string>("");
+  const [resignMethod, setResignMethod] = useState<"EMAIL" | "MAIL" | "">("");
+  const [resignNotes, setResignNotes] = useState<string>("");
 
   const [listLoading, setListLoading] = useState<boolean>(false);
 
+  type RemoveOrResignPayload = {
+    cityTown: string;
+    legDistrict?: number;
+    electionDistrict: number;
+    memberId: string;
+    action?: "RESIGN";
+    resignationDateReceived?: string;
+    resignationMethod?: "EMAIL" | "MAIL";
+    removalNotes?: string;
+  };
+
   const removeCommitteeMemberMutation = useApiMutation<
     { status: "success" | "error"; error?: string },
-    {
-      cityTown: string;
-      legDistrict?: number;
-      electionDistrict: number;
-      memberId: string;
-    }
+    RemoveOrResignPayload
   >("/api/committee/remove", "POST", {
     onSuccess: (data, payload) => {
       setRemovingId(null);
+      if (payload && "action" in payload && payload.action === "RESIGN") {
+        setResignModalMember(null);
+        setResignDateReceived("");
+        setResignMethod("");
+        setResignNotes("");
+      }
       // Check for server-reported failure (200 with { status: "error" })
       if (
         data &&
@@ -79,19 +111,17 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       ) {
         toast({
           title: "Error",
-          description: `Failed to remove committee member: ${data.error ?? "Unknown error"}`,
+          description: `Failed to ${payload?.action === "RESIGN" ? "record resignation" : "remove committee member"}: ${data.error ?? "Unknown error"}`,
           variant: "destructive",
         });
         return;
       }
 
       if (payload) {
-        // Convert numeric legDistrict back to string for fetchCommitteeList
         const legDistrictString = payload.legDistrict
           ? payload.legDistrict.toString()
           : undefined;
 
-        // Only refetch if we have valid parameters
         if (payload.cityTown && payload.electionDistrict !== undefined) {
           fetchCommitteeList(
             payload.cityTown,
@@ -105,7 +135,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
       toast({
         title: "Success",
-        description: "Committee member removed successfully",
+        description:
+          payload?.action === "RESIGN"
+            ? "Resignation recorded successfully"
+            : "Committee member removed successfully",
       });
     },
     onError: (error) => {
@@ -288,23 +321,49 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   );
 
   const handleRemoveCommitteeMember = async (vrcnum: string) => {
-    // Guard against invalid selection
-    if (!selectedCity || selectedDistrict < 0) {
-      return;
-    }
-
+    if (!selectedCity || selectedDistrict < 0) return;
     setRemovingId(vrcnum);
-
-    // Convert legDistrict string to number for API call
     const legDistrictNumber = selectedLegDistrict
       ? Number(selectedLegDistrict)
       : undefined;
-
     void removeCommitteeMemberMutation.mutate({
       cityTown: selectedCity,
       legDistrict: legDistrictNumber,
       electionDistrict: selectedDistrict,
       memberId: vrcnum,
+    });
+  };
+
+  const handleOpenResignModal = (record: VoterRecord) => {
+    setResignModalMember(record);
+    setResignDateReceived("");
+    setResignMethod("");
+    setResignNotes("");
+  };
+
+  const handleSubmitResignation = () => {
+    if (
+      !resignModalMember ||
+      !selectedCity ||
+      selectedDistrict < 0 ||
+      !resignDateReceived.trim() ||
+      (resignMethod !== "EMAIL" && resignMethod !== "MAIL")
+    ) {
+      return;
+    }
+    setRemovingId(resignModalMember.VRCNUM);
+    const legDistrictNumber = selectedLegDistrict
+      ? Number(selectedLegDistrict)
+      : undefined;
+    void removeCommitteeMemberMutation.mutate({
+      cityTown: selectedCity,
+      legDistrict: legDistrictNumber,
+      electionDistrict: selectedDistrict,
+      memberId: resignModalMember.VRCNUM,
+      action: "RESIGN",
+      resignationDateReceived: resignDateReceived.trim(),
+      resignationMethod: resignMethod,
+      ...(resignNotes.trim() ? { removalNotes: resignNotes.trim() } : {}),
     });
   };
 
@@ -494,7 +553,19 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                           actingPermissions,
                           PrivilegeLevel.Admin,
                         ) && (
-                          <div className="h-full">
+                          <div className="h-full flex flex-wrap gap-2">
+                            <Button
+                              className="mt-auto"
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleOpenResignModal(voterRecord)}
+                              disabled={
+                                removingId === voterRecord.VRCNUM ||
+                                removeCommitteeMemberMutation.loading
+                              }
+                            >
+                              Record Resignation
+                            </Button>
                             <Button
                               className="mt-auto"
                               type="button"
@@ -552,6 +623,83 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           onSubmit={() => setShowConfirmForm(false)}
         />
       )}
+
+      <Dialog
+        open={resignModalMember !== null}
+        onOpenChange={(open) => {
+          if (!open) setResignModalMember(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Resignation</DialogTitle>
+          </DialogHeader>
+          {resignModalMember && (
+            <p className="text-sm text-muted-foreground">
+              Recording resignation for {resignModalMember.firstName}{" "}
+              {resignModalMember.lastName} ({resignModalMember.VRCNUM}).
+            </p>
+          )}
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="resign-date">Date resignation received *</Label>
+              <Input
+                id="resign-date"
+                type="date"
+                value={resignDateReceived}
+                onChange={(e) => setResignDateReceived(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="resign-method">Method *</Label>
+              <Select
+                value={resignMethod}
+                onValueChange={(v) =>
+                  setResignMethod(v === "EMAIL" || v === "MAIL" ? v : "")
+                }
+              >
+                <SelectTrigger id="resign-method">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EMAIL">Email</SelectItem>
+                  <SelectItem value="MAIL">Mail</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="resign-notes">Notes (optional)</Label>
+              <Textarea
+                id="resign-notes"
+                value={resignNotes}
+                onChange={(e) => setResignNotes(e.target.value)}
+                placeholder="Optional resignation note"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setResignModalMember(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmitResignation}
+              disabled={
+                !resignDateReceived.trim() ||
+                (resignMethod !== "EMAIL" && resignMethod !== "MAIL") ||
+                removeCommitteeMemberMutation.loading
+              }
+            >
+              {removeCommitteeMemberMutation.loading ? "Saving..." : "Record Resignation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

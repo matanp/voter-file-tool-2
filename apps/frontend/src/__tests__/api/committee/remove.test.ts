@@ -13,9 +13,11 @@ import {
   createMockMembership,
   expectMembershipUpdate,
   getMembershipMock,
+  getAuditLogMock,
+  expectAuditLogCreate,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import type { CommitteeData } from "~/lib/validations/committee";
+import type { CommitteeData, ResignCommitteeData } from "~/lib/validations/committee";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import {
   mockAuthSession,
@@ -282,6 +284,177 @@ describe("/api/committee/remove", () => {
       const response = await POST(createMockRequest(mockCommitteeData));
 
       await expectErrorResponse(response, 500, "Internal server error");
+    });
+
+    // SRS 2.3 — Resignation workflow (action RESIGN)
+    describe("action RESIGN", () => {
+      const createMockResignBody = (
+        overrides: Partial<ResignCommitteeData> = {},
+      ): ResignCommitteeData => ({
+        cityTown: "Test City",
+        legDistrict: 1,
+        electionDistrict: 1,
+        memberId: "TEST123456",
+        action: "RESIGN",
+        resignationDateReceived: "2025-02-19",
+        resignationMethod: "EMAIL",
+        ...overrides,
+      });
+
+      const setupResignHappyPath = () => {
+        prismaMock.committeeList.findUnique.mockResolvedValue(
+          createMockCommittee(),
+        );
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+          createMockMembership({ status: "ACTIVE", seatNumber: 2 }),
+        );
+        getMembershipMock(prismaMock).update.mockResolvedValue(
+          createMockMembership({
+            status: "RESIGNED",
+            resignedAt: new Date(),
+            resignationDateReceived: new Date("2025-02-19"),
+            resignationMethod: "EMAIL",
+          }),
+        );
+      };
+
+      it("should successfully record resignation and log MEMBER_RESIGNED", async () => {
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        setupResignHappyPath();
+
+        const body = createMockResignBody();
+        const response = await POST(createMockRequest(body));
+
+        await expectSuccessResponse(response, { status: "success" });
+        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+          expectMembershipUpdate({
+            status: "RESIGNED",
+            resignationDateReceived: expect.any(Date),
+            resignationMethod: "EMAIL",
+          }),
+        );
+        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+          expectAuditLogCreate({
+            action: "MEMBER_RESIGNED",
+            entityType: "CommitteeMembership",
+            entityId: "membership-test-id-001",
+            beforeValue: expect.objectContaining({
+              status: "ACTIVE",
+              seatNumber: 2,
+            }),
+            afterValue: expect.objectContaining({
+              status: "RESIGNED",
+              resignationDateReceived: "2025-02-19",
+              resignationMethod: "EMAIL",
+            }),
+          }),
+        );
+      });
+
+      it("should pass removalNotes when provided for resignation", async () => {
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        setupResignHappyPath();
+
+        const body = createMockResignBody({
+          resignationMethod: "MAIL",
+          removalNotes: "Resignation note",
+        });
+        const response = await POST(createMockRequest(body));
+
+        await expectSuccessResponse(response, { status: "success" });
+        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+          expectMembershipUpdate({
+            status: "RESIGNED",
+            resignationMethod: "MAIL",
+            removalNotes: "Resignation note",
+          }),
+        );
+      });
+
+      it("should return 400 when membership is not ACTIVE (resign)", async () => {
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        prismaMock.committeeList.findUnique.mockResolvedValue(
+          createMockCommittee(),
+        );
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+          createMockMembership({ status: "REMOVED" }),
+        );
+
+        const response = await POST(
+          createMockRequest(createMockResignBody()),
+        );
+
+        await expectErrorResponse(
+          response,
+          400,
+          "Member does not have an active membership in this committee",
+        );
+        expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      });
+
+      it("should return 404 when membership not found (resign)", async () => {
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        prismaMock.committeeList.findUnique.mockResolvedValue(
+          createMockCommittee(),
+        );
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+
+        const response = await POST(
+          createMockRequest(createMockResignBody()),
+        );
+
+        await expectErrorResponse(
+          response,
+          404,
+          "Member not found in this committee",
+        );
+      });
+
+      it("should return 422 when resignationDateReceived is missing", async () => {
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        const body = createMockResignBody();
+        const { resignationDateReceived: _, ...bodyWithoutDate } = body;
+
+        const response = await POST(
+          createMockRequest({
+            ...bodyWithoutDate,
+            action: "RESIGN",
+          } as ResignCommitteeData),
+        );
+
+        await expectErrorResponse(response, 422, "Invalid request data");
+      });
+
+      it("should return 422 when resignationMethod is invalid", async () => {
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+
+        const response = await POST(
+          createMockRequest({
+            ...createMockResignBody(),
+            resignationMethod: "INVALID" as "EMAIL",
+          }),
+        );
+
+        await expectErrorResponse(response, 422, "Invalid request data");
+      });
     });
   });
 });

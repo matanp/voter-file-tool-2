@@ -6,6 +6,7 @@ import {
   type VoterRecord,
   MembershipType,
   RemovalReason,
+  ResignationMethod,
 } from "@prisma/client";
 
 /** Typed shape of CommitteeMembership.submissionMetadata (leader request context). */
@@ -200,6 +201,59 @@ export const removeCommitteeDataSchema = z
   })
   .strict();
 
+/** Valid ISO date string for resignationDateReceived. */
+const isoDateString = z
+  .string()
+  .trim()
+  .min(1, "Resignation date received is required")
+  .refine(
+    (s) => {
+      const d = new Date(s);
+      return !Number.isNaN(d.getTime());
+    },
+    { message: "Resignation date must be a valid date" },
+  );
+
+// SRS 2.3 — Record resignation (action RESIGN) validation schema
+export const resignCommitteeDataSchema = z
+  .object({
+    cityTown: z.string().trim().min(1, "City/Town is required"),
+    legDistrict: z
+      .union([z.string(), z.number()])
+      .optional()
+      .refine(
+        (val) =>
+          val === undefined ||
+          (typeof val === "string" ? val.trim() !== "" : true),
+        { message: "Legislative District cannot be empty when provided" },
+      )
+      .transform((val) => {
+        if (val === undefined) return undefined;
+        if (typeof val === "string") return val.trim();
+        return val.toString();
+      })
+      .pipe(
+        z.coerce
+          .number()
+          .int()
+          .optional()
+          .refine((val) => val === undefined || val > 0, {
+            message:
+              "Legislative District must be a positive integer when provided",
+          }),
+      ),
+    electionDistrict: z.coerce
+      .number()
+      .int()
+      .positive("Election District must be a positive integer"),
+    memberId: z.string().trim().min(1, "Member ID is required"),
+    action: z.literal("RESIGN"),
+    resignationDateReceived: isoDateString,
+    resignationMethod: z.nativeEnum(ResignationMethod),
+    removalNotes: z.string().trim().max(1000).optional(),
+  })
+  .strict();
+
 // Handle committee membership request data validation schema (SRS 1.2 — uses CommitteeMembership)
 export const handleCommitteeRequestDataSchema = z
   .object({
@@ -277,6 +331,7 @@ export type CommitteeRequestResponse =
 // Type exports derived from schemas
 export type CommitteeData = z.infer<typeof committeeDataSchema>;
 export type RemoveCommitteeData = z.infer<typeof removeCommitteeDataSchema>;
+export type ResignCommitteeData = z.infer<typeof resignCommitteeDataSchema>;
 export type CommitteeRequestData = z.infer<typeof committeeRequestDataSchema>;
 export type HandleCommitteeRequestData = z.infer<
   typeof handleCommitteeRequestDataSchema
