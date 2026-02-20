@@ -362,6 +362,17 @@ export function expectSeatUpdateMany(args: {
   });
 }
 
+/** Typed mock model accessor for meetingRecord (SRS 2.4). */
+type MockMeetingRecordModel = {
+  findUnique: jest.Mock;
+  findMany: jest.Mock;
+  create: jest.Mock;
+  count: jest.Mock;
+};
+
+export const getMeetingRecordMock = (mock: unknown): MockMeetingRecordModel =>
+  (mock as { meetingRecord: MockMeetingRecordModel }).meetingRecord;
+
 /** Default term ID used in tests (matches migration seed). */
 export const DEFAULT_ACTIVE_TERM_ID = "term-default-2024-2026";
 

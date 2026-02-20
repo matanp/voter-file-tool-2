@@ -258,6 +258,22 @@ beforeEach(() => {
   ).auditLog = {
     create: jest.fn(),
   };
+  // SRS 2.4 — MeetingRecord mock
+  (
+    prismaMock as unknown as {
+      meetingRecord: {
+        findUnique: jest.Mock;
+        findMany: jest.Mock;
+        create: jest.Mock;
+        count: jest.Mock;
+      };
+    }
+  ).meetingRecord = {
+    findUnique: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn(),
+    count: jest.fn().mockResolvedValue(0),
+  };
   (prismaMock.$transaction as jest.Mock).mockImplementation(
     async (arg: unknown): Promise<unknown> => {
       if (typeof arg === "function") {
