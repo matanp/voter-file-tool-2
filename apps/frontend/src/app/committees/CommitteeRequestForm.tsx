@@ -62,10 +62,16 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     CommitteeRequestResponse,
     CommitteeRequestData
   >("/api/committee/requestAdd", "POST", {
-    onSuccess: () => {
+    onSuccess: (res) => {
+      const warningText =
+        res?.success && "warnings" in res && res.warnings?.length
+          ? res.warnings.map((w) => w.message).join(" ")
+          : "";
       toast({
         title: "Success",
-        description: "Submitted your request for approval",
+        description: warningText
+          ? `Submitted your request for approval. ${warningText}`
+          : "Submitted your request for approval",
       });
       onSubmit();
       setRequestNotes("");

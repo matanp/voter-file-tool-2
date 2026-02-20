@@ -17,7 +17,7 @@ import {
   type CommitteeData,
 } from "~/lib/validations/committee";
 import { getIneligibilityMessage } from "~/lib/eligibilityMessages";
-import type { IneligibilityReason } from "~/lib/eligibility";
+import type { IneligibilityReason, EligibilityWarning } from "~/lib/eligibility";
 import {
   type SearchQueryField,
   searchableFieldEnum,
@@ -31,6 +31,7 @@ import {
 } from "~/components/ui/select";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 
 interface AddCommitteeFormProps {
   electionDistrict: number;
@@ -63,6 +64,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [ineligibilityReasons, setIneligibilityReasons] = useState<
     IneligibilityReason[] | null
   >(null);
+  /** SRS §2.2 — Server-returned warnings only; frontend does not duplicate checks. */
+  const [warnings, setWarnings] = useState<EligibilityWarning[] | null>(null);
   const [contactEmail, setContactEmail] = useState<string>("");
   const [contactPhone, setContactPhone] = useState<string>("");
 
@@ -75,6 +78,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       setLoadingVRCNUM(null);
       setIneligibilityReasons(null);
       if (res?.success) {
+        setWarnings("warnings" in res && res.warnings ? res.warnings : null);
         onAdd(city, electionDistrict, legDistrict);
         const isIdempotent = "idempotent" in res && res.idempotent;
         toast({
@@ -93,6 +97,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     },
     onError: (error) => {
       setLoadingVRCNUM(null);
+      setWarnings(null);
       const apiBody = (error as Error & { apiErrorBody?: { error?: string; reasons?: string[] } }).apiErrorBody;
       if (apiBody?.error === "INELIGIBLE" && Array.isArray(apiBody.reasons)) {
         setIneligibilityReasons(apiBody.reasons as IneligibilityReason[]);
@@ -221,6 +226,18 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                   ))}
                 </ul>
               </div>
+            )}
+            {warnings != null && warnings.length > 0 && (
+              <Alert variant="warning" className="mt-2">
+                <AlertTitle>Note</AlertTitle>
+                <AlertDescription>
+                  <ul className="mt-1 list-inside list-disc">
+                    {warnings.map((w) => (
+                      <li key={w.code}>{w.message}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
             )}
             <VoterRecordTable
               records={records.slice(0, 5)}

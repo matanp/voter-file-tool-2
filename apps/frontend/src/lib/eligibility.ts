@@ -1,14 +1,31 @@
 /**
- * SRS §2.1 — Server-side eligibility validation for committee membership.
+ * SRS §2.1 + §2.2 — Server-side eligibility validation for committee membership.
  * Reusable utility run before committee add / requestAdd / handleRequest (accept).
- * All thresholds come from CommitteeGovernanceConfig (no hardcoded values).
+ * Hard-stop thresholds come from CommitteeGovernanceConfig. Warnings are non-blocking;
+ * see docs/SRS/tickets/2.2-warning-system.md and SRS_IMPLEMENTATION_INACTIVE_VOTER_WARNING.md.
  */
 
 import type { IneligibilityReason } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
+import {
+  getMostRecentImportVersion,
+  isVoterPossiblyInactive,
+} from "~/app/api/lib/eligibilityService";
 
 export type { IneligibilityReason };
+
+/** SRS §2.2 — Typed warning codes. Frontend only renders server-returned warnings. */
+export type EligibilityWarningCode =
+  | "POSSIBLY_INACTIVE"
+  | "RECENT_RESIGNATION"
+  | "PENDING_IN_ANOTHER_COMMITTEE";
+
+export interface EligibilityWarning {
+  code: EligibilityWarningCode;
+  message: string;
+  metadata?: Record<string, unknown>;
+}
 
 export type ValidateEligibilityOptions = {
   forceAdd?: boolean;
@@ -18,18 +35,20 @@ export type ValidateEligibilityOptions = {
 export type ValidateEligibilityResult = {
   eligible: boolean;
   hardStops: IneligibilityReason[];
-  warnings: string[];
+  warnings: EligibilityWarning[];
   /** Set when forceAdd bypassed overridable stops; route should log to audit. */
   bypassedReasons?: IneligibilityReason[];
   /** Set when forceAdd=true but overrideReason missing despite bypasses. */
   validationError?: string;
 };
 
+/** Rolling window in days for RECENT_RESIGNATION warning. TODO: move to config if needed. */
+const RECENT_RESIGNATION_DAYS = 90;
+
 /**
- * Validates eligibility for adding a voter to a committee (hard stops only).
- * Reads CommitteeGovernanceConfig for all thresholds. When forceAdd=true, overridable
- * stops are bypassed and bypassedReasons returned for audit logging; non-overridable
- * stops remain blocking.
+ * Validates eligibility for adding a voter to a committee (hard stops + non-blocking warnings).
+ * Reads CommitteeGovernanceConfig for thresholds. Warnings never set eligible to false.
+ * When forceAdd=true, overridable stops are bypassed and bypassedReasons returned for audit logging.
  */
 export async function validateEligibility(
   voterRecordId: string,
@@ -39,15 +58,17 @@ export async function validateEligibility(
 ): Promise<ValidateEligibilityResult> {
   const config = await getGovernanceConfig();
   const hardStops: IneligibilityReason[] = [];
-  const warnings: string[] = [];
+  const warnings: EligibilityWarning[] = [];
 
-  // 1. NOT_REGISTERED — voter record exists
+  // 1. NOT_REGISTERED — voter record exists (select includes fields needed for POSSIBLY_INACTIVE)
   const voter = await prisma.voterRecord.findUnique({
     where: { VRCNUM: voterRecordId },
     select: {
       VRCNUM: true,
       party: true,
       stateAssmblyDistrict: true,
+      latestRecordEntryYear: true,
+      latestRecordEntryNumber: true,
     },
   });
 
@@ -59,6 +80,61 @@ export async function validateEligibility(
       config.nonOverridableIneligibilityReasons,
       options,
     );
+  }
+
+  // SRS §2.2 — Warning derivation. Most-recent-import query runs once per request (see 2.2 Implementation Notes).
+  const mostRecentImport = await getMostRecentImportVersion(prisma);
+  if (
+    mostRecentImport &&
+    isVoterPossiblyInactive(
+      {
+        latestRecordEntryYear: voter.latestRecordEntryYear,
+        latestRecordEntryNumber: voter.latestRecordEntryNumber,
+      },
+      mostRecentImport,
+    )
+  ) {
+    warnings.push({
+      code: "POSSIBLY_INACTIVE",
+      message:
+        "Voter does not appear in the most recent voter file import; registration may be inactive.",
+    });
+  }
+
+  // RECENT_RESIGNATION — voter has RESIGNED membership with resignedAt within rolling window
+  const resignationCutoff = new Date();
+  resignationCutoff.setDate(resignationCutoff.getDate() - RECENT_RESIGNATION_DAYS);
+  const recentResignation = await prisma.committeeMembership.findFirst({
+    where: {
+      voterRecordId,
+      status: "RESIGNED",
+      resignedAt: { gte: resignationCutoff },
+    },
+    select: { id: true },
+  });
+  if (recentResignation) {
+    warnings.push({
+      code: "RECENT_RESIGNATION",
+      message: `Voter resigned from a committee within the last ${RECENT_RESIGNATION_DAYS} days.`,
+    });
+  }
+
+  // PENDING_IN_ANOTHER_COMMITTEE — voter has SUBMITTED membership in another committee for same term
+  const pendingInOther = await prisma.committeeMembership.findFirst({
+    where: {
+      voterRecordId,
+      termId,
+      status: "SUBMITTED",
+      NOT: { committeeListId },
+    },
+    select: { id: true },
+  });
+  if (pendingInOther) {
+    warnings.push({
+      code: "PENDING_IN_ANOTHER_COMMITTEE",
+      message:
+        "Voter has a pending submission in another committee for this term.",
+    });
   }
 
   // 2. PARTY_MISMATCH
@@ -139,7 +215,7 @@ export async function validateEligibility(
 
 function resolveOverrideResult(
   hardStops: IneligibilityReason[],
-  warnings: string[],
+  warnings: EligibilityWarning[],
   nonOverridable: IneligibilityReason[],
   options?: ValidateEligibilityOptions,
 ): ValidateEligibilityResult {

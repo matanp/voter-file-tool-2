@@ -8,6 +8,7 @@ import {
   CardContent,
   CardFooter,
 } from "~/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import type { MembershipRequestWithDetails } from "./page";
 import type { CommitteeMembershipSubmissionMetadata } from "~/lib/validations/committee";
 import { toast } from "~/components/ui/use-toast";
@@ -25,11 +26,15 @@ function getSubmissionMetadata(
 ): CommitteeMembershipSubmissionMetadata | null {
   if (meta && typeof meta === "object" && !Array.isArray(meta)) {
     const m = meta as Record<string, unknown>;
+    const eligibilityWarnings = Array.isArray(m.eligibilityWarnings)
+      ? m.eligibilityWarnings
+      : undefined;
     return {
       ...(typeof m.removeMemberId === "string" && {
         removeMemberId: m.removeMemberId,
       }),
       ...(typeof m.requestNotes === "string" && { requestNotes: m.requestNotes }),
+      ...(eligibilityWarnings?.length ? { eligibilityWarnings } : {}),
     };
   }
   return null;
@@ -96,6 +101,21 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
             Intended replacement for member ID: {submissionMeta.removeMemberId}
           </p>
         )}
+        {submissionMeta?.eligibilityWarnings &&
+          submissionMeta.eligibilityWarnings.length > 0 && (
+            <Alert variant="warning" className="mt-2">
+              <AlertTitle>Eligibility warnings</AlertTitle>
+              <AlertDescription>
+                <ul className="mt-1 list-inside list-disc text-sm">
+                  {submissionMeta.eligibilityWarnings.map((w, i) => (
+                    <li key={typeof w.code === "string" ? w.code : i}>
+                      {typeof w.message === "string" ? w.message : String(w)}
+                    </li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button
