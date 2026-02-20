@@ -76,9 +76,8 @@ async function main() {
   console.log(`Reading ${filePath}...`);
   const fileBuffer = fs.readFileSync(filePath);
   const workbook = xlsx.read(fileBuffer);
-  // eslint-disable-next-line @typescript-eslint/dot-notation -- sheet name from Matrix; xlsx types use index signature
   const sheet =
-    workbook.Sheets["NEW_LTED_Matrix"] ??
+    workbook.Sheets.NEW_LTED_Matrix ??
     workbook.Sheets[workbook.SheetNames[0]!];
 
   if (!sheet) {

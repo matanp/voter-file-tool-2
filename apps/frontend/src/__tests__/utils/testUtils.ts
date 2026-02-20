@@ -136,7 +136,7 @@ export const createMockRemoveCommitteeData = (
     ...overrides,
   };
   if (validate) {
-    return removeCommitteeDataSchema.parse(data) as RemoveCommitteeData;
+    return removeCommitteeDataSchema.parse(data);
   }
   return data;
 };
@@ -242,6 +242,11 @@ function objectContainingMatcher<T extends object>(obj: T): unknown {
   return expect.objectContaining(obj) as unknown;
 }
 
+/** Wraps expect.arrayContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
+function arrayContainingMatcher(items: unknown[]): unknown {
+  return expect.arrayContaining(items) as unknown;
+}
+
 /** Jest "anything" matcher wrapped to return unknown (avoids no-unsafe-assignment). */
 export function expectAnything(): unknown {
   return expect.anything();
@@ -296,11 +301,10 @@ export function expectAuditLogCreate(
 export function expectSeatCreateMany(args: {
   data: Array<Partial<Prisma.SeatCreateManyInput>>;
 }): unknown {
-  return expect.objectContaining({
-    data: expect.arrayContaining(
-      args.data.map((item) => expect.objectContaining(item)),
-    ),
-  }) as unknown;
+  const itemMatchers = args.data.map((item) => objectContainingMatcher(item));
+  return objectContainingMatcher({
+    data: arrayContainingMatcher(itemMatchers),
+  });
 }
 
 /**

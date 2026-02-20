@@ -149,11 +149,11 @@ async function importHandler(req: NextRequest, _session: Session) {
     }> = [];
 
     for (const row of rows) {
-      const parsed = parseLted(row["LTED"] ?? row["Lted"] ?? row["lted"] ?? "");
+      const parsed = parseLted(row.LTED ?? row.Lted ?? row.lted ?? "");
       if (!parsed) continue;
 
       const weightRaw =
-        row["Weighted Vote"] ?? row["Weight"] ?? row["weight"] ?? null;
+        row["Weighted Vote"] ?? row.Weight ?? row.weight ?? null;
       const weight =
         weightRaw != null
           ? typeof weightRaw === "number"
@@ -175,7 +175,7 @@ async function importHandler(req: NextRequest, _session: Session) {
       const matrixBuffer = Buffer.from(await matrixFile.arrayBuffer());
       const matrixWorkbook = xlsx.read(matrixBuffer);
       const matrixSheet =
-        matrixWorkbook.Sheets["NEW_LTED_Matrix"] ??
+        matrixWorkbook.Sheets.NEW_LTED_Matrix ??
         matrixWorkbook.Sheets[matrixWorkbook.SheetNames[0] ?? ""];
 
       if (matrixSheet) {
@@ -183,22 +183,21 @@ async function importHandler(req: NextRequest, _session: Session) {
           xlsx.utils.sheet_to_json<Record<string, string | number>>(matrixSheet);
         for (const matrixRow of matrixRows) {
           const parsedFromLted = parseLted(
-            matrixRow["LTED"] ?? matrixRow["Lted"] ?? matrixRow["lted"] ?? "",
+            matrixRow.LTED ?? matrixRow.Lted ?? matrixRow.lted ?? "",
           );
           if (!parsedFromLted) continue;
 
           const townCode = normalizeTownCode(
-            matrixRow["town"] ?? matrixRow["Town"] ?? "",
+            matrixRow.town ?? matrixRow.Town ?? "",
           );
           if (!townCode) continue;
 
           const legDistrict =
-            parseDistrictValue(matrixRow["ward"] ?? matrixRow["Ward"]) ??
+            parseDistrictValue(matrixRow.ward ?? matrixRow.Ward) ??
             parsedFromLted.legDistrict;
           const electionDistrict =
-            parseDistrictValue(
-              matrixRow["district"] ?? matrixRow["District"],
-            ) ?? parsedFromLted.electionDistrict;
+            parseDistrictValue(matrixRow.district ?? matrixRow.District) ??
+            parsedFromLted.electionDistrict;
 
           const match: MatrixMatch = {
             cityTown: toCityTown(townCode),

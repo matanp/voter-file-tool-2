@@ -9,14 +9,14 @@ const sheetToJsonMock = jest.fn();
 const recomputeSeatWeightsMock = jest.fn();
 
 jest.mock("xlsx", () => ({
-  read: (...args: unknown[]) => readWorkbookMock(...args),
+  read: readWorkbookMock,
   utils: {
-    sheet_to_json: (...args: unknown[]) => sheetToJsonMock(...args),
+    sheet_to_json: sheetToJsonMock,
   },
 }));
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
-  recomputeSeatWeights: (...args: unknown[]) => recomputeSeatWeightsMock(...args),
+  recomputeSeatWeights: recomputeSeatWeightsMock,
 }));
 
 type UploadFile = {
@@ -27,7 +27,7 @@ function createUploadFile(): UploadFile {
   return {
     arrayBuffer: jest
       .fn()
-      .mockResolvedValue(Uint8Array.from([1, 2, 3]).buffer as ArrayBuffer),
+      .mockResolvedValue(Uint8Array.from([1, 2, 3]).buffer),
   };
 }
 
