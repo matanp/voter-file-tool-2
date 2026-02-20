@@ -238,7 +238,7 @@ export const getAuditLogMock = (mock: unknown): MockAuditLogModel =>
   (mock as { auditLog: MockAuditLogModel }).auditLog;
 
 /** Wraps expect.objectContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
-function objectContainingMatcher<T extends object>(obj: T): unknown {
+export function objectContainingMatcher<T extends object>(obj: T): unknown {
   return expect.objectContaining(obj) as unknown;
 }
 
@@ -252,12 +252,39 @@ export function expectAnything(): unknown {
   return expect.anything();
 }
 
+/** Wraps expect.any(Date) to return unknown (avoids no-unsafe-assignment). */
+export function expectAnyDate(): unknown {
+  return expect.any(Date) as unknown;
+}
+
+/** Wraps expect.objectContaining for Prisma JSON value fields (avoids no-unsafe-assignment on InputJsonValue). */
+export function jsonContaining(obj: Record<string, unknown>): Prisma.InputJsonValue {
+  return expect.objectContaining(obj) as unknown as Prisma.InputJsonValue;
+}
+
+/**
+ * Extract arguments from the Nth call to a Jest mock function.
+ * Throws if the mock was not called enough times — use after asserting toHaveBeenCalled.
+ */
+export function getMockCallArgs(
+  mockFn: jest.Mock,
+  callIndex = 0,
+): unknown[] {
+  const call = mockFn.mock.calls[callIndex] as unknown[] | undefined;
+  if (!call) {
+    throw new Error(
+      `Expected mock to have been called at least ${String(callIndex + 1)} time(s), but was called ${String(mockFn.mock.calls.length)} time(s)`,
+    );
+  }
+  return call;
+}
+
 /**
  * Typed matcher for prisma.committeeMembership.update calls.
  * Uses Prisma-generated CommitteeMembershipUpdateInput (schema is source of truth).
  */
 export function expectMembershipUpdate(
-  data: Partial<Prisma.CommitteeMembershipUpdateInput>,
+  data: Partial<Prisma.CommitteeMembershipUpdateInput> & Record<string, unknown>,
   where?: { id: string },
 ): unknown {
   if (where) {
@@ -267,6 +294,20 @@ export function expectMembershipUpdate(
     });
   }
   return objectContainingMatcher({
+    data: objectContainingMatcher(data),
+  });
+}
+
+/**
+ * Typed matcher for prisma.committeeMembership.updateMany calls.
+ * Accepts a where clause and partial data (uses objectContaining for both).
+ */
+export function expectMembershipUpdateMany(
+  data: Record<string, unknown>,
+  where: Record<string, unknown>,
+): unknown {
+  return objectContainingMatcher({
+    where,
     data: objectContainingMatcher(data),
   });
 }

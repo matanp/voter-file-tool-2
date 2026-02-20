@@ -8,7 +8,9 @@ import {
   createMockGovernanceConfig,
   createMockMembership,
   expectMembershipUpdate,
+  expectMembershipUpdateMany,
   expectAuditLogCreate,
+  expectAnyDate,
   getMembershipMock,
   getAuditLogMock,
   setupEligibilityPass,
@@ -93,13 +95,15 @@ describe("/api/committee/handleRequest", () => {
         { message: "Request rejected" },
         200,
       );
-      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith({
-        where: { id: "membership-test-id-001", status: "SUBMITTED" },
-        data: expect.objectContaining({
-          status: "REJECTED",
-          rejectedAt: expect.any(Date),
-        }),
-      });
+      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith(
+        expectMembershipUpdateMany(
+          {
+            status: "REJECTED",
+            rejectedAt: expectAnyDate(),
+          },
+          { id: "membership-test-id-001", status: "SUBMITTED" },
+        ),
+      );
       // Reject should not check governance config or capacity
       expect(
         prismaMock.committeeGovernanceConfig.findFirst,
