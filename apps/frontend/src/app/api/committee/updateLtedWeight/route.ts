@@ -19,8 +19,17 @@ class CommitteeNotFoundError extends Error {
   }
 }
 
+// Sets CommitteeList.ltedWeight and recomputes Seat weights in a single transaction.
 async function updateLtedWeightHandler(req: NextRequest, _session: Session) {
-  const body = (await req.json()) as unknown;
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 },
+    );
+  }
   const validation = validateRequest(body, updateLtedWeightSchema);
 
   if (!validation.success) {

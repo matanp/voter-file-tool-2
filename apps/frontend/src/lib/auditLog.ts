@@ -38,5 +38,6 @@ export async function logAuditEvent(
       `Failed to log audit event: action=${action}, entityType=${entityType}, entityId=${entityId}`,
       error,
     );
+    // TODO: add `throwOnError` parameter and rethrow here when true for compliance-critical paths
   }
 }

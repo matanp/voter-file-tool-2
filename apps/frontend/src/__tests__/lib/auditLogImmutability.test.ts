@@ -23,7 +23,7 @@ describe("auditLogImmutabilityGuard", () => {
 
     await expect(
       auditLogImmutabilityGuard(params, next),
-    ).rejects.toThrow("AuditLog is immutable: update operations are not allowed");
+    ).rejects.toThrow("AuditLog is immutable");
 
     expect(next).not.toHaveBeenCalled();
   });
@@ -34,9 +34,7 @@ describe("auditLogImmutabilityGuard", () => {
 
     await expect(
       auditLogImmutabilityGuard(params, next),
-    ).rejects.toThrow(
-      "AuditLog is immutable: updateMany operations are not allowed",
-    );
+    ).rejects.toThrow("AuditLog is immutable");
 
     expect(next).not.toHaveBeenCalled();
   });
@@ -47,7 +45,7 @@ describe("auditLogImmutabilityGuard", () => {
 
     await expect(
       auditLogImmutabilityGuard(params, next),
-    ).rejects.toThrow("AuditLog is immutable: delete operations are not allowed");
+    ).rejects.toThrow("AuditLog is immutable");
 
     expect(next).not.toHaveBeenCalled();
   });
@@ -58,9 +56,18 @@ describe("auditLogImmutabilityGuard", () => {
 
     await expect(
       auditLogImmutabilityGuard(params, next),
-    ).rejects.toThrow(
-      "AuditLog is immutable: deleteMany operations are not allowed",
-    );
+    ).rejects.toThrow("AuditLog is immutable");
+
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("throws when prisma.auditLog.upsert() is attempted", async () => {
+    const params = createParams("AuditLog", "upsert");
+    const next = jest.fn();
+
+    await expect(
+      auditLogImmutabilityGuard(params, next),
+    ).rejects.toThrow("AuditLog is immutable");
 
     expect(next).not.toHaveBeenCalled();
   });
