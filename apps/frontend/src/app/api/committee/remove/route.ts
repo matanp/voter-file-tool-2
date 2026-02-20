@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import prisma from "~/lib/prisma";
-import { removeCommitteeDataSchema } from "~/lib/validations/committee";
-import { PrivilegeLevel } from "@prisma/client";
+import {
+  removeCommitteeDataSchema,
+  resignCommitteeDataSchema,
+} from "~/lib/validations/committee";
+import { PrivilegeLevel, type RemovalReason } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
@@ -10,22 +13,23 @@ import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { logAuditEvent } from "~/lib/auditLog";
 
+/** SRS 2.3 — Handle resignation: validate resign body, update membership to RESIGNED, log MEMBER_RESIGNED. */
 async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
-  const validation = validateRequest(body, removeCommitteeDataSchema);
+  const isResign =
+    typeof body === "object" &&
+    body !== null &&
+    (body as { action?: string }).action === "RESIGN";
+
+  const validation = isResign
+    ? validateRequest(body, resignCommitteeDataSchema)
+    : validateRequest(body, removeCommitteeDataSchema);
 
   if (!validation.success) {
     return validation.response;
   }
 
-  const {
-    cityTown,
-    legDistrict,
-    electionDistrict,
-    memberId,
-    removalReason,
-    removalNotes,
-  } = validation.data;
+  const { cityTown, legDistrict, electionDistrict, memberId } = validation.data;
 
   if (!session.user?.id) {
     return NextResponse.json(
@@ -58,7 +62,6 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       );
     }
 
-    // Find the active CommitteeMembership for this voter+committee+term
     const membership = await prisma.committeeMembership.findUnique({
       where: {
         voterRecordId_committeeListId_termId: {
@@ -86,34 +89,83 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       );
     }
 
+    if (isResign) {
+      const resignData = validation.data as {
+        resignationDateReceived: string;
+        resignationMethod: "EMAIL" | "MAIL";
+        removalNotes?: string;
+      };
+      const resignationDateReceived = new Date(
+        resignData.resignationDateReceived,
+      );
+
+      await prisma.committeeMembership.update({
+        where: { id: membership.id },
+        data: {
+          status: "RESIGNED",
+          resignedAt: new Date(),
+          resignationDateReceived,
+          resignationMethod: resignData.resignationMethod,
+          ...(resignData.removalNotes != null && resignData.removalNotes !== ""
+            ? { removalNotes: resignData.removalNotes }
+            : {}),
+        },
+      });
+
+      await logAuditEvent(
+        session.user.id,
+        session.user.privilegeLevel,
+        "MEMBER_RESIGNED",
+        "CommitteeMembership",
+        membership.id,
+        {
+          status: "ACTIVE",
+          ...(membership.seatNumber != null
+            ? { seatNumber: membership.seatNumber }
+            : {}),
+        },
+        {
+          status: "RESIGNED",
+          resignationDateReceived: resignData.resignationDateReceived,
+          resignationMethod: resignData.resignationMethod,
+        },
+      );
+
+      return NextResponse.json({ status: "success" }, { status: 200 });
+    }
+
+    const removeData = validation.data as {
+      removalReason?: RemovalReason;
+      removalNotes?: string;
+    };
     await prisma.committeeMembership.update({
       where: { id: membership.id },
       data: {
         status: "REMOVED",
         removedAt: new Date(),
-        ...(removalReason ? { removalReason } : {}),
-        ...(removalNotes ? { removalNotes } : {}),
+        ...(removeData.removalReason ? { removalReason: removeData.removalReason } : {}),
+        ...(removeData.removalNotes ? { removalNotes: removeData.removalNotes } : {}),
       },
     });
 
     await logAuditEvent(
       userId,
-      userRole as PrivilegeLevel,
+      userRole,
       "MEMBER_REMOVED",
       "CommitteeMembership",
       membership.id,
       { status: "ACTIVE" },
       {
         status: "REMOVED",
-        ...(removalReason ? { removalReason } : {}),
-        ...(removalNotes ? { removalNotes } : {}),
+        ...(removeData.removalReason ? { removalReason: removeData.removalReason } : {}),
+        ...(removeData.removalNotes ? { removalNotes: removeData.removalNotes } : {}),
       },
     );
 
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
     Sentry.captureException(error, {
-      tags: { operation: "removeCommittee" },
+      tags: { operation: isResign ? "resignCommittee" : "removeCommittee" },
       extra: { cityTown, legDistrict, electionDistrict, memberId },
     });
     return NextResponse.json(
