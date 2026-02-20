@@ -20,9 +20,30 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 
 ---
 
+## Ticket Mapping (February 20, 2026)
+
+| Gap Area | Tracking Ticket(s) |
+| --- | --- |
+| Admin override UX | [2.1](tickets/2.1-eligibility-validation.md) |
+| Meeting confirmation workflow UI | [2.4](tickets/2.4-meeting-record-confirmation-workflow.md) |
+| Resignation UI | [2.3](tickets/2.3-resignation-workflow.md) |
+| Structured removal UI | [2.5](tickets/2.5-structured-removal-reasons.md) |
+| Petition outcomes UI | [2.6](tickets/2.6-petition-primary-outcome-tracking.md) |
+| BOE eligibility queue UI | [2.8](tickets/2.8-boe-driven-automatic-eligibility-flagging.md) |
+| Term management UI | [1.1](tickets/1.1-committee-term-model.md), [1.R.17](tickets/1.R.17-phase1-ui-fixes.md) |
+| Jurisdiction assignment UI | [3.1](tickets/3.1-jurisdiction-assignment-ui.md) |
+| CommitteeSelector vacancy/weight and empty states | [3.1a](tickets/3.1a-committee-selector-vacancy-weight-empty-states.md) |
+| Report UI additions (3.2-3.4) | [3.2](tickets/3.2-sign-in-sheet-report-ui.md), [3.3](tickets/3.3-designation-weight-summary-report-ui.md), [3.4](tickets/3.4-vacancy-changes-petition-reports-ui.md) |
+| Audit trail UI | [3.5](tickets/3.5-audit-trail-ui-export.md) |
+| Mobile/a11y baseline | [3.6](tickets/3.6-mobile-accessibility-baseline.md) |
+| LTED crosswalk import UI | [3.7](tickets/3.7-lted-crosswalk-import-ui.md) |
+| Admin IA/navigation | [IA-01](tickets/IA-01-admin-ia-v1-spec.md) |
+
+---
+
 ## 1. Admin Override UX (Roadmap 2.1, Gaps 3.1)
 
-**Status:** Open in SRS_GAPS_AND_CONSIDERATIONS §3.1
+**Status:** Tracked by [2.1](tickets/2.1-eligibility-validation.md)
 
 **What's planned:** "Admin override flag or bypass for hard stops when justified, logged to audit trail."
 
@@ -327,5 +348,9 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 **Total:** ~8–10 days of planning for UI clarity before or in parallel with implementation.
 
 ---
+
+## Retirement Gate
+
+This document can be removed from active SRS docs when every gap area in the ticket-mapping table above is covered by a `Resolved`/`Done` ticket and the checklist items are fully closed.
 
 _This document should be updated as UI specs are added and gaps are resolved._

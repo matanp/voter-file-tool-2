@@ -127,6 +127,7 @@ This document captures gaps, open questions, and items to resolve before or duri
 **Resolution:** For v1, treat Serve ED = Home ED (or document as future enhancement if MCDC has different requirements).
 
 **See:** [SRS_SERVE_ED_VS_HOME_ED.md](SRS_SERVE_ED_VS_HOME_ED.md) for design considerations and implementation options.
+**Tracking:** [tickets/2.9-serve-ed-vs-home-ed-resolution.md](tickets/2.9-serve-ed-vs-home-ed-resolution.md)
 
 ---
 
@@ -142,8 +143,12 @@ This document captures gaps, open questions, and items to resolve before or duri
 | 4.2 | Migration rollback/recovery             | **Resolved**           | Low      | Out of scope (see SRS_DATA_MODEL_CHANGES §5.3)                                       |
 | 5.1 | Access import                           | **Resolved**           | Low      | Out of scope for v1; deferred to future phase                                       |
 | 5.2 | Email/phone on submission               | **Resolved**           | Low      | Use submissionMetadata (see §5.2)                                                    |
-| 5.3 | Serve ED vs Home ED                     | **Partially resolved** | Low      | v1: Serve ED = Home ED; see [SRS_SERVE_ED_VS_HOME_ED.md](SRS_SERVE_ED_VS_HOME_ED.md) |
+| 5.3 | Serve ED vs Home ED                     | **Partially resolved** | Low      | Finalize via [2.9](tickets/2.9-serve-ed-vs-home-ed-resolution.md); see [SRS_SERVE_ED_VS_HOME_ED.md](SRS_SERVE_ED_VS_HOME_ED.md) |
 
 ---
 
 _This document is retained as a consolidated resolution log; active implementation queue is tracked in [tickets/README.md](tickets/README.md)._
+
+## Retirement Gate
+
+This document can be removed from active SRS docs once item 5.3 is no longer `Partially Resolved` and [2.9](tickets/2.9-serve-ed-vs-home-ed-resolution.md) is closed.

@@ -28,7 +28,16 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 18. ~~[1.R.10 updateLtedWeight Atomicity for Weight Recompute](1.R.10-update-lted-weight-atomic-recompute.md)~~ — **Resolved**
 19. ~~[1.R.11 Admin GET Data Hook Standardization](1.R.11-admin-get-hook-standardization.md)~~ — **Resolved**
 20. ~~[1.R.12 Drop Redundant LTED Crosswalk Index](1.R.12-drop-redundant-lted-crosswalk-index.md)~~ — **Resolved**
-21. **Current queue:** [2.1 Eligibility Validation](2.1-eligibility-validation.md)
+21. [1.R.13 Phase 1 Migration / Schema Fixes](1.R.13-phase1-migration-fixes.md) — **Open**
+22. [1.R.14 handleRequest Capacity Check for Replacement](1.R.14-handleRequest-capacity-replacement.md) — **Open**
+23. [1.R.15 API and Audit Robustness](1.R.15-api-audit-robustness.md) — **Open**
+24. [1.R.16 useApiQuery Type Safety and Cleanup](1.R.16-useApiQuery-robustness.md) — **Open**
+25. [1.R.17 Phase 1 Admin and Committee UI Fixes](1.R.17-phase1-ui-fixes.md) — **Open**
+26. [1.R.18 Phase 1 Tests and Validations](1.R.18-phase1-tests-validations.md) — **Open**
+27. [1.R.19 Phase 1 Doc Consistency](1.R.19-phase1-doc-consistency.md) — **Open**
+28. [1.R.20 Admin Flow Audit Coverage](1.R.20-admin-flow-audit-coverage.md) — **Open**
+29. [1.R.21 High-Risk Route Test Coverage](1.R.21-high-risk-route-test-coverage.md) — **Open**
+30. **Current queue:** 1.R.13–1.R.21, then 2.1–2.9, then 3.1–3.7
 
 ---
 
@@ -85,6 +94,15 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.R.10](1.R.10-update-lted-weight-atomic-recompute.md) | updateLtedWeight Atomicity for Weight Recompute | Resolved | P2 | 1.4 |
 | [1.R.11](1.R.11-admin-get-hook-standardization.md) | Admin GET Data Hook Standardization | Resolved | P3 | IA-01 |
 | [1.R.12](1.R.12-drop-redundant-lted-crosswalk-index.md) | Drop Redundant LTED Crosswalk Index | Resolved | P3 | 1.1b |
+| [1.R.13](1.R.13-phase1-migration-fixes.md) | Phase 1 Migration / Schema Fixes | Open | P2 | 1.1c, 1.1, 1.5 |
+| [1.R.14](1.R.14-handleRequest-capacity-replacement.md) | handleRequest Capacity Check for Replacement | Open | P2 | 1.2, 1.4 |
+| [1.R.15](1.R.15-api-audit-robustness.md) | API and Audit Robustness | Open | P2 | 1.4, 1.5 |
+| [1.R.16](1.R.16-useApiQuery-robustness.md) | useApiQuery Type Safety and Cleanup | Open | P2 | — |
+| [1.R.17](1.R.17-phase1-ui-fixes.md) | Phase 1 Admin and Committee UI Fixes | Open | P2 | 1.1, 1.2 |
+| [1.R.18](1.R.18-phase1-tests-validations.md) | Phase 1 Tests and Validations | Open | P2 | 1.2, 1.4 |
+| [1.R.19](1.R.19-phase1-doc-consistency.md) | Phase 1 Doc Consistency | Open | P3 | — |
+| [1.R.20](1.R.20-admin-flow-audit-coverage.md) | Admin Flow Audit Coverage | Open | P2 | 1.5 |
+| [1.R.21](1.R.21-high-risk-route-test-coverage.md) | High-Risk Route Test Coverage | Open | P2 | 1.R.20, 1.4 |
 
 ### Tier 2 — Lifecycle Workflows
 
@@ -99,6 +117,20 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [2.6](2.6-petition-primary-outcome-tracking.md) | Petition + Primary Outcome Tracking | Open | Tier 2 §2.6 | 1.2, 1.3, 1.4, 2.4 |
 | [2.7](2.7-weight-designation-logic.md) | Weight / Designation Logic | Open | Tier 2 §2.7 | 1.4, 2.6 |
 | [2.8](2.8-boe-driven-automatic-eligibility-flagging.md) | BOE-Driven Automatic Eligibility Flagging | Open | Tier 2 §2.8 | 1.2, 2.1, 2.2, 2.5 |
+| [2.9](2.9-serve-ed-vs-home-ed-resolution.md) | Serve ED vs Home ED Resolution | Open | Tier 2 follow-up | 2.1, 3.1 |
+
+### Tier 3 — Workflows, Reports & Access Control
+
+| ID | Title | Status | Roadmap | Depends on |
+| --- | --- | --- | --- | --- |
+| [3.1](3.1-jurisdiction-assignment-ui.md) | Jurisdiction Assignment UI (Leader Access) | Open | Tier 3 §3.1 | 1.1, IA-01 |
+| [3.1a](3.1a-committee-selector-vacancy-weight-empty-states.md) | CommitteeSelector Vacancy/Weight + Empty States | Open | Tier 3 §3.1a | 2.7, 3.1 |
+| [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Open | Tier 3 §3.2 | 3.0, 3.0a |
+| [3.3](3.3-designation-weight-summary-report-ui.md) | Designation Weight Summary Report UI | Open | Tier 3 §3.3 | 2.7, 3.2 |
+| [3.4](3.4-vacancy-changes-petition-reports-ui.md) | Vacancy, Changes, and Petition Outcomes Reports UI | Open | Tier 3 §3.4 | 2.6, 3.2 |
+| [3.5](3.5-audit-trail-ui-export.md) | Audit Trail UI and Export | Open | Tier 3 §3.5 | 1.5 |
+| [3.6](3.6-mobile-accessibility-baseline.md) | Mobile and Accessibility Baseline | Open | Tier 3 quality gate | 3.1, 3.5 |
+| [3.7](3.7-lted-crosswalk-import-ui.md) | LTED Crosswalk Import UI/Admin Flow | Open | Tier 3 follow-up | 1.1b, 3.1 |
 
 ---
 
@@ -121,6 +153,13 @@ T1.2, T1.3 — parallel, no blockers
 
 Phase 1 Remediation (1.R.x):
   1.R.1–1.R.12 — resolved
+  1.R.13–1.R.21 — open
+
+Tier 2:
+  2.1–2.9 — open
+
+Tier 3:
+  3.1–3.7 — open
 ```
 
 ---
