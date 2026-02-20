@@ -5,6 +5,7 @@ import {
   type MembershipType,
   PrivilegeLevel,
   type CommitteeList,
+  type RemovalReason,
   type VoterRecord,
 } from "@prisma/client";
 import type { FetchCommitteeListResponse } from "~/lib/validations/committee";
@@ -35,6 +36,15 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
+
+/** SRS 2.5 — Friendly labels for removal reason dropdown. */
+const REMOVAL_REASON_LABELS: Record<RemovalReason, string> = {
+  PARTY_CHANGE: "Party change",
+  MOVED_OUT_OF_DISTRICT: "Moved out of district",
+  INACTIVE_REGISTRATION: "Inactive registration",
+  DECEASED: "Deceased",
+  OTHER: "Other",
+};
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
@@ -76,6 +86,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [resignDateReceived, setResignDateReceived] = useState<string>("");
   const [resignMethod, setResignMethod] = useState<"EMAIL" | "MAIL" | "">("");
   const [resignNotes, setResignNotes] = useState<string>("");
+  const [removeModalMember, setRemoveModalMember] =
+    useState<VoterRecord | null>(null);
+  const [removeReason, setRemoveReason] = useState<RemovalReason | "">("");
+  const [removeNotes, setRemoveNotes] = useState<string>("");
 
   const [listLoading, setListLoading] = useState<boolean>(false);
 
@@ -88,6 +102,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     resignationDateReceived?: string;
     resignationMethod?: "EMAIL" | "MAIL";
     removalNotes?: string;
+    removalReason?: RemovalReason;
   };
 
   const removeCommitteeMemberMutation = useApiMutation<
@@ -101,6 +116,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         setResignDateReceived("");
         setResignMethod("");
         setResignNotes("");
+      } else {
+        setRemoveModalMember(null);
+        setRemoveReason("");
+        setRemoveNotes("");
       }
       // Check for server-reported failure (200 with { status: "error" })
       if (
@@ -320,9 +339,23 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     [],
   );
 
-  const handleRemoveCommitteeMember = async (vrcnum: string) => {
-    if (!selectedCity || selectedDistrict < 0) return;
-    setRemovingId(vrcnum);
+  const handleOpenRemoveModal = (record: VoterRecord) => {
+    setRemoveModalMember(record);
+    setRemoveReason("");
+    setRemoveNotes("");
+  };
+
+  const handleSubmitRemoval = () => {
+    if (
+      !removeModalMember ||
+      !selectedCity ||
+      selectedDistrict < 0 ||
+      removeReason === "" ||
+      (removeReason === "OTHER" && !removeNotes.trim())
+    ) {
+      return;
+    }
+    setRemovingId(removeModalMember.VRCNUM);
     const legDistrictNumber = selectedLegDistrict
       ? Number(selectedLegDistrict)
       : undefined;
@@ -330,7 +363,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       cityTown: selectedCity,
       legDistrict: legDistrictNumber,
       electionDistrict: selectedDistrict,
-      memberId: vrcnum,
+      memberId: removeModalMember.VRCNUM,
+      removalReason: removeReason,
+      ...(removeNotes.trim() ? { removalNotes: removeNotes.trim() } : {}),
     });
   };
 
@@ -569,15 +604,12 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                             <Button
                               className="mt-auto"
                               type="button"
+                              variant="outline"
                               aria-busy={removingId === voterRecord.VRCNUM}
-                              onClick={() =>
-                                handleRemoveCommitteeMember(voterRecord.VRCNUM)
-                              }
+                              onClick={() => handleOpenRemoveModal(voterRecord)}
                               disabled={removingId === voterRecord.VRCNUM}
                             >
-                              {removingId === voterRecord.VRCNUM
-                                ? "Removing..."
-                                : "Remove from Committee"}
+                              Remove Member
                             </Button>
                           </div>
                         )}
@@ -696,6 +728,92 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               }
             >
               {removeCommitteeMemberMutation.loading ? "Saving..." : "Record Resignation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={removeModalMember !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoveModalMember(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Member</DialogTitle>
+          </DialogHeader>
+          {removeModalMember && (
+            <p className="text-sm text-muted-foreground">
+              Removing {removeModalMember.firstName} {removeModalMember.lastName}{" "}
+              ({removeModalMember.VRCNUM}) from the committee. This is an
+              administrative removal (not a resignation).
+            </p>
+          )}
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="remove-reason">Reason for removal *</Label>
+              <Select
+                value={removeReason}
+                onValueChange={(v) =>
+                  setRemoveReason(
+                    v === ""
+                      ? ""
+                      : (v as RemovalReason),
+                  )
+                }
+              >
+                <SelectTrigger id="remove-reason">
+                  <SelectValue placeholder="Select reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(REMOVAL_REASON_LABELS) as RemovalReason[]).map(
+                    (reason) => (
+                      <SelectItem key={reason} value={reason}>
+                        {REMOVAL_REASON_LABELS[reason]}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="remove-notes">
+                Notes {removeReason === "OTHER" ? "*" : "(optional)"}
+              </Label>
+              <Textarea
+                id="remove-notes"
+                value={removeNotes}
+                onChange={(e) => setRemoveNotes(e.target.value)}
+                placeholder={
+                  removeReason === "OTHER"
+                    ? "Required when reason is Other"
+                    : "Optional note"
+                }
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRemoveModalMember(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmitRemoval}
+              disabled={
+                removeReason === "" ||
+                (removeReason === "OTHER" && !removeNotes.trim()) ||
+                removeCommitteeMemberMutation.loading
+              }
+            >
+              {removeCommitteeMemberMutation.loading
+                ? "Removing..."
+                : "Remove Member"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -12,6 +12,8 @@ import type { Session } from "next-auth";
 import {
   committeeDataSchema,
   type CommitteeData,
+  removeCommitteeDataSchema,
+  type RemoveCommitteeData,
 } from "~/lib/validations/committee";
 
 type CommitteeValidationTestCase = {
@@ -118,6 +120,25 @@ export const createMockCommitteeData = (
 
   // Return unvalidated data for invalid test cases
   return data as CommitteeData;
+};
+
+/** SRS 2.5 — Valid remove-committee request body (removalReason required). */
+export const createMockRemoveCommitteeData = (
+  overrides: Partial<RemoveCommitteeData> = {},
+  validate = true,
+): RemoveCommitteeData => {
+  const data: RemoveCommitteeData = {
+    cityTown: "Test City",
+    legDistrict: 1,
+    electionDistrict: 1,
+    memberId: "TEST123456",
+    removalReason: "PARTY_CHANGE",
+    ...overrides,
+  };
+  if (validate) {
+    return removeCommitteeDataSchema.parse(data) as RemoveCommitteeData;
+  }
+  return data;
 };
 
 /** CommitteeList with included committeeMemberList (for findUnique with include) */

@@ -163,7 +163,7 @@ export const committeeRequestDataSchema = z
     },
   );
 
-// Remove committee member validation schema (extends committeeDataSchema with optional reason)
+// SRS 2.5 — Remove committee member: removalReason required; removalNotes required when OTHER.
 export const removeCommitteeDataSchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
@@ -196,10 +196,21 @@ export const removeCommitteeDataSchema = z
       .int()
       .positive("Election District must be a positive integer"),
     memberId: z.string().trim().min(1, "Member ID is required"),
-    removalReason: z.nativeEnum(RemovalReason).optional(),
+    removalReason: z.nativeEnum(RemovalReason, {
+      errorMap: () => ({ message: "Removal reason is required" }),
+    }),
     removalNotes: z.string().trim().max(1000).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.removalReason === "OTHER" && (data.removalNotes ?? "").trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Notes are required when reason is Other",
+        path: ["removalNotes"],
+      });
+    }
+  });
 
 /** Valid ISO date string for resignationDateReceived. */
 const isoDateString = z

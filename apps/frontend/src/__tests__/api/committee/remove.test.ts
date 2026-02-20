@@ -2,7 +2,7 @@ import { POST } from "~/app/api/committee/remove/route";
 import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
-  createMockCommitteeData,
+  createMockRemoveCommitteeData,
   createMockCommittee,
   createMockRequest,
   expectSuccessResponse,
@@ -17,7 +17,8 @@ import {
   expectAuditLogCreate,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import type { CommitteeData, ResignCommitteeData } from "~/lib/validations/committee";
+import type { RemoveCommitteeData, ResignCommitteeData } from "~/lib/validations/committee";
+import { RemovalReason } from "@prisma/client";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import {
   mockAuthSession,
@@ -45,7 +46,7 @@ describe("/api/committee/remove", () => {
     };
 
     it("should successfully remove a member from a committee", async () => {
-      const mockCommitteeData = createMockCommitteeData();
+      const mockCommitteeData = createMockRemoveCommitteeData();
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
@@ -63,16 +64,18 @@ describe("/api/committee/remove", () => {
         }),
       );
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate({ status: "REMOVED" }),
+        expectMembershipUpdate({
+          status: "REMOVED",
+          removalReason: "PARTY_CHANGE",
+        }),
       );
     });
 
     it("should pass removalReason and removalNotes to the membership update", async () => {
-      const mockCommitteeData = {
-        ...createMockCommitteeData(),
-        removalReason: "OTHER" as const,
+      const mockCommitteeData = createMockRemoveCommitteeData({
+        removalReason: "OTHER",
         removalNotes: "Test note",
-      };
+      });
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
@@ -91,8 +94,113 @@ describe("/api/committee/remove", () => {
       );
     });
 
+    it("should fail when removalReason is missing", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      const body = createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" }, false);
+      const { removalReason: _, ...bodyWithoutReason } = body;
+
+      const response = await POST(
+        createMockRequest(bodyWithoutReason as RemoveCommitteeData),
+      );
+
+      await expectErrorResponse(response, 422, "Invalid request data");
+    });
+
+    it("should fail when removalReason is OTHER and removalNotes is missing", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      const body = createMockRemoveCommitteeData(
+        { removalReason: "OTHER", removalNotes: undefined },
+        false,
+      );
+
+      const response = await POST(createMockRequest(body));
+
+      await expectErrorResponse(response, 422, "Invalid request data");
+    });
+
+    it("should succeed with each removalReason enum value", async () => {
+      const reasons: RemovalReason[] = [
+        "PARTY_CHANGE",
+        "MOVED_OUT_OF_DISTRICT",
+        "INACTIVE_REGISTRATION",
+        "DECEASED",
+        "OTHER",
+      ];
+      for (const reason of reasons) {
+        jest.clearAllMocks();
+        setupHappyPath();
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        const mockCommitteeData = createMockRemoveCommitteeData({
+          removalReason: reason,
+          ...(reason === "OTHER" ? { removalNotes: "Other reason note" } : {}),
+        });
+
+        const response = await POST(createMockRequest(mockCommitteeData));
+
+        await expectSuccessResponse(response, { status: "success" });
+        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+          expectMembershipUpdate({
+            status: "REMOVED",
+            removalReason: reason,
+            ...(reason === "OTHER"
+              ? { removalNotes: "Other reason note" }
+              : {}),
+          }),
+        );
+      }
+    });
+
+    it("should log MEMBER_REMOVED with beforeValue seatNumber, afterValue reason, and metadata.source", async () => {
+      const mockCommitteeData = createMockRemoveCommitteeData({
+        removalReason: "MOVED_OUT_OF_DISTRICT",
+        removalNotes: "Relocated",
+      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE", seatNumber: 3 }),
+      );
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ status: "REMOVED" }),
+      );
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        createMockCommittee(),
+      );
+
+      await POST(createMockRequest(mockCommitteeData));
+
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_REMOVED",
+          entityType: "CommitteeMembership",
+          entityId: "membership-test-id-001",
+          beforeValue: expect.objectContaining({
+            status: "ACTIVE",
+            seatNumber: 3,
+          }),
+          afterValue: expect.objectContaining({
+            status: "REMOVED",
+            removalReason: "MOVED_OUT_OF_DISTRICT",
+            removalNotes: "Relocated",
+          }),
+          metadata: expect.objectContaining({ source: "manual" }),
+        }),
+      );
+    });
+
     it("should handle numeric conversion correctly", async () => {
-      const mockCommitteeData = createMockCommitteeData({
+      const mockCommitteeData = createMockRemoveCommitteeData({
         legDistrict: 5,
         electionDistrict: 10,
       });
@@ -119,7 +227,7 @@ describe("/api/committee/remove", () => {
       const authConfig: AuthTestConfig = {
         endpointName: "/api/committee/remove",
         requiredPrivilege: PrivilegeLevel.Admin,
-        mockRequest: () => createMockRequest(createMockCommitteeData()),
+        mockRequest: () => createMockRequest(createMockRemoveCommitteeData()),
       };
 
       const setupMocks = () => setupHappyPath();
@@ -144,8 +252,8 @@ describe("/api/committee/remove", () => {
     ])(
       "should return 422 for $field validation",
       async ({ field, value, expectedError }) => {
-        const mockCommitteeData = createMockCommitteeData(
-          { [field]: value } as Partial<CommitteeData>,
+        const mockCommitteeData = createMockRemoveCommitteeData(
+          { [field]: value } as Partial<RemoveCommitteeData>,
           false,
         );
         mockAuthSession(
@@ -162,8 +270,8 @@ describe("/api/committee/remove", () => {
     test.each(validationTestCases.invalidNumeric)(
       "should return 422 for invalid numeric $field",
       async ({ field, value, expectedError }) => {
-        const mockCommitteeData = createMockCommitteeData(
-          { [field]: value } as Partial<CommitteeData>,
+        const mockCommitteeData = createMockRemoveCommitteeData(
+          { [field]: value } as Partial<RemoveCommitteeData>,
           false,
         );
         mockAuthSession(
@@ -178,7 +286,7 @@ describe("/api/committee/remove", () => {
     );
 
     it("should return 400 for negative legDistrict (sentinel value)", async () => {
-      const mockCommitteeData = createMockCommitteeData(
+      const mockCommitteeData = createMockRemoveCommitteeData(
         {
           legDistrict: LEG_DISTRICT_SENTINEL.toString() as unknown as number,
         },
@@ -195,7 +303,7 @@ describe("/api/committee/remove", () => {
     });
 
     it("should return 404 when committee is not found", async () => {
-      const mockCommitteeData = createMockCommitteeData();
+      const mockCommitteeData = createMockRemoveCommitteeData();
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
@@ -208,7 +316,7 @@ describe("/api/committee/remove", () => {
     });
 
     it("should return 404 when membership is not found in this committee", async () => {
-      const mockCommitteeData = createMockCommitteeData();
+      const mockCommitteeData = createMockRemoveCommitteeData();
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
@@ -228,7 +336,7 @@ describe("/api/committee/remove", () => {
     });
 
     it("should return 400 when membership exists but is not ACTIVE", async () => {
-      const mockCommitteeData = createMockCommitteeData();
+      const mockCommitteeData = createMockRemoveCommitteeData();
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
@@ -251,7 +359,7 @@ describe("/api/committee/remove", () => {
     });
 
     it("should return 500 for database error during committee lookup", async () => {
-      const mockCommitteeData = createMockCommitteeData();
+      const mockCommitteeData = createMockRemoveCommitteeData();
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
@@ -266,7 +374,7 @@ describe("/api/committee/remove", () => {
     });
 
     it("should return 500 for database error during membership update", async () => {
-      const mockCommitteeData = createMockCommitteeData();
+      const mockCommitteeData = createMockRemoveCommitteeData();
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
