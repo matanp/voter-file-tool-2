@@ -11,6 +11,6 @@ export const adminSidebarConfig: AdminNavItem[] = [
   { id: "meetings", label: "Meetings", href: "/admin/meetings", enabled: false },
   { id: "users", label: "Users", href: "/admin/users", enabled: false },
   { id: "eligibility", label: "Eligibility Flags", href: "/admin/eligibility-flags", enabled: false },
-  { id: "petition-outcomes", label: "Petition Outcomes", href: "/admin/petition-outcomes", enabled: false },
+  { id: "petition-outcomes", label: "Petition Outcomes", href: "/admin/petition-outcomes", enabled: true },
   { id: "audit", label: "Audit Trail", href: "/admin/audit", enabled: false },
 ];

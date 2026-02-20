@@ -37,7 +37,10 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 27. ~~[1.R.19 Phase 1 Doc Consistency](1.R.19-phase1-doc-consistency.md)~~ — **Resolved**
 28. ~~[1.R.20 Admin Flow Audit Coverage](1.R.20-admin-flow-audit-coverage.md)~~ — **Resolved**
 29. ~~[1.R.21 High-Risk Route Test Coverage](1.R.21-high-risk-route-test-coverage.md)~~ — **Done**
-30. **Current queue:** 2.1–2.9, 3.0–3.7, T1.4–T1.5, T2.1–T2.4
+30. ~~[2.1 Eligibility Validation](2.1-eligibility-validation.md)~~ — **Done**
+31. ~~[2.2 Warning System](2.2-warning-system.md)~~ — **Done**
+32. ~~[2.5 Structured Removal with Reasons](2.5-structured-removal-reasons.md)~~ — **Done**
+33. **Current queue:** 2.4, 2.6–2.9, 3.0–3.7, T1.4–T1.5, T2.1–T2.4
 
 ---
 
@@ -119,12 +122,12 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 
 | ID | Title | Status | Roadmap | Depends on |
 | --- | --- | --- | --- | --- |
-| [2.1](2.1-eligibility-validation.md) | Eligibility Validation (Hard Stops) | Open | Tier 2 §2.1 | 1.1b, 1.1c, 1.2 |
+| [2.1](2.1-eligibility-validation.md) | Eligibility Validation (Hard Stops) | Done | Tier 2 §2.1 | 1.1b, 1.1c, 1.2 |
 | [2.1a](2.1a-email-phone-submission.md) | Email/Phone During Leader Submission | Done | Tier 2 §2.1a | 1.2 |
-| [2.2](2.2-warning-system.md) | Warning System (Non-blocking Eligibility Warnings) | Open | Tier 2 §2.2 | 2.1, 1.2 |
+| [2.2](2.2-warning-system.md) | Warning System (Non-blocking Eligibility Warnings) | Done | Tier 2 §2.2 | 2.1, 1.2 |
 | [2.3](2.3-resignation-workflow.md) | Resignation Workflow | Done | Tier 2 §2.3 | 1.2, 1.4 |
 | [2.4](2.4-meeting-record-confirmation-workflow.md) | Meeting Record + Executive Confirmation Workflow | Open | Tier 2 §2.4 | 1.2, 1.4, IA-01 |
-| [2.5](2.5-structured-removal-reasons.md) | Structured Removal with Reasons | Open | Tier 2 §2.5 | 1.2, 2.3 |
+| [2.5](2.5-structured-removal-reasons.md) | Structured Removal with Reasons | Done | Tier 2 §2.5 | 1.2, 2.3 |
 | [2.6](2.6-petition-primary-outcome-tracking.md) | Petition + Primary Outcome Tracking | Open | Tier 2 §2.6 | 1.2, 1.3, 1.4, 2.4 |
 | [2.7](2.7-weight-designation-logic.md) | Weight / Designation Logic | Open | Tier 2 §2.7 | 1.4, 2.6 |
 | [2.8](2.8-boe-driven-automatic-eligibility-flagging.md) | BOE-Driven Automatic Eligibility Flagging | Open | Tier 2 §2.8 | 1.2, 2.1, 2.2, 2.5 |
@@ -151,9 +154,9 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 
 ```
 1.1 (done) ──► 1.2 (done) ──► 1.3 (done)
-                │  ──► 2.1 ──► 2.2 ──► 2.8
-                │  ──► 2.1a
-                │  ──► 2.3 ──► 2.5 ──► 2.8
+                │  ──► 2.1 (done) ──► 2.2 (done) ──► 2.8
+                │  ──► 2.1a (done)
+                │  ──► 2.3 (done) ──► 2.5 (done) ──► 2.8
                 │
                 └──► 2.4 ──► 2.6 ──► 2.7
                 │
@@ -172,7 +175,7 @@ Phase 1 Remediation (1.R.x):
   1.R.21 — done
 
 Tier 2:
-  2.1–2.9 — open
+  2.1, 2.2, 2.3, 2.5 — done; 2.4, 2.6–2.9 — open
 
 Tier 3:
   3.0–3.7 — open
