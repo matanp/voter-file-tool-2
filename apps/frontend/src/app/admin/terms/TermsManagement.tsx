@@ -188,15 +188,9 @@ export function TermsManagement({ initialTerms }: TermsManagementProps) {
                   <div>
                     <span className="font-medium">{term.label}</span>
                     <span className="text-muted-foreground text-sm ml-2">
-                      {format(
-                        new Date(term.startDate as string | Date),
-                        "MMM d, yyyy",
-                      )}{" "}
+                      {format(term.startDate, "MMM d, yyyy")}{" "}
                       –{" "}
-                      {format(
-                        new Date(term.endDate as string | Date),
-                        "MMM d, yyyy",
-                      )}
+                      {format(term.endDate, "MMM d, yyyy")}
                     </span>
                     {term.isActive && (
                       <Badge variant="default" className="ml-2">
