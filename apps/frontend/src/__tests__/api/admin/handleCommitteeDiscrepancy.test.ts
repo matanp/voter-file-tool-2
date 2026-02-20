@@ -337,6 +337,32 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
+    it("preserves single-active-membership invariant: accept does not create second ACTIVE when voter already active in another committee", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy({ committee: { id: 2, cityTown: "City B", legDistrict: 1, electionDistrict: 2, termId: DEFAULT_ACTIVE_TERM_ID } }) as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(
+        createMockMembership({
+          id: "active-in-committee-1",
+          committeeListId: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          status: "ACTIVE",
+        }),
+      );
+
+      const response = await POST(
+        createMockRequest({ VRCNUM: "TEST123", accept: true, takeAddress: "" }),
+      );
+
+      await expectErrorResponse(response, 400, "Member is already in another committee");
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      expect(prismaMock.committeeUploadDiscrepancy.delete).not.toHaveBeenCalled();
+    });
+
     it("takeAddress: updates voterRecord.addressForCommittee when provided", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
