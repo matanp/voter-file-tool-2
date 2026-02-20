@@ -371,11 +371,14 @@ model CommitteeMembership {
 
   petitionVoteCount   Int?
   petitionPrimaryDate DateTime?
+  // SRS 2.6 — ties candidate/outcome to a specific seat for petition workflow
+  petitionSeatNumber  Int?
 
   @@unique([voterRecordId, committeeListId, termId])
   @@index([committeeListId, termId, status])
   @@index([termId, status])
   @@index([voterRecordId])
+  @@index([committeeListId, termId, petitionSeatNumber])
 }
 
 // ============================================================================
