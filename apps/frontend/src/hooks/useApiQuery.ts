@@ -4,7 +4,7 @@ export interface ApiQueryOptions<TData = unknown> {
   enabled?: boolean;
   timeout?: number;
   initialData?: TData;
-  onSuccess?: (data: TData) => void;
+  onSuccess?: (data: TData | null) => void;
   onError?: (error: Error) => void;
   parseResponse?: (rawData: unknown) => TData;
 }
@@ -13,7 +13,7 @@ export interface ApiQueryResult<TData = unknown> {
   data: TData | null;
   loading: boolean;
   error: string | null;
-  refetch: (customEndpoint?: string) => Promise<TData>;
+  refetch: (customEndpoint?: string) => Promise<TData | null>;
 }
 
 /**
@@ -32,13 +32,26 @@ export const useApiQuery = <TData = unknown>(
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  const controllerRef = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const refetch = useCallback(
-    async (customEndpoint?: string): Promise<TData> => {
+    async (customEndpoint?: string): Promise<TData | null> => {
       const url = customEndpoint ?? endpoint;
       const timeoutMs = optionsRef.current?.timeout ?? 10000;
 
+      // Abort any in-flight request before starting a new one. We abort rather
+      // than deduplicating because refetch is typically called after a mutation
+      // to reload fresh data — reusing a pre-mutation in-flight request would
+      // return stale results.
+      controllerRef.current?.abort();
+      if (timeoutRef.current != null) {
+        clearTimeout(timeoutRef.current);
+      }
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
+      controllerRef.current = controller;
+      timeoutRef.current = setTimeout(() => {
         controller.abort();
       }, timeoutMs);
 
@@ -52,7 +65,8 @@ export const useApiQuery = <TData = unknown>(
           signal: controller.signal,
         });
 
-        clearTimeout(timeoutId);
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
 
         if (!response.ok) {
           let errorMessage = `Request failed with status ${response.status}`;
@@ -70,7 +84,7 @@ export const useApiQuery = <TData = unknown>(
           throw new Error(errorMessage);
         }
 
-        let result: TData;
+        let result: TData | null;
         const contentType = response.headers.get("content-type");
 
         if (contentType?.includes("application/json")) {
@@ -79,7 +93,7 @@ export const useApiQuery = <TData = unknown>(
             ? optionsRef.current.parseResponse(rawData)
             : (rawData as TData);
         } else if (response.status === 204 || !response.body) {
-          result = null as TData;
+          result = null;
         } else {
           throw new Error(
             "Expected JSON response but received: " + contentType,
@@ -90,7 +104,10 @@ export const useApiQuery = <TData = unknown>(
         optionsRef.current?.onSuccess?.(result);
         return result;
       } catch (err) {
-        clearTimeout(timeoutId);
+        if (timeoutRef.current != null) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
 
         let errorMessage: string;
         let errorToThrow: Error;
@@ -109,6 +126,7 @@ export const useApiQuery = <TData = unknown>(
         throw errorToThrow;
       } finally {
         setLoading(false);
+        controllerRef.current = null;
       }
     },
     [endpoint],
@@ -120,6 +138,14 @@ export const useApiQuery = <TData = unknown>(
     }
 
     void refetch().catch(() => undefined);
+
+    return () => {
+      controllerRef.current?.abort();
+      if (timeoutRef.current != null) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
   }, [refetch]);
 
   return {
