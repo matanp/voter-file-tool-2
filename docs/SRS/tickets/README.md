@@ -28,7 +28,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 18. ~~[1.R.10 updateLtedWeight Atomicity for Weight Recompute](1.R.10-update-lted-weight-atomic-recompute.md)~~ — **Resolved**
 19. ~~[1.R.11 Admin GET Data Hook Standardization](1.R.11-admin-get-hook-standardization.md)~~ — **Resolved**
 20. ~~[1.R.12 Drop Redundant LTED Crosswalk Index](1.R.12-drop-redundant-lted-crosswalk-index.md)~~ — **Resolved**
-21. [1.R.13 Phase 1 Migration / Schema Fixes](1.R.13-phase1-migration-fixes.md) — **Open**
+21. ~~[1.R.13 Phase 1 Migration / Schema Fixes](1.R.13-phase1-migration-fixes.md)~~ — **Resolved**
 22. ~~[1.R.14 handleRequest Capacity Check for Replacement](1.R.14-handleRequest-capacity-replacement.md)~~ — **Resolved**
 23. ~~[1.R.15 API and Audit Robustness](1.R.15-api-audit-robustness.md)~~ — **Resolved**
 24. ~~[1.R.16 useApiQuery Type Safety and Cleanup](1.R.16-useApiQuery-robustness.md)~~ — **Resolved**
@@ -37,7 +37,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 27. ~~[1.R.19 Phase 1 Doc Consistency](1.R.19-phase1-doc-consistency.md)~~ — **Resolved**
 28. [1.R.20 Admin Flow Audit Coverage](1.R.20-admin-flow-audit-coverage.md) — **Open**
 29. [1.R.21 High-Risk Route Test Coverage](1.R.21-high-risk-route-test-coverage.md) — **Open**
-30. **Current queue:** 1.R.13, 1.R.20–1.R.21, then 2.1–2.9, then 3.1–3.7
+30. **Current queue:** 1.R.20–1.R.21, then 2.1–2.9, then 3.1–3.7
 
 ---
 
@@ -94,7 +94,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [1.R.10](1.R.10-update-lted-weight-atomic-recompute.md) | updateLtedWeight Atomicity for Weight Recompute | Resolved | P2 | 1.4 |
 | [1.R.11](1.R.11-admin-get-hook-standardization.md) | Admin GET Data Hook Standardization | Resolved | P3 | IA-01 |
 | [1.R.12](1.R.12-drop-redundant-lted-crosswalk-index.md) | Drop Redundant LTED Crosswalk Index | Resolved | P3 | 1.1b |
-| [1.R.13](1.R.13-phase1-migration-fixes.md) | Phase 1 Migration / Schema Fixes | Open | P2 | 1.1c, 1.1, 1.5 |
+| [1.R.13](1.R.13-phase1-migration-fixes.md) | Phase 1 Migration / Schema Fixes | Resolved | P2 | 1.1c, 1.1, 1.5 |
 | [1.R.14](1.R.14-handleRequest-capacity-replacement.md) | handleRequest Capacity Check for Replacement | Resolved | P2 | 1.2, 1.4 |
 | [1.R.15](1.R.15-api-audit-robustness.md) | API and Audit Robustness | Resolved | P2 | 1.4, 1.5 |
 | [1.R.16](1.R.16-useApiQuery-robustness.md) | useApiQuery Type Safety and Cleanup | Resolved | P2 | — |
@@ -153,8 +153,7 @@ T1.2, T1.3 — parallel, no blockers
 
 Phase 1 Remediation (1.R.x):
   1.R.1–1.R.12 — resolved
-  1.R.13 — open
-  1.R.14–1.R.19 — resolved
+  1.R.13–1.R.19 — resolved
   1.R.20–1.R.21 — open
 
 Tier 2:
