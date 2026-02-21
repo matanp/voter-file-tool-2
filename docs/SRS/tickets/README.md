@@ -144,12 +144,26 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [3.0a](3.0a-report-audit-committee-membership.md) | Audit and Update All Reports for CommitteeMembership | Open | Tier 3 §3.0a | 3.0 |
 | [3.1](3.1-jurisdiction-assignment-ui.md) | Jurisdiction Assignment UI (Leader Access) | Open | Tier 3 §3.1 | 1.1, IA-01 |
 | [3.1a](3.1a-committee-selector-vacancy-weight-empty-states.md) | CommitteeSelector Vacancy/Weight + Empty States | Open | Tier 3 §3.1a | 2.7, 3.1 |
-| [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Open | Tier 3 §3.2 | 3.0, 3.0a |
+| [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Open | Tier 3 §3.2 | 3.0, 3.0a, 3.1 |
 | [3.3](3.3-designation-weight-summary-report-ui.md) | Designation Weight Summary Report UI | Open | Tier 3 §3.3 | 2.7, 3.2 |
 | [3.4](3.4-vacancy-changes-petition-reports-ui.md) | Vacancy, Changes, and Petition Outcomes Reports UI | Open | Tier 3 §3.4 | 2.6, 3.2 |
 | [3.5](3.5-audit-trail-ui-export.md) | Audit Trail UI and Export | Open | Tier 3 §3.5 | 1.5 |
 | [3.6](3.6-mobile-accessibility-baseline.md) | Mobile and Accessibility Baseline | Open | Tier 3 quality gate | 3.1, 3.5 |
 | [3.7](3.7-lted-crosswalk-import-ui.md) | LTED Crosswalk Import UI/Admin Flow | Open | Tier 3 follow-up | 1.1b, 3.1 |
+
+### Tier 3 parallelization
+
+Three tracks can be started in parallel (each depends only on done Tier 1/2 work). Assign by track to avoid blocking.
+
+| Track | Tickets | Notes |
+| ----- | ------- | ----- |
+| **Report** | 3.0 → 3.0a → 3.2 → 3.3, 3.4 | Do 3.0a in same sprint as 3.0 (recommended). After 3.2, 3.3 and 3.4 can run in parallel. |
+| **Access** | 3.1 → 3.1a, 3.7 | After 3.1, 3.1a and 3.7 can run in parallel. |
+| **Audit** | 3.5 | Standalone; depends only on 1.5. |
+
+**Gate:** 3.6 (Mobile/A11y baseline) runs after both 3.1 and 3.5 are done.
+
+**Can start in parallel:** 3.0, 3.1, 3.5.
 
 ---
 
@@ -168,7 +182,16 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
                 │
                 └──► 1.5a (done) ──► 1.5b (done) ──► 1.5c (done)
 
-1.2 (done) ──► 3.0 ──► 3.0a ──► 3.2 ──► 3.3, 3.4
+Tier 3 (all assume Tier 1/2 done):
+  3.0 ──► 3.0a ──► 3.2 ──► 3.3
+                  └──► 3.4
+  3.1 ──► 3.1a, 3.7
+  3.2 also depends on 3.1 (frontend scope/jurisdiction)
+  1.5 ──► 3.5
+  3.1 + 3.5 ──► 3.6
+
+  Parallel starts: 3.0 | 3.1 | 3.5
+  (3.0a recommended same sprint as 3.0)
 
 T1.4, T1.5 — open, parallel test hardening
 T2.1, T2.2, T2.3, T2.4 — open UI coverage batch
@@ -182,6 +205,35 @@ Tier 2:
 
 Tier 3:
   3.0–3.7 — open
+```
+
+```mermaid
+flowchart LR
+  subgraph done [Tier 1/2 done]
+    T1[Tier1]
+    T2[Tier2]
+  end
+  subgraph parallel [Can start in parallel]
+    A[3.0 Report]
+    B[3.1 Jurisdiction]
+    C[3.5 Audit UI]
+  end
+  subgraph report [Report track]
+    A --> A2[3.0a]
+    A2 --> D[3.2 Sign-in]
+    B --> D
+    D --> E[3.3 Weight]
+    D --> F[3.4 Reports]
+  end
+  subgraph access [Access track]
+    B --> G[3.1a 3.7]
+  end
+  T1 --> A
+  T1 --> B
+  T2 --> A
+  T1 --> C
+  C --> H[3.6 A11y]
+  B --> H
 ```
 
 ---
