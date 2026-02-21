@@ -5,7 +5,7 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { runEligibilityFlaggingSchema } from "~/lib/validations/eligibilityFlags";
 import prisma from "~/lib/prisma";
-import { runBoeEligibilityFlagging } from "@voter-file-tool/shared-validators";
+import { runBoeEligibilityFlagging } from "@voter-file-tool/shared-prisma";
 
 async function runEligibilityFlagsHandler(
   req: NextRequest,
