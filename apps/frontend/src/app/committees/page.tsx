@@ -8,7 +8,11 @@ import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import {
+  getActiveTermId,
+  getUserJurisdictions,
+  committeeMatchesJurisdictions,
+} from "~/app/api/lib/committeeValidation";
 
 const CommitteeLists = async () => {
   const permissions = await auth();
@@ -21,9 +25,26 @@ const CommitteeLists = async () => {
   const activeTermId = await getActiveTermId();
 
   // Only include PII data for admin users; filter by active term (SRS §5.1)
-  const committeeLists: CommitteeList[] = await prisma.committeeList.findMany({
+  let committeeLists: CommitteeList[] = await prisma.committeeList.findMany({
     where: { termId: activeTermId },
   });
+
+  // SRS 3.1 — Leaders only see committees in their assigned jurisdictions
+  const privilegeLevel = permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+  if (privilegeLevel === PrivilegeLevel.Leader && permissions?.user?.id) {
+    const jurisdictions = await getUserJurisdictions(
+      permissions.user.id,
+      activeTermId,
+      privilegeLevel,
+    );
+    if (Array.isArray(jurisdictions) && jurisdictions.length > 0) {
+      committeeLists = committeeLists.filter((c) =>
+        committeeMatchesJurisdictions(c.cityTown, c.legDistrict, jurisdictions),
+      );
+    } else {
+      committeeLists = [];
+    }
+  }
 
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 

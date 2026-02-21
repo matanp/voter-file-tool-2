@@ -271,6 +271,11 @@ export function expectAnyDate(): unknown {
   return expect.any(Date) as unknown;
 }
 
+/** Returns expect.any(Date) typed for use in Prisma update matchers (avoids call-site cast). */
+export function expectAnyDateForUpdate(): Date {
+  return expect.any(Date) as unknown as Date;
+}
+
 /** Wraps expect.objectContaining for Prisma JSON value fields (avoids no-unsafe-assignment on InputJsonValue). */
 export function jsonContaining(obj: Record<string, unknown>): Prisma.InputJsonValue {
   return expect.objectContaining(obj) as unknown as Prisma.InputJsonValue;

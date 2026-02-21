@@ -68,6 +68,7 @@ enum AuditAction {
   REPORT_GENERATED
   TERM_CREATED
   JURISDICTION_ASSIGNED
+  JURISDICTION_REMOVED
   DISCREPANCY_RESOLVED
 }
 
@@ -96,6 +97,10 @@ model User {
   // SRS 1.5 — Audit trail
   auditLogs            AuditLog[]             @relation("AuditLogs")
   reviewedEligibilityFlags EligibilityFlag[]  @relation("EligibilityFlagsReviewed")
+
+  // SRS 3.1 — Jurisdiction assignments (Leader access scope)
+  jurisdictions        UserJurisdiction[]     @relation("UserJurisdictions")
+  assignedJurisdictions UserJurisdiction[]     @relation("AssignedJurisdictions")
 }
 
 model Account {
@@ -289,9 +294,33 @@ model CommitteeTerm {
   isActive  Boolean  @default(false) // Only one term active at a time
   createdAt DateTime @default(now())
 
-  committeeLists CommitteeList[]
-  memberships    CommitteeMembership[]
-  seats          Seat[]
+  committeeLists   CommitteeList[]
+  memberships      CommitteeMembership[]
+  seats            Seat[]
+  userJurisdictions UserJurisdiction[]
+}
+
+// SRS 3.1 — Leader jurisdiction scope (cityTown + optional legDistrict per term).
+// legDistrict null = all leg districts in cityTown.
+// NOTE: A partial unique index (WHERE legDistrict IS NULL) exists in
+// prisma/migrations/20260221120000_user_jurisdiction_partial_unique_legdistrict_null/migration.sql
+// but is not reflected here — Prisma does not support partial indexes.
+model UserJurisdiction {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation("UserJurisdictions", fields: [userId], references: [id], onDelete: Cascade)
+  cityTown    String
+  legDistrict Int?          // null = all leg districts in cityTown
+  termId      String
+  term        CommitteeTerm @relation(fields: [termId], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now())
+  createdById String
+  createdBy   User          @relation("AssignedJurisdictions", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([userId, cityTown, legDistrict, termId])
+  @@index([userId, termId])
+  @@index([termId])
+  @@index([createdById])
 }
 
 model CommitteeList {

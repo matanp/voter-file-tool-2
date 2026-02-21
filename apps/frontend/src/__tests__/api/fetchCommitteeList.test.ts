@@ -34,7 +34,7 @@ describe("/api/fetchCommitteeList", () => {
     describe("Authentication tests", () => {
       const authConfig: AuthTestConfig = {
         endpointName: "/api/fetchCommitteeList",
-        requiredPrivilege: PrivilegeLevel.Admin,
+        requiredPrivilege: PrivilegeLevel.Leader,
         mockRequest: () =>
           new NextRequest(
             "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1",
@@ -48,6 +48,9 @@ describe("/api/fetchCommitteeList", () => {
         prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
           createMockGovernanceConfig(),
         );
+        (prismaMock.userJurisdiction as { findMany: jest.Mock }).findMany.mockResolvedValue([
+          { cityTown: "Test City", legDistrict: 1 },
+        ]);
       };
 
       const authTestSuite = createAuthTestSuite(
@@ -176,7 +179,7 @@ describe("/api/fetchCommitteeList", () => {
             weight: null,
           },
         ],
-      });
+      } as never);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
       );
@@ -212,7 +215,7 @@ describe("/api/fetchCommitteeList", () => {
         ...createMockCommittee(),
         memberships: [],
         seats: [],
-      });
+      } as never);
 
       const response = await GET(
         new NextRequest(
@@ -255,7 +258,7 @@ describe("/api/fetchCommitteeList", () => {
             weight: 0.25,
           },
         ],
-      });
+      } as never);
 
       const response = await GET(
         new NextRequest(
