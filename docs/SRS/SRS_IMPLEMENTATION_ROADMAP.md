@@ -601,7 +601,7 @@ Adding new privilege levels requires: new enum value, update to permission-order
 | **Depends on** | 1.2 (Membership Status) for vacancy; 2.7 (Weight Logic) for weight |
 | **Priority**   | Medium — satisfies in-app view of open seats and weight            |
 
-**What exists today:** CommitteeSelector shows member cards only. Vacancy is implicit (fewer than 4 members). No weight data.
+**What exists today:** CommitteeSummaryBlock component between district selectors and member list; standardized vacancy badges (Full, 1/N open seats, All N vacant); designation weight with 2-decimal format and "—" fallback; finalized empty states (no jurisdictions, no committees in jurisdictions, no members).
 
 **What to build:**
 
