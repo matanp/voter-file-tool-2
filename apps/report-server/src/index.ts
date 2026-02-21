@@ -202,7 +202,7 @@ async function processJob(jobData: EnrichedReportData) {
         console.log('Generating committee report as XLSX...');
         const xlsxConfig = extractXLSXConfig(jobData);
         await generateUnifiedXLSXAndUpload(
-          committeeData,
+          payload,
           fileName,
           xlsxConfig,
           'ldCommittees'
