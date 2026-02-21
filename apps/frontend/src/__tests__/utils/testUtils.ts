@@ -4,6 +4,7 @@ import {
   type Prisma,
   PrivilegeLevel,
   type CommitteeList,
+  type CommitteeMembership,
   type VoterRecord,
   type CommitteeRequest,
   type CommitteeGovernanceConfig,
@@ -141,9 +142,9 @@ export const createMockRemoveCommitteeData = (
   return data;
 };
 
-/** CommitteeList with included committeeMemberList (for findUnique with include) */
+/** CommitteeList with included memberships (for findUnique with include) */
 export type CommitteeListWithMembers = CommitteeList & {
-  committeeMemberList: VoterRecord[];
+  memberships: (CommitteeMembership & { voterRecord: VoterRecord })[];
 };
 
 // ---------------------------------------------------------------------------
@@ -398,7 +399,9 @@ export const createMockCommittee = (
     legDistrict: 1,
     electionDistrict: 1,
     termId: DEFAULT_ACTIVE_TERM_ID,
-    committeeMemberList: [createMockVoterRecord()],
+    memberships: [
+      { ...createMockMembership(), voterRecord: createMockVoterRecord() },
+    ],
     ...overrides,
   }) as CommitteeListWithMembers;
 

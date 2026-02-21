@@ -506,8 +506,8 @@ These items build on top of the Tier 1+2 foundation to complete the SRS.
 | **Depends on** | 1.2 (Membership Status / CommitteeMembership model)   |
 | **Priority**   | Critical — required for roster report after migration |
 
-**What exists today:**
-ldCommittees report uses `committeeMemberList` (VoterRecord.committeeId) via `fetchCommitteeData()` and `mapCommitteesToReportShape()` in report-server.
+**What existed (migrated in 3.0):**
+ldCommittees report previously used `committeeMemberList` (VoterRecord.committeeId). Migration complete: `fetchCommitteeData()` and `mapCommitteesToReportShape()` now use `memberships` (CommitteeMembership, status=ACTIVE).
 
 **What to build:**
 
@@ -531,7 +531,7 @@ ldCommittees report uses `committeeMemberList` (VoterRecord.committeeId) via `fe
 
 | Report             | Uses committee membership?                    | Migration needed? | Covered by |
 | ------------------ | --------------------------------------------- | ----------------- | ---------- |
-| ldCommittees       | Yes — fetchCommitteeData, committeeMemberList | Yes               | 3.0        |
+| ldCommittees       | Yes — fetchCommitteeData, memberships (migrated) | Yes               | 3.0        |
 | designatedPetition | No — form payload only                        | No                | N/A        |
 | voterList          | No                                            | No                | N/A        |
 | absenteeReport     | No                                            | No                | N/A        |
@@ -539,11 +539,11 @@ ldCommittees report uses `committeeMemberList` (VoterRecord.committeeId) via `fe
 
 **ldCommittees update checklist (3.0):**
 
-- [ ] `fetchCommitteeData()` — query memberships where status = ACTIVE
-- [ ] `mapCommitteesToReportShape()` — consume memberships instead of committeeMemberList
-- [ ] `CommitteeWithMembers` type — update in report-server and shared-validators
-- [ ] PDF path (CommitteeReport.tsx, utils.ts) — verify unchanged output
-- [ ] XLSX path (xlsxGenerator.ts) — verify unchanged output
+- [x] `fetchCommitteeData()` — query memberships where status = ACTIVE
+- [x] `mapCommitteesToReportShape()` — consume memberships instead of committeeMemberList
+- [x] `CommitteeWithMembers` type — update in report-server and shared-validators
+- [x] PDF path (CommitteeReport.tsx, utils.ts) — verify unchanged output
+- [x] XLSX path (xlsxGenerator.ts) — verify unchanged output
 
 ---
 

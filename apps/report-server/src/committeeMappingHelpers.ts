@@ -1,15 +1,16 @@
-import type { CommitteeList, CommitteeMembership, Seat, VoterRecord } from '@prisma/client';
+import type { CommitteeMembership, Seat, VoterRecord } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import type { EnrichedPartialVoterRecordAPI } from '@voter-file-tool/shared-validators';
+import type {
+  CommitteeWithMembers,
+  EnrichedPartialVoterRecordAPI,
+} from '@voter-file-tool/shared-validators';
 import {
   convertPrismaVoterRecordToAPI,
   applyCompoundFields,
 } from '@voter-file-tool/shared-validators';
 import { prisma } from './lib/prisma';
 
-export type CommitteeWithMembers = CommitteeList & {
-  memberships?: (CommitteeMembership & { voterRecord: VoterRecord })[];
-};
+export type { CommitteeWithMembers };
 
 export type CommitteeWithMembersAndSeats = CommitteeWithMembers & {
   seats?: Seat[];

@@ -43,7 +43,9 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 33. ~~[2.4 Meeting Record + Executive Confirmation Workflow](2.4-meeting-record-confirmation-workflow.md)~~ — **Done**
 34. ~~[2.6 Petition + Primary Outcome Tracking](2.6-petition-primary-outcome-tracking.md)~~ — **Done**
 35. ~~[2.7 Weight / Designation Logic](2.7-weight-designation-logic.md)~~ — **Done**
-36. **Current queue:** 2.8–2.9, 3.0–3.7, T1.4–T1.5, T2.1–T2.4
+36. ~~[3.0 Report-server Migration](3.0-report-server-committee-membership-migration.md)~~ — **Done**
+37. ~~[3.0a Report Audit](3.0a-report-audit-committee-membership.md)~~ — **Done**
+38. **Current queue:** 2.8–2.9, 3.1–3.7, T1.4–T1.5, T2.1–T2.4
 
 ---
 
@@ -140,8 +142,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 
 | ID | Title | Status | Roadmap | Depends on |
 | --- | --- | --- | --- | --- |
-| [3.0](3.0-report-server-committee-membership-migration.md) | Report-server: Migrate ldCommittees to CommitteeMembership | Open | Tier 3 §3.0 | 1.2 |
-| [3.0a](3.0a-report-audit-committee-membership.md) | Audit and Update All Reports for CommitteeMembership | Open | Tier 3 §3.0a | 3.0 |
+| [3.0](3.0-report-server-committee-membership-migration.md) | Report-server: Migrate ldCommittees to CommitteeMembership | Done | Tier 3 §3.0 | 1.2 |
+| [3.0a](3.0a-report-audit-committee-membership.md) | Audit and Update All Reports for CommitteeMembership | Done | Tier 3 §3.0a | 3.0 |
 | [3.1](3.1-jurisdiction-assignment-ui.md) | Jurisdiction Assignment UI (Leader Access) | Open | Tier 3 §3.1 | 1.1, IA-01 |
 | [3.1a](3.1a-committee-selector-vacancy-weight-empty-states.md) | CommitteeSelector Vacancy/Weight + Empty States | Open | Tier 3 §3.1a | 2.7, 3.1 |
 | [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Open | Tier 3 §3.2 | 3.0, 3.0a, 3.1 |

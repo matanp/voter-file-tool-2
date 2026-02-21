@@ -2,13 +2,12 @@ import React from "react";
 
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
-import type { CommitteeWithMembers } from "@voter-file-tool/shared-validators";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 
 const CommitteeLists = async () => {
@@ -22,10 +21,9 @@ const CommitteeLists = async () => {
   const activeTermId = await getActiveTermId();
 
   // Only include PII data for admin users; filter by active term (SRS §5.1)
-  const committeeLists: CommitteeWithMembers[] =
-    await prisma.committeeList.findMany({
-      where: { termId: activeTermId },
-    });
+  const committeeLists: CommitteeList[] = await prisma.committeeList.findMany({
+    where: { termId: activeTermId },
+  });
 
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 

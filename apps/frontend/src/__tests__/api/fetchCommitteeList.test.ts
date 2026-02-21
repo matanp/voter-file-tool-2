@@ -6,6 +6,7 @@ import {
   createMockSession,
   createMockCommittee,
   createMockGovernanceConfig,
+  createMockMembership,
   createMockVoterRecord,
   expectSuccessResponse,
   expectErrorResponse,
@@ -769,10 +770,19 @@ describe("/api/fetchCommitteeList", () => {
       it("should handle committee with complex member relationships", async () => {
         // Arrange
         const mockCommittee = createMockCommittee({
-          committeeMemberList: [
-            createMockVoterRecord({ VRCNUM: "MEMBER001", committeeId: 1 }),
-            createMockVoterRecord({ VRCNUM: "MEMBER002", committeeId: 1 }),
-            createMockVoterRecord({ VRCNUM: "MEMBER003", committeeId: 1 }),
+          memberships: [
+            {
+              ...createMockMembership({ voterRecordId: "MEMBER001" }),
+              voterRecord: createMockVoterRecord({ VRCNUM: "MEMBER001", committeeId: 1 }),
+            },
+            {
+              ...createMockMembership({ voterRecordId: "MEMBER002" }),
+              voterRecord: createMockVoterRecord({ VRCNUM: "MEMBER002", committeeId: 1 }),
+            },
+            {
+              ...createMockMembership({ voterRecordId: "MEMBER003" }),
+              voterRecord: createMockVoterRecord({ VRCNUM: "MEMBER003", committeeId: 1 }),
+            },
           ],
         });
         const mockSession = createMockSession({

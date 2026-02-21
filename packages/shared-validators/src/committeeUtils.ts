@@ -1,11 +1,12 @@
 import type {
   CommitteeList,
+  CommitteeMembership,
   VoterRecord,
 } from '@voter-file-tool/shared-prisma';
 import { LEG_DISTRICT_SENTINEL } from './constants';
 
 export type CommitteeWithMembers = CommitteeList & {
-  committeeMemberList?: VoterRecord[];
+  memberships?: (CommitteeMembership & { voterRecord: VoterRecord })[];
 };
 
 /**
