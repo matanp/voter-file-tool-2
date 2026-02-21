@@ -16,6 +16,7 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
+import { CommitteeSummaryBlock } from "./CommitteeSummaryBlock";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -455,7 +456,11 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   }, [designationWeightSummary]);
 
   const noContentMessage = () => {
-    if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
+    const hasValidSelection =
+      selectedCity &&
+      selectedDistrict >= 0 &&
+      (!useLegDistrict || selectedLegDistrict !== "");
+    if (!hasValidSelection) {
       return "Select a committee to view members.";
     }
 
@@ -463,7 +468,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       return "You don't have permission to view committee member details. Contact an administrator for access.";
     }
 
-    return "No committee members found.";
+    return "No active committee members. Use the form below to add members.";
   };
 
   const getCommitteeListHeader = () => {
@@ -487,44 +492,33 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     return (
       <Card className="p-6 max-w-md">
         <CardContent className="text-center text-muted-foreground">
-          <p className="font-medium text-foreground">No jurisdictions assigned.</p>
+          <p className="font-medium text-foreground">No Committee Access</p>
           <p className="mt-2">
-            Contact an administrator to get committee access.
+            You have not been assigned any jurisdictions. Contact your county
+            administrator to get committee access.
           </p>
         </CardContent>
       </Card>
     );
   }
 
-  // SRS 3.1 — Empty state: Leader with jurisdictions but no committees in those areas
-  if (
+  const showNoCommitteesEmptyState =
     actingPermissions === PrivilegeLevel.Leader &&
     userJurisdictions != null &&
     userJurisdictions.length > 0 &&
-    committeeLists.length === 0
-  ) {
-    const areaList = userJurisdictions
-      .map(
-        (j) =>
-          `${j.cityTown}${j.legDistrict != null ? ` LD ${j.legDistrict}` : " (all districts)"}`,
-      )
-      .join(", ");
-    return (
-      <Card className="p-6 max-w-md">
-        <CardContent className="text-muted-foreground">
-          <p className="font-medium text-foreground">No committees found in your assigned jurisdictions for the current term.</p>
-          <p className="mt-2 text-sm">Your assigned areas: {areaList}</p>
-        </CardContent>
-      </Card>
-    );
-  }
+    committeeLists.length === 0;
 
   return (
     <div>
       <label htmlFor="district-select" className="primary-header">
         Committee Selector
       </label>
-      <Card className="bg-primary-foreground p-2 w-max flex gap-4">
+      <div
+        className={
+          showNoCommitteesEmptyState ? "pointer-events-none opacity-60" : ""
+        }
+      >
+        <Card className="bg-primary-foreground p-2 w-max flex gap-4">
         <div className="flex flex-col">
           <label className="font-extralight text-sm pl-1">City</label>
           <ComboboxDropdown
@@ -582,13 +576,31 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                 displayLabel={"Select Election District"}
                 onSelect={handleDistrictChange}
               />
-            </div>
+              </div>
           )}
       </Card>
+      </div>
       <h1 className="primary-header pt-2">{getCommitteeListHeader()}</h1>
 
       {listLoading ? (
         <p>Loading...</p>
+      ) : showNoCommitteesEmptyState ? (
+        <Card className="p-6 max-w-md mt-4">
+          <CardContent className="text-muted-foreground">
+            <p className="font-medium text-foreground">No Committees Found</p>
+            <p className="mt-2">
+              No committees exist in your assigned jurisdictions for the current
+              term. Your assigned areas:{" "}
+              {userJurisdictions
+                ?.map(
+                  (j) =>
+                    `${j.cityTown}${j.legDistrict != null ? ` LD ${j.legDistrict}` : " (all districts)"}`,
+                )
+                .join(", ") ?? ""}
+              .
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <div>
           {selectedCommitteeId != null &&
@@ -619,23 +631,15 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           {selectedCommitteeId != null &&
             designationWeightSummary &&
             vacancyCount != null && (
-            <div className="pt-2 pb-4 flex gap-6">
-              <div className="flex flex-col">
-                <span className="text-sm text-muted-foreground">Vacancy</span>
-                <span className="font-semibold text-lg">
-                  {vacancyCount}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm text-muted-foreground">
-                  Designation Weight
-                </span>
-                <span className="font-semibold text-lg">
-                  {designationDisplayWeight != null
-                    ? designationDisplayWeight
-                    : "—"}
-                </span>
-              </div>
+            <div className="pt-2 pb-4">
+              <CommitteeSummaryBlock
+                vacancyCount={vacancyCount}
+                totalSeats={seats.length}
+                designationWeight={designationDisplayWeight}
+                missingWeightSeatNumbers={
+                  designationWeightSummary.missingWeightSeatNumbers ?? []
+                }
+              />
             </div>
           )}
           {selectedCommitteeId != null &&

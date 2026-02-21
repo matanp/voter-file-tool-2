@@ -45,7 +45,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 35. ~~[2.7 Weight / Designation Logic](2.7-weight-designation-logic.md)~~ — **Done**
 36. ~~[3.0 Report-server Migration](3.0-report-server-committee-membership-migration.md)~~ — **Done**
 37. ~~[3.0a Report Audit](3.0a-report-audit-committee-membership.md)~~ — **Done**
-38. **Current queue:** 2.8–2.9, 3.1–3.7, T1.4–T1.5, T2.1–T2.4
+38. ~~[3.1a CommitteeSelector Vacancy/Weight + Empty States](3.1a-committee-selector-vacancy-weight-empty-states.md)~~ — **Done**
+39. **Current queue:** 2.8–2.9, 3.1, 3.2–3.7, T1.4–T1.5, T2.1–T2.4
 
 ---
 
@@ -145,7 +146,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [3.0](3.0-report-server-committee-membership-migration.md) | Report-server: Migrate ldCommittees to CommitteeMembership | Done | Tier 3 §3.0 | 1.2 |
 | [3.0a](3.0a-report-audit-committee-membership.md) | Audit and Update All Reports for CommitteeMembership | Done | Tier 3 §3.0a | 3.0 |
 | [3.1](3.1-jurisdiction-assignment-ui.md) | Jurisdiction Assignment UI (Leader Access) | Open | Tier 3 §3.1 | 1.1, IA-01 |
-| [3.1a](3.1a-committee-selector-vacancy-weight-empty-states.md) | CommitteeSelector Vacancy/Weight + Empty States | Open | Tier 3 §3.1a | 2.7, 3.1 |
+| [3.1a](3.1a-committee-selector-vacancy-weight-empty-states.md) | CommitteeSelector Vacancy/Weight + Empty States | Done | Tier 3 §3.1a | 2.7, 3.1 |
 | [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Open | Tier 3 §3.2 | 3.0, 3.0a, 3.1 |
 | [3.3](3.3-designation-weight-summary-report-ui.md) | Designation Weight Summary Report UI | Open | Tier 3 §3.3 | 2.7, 3.2 |
 | [3.4](3.4-vacancy-changes-petition-reports-ui.md) | Vacancy, Changes, and Petition Outcomes Reports UI | Open | Tier 3 §3.4 | 2.6, 3.2 |
