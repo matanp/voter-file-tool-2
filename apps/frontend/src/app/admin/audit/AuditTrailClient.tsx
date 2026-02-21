@@ -96,6 +96,7 @@ function useAuditList() {
   return { data, loading, error, refetch: fetchList };
 }
 
+/** Fetches admin/leader users for the audit trail user filter dropdown. */
 function useAuditUsers() {
   const [users, setUsers] = useState<AuditUsersResponse["users"]>([]);
   useEffect(() => {
@@ -105,7 +106,9 @@ function useAuditUsers() {
       .then((d) => {
         if (!cancelled) setUsers(d.users ?? []);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Failed to fetch audit users:", err);
+      });
     return () => {
       cancelled = true;
     };

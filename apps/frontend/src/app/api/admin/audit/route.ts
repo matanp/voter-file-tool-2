@@ -34,6 +34,7 @@ export function buildAuditWhere(filters: {
   return where;
 }
 
+/** Handles GET /api/admin/audit: returns a paginated, filterable audit log list. */
 async function getAuditListHandler(req: NextRequest, _session: Session) {
   const { searchParams } = new URL(req.url);
   const queryInput = {
