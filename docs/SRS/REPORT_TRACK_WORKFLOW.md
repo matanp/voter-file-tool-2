@@ -10,7 +10,7 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 
 - The Sign-In Sheet form needs a **scope** selector: "My Jurisdictions" (Leader) vs "Countywide" (Admin).
 - For "My Jurisdictions", the **jurisdiction dropdowns** (cityTown, legDistrict) must be limited to the **current user’s assigned jurisdictions**.
-- That requires the **UserJurisdiction** model and **`GET /api/user/jurisdictions`** from 3.1. Without them, you can’t show Leaders only their cities/LDs or enforce scope in the generate-report API.
+- **UserJurisdiction** model and **`GET /api/user/jurisdictions`** exist (3.1 done). Leaders get their cities/LDs and scope is enforced in the generate-report API.
 
 **Report-server 3.2 does not depend on 3.1** — schema, `fetchSignInSheetData()`, PDF component, and `processJob()` case are independent. Only the frontend form and generate-report scope enforcement need 3.1.
 
@@ -24,7 +24,7 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 |-------|---------|------|
 | **1** | 3.0 + 3.0a | Same sprint; 3.0a right after 3.0. |
 | **2a** | 3.2 report-server | As soon as 1 is done (no 3.1). |
-| **2b** | 3.2 frontend | After 3.1 is done (UserJurisdiction + `/api/user/jurisdictions`). |
+| **2b** | 3.2 frontend | 3.1 done. Ready to implement. |
 | **3** | 3.3 then 3.4 | After 3.2 complete; sequential. |
 
 ---
@@ -91,4 +91,4 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 ## Reference
 
 - **Report track tickets:** [3.0](tickets/3.0-report-server-committee-membership-migration.md), [3.0a](tickets/3.0a-report-audit-committee-membership.md), [3.2](tickets/3.2-sign-in-sheet-report-ui.md), [3.3](tickets/3.3-designation-weight-summary-report-ui.md), [3.4](tickets/3.4-vacancy-changes-petition-reports-ui.md).
-- **3.1 (Access track):** [3.1 Jurisdiction Assignment UI](tickets/3.1-jurisdiction-assignment-ui.md) — needed only for 3.2 frontend form and report API scope enforcement.
+- **3.1 (Access track):** [3.1 Jurisdiction Assignment UI](tickets/3.1-jurisdiction-assignment-ui.md) — Done. Provides UserJurisdiction and `/api/user/jurisdictions` for 3.2 frontend form and report API scope enforcement.
