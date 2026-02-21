@@ -12,5 +12,5 @@ export const adminSidebarConfig: AdminNavItem[] = [
   { id: "users", label: "Users", href: "/admin/users", enabled: true },
   { id: "eligibility", label: "Eligibility Flags", href: "/admin/eligibility-flags", enabled: true },
   { id: "petition-outcomes", label: "Petition Outcomes", href: "/admin/petition-outcomes", enabled: true },
-  { id: "audit", label: "Audit Trail", href: "/admin/audit", enabled: false },
+  { id: "audit", label: "Audit Trail", href: "/admin/audit", enabled: true },
 ];
