@@ -29,6 +29,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
+import { useToast } from "~/components/ui/use-toast";
 import { buildSummary, AUDIT_ACTION_LABELS, AUDIT_ENTITY_TYPES } from "./auditUtils";
 import { AuditDetailDrawer } from "./AuditDetailDrawer";
 import type { AuditAction } from "@prisma/client";
@@ -121,6 +122,7 @@ export function AuditTrailClient() {
   const searchParams = useSearchParams();
   const { data, loading, error, refetch } = useAuditList();
   const users = useAuditUsers();
+  const { toast } = useToast();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
 
@@ -199,11 +201,15 @@ export function AuditTrailClient() {
         a.download = filename;
         a.click();
         URL.revokeObjectURL(a.href);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Export failed";
+        console.error("Audit export failed:", err);
+        toast({ title: "Export failed", description: msg, variant: "destructive" });
       } finally {
         setExportLoading(false);
       }
     },
-    [action, entityType, userId, dateFrom, dateTo],
+    [action, entityType, userId, dateFrom, dateTo, toast],
   );
 
   const userItems = useMemo(
