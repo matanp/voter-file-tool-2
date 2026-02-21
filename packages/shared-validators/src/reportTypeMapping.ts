@@ -28,6 +28,10 @@ export const REPORT_TYPE_MAPPINGS = {
     databaseValue: 'VoterImport' as ReportType,
     filename: 'voterImport',
   },
+  signInSheet: {
+    databaseValue: 'SignInSheet' as ReportType,
+    filename: 'signInSheet',
+  },
 } as const;
 
 export type ReportTypeKey = keyof typeof REPORT_TYPE_MAPPINGS;

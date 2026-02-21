@@ -1,0 +1,79 @@
+import {
+  generateReportSchema,
+  enrichedReportDataSchema,
+} from '../../schemas/report';
+
+describe('generateReportSchema - signInSheet', () => {
+  it('parses valid signInSheet payload with countywide scope', () => {
+    const valid = {
+      type: 'signInSheet',
+      name: 'Sign-In Sheet - 2025-03',
+      format: 'pdf',
+      scope: 'countywide',
+    };
+
+    const result = generateReportSchema.parse(valid);
+    expect(result.type).toBe('signInSheet');
+    expect(result.scope).toBe('countywide');
+    expect(result.name).toBe('Sign-In Sheet - 2025-03');
+  });
+
+  it('parses valid signInSheet payload with jurisdiction scope and cityTown', () => {
+    const valid = {
+      type: 'signInSheet',
+      name: 'Rochester LD 01',
+      format: 'pdf',
+      scope: 'jurisdiction',
+      cityTown: 'ROCHESTER',
+      legDistrict: 1,
+      meetingDate: '2025-03-15',
+    };
+
+    const result = generateReportSchema.parse(valid);
+    expect(result.type).toBe('signInSheet');
+    expect(result.scope).toBe('jurisdiction');
+    expect(result.cityTown).toBe('ROCHESTER');
+    expect(result.legDistrict).toBe(1);
+    expect(result.meetingDate).toBe('2025-03-15');
+  });
+
+  it('rejects signInSheet with invalid format', () => {
+    const invalid = {
+      type: 'signInSheet',
+      name: 'Test',
+      format: 'xlsx',
+      scope: 'countywide',
+    };
+
+    expect(() => generateReportSchema.parse(invalid)).toThrow();
+  });
+
+  it('rejects signInSheet with invalid scope', () => {
+    const invalid = {
+      type: 'signInSheet',
+      name: 'Test',
+      format: 'pdf',
+      scope: 'invalid',
+    };
+
+    expect(() => generateReportSchema.parse(invalid)).toThrow();
+  });
+});
+
+describe('enrichedReportDataSchema - signInSheet', () => {
+  it('parses enriched signInSheet payload', () => {
+    const valid = {
+      type: 'signInSheet',
+      name: 'Sign-In Sheet',
+      format: 'pdf',
+      scope: 'countywide',
+      reportAuthor: 'Jane Doe',
+      jobId: 'clxyz123456789012345678901',
+    };
+
+    const result = enrichedReportDataSchema.parse(valid);
+    expect(result.type).toBe('signInSheet');
+    expect(result.reportAuthor).toBe('Jane Doe');
+    expect(result.jobId).toBe('clxyz123456789012345678901');
+  });
+});

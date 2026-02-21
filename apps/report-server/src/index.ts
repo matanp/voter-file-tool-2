@@ -10,6 +10,7 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
+  generateSignInSheetHTML,
 } from './utils';
 import { generateUnifiedXLSXAndUpload } from './xlsxGenerator';
 import { processAbsenteeReport } from './reportProcessors';
@@ -33,6 +34,7 @@ import { runBoeEligibilityFlagging } from '@voter-file-tool/shared-prisma';
 import {
   mapCommitteesToReportShape,
   fetchCommitteeData,
+  fetchSignInSheetData,
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
 import { processVoterImportJob } from './jobOrchestration';
@@ -301,6 +303,28 @@ async function processJob(jobData: EnrichedReportData) {
           `Enqueuing ${String(voterImportResult.followUpJobs.length)} follow-up job(s) after voter import ${jobId}`
         );
       }
+    } else if (type === 'signInSheet') {
+      // TODO: Add integration test for processJob signInSheet handler producing PDF
+      fileName = generateReportFilename(name, type, 'pdf', reportAuthor);
+      const scope = 'scope' in jobData ? jobData.scope : 'countywide';
+      const cityTown = 'cityTown' in jobData ? jobData.cityTown : undefined;
+      const legDistrict =
+        'legDistrict' in jobData ? jobData.legDistrict : undefined;
+      const meetingDate =
+        'meetingDate' in jobData ? jobData.meetingDate : undefined;
+
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      console.log('Fetching sign-in sheet data...');
+      const data = await fetchSignInSheetData(scope, cityTown, legDistrict);
+      console.log(`Fetched ${data.length} committees for sign-in sheet`);
+      const html = generateSignInSheetHTML(data, meetingDate, reportAuthor);
+      await generatePDFAndUpload(html, false, fileName, {
+        format: 'Letter',
+        landscape: false,
+      });
     } else if (type === 'boeEligibilityFlagging') {
       console.log(
         `Processing BOE eligibility flagging job ${jobId} (source report: ${'sourceReportId' in jobData ? (jobData.sourceReportId ?? 'n/a') : 'n/a'})`
