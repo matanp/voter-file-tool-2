@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { runBoeEligibilityFlagging } from "@voter-file-tool/shared-validators";
+import { runBoeEligibilityFlagging } from "@voter-file-tool/shared-prisma";
 
 type MockEligibilityDb = {
   committeeTerm: { findFirst: jest.Mock };
