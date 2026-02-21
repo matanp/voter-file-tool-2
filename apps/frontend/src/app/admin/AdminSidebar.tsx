@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -67,10 +67,18 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 export function AdminSidebar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Eager prefetch all admin routes when sidebar mounts so navigation feels instant.
+  useEffect(() => {
+    for (const item of adminSidebarConfig) {
+      if (item.enabled) router.prefetch(item.href);
+    }
+  }, [router]);
 
   return (
     <>
