@@ -2,7 +2,10 @@
  * SRS 2.4 — API tests for Meeting Record + Bulk Decision workflow.
  */
 
-import { POST as createMeeting, GET as listMeetings } from "~/app/api/admin/meetings/route";
+import {
+  POST as createMeeting,
+  GET as listMeetings,
+} from "~/app/api/admin/meetings/route";
 import { GET as getSubmissions } from "~/app/api/admin/meetings/[meetingId]/submissions/route";
 import { POST as bulkDecisions } from "~/app/api/admin/meetings/[meetingId]/decisions/route";
 import { PrivilegeLevel } from "@prisma/client";
@@ -16,7 +19,11 @@ import {
   getAuditLogMock,
   getMeetingRecordMock,
 } from "../../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  prismaMock,
+} from "../../../utils/mocks";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -251,7 +258,11 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     expect(response.status).toBe(200);
 
     const json = (await response.json()) as {
-      results: Array<{ membershipId: string; decision: string; success: boolean }>;
+      results: Array<{
+        membershipId: string;
+        decision: string;
+        success: boolean;
+      }>;
     };
     expect(json.results).toHaveLength(1);
     expect(json.results[0].success).toBe(true);
@@ -295,7 +306,11 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     expect(response.status).toBe(200);
 
     const json = (await response.json()) as {
-      results: Array<{ membershipId: string; decision: string; success: boolean }>;
+      results: Array<{
+        membershipId: string;
+        decision: string;
+        success: boolean;
+      }>;
     };
     expect(json.results[0].success).toBe(true);
     expect(json.results[0].decision).toBe("reject");
@@ -401,8 +416,8 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
 
   it("handles mixed confirm and reject in single batch", async () => {
     const MEMBERSHIP_ID_2 = "membership-test-id-002";
-    getMembershipMock(prismaMock).findUnique
-      .mockResolvedValueOnce(
+    getMembershipMock(prismaMock)
+      .findUnique.mockResolvedValueOnce(
         createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
       )
       .mockResolvedValueOnce(
@@ -412,7 +427,11 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     const body = {
       decisions: [
         { membershipId: MEMBERSHIP_ID, decision: "confirm" },
-        { membershipId: MEMBERSHIP_ID_2, decision: "reject", rejectionNote: "Not eligible" },
+        {
+          membershipId: MEMBERSHIP_ID_2,
+          decision: "reject",
+          rejectionNote: "Not eligible",
+        },
       ],
     };
     const response = await bulkDecisions(
@@ -422,7 +441,11 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     expect(response.status).toBe(200);
 
     const json = (await response.json()) as {
-      results: Array<{ membershipId: string; decision: string; success: boolean }>;
+      results: Array<{
+        membershipId: string;
+        decision: string;
+        success: boolean;
+      }>;
     };
     expect(json.results).toHaveLength(2);
     expect(json.results.every((r) => r.success)).toBe(true);
