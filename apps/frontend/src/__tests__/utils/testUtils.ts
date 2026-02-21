@@ -237,6 +237,19 @@ type MockAuditLogModel = {
 export const getAuditLogMock = (mock: unknown): MockAuditLogModel =>
   (mock as { auditLog: MockAuditLogModel }).auditLog;
 
+/** Typed mock model accessor for eligibilityFlag. */
+type MockEligibilityFlagModel = {
+  findUnique: jest.Mock;
+  findMany: jest.Mock;
+  createMany: jest.Mock;
+  update: jest.Mock;
+};
+
+export const getEligibilityFlagMock = (
+  mock: unknown,
+): MockEligibilityFlagModel =>
+  (mock as { eligibilityFlag: MockEligibilityFlagModel }).eligibilityFlag;
+
 /** Wraps expect.objectContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
 export function objectContainingMatcher<T extends object>(obj: T): unknown {
   return expect.objectContaining(obj) as unknown;

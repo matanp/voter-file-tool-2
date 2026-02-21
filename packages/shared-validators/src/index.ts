@@ -24,5 +24,15 @@ export * from './constants';
 // Export report type mappings
 export * from './reportTypeMapping';
 
+// Export shared BOE eligibility flagging helpers
+export {
+  getMostRecentImportVersion,
+  isVoterPossiblyInactive,
+  runBoeEligibilityFlagging,
+  type MostRecentImportVersion,
+  type BoeEligibilityFlaggingRunInput,
+  type BoeEligibilityFlaggingRunResult,
+} from '@voter-file-tool/shared-prisma';
+
 // Re-export commonly used Zod utilities
 export { z } from 'zod';
