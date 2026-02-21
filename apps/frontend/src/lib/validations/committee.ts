@@ -531,3 +531,36 @@ export const designationWeightQuerySchema = z
 export type DesignationWeightQuery = z.infer<
   typeof designationWeightQuerySchema
 >;
+
+// SRS 3.1 — Assign jurisdiction (POST body)
+export const assignJurisdictionSchema = z
+  .object({
+    userId: z.string().trim().min(1, "userId is required"),
+    cityTown: z.string().trim().min(1, "cityTown is required"),
+    legDistrict: z.coerce
+      .number()
+      .int()
+      .optional()
+      .refine((val) => val === undefined || val > 0, {
+        message: "Legislative District must be a positive integer when provided",
+      }),
+    termId: z.string().trim().min(1, "termId is required"),
+  })
+  .strict();
+
+export type AssignJurisdictionData = z.infer<typeof assignJurisdictionSchema>;
+
+// SRS 3.1 — List jurisdictions query (GET ?userId=&termId=). Requires at least one filter.
+export const listJurisdictionsQuerySchema = z
+  .object({
+    userId: z.string().trim().min(1).optional(),
+    termId: z.string().trim().min(1).optional(),
+  })
+  .strict()
+  .refine((q) => q.userId != null || q.termId != null, {
+    message: "At least one of userId or termId is required",
+  });
+
+export type ListJurisdictionsQuery = z.infer<
+  typeof listJurisdictionsQuerySchema
+>;

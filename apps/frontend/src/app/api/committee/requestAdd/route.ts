@@ -5,7 +5,11 @@ import { committeeRequestDataSchema } from "~/lib/validations/committee";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import {
+  getActiveTermId,
+  getUserJurisdictions,
+  committeeMatchesJurisdictions,
+} from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { logAuditEvent } from "~/lib/auditLog";
 import { validateEligibility } from "~/lib/eligibility";
@@ -110,6 +114,30 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         },
         { status: 404 },
       );
+    }
+
+    // SRS 3.1 — Leader may only submit to committees in their jurisdictions
+    if (userPrivilegeLevel === PrivilegeLevel.Leader) {
+      const jurisdictions = await getUserJurisdictions(
+        userId,
+        activeTermId,
+        PrivilegeLevel.Leader,
+      );
+      if (
+        !committeeMatchesJurisdictions(
+          committeeRequested.cityTown,
+          committeeRequested.legDistrict,
+          jurisdictions ?? [],
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "You do not have jurisdiction access for this committee",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const eligibility = await validateEligibility(

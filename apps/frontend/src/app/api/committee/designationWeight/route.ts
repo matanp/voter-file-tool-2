@@ -13,6 +13,10 @@ import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { designationWeightQuerySchema } from "~/lib/validations/committee";
 import { calculateDesignationWeight } from "~/lib/designationWeight";
+import {
+  getUserJurisdictions,
+  committeeMatchesJurisdictions,
+} from "~/app/api/lib/committeeValidation";
 
 async function getDesignationWeight(req: NextRequest, session: SessionWithUser) {
   const queryParams = {
@@ -32,8 +36,7 @@ async function getDesignationWeight(req: NextRequest, session: SessionWithUser) 
       session.user.privilegeLevel === PrivilegeLevel.Admin ||
       session.user.privilegeLevel === PrivilegeLevel.Developer;
 
-    // SRS 2.7 — Leader access is limited to jurisdictions where they have
-    // submitted committee activity in the target term.
+    // SRS 3.1 — Leader access is limited to assigned UserJurisdiction scope.
     if (!isAdmin) {
       const committee = await prisma.committeeList.findUnique({
         where: { id: committeeListId },
@@ -41,7 +44,6 @@ async function getDesignationWeight(req: NextRequest, session: SessionWithUser) 
           id: true,
           cityTown: true,
           legDistrict: true,
-          electionDistrict: true,
           termId: true,
         },
       });
@@ -53,20 +55,22 @@ async function getDesignationWeight(req: NextRequest, session: SessionWithUser) 
         );
       }
 
-      const permitted = await prisma.committeeMembership.findFirst({
-        where: {
-          submittedById: session.user.id,
-          termId: committee.termId,
-          committeeList: {
-            cityTown: committee.cityTown,
-            legDistrict: committee.legDistrict,
-            electionDistrict: committee.electionDistrict,
-          },
-        },
-        select: { id: true },
-      });
-
-      if (!permitted) {
+      const effectiveTermId = termId ?? committee.termId;
+      const privilegeLevel =
+        session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+      const jurisdictions = await getUserJurisdictions(
+        session.user.id,
+        effectiveTermId,
+        privilegeLevel,
+      );
+      if (
+        jurisdictions !== null &&
+        !committeeMatchesJurisdictions(
+          committee.cityTown,
+          committee.legDistrict,
+          jurisdictions,
+        )
+      ) {
         return NextResponse.json(
           {
             success: false,

@@ -1,18 +1,24 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import * as Sentry from "@sentry/nextjs";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { fetchCommitteeListQuerySchema } from "~/lib/validations/committee";
+import {
+  fetchCommitteeListQuerySchema,
+  type FetchCommitteeListQuery,
+} from "~/lib/validations/committee";
+import type { z } from "zod";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
   getActiveTermId,
   getGovernanceConfig,
+  getUserJurisdictions,
+  committeeMatchesJurisdictions,
 } from "~/app/api/lib/committeeValidation";
 import { computeDesignationWeightFromData } from "~/lib/designationWeight";
 
-async function getCommitteeList(req: NextRequest) {
+async function getCommitteeList(req: NextRequest, session: SessionWithUser) {
   // Extract query parameters
   const legDistrictValues = req.nextUrl.searchParams.getAll("legDistrict");
   const legDistrictParam =
@@ -30,7 +36,7 @@ async function getCommitteeList(req: NextRequest) {
 
         const validation = validateRequest(
           testParams,
-          fetchCommitteeListQuerySchema,
+          fetchCommitteeListQuerySchema as z.ZodType<FetchCommitteeListQuery>,
         );
 
         if (!validation.success) {
@@ -49,7 +55,10 @@ async function getCommitteeList(req: NextRequest) {
       undefined,
   };
 
-  const validation = validateRequest(queryParams, fetchCommitteeListQuerySchema);
+  const validation = validateRequest(
+    queryParams,
+    fetchCommitteeListQuerySchema as z.ZodType<FetchCommitteeListQuery>,
+  );
 
   if (!validation.success) {
     return validation.response;
@@ -92,6 +101,28 @@ async function getCommitteeList(req: NextRequest) {
         { error: "Committee not found" },
         { status: 404 },
       );
+    }
+
+    // SRS 3.1 — Leader may only fetch committees in their jurisdictions
+    const privilegeLevel = session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+    const jurisdictions = await getUserJurisdictions(
+      session.user.id,
+      activeTermId,
+      privilegeLevel,
+    );
+    if (jurisdictions !== null) {
+      if (
+        !committeeMatchesJurisdictions(
+          committee.cityTown,
+          committee.legDistrict,
+          jurisdictions,
+        )
+      ) {
+        return NextResponse.json(
+          { error: "You do not have access to this committee" },
+          { status: 403 },
+        );
+      }
     }
 
     const config = await getGovernanceConfig();
@@ -143,4 +174,4 @@ async function getCommitteeList(req: NextRequest) {
   }
 }
 
-export const GET = withPrivilege(PrivilegeLevel.Admin, getCommitteeList);
+export const GET = withPrivilege(PrivilegeLevel.Leader, getCommitteeList);
