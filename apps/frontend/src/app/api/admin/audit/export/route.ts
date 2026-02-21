@@ -72,8 +72,14 @@ async function getAuditExportHandler(req: NextRequest, _session: Session) {
             afterValue: r.afterValue as Record<string, unknown> | null,
             metadata: r.metadata as Record<string, unknown> | null,
           });
-          const escape = (v: string) =>
-            /[,"\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+          const escape = (v: string) => {
+            const quoted = /[,"\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+            // CSV formula injection mitigation: user names, emails, and summaries can contain
+            // =, +, -, @ which Excel/Sheets interpret as formulas. We prefix with tab so they
+            // display as text. Trade-off: exported values may contain a leading tab; we accept
+            // this to prevent formula execution when admins open the CSV in a spreadsheet.
+            return /^[=+\-@]/.test(v) ? `\t${quoted}` : quoted;
+          };
           return [
             r.timestamp.toISOString(),
             escape(r.user.name ?? ""),
