@@ -1,4 +1,4 @@
-import type { AuditAction } from "@prisma/client";
+import { AuditAction } from "@prisma/client";
 
 /** Human-readable labels for AuditAction enum. */
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
@@ -87,18 +87,18 @@ export function buildSummary(entry: AuditEntryForSummary): string {
   const location = locationParts.length > 0 ? locationParts.join(" ") : null;
 
   switch (action) {
-    case "MEMBER_ACTIVATED":
+    case AuditAction.MEMBER_ACTIVATED:
       if (entityType === "CommitteeMembership" && (name || location)) {
         return `${name ?? "Member"} activated${location ? ` in ${location}` : ""}${seatNumber != null && !Number.isNaN(seatNumber) ? ` Seat ${seatNumber}` : ""}`.trim();
       }
       return `Member activated (${entityType})`;
-    case "MEMBER_REMOVED":
+    case AuditAction.MEMBER_REMOVED:
       if (entityType === "CommitteeMembership") {
         const who = name ?? "Member";
         return removalReason ? `${who} removed (${removalReason})` : `${who} removed`;
       }
       return `Removed (${entityType})`;
-    case "MEMBER_RESIGNED":
+    case AuditAction.MEMBER_RESIGNED:
       if (entityType === "CommitteeMembership" && (name || location)) {
         return `${name ?? "Member"} resigned${location ? ` from ${location}` : ""}`.trim();
       }
@@ -107,11 +107,11 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       return entityType === "CommitteeMembership"
         ? `${name ?? "Member"} submitted for committee`
         : `Submitted (${entityType})`;
-    case "MEMBER_REJECTED":
+    case AuditAction.MEMBER_REJECTED:
       return entityType === "CommitteeMembership"
         ? `${name ?? "Request"} rejected`
         : `Rejected (${entityType})`;
-    case "MEMBER_CONFIRMED":
+    case AuditAction.MEMBER_CONFIRMED:
       return entityType === "CommitteeMembership"
         ? `${name ?? "Member"} confirmed`
         : `Confirmed (${entityType})`;
@@ -121,7 +121,7 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       }
       if (location) return `Petition outcome recorded for ${location}`;
       return "Petition outcome recorded";
-    case "MEETING_CREATED":
+    case AuditAction.MEETING_CREATED:
       return typeof after.title === "string"
         ? `Meeting created: ${after.title}`
         : "Meeting created";
@@ -129,13 +129,13 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       return typeof after.title === "string"
         ? `Report generated: ${after.title}`
         : "Report generated";
-    case "TERM_CREATED":
+    case AuditAction.TERM_CREATED:
       return typeof after.label === "string"
         ? `Term created: ${after.label}`
         : "Term created";
     case "JURISDICTION_ASSIGNED":
       return location ? `Jurisdiction assigned: ${location}` : "Jurisdiction assigned";
-    case "DISCREPANCY_RESOLVED":
+    case AuditAction.DISCREPANCY_RESOLVED:
       return entityType === "CommitteeMembership"
         ? `Discrepancy resolved (${entityId})`
         : "Discrepancy resolved";

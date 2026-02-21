@@ -79,9 +79,10 @@ jest.mock("next/server", () => ({
       init?: { status?: number; headers?: Record<string, string> },
     ) {
       const status = init?.status ?? 200;
-      const headers = new Headers(
-        init?.headers ?? { "content-type": "application/json" },
-      );
+      const headers = new Headers({
+        "content-type": "application/json",
+        ...(init?.headers ?? {}),
+      });
       return {
         status,
         ok: status >= 200 && status < 300,
