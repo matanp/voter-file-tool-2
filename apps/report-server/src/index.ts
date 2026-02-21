@@ -29,11 +29,13 @@ import {
   normalizeSearchQuery,
   generateReportFilename,
 } from '@voter-file-tool/shared-validators';
+import { runBoeEligibilityFlagging } from '@voter-file-tool/shared-prisma';
 import {
   mapCommitteesToReportShape,
   fetchCommitteeData,
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
+import { processVoterImportJob } from './jobOrchestration';
 
 expand(config());
 
@@ -177,7 +179,7 @@ function extractXLSXConfig(jobData: EnrichedReportData) {
 
 async function processJob(jobData: EnrichedReportData) {
   try {
-    let fileName: string;
+    let fileName = '';
     let metadata:
       | {
           recordsProcessed: number;
@@ -187,10 +189,10 @@ async function processJob(jobData: EnrichedReportData) {
         }
       | undefined;
     const { type, reportAuthor, jobId, name, format } = jobData;
-
-    fileName = generateReportFilename(name, type, format, reportAuthor);
+    const shouldSendCallback = type !== 'boeEligibilityFlagging';
 
     if (type === 'ldCommittees') {
+      fileName = generateReportFilename(name, type, format, reportAuthor);
       console.log('Fetching committee data from database...');
       const committeeData = await fetchCommitteeData();
       const payload = mapCommitteesToReportShape(committeeData);
@@ -211,6 +213,7 @@ async function processJob(jobData: EnrichedReportData) {
         await generatePDFAndUpload(html, true, fileName);
       }
     } else if (type === 'voterList') {
+      fileName = generateReportFilename(name, type, format, reportAuthor);
       console.log('Processing voter list report as XLSX...');
       const xlsxConfig = extractXLSXConfig(jobData);
 
@@ -234,6 +237,7 @@ async function processJob(jobData: EnrichedReportData) {
         'voterList'
       );
     } else if (type === 'designatedPetition') {
+      fileName = generateReportFilename(name, type, format, reportAuthor);
       console.log('Processing designated petition form...');
       const payload =
         'payload' in jobData
@@ -257,6 +261,7 @@ async function processJob(jobData: EnrichedReportData) {
       );
       await generatePDFAndUpload(html, false, fileName);
     } else if (type === 'absenteeReport') {
+      fileName = generateReportFilename(name, type, format, reportAuthor);
       if (!('csvFileKey' in jobData) || !jobData.csvFileKey) {
         throw new Error('csvFileKey is required for absentee reports');
       }
@@ -279,60 +284,74 @@ async function processJob(jobData: EnrichedReportData) {
         throw new Error('recordEntryNumber is required for voter import');
       }
 
-      // Process voter import and capture statistics
-      const importStats = await processVoterImport(
-        jobData.fileKey,
-        jobData.year,
-        jobData.recordEntryNumber,
-        jobId
-      );
+      const voterImportResult = await processVoterImportJob(jobData, {
+        processVoterImport,
+        enqueueJob: (job) => {
+          q.push(job);
+        },
+      });
 
       // For voter import, we don't generate a file to download, so fileName is empty
       fileName = '';
 
       // Store statistics in metadata for webhook
-      metadata = {
-        recordsProcessed: importStats.recordsProcessed,
-        recordsCreated: importStats.recordsCreated,
-        recordsUpdated: importStats.recordsUpdated,
-        dropdownsUpdated: importStats.dropdownsUpdated,
-      };
+      metadata = voterImportResult.metadata;
+      if (voterImportResult.followUpJobs.length > 0) {
+        console.log(
+          `Enqueuing ${String(voterImportResult.followUpJobs.length)} follow-up job(s) after voter import ${jobId}`
+        );
+      }
+    } else if (type === 'boeEligibilityFlagging') {
+      console.log(
+        `Processing BOE eligibility flagging job ${jobId} (source report: ${'sourceReportId' in jobData ? (jobData.sourceReportId ?? 'n/a') : 'n/a'})`
+      );
+      await runBoeEligibilityFlagging(prisma, {
+        termId: 'termId' in jobData ? jobData.termId : undefined,
+        sourceReportId:
+          'sourceReportId' in jobData ? jobData.sourceReportId : undefined,
+      });
     } else {
       throw new Error('Unknown job type');
     }
 
-    // Create callback payload
-    const callbackPayloadData: ReportCompleteWebhookPayload = {
-      success: true,
-      type: type,
-      url: fileName || undefined, // Empty string becomes undefined for voter imports
-      jobId,
-      ...(metadata ? { metadata } : {}),
-    };
-    const callbackPayload = JSON.stringify(callbackPayloadData);
+    if (shouldSendCallback) {
+      // Create callback payload
+      const callbackPayloadData: ReportCompleteWebhookPayload = {
+        success: true,
+        type: type,
+        url: fileName || undefined, // Empty string becomes undefined for voter imports
+        jobId,
+        ...(metadata ? { metadata } : {}),
+      };
+      const callbackPayload = JSON.stringify(callbackPayloadData);
 
-    // Create new webhook signature for the callback payload
-    const webhookSecret = process.env.WEBHOOK_SECRET;
-    const callbackSignature = webhookSecret
-      ? createWebhookSignature(callbackPayload, webhookSecret)
-      : undefined;
+      // Create new webhook signature for the callback payload
+      const webhookSecret = process.env.WEBHOOK_SECRET;
+      const callbackSignature = webhookSecret
+        ? createWebhookSignature(callbackPayload, webhookSecret)
+        : undefined;
 
-    const callbackHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (callbackSignature) {
-      callbackHeaders['x-webhook-signature'] = callbackSignature;
+      const callbackHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (callbackSignature) {
+        callbackHeaders['x-webhook-signature'] = callbackSignature;
+      }
+      console.log('calling callback url for report comple');
+
+      await fetch(CALLBACK_URL, {
+        method: 'POST',
+        headers: callbackHeaders,
+        body: callbackPayload,
+      });
+      console.log('done');
     }
-    console.log('calling callback url for report comple');
-
-    await fetch(CALLBACK_URL, {
-      method: 'POST',
-      headers: callbackHeaders,
-      body: callbackPayload,
-    });
-    console.log('done');
   } catch (error) {
     console.error('Error processing job:', error);
+    const shouldSendCallback = jobData.type !== 'boeEligibilityFlagging';
+    if (!shouldSendCallback) {
+      return;
+    }
 
     // Create error callback payload
     const errorCallbackPayloadData: ReportCompleteWebhookPayload = {

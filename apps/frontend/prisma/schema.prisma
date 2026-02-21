@@ -95,6 +95,7 @@ model User {
 
   // SRS 1.5 — Audit trail
   auditLogs            AuditLog[]             @relation("AuditLogs")
+  reviewedEligibilityFlags EligibilityFlag[]  @relation("EligibilityFlagsReviewed")
 }
 
 model Account {
@@ -393,12 +394,35 @@ model CommitteeMembership {
   petitionPrimaryDate DateTime?
   // SRS 2.6 — ties candidate/outcome to a specific seat for petition workflow
   petitionSeatNumber  Int?
+  eligibilityFlags    EligibilityFlag[]
 
   @@unique([voterRecordId, committeeListId, termId])
   @@index([committeeListId, termId, status])
   @@index([termId, status])
   @@index([voterRecordId])
   @@index([committeeListId, termId, petitionSeatNumber])
+}
+
+model EligibilityFlag {
+  id              String                @id @default(cuid())
+  membershipId    String
+  membership      CommitteeMembership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  committeeListId Int
+  voterRecordId   String
+  termId          String
+  reason          EligibilityFlagReason
+  status          EligibilityFlagStatus @default(PENDING)
+  details         Json?
+  sourceReportId  String?
+  reviewedById    String?
+  reviewedBy      User?                 @relation("EligibilityFlagsReviewed", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status, createdAt])
+  @@index([committeeListId, termId])
+  @@index([membershipId, reason, status])
 }
 
 // ============================================================================
@@ -502,6 +526,19 @@ enum IneligibilityReason {
   ASSEMBLY_DISTRICT_MISMATCH
   CAPACITY
   ALREADY_IN_ANOTHER_COMMITTEE
+}
+
+enum EligibilityFlagReason {
+  PARTY_MISMATCH
+  ASSEMBLY_DISTRICT_MISMATCH
+  VOTER_NOT_FOUND
+  POSSIBLY_INACTIVE
+}
+
+enum EligibilityFlagStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
 }
 
 model CommitteeGovernanceConfig {

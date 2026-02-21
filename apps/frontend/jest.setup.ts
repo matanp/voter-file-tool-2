@@ -258,6 +258,21 @@ beforeEach(() => {
   ).auditLog = {
     create: jest.fn(),
   };
+  (
+    prismaMock as unknown as {
+      eligibilityFlag: {
+        findUnique: jest.Mock;
+        findMany: jest.Mock;
+        createMany: jest.Mock;
+        update: jest.Mock;
+      };
+    }
+  ).eligibilityFlag = {
+    findUnique: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+    createMany: jest.fn().mockResolvedValue({ count: 0 }),
+    update: jest.fn(),
+  };
   // SRS 2.4 — MeetingRecord mock
   (
     prismaMock as unknown as {
