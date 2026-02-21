@@ -3,9 +3,11 @@
  */
 
 import prisma from "~/lib/prisma";
+import { PrivilegeLevel } from "@prisma/client";
 import type {
   CommitteeGovernanceConfig,
   CommitteeTerm,
+  UserJurisdiction,
 } from "@prisma/client";
 
 // SRS 1.2 — MembershipStatus.ACTIVE constant for CommitteeMembership queries
@@ -87,4 +89,43 @@ export async function countActiveMembers(
   return prisma.committeeMembership.count({
     where: { committeeListId, termId, status: ACTIVE_STATUS },
   });
+}
+
+/**
+ * SRS 3.1 — Returns jurisdictions for a user in a term, or null if no scope restriction.
+ * Admin/Developer: null (no restriction). Leader: UserJurisdiction[] for that user+term.
+ */
+export async function getUserJurisdictions(
+  userId: string,
+  termId: string,
+  privilegeLevel: PrivilegeLevel,
+): Promise<UserJurisdiction[] | null> {
+  if (
+    privilegeLevel === PrivilegeLevel.Admin ||
+    privilegeLevel === PrivilegeLevel.Developer
+  ) {
+    return null;
+  }
+  return prisma.userJurisdiction.findMany({
+    where: { userId, termId },
+  });
+}
+
+/** Minimal shape used for jurisdiction scope matching (cityTown + legDistrict). */
+export type JurisdictionScope = Pick<UserJurisdiction, "cityTown" | "legDistrict">;
+
+/**
+ * SRS 3.1 — Returns true if (cityTown, legDistrict) is allowed by the given jurisdictions.
+ * legDistrict in list: null means "all districts" for that cityTown.
+ */
+export function committeeMatchesJurisdictions(
+  cityTown: string,
+  legDistrict: number,
+  jurisdictions: JurisdictionScope[],
+): boolean {
+  return jurisdictions.some(
+    (j) =>
+      j.cityTown === cityTown &&
+      (j.legDistrict === null || j.legDistrict === legDistrict),
+  );
 }

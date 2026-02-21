@@ -20,6 +20,7 @@ import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { useApiQuery } from "~/hooks/useApiQuery";
 import { useToast } from "~/components/ui/use-toast";
 import {
   Dialog,
@@ -98,6 +99,14 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [removeNotes, setRemoveNotes] = useState<string>("");
 
   const [listLoading, setListLoading] = useState<boolean>(false);
+
+  // SRS 3.1 — Leader jurisdictions for empty-state detection (useApiQuery per code review Rec 4)
+  const userJurisdictionsQuery = useApiQuery<
+    Array<{ cityTown: string; legDistrict: number | null }>
+  >("/api/user/jurisdictions", {
+    enabled: actingPermissions === PrivilegeLevel.Leader,
+  });
+  const userJurisdictions = userJurisdictionsQuery.data;
 
   type RemoveOrResignPayload = {
     cityTown: string;
@@ -468,6 +477,47 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
     return `Committee List: ${selectedCity} - LD - ${selectedLegDistrict}, ED - ${selectedDistrict}`;
   };
+
+  // SRS 3.1 — Empty state: Leader with no jurisdictions assigned
+  if (
+    actingPermissions === PrivilegeLevel.Leader &&
+    userJurisdictions != null &&
+    userJurisdictions.length === 0
+  ) {
+    return (
+      <Card className="p-6 max-w-md">
+        <CardContent className="text-center text-muted-foreground">
+          <p className="font-medium text-foreground">No jurisdictions assigned.</p>
+          <p className="mt-2">
+            Contact an administrator to get committee access.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // SRS 3.1 — Empty state: Leader with jurisdictions but no committees in those areas
+  if (
+    actingPermissions === PrivilegeLevel.Leader &&
+    userJurisdictions != null &&
+    userJurisdictions.length > 0 &&
+    committeeLists.length === 0
+  ) {
+    const areaList = userJurisdictions
+      .map(
+        (j) =>
+          `${j.cityTown}${j.legDistrict != null ? ` LD ${j.legDistrict}` : " (all districts)"}`,
+      )
+      .join(", ");
+    return (
+      <Card className="p-6 max-w-md">
+        <CardContent className="text-muted-foreground">
+          <p className="font-medium text-foreground">No committees found in your assigned jurisdictions for the current term.</p>
+          <p className="mt-2 text-sm">Your assigned areas: {areaList}</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div>

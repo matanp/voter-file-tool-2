@@ -12,7 +12,7 @@ import {
   createCommitteeFindUniqueWhereArgs,
   createMockMembership,
   expectMembershipUpdate,
-  expectAnyDate,
+  expectAnyDateForUpdate,
   jsonContaining,
   getMembershipMock,
   getAuditLogMock,
@@ -442,7 +442,7 @@ describe("/api/committee/remove", () => {
         expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
           expectMembershipUpdate({
             status: "RESIGNED",
-            resignationDateReceived: expectAnyDate(),
+            resignationDateReceived: expectAnyDateForUpdate(),
             resignationMethod: "EMAIL",
           }),
         );

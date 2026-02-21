@@ -36,6 +36,11 @@ function getCommitteeListMock(): CommitteeListMock {
     .committeeList;
 }
 
+function getUserJurisdictionMock(): { findMany: jest.Mock } {
+  return (prismaMock as unknown as { userJurisdiction: { findMany: jest.Mock } })
+    .userJurisdiction;
+}
+
 function mockSeat(overrides: {
   seatNumber: number;
   isPetitioned?: boolean;
@@ -84,7 +89,9 @@ describe("GET /api/committee/designationWeight", () => {
         electionDistrict: 1,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getMembershipMock().findFirst.mockResolvedValue({ id: "scope-1" });
+      getUserJurisdictionMock().findMany.mockResolvedValue([
+        { cityTown: "Test City", legDistrict: 1 },
+      ]);
     };
 
     const authSuite = createAuthTestSuite(
@@ -191,7 +198,9 @@ describe("GET /api/committee/designationWeight", () => {
         electionDistrict: 1,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getMembershipMock().findFirst.mockResolvedValue({ id: "scope-1" });
+      getUserJurisdictionMock().findMany.mockResolvedValue([
+        { cityTown: "Test City", legDistrict: 1 },
+      ]);
       getSeatMock().findMany.mockResolvedValue([
         mockSeat({ seatNumber: 1, isPetitioned: true, weight: 0.25 }),
       ]);
@@ -245,10 +254,11 @@ describe("GET /api/committee/designationWeight", () => {
         id: 1,
         cityTown: "Other City",
         legDistrict: 3,
-        electionDistrict: 9,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getMembershipMock().findFirst.mockResolvedValue(null);
+      getUserJurisdictionMock().findMany.mockResolvedValue([
+        { cityTown: "Different City", legDistrict: 1 },
+      ]);
 
       const response = await GET(
         createMockRequest({}, { committeeListId: "1" }, { method: "GET" }),
