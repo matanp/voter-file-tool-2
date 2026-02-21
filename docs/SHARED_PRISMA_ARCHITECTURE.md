@@ -328,6 +328,14 @@ export async function generateReport(filters: Prisma.VoterRecordWhereInput) {
 6. **Error Handling**: Use Prisma error types from shared-prisma package
 7. **Testing**: Test type compatibility between applications
 
+## ⛔ Anti-Pattern: Re-exporting Prisma Runtime from Client-Safe Packages
+
+**What not to do:** Re-export PrismaClient, Prisma runtime utilities, or server-only functions (e.g. `runBoeEligibilityFlagging`) from packages that are imported by `"use client"` components or other client bundles (e.g. `shared-validators`).
+
+**Why:** Webpack/Turbopack traces imports; any client-component import of such a package will pull Prisma into the client bundle. Prisma relies on Node.js built-ins (`async_hooks`, etc.) that do not exist in the browser, causing build failures (e.g. on Vercel).
+
+**What to do:** Keep server-only code in `shared-prisma`. Packages like `shared-validators` may use `import type` from shared-prisma (erased at compile time). Server code should import BOE helpers and Prisma types from `@voter-file-tool/shared-prisma` directly.
+
 ## 🔍 Troubleshooting
 
 ### **Common Issues**
