@@ -24,7 +24,7 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 |-------|---------|------|
 | **1** | 3.0 + 3.0a | Same sprint; 3.0a right after 3.0. |
 | **2a** | 3.2 report-server | As soon as 1 is done (no 3.1). |
-| **2b** | 3.2 frontend | 3.1 done. Ready to implement. |
+| **2b** | 3.2 frontend | Done. |
 | **3** | 3.3 then 3.4 | After 3.2 complete; sequential. |
 
 ---
@@ -54,13 +54,13 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 
 ---
 
-## Phase 2b: 3.2 frontend (after 3.1)
+## Phase 2b: 3.2 frontend (after 3.1) — Done
 
-- [ ] Enable Sign-In Sheet card in `GenerateReportGrid.tsx`; add `signInSheet` to `formatReportType()` in `reportUtils.ts`.
-- [ ] Create `/sign-in-sheet-reports` page + `SignInSheetForm.tsx` (name, scope “My Jurisdictions”/“Countywide”, jurisdiction dropdowns from `/api/user/jurisdictions`, meeting date).
-- [ ] Validation: scope=jurisdiction ⇒ cityTown required; Leader cannot select Countywide.
-- [ ] Update `/api/generateReport` for `type: 'signInSheet'`; enforce Leader scope (UserJurisdiction) for requested cityTown/legDistrict.
-- [ ] Frontend tests: form validation, Leader scope restriction.
+- [x] Enable Sign-In Sheet card in `GenerateReportGrid.tsx` (`formatReportType()` already handles `SignInSheet` via generic PascalCase split).
+- [x] Create `/sign-in-sheet-reports` page + `SignInSheetForm.tsx` (name, scope “By Jurisdiction”/”Countywide”, jurisdiction dropdowns from pre-filtered committeeLists, meeting date).
+- [x] Validation: scope=jurisdiction ⇒ cityTown required; Leader cannot select Countywide.
+- [x] Update `/api/generateReport` for `type: 'signInSheet'`; enforce Leader scope (UserJurisdiction) for requested cityTown/legDistrict.
+- [x] Frontend tests: form validation, Leader scope restriction.
 
 ---
 

@@ -49,7 +49,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 39. ~~[3.5 Audit Trail UI and Export](3.5-audit-trail-ui-export.md)~~ — **Done**
 40. ~~[3.7 LTED Crosswalk Import UI](3.7-lted-crosswalk-import-ui.md)~~ — **Done**
 41. ~~[3.1 Jurisdiction Assignment UI](3.1-jurisdiction-assignment-ui.md)~~ — **Done**
-42. **Current queue:** 2.9, 3.2–3.6, T1.4–T1.5, T2.1–T2.4
+42. ~~[3.2 Sign-In Sheet Report UI](3.2-sign-in-sheet-report-ui.md)~~ — **Done**
+43. **Current queue:** 2.9, 3.3–3.6, T1.4–T1.5, T2.1–T2.4
 
 ---
 
@@ -150,7 +151,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [3.0a](3.0a-report-audit-committee-membership.md) | Audit and Update All Reports for CommitteeMembership | Done | Tier 3 §3.0a | 3.0 |
 | [3.1](3.1-jurisdiction-assignment-ui.md) | Jurisdiction Assignment UI (Leader Access) | Done | Tier 3 §3.1 | 1.1, IA-01 |
 | [3.1a](3.1a-committee-selector-vacancy-weight-empty-states.md) | CommitteeSelector Vacancy/Weight + Empty States | Done | Tier 3 §3.1a | 2.7, 3.1 |
-| [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Open | Tier 3 §3.2 | 3.0, 3.0a, 3.1 |
+| [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Done | Tier 3 §3.2 | 3.0, 3.0a, 3.1 |
 | [3.3](3.3-designation-weight-summary-report-ui.md) | Designation Weight Summary Report UI | Open | Tier 3 §3.3 | 2.7, 3.2 |
 | [3.4](3.4-vacancy-changes-petition-reports-ui.md) | Vacancy, Changes, and Petition Outcomes Reports UI | Open | Tier 3 §3.4 | 2.6, 3.2 |
 | [3.5](3.5-audit-trail-ui-export.md) | Audit Trail UI and Export | Done | Tier 3 §3.5 | 1.5 |
