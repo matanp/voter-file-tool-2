@@ -44,31 +44,59 @@ jest.mock("next/server", () => ({
       };
     },
   ),
-  NextResponse: {
-    json: jest.fn(
-      (
-        data: unknown,
-        init?: { status?: number; headers?: Record<string, string> },
-      ) => {
-        const status = init?.status ?? 200;
-        const headers = new Headers(
-          init?.headers ?? { "content-type": "application/json" },
-        );
-        return {
-          status,
-          ok: status >= 200 && status < 300,
-          headers,
-          json: async () => data,
-          text: async () => JSON.stringify(data),
-        };
-      },
-    ),
-    redirect: jest.fn(
-      (url: string, init?: { status?: number }) => ({
+  NextResponse: class NextResponse {
+    status: number;
+    ok: boolean;
+    headers: Headers;
+    body: BodyInit | null;
+
+    constructor(
+      body?: BodyInit | null,
+      init?: { status?: number; headers?: Record<string, string> },
+    ) {
+      this.body = body ?? null;
+      const status = init?.status ?? 200;
+      this.status = status;
+      this.ok = status >= 200 && status < 300;
+      this.headers = new Headers(init?.headers);
+    }
+
+    async text() {
+      return this.body != null ? String(this.body) : "";
+    }
+
+    async json() {
+      const t = await this.text();
+      try {
+        return JSON.parse(t) as unknown;
+      } catch {
+        return null;
+      }
+    }
+
+    static json(
+      data: unknown,
+      init?: { status?: number; headers?: Record<string, string> },
+    ) {
+      const status = init?.status ?? 200;
+      const headers = new Headers(
+        init?.headers ?? { "content-type": "application/json" },
+      );
+      return {
+        status,
+        ok: status >= 200 && status < 300,
+        headers,
+        json: async () => data,
+        text: async () => JSON.stringify(data),
+      };
+    }
+
+    static redirect(url: string, init?: { status?: number }) {
+      return {
         status: init?.status ?? 307,
         headers: new Headers([["location", url]]),
-      }),
-    ),
+      };
+    }
   },
 }));
 
@@ -254,10 +282,18 @@ beforeEach(() => {
   };
   (
     prismaMock as unknown as {
-      auditLog: { create: jest.Mock };
+      auditLog: {
+        create: jest.Mock;
+        findMany: jest.Mock;
+        findUnique: jest.Mock;
+        count: jest.Mock;
+      };
     }
   ).auditLog = {
     create: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+    findUnique: jest.fn().mockResolvedValue(null),
+    count: jest.fn().mockResolvedValue(0),
   };
   (
     prismaMock as unknown as {

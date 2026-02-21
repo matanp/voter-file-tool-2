@@ -46,7 +46,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 36. ~~[3.0 Report-server Migration](3.0-report-server-committee-membership-migration.md)~~ — **Done**
 37. ~~[3.0a Report Audit](3.0a-report-audit-committee-membership.md)~~ — **Done**
 38. ~~[3.1a CommitteeSelector Vacancy/Weight + Empty States](3.1a-committee-selector-vacancy-weight-empty-states.md)~~ — **Done**
-39. **Current queue:** 2.8–2.9, 3.1, 3.2–3.7, T1.4–T1.5, T2.1–T2.4
+39. ~~[3.5 Audit Trail UI and Export](3.5-audit-trail-ui-export.md)~~ — **Done**
+40. **Current queue:** 2.8–2.9, 3.1, 3.2–3.7, T1.4–T1.5, T2.1–T2.4
 
 ---
 
@@ -150,7 +151,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Open | Tier 3 §3.2 | 3.0, 3.0a, 3.1 |
 | [3.3](3.3-designation-weight-summary-report-ui.md) | Designation Weight Summary Report UI | Open | Tier 3 §3.3 | 2.7, 3.2 |
 | [3.4](3.4-vacancy-changes-petition-reports-ui.md) | Vacancy, Changes, and Petition Outcomes Reports UI | Open | Tier 3 §3.4 | 2.6, 3.2 |
-| [3.5](3.5-audit-trail-ui-export.md) | Audit Trail UI and Export | Open | Tier 3 §3.5 | 1.5 |
+| [3.5](3.5-audit-trail-ui-export.md) | Audit Trail UI and Export | Done | Tier 3 §3.5 | 1.5 |
 | [3.6](3.6-mobile-accessibility-baseline.md) | Mobile and Accessibility Baseline | Open | Tier 3 quality gate | 3.1, 3.5 |
 | [3.7](3.7-lted-crosswalk-import-ui.md) | LTED Crosswalk Import UI/Admin Flow | Open | Tier 3 follow-up | 1.1b, 3.1 |
 
@@ -162,11 +163,11 @@ Three tracks can be started in parallel (each depends only on done Tier 1/2 work
 | ----- | ------- | ----- |
 | **Report** | 3.0 → 3.0a → 3.2 → 3.3, 3.4 | Do 3.0a in same sprint as 3.0 (recommended). After 3.2, 3.3 and 3.4 can run in parallel. |
 | **Access** | 3.1 → 3.1a, 3.7 | After 3.1, 3.1a and 3.7 can run in parallel. |
-| **Audit** | 3.5 | Standalone; depends only on 1.5. |
+| **Audit** | ~~3.5~~ Done | Standalone; depends only on 1.5. |
 
-**Gate:** 3.6 (Mobile/A11y baseline) runs after both 3.1 and 3.5 are done.
+**Gate:** 3.6 (Mobile/A11y baseline) runs after both 3.1 and 3.5 are done. (3.5 done.)
 
-**Can start in parallel:** 3.0, 3.1, 3.5.
+**Can start in parallel:** 3.0, 3.1. (3.5 complete.)
 
 ---
 

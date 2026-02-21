@@ -229,6 +229,9 @@ export const getMembershipMock = (mock: unknown): MockMembershipModel =>
 /** Typed mock model accessor for auditLog (pre-migration cast helper). */
 type MockAuditLogModel = {
   create: jest.Mock;
+  findMany: jest.Mock;
+  findUnique: jest.Mock;
+  count: jest.Mock;
 };
 
 /**
