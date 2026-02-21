@@ -209,32 +209,19 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 
 ---
 
-## 11. CommitteeSelector Vacancy & Weight Display (Roadmap 3.1a)
+## 11. CommitteeSelector Vacancy & Weight Display (Roadmap 3.1a) — Resolved
 
 **What's planned:** "Display summary: vacancy count (e.g., '2 open seats' or 'Full') and designation weight total."
 
-**UI gaps:**
-
-- **Placement:** "Small summary block in existing flow" — above member cards? Below city/LD/ED selectors? In the committee card header?
-- **Copy:** "2 open seats" vs "Full" — exact wording. "Designation weight: X.XX" — units? Label?
-- **When no weight:** Before 2.7 (Weight Logic) exists — show "—" or hide? Conditional display.
-- **Visual design:** Compact block — font size, color, icon? Consistency with rest of CommitteeSelector.
-
-**Recommendation:** Add a 1–2 line spec: placement (e.g., above member list), copy variants, and fallback when weight unavailable.
+**Resolved by [3.1a](tickets/3.1a-committee-selector-vacancy-weight-empty-states.md):** CommitteeSummaryBlock component defines placement (between district selectors and member list), copy variants (Full, 1 open seat, N open seats, All N seats vacant with color-coded badges), and weight display (rounded to 2 decimals, "—" when unavailable, tooltip for missingWeightSeatNumbers).
 
 ---
 
-## 12. Leader Empty State (Roadmap 3.1)
+## 12. Leader Empty State (Roadmap 3.1) — Resolved
 
 **What's planned:** "Leader with no jurisdictions: Show empty committee list and 'Contact admin to get assigned'."
 
-**UI gaps:**
-
-- **Exact placement:** CommitteeSelector when `committeeLists` is empty — but is empty because of no jurisdictions vs. no committees in the DB? Different messages?
-- **Copy:** "Contact admin to get assigned" — full sentence? Link to help or admin contact?
-- **Consistency:** Same pattern for "no committees in your jurisdiction" (assigned but empty) vs "no jurisdiction assigned"?
-
-**Recommendation:** Define two empty states: (1) No jurisdictions assigned → "Contact an administrator to be assigned committee access." (2) Assigned but no committees → "No committees in your jurisdiction."
+**Resolved by [3.1a](tickets/3.1a-committee-selector-vacancy-weight-empty-states.md):** Two empty states implemented: (1) No jurisdictions assigned → "No Committee Access" / "You have not been assigned any jurisdictions. Contact your county administrator to get committee access." (replaces entire selector). (2) Jurisdictions assigned but no committees → "No Committees Found" with assigned areas list (dropdowns visible but disabled, empty card in member list area).
 
 ---
 
