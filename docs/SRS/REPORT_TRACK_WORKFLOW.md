@@ -46,11 +46,11 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 
 ## Phase 2a: 3.2 report-server (no 3.1)
 
-- [ ] Add `signInSheetReportSchema` to `report.ts` (with scope/cityTown/legDistrict/meetingDate); add to union and `REPORT_TYPE_MAPPINGS`.
-- [ ] Add `fetchSignInSheetData()` in `committeeMappingHelpers.ts` (scope + jurisdiction filter, ACTIVE memberships, active term).
-- [ ] Create `SignInSheet.tsx` (portrait 8.5×11, header, table, blank rows, footer).
-- [ ] Add `signInSheet` case in report-server `processJob()`.
-- [ ] Report-server tests: fetch filters, component structure, handler produces PDF.
+- [x] Add `signInSheetReportSchema` to `report.ts` (with scope/cityTown/legDistrict/meetingDate); add to union and `REPORT_TYPE_MAPPINGS`.
+- [x] Add `fetchSignInSheetData()` in `committeeMappingHelpers.ts` (scope + jurisdiction filter, ACTIVE memberships, active term).
+- [x] Create `SignInSheet.tsx` (portrait 8.5×11, header, table, blank rows, footer).
+- [x] Add `signInSheet` case in report-server `processJob()`.
+- [x] Report-server tests: fetch filters, component structure, handler produces PDF.
 
 ---
 

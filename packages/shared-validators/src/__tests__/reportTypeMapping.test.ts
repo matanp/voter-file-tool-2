@@ -27,6 +27,7 @@ describe('REPORT_TYPE_MAPPINGS', () => {
       'AbsenteeReport',
       'DesignatedPetition',
       'VoterImport',
+      'SignInSheet',
     ];
     Object.values(REPORT_TYPE_MAPPINGS).forEach((mapping) => {
       expect(validReportTypes).toContain(mapping.databaseValue);
@@ -59,6 +60,7 @@ describe('getPrismaReportType', () => {
       'DesignatedPetition',
     );
     expect(getPrismaReportType('voterImport')).toBe('VoterImport');
+    expect(getPrismaReportType('signInSheet')).toBe('SignInSheet');
   });
 });
 
@@ -71,5 +73,6 @@ describe('getFilenameReportType', () => {
       'designatedPetition',
     );
     expect(getFilenameReportType('voterImport')).toBe('voterImport');
+    expect(getFilenameReportType('signInSheet')).toBe('signInSheet');
   });
 });
