@@ -1,6 +1,8 @@
 // Re-export all Prisma types and utilities
 export type {
   // Enums
+  EligibilityFlagReason,
+  EligibilityFlagStatus,
   JobStatus,
   PrivilegeLevel,
   ReportType,
@@ -9,8 +11,10 @@ export type {
   Account,
   Authenticator,
   CommitteeList,
+  CommitteeMembership,
   CommitteeRequest,
   CommitteeUploadDiscrepancy,
+  EligibilityFlag,
   DropdownLists,
   ElectionDate,
   Invite,
@@ -40,3 +44,12 @@ export {
   PrismaClientValidationError,
   NotFoundError,
 } from '@prisma/client/runtime/library';
+
+export {
+  getMostRecentImportVersion,
+  isVoterPossiblyInactive,
+  runBoeEligibilityFlagging,
+  type MostRecentImportVersion,
+  type BoeEligibilityFlaggingRunInput,
+  type BoeEligibilityFlaggingRunResult,
+} from './boeEligibilityFlagging';

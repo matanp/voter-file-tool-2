@@ -151,6 +151,15 @@ const voterImportReportSchema = z.object({
     .min(1, 'Record entry number must be at least 1'),
 });
 
+// Internal worker job schema (2.8). Not exposed in generateReportSchema.
+const boeEligibilityFlaggingReportSchema = z.object({
+  type: z.literal('boeEligibilityFlagging'),
+  format: z.literal('txt'),
+  ...baseApiSchema.shape,
+  termId: z.string().min(1).optional(),
+  sourceReportId: z.string().cuid('Source report ID must be a valid CUID').optional(),
+});
+
 // Generate Report Schema - discriminated union for different report types
 export const generateReportSchema = z.discriminatedUnion('type', [
   designatedPetitionReportSchema,
@@ -186,6 +195,10 @@ export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     ...voterImportReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...boeEligibilityFlaggingReportSchema.shape,
     ...enrichedFieldsSchema.shape,
   }),
 ]);

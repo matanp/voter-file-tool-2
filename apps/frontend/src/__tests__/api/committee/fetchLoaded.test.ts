@@ -158,7 +158,7 @@ describe("/api/committee/fetchLoaded", () => {
       const json = await parseJsonResponse<FetchLoadedResponse>(response);
       // reduce overwrites: last entry wins
       expect(json.discrepanciesMap).toHaveLength(1);
-      expect(json.discrepanciesMap[0][1].discrepancies).toEqual({
+      expect(json.discrepanciesMap[0]![1].discrepancies).toEqual({
         incoming: "second",
         existing: "ex2",
       });
@@ -194,7 +194,7 @@ describe("/api/committee/fetchLoaded", () => {
       expect(response.status).toBe(200);
       const json = await parseJsonResponse<FetchLoadedResponse>(response);
       expect(json.discrepanciesMap).toHaveLength(1);
-      expect(json.discrepanciesMap[0][0]).toBe("VRC_MISSING");
+      expect(json.discrepanciesMap[0]![0]).toBe("VRC_MISSING");
       expect(json.recordsWithDiscrepancies).toEqual([]);
     });
 

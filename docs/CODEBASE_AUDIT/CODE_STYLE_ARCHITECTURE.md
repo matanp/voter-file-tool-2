@@ -79,15 +79,29 @@ export const POST = withPrivilege(
 );
 ```
 
-#### Data Fetching Pattern (Preferred -- `useApiMutation`)
+#### Data Fetching Patterns (Preferred Hooks)
+
+Use `useApiQuery` for read-only `GET` requests with loading/error/retry:
 
 ```typescript
-const { mutate, isLoading, error } = useApiMutation<ResponseType, PayloadType>(
+const { data, loading, error, refetch } = useApiQuery<ResponseType>(
+  "/api/admin/terms",
+);
+```
+
+Use `useApiMutation` for write operations (`POST`/`PUT`/`PATCH`/`DELETE`):
+
+```typescript
+const { mutate, loading, error } = useApiMutation<ResponseType, PayloadType>(
   '/api/endpoint',
   'POST',
   { onSuccess: (data) => { ... } }
 );
 ```
+
+`useApiMutation` accepts both JSON payloads and multipart `FormData`.
+- JSON payloads: hook sets `Content-Type: application/json`.
+- `FormData` payloads: hook intentionally omits `Content-Type` so the browser sets multipart boundaries.
 
 #### Search Field System
 
@@ -138,7 +152,7 @@ toastRef.current = toast;
 
 ### Anti-Patterns Found (Avoid)
 
-1. **Raw `fetch` in components** -- Use `useApiMutation` instead
+1. **Raw `fetch` in components** -- Use `useApiQuery` for `GET` and `useApiMutation` for writes
 2. **`as` type casts for request bodies** -- Use Zod validation via `validateRequest`
 3. **Manual `auth()` calls in routes** -- Use `withPrivilege` wrapper
 4. **Module-level mutable state** -- Pass state as parameters or use class instances
