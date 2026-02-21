@@ -20,22 +20,8 @@ const optionalIsoDate = z
     return Number.isNaN(parsed.getTime()) ? undefined : value;
   });
 
-const coercePage = z.preprocess(
-  (v) => {
-    if (v == null || v === "") return undefined;
-    const n = Number(v);
-    return Number.isNaN(n) ? undefined : n;
-  },
-  z.number().int().min(1).optional(),
-);
-const coercePageSize = z.preprocess(
-  (v) => {
-    if (v == null || v === "") return undefined;
-    const n = Number(v);
-    return Number.isNaN(n) ? undefined : n;
-  },
-  z.number().int().min(1).max(100).optional(),
-);
+const coercePage = z.coerce.number().int().min(1).default(1);
+const coercePageSize = z.coerce.number().int().min(1).max(100).default(25);
 
 /** Query schema for GET /api/admin/audit (list). */
 export const auditListQuerySchema = z

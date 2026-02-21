@@ -13,7 +13,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   REPORT_GENERATED: "Report Generated",
   TERM_CREATED: "Term Created",
   JURISDICTION_ASSIGNED: "Jurisdiction Assigned",
+  JURISDICTION_REMOVED: "Jurisdiction Removed",
   DISCREPANCY_RESOLVED: "Discrepancy Resolved",
+  CROSSWALK_IMPORTED: "Crosswalk Imported",
 };
 
 /** Entity types shown in the filter dropdown. */
