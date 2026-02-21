@@ -37,12 +37,12 @@ const reportTypes: ReportType[] = [
     href: "/petitions",
     enabled: true,
   },
-  // TODO(3.2 Phase 2b, depends on 3.1): Enable card, href: /sign-in-sheet-reports, description: "Generate sign-in sheets for committee meetings with member names and signature lines."
   {
     title: "Sign-In Sheet",
-    description: "Meeting sign-in sheet by jurisdiction and date",
-    href: "/reports/sign-in-sheet",
-    enabled: false,
+    description:
+      "Generate sign-in sheets for committee meetings with member names and signature lines.",
+    href: "/sign-in-sheet-reports",
+    enabled: true,
   },
   {
     title: "Designation Weight Summary",
