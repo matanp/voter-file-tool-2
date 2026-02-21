@@ -165,6 +165,22 @@ describe('mapCommitteesToReportShape', () => {
       },
     });
   });
+
+  it('excludes committees with no active memberships from report shape', () => {
+    const input: CommitteeWithMembers[] = [
+      {
+        id: 1,
+        cityTown: 'ROCHESTER',
+        legDistrict: 1,
+        electionDistrict: 42,
+        termId: 'term-1',
+        ltedWeight: null,
+        memberships: [],
+      },
+    ];
+    const output = mapCommitteesToReportShape(input);
+    expect(output).toHaveLength(0);
+  });
 });
 
 describe('computeDesignationWeight', () => {
