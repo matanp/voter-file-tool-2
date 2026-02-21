@@ -151,6 +151,17 @@ const voterImportReportSchema = z.object({
     .min(1, 'Record entry number must be at least 1'),
 });
 
+const signInSheetReportSchema = z.object({
+  type: z.literal('signInSheet'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.literal('pdf'),
+  scope: z.enum(['jurisdiction', 'countywide']),
+  cityTown: z.string().optional(),
+  legDistrict: z.number().optional(),
+  meetingDate: z.string().optional(),
+});
+
 // Internal worker job schema (2.8). Not exposed in generateReportSchema.
 const boeEligibilityFlaggingReportSchema = z.object({
   type: z.literal('boeEligibilityFlagging'),
@@ -167,6 +178,7 @@ export const generateReportSchema = z.discriminatedUnion('type', [
   voterListReportSchema,
   absenteeReportSchema,
   voterImportReportSchema,
+  signInSheetReportSchema,
 ]);
 
 // Additional fields for enriched report data
@@ -195,6 +207,10 @@ export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     ...voterImportReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...signInSheetReportSchema.shape,
     ...enrichedFieldsSchema.shape,
   }),
   z.object({

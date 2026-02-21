@@ -133,6 +133,58 @@ export async function fetchCommitteeData(): Promise<CommitteeWithMembers[]> {
   }
 }
 
+/**
+ * Fetches committee data for sign-in sheet reports.
+ * Filters by scope and jurisdiction; returns committees sorted by cityTown, legDistrict, electionDistrict.
+ * @param scope - 'jurisdiction' (requires cityTown) or 'countywide'
+ * @param cityTown - Required when scope is jurisdiction
+ * @param legDistrict - Optional filter for Rochester LD
+ * @returns Committee records with active memberships
+ */
+export async function fetchSignInSheetData(
+  scope: 'jurisdiction' | 'countywide',
+  cityTown?: string,
+  legDistrict?: number,
+): Promise<CommitteeWithMembers[]> {
+  const activeTermId = await getActiveTermId();
+
+  const where: Parameters<typeof prisma.committeeList.findMany>[0]['where'] = {
+    termId: activeTermId,
+  };
+
+  if (scope === 'jurisdiction') {
+    if (cityTown == null || cityTown === '') {
+      throw new Error('cityTown is required when scope is jurisdiction');
+    }
+    where.cityTown = cityTown;
+    if (legDistrict != null) {
+      where.legDistrict = legDistrict;
+    }
+  }
+
+  const committees = await prisma.committeeList.findMany({
+    where,
+    include: {
+      memberships: {
+        where: {
+          termId: activeTermId,
+          status: 'ACTIVE',
+        },
+        include: {
+          voterRecord: true,
+        },
+      },
+    },
+    orderBy: [
+      { cityTown: 'asc' },
+      { legDistrict: 'asc' },
+      { electionDistrict: 'asc' },
+    ],
+  });
+
+  return committees;
+}
+
 // ---------------------------------------------------------------------------
 // SRS 2.7 — Designation-weight helpers for report generation (§3.3/§3.4)
 // ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import {
   computeDesignationWeight,
   fetchCommitteeData,
+  fetchSignInSheetData,
   mapCommitteesToReportShape,
   type CommitteeWithMembers,
 } from '../committeeMappingHelpers';
@@ -66,6 +67,69 @@ describe('fetchCommitteeData', () => {
     );
     expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
     consoleSpy.mockRestore();
+  });
+});
+
+describe('fetchSignInSheetData', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('fetches all committees when scope is countywide (no cityTown/legDistrict filter)', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    await fetchSignInSheetData('countywide');
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1' },
+        include: expect.any(Object),
+        orderBy: [
+          { cityTown: 'asc' },
+          { legDistrict: 'asc' },
+          { electionDistrict: 'asc' },
+        ],
+      }),
+    );
+  });
+
+  it('filters by cityTown when scope is jurisdiction', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    await fetchSignInSheetData('jurisdiction', 'ROCHESTER');
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1', cityTown: 'ROCHESTER' },
+      }),
+    );
+  });
+
+  it('filters by cityTown and legDistrict when scope is jurisdiction', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    await fetchSignInSheetData('jurisdiction', 'ROCHESTER', 1);
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1', cityTown: 'ROCHESTER', legDistrict: 1 },
+      }),
+    );
+  });
+
+  it('throws when scope is jurisdiction and cityTown is empty', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+
+    await expect(
+      fetchSignInSheetData('jurisdiction', ''),
+    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    await expect(
+      fetchSignInSheetData('jurisdiction', undefined),
+    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
   });
 });
 
