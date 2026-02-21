@@ -15,6 +15,12 @@ import type { Session } from "next-auth";
 import { gzipSync } from "node:zlib";
 import { createWebhookSignature } from "~/lib/webhookUtils";
 import { getUserDisplayName } from "@voter-file-tool/shared-validators";
+import { hasPermissionFor } from "~/lib/utils";
+import {
+  getUserJurisdictions,
+  getActiveTermId,
+  committeeMatchesJurisdictions,
+} from "~/app/api/lib/committeeValidation";
 
 const PDF_API_BASE = process.env.PDF_SERVER_URL
   ? process.env.PDF_SERVER_URL
@@ -47,6 +53,52 @@ export const POST = withPrivilege(
 
       if (!session?.user?.id) {
         throw new Error("Error getting user from session");
+      }
+
+      // SRS 3.2 — Sign-in sheet jurisdiction enforcement
+      if (reportData.type === "signInSheet") {
+        const userPrivilege =
+          session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+        const isAdmin = hasPermissionFor(userPrivilege, PrivilegeLevel.Admin);
+
+        if (reportData.scope === "countywide" && !isAdmin) {
+          const errorResponse: ErrorResponse = {
+            error: "Leaders cannot generate countywide sign-in sheets",
+          };
+          return NextResponse.json(errorResponse, { status: 403 });
+        }
+
+        if (
+          reportData.scope === "jurisdiction" &&
+          !isAdmin &&
+          reportData.cityTown
+        ) {
+          const activeTermId = await getActiveTermId();
+          const jurisdictions = await getUserJurisdictions(
+            session.user.id,
+            activeTermId,
+            userPrivilege,
+          );
+          if (Array.isArray(jurisdictions) && jurisdictions.length > 0) {
+            const allowed = committeeMatchesJurisdictions(
+              reportData.cityTown,
+              reportData.legDistrict ?? 0,
+              jurisdictions,
+            );
+            if (!allowed) {
+              const errorResponse: ErrorResponse = {
+                error:
+                  "You do not have access to the requested jurisdiction",
+              };
+              return NextResponse.json(errorResponse, { status: 403 });
+            }
+          } else {
+            const errorResponse: ErrorResponse = {
+              error: "No jurisdictions assigned",
+            };
+            return NextResponse.json(errorResponse, { status: 403 });
+          }
+        }
       }
 
       const reportType = getPrismaReportType(
