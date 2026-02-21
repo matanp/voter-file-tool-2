@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
+import * as Sentry from "@sentry/nextjs";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { fetchCommitteeListQuerySchema } from "~/lib/validations/committee";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
@@ -9,6 +10,7 @@ import {
   getActiveTermId,
   getGovernanceConfig,
 } from "~/app/api/lib/committeeValidation";
+import { computeDesignationWeightFromData } from "~/lib/designationWeight";
 
 async function getCommitteeList(req: NextRequest) {
   // Extract query parameters
@@ -42,6 +44,9 @@ async function getCommitteeList(req: NextRequest) {
     electionDistrict: req.nextUrl.searchParams.get("electionDistrict"),
     cityTown: req.nextUrl.searchParams.get("cityTown"),
     legDistrict: legDistrictParam ?? undefined,
+    includeDesignationWeightSummary:
+      req.nextUrl.searchParams.get("includeDesignationWeightSummary") ??
+      undefined,
   };
 
   const validation = validateRequest(queryParams, fetchCommitteeListQuerySchema);
@@ -50,7 +55,12 @@ async function getCommitteeList(req: NextRequest) {
     return validation.response;
   }
 
-  const { electionDistrict, cityTown, legDistrict } = validation.data;
+  const {
+    electionDistrict,
+    cityTown,
+    legDistrict,
+    includeDesignationWeightSummary,
+  } = validation.data;
 
   try {
     const parsedLegDistrict = toDbSentinelValue(legDistrict ?? undefined);
@@ -85,11 +95,46 @@ async function getCommitteeList(req: NextRequest) {
     }
 
     const config = await getGovernanceConfig();
+    const designationWeightSummary = includeDesignationWeightSummary
+      ? computeDesignationWeightFromData({
+          committeeListId: committee.id,
+          termId: activeTermId,
+          seats: committee.seats,
+          activeMemberships: committee.memberships.map((m) => ({
+            seatNumber: m.seatNumber,
+            membershipType: m.membershipType,
+            voterRecordId: m.voterRecordId,
+          })),
+        })
+      : undefined;
+
     return NextResponse.json(
-      { ...committee, maxSeatsPerLted: config.maxSeatsPerLted },
+      {
+        ...committee,
+        maxSeatsPerLted: config.maxSeatsPerLted,
+        ...(designationWeightSummary
+          ? { designationWeightSummary }
+          : {}),
+      },
       { status: 200 },
     );
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Data integrity error")
+    ) {
+      Sentry.captureException(error, {
+        tags: { route: "fetchCommitteeList" },
+        extra: {
+          cityTown,
+          electionDistrict,
+          legDistrict: legDistrict ?? null,
+          includeDesignationWeightSummary:
+            includeDesignationWeightSummary ?? null,
+        },
+      });
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },

@@ -4,6 +4,7 @@ import {
   type CommitteeList,
   type IneligibilityReason,
   type VoterRecord,
+  MeetingType,
   MembershipType,
   RemovalReason,
   ResignationMethod,
@@ -37,6 +38,20 @@ export type FetchCommitteeListResponse = CommitteeList & {
     isPetitioned: boolean;
     weight: number | string | null;
   }>;
+  designationWeightSummary?: {
+    totalWeight: number;
+    totalContributingSeats: number;
+    seats: Array<{
+      seatNumber: number;
+      isPetitioned: boolean;
+      isOccupied: boolean;
+      occupantMembershipType: "PETITIONED" | "APPOINTED" | null;
+      seatWeight: number | null;
+      contributes: boolean;
+      contributionWeight: number;
+    }>;
+    missingWeightSeatNumbers: number[];
+  };
   maxSeatsPerLted?: number;
 };
 
@@ -399,6 +414,17 @@ export const fetchCommitteeListQuerySchema = z
       .string()
       .trim()
       .regex(/^\d+$/, "Election District must contain only digits"),
+    // SRS 2.7 — include designation-weight summary payload when needed.
+    includeDesignationWeightSummary: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v == null ? undefined : v.toLowerCase()))
+      .refine((v) => v == null || v === "true" || v === "false", {
+        message:
+          "includeDesignationWeightSummary must be 'true' or 'false' when provided",
+      })
+      .transform((v) => (v == null ? undefined : v === "true")),
   })
   .strict();
 
@@ -437,4 +463,71 @@ export type HandleCommitteeRequestData = z.infer<
 >;
 export type FetchCommitteeListQuery = z.infer<
   typeof fetchCommitteeListQuerySchema
+>;
+
+// ---------------------------------------------------------------------------
+// SRS 2.4 — Meeting Record + Bulk Decision schemas
+// ---------------------------------------------------------------------------
+
+/** Valid ISO date string (reused from resignCommitteeDataSchema). */
+const meetingIsoDateString = z
+  .string()
+  .trim()
+  .min(1, "Meeting date is required")
+  .refine(
+    (s) => !Number.isNaN(new Date(s).getTime()),
+    { message: "Meeting date must be a valid date" },
+  );
+
+export const createMeetingSchema = z
+  .object({
+    meetingDate: meetingIsoDateString,
+    meetingType: z.nativeEnum(MeetingType).optional(),
+    notes: z.string().trim().max(2000).optional(),
+  })
+  .strict();
+
+export type CreateMeetingData = z.infer<typeof createMeetingSchema>;
+
+export const bulkDecisionSchema = z
+  .object({
+    decisions: z
+      .array(
+        z.object({
+          membershipId: z.string().trim().min(1, "Membership ID is required"),
+          decision: z.enum(["confirm", "reject"]),
+          rejectionNote: z.string().trim().max(1000).optional(),
+        }),
+      )
+      .min(1, "At least one decision is required"),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    const ids = data.decisions.map((d) => d.membershipId);
+    const seen = new Set<string>();
+    for (const id of ids) {
+      if (seen.has(id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Duplicate membershipId in decisions",
+          path: ["decisions"],
+        });
+        return;
+      }
+      seen.add(id);
+    }
+  });
+
+export type BulkDecisionData = z.infer<typeof bulkDecisionSchema>;
+
+// SRS 2.7 — Designation weight query params
+export const designationWeightQuerySchema = z
+  .object({
+    committeeListId: z.coerce.number().int().positive(),
+    termId: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+export type DesignationWeightQuery = z.infer<
+  typeof designationWeightQuerySchema
 >;

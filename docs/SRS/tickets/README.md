@@ -40,7 +40,10 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 30. ~~[2.1 Eligibility Validation](2.1-eligibility-validation.md)~~ — **Done**
 31. ~~[2.2 Warning System](2.2-warning-system.md)~~ — **Done**
 32. ~~[2.5 Structured Removal with Reasons](2.5-structured-removal-reasons.md)~~ — **Done**
-33. **Current queue:** 2.4, 2.7–2.9, 3.0–3.7, T1.4–T1.5, T2.1–T2.4
+33. ~~[2.4 Meeting Record + Executive Confirmation Workflow](2.4-meeting-record-confirmation-workflow.md)~~ — **Done**
+34. ~~[2.6 Petition + Primary Outcome Tracking](2.6-petition-primary-outcome-tracking.md)~~ — **Done**
+35. ~~[2.7 Weight / Designation Logic](2.7-weight-designation-logic.md)~~ — **Done**
+36. **Current queue:** 2.8–2.9, 3.0–3.7, T1.4–T1.5, T2.1–T2.4
 
 ---
 
@@ -126,10 +129,10 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [2.1a](2.1a-email-phone-submission.md) | Email/Phone During Leader Submission | Done | Tier 2 §2.1a | 1.2 |
 | [2.2](2.2-warning-system.md) | Warning System (Non-blocking Eligibility Warnings) | Done | Tier 2 §2.2 | 2.1, 1.2 |
 | [2.3](2.3-resignation-workflow.md) | Resignation Workflow | Done | Tier 2 §2.3 | 1.2, 1.4 |
-| [2.4](2.4-meeting-record-confirmation-workflow.md) | Meeting Record + Executive Confirmation Workflow | Open | Tier 2 §2.4 | 1.2, 1.4, IA-01 |
+| [2.4](2.4-meeting-record-confirmation-workflow.md) | Meeting Record + Executive Confirmation Workflow | Done | Tier 2 §2.4 | 1.2, 1.4, IA-01 |
 | [2.5](2.5-structured-removal-reasons.md) | Structured Removal with Reasons | Done | Tier 2 §2.5 | 1.2, 2.3 |
 | [2.6](2.6-petition-primary-outcome-tracking.md) | Petition + Primary Outcome Tracking | Done | Tier 2 §2.6 | 1.2, 1.3, 1.4, 2.4 |
-| [2.7](2.7-weight-designation-logic.md) | Weight / Designation Logic | Open | Tier 2 §2.7 | 1.4, 2.6 |
+| [2.7](2.7-weight-designation-logic.md) | Weight / Designation Logic | Done | Tier 2 §2.7 | 1.4, 2.6 |
 | [2.8](2.8-boe-driven-automatic-eligibility-flagging.md) | BOE-Driven Automatic Eligibility Flagging | Open | Tier 2 §2.8 | 1.2, 2.1, 2.2, 2.5 |
 | [2.9](2.9-serve-ed-vs-home-ed-resolution.md) | Serve ED vs Home ED Resolution | Open | Tier 2 follow-up | 2.1, 3.1 |
 
@@ -175,7 +178,7 @@ Phase 1 Remediation (1.R.x):
   1.R.21 — done
 
 Tier 2:
-  2.1, 2.2, 2.3, 2.5 — done; 2.4, 2.6–2.9 — open
+  2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7 — done; 2.8–2.9 — open
 
 Tier 3:
   3.0–3.7 — open
