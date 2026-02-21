@@ -54,8 +54,17 @@ async function getAuditListHandler(req: NextRequest, _session: Session) {
     return validation.response;
   }
 
-  const { page, pageSize, action, entityType, userId, dateFrom, dateTo, sortBy, sortOrder } =
-    validation.data;
+  const {
+    page = 1,
+    pageSize = 25,
+    action,
+    entityType,
+    userId,
+    dateFrom,
+    dateTo,
+    sortBy,
+    sortOrder,
+  } = validation.data;
 
   const where = buildAuditWhere({ action, entityType, userId, dateFrom, dateTo });
 
