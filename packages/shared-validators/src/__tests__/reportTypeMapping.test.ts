@@ -28,6 +28,7 @@ describe('REPORT_TYPE_MAPPINGS', () => {
       'DesignatedPetition',
       'VoterImport',
       'SignInSheet',
+      'DesignationWeightSummary',
     ];
     Object.values(REPORT_TYPE_MAPPINGS).forEach((mapping) => {
       expect(validReportTypes).toContain(mapping.databaseValue);
@@ -61,6 +62,9 @@ describe('getPrismaReportType', () => {
     );
     expect(getPrismaReportType('voterImport')).toBe('VoterImport');
     expect(getPrismaReportType('signInSheet')).toBe('SignInSheet');
+    expect(getPrismaReportType('designationWeightSummary')).toBe(
+      'DesignationWeightSummary',
+    );
   });
 });
 
@@ -74,5 +78,8 @@ describe('getFilenameReportType', () => {
     );
     expect(getFilenameReportType('voterImport')).toBe('voterImport');
     expect(getFilenameReportType('signInSheet')).toBe('signInSheet');
+    expect(getFilenameReportType('designationWeightSummary')).toBe(
+      'designationWeightSummary',
+    );
   });
 });

@@ -11,11 +11,14 @@ import {
 import {
   uploadXLSXBuffer,
   createWorksheetWithFieldWidths,
+  createWorksheet as createWorksheetFromUtils,
   generateXLSXBuffer,
   createWorkbook,
   addWorksheetToWorkbook,
 } from './utils/xlsxUtils';
 import type { WorksheetData, WorksheetRow, WorksheetCell } from './types';
+import type { DesignationWeightSummary } from './committeeMappingHelpers';
+import { groupWeightSummaries } from './components/DesignationWeightSummary';
 
 type ColumnHeaders = Record<string, string>;
 type FieldWidths = Record<string, number>;
@@ -256,4 +259,86 @@ export async function generateVoterListXLSXAndUpload(
     config,
     'voterList'
   );
+}
+
+const WEIGHT_SUMMARY_COLUMN_WIDTHS = [15, 12, 12, 12, 12, 18, 18, 12, 18, 18, 25];
+
+/**
+ * Generates and uploads the Designation Weight Summary XLSX report.
+ */
+export async function generateDesignationWeightSummaryXLSXAndUpload(
+  summaries: DesignationWeightSummary[],
+  fileName: string,
+): Promise<void> {
+  const workbook = createWorkbook();
+  const groups = groupWeightSummaries(summaries);
+
+  const headers: WorksheetRow = [
+    'City/Town',
+    'Leg District',
+    'Election District',
+    'Total Seats',
+    'Petitioned Seats',
+    'Occupied Petitioned',
+    'Vacant Petitioned',
+    'Appointed',
+    'LTED Weight',
+    'Designation Weight',
+    'Notes',
+  ];
+  const worksheetData: WorksheetData = [headers];
+
+  let grandTotal = 0;
+  for (const group of groups) {
+    for (const row of group.rows) {
+      worksheetData.push([
+        row.cityTown,
+        row.legDistrict,
+        row.electionDistrict.toString().padStart(3, '0'),
+        row.totalSeats,
+        row.petitionedSeats,
+        row.occupiedPetitioned,
+        row.vacantPetitioned,
+        row.appointed,
+        row.ltedWeight.toFixed(2),
+        row.designationWeight.toFixed(2),
+        row.missingWeights || '',
+      ]);
+    }
+    worksheetData.push([
+      'Subtotal',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      group.subtotalWeight.toFixed(2),
+      '',
+    ]);
+    grandTotal += group.subtotalWeight;
+  }
+  worksheetData.push([
+    'Grand Total',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    grandTotal.toFixed(2),
+    '',
+  ]);
+
+  const worksheet = createWorksheetFromUtils(
+    worksheetData,
+    WEIGHT_SUMMARY_COLUMN_WIDTHS,
+  );
+  addWorksheetToWorkbook(workbook, worksheet, 'Weight Summary');
+  const buffer = generateXLSXBuffer(workbook);
+  await uploadXLSXBuffer(buffer, fileName);
 }

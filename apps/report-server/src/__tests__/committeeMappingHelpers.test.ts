@@ -2,6 +2,7 @@ import {
   computeDesignationWeight,
   fetchCommitteeData,
   fetchSignInSheetData,
+  fetchDesignationWeights,
   mapCommitteesToReportShape,
   type CommitteeWithMembers,
 } from '../committeeMappingHelpers';
@@ -128,6 +129,73 @@ describe('fetchSignInSheetData', () => {
     ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
     await expect(
       fetchSignInSheetData('jurisdiction', undefined),
+    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchDesignationWeights', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('fetches all committees when scope is countywide or omitted', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    await fetchDesignationWeights('countywide');
+    await fetchDesignationWeights();
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledTimes(2);
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1' },
+        include: expect.objectContaining({
+          seats: { orderBy: { seatNumber: 'asc' } },
+        }),
+        orderBy: [
+          { cityTown: 'asc' },
+          { legDistrict: 'asc' },
+          { electionDistrict: 'asc' },
+        ],
+      }),
+    );
+  });
+
+  it('filters by cityTown when scope is jurisdiction', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    await fetchDesignationWeights('jurisdiction', 'ROCHESTER');
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1', cityTown: 'ROCHESTER' },
+      }),
+    );
+  });
+
+  it('filters by cityTown and legDistrict when scope is jurisdiction', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    await fetchDesignationWeights('jurisdiction', 'ROCHESTER', 1);
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1', cityTown: 'ROCHESTER', legDistrict: 1 },
+      }),
+    );
+  });
+
+  it('throws when scope is jurisdiction and cityTown is empty', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+
+    await expect(
+      fetchDesignationWeights('jurisdiction', ''),
+    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    await expect(
+      fetchDesignationWeights('jurisdiction', undefined),
     ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
     expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
   });

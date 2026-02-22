@@ -32,6 +32,10 @@ export const REPORT_TYPE_MAPPINGS = {
     databaseValue: 'SignInSheet' as ReportType,
     filename: 'signInSheet',
   },
+  designationWeightSummary: {
+    databaseValue: 'DesignationWeightSummary' as ReportType,
+    filename: 'designationWeightSummary',
+  },
 } as const;
 
 export type ReportTypeKey = keyof typeof REPORT_TYPE_MAPPINGS;
