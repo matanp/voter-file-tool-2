@@ -486,7 +486,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   // SRS 3.1 — Empty state: Leader with no jurisdictions assigned
   if (
     actingPermissions === PrivilegeLevel.Leader &&
-    userJurisdictions != null &&
+    userJurisdictions !== null &&
     userJurisdictions.length === 0
   ) {
     return (
@@ -502,11 +502,30 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     );
   }
 
-  const showNoCommitteesEmptyState =
+  // SRS 3.1 — Empty state: Leader with jurisdictions but no committees in those areas
+  if (
     actingPermissions === PrivilegeLevel.Leader &&
-    userJurisdictions != null &&
+    userJurisdictions !== null &&
     userJurisdictions.length > 0 &&
-    committeeLists.length === 0;
+    committeeLists.length === 0
+  ) {
+    const areaList = userJurisdictions
+      .map(
+        (j) =>
+          `${j.cityTown}${j.legDistrict != null ? ` LD ${j.legDistrict}` : " (all districts)"}`,
+      )
+      .join(", ");
+    return (
+      <Card className="p-6 max-w-md">
+        <CardContent className="text-muted-foreground">
+          <p className="font-medium text-foreground">No committees found in your assigned jurisdictions for the current term.</p>
+          <p className="mt-2 text-sm">Your assigned areas: {areaList}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const showNoCommitteesEmptyState = false;
 
   return (
     <div>
