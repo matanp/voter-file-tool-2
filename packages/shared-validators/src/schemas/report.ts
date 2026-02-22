@@ -172,6 +172,39 @@ const designationWeightSummaryReportSchema = z.object({
   legDistrict: z.number().optional(),
 });
 
+const vacancyReportSchema = z.object({
+  type: z.literal('vacancyReport'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  scope: z.enum(['jurisdiction', 'countywide']),
+  cityTown: z.string().optional(),
+  legDistrict: z.number().optional(),
+  vacancyFilter: z.enum(['all', 'vacantOnly']).default('vacantOnly'),
+});
+
+const changesReportSchema = z.object({
+  type: z.literal('changesReport'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  scope: z.enum(['jurisdiction', 'countywide']),
+  cityTown: z.string().optional(),
+  legDistrict: z.number().optional(),
+  dateFrom: z.string(),
+  dateTo: z.string(),
+});
+
+const petitionOutcomesReportSchema = z.object({
+  type: z.literal('petitionOutcomesReport'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  scope: z.enum(['jurisdiction', 'countywide']),
+  cityTown: z.string().optional(),
+  legDistrict: z.number().optional(),
+});
+
 // Internal worker job schema (2.8). Not exposed in generateReportSchema.
 const boeEligibilityFlaggingReportSchema = z.object({
   type: z.literal('boeEligibilityFlagging'),
@@ -190,6 +223,9 @@ export const generateReportSchema = z.discriminatedUnion('type', [
   voterImportReportSchema,
   signInSheetReportSchema,
   designationWeightSummaryReportSchema,
+  vacancyReportSchema,
+  changesReportSchema,
+  petitionOutcomesReportSchema,
 ]);
 
 // Additional fields for enriched report data
@@ -226,6 +262,18 @@ export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     ...designationWeightSummaryReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...vacancyReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...changesReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...petitionOutcomesReportSchema.shape,
     ...enrichedFieldsSchema.shape,
   }),
   z.object({
