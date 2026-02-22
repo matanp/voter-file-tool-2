@@ -11,8 +11,12 @@ import {
   generatePDFAndUpload,
   generateCommitteeReportHTML,
   generateSignInSheetHTML,
+  generateDesignationWeightSummaryHTML,
 } from './utils';
-import { generateUnifiedXLSXAndUpload } from './xlsxGenerator';
+import {
+  generateUnifiedXLSXAndUpload,
+  generateDesignationWeightSummaryXLSXAndUpload,
+} from './xlsxGenerator';
 import { processAbsenteeReport } from './reportProcessors';
 import { processVoterImport } from './reportProcessors/voterImportProcessor';
 import { createWebhookSignature } from './webhookUtils';
@@ -35,6 +39,7 @@ import {
   mapCommitteesToReportShape,
   fetchCommitteeData,
   fetchSignInSheetData,
+  fetchDesignationWeights,
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
 import { processVoterImportJob } from './jobOrchestration';
@@ -325,6 +330,41 @@ async function processJob(jobData: EnrichedReportData) {
         format: 'Letter',
         landscape: false,
       });
+    } else if (type === 'designationWeightSummary') {
+      fileName = generateReportFilename(name, type, format, reportAuthor);
+      const scope = 'scope' in jobData ? jobData.scope : 'countywide';
+      const cityTown = 'cityTown' in jobData ? jobData.cityTown : undefined;
+      const legDistrict =
+        'legDistrict' in jobData ? jobData.legDistrict : undefined;
+
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      const scopeDescription =
+        scope === 'countywide'
+          ? 'Countywide'
+          : cityTown === 'ROCHESTER' && legDistrict != null
+            ? `${cityTown} LD ${legDistrict.toString().padStart(2, '0')}`
+            : cityTown ?? 'Jurisdiction';
+
+      console.log('Fetching designation weight data...');
+      const data = await fetchDesignationWeights(scope, cityTown, legDistrict);
+      console.log(`Fetched ${data.length} committees for designation weight summary`);
+
+      if (format === 'xlsx') {
+        await generateDesignationWeightSummaryXLSXAndUpload(data, fileName);
+      } else {
+        const html = generateDesignationWeightSummaryHTML(
+          data,
+          scopeDescription,
+          reportAuthor,
+        );
+        await generatePDFAndUpload(html, true, fileName, {
+          format: 'Letter',
+          landscape: true,
+        });
+      }
     } else if (type === 'boeEligibilityFlagging') {
       console.log(
         `Processing BOE eligibility flagging job ${jobId} (source report: ${'sourceReportId' in jobData ? (jobData.sourceReportId ?? 'n/a') : 'n/a'})`

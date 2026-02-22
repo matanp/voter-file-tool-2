@@ -46,9 +46,10 @@ const reportTypes: ReportType[] = [
   },
   {
     title: "Designation Weight Summary",
-    description: "Weight summary by county or jurisdiction scope",
-    href: "/reports/designation-weight",
-    enabled: false,
+    description:
+      "Committee-by-committee breakdown of seat weights, occupancy, and total designation weight.",
+    href: "/weight-summary-reports",
+    enabled: true,
   },
   {
     title: "Vacancy Report",

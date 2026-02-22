@@ -20,6 +20,10 @@ import type {
 import type { CommitteeMember } from './components/CommitteeReport';
 import SignInSheet from './components/SignInSheet';
 import type { SignInSheetMember } from './components/SignInSheet';
+import DesignationWeightSummaryReport, {
+  groupWeightSummaries,
+} from './components/DesignationWeightSummary';
+import type { DesignationWeightSummary } from './committeeMappingHelpers';
 // Helper function to convert YYYY-MM-DD format to "Month Day, Year" format
 function formatElectionDateForPetition(dateString: string): string {
   if (!dateString) return '';
@@ -256,6 +260,51 @@ export const generateSignInSheetHTML = (
       <html>
         <head>
           <title>Sign-In Sheet</title>
+          ${tailwindCSS}
+        </head>
+        <body>
+          ${html}
+        </body>
+      </html>`;
+};
+
+/**
+ * Generates HTML for the Designation Weight Summary PDF report.
+ */
+export const generateDesignationWeightSummaryHTML = (
+  summaries: DesignationWeightSummary[],
+  scopeDescription: string,
+  reportAuthor?: string,
+): string => {
+  const tailwindCSS =
+    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+
+  const groups = groupWeightSummaries(summaries);
+  const grandTotalWeight = groups.reduce(
+    (sum, g) => sum + g.subtotalWeight,
+    0,
+  );
+  const committeesWithMissingWeights = summaries
+    .filter((s) => s.missingWeightSeatNumbers.length > 0)
+    .map((s) => ({
+      cityTown: s.cityTown,
+      legDistrict: s.legDistrict,
+      electionDistrict: s.electionDistrict,
+    }));
+
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(DesignationWeightSummaryReport, {
+      groups,
+      grandTotalWeight,
+      scopeDescription,
+      reportAuthor: reportAuthor ?? '',
+      committeesWithMissingWeights,
+    }),
+  );
+  return `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Designation Weight Summary</title>
           ${tailwindCSS}
         </head>
         <body>

@@ -635,22 +635,24 @@ Adding new privilege levels requires: new enum value, update to permission-order
 
 ---
 
-### 3.3 Designation Weight Summary Report
+### 3.3 Designation Weight Summary Report — Done
 
 |                |                         |
 | -------------- | ----------------------- |
+| **Ticket**     | [3.3](tickets/3.3-designation-weight-summary-report-ui.md) |
 | **SRS Ref**    | §10.1, Scenario 7       |
 | **Effort**     | Small–Medium (2–4 days) |
 | **Depends on** | 2.7 (Weight Logic)      |
 | **Priority**   | Medium                  |
+| **Status**     | Done                    |
 
-**What to build:**
+**What was built:**
 
-1. New report type: `designationWeightSummary`
-2. 1-page PDF: lists each LTED, total weight, seats (petitioned/non-petitioned, occupied/vacant), contributing weight
-3. Totals row at bottom
-4. Scope by jurisdiction or countywide
-5. Add to frontend report generation UI
+1. New report type: `designationWeightSummary` (PDF + XLSX)
+2. PDF: groups by cityTown/LD; table with ED, seats, weights, subtotals, grand total
+3. Scope by jurisdiction or countywide; Leader restricted to jurisdictions
+4. Frontend: `/weight-summary-reports` with WeightSummaryForm
+5. Report picker card enabled in GenerateReportGrid
 
 ---
 

@@ -162,6 +162,16 @@ const signInSheetReportSchema = z.object({
   meetingDate: z.string().optional(),
 });
 
+const designationWeightSummaryReportSchema = z.object({
+  type: z.literal('designationWeightSummary'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  scope: z.enum(['jurisdiction', 'countywide']),
+  cityTown: z.string().optional(),
+  legDistrict: z.number().optional(),
+});
+
 // Internal worker job schema (2.8). Not exposed in generateReportSchema.
 const boeEligibilityFlaggingReportSchema = z.object({
   type: z.literal('boeEligibilityFlagging'),
@@ -179,6 +189,7 @@ export const generateReportSchema = z.discriminatedUnion('type', [
   absenteeReportSchema,
   voterImportReportSchema,
   signInSheetReportSchema,
+  designationWeightSummaryReportSchema,
 ]);
 
 // Additional fields for enriched report data
@@ -211,6 +222,10 @@ export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     ...signInSheetReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...designationWeightSummaryReportSchema.shape,
     ...enrichedFieldsSchema.shape,
   }),
   z.object({
