@@ -151,7 +151,7 @@ export function UsersClient({
           ? undefined
           : Number(addLegDistrict);
       if (addLegDistrict.trim() !== "" && Number.isNaN(legDistrictNum)) return;
-      assignMutation.mutate({
+      void assignMutation.mutate({
         userId,
         cityTown: addCity.trim(),
         legDistrict: legDistrictNum,
@@ -170,7 +170,7 @@ export function UsersClient({
 
   const handleRemoveConfirm = useCallback(() => {
     if (!removeConfirm) return;
-    deleteMutation.mutate(
+    void deleteMutation.mutate(
       undefined,
       `/api/admin/jurisdictions/${removeConfirm.jurisdiction.id}`,
     );
@@ -304,12 +304,7 @@ export function UsersClient({
                                     <ComboboxDropdown
                                       items={[
                                         { value: "", label: "All districts" },
-                                        ...legDistrictsByCity[addCity]?.map(
-                                          (n) => ({
-                                            value: String(n),
-                                            label: String(n),
-                                          }),
-                                        ) ?? [],
+                                        ...legDistrictOptions,
                                       ]}
                                       initialValue={addForUserId === user.id ? addLegDistrict : ""}
                                       displayLabel="Select district"

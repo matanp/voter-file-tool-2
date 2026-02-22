@@ -10,14 +10,14 @@ interface VacancyReportProps {
 function groupByCityLd(
   rows: VacancyReportRow[],
 ): { key: string; cityTown: string; legDistrict: number; rows: VacancyReportRow[] }[] {
-  const map = new Map<string, { cityTown: string; legDistrict: number; rows: VacancyReportRow[] }>();
+  const map = new Map<string, { key: string; cityTown: string; legDistrict: number; rows: VacancyReportRow[] }>();
   for (const r of rows) {
     const key = `${r.cityTown}|${r.legDistrict}`;
     const existing = map.get(key);
     if (existing) {
       existing.rows.push(r);
     } else {
-      map.set(key, { cityTown: r.cityTown, legDistrict: r.legDistrict, rows: [r] });
+      map.set(key, { key, cityTown: r.cityTown, legDistrict: r.legDistrict, rows: [r] });
     }
   }
   return Array.from(map.values()).sort(

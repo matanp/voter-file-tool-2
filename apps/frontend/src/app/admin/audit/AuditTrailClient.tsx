@@ -189,8 +189,8 @@ export function AuditTrailClient() {
         const url = `/api/admin/audit/export?${params.toString()}`;
         const res = await fetch(url);
         if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error((j as { error?: string }).error ?? "Export failed");
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(j.error ?? "Export failed");
         }
         const blob = await res.blob();
         const disposition = res.headers.get("Content-Disposition");

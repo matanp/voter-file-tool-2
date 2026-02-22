@@ -244,6 +244,7 @@ describe('mapCommitteesToReportShape', () => {
             submittedById: null,
             submissionMetadata: null,
             meetingRecordId: null,
+            petitionSeatNumber: null,
             voterRecord: {
               VRCNUM: 'VRC001',
               latestRecordEntryYear: 2025,
@@ -368,6 +369,7 @@ describe('computeDesignationWeight', () => {
             submittedById: null,
             submissionMetadata: null,
             meetingRecordId: null,
+            petitionSeatNumber: null,
             voterRecord: {
               VRCNUM: 'voter-1',
               latestRecordEntryYear: 2025,
@@ -439,6 +441,7 @@ describe('computeDesignationWeight', () => {
             submittedById: null,
             submissionMetadata: null,
             meetingRecordId: null,
+            petitionSeatNumber: null,
             voterRecord: {
               VRCNUM: 'voter-2',
               latestRecordEntryYear: 2025,

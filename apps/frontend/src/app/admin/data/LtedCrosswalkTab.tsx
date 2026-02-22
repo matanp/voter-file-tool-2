@@ -203,7 +203,7 @@ export const LtedCrosswalkTab = () => {
 
   const handleDeleteConfirm = useCallback(() => {
     if (!deleteTarget) return;
-    deleteMutation.mutate(undefined, `/api/admin/crosswalk/${deleteTarget.id}`);
+    void deleteMutation.mutate(undefined, `/api/admin/crosswalk/${deleteTarget.id}`);
   }, [deleteTarget, deleteMutation]);
 
   const handleFilterApply = () => {

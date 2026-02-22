@@ -374,7 +374,7 @@ export async function fetchVacancyData(
   const config = await prisma.committeeGovernanceConfig.findFirst();
   const maxSeatsPerLted = config?.maxSeatsPerLted ?? 4;
 
-  const where: Parameters<typeof prisma.committeeList.findMany>[0]['where'] = {
+  const where: Prisma.CommitteeListWhereInput = {
     termId: activeTermId,
   };
   if (scope === 'jurisdiction') {
@@ -469,7 +469,7 @@ export async function fetchChangesData(
 
   const rows: ChangesReportRow[] = [];
 
-  const membershipWhere: Parameters<typeof prisma.committeeMembership.findMany>[0]['where'] = {
+  const membershipWhere: Prisma.CommitteeMembershipWhereInput = {
     termId: activeTermId,
     OR: [
       { activatedAt: { gte: fromDate, lte: toDate } },
@@ -488,7 +488,7 @@ export async function fetchChangesData(
     },
   });
 
-  const committeeWhere: Parameters<typeof prisma.committeeList.findMany>[0]['where'] = {};
+  const committeeWhere: Prisma.CommitteeListWhereInput = {};
   if (scope === 'jurisdiction') {
     if (cityTown == null || cityTown === '') {
       throw new Error('cityTown is required when scope is jurisdiction');
@@ -608,7 +608,7 @@ export async function fetchPetitionOutcomesData(
 ): Promise<PetitionOutcomeRow[]> {
   const activeTermId = await getActiveTermId();
 
-  const committeeWhere: Parameters<typeof prisma.committeeList.findMany>[0]['where'] = {
+  const committeeWhere: Prisma.CommitteeListWhereInput = {
     termId: activeTermId,
   };
   if (scope === 'jurisdiction') {

@@ -20,7 +20,7 @@ import {
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import type { RemoveCommitteeData, ResignCommitteeData } from "~/lib/validations/committee";
-import { RemovalReason } from "@prisma/client";
+import { type RemovalReason } from "@prisma/client";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import {
   mockAuthSession,
@@ -102,7 +102,7 @@ describe("/api/committee/remove", () => {
       );
       mockHasPermission(true);
       const body = createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" }, false);
-      const { removalReason: _, ...bodyWithoutReason } = body;
+      const { removalReason: _reason, ...bodyWithoutReason } = body;
 
       const response = await POST(
         createMockRequest(bodyWithoutReason as RemoveCommitteeData),
@@ -538,7 +538,7 @@ describe("/api/committee/remove", () => {
         );
         mockHasPermission(true);
         const body = createMockResignBody();
-        const { resignationDateReceived: _, ...bodyWithoutDate } = body;
+        const { resignationDateReceived: _date, ...bodyWithoutDate } = body;
 
         const response = await POST(
           createMockRequest({

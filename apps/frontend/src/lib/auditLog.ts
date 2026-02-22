@@ -1,5 +1,4 @@
 import { type AuditAction, Prisma, type PrivilegeLevel } from "@prisma/client";
-import type { JsonValue } from "@prisma/client/runtime/library";
 import prisma from "./prisma";
 
 export const SYSTEM_USER_ID = "system";
