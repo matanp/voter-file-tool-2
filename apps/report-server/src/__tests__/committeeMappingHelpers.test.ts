@@ -3,6 +3,10 @@ import {
   fetchCommitteeData,
   fetchSignInSheetData,
   fetchDesignationWeights,
+  fetchVacancyData,
+  fetchChangesData,
+  fetchPetitionOutcomesData,
+  getPetitionOutcomeLabel,
   mapCommitteesToReportShape,
   type CommitteeWithMembers,
 } from '../committeeMappingHelpers';
@@ -16,16 +20,20 @@ jest.mock('../lib/prisma', () => ({
     committeeList: {
       findMany: jest.fn(),
     },
+    committeeGovernanceConfig: {
+      findFirst: jest.fn(),
+    },
+    committeeMembership: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
 type MockPrisma = {
-  committeeTerm: {
-    findFirst: jest.Mock;
-  };
-  committeeList: {
-    findMany: jest.Mock;
-  };
+  committeeTerm: { findFirst: jest.Mock };
+  committeeList: { findMany: jest.Mock };
+  committeeGovernanceConfig: { findFirst: jest.Mock };
+  committeeMembership: { findMany: jest.Mock };
 };
 
 const prismaMock = prisma as unknown as MockPrisma;
@@ -481,5 +489,133 @@ describe('computeDesignationWeight', () => {
         ],
       } as unknown as CommitteeWithMembers),
     ).toThrow(/Data integrity error: duplicate active memberships/);
+  });
+});
+
+describe('fetchVacancyData', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('throws when scope is jurisdiction and cityTown is empty', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+
+    await expect(
+      fetchVacancyData('jurisdiction', 'vacantOnly', ''),
+    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
+  });
+
+  it('fetches committees with seats and memberships when scope is countywide', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
+      maxSeatsPerLted: 4,
+    });
+    prismaMock.committeeList.findMany.mockResolvedValue([
+      {
+        id: 1,
+        cityTown: 'ROCHESTER',
+        legDistrict: 1,
+        electionDistrict: 42,
+        termId: 'term-1',
+        seats: [
+          { seatNumber: 1, isPetitioned: false },
+          { seatNumber: 2, isPetitioned: false },
+          { seatNumber: 3, isPetitioned: true },
+          { seatNumber: 4, isPetitioned: true },
+        ],
+        memberships: [
+          { seatNumber: 1, voterRecord: {} },
+          { seatNumber: 2, voterRecord: {} },
+          { seatNumber: 3, voterRecord: {} },
+        ],
+      },
+    ]);
+
+    const rows = await fetchVacancyData('countywide', 'all');
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1' },
+        include: expect.objectContaining({
+          seats: expect.any(Object),
+          memberships: expect.any(Object),
+        }),
+        orderBy: [
+          { cityTown: 'asc' },
+          { legDistrict: 'asc' },
+          { electionDistrict: 'asc' },
+        ],
+      }),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      cityTown: 'ROCHESTER',
+      legDistrict: 1,
+      electionDistrict: 42,
+      totalSeats: 4,
+      filledSeats: 3,
+      vacantSeats: 1,
+    });
+  });
+});
+
+describe('fetchChangesData', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('throws when dateFrom or dateTo is invalid', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+
+    await expect(
+      fetchChangesData('countywide', 'invalid', '2025-01-15'),
+    ).rejects.toThrow(/Invalid dateFrom or dateTo/);
+    await expect(
+      fetchChangesData('countywide', '2025-01-15', '2025-01-01'),
+    ).rejects.toThrow(/dateFrom must be <= dateTo/);
+  });
+
+  it('throws when scope is jurisdiction and cityTown is empty', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+
+    await expect(
+      fetchChangesData('jurisdiction', '2025-01-01', '2025-01-31', ''),
+    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+  });
+});
+
+describe('fetchPetitionOutcomesData', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('throws when scope is jurisdiction and cityTown is empty', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+
+    await expect(
+      fetchPetitionOutcomesData('jurisdiction', ''),
+    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+  });
+});
+
+describe('getPetitionOutcomeLabel', () => {
+  it('returns Lost for PETITIONED_LOST', () => {
+    expect(getPetitionOutcomeLabel('PETITIONED_LOST', 'PETITIONED', 2)).toBe(
+      'Lost',
+    );
+  });
+  it('returns Tie for PETITIONED_TIE', () => {
+    expect(getPetitionOutcomeLabel('PETITIONED_TIE', 'PETITIONED', 2)).toBe(
+      'Tie',
+    );
+  });
+  it('returns Unopposed when ACTIVE and single candidate', () => {
+    expect(getPetitionOutcomeLabel('ACTIVE', 'PETITIONED', 1)).toBe(
+      'Unopposed',
+    );
+  });
+  it('returns Won when ACTIVE and multiple candidates', () => {
+    expect(getPetitionOutcomeLabel('ACTIVE', 'PETITIONED', 3)).toBe('Won');
   });
 });

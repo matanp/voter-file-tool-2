@@ -12,10 +12,16 @@ import {
   generateCommitteeReportHTML,
   generateSignInSheetHTML,
   generateDesignationWeightSummaryHTML,
+  generateVacancyReportHTML,
+  generateChangesReportHTML,
+  generatePetitionOutcomesReportHTML,
 } from './utils';
 import {
   generateUnifiedXLSXAndUpload,
   generateDesignationWeightSummaryXLSXAndUpload,
+  generateVacancyReportXLSXAndUpload,
+  generateChangesReportXLSXAndUpload,
+  generatePetitionOutcomesReportXLSXAndUpload,
 } from './xlsxGenerator';
 import { processAbsenteeReport } from './reportProcessors';
 import { processVoterImport } from './reportProcessors/voterImportProcessor';
@@ -40,6 +46,9 @@ import {
   fetchCommitteeData,
   fetchSignInSheetData,
   fetchDesignationWeights,
+  fetchVacancyData,
+  fetchChangesData,
+  fetchPetitionOutcomesData,
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
 import { processVoterImportJob } from './jobOrchestration';
@@ -365,6 +374,93 @@ async function processJob(jobData: EnrichedReportData) {
           landscape: true,
         });
       }
+    } else if (type === 'vacancyReport') {
+      fileName = generateReportFilename(name, type, format, reportAuthor);
+      const scope = 'scope' in jobData ? jobData.scope : 'countywide';
+      const cityTown = 'cityTown' in jobData ? jobData.cityTown : undefined;
+      const legDistrict =
+        'legDistrict' in jobData ? jobData.legDistrict : undefined;
+      const vacancyFilter =
+        'vacancyFilter' in jobData ? jobData.vacancyFilter : 'vacantOnly';
+
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      const vacancyRows = await fetchVacancyData(
+        scope,
+        vacancyFilter,
+        cityTown,
+        legDistrict,
+      );
+      if (format === 'xlsx') {
+        await generateVacancyReportXLSXAndUpload(vacancyRows, fileName);
+      } else {
+        const html = generateVacancyReportHTML(vacancyRows, reportAuthor);
+        await generatePDFAndUpload(html, true, fileName);
+      }
+    } else if (type === 'changesReport') {
+      fileName = generateReportFilename(name, type, format, reportAuthor);
+      const scope = 'scope' in jobData ? jobData.scope : 'countywide';
+      const cityTown = 'cityTown' in jobData ? jobData.cityTown : undefined;
+      const legDistrict =
+        'legDistrict' in jobData ? jobData.legDistrict : undefined;
+      const dateFrom = 'dateFrom' in jobData ? jobData.dateFrom : '';
+      const dateTo = 'dateTo' in jobData ? jobData.dateTo : '';
+
+      if (!dateFrom || !dateTo) {
+        throw new Error('dateFrom and dateTo are required for changes report');
+      }
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      const changesRows = await fetchChangesData(
+        scope,
+        dateFrom,
+        dateTo,
+        cityTown,
+        legDistrict,
+      );
+      if (format === 'xlsx') {
+        await generateChangesReportXLSXAndUpload(changesRows, fileName);
+      } else {
+        const html = generateChangesReportHTML(
+          changesRows,
+          dateFrom,
+          dateTo,
+          reportAuthor,
+        );
+        await generatePDFAndUpload(html, true, fileName);
+      }
+    } else if (type === 'petitionOutcomesReport') {
+      fileName = generateReportFilename(name, type, format, reportAuthor);
+      const scope = 'scope' in jobData ? jobData.scope : 'countywide';
+      const cityTown = 'cityTown' in jobData ? jobData.cityTown : undefined;
+      const legDistrict =
+        'legDistrict' in jobData ? jobData.legDistrict : undefined;
+
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      const petitionRows = await fetchPetitionOutcomesData(
+        scope,
+        cityTown,
+        legDistrict,
+      );
+      if (format === 'xlsx') {
+        await generatePetitionOutcomesReportXLSXAndUpload(
+          petitionRows,
+          fileName,
+        );
+      } else {
+        const html = generatePetitionOutcomesReportHTML(
+          petitionRows,
+          reportAuthor,
+        );
+        await generatePDFAndUpload(html, true, fileName);
+      }
     } else if (type === 'boeEligibilityFlagging') {
       console.log(
         `Processing BOE eligibility flagging job ${jobId} (source report: ${'sourceReportId' in jobData ? (jobData.sourceReportId ?? 'n/a') : 'n/a'})`
@@ -401,7 +497,7 @@ async function processJob(jobData: EnrichedReportData) {
       if (callbackSignature) {
         callbackHeaders['x-webhook-signature'] = callbackSignature;
       }
-      console.log('calling callback url for report comple');
+      console.log('calling callback url for report complete');
 
       await fetch(CALLBACK_URL, {
         method: 'POST',

@@ -23,7 +23,15 @@ import type { SignInSheetMember } from './components/SignInSheet';
 import DesignationWeightSummaryReport, {
   groupWeightSummaries,
 } from './components/DesignationWeightSummary';
-import type { DesignationWeightSummary } from './committeeMappingHelpers';
+import VacancyReport from './components/VacancyReport';
+import ChangesReport from './components/ChangesReport';
+import PetitionOutcomesReport from './components/PetitionOutcomesReport';
+import type {
+  DesignationWeightSummary,
+  VacancyReportRow,
+  ChangesReportRow,
+  PetitionOutcomeRow,
+} from './committeeMappingHelpers';
 // Helper function to convert YYYY-MM-DD format to "Month Day, Year" format
 function formatElectionDateForPetition(dateString: string): string {
   if (!dateString) return '';
@@ -305,6 +313,79 @@ export const generateDesignationWeightSummaryHTML = (
       <html>
         <head>
           <title>Designation Weight Summary</title>
+          ${tailwindCSS}
+        </head>
+        <body>
+          ${html}
+        </body>
+      </html>`;
+};
+
+export const generateVacancyReportHTML = (
+  rows: VacancyReportRow[],
+  reportAuthor: string,
+): string => {
+  const tailwindCSS =
+    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(VacancyReport, { rows, reportAuthor: reportAuthor ?? '' }),
+  );
+  return `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Vacancy Report</title>
+          ${tailwindCSS}
+        </head>
+        <body>
+          ${html}
+        </body>
+      </html>`;
+};
+
+export const generateChangesReportHTML = (
+  rows: ChangesReportRow[],
+  dateFrom: string,
+  dateTo: string,
+  reportAuthor: string,
+): string => {
+  const tailwindCSS =
+    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(ChangesReport, {
+      rows,
+      dateFrom,
+      dateTo,
+      reportAuthor: reportAuthor ?? '',
+    }),
+  );
+  return `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Committee Changes</title>
+          ${tailwindCSS}
+        </head>
+        <body>
+          ${html}
+        </body>
+      </html>`;
+};
+
+export const generatePetitionOutcomesReportHTML = (
+  rows: PetitionOutcomeRow[],
+  reportAuthor: string,
+): string => {
+  const tailwindCSS =
+    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(PetitionOutcomesReport, {
+      rows,
+      reportAuthor: reportAuthor ?? '',
+    }),
+  );
+  return `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Petition Outcomes Report</title>
           ${tailwindCSS}
         </head>
         <body>

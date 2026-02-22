@@ -180,6 +180,31 @@ describe("/api/generateReport", () => {
       });
     });
 
+    it("should return 403 when Leader requests countywide vacancy report", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
+        }),
+      );
+      jest.mocked(hasPermissionFor).mockImplementation(
+        (_principal, required) => required !== PrivilegeLevel.Admin,
+      );
+
+      const request = createMockRequest({
+        type: "vacancyReport",
+        name: "Vacancy Report",
+        format: "xlsx",
+        scope: "countywide",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(403);
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
+      expect(json.error).toContain("countywide");
+      expect(prismaMock.report.create).not.toHaveBeenCalled();
+    });
+
     it("should succeed with designationWeightSummary type (Admin, countywide)", async () => {
       mockAuthSession(
         createMockSession({
@@ -213,7 +238,6 @@ describe("/api/generateReport", () => {
           user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
         }),
       );
-      // Leader has RequestAccess (pass withPrivilege) but not Admin (fail countywide check)
       jest.mocked(hasPermissionFor).mockImplementation(
         (_principal, required) => required !== PrivilegeLevel.Admin,
       );
@@ -230,6 +254,33 @@ describe("/api/generateReport", () => {
       expect(response.status).toBe(403);
       const json = await parseJsonResponse<ErrorResponseBody>(response);
       expect(json.error).toContain("cannot generate countywide");
+    });
+
+    it("should succeed with vacancyReport type when Admin", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.Admin },
+        }),
+      );
+      mockHasPermission(true);
+      prismaMock.report.create.mockResolvedValue({
+        id: MOCK_REPORT_ID,
+      } as never);
+      prismaMock.report.update.mockResolvedValue({} as never);
+
+      const request = createMockRequest({
+        type: "vacancyReport",
+        name: "Vacancy Report",
+        format: "xlsx",
+        scope: "countywide",
+      });
+
+      const response = await POST(request);
+
+      await expectSuccessResponse(response, {
+        reportId: MOCK_REPORT_ID,
+        jobsAhead: 0,
+      });
     });
 
     it("should return 500 and mark FAILED when PDF API returns ok but success=false", async () => {

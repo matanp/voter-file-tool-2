@@ -36,6 +36,18 @@ export const REPORT_TYPE_MAPPINGS = {
     databaseValue: 'DesignationWeightSummary' as ReportType,
     filename: 'designationWeightSummary',
   },
+  vacancyReport: {
+    databaseValue: 'VacancyReport' as ReportType,
+    filename: 'vacancyReport',
+  },
+  changesReport: {
+    databaseValue: 'ChangesReport' as ReportType,
+    filename: 'changesReport',
+  },
+  petitionOutcomesReport: {
+    databaseValue: 'PetitionOutcomesReport' as ReportType,
+    filename: 'petitionOutcomesReport',
+  },
 } as const;
 
 export type ReportTypeKey = keyof typeof REPORT_TYPE_MAPPINGS;
