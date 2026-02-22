@@ -142,9 +142,9 @@ async function getAuditExportHandler(req: NextRequest, _session: Session) {
     const ws = xlsx.utils.aoa_to_sheet([header, ...data]);
     const wb = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(wb, ws, "Audit Log");
-    const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+    const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
         "Content-Type":

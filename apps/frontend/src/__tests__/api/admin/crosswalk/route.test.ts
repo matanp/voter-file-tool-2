@@ -77,7 +77,7 @@ describe("GET /api/admin/crosswalk", () => {
     if (!auditLogMock.findFirst) {
       (auditLogMock as { findFirst: jest.Mock }).findFirst = jest.fn();
     }
-    (auditLogMock.findFirst as jest.Mock).mockResolvedValue({
+    (auditLogMock.findFirst!).mockResolvedValue({
       timestamp: new Date("2025-01-15"),
     });
     (prismaMock.committeeGovernanceConfig as { findFirst: jest.Mock }).findFirst.mockResolvedValue({
