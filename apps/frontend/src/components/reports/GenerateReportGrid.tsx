@@ -54,20 +54,20 @@ const reportTypes: ReportType[] = [
   {
     title: "Vacancy Report",
     description: "Committee vacancies with optional filters",
-    href: "/reports/vacancy",
-    enabled: false,
+    href: "/vacancy-reports",
+    enabled: true,
   },
   {
     title: "Changes Report",
     description: "Membership changes over a date range",
-    href: "/reports/changes",
-    enabled: false,
+    href: "/changes-reports",
+    enabled: true,
   },
   {
     title: "Petition Outcomes",
-    description: "Petition results by term and date range",
-    href: "/reports/petition-outcomes",
-    enabled: false,
+    description: "Petition results by committee and seat",
+    href: "/petition-outcomes-reports",
+    enabled: true,
   },
 ];
 

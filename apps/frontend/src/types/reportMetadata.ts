@@ -14,6 +14,9 @@ export type ReportMetadataMap = {
   [ReportType.AbsenteeReport]: null;
   [ReportType.SignInSheet]: null;
   [ReportType.DesignationWeightSummary]: null;
+  [ReportType.VacancyReport]: null;
+  [ReportType.ChangesReport]: null;
+  [ReportType.PetitionOutcomesReport]: null;
 };
 
 // Helper type to get metadata for a specific report type

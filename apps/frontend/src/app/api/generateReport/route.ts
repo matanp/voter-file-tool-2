@@ -51,15 +51,26 @@ export const POST = withPrivilege(
         throw new Error("Error getting user from session");
       }
 
-      // SRS 3.2, 3.3 — Jurisdiction enforcement for scoped reports
+      // SRS 3.2, 3.3, 3.4 — Jurisdiction enforcement for scope-based reports
+      const scopeReportTypes = [
+        "signInSheet",
+        "designationWeightSummary",
+        "vacancyReport",
+        "changesReport",
+        "petitionOutcomesReport",
+      ] as const;
       if (
-        reportData.type === "signInSheet" ||
-        reportData.type === "designationWeightSummary"
+        scopeReportTypes.includes(
+          reportData.type as (typeof scopeReportTypes)[number],
+        )
       ) {
-        const reportLabel =
-          reportData.type === "signInSheet"
-            ? "sign-in sheets"
-            : "designation weight summaries";
+        const reportLabel = {
+          signInSheet: "sign-in sheets",
+          designationWeightSummary: "designation weight summaries",
+          vacancyReport: "vacancy reports",
+          changesReport: "changes reports",
+          petitionOutcomesReport: "petition outcomes reports",
+        }[reportData.type];
         const userPrivilege =
           session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
         const validationError = await validateReportJurisdictionAccess(

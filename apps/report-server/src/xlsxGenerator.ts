@@ -15,9 +15,16 @@ import {
   generateXLSXBuffer,
   createWorkbook,
   addWorksheetToWorkbook,
+  sanitizeWorksheetName,
+  generateAndUploadXLSX,
 } from './utils/xlsxUtils';
 import type { WorksheetData, WorksheetRow, WorksheetCell } from './types';
-import type { DesignationWeightSummary } from './committeeMappingHelpers';
+import type {
+  DesignationWeightSummary,
+  VacancyReportRow,
+  ChangesReportRow,
+  PetitionOutcomeRow,
+} from './committeeMappingHelpers';
 import { groupWeightSummaries } from './components/DesignationWeightSummary';
 
 type ColumnHeaders = Record<string, string>;
@@ -341,4 +348,94 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
   addWorksheetToWorkbook(workbook, worksheet, 'Weight Summary');
   const buffer = generateXLSXBuffer(workbook);
   await uploadXLSXBuffer(buffer, fileName);
+}
+
+/**
+ * Generates and uploads vacancy report XLSX.
+ */
+export async function generateVacancyReportXLSXAndUpload(
+  rows: VacancyReportRow[],
+  fileName: string,
+): Promise<void> {
+  const headers = [
+    'ED',
+    'Total Seats',
+    'Filled',
+    'Vacant',
+    'Petitioned (Filled)',
+    'Petitioned (Vacant)',
+    'Non-Petitioned',
+  ];
+  const data: WorksheetData = [headers];
+  for (const r of rows) {
+    data.push([
+      r.electionDistrict,
+      r.totalSeats,
+      r.filledSeats,
+      r.vacantSeats,
+      r.petitionedSeats - r.vacantPetitionedSeats,
+      r.vacantPetitionedSeats,
+      r.nonPetitionedSeats,
+    ]);
+  }
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+  worksheet['!cols'] = headers.map(() => ({ wch: 18 }));
+  const workbook = createWorkbook();
+  addWorksheetToWorkbook(workbook, worksheet, sanitizeWorksheetName('Vacancy Report'));
+  await generateAndUploadXLSX(workbook, fileName);
+}
+
+/**
+ * Generates and uploads changes report XLSX.
+ */
+export async function generateChangesReportXLSXAndUpload(
+  rows: ChangesReportRow[],
+  fileName: string,
+): Promise<void> {
+  const headers = ['Date', 'Member Name', 'City/Town', 'LD', 'ED', 'Change Type', 'Details'];
+  const data: WorksheetData = [headers];
+  for (const r of rows) {
+    data.push([
+      r.changeDate,
+      r.memberName,
+      r.cityTown,
+      r.legDistrict,
+      r.electionDistrict,
+      r.changeType,
+      r.details,
+    ]);
+  }
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+  worksheet['!cols'] = headers.map((_, i) => ({ wch: i === 1 || i === 6 ? 25 : 15 }));
+  const workbook = createWorkbook();
+  addWorksheetToWorkbook(workbook, worksheet, sanitizeWorksheetName('Changes'));
+  await generateAndUploadXLSX(workbook, fileName);
+}
+
+/**
+ * Generates and uploads petition outcomes report XLSX.
+ */
+export async function generatePetitionOutcomesReportXLSXAndUpload(
+  rows: PetitionOutcomeRow[],
+  fileName: string,
+): Promise<void> {
+  const headers = ['City/Town', 'LD', 'ED', 'Seat #', 'Candidate Name', 'Vote Count', 'Outcome', 'Primary Date'];
+  const data: WorksheetData = [headers];
+  for (const r of rows) {
+    data.push([
+      r.cityTown,
+      r.legDistrict,
+      r.electionDistrict,
+      r.seatNumber,
+      r.candidateName,
+      r.voteCount ?? '',
+      r.outcome,
+      r.primaryDate ?? '',
+    ]);
+  }
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+  worksheet['!cols'] = headers.map((_, i) => ({ wch: i === 4 ? 25 : 15 }));
+  const workbook = createWorkbook();
+  addWorksheetToWorkbook(workbook, worksheet, sanitizeWorksheetName('Petition Outcomes'));
+  await generateAndUploadXLSX(workbook, fileName);
 }
