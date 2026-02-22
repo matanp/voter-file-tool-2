@@ -13,6 +13,7 @@ export type ReportMetadataMap = {
   [ReportType.VoterList]: null;
   [ReportType.AbsenteeReport]: null;
   [ReportType.SignInSheet]: null;
+  [ReportType.DesignationWeightSummary]: null;
 };
 
 // Helper type to get metadata for a specific report type

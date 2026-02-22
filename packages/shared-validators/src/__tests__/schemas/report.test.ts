@@ -77,3 +77,47 @@ describe('enrichedReportDataSchema - signInSheet', () => {
     expect(result.jobId).toBe('clxyz123456789012345678901');
   });
 });
+
+describe('generateReportSchema - designationWeightSummary', () => {
+  it('parses valid designationWeightSummary payload with countywide scope', () => {
+    const valid = {
+      type: 'designationWeightSummary',
+      name: 'Weight Summary - 2025-03',
+      format: 'xlsx',
+      scope: 'countywide',
+    };
+
+    const result = generateReportSchema.parse(valid);
+    expect(result.type).toBe('designationWeightSummary');
+    expect(result.scope).toBe('countywide');
+    expect(result.format).toBe('xlsx');
+  });
+
+  it('parses valid designationWeightSummary payload with jurisdiction scope', () => {
+    const valid = {
+      type: 'designationWeightSummary',
+      name: 'Weight Summary - Rochester',
+      format: 'pdf',
+      scope: 'jurisdiction',
+      cityTown: 'ROCHESTER',
+      legDistrict: 1,
+    };
+
+    const result = generateReportSchema.parse(valid);
+    expect(result.type).toBe('designationWeightSummary');
+    expect(result.scope).toBe('jurisdiction');
+    expect(result.cityTown).toBe('ROCHESTER');
+    expect(result.legDistrict).toBe(1);
+  });
+
+  it('rejects designationWeightSummary with invalid format', () => {
+    const invalid = {
+      type: 'designationWeightSummary',
+      name: 'Test',
+      format: 'txt',
+      scope: 'countywide',
+    };
+
+    expect(() => generateReportSchema.parse(invalid)).toThrow();
+  });
+});

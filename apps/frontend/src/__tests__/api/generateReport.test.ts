@@ -17,7 +17,12 @@ import {
   type ErrorResponseBody,
   type AuthTestConfig,
 } from "../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  prismaMock,
+} from "../utils/mocks";
+import { hasPermissionFor } from "~/lib/utils";
 
 const MOCK_REPORT_ID = "cltestreportid123456789";
 
@@ -173,6 +178,58 @@ describe("/api/generateReport", () => {
         reportId: MOCK_REPORT_ID,
         jobsAhead: 0,
       });
+    });
+
+    it("should succeed with designationWeightSummary type (Admin, countywide)", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.Admin },
+        }),
+      );
+      mockHasPermission(true);
+      prismaMock.report.create.mockResolvedValue({
+        id: MOCK_REPORT_ID,
+      } as never);
+      prismaMock.report.update.mockResolvedValue({} as never);
+
+      const request = createMockRequest({
+        type: "designationWeightSummary",
+        name: "Weight Summary",
+        format: "xlsx",
+        scope: "countywide",
+      });
+
+      const response = await POST(request);
+
+      await expectSuccessResponse(response, {
+        reportId: MOCK_REPORT_ID,
+        jobsAhead: 0,
+      });
+    });
+
+    it("should return 403 when Leader requests designationWeightSummary with countywide scope", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
+        }),
+      );
+      // Leader has RequestAccess (pass withPrivilege) but not Admin (fail countywide check)
+      jest.mocked(hasPermissionFor).mockImplementation(
+        (_principal, required) => required !== PrivilegeLevel.Admin,
+      );
+
+      const request = createMockRequest({
+        type: "designationWeightSummary",
+        name: "Weight Summary",
+        format: "xlsx",
+        scope: "countywide",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(403);
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
+      expect(json.error).toContain("cannot generate countywide");
     });
 
     it("should return 500 and mark FAILED when PDF API returns ok but success=false", async () => {

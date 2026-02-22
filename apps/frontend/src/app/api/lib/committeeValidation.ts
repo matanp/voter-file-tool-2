@@ -4,6 +4,7 @@
 
 import prisma from "~/lib/prisma";
 import { PrivilegeLevel } from "@prisma/client";
+import type { ErrorResponse } from "@voter-file-tool/shared-validators";
 import type {
   CommitteeGovernanceConfig,
   CommitteeTerm,
@@ -128,4 +129,65 @@ export function committeeMatchesJurisdictions(
       j.cityTown === cityTown &&
       (j.legDistrict === null || j.legDistrict === legDistrict),
   );
+}
+
+/** Shape required for jurisdiction-scoped report validation (signInSheet, designationWeightSummary). */
+export interface ReportJurisdictionInput {
+  scope: "jurisdiction" | "countywide";
+  cityTown?: string;
+  legDistrict?: number;
+}
+
+/**
+ * SRS 3.2, 3.3 — Validates jurisdiction access for scoped reports (sign-in sheet, designation weight summary).
+ * Returns null if validation passes; returns ErrorResponse if access is denied.
+ */
+export async function validateReportJurisdictionAccess(
+  input: ReportJurisdictionInput,
+  userId: string,
+  privilegeLevel: PrivilegeLevel,
+  reportLabel: string,
+  hasPermissionFor: (
+    user: PrivilegeLevel,
+    required: PrivilegeLevel,
+  ) => boolean,
+): Promise<ErrorResponse | null> {
+  const isAdmin = hasPermissionFor(privilegeLevel, PrivilegeLevel.Admin);
+
+  if (input.scope === "countywide" && !isAdmin) {
+    return {
+      error: `Leaders cannot generate countywide ${reportLabel}`,
+    };
+  }
+
+  if (
+    input.scope === "jurisdiction" &&
+    !isAdmin &&
+    input.cityTown
+  ) {
+    const activeTermId = await getActiveTermId();
+    const jurisdictions = await getUserJurisdictions(
+      userId,
+      activeTermId,
+      privilegeLevel,
+    );
+    if (Array.isArray(jurisdictions) && jurisdictions.length > 0) {
+      const allowed = committeeMatchesJurisdictions(
+        input.cityTown,
+        input.legDistrict ?? 0,
+        jurisdictions,
+      );
+      if (!allowed) {
+        return {
+          error: "You do not have access to the requested jurisdiction",
+        };
+      }
+    } else {
+      return {
+        error: "No jurisdictions assigned",
+      };
+    }
+  }
+
+  return null;
 }

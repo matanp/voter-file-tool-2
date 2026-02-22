@@ -541,6 +541,7 @@ enum ReportType {
   AbsenteeReport
   VoterImport
   SignInSheet
+  DesignationWeightSummary
 }
 
 

@@ -2,6 +2,8 @@
 
 Single-developer workflow for the Report track. See [tickets/README.md](tickets/README.md) for parallelization and dependencies.
 
+**Status:** 3.0, 3.0a, 3.2, 3.3 done. 3.4 next.
+
 ---
 
 ## Why 3.2 Depends on 3.1 (Access Track)
@@ -25,7 +27,7 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 | **1** | 3.0 + 3.0a | Same sprint; 3.0a right after 3.0. |
 | **2a** | 3.2 report-server | As soon as 1 is done (no 3.1). |
 | **2b** | 3.2 frontend | Done. |
-| **3** | 3.3 then 3.4 | After 3.2 complete; sequential. |
+| **3** | 3.3 then 3.4 | 3.3 done. 3.4 next. |
 
 ---
 
@@ -66,15 +68,15 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 
 ## Phase 3: 3.3 then 3.4 (sequential)
 
-### 3.3 — Designation Weight Summary
+### 3.3 — Designation Weight Summary — Done
 
-- [ ] Add `designationWeightSummaryReportSchema` (format pdf|xlsx, scope, jurisdiction); union + mappings.
-- [ ] Add scope filtering to `fetchDesignationWeights()` in `committeeMappingHelpers.ts`.
-- [ ] Create `DesignationWeightSummary.tsx` (landscape, groups, subtotals, grand total, missing-weights footnote).
-- [ ] Add XLSX path for weight summary; add handler case in `processJob()`.
-- [ ] Enable card in `GenerateReportGrid`; create `weight-summary-reports` page + `WeightSummaryForm.tsx`.
-- [ ] Update `/api/generateReport`; Leader scope enforcement.
-- [ ] Tests: fetch scope filter, PDF/XLSX, form.
+- [x] Add `designationWeightSummaryReportSchema` (format pdf|xlsx, scope, jurisdiction); union + mappings.
+- [x] Add scope filtering to `fetchDesignationWeights()` in `committeeMappingHelpers.ts`.
+- [x] Create `DesignationWeightSummary.tsx` (landscape, groups, subtotals, grand total, missing-weights footnote).
+- [x] Add XLSX path for weight summary; add handler case in `processJob()`.
+- [x] Enable card in `GenerateReportGrid`; create `weight-summary-reports` page + `WeightSummaryForm.tsx`.
+- [x] Update `/api/generateReport`; Leader scope enforcement.
+- [x] Tests: fetch scope filter, PDF/XLSX, form.
 
 ### 3.4 — Vacancy, Changes, Petition Outcomes
 

@@ -148,7 +148,7 @@ export async function fetchSignInSheetData(
 ): Promise<CommitteeWithMembers[]> {
   const activeTermId = await getActiveTermId();
 
-  const where: Parameters<typeof prisma.committeeList.findMany>[0]['where'] = {
+  const where: Prisma.CommitteeListWhereInput = {
     termId: activeTermId,
   };
 
@@ -297,15 +297,37 @@ export function computeDesignationWeight(
 }
 
 /**
- * Fetches all committees with seats and active memberships,
+ * Fetches committees with seats and active memberships,
  * then computes designation weight for each.
  * Use in report generation for §3.3/§3.4.
+ * @param scope - 'jurisdiction' (requires cityTown) or 'countywide'; if omitted, returns all
+ * @param cityTown - Required when scope is jurisdiction
+ * @param legDistrict - Optional filter for Rochester LD
+ * @returns Sorted by cityTown → legDistrict → electionDistrict
  */
-export async function fetchDesignationWeights(): Promise<DesignationWeightSummary[]> {
+export async function fetchDesignationWeights(
+  scope?: 'jurisdiction' | 'countywide',
+  cityTown?: string,
+  legDistrict?: number,
+): Promise<DesignationWeightSummary[]> {
   const activeTermId = await getActiveTermId();
 
+  const where: Prisma.CommitteeListWhereInput = {
+    termId: activeTermId,
+  };
+
+  if (scope === 'jurisdiction') {
+    if (cityTown == null || cityTown === '') {
+      throw new Error('cityTown is required when scope is jurisdiction');
+    }
+    where.cityTown = cityTown;
+    if (legDistrict != null) {
+      where.legDistrict = legDistrict;
+    }
+  }
+
   const committees = await prisma.committeeList.findMany({
-    where: { termId: activeTermId },
+    where,
     include: {
       memberships: {
         where: { termId: activeTermId, status: 'ACTIVE' },
@@ -313,6 +335,11 @@ export async function fetchDesignationWeights(): Promise<DesignationWeightSummar
       },
       seats: { orderBy: { seatNumber: 'asc' } },
     },
+    orderBy: [
+      { cityTown: 'asc' },
+      { legDistrict: 'asc' },
+      { electionDistrict: 'asc' },
+    ],
   });
 
   return committees.map(computeDesignationWeight);
