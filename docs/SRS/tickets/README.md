@@ -52,7 +52,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 42. ~~[3.2 Sign-In Sheet Report UI](3.2-sign-in-sheet-report-ui.md)~~ — **Done**
 43. ~~[3.3 Designation Weight Summary Report UI](3.3-designation-weight-summary-report-ui.md)~~ — **Done**
 44. ~~[3.4 Vacancy, Changes, Petition Reports](3.4-vacancy-changes-petition-reports-ui.md)~~ — **Done**
-45. **Current queue:** 2.9, 3.5–3.6, T1.4–T1.5, T2.1–T2.4
+45. **Current queue:** 2.9, 3.6, T1.4–T1.5, T2.1–T2.4, 4.0–4.8
 
 ---
 
@@ -160,6 +160,20 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [3.6](3.6-mobile-accessibility-baseline.md) | Mobile and Accessibility Baseline | Open | Tier 3 quality gate | 3.1, 3.5 |
 | [3.7](3.7-lted-crosswalk-import-ui.md) | LTED Crosswalk Import UI/Admin Flow | Done | Tier 3 follow-up | 1.1b, 3.1 |
 
+### Tier 4 — SRS Governance Gap Remediation
+
+| ID | Title | Status | Priority | Depends on |
+| --- | --- | --- | --- | --- |
+| [4.0](4.0-srs-governance-gap-remediation-program.md) | SRS Governance Gap Remediation Program | Open | P0-P3 | SRS formal assessment + validation matrix |
+| [4.1](4.1-scenario1-leader-submission-preflight.md) | Scenario 1: Leader Submission Preflight + Eligibility Snapshot | Open | P1 | 2.1, 2.2, 3.1 |
+| [4.2](4.2-scenario2-eligibility-failure-ux.md) | Scenario 2: Eligibility Failure UX + Escalation Messaging | Open | P1 | 4.1, 2.1 |
+| [4.3](4.3-scenario3-exec-confirmation-hardening.md) | Scenario 3: Executive Confirmation Approval Hardening | Open | P0 | 2.4 |
+| [4.4](4.4-scenario4-petition-outcomes-traceability.md) | Scenario 4: Petition Outcome Lifecycle + Traceability | Open | P2 | 2.6, 3.4 |
+| [4.5](4.5-scenario5-resignation-audit-durability.md) | Scenario 5: Resignation Audit Durability + Reason Capture | Open | P0 | 2.3, 2.5, 1.5 |
+| [4.6](4.6-scenario6-boe-flagging-operations.md) | Scenario 6: BOE Flagging Cadence + Stale Resolution | Open | P1 | 2.8, 4.5 |
+| [4.7](4.7-scenario7-leader-reports-scope-and-roster.md) | Scenario 7: Leader Reports Scope Hardening + Roster Export | Open | P0/P1 | 3.0a, 3.1, 3.2, 3.3 |
+| [4.8](4.8-additional-governance-config-admin-controls.md) | Additional Requirements: Governance Config Admin Controls | Open | P1 | 1.1c, 2.1 |
+
 ### Tier 3 parallelization
 
 Three tracks can be started in parallel (each depends only on done Tier 1/2 work). Assign by track to avoid blocking.
@@ -214,6 +228,10 @@ Tier 2:
 
 Tier 3:
   3.0, 3.0a, 3.1, 3.1a, 3.7 — done; 3.2–3.6 — open
+
+Tier 4:
+  4.0 — open program ticket
+  4.1–4.8 — open remediation backlog mapped to SRS scenarios + additional governance config requirements
 ```
 
 ```mermaid
