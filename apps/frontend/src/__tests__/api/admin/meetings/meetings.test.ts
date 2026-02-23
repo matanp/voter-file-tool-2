@@ -12,12 +12,15 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
   createMockRequest,
+  createMockGovernanceConfig,
   createMockMembership,
   expectErrorResponse,
   expectAuditLogCreate,
+  expectAnyDate,
   getMembershipMock,
   getAuditLogMock,
   getMeetingRecordMock,
+  setupEligibilityPass,
 } from "../../../utils/testUtils";
 import {
   mockAuthSession,
@@ -239,6 +242,10 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     getMeetingRecordMock(prismaMock).findUnique.mockResolvedValue(
       createMockMeetingRecord(),
     );
+    setupEligibilityPass(prismaMock);
+    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+    );
     getMembershipMock(prismaMock).findUnique.mockResolvedValue(
       createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
     );
@@ -274,6 +281,8 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
         where: { id: MEMBERSHIP_ID },
         data: expect.objectContaining({
           status: "ACTIVE",
+          confirmedAt: expectAnyDate(),
+          activatedAt: expectAnyDate(),
           meetingRecordId: MEETING_ID,
           membershipType: "APPOINTED",
         }) as unknown,
@@ -376,6 +385,28 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     };
     expect(json.results[0].success).toBe(false);
     expect(json.results[0].error).toContain("capacity");
+  });
+
+  it("blocks confirmation when eligibility fails at decision time", async () => {
+    (
+      prismaMock as { voterRecord: { findUnique: jest.Mock } }
+    ).voterRecord.findUnique.mockResolvedValue(null);
+
+    const body = {
+      decisions: [{ membershipId: MEMBERSHIP_ID, decision: "confirm" }],
+    };
+    const response = await bulkDecisions(
+      createMockRequest(body),
+      routeContext(MEETING_ID),
+    );
+    expect(response.status).toBe(200);
+
+    const json = (await response.json()) as {
+      results: Array<{ success: boolean; error?: string }>;
+    };
+    expect(json.results[0].success).toBe(false);
+    expect(json.results[0].error).toContain("NOT_REGISTERED");
+    expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
   });
 
   it("returns 404 when meeting does not exist", async () => {

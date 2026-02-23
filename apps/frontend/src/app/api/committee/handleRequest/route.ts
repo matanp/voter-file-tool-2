@@ -34,7 +34,13 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
     return validation.response;
   }
 
-  const { membershipId, acceptOrReject, forceAdd, overrideReason } =
+  const {
+    membershipId,
+    acceptOrReject,
+    meetingRecordId,
+    forceAdd,
+    overrideReason,
+  } =
     validation.data;
 
   if (!session.user) {
@@ -72,6 +78,25 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
     }
 
     if (acceptOrReject === "accept") {
+      if (!meetingRecordId) {
+        return NextResponse.json(
+          { error: "meetingRecordId is required when accepting a request" },
+          { status: 422 },
+        );
+      }
+
+      const meetingRecord = await prisma.meetingRecord.findUnique({
+        where: { id: meetingRecordId },
+        select: { id: true },
+      });
+
+      if (!meetingRecord) {
+        return NextResponse.json(
+          { error: "Invalid meetingRecordId" },
+          { status: 422 },
+        );
+      }
+
       const eligibility = await validateEligibility(
         membership.voterRecordId,
         membership.committeeListId,
@@ -107,6 +132,10 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         eligibilityWarnings.length > 0
           ? { ...auditMetadata, eligibilityWarnings }
           : auditMetadata;
+      const auditMetadataWithMeeting = {
+        ...(auditMetadataWithWarnings ?? {}),
+        meetingRecordId,
+      };
 
       const outcome = await prisma.$transaction(async (tx) => {
         const submittedMembership = await tx.committeeMembership.findUnique({
@@ -258,7 +287,9 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           },
         );
 
-        // Transition SUBMITTED → ACTIVE; leader submissions are vacancy fills (APPOINTED)
+        const now = new Date();
+
+        // Transition SUBMITTED → ACTIVE (meeting-linked approval path); leader submissions are vacancy fills (APPOINTED)
         // SRS §2.2 — Persist eligibility warning snapshot at accept time
         const existingMeta =
           submittedMembership.submissionMetadata &&
@@ -275,7 +306,9 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           where: { id: membershipId },
           data: {
             status: "ACTIVE",
-            activatedAt: new Date(),
+            confirmedAt: now,
+            activatedAt: now,
+            meetingRecordId,
             membershipType: "APPOINTED",
             seatNumber,
             submissionMetadata:
@@ -284,15 +317,44 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
                 : undefined,
           },
         });
+        const confirmedSnapshot = {
+          status: "CONFIRMED",
+          membershipType: "APPOINTED",
+          seatNumber,
+          confirmedAt: now.toISOString(),
+          activatedAt: now.toISOString(),
+          meetingRecordId,
+        };
+        const activatedSnapshot = {
+          status: "ACTIVE",
+          membershipType: "APPOINTED",
+          seatNumber,
+          confirmedAt: now.toISOString(),
+          activatedAt: now.toISOString(),
+          meetingRecordId,
+        };
+
+        await logAuditEvent(
+          userId,
+          user.privilegeLevel,
+          "MEMBER_CONFIRMED",
+          "CommitteeMembership",
+          membershipId,
+          { status: "SUBMITTED" },
+          confirmedSnapshot,
+          auditMetadataWithMeeting,
+          tx,
+        );
+
         await logAuditEvent(
           userId,
           user.privilegeLevel,
           "MEMBER_ACTIVATED",
           "CommitteeMembership",
           membershipId,
-          { status: "SUBMITTED" },
-          { status: "ACTIVE", membershipType: "APPOINTED" },
-          auditMetadataWithWarnings,
+          { status: "CONFIRMED" },
+          activatedSnapshot,
+          auditMetadataWithMeeting,
           tx,
         );
 

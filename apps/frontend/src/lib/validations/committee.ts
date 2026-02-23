@@ -292,11 +292,25 @@ export const handleCommitteeRequestDataSchema = z
         message: "Accept or reject must be either 'accept' or 'reject'",
       }),
     }),
+    meetingRecordId: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v == null || v === "" ? undefined : v)),
     // SRS §2.1 — Admin override (accept path only; honored only when user is Admin)
     forceAdd: z.boolean().optional(),
     overrideReason: z.string().trim().max(500).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.acceptOrReject === "accept" && !data.meetingRecordId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "meetingRecordId is required when accepting a membership request",
+        path: ["meetingRecordId"],
+      });
+    }
+  });
 
 // Update LTED weight (SRS 1.4)
 export const updateLtedWeightSchema = z

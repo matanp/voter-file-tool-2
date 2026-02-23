@@ -13,6 +13,7 @@ import {
   expectAnyDate,
   getMembershipMock,
   getAuditLogMock,
+  getMeetingRecordMock,
   setupEligibilityPass,
   createAuthTestSuite,
   type AuthTestConfig,
@@ -26,12 +27,16 @@ import {
 const createMockHandleRequestData = (overrides = {}) => ({
   membershipId: "membership-test-id-001",
   acceptOrReject: "accept" as const,
+  meetingRecordId: "meeting-test-001",
   ...overrides,
 });
 
 describe("/api/committee/handleRequest", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getMeetingRecordMock(prismaMock).findUnique.mockResolvedValue({
+      id: "meeting-test-001",
+    });
   });
 
   describe("POST /api/committee/handleRequest", () => {
@@ -67,6 +72,9 @@ describe("/api/committee/handleRequest", () => {
         expectMembershipUpdate(
           {
             status: "ACTIVE",
+            meetingRecordId: "meeting-test-001",
+            confirmedAt: expectAnyDate(),
+            activatedAt: expectAnyDate(),
             membershipType: "APPOINTED",
             seatNumber: 1,
           },
@@ -478,7 +486,13 @@ describe("/api/committee/handleRequest", () => {
 
       const responses = await Promise.all(
         membershipIds.map((membershipId) =>
-          POST(createMockRequest({ membershipId, acceptOrReject: "accept" })),
+          POST(
+            createMockRequest({
+              membershipId,
+              acceptOrReject: "accept",
+              meetingRecordId: "meeting-test-001",
+            }),
+          ),
         ),
       );
 
@@ -526,6 +540,36 @@ describe("/api/committee/handleRequest", () => {
       const response = await POST(createMockRequest(mockRequestData));
 
       await expectErrorResponse(response, 500, "Internal server error");
+    });
+
+    it("should return 422 when accepting without meetingRecordId", async () => {
+      const mockRequestData = createMockHandleRequestData({
+        meetingRecordId: undefined,
+      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(response, 422, "Invalid request data");
+    });
+
+    it("should return 422 when meetingRecordId is invalid", async () => {
+      const mockRequestData = createMockHandleRequestData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "SUBMITTED" }),
+      );
+      getMeetingRecordMock(prismaMock).findUnique.mockResolvedValue(null);
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(response, 422, "Invalid meetingRecordId");
     });
 
     // Audit log tests (SRS 1.5c)

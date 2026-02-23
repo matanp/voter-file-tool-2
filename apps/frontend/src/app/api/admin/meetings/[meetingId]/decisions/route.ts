@@ -9,8 +9,8 @@ import prisma from "~/lib/prisma";
 import { logAuditEvent } from "~/lib/auditLog";
 import { bulkDecisionSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import { ensureSeatsExist, assignNextAvailableSeat } from "~/app/api/lib/seatUtils";
+import { validateEligibility } from "~/lib/eligibility";
 import {
   withPrivilege,
   type SessionWithUser,
@@ -57,8 +57,6 @@ async function bulkDecisionsHandler(
       );
     }
 
-    const activeTermId = await getActiveTermId();
-
     const results = await prisma.$transaction(async (tx) => {
       const decisionResults: DecisionResult[] = [];
 
@@ -88,9 +86,34 @@ async function bulkDecisionsHandler(
         }
 
         if (decision === "confirm") {
+          // SRS 4.3 — Re-check canonical eligibility at meeting decision time.
+          const eligibility = await validateEligibility(
+            membership.voterRecordId,
+            membership.committeeListId,
+            membership.termId,
+          );
+          if (eligibility.validationError) {
+            decisionResults.push({
+              membershipId,
+              decision,
+              success: false,
+              error: eligibility.validationError,
+            });
+            continue;
+          }
+          if (!eligibility.eligible) {
+            decisionResults.push({
+              membershipId,
+              decision,
+              success: false,
+              error: `Ineligible at decision time: ${eligibility.hardStops.join(", ")}`,
+            });
+            continue;
+          }
+
           // Ensure seats exist for this committee+term
           try {
-            await ensureSeatsExist(membership.committeeListId, activeTermId, { tx });
+            await ensureSeatsExist(membership.committeeListId, membership.termId, { tx });
           } catch {
             // Non-fatal: seats may already exist
           }
@@ -100,7 +123,7 @@ async function bulkDecisionsHandler(
           try {
             seatNumber = await assignNextAvailableSeat(
               membership.committeeListId,
-              activeTermId,
+              membership.termId,
               { tx },
             );
           } catch {
