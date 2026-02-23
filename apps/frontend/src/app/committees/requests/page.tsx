@@ -100,7 +100,7 @@ const CommitteeRequests: React.FC = async () => {
   return (
     <div className="w-96 m-4 space-y-4">
       <p className="text-sm text-muted-foreground">
-        Review and accept or reject individually below, or process in bulk via a
+        Review and reject individually below. Confirmations are processed via a
         meeting record.
       </p>
       <Button variant="outline" asChild>

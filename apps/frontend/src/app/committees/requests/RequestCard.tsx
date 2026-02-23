@@ -16,6 +16,7 @@ import { startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { type SimpleApiResponse } from "@voter-file-tool/shared-validators";
+import Link from "next/link";
 
 type RequestCardProps = {
   request: MembershipRequestWithDetails;
@@ -47,7 +48,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
     SimpleApiResponse,
     {
       membershipId: string;
-      acceptOrReject: "accept" | "reject";
+      acceptOrReject: "reject";
     }
   >("/api/committee/handleRequest", "POST", {
     onSuccess: (data, payload) => {
@@ -70,14 +71,11 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
     },
   });
 
-  const handleAccept = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    acceptOrReject: "accept" | "reject",
-  ) => {
+  const handleReject = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     void handleRequestMutation.mutate({
       membershipId: request.id,
-      acceptOrReject,
+      acceptOrReject: "reject",
     });
   };
 
@@ -120,16 +118,13 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
       <CardFooter className="flex justify-between">
         <Button
           variant="outline"
-          onClick={(e) => handleAccept(e, "reject")}
+          onClick={handleReject}
           disabled={handleRequestMutation.loading}
         >
           {handleRequestMutation.loading ? "Processing..." : "Reject"}
         </Button>
-        <Button
-          onClick={(e) => handleAccept(e, "accept")}
-          disabled={handleRequestMutation.loading}
-        >
-          {handleRequestMutation.loading ? "Processing..." : "Accept"}
+        <Button asChild>
+          <Link href="/admin/meetings">Confirm in Meetings</Link>
         </Button>
       </CardFooter>
     </Card>
