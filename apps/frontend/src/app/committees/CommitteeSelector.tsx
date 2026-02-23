@@ -106,6 +106,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     useState<VoterRecord | null>(null);
   const [resignDateReceived, setResignDateReceived] = useState<string>("");
   const [resignMethod, setResignMethod] = useState<"EMAIL" | "MAIL" | "">("");
+  const [resignReason, setResignReason] = useState<RemovalReason | "">("");
   const [resignNotes, setResignNotes] = useState<string>("");
   const [removeModalMember, setRemoveModalMember] =
     useState<VoterRecord | null>(null);
@@ -129,6 +130,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     electionDistrict: number;
     memberId: string;
     action?: "RESIGN";
+    resignationReason?: RemovalReason;
     resignationDateReceived?: string;
     resignationMethod?: "EMAIL" | "MAIL";
     removalNotes?: string;
@@ -145,6 +147,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         setResignModalMember(null);
         setResignDateReceived("");
         setResignMethod("");
+        setResignReason("");
         setResignNotes("");
       } else {
         setRemoveModalMember(null);
@@ -402,6 +405,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setResignModalMember(record);
     setResignDateReceived("");
     setResignMethod("");
+    setResignReason("");
     setResignNotes("");
   };
 
@@ -411,7 +415,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       !selectedCity ||
       selectedDistrict < 0 ||
       !resignDateReceived.trim() ||
-      (resignMethod !== "EMAIL" && resignMethod !== "MAIL")
+      (resignMethod !== "EMAIL" && resignMethod !== "MAIL") ||
+      resignReason === "" ||
+      (resignReason === "OTHER" && !resignNotes.trim())
     ) {
       return;
     }
@@ -425,6 +431,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       electionDistrict: selectedDistrict,
       memberId: resignModalMember.VRCNUM,
       action: "RESIGN",
+      resignationReason: resignReason,
       resignationDateReceived: resignDateReceived.trim(),
       resignationMethod: resignMethod,
       ...(resignNotes.trim() ? { removalNotes: resignNotes.trim() } : {}),
@@ -1008,7 +1015,35 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="resign-notes">Notes (optional)</Label>
+              <Label htmlFor="resign-reason">Reason for resignation *</Label>
+              <Select
+                value={resignReason}
+                onValueChange={(v) =>
+                  setResignReason(
+                    v === ""
+                      ? ""
+                      : (v as RemovalReason),
+                  )
+                }
+              >
+                <SelectTrigger id="resign-reason">
+                  <SelectValue placeholder="Select reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(REMOVAL_REASON_LABELS) as RemovalReason[]).map(
+                    (reason) => (
+                      <SelectItem key={reason} value={reason}>
+                        {REMOVAL_REASON_LABELS[reason]}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="resign-notes">
+                Notes {resignReason === "OTHER" ? "*" : "(optional)"}
+              </Label>
               <Textarea
                 id="resign-notes"
                 value={resignNotes}
@@ -1032,6 +1067,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               disabled={
                 !resignDateReceived.trim() ||
                 (resignMethod !== "EMAIL" && resignMethod !== "MAIL") ||
+                resignReason === "" ||
+                (resignReason === "OTHER" && !resignNotes.trim()) ||
                 removeCommitteeMemberMutation.loading
               }
             >

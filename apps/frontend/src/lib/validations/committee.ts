@@ -277,11 +277,26 @@ export const resignCommitteeDataSchema = z
       .positive("Election District must be a positive integer"),
     memberId: z.string().trim().min(1, "Member ID is required"),
     action: z.literal("RESIGN"),
+    resignationReason: z.nativeEnum(RemovalReason, {
+      errorMap: () => ({ message: "Resignation reason is required" }),
+    }),
     resignationDateReceived: isoDateString,
     resignationMethod: z.nativeEnum(ResignationMethod),
     removalNotes: z.string().trim().max(1000).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (
+      data.resignationReason === "OTHER" &&
+      (data.removalNotes ?? "").trim() === ""
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Notes are required when reason is Other",
+        path: ["removalNotes"],
+      });
+    }
+  });
 
 // Handle committee membership request data validation schema (SRS 1.2 — uses CommitteeMembership)
 export const handleCommitteeRequestDataSchema = z

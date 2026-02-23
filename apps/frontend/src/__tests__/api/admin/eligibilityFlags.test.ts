@@ -198,4 +198,31 @@ describe("/api/admin/eligibility-flags", () => {
       }) as unknown,
     );
   });
+
+  it("returns 500 when confirm decision audit write fails", async () => {
+    getEligibilityFlagMock(prismaMock).findUnique.mockResolvedValue({
+      id: "flag-3",
+      reason: "PARTY_MISMATCH",
+      status: "PENDING",
+      details: null,
+      membership: {
+        id: "membership-3",
+        status: "ACTIVE",
+        seatNumber: 4,
+      },
+    });
+    getMembershipMock(prismaMock).update.mockResolvedValue({});
+    getAuditLogMock(prismaMock).create.mockRejectedValueOnce(
+      new Error("audit failure"),
+    );
+
+    const response = await reviewEligibilityFlag(
+      createMockRequest({ decision: "confirm", notes: "Verified change" }),
+      reviewRouteContext("flag-3"),
+    );
+
+    expect(response.status).toBe(500);
+    expect(getMembershipMock(prismaMock).update).toHaveBeenCalled();
+    expect(getEligibilityFlagMock(prismaMock).update).not.toHaveBeenCalled();
+  });
 });

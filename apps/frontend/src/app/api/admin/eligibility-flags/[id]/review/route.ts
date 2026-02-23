@@ -7,7 +7,7 @@ import {
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { reviewEligibilityFlagSchema } from "~/lib/validations/eligibilityFlags";
 import prisma from "~/lib/prisma";
-import { logAuditEvent } from "~/lib/auditLog";
+import { logAuditEventOrThrow } from "~/lib/auditLog";
 
 type RouteContext = { params?: Promise<{ id: string }> };
 
@@ -139,7 +139,7 @@ async function reviewEligibilityFlagHandler(
           },
         });
 
-        await logAuditEvent(
+        await logAuditEventOrThrow(
           userId,
           userRole,
           "DISCREPANCY_RESOLVED",
@@ -191,7 +191,7 @@ async function reviewEligibilityFlagHandler(
         },
       });
 
-      await logAuditEvent(
+      await logAuditEventOrThrow(
         userId,
         userRole,
         "MEMBER_REMOVED",
@@ -226,7 +226,7 @@ async function reviewEligibilityFlagHandler(
         },
       });
 
-      await logAuditEvent(
+      await logAuditEventOrThrow(
         userId,
         userRole,
         "DISCREPANCY_RESOLVED",
