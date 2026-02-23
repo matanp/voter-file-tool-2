@@ -2,7 +2,7 @@
 
 Single-developer workflow for the Report track. See [tickets/README.md](tickets/README.md) for parallelization and dependencies.
 
-**Status:** 3.0, 3.0a, 3.2, 3.3 done. 3.4 next.
+**Status:** 3.0, 3.0a, 3.2, 3.3, 3.4 done.
 
 ---
 
@@ -27,7 +27,7 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 | **1** | 3.0 + 3.0a | Same sprint; 3.0a right after 3.0. |
 | **2a** | 3.2 report-server | As soon as 1 is done (no 3.1). |
 | **2b** | 3.2 frontend | Done. |
-| **3** | 3.3 then 3.4 | 3.3 done. 3.4 next. |
+| **3** | 3.3 then 3.4 | 3.3 done. 3.4 done. |
 
 ---
 
@@ -78,15 +78,15 @@ Single-developer workflow for the Report track. See [tickets/README.md](tickets/
 - [x] Update `/api/generateReport`; Leader scope enforcement.
 - [x] Tests: fetch scope filter, PDF/XLSX, form.
 
-### 3.4 — Vacancy, Changes, Petition Outcomes
+### 3.4 — Vacancy, Changes, Petition Outcomes — Done
 
-- [ ] Add `vacancyReportSchema`, `changesReportSchema`, `petitionOutcomesReportSchema`; union + mappings.
-- [ ] Add `fetchVacancyData()`, `fetchChangesData()`, `fetchPetitionOutcomesData()` in `committeeMappingHelpers.ts` (incl. petition outcome label helper).
-- [ ] Create `VacancyReport.tsx`, `ChangesReport.tsx`, `PetitionOutcomesReport.tsx`; add XLSX paths and three handler cases.
-- [ ] Create `vacancy-reports`, `changes-reports`, `petition-outcomes-reports` pages + forms (scope, jurisdiction, type-specific params).
-- [ ] Enable all three cards; update `formatReportType()`; update `/api/generateReport`.
-- [ ] Document consolidated report parameter matrix (per 3.4 ticket).
-- [ ] Tests: fetch, PDF/XLSX, forms, Leader scope.
+- [x] Add `vacancyReportSchema`, `changesReportSchema`, `petitionOutcomesReportSchema`; union + mappings.
+- [x] Add `fetchVacancyData()`, `fetchChangesData()`, `fetchPetitionOutcomesData()` in `committeeMappingHelpers.ts` (incl. petition outcome label helper).
+- [x] Create `VacancyReport.tsx`, `ChangesReport.tsx`, `PetitionOutcomesReport.tsx`; add XLSX paths and three handler cases.
+- [x] Create `vacancy-reports`, `changes-reports`, `petition-outcomes-reports` pages + forms (scope, jurisdiction, type-specific params).
+- [x] Enable all three cards; update `formatReportType()`; update `/api/generateReport`.
+- [x] Document consolidated report parameter matrix (per 3.4 ticket).
+- [x] Tests: fetch, PDF/XLSX, forms, Leader scope.
 
 ---
 

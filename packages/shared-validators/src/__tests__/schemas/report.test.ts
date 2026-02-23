@@ -14,9 +14,11 @@ describe('generateReportSchema - signInSheet', () => {
     };
 
     const result = generateReportSchema.parse(valid);
-    expect(result.type).toBe('signInSheet');
-    expect(result.scope).toBe('countywide');
-    expect(result.name).toBe('Sign-In Sheet - 2025-03');
+    expect(result).toMatchObject({
+      type: 'signInSheet',
+      scope: 'countywide',
+      name: 'Sign-In Sheet - 2025-03',
+    });
   });
 
   it('parses valid signInSheet payload with jurisdiction scope and cityTown', () => {
@@ -31,11 +33,13 @@ describe('generateReportSchema - signInSheet', () => {
     };
 
     const result = generateReportSchema.parse(valid);
-    expect(result.type).toBe('signInSheet');
-    expect(result.scope).toBe('jurisdiction');
-    expect(result.cityTown).toBe('ROCHESTER');
-    expect(result.legDistrict).toBe(1);
-    expect(result.meetingDate).toBe('2025-03-15');
+    expect(result).toMatchObject({
+      type: 'signInSheet',
+      scope: 'jurisdiction',
+      cityTown: 'ROCHESTER',
+      legDistrict: 1,
+      meetingDate: '2025-03-15',
+    });
   });
 
   it('rejects signInSheet with invalid format', () => {
@@ -73,9 +77,11 @@ describe('enrichedReportDataSchema - signInSheet', () => {
     };
 
     const result = enrichedReportDataSchema.parse(valid);
-    expect(result.type).toBe('signInSheet');
-    expect(result.reportAuthor).toBe('Jane Doe');
-    expect(result.jobId).toBe('clxyz123456789012345678901');
+    expect(result).toMatchObject({
+      type: 'signInSheet',
+      reportAuthor: 'Jane Doe',
+      jobId: 'clxyz123456789012345678901',
+    });
   });
 });
 
@@ -89,9 +95,11 @@ describe('generateReportSchema - designationWeightSummary', () => {
     };
 
     const result = generateReportSchema.parse(valid);
-    expect(result.type).toBe('designationWeightSummary');
-    expect(result.scope).toBe('countywide');
-    expect(result.format).toBe('xlsx');
+    expect(result).toMatchObject({
+      type: 'designationWeightSummary',
+      scope: 'countywide',
+      format: 'xlsx',
+    });
   });
 
   it('parses valid designationWeightSummary payload with jurisdiction scope', () => {
@@ -105,10 +113,12 @@ describe('generateReportSchema - designationWeightSummary', () => {
     };
 
     const result = generateReportSchema.parse(valid);
-    expect(result.type).toBe('designationWeightSummary');
-    expect(result.scope).toBe('jurisdiction');
-    expect(result.cityTown).toBe('ROCHESTER');
-    expect(result.legDistrict).toBe(1);
+    expect(result).toMatchObject({
+      type: 'designationWeightSummary',
+      scope: 'jurisdiction',
+      cityTown: 'ROCHESTER',
+      legDistrict: 1,
+    });
   });
 
   it('rejects designationWeightSummary with invalid format', () => {
@@ -120,6 +130,39 @@ describe('generateReportSchema - designationWeightSummary', () => {
     };
 
     expect(() => generateReportSchema.parse(invalid)).toThrow();
+  });
+});
+
+describe('generateReportSchema - changesReport', () => {
+  it('parses valid changesReport payload with ISO date format', () => {
+    const valid = {
+      type: 'changesReport',
+      name: 'Changes - Jan 2025',
+      format: 'pdf',
+      scope: 'countywide',
+      dateFrom: '2025-01-01',
+      dateTo: '2025-12-31',
+    };
+
+    const result = generateReportSchema.parse(valid);
+    expect(result).toMatchObject({
+      type: 'changesReport',
+      dateFrom: '2025-01-01',
+      dateTo: '2025-12-31',
+    });
+  });
+
+  it('rejects changesReport with invalid date format', () => {
+    const invalid = {
+      type: 'changesReport',
+      name: 'Test',
+      format: 'pdf',
+      scope: 'countywide',
+      dateFrom: '01/15/2025',
+      dateTo: '2025-12-31',
+    };
+
+    expect(() => generateReportSchema.parse(invalid)).toThrow(/Expected ISO date YYYY-MM-DD/);
   });
 });
 

@@ -190,8 +190,8 @@ const changesReportSchema = z.object({
   name: z.string(),
   format: z.enum(['pdf', 'xlsx']),
   ...scopeFieldsSchema.shape,
-  dateFrom: z.string(),
-  dateTo: z.string(),
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected ISO date YYYY-MM-DD'),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected ISO date YYYY-MM-DD'),
 });
 
 const petitionOutcomesReportSchema = z.object({
