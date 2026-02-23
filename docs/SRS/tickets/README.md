@@ -51,7 +51,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 41. ~~[3.1 Jurisdiction Assignment UI](3.1-jurisdiction-assignment-ui.md)~~ — **Done**
 42. ~~[3.2 Sign-In Sheet Report UI](3.2-sign-in-sheet-report-ui.md)~~ — **Done**
 43. ~~[3.3 Designation Weight Summary Report UI](3.3-designation-weight-summary-report-ui.md)~~ — **Done**
-44. **Current queue:** 2.9, 3.4–3.6, T1.4–T1.5, T2.1–T2.4
+44. ~~[3.4 Vacancy, Changes, Petition Reports](3.4-vacancy-changes-petition-reports-ui.md)~~ — **Done**
+45. **Current queue:** 2.9, 3.5–3.6, T1.4–T1.5, T2.1–T2.4
 
 ---
 
@@ -154,7 +155,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [3.1a](3.1a-committee-selector-vacancy-weight-empty-states.md) | CommitteeSelector Vacancy/Weight + Empty States | Done | Tier 3 §3.1a | 2.7, 3.1 |
 | [3.2](3.2-sign-in-sheet-report-ui.md) | Sign-In Sheet Report UI | Done | Tier 3 §3.2 | 3.0, 3.0a, 3.1 |
 | [3.3](3.3-designation-weight-summary-report-ui.md) | Designation Weight Summary Report UI | Done | Tier 3 §3.3 | 2.7, 3.2 |
-| [3.4](3.4-vacancy-changes-petition-reports-ui.md) | Vacancy, Changes, and Petition Outcomes Reports UI | Open | Tier 3 §3.4 | 2.6, 3.2 |
+| [3.4](3.4-vacancy-changes-petition-reports-ui.md) | Vacancy, Changes, and Petition Outcomes Reports UI | Done | Tier 3 §3.4 | 2.6, 3.2 |
 | [3.5](3.5-audit-trail-ui-export.md) | Audit Trail UI and Export | Done | Tier 3 §3.5 | 1.5 |
 | [3.6](3.6-mobile-accessibility-baseline.md) | Mobile and Accessibility Baseline | Open | Tier 3 quality gate | 3.1, 3.5 |
 | [3.7](3.7-lted-crosswalk-import-ui.md) | LTED Crosswalk Import UI/Admin Flow | Done | Tier 3 follow-up | 1.1b, 3.1 |
@@ -165,7 +166,7 @@ Three tracks can be started in parallel (each depends only on done Tier 1/2 work
 
 | Track | Tickets | Notes |
 | ----- | ------- | ----- |
-| **Report** | 3.0 → 3.0a → 3.2 → 3.3, 3.4 | 3.0a, 3.2, 3.3 done. After 3.2, 3.3 and 3.4 can run in parallel. |
+| **Report** | 3.0 → 3.0a → 3.2 → 3.3, 3.4 | 3.0a, 3.2, 3.3, 3.4 done. |
 | **Access** | 3.1 → 3.1a, 3.7 | 3.1, 3.1a, 3.7 done. |
 | **Audit** | ~~3.5~~ Done | Standalone; depends only on 1.5. |
 

@@ -227,7 +227,7 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 
 ## 13. Report Generation UI Additions (Roadmap 3.2, 3.3, 3.4)
 
-**Status:** 3.2 (Sign-In Sheet) and 3.3 (Designation Weight Summary) done. 3.4 (Vacancy, Changes, Petition Outcomes) next.
+**Status:** 3.2 (Sign-In Sheet), 3.3 (Designation Weight Summary), and 3.4 (Vacancy, Changes, Petition Outcomes) done.
 
 **What's planned:** New report types: SignInSheet, DesignationWeightSummary, VacancyReport, ChangesReport, PetitionOutcomesReport.
 
