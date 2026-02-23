@@ -3,7 +3,9 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
   createMockCommittee,
+  createMockGovernanceConfig,
   createMockRequest,
+  createMockVoterRecord,
   expectSuccessResponse,
   expectErrorResponse,
   createCommitteeFindUniqueWhereArgs,
@@ -538,6 +540,46 @@ describe("/api/committee/requestAdd", () => {
       const body = (await response.json()) as { reasons?: string[] };
       expect(body.reasons).toContain("ALREADY_IN_ANOTHER_COMMITTEE");
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("should not create CommitteeMembership row when hard-stop eligibility fails", async () => {
+      const mockRequestData = createMockRequestData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({
+          maxSeatsPerLted: 1,
+          requireAssemblyDistrictMatch: false,
+        }),
+      );
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({ party: "DEM" }),
+      );
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee({ id: 1 })) as never;
+        },
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(1);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(response, 422, "INELIGIBLE");
+      const body = (await response.json()) as { reasons?: string[] };
+      expect(body.reasons).toContain("CAPACITY");
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
     });
 
     it("should return 404 when committee is not found", async () => {
