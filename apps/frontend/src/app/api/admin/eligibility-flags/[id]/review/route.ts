@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { Prisma, PrivilegeLevel, type RemovalReason } from "@prisma/client";
+import { type Prisma, PrivilegeLevel, type RemovalReason } from "@prisma/client";
 import {
   withPrivilege,
   type SessionWithUser,

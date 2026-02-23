@@ -51,7 +51,7 @@ export function buildSummary(entry: AuditEntryForSummary): string {
         ? meta.removalReason
         : null;
 
-  const name =
+  const rawName =
     typeof after.memberName === "string"
       ? after.memberName
       : typeof after.name === "string"
@@ -59,6 +59,8 @@ export function buildSummary(entry: AuditEntryForSummary): string {
         : typeof meta.memberName === "string"
           ? meta.memberName
           : null;
+  /** Empty string treated as missing so ?? fallbacks apply; satisfies prefer-nullish-coalescing. */
+  const name = rawName === "" ? null : rawName;
 
   const cityTown = typeof after.cityTown === "string" ? after.cityTown : null;
   const legDistrict =
@@ -90,7 +92,7 @@ export function buildSummary(entry: AuditEntryForSummary): string {
 
   switch (action) {
     case AuditAction.MEMBER_ACTIVATED:
-      if (entityType === "CommitteeMembership" && (name || location)) {
+      if (entityType === "CommitteeMembership" && (name ?? location)) {
         return `${name ?? "Member"} activated${location ? ` in ${location}` : ""}${seatNumber != null && !Number.isNaN(seatNumber) ? ` Seat ${seatNumber}` : ""}`.trim();
       }
       return `Member activated (${entityType})`;
@@ -101,7 +103,7 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       }
       return `Removed (${entityType})`;
     case AuditAction.MEMBER_RESIGNED:
-      if (entityType === "CommitteeMembership" && (name || location)) {
+      if (entityType === "CommitteeMembership" && (name ?? location)) {
         return `${name ?? "Member"} resigned${location ? ` from ${location}` : ""}`.trim();
       }
       return `Member resigned (${entityType})`;

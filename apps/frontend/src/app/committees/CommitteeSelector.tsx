@@ -77,7 +77,6 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [selectedCommitteeId, setSelectedCommitteeId] = useState<
     number | null
   >(null);
-  const [ltedWeight, setLtedWeight] = useState<number | null>(null);
   const [ltedWeightInput, setLtedWeightInput] = useState<string>("");
   const [seats, setSeats] = useState<
     Array<{ seatNumber: number; isPetitioned: boolean; weight: number | string | null }>
@@ -270,7 +269,6 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
     setMemberships([]);
     setSelectedCommitteeId(null);
-    setLtedWeight(null);
     setLtedWeightInput("");
     setSeats([]);
     setDesignationWeightSummary(null);
@@ -286,7 +284,6 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setSelectedDistrict(-1);
     setMemberships([]);
     setSelectedCommitteeId(null);
-    setLtedWeight(null);
     setLtedWeightInput("");
     setSeats([]);
     setDesignationWeightSummary(null);
@@ -318,9 +315,6 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           setMaxSeatsPerLted(data.maxSeatsPerLted ?? 4);
           setSelectedCommitteeId(data.id);
           const w = data.ltedWeight;
-          setLtedWeight(
-            w != null ? (typeof w === "number" ? w : Number(w)) : null,
-          );
           setLtedWeightInput(
             w != null ? String(w) : "",
           );
@@ -335,14 +329,12 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         } else if (response.status === 403) {
           setMemberships([]);
           setSelectedCommitteeId(null);
-          setLtedWeight(null);
           setLtedWeightInput("");
           setSeats([]);
           setDesignationWeightSummary(null);
         } else {
           setMemberships([]);
           setSelectedCommitteeId(null);
-          setLtedWeight(null);
           setLtedWeightInput("");
           setSeats([]);
           setDesignationWeightSummary(null);
@@ -351,7 +343,6 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         console.error("Error fetching committee list:", error);
         setMemberships([]);
         setSelectedCommitteeId(null);
-        setLtedWeight(null);
         setLtedWeightInput("");
         setSeats([]);
         setDesignationWeightSummary(null);

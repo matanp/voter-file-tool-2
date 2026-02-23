@@ -8,8 +8,9 @@
     "sourceMap": true,
     "target": "ES2020",
     "module": "CommonJS",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "types": ["node", "jest"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/**/*.test.*", "src/**/__tests__/**/*"]
+  "exclude": ["node_modules", "dist"]
 }

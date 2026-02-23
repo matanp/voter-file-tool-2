@@ -11,6 +11,7 @@ import {
   expectErrorResponse,
   expectAuditLogCreate,
   getAuditLogMock,
+  getMockCallArgs,
   DEFAULT_ACTIVE_TERM_ID,
 } from "../../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
@@ -83,10 +84,9 @@ describe("POST /api/admin/jurisdictions", () => {
     };
     const response = await POST(createMockRequest(body));
     expect(response.status).toBe(201);
-    expect(userJurisdictionMock.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        legDistrict: null,
-      }),
+    const createArgs = getMockCallArgs(userJurisdictionMock.create)[0];
+    expect(createArgs).toMatchObject({
+      data: { legDistrict: null },
     });
   });
 

@@ -225,25 +225,13 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 
 ---
 
-## 13. Report Generation UI Additions (Roadmap 3.2, 3.3, 3.4)
+## 13. Report Generation UI Additions (Roadmap 3.2, 3.3, 3.4) — Resolved
 
-**Status:** 3.2 (Sign-In Sheet) and 3.3 (Designation Weight Summary) done. 3.4 (Vacancy, Changes, Petition Outcomes) next.
+**Status:** 3.2 (Sign-In Sheet), 3.3 (Designation Weight Summary), and 3.4 (Vacancy, Changes, Petition Outcomes) done.
 
 **What's planned:** New report types: SignInSheet, DesignationWeightSummary, VacancyReport, ChangesReport, PetitionOutcomesReport.
 
-**UI gaps:**
-
-- **Report picker:** Current report UI (e.g., committee-reports, voter-list-reports) — how are new types added? New tabs? Single page with type dropdown? Per-roadmap item placement?
-- **Parameters per report:**
-  - SignInSheet: Scope (jurisdiction/date)? Same as ldCommittees?
-  - DesignationWeightSummary: Scope (county vs jurisdiction)?
-  - VacancyReport: Scope, filters?
-  - ChangesReport: Date range — required? Default?
-  - PetitionOutcomesReport: Term? Date range?
-- **Access control:** "Admin countywide; leader scoped to jurisdiction" — does UI auto-hide or disable scope options for leaders?
-- **Naming:** Report type labels in UI (e.g., "Sign-in Sheet" vs `SignInSheet`) — consistent naming not specified.
-
-**Recommendation:** Add a report UI matrix: report type → parameters → default values → leader vs admin behavior. Update reports page IA to accommodate new types.
+**Resolved by [3.2](tickets/3.2-sign-in-sheet-report-ui.md), [3.3](tickets/3.3-designation-weight-summary-report-ui.md), and [3.4](tickets/3.4-vacancy-changes-petition-reports-ui.md):** Report picker (GenerateReportGrid) includes new types as cards with dedicated form pages (e.g. `/sign-in-sheet-reports`, `/vacancy-reports`, `/changes-reports`, `/petition-outcomes-reports`). Each report has scope (jurisdiction/countywide) with type-specific params (date range for Changes, vacancy filter for Vacancy). Access control: scope options and API enforce leader vs admin behavior (leaders jurisdiction-only). Report parameter matrix is documented in ticket 3.4 §E.
 
 ---
 
@@ -330,7 +318,7 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 | AddCommitteeForm layout & states | Roadmap 2.1/2.2         | 0.5 day  |
 | CommitteeSelector vacancy block  | Roadmap 3.1a            | 0.25 day |
 | Leader empty states              | Roadmap 3.1             | 0.25 day |
-| Report params matrix             | Roadmap 3.2–3.4         | 0.5 day  |
+| Report params matrix             | Roadmap 3.2–3.4 (in 3.4 ticket §E) | ✓        |
 | Audit table & filters            | Roadmap 3.5             | 0.5 day  |
 | Admin IA diagram                 | New doc                 | 0.5 day  |
 
