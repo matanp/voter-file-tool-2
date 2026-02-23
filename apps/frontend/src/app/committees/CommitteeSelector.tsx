@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useContext, useMemo, useState } from "react";
+import Link from "next/link";
 
 import {
   type MembershipType,
@@ -55,6 +56,19 @@ interface CommitteeSelectorProps {
 type DesignationWeightSummary = NonNullable<
   FetchCommitteeListResponse["designationWeightSummary"]
 >;
+type PetitionOutcomeContextRow = {
+  id: string;
+  voterRecordId: string;
+  voter: {
+    VRCNUM: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+  status: "ACTIVE" | "PETITIONED_LOST" | "PETITIONED_TIE";
+  petitionSeatNumber: number | null;
+  petitionPrimaryDate: string | null;
+  petitionVoteCount: number | null;
+};
 
 const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
@@ -107,6 +121,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     enabled: actingPermissions === PrivilegeLevel.Leader,
   });
   const userJurisdictions = userJurisdictionsQuery.data;
+  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
 
   type RemoveOrResignPayload = {
     cityTown: string;
@@ -446,6 +461,62 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     return parseFloat(designationWeightSummary.totalWeight.toFixed(4));
   }, [designationWeightSummary]);
 
+  const selectedCommitteeMeta = useMemo(
+    () => committeeLists.find((c) => c.id === selectedCommitteeId) ?? null,
+    [committeeLists, selectedCommitteeId],
+  );
+
+  const petitionContextQueryString = useMemo(() => {
+    if (!isAdmin || selectedCommitteeId == null || selectedCommitteeMeta == null) {
+      return null;
+    }
+    const params = new URLSearchParams({
+      committeeListId: String(selectedCommitteeId),
+      termId: selectedCommitteeMeta.termId,
+    });
+    return params.toString();
+  }, [isAdmin, selectedCommitteeId, selectedCommitteeMeta]);
+
+  const petitionContextApiEndpoint = petitionContextQueryString
+    ? `/api/admin/petition-outcomes?${petitionContextQueryString}`
+    : "";
+  const petitionContextHref = petitionContextQueryString
+    ? `/admin/petition-outcomes?${petitionContextQueryString}`
+    : null;
+
+  const petitionContextQuery = useApiQuery<PetitionOutcomeContextRow[]>(
+    petitionContextApiEndpoint,
+    {
+      enabled: petitionContextQueryString != null,
+    },
+  );
+
+  const petitionContextRows = useMemo(
+    () => petitionContextQuery.data ?? [],
+    [petitionContextQuery.data],
+  );
+  const petitionOutcomeCounts = useMemo(() => {
+    return petitionContextRows.reduce(
+      (acc, row) => {
+        if (row.status === "ACTIVE") acc.won += 1;
+        if (row.status === "PETITIONED_LOST") acc.lost += 1;
+        if (row.status === "PETITIONED_TIE") acc.tie += 1;
+        return acc;
+      },
+      { won: 0, lost: 0, tie: 0 },
+    );
+  }, [petitionContextRows]);
+
+  const exclusionContextRows = useMemo(() => {
+    return petitionContextRows
+      .filter((row) => row.status === "PETITIONED_LOST" || row.status === "PETITIONED_TIE")
+      .sort((a, b) => {
+        const aTime = a.petitionPrimaryDate ? new Date(a.petitionPrimaryDate).getTime() : 0;
+        const bTime = b.petitionPrimaryDate ? new Date(b.petitionPrimaryDate).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [petitionContextRows]);
+
   const noContentMessage = () => {
     const hasValidSelection =
       selectedCity &&
@@ -614,7 +685,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       ) : (
         <div>
           {selectedCommitteeId != null &&
-            hasPermissionFor(actingPermissions, PrivilegeLevel.Admin) && (
+            isAdmin && (
               <div className="pt-2 pb-4 flex flex-wrap gap-4 items-end">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="lted-weight">LTED Total Weight</Label>
@@ -653,8 +724,80 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             </div>
           )}
           {selectedCommitteeId != null &&
+            isAdmin && (
+              <div className="pt-2 pb-4">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h2 className="font-semibold">Petition Outcome Context</h2>
+                  {petitionContextHref && (
+                    <Button asChild type="button" variant="outline" size="sm">
+                      <Link href={petitionContextHref}>
+                        Open filtered petition outcomes
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground pt-1">
+                  Won/Unopposed: {petitionOutcomeCounts.won} | Lost: {petitionOutcomeCounts.lost} | Tie: {petitionOutcomeCounts.tie}
+                </p>
+                {petitionContextQuery.loading ? (
+                  <p className="text-sm text-muted-foreground pt-2">
+                    Loading petition outcomes...
+                  </p>
+                ) : petitionContextQuery.error ? (
+                  <p className="text-sm text-destructive pt-2">
+                    Unable to load petition outcome context.
+                  </p>
+                ) : exclusionContextRows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground pt-2">
+                    No excluded petition candidates for this committee yet.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto pt-2">
+                    <table className="w-full text-sm border border-primary-200">
+                      <thead className="bg-primary-100">
+                        <tr>
+                          <th className="text-left px-2 py-1">Candidate</th>
+                          <th className="text-left px-2 py-1">Seat</th>
+                          <th className="text-left px-2 py-1">Outcome</th>
+                          <th className="text-left px-2 py-1">Votes</th>
+                          <th className="text-left px-2 py-1">Primary Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {exclusionContextRows.map((row) => {
+                          const candidateName = row.voter
+                            ? [row.voter.lastName, row.voter.firstName]
+                                .filter(Boolean)
+                                .join(", ")
+                            : row.voterRecordId;
+                          const outcomeLabel =
+                            row.status === "PETITIONED_LOST" ? "Lost" : "Tie";
+                          const primaryDate = row.petitionPrimaryDate
+                            ? new Date(row.petitionPrimaryDate).toLocaleDateString("en-US")
+                            : "—";
+                          return (
+                            <tr key={row.id} className="border-t border-primary-200">
+                              <td className="px-2 py-1">{candidateName}</td>
+                              <td className="px-2 py-1">
+                                {row.petitionSeatNumber ?? "—"}
+                              </td>
+                              <td className="px-2 py-1">{outcomeLabel}</td>
+                              <td className="px-2 py-1">
+                                {row.petitionVoteCount ?? "—"}
+                              </td>
+                              <td className="px-2 py-1">{primaryDate}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          {selectedCommitteeId != null &&
             designationWeightSummary &&
-            hasPermissionFor(actingPermissions, PrivilegeLevel.Admin) && (
+            isAdmin && (
               <div className="pt-2 pb-4">
                 <h2 className="font-semibold pb-2">
                   Designation Weight Verification

@@ -169,7 +169,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [4.1](4.1-scenario1-leader-submission-preflight.md) | Scenario 1: Leader Submission Preflight + Eligibility Snapshot | Done | P1 | 2.1, 2.2, 3.1 |
 | [4.2](4.2-scenario2-eligibility-failure-ux.md) | Scenario 2: Eligibility Failure UX + Escalation Messaging | Done | P1 | 4.1, 2.1 |
 | [4.3](4.3-scenario3-exec-confirmation-hardening.md) | Scenario 3: Executive Confirmation Approval Hardening | Done | P0 | 2.4 |
-| [4.4](4.4-scenario4-petition-outcomes-traceability.md) | Scenario 4: Petition Outcome Lifecycle + Traceability | Open | P2 | 2.6, 3.4 |
+| [4.4](4.4-scenario4-petition-outcomes-traceability.md) | Scenario 4: Petition Outcome Lifecycle + Traceability | Done | P2 | 2.6, 3.4 |
 | [4.5](4.5-scenario5-resignation-audit-durability.md) | Scenario 5: Resignation Audit Durability + Reason Capture | Open | P0 | 2.3, 2.5, 1.5 |
 | [4.6](4.6-scenario6-boe-flagging-operations.md) | Scenario 6: BOE Flagging Cadence + Stale Resolution | Open | P1 | 2.8, 4.5 |
 | [4.7](4.7-scenario7-leader-reports-scope-and-roster.md) | Scenario 7: Leader Reports Scope Hardening + Roster Export | Open | P0/P1 | 3.0a, 3.1, 3.2, 3.3 |

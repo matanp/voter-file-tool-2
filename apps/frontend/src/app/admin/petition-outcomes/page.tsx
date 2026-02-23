@@ -3,7 +3,19 @@ import prisma from "~/lib/prisma";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import { PetitionOutcomesClient } from "./PetitionOutcomesClient";
 
-export default async function PetitionOutcomesPage() {
+interface PetitionOutcomesPageProps {
+  searchParams?:
+    | {
+        committeeListId?: string;
+      }
+    | Promise<{
+        committeeListId?: string;
+      }>;
+}
+
+export default async function PetitionOutcomesPage({
+  searchParams,
+}: PetitionOutcomesPageProps) {
   const activeTermId = await getActiveTermId();
   if (activeTermId == null) {
     return (
@@ -28,6 +40,11 @@ export default async function PetitionOutcomesPage() {
       seats: { orderBy: { seatNumber: "asc" }, select: { id: true, seatNumber: true, isPetitioned: true } },
     },
   });
+  const params = (await Promise.resolve(searchParams)) ?? {};
+  const parsedCommitteeListId = Number(params.committeeListId);
+  const initialCommitteeListId = Number.isInteger(parsedCommitteeListId)
+    ? parsedCommitteeListId
+    : null;
 
   return (
     <div className="w-full p-6">
@@ -36,6 +53,7 @@ export default async function PetitionOutcomesPage() {
         activeTermId={activeTermId}
         termLabel={term?.label ?? ""}
         committeeLists={committeeLists}
+        initialCommitteeListId={initialCommitteeListId}
       />
     </div>
   );

@@ -39,6 +39,7 @@ interface PetitionOutcomesClientProps {
   activeTermId: string;
   termLabel: string;
   committeeLists: CommitteeListWithSeats[];
+  initialCommitteeListId?: number | null;
 }
 
 function nextId() {
@@ -49,9 +50,15 @@ export function PetitionOutcomesClient({
   activeTermId,
   termLabel,
   committeeLists,
+  initialCommitteeListId = null,
 }: PetitionOutcomesClientProps) {
   const { toast } = useToast();
-  const [committeeListId, setCommitteeListId] = useState<number | null>(null);
+  const [committeeListId, setCommitteeListId] = useState<number | null>(() => {
+    if (initialCommitteeListId == null) return null;
+    return committeeLists.some((c) => c.id === initialCommitteeListId)
+      ? initialCommitteeListId
+      : null;
+  });
   const [seatNumber, setSeatNumber] = useState<number | null>(null);
   const [primaryDate, setPrimaryDate] = useState("");
   const [candidates, setCandidates] = useState<CandidateRow[]>([]);

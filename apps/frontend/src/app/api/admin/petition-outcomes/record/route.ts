@@ -17,11 +17,20 @@ import type { Session } from "next-auth";
 import { logAuditEvent } from "~/lib/auditLog";
 
 type Outcome = RecordPetitionOutcomeData["candidates"][number]["outcome"];
+type CanonicalPetitionStatus = "ACTIVE" | "PETITIONED_LOST" | "PETITIONED_TIE";
+type AuditOutcome = "WON" | "UNOPPOSED" | "LOST" | "TIE";
 
-function statusForOutcome(outcome: Outcome): "ACTIVE" | "PETITIONED_LOST" | "PETITIONED_TIE" {
+function statusForOutcome(outcome: Outcome): CanonicalPetitionStatus {
   if (outcome === "WON_PRIMARY" || outcome === "UNOPPOSED") return "ACTIVE";
   if (outcome === "LOST_PRIMARY") return "PETITIONED_LOST";
   return "PETITIONED_TIE";
+}
+
+function auditOutcomeFor(outcome: Outcome): AuditOutcome {
+  if (outcome === "WON_PRIMARY") return "WON";
+  if (outcome === "UNOPPOSED") return "UNOPPOSED";
+  if (outcome === "LOST_PRIMARY") return "LOST";
+  return "TIE";
 }
 
 async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) {
@@ -91,11 +100,6 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
     }
 
     const primaryDateObj = new Date(primaryDate);
-    const outcomeSummary = candidates.map((c) => ({
-      voterRecordId: c.voterRecordId,
-      outcome: c.outcome,
-      voteCount: c.voteCount ?? null,
-    }));
 
     await prisma.$transaction(async (tx) => {
       await tx.seat.update({
@@ -103,11 +107,30 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
         data: { isPetitioned: true },
       });
 
+      const candidateOutcomeAuditRows: Array<{
+        membershipId: string;
+        candidateVoterRecordId: string;
+        seatNumber: number;
+        outcome: AuditOutcome;
+        voteCount: number | null;
+        resultingStatus: CanonicalPetitionStatus;
+        activated: boolean;
+        exclusionReason: "lost_primary" | "tie_primary" | null;
+      }> = [];
+
       for (const c of candidates) {
         const status = statusForOutcome(c.outcome);
         const isWinner = status === "ACTIVE";
         const finalSeatNumber = isWinner ? seatNumber : null;
         const activatedAt = isWinner ? new Date() : null;
+        const outcome = auditOutcomeFor(c.outcome);
+        const exclusionReason =
+          status === "PETITIONED_LOST"
+            ? "lost_primary"
+            : status === "PETITIONED_TIE"
+              ? "tie_primary"
+              : null;
+        const afterMembershipState = { status, seatNumber: finalSeatNumber };
 
         const existing = await tx.committeeMembership.findUnique({
           where: {
@@ -131,9 +154,45 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
 
         if (existing) {
           const beforeStatus = existing.status;
+          const beforeMembershipState = {
+            status: existing.status,
+            seatNumber: existing.seatNumber,
+          };
           await tx.committeeMembership.update({
             where: { id: existing.id },
             data: baseData,
+          });
+          await logAuditEvent(
+            userId,
+            userRole,
+            "PETITION_RECORDED",
+            "CommitteeMembership",
+            existing.id,
+            beforeMembershipState,
+            afterMembershipState,
+            {
+              source: "petition_outcome",
+              committeeListId,
+              termId,
+              candidateVoterRecordId: c.voterRecordId,
+              seatNumber,
+              outcome,
+              voteCount: c.voteCount ?? null,
+              resultingStatus: status,
+              activated: isWinner,
+              exclusionReason,
+            },
+            tx,
+          );
+          candidateOutcomeAuditRows.push({
+            membershipId: existing.id,
+            candidateVoterRecordId: c.voterRecordId,
+            seatNumber,
+            outcome,
+            voteCount: c.voteCount ?? null,
+            resultingStatus: status,
+            activated: isWinner,
+            exclusionReason,
           });
           if (isWinner && beforeStatus !== "ACTIVE") {
             await logAuditEvent(
@@ -144,7 +203,13 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               existing.id,
               { status: beforeStatus },
               { status: "ACTIVE", seatNumber: finalSeatNumber },
-              { source: "petition_outcome" },
+              {
+                source: "petition_outcome",
+                candidateVoterRecordId: c.voterRecordId,
+                petitionSeatNumber: seatNumber,
+                petitionOutcome: outcome,
+                petitionVoteCount: c.voteCount ?? null,
+              },
               tx,
             );
           }
@@ -157,6 +222,38 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               ...baseData,
             },
           });
+          await logAuditEvent(
+            userId,
+            userRole,
+            "PETITION_RECORDED",
+            "CommitteeMembership",
+            created.id,
+            null,
+            afterMembershipState,
+            {
+              source: "petition_outcome",
+              committeeListId,
+              termId,
+              candidateVoterRecordId: c.voterRecordId,
+              seatNumber,
+              outcome,
+              voteCount: c.voteCount ?? null,
+              resultingStatus: status,
+              activated: isWinner,
+              exclusionReason,
+            },
+            tx,
+          );
+          candidateOutcomeAuditRows.push({
+            membershipId: created.id,
+            candidateVoterRecordId: c.voterRecordId,
+            seatNumber,
+            outcome,
+            voteCount: c.voteCount ?? null,
+            resultingStatus: status,
+            activated: isWinner,
+            exclusionReason,
+          });
           if (isWinner) {
             await logAuditEvent(
               userId,
@@ -166,7 +263,13 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               created.id,
               null,
               { status: "ACTIVE", seatNumber: finalSeatNumber },
-              { source: "petition_outcome" },
+              {
+                source: "petition_outcome",
+                candidateVoterRecordId: c.voterRecordId,
+                petitionSeatNumber: seatNumber,
+                petitionOutcome: outcome,
+                petitionVoteCount: c.voteCount ?? null,
+              },
               tx,
             );
           }
@@ -177,7 +280,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
         userId,
         userRole,
         "PETITION_RECORDED",
-        "CommitteeMembership",
+        "Seat",
         seat.id,
         null,
         null,
@@ -186,7 +289,8 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
           termId,
           seatNumber,
           primaryDate: primaryDate,
-          candidateOutcomes: outcomeSummary,
+          candidateOutcomes: candidateOutcomeAuditRows,
+          candidateCount: candidateOutcomeAuditRows.length,
         },
         tx,
       );

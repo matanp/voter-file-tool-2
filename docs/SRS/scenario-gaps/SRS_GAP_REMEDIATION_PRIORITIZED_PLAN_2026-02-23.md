@@ -28,7 +28,7 @@ Inputs:
 | R5 | P1 | 1, 2 | Add leader-facing preflight eligibility UX + clear reason rendering + “contact staff” guidance. | Closes core submission UX/acceptance gaps. | M |
 | R6 | P1 | 7 | Implement or formally redefine leader “current roster generation” capability. | Direct Scenario 7 acceptance closure item. | M |
 | R7 | P1 | Additional requirements | Build governance-config admin management (party code, max seats, AD toggle, non-overridable reasons), with validation against dropdown party codes. | Completes configurable-governance requirement operationally. | M |
-| R8 | P2 | 4 | Harmonize petition lifecycle model (`PETITIONED_WON` usage or schema cleanup) + candidate-level audit clarity. | Improves model correctness and traceability. | M |
+| R8 | P2 | 4 | Harmonize petition lifecycle model (schema cleanup) + candidate-level audit clarity. | Improves model correctness and traceability. | M (Done via ticket 4.4) |
 | R9 | P2 | 6 | Auto-resolve stale pending eligibility flags on rescans. | Reduces admin review noise and improves signal quality. | M |
 | R10 | P2 | 1 | Clarify/implement seat-assignment timing at submission vs activation. | Aligns behavior with SRS wording and prevents ambiguity. | S/M |
 | R11 | P2 | 5 | Add structured resignation reason and include notes in audit payload. | Improves resignation audit context quality. | S |
@@ -84,4 +84,3 @@ For each remediation ticket:
 1. R1 + R2 in a single “approval hardening” epic.
 2. R3 as a dedicated “audit durability” epic (shared utility + endpoint updates).
 3. R4 as a focused auth hardening ticket before broader UX changes.
-
