@@ -1,5 +1,5 @@
 import type { VoterRecord } from "@prisma/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -19,11 +19,14 @@ import type {
   CommitteeRequestData,
   CommitteeRequestResponse,
 } from "~/lib/validations/committee";
+import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
+import EligibilitySnapshotPanel from "./EligibilitySnapshotPanel";
 
 type CommitteeRequestFormProps = {
   city: string;
   legDistrict: string;
   electionDistrict: number;
+  committeeListId?: number | null;
   defaultOpen: boolean;
   onOpenChange: (open: boolean) => void;
   committeeList: VoterRecord[];
@@ -37,6 +40,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   city,
   legDistrict,
   electionDistrict,
+  committeeListId = null,
   defaultOpen,
   onOpenChange,
   committeeList,
@@ -56,6 +60,11 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     useState<VoterRecord | null>(removeMember ?? null);
   const [addFormRecords, setAddFormRecords] = useState<VoterRecord[]>([]);
   const [addMemberFormOpen, setAddMemberFormOpen] = useState<boolean>(false);
+  const [preflightLoading, setPreflightLoading] = useState<boolean>(false);
+  const [preflightError, setPreflightError] = useState<string | null>(null);
+  const [preflight, setPreflight] = useState<EligibilityPreflightResponse | null>(
+    null,
+  );
 
   // API mutation hook
   const requestMutation = useApiMutation<
@@ -77,6 +86,9 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       setRequestNotes("");
       setRequestAddMember(null);
       setRequestRemoveMember(null);
+      setPreflight(null);
+      setPreflightError(null);
+      setPreflightLoading(false);
     },
     onError: (error) => {
       toast({
@@ -86,9 +98,95 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     },
   });
 
+  useEffect(() => {
+    if (requestAddMember == null || committeeListId == null) {
+      setPreflight(null);
+      setPreflightError(null);
+      setPreflightLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setPreflightLoading(true);
+    setPreflightError(null);
+    setPreflight(null);
+
+    const params = new URLSearchParams({
+      voterRecordId: requestAddMember.VRCNUM,
+      committeeListId: String(committeeListId),
+    });
+
+    void fetch(`/api/committee/eligibility?${params.toString()}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(body?.error ?? "Failed to check eligibility");
+        }
+        return (await response.json()) as EligibilityPreflightResponse;
+      })
+      .then((data) => {
+        setPreflight(data);
+      })
+      .catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        const message =
+          error instanceof Error ? error.message : "Failed to check eligibility";
+        setPreflightError(message);
+      })
+      .finally(() => {
+        setPreflightLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    requestAddMember,
+    requestAddMember?.VRCNUM,
+    committeeListId,
+    city,
+    legDistrict,
+    electionDistrict,
+  ]);
+
+  const hasHardStops = (preflight?.hardStops.length ?? 0) > 0;
+  const requiresAddPreflight = requestAddMember != null;
+  const isSubmitBlocked =
+    requestMutation.loading ||
+    (!requestAddMember && !requestRemoveMember) ||
+    (!!requestRemoveMember && !requestAddMember) ||
+    (requiresAddPreflight &&
+      (committeeListId == null ||
+        preflightLoading ||
+        preflight == null ||
+        preflightError != null ||
+        hasHardStops));
+
   const handleSubmit = async (
     _event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
+    if (requiresAddPreflight && hasHardStops) {
+      toast({
+        title: "Submission blocked",
+        description:
+          "Resolve the eligibility hard stops shown above before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (requiresAddPreflight && (preflightLoading || preflight == null)) {
+      return;
+    }
+
     await requestMutation.mutate({
       cityTown: city,
       legDistrict: legDistrict === "" ? undefined : Number(legDistrict),
@@ -120,7 +218,7 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
             .filter((member) => member.VRCNUM !== requestRemoveMember?.VRCNUM)
             .map((member) => (
               <div key={member.VRCNUM} className="flex gap-4 items-center py-1">
-                <p className="">
+                <p>
                   {member.firstName} {member.lastName}
                 </p>
                 <Button onClick={() => setRequestRemoveMember(member)}>
@@ -156,40 +254,36 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
             handleResults={setAddFormRecords}
             submitButtonText="Find Members to Add"
           />
-          {
-            <VoterRecordTable
-              records={addFormRecords.slice(0, 4)}
-              paginated={false}
-              fieldsList={[]}
-              extraContent={(record) => {
-                const member = committeeList.find(
-                  (member) => member.VRCNUM === record.VRCNUM,
-                );
+          <VoterRecordTable
+            records={addFormRecords.slice(0, 4)}
+            paginated={false}
+            fieldsList={[]}
+            extraContent={(record) => {
+              const member = committeeList.find(
+                (existingMember) => existingMember.VRCNUM === record.VRCNUM,
+              );
 
-                const getMessage = () => {
-                  if (member) {
-                    return "Already in this committee";
-                  } else if (committeeList.length >= maxSeatsPerLted) {
-                    return "Committee Full";
-                  } else {
-                    return "Add to Committee";
-                  }
-                };
-                return (
-                  <>
-                    <div className="flex gap-4">
-                      <Button
-                        onClick={() => setRequestAddMember(record)}
-                        disabled={!!member || committeeList.length >= maxSeatsPerLted}
-                      >
-                        {getMessage()}
-                      </Button>
-                    </div>
-                  </>
-                );
-              }}
-            />
-          }
+              const getMessage = () => {
+                if (member) {
+                  return "Already in this committee";
+                } else if (committeeList.length >= maxSeatsPerLted) {
+                  return "Committee Full";
+                } else {
+                  return "Select Candidate";
+                }
+              };
+              return (
+                <div className="flex gap-4">
+                  <Button
+                    onClick={() => setRequestAddMember(record)}
+                    disabled={!!member || committeeList.length >= maxSeatsPerLted}
+                  >
+                    {getMessage()}
+                  </Button>
+                </div>
+              );
+            }}
+          />
         </>
       )}
     </div>
@@ -221,6 +315,13 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
         </DialogHeader>
         <div>
           <div className="max-w-[85vw] space-y-4">
+            {requestAddMember && (
+              <EligibilitySnapshotPanel
+                preflight={preflight}
+                loading={preflightLoading}
+                error={preflightError}
+              />
+            )}
             <div>
               <label>Notes about this request:</label>
               <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
@@ -255,16 +356,8 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
             className="w-full max-w-[85vw]"
             onClick={(e) => handleSubmit(e)}
             aria-busy={requestMutation.loading}
-            aria-disabled={
-              requestMutation.loading ||
-              (!requestAddMember && !requestRemoveMember) ||
-              (!!requestRemoveMember && !requestAddMember)
-            }
-            disabled={
-              requestMutation.loading ||
-              (!requestAddMember && !requestRemoveMember) ||
-              (!!requestRemoveMember && !requestAddMember)
-            }
+            aria-disabled={isSubmitBlocked}
+            disabled={isSubmitBlocked}
           >
             {requestMutation.loading ? "Submitting..." : "Submit Request"}
           </Button>

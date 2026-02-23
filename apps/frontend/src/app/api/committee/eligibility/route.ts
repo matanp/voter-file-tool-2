@@ -7,7 +7,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import prisma from "~/lib/prisma";
+import { getActiveTermId, getGovernanceConfig } from "~/app/api/lib/committeeValidation";
 import { validateEligibility } from "~/lib/eligibility";
 import type { Session } from "next-auth";
 
@@ -37,15 +38,78 @@ async function eligibilityHandler(req: NextRequest, _session: Session) {
 
   try {
     const activeTermId = await getActiveTermId();
+    const committeeList = await prisma.committeeList.findUnique({
+      where: { id: committeeListId },
+      select: {
+        cityTown: true,
+        legDistrict: true,
+        electionDistrict: true,
+      },
+    });
+    if (!committeeList) {
+      return NextResponse.json(
+        { error: "Committee not found" },
+        { status: 404 },
+      );
+    }
+
     const result = await validateEligibility(
       voterRecordId,
       committeeListId,
       activeTermId,
     );
+    const [voter, governanceConfig, activeMemberCount] = await Promise.all([
+      prisma.voterRecord.findUnique({
+        where: { VRCNUM: voterRecordId },
+        select: {
+          VRCNUM: true,
+          firstName: true,
+          lastName: true,
+          city: true,
+          electionDistrict: true,
+          stateAssmblyDistrict: true,
+          party: true,
+        },
+      }),
+      getGovernanceConfig(),
+      prisma.committeeMembership.count({
+        where: {
+          committeeListId,
+          termId: activeTermId,
+          status: "ACTIVE",
+        },
+      }),
+    ]);
+
+    const voterName = [voter?.firstName, voter?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
     return NextResponse.json({
       eligible: result.eligible,
       hardStops: result.hardStops,
       warnings: result.warnings,
+      snapshot: {
+        voter: {
+          voterRecordId,
+          name: voterName || voterRecordId,
+          homeCityTown: voter?.city ?? null,
+          homeElectionDistrict: voter?.electionDistrict ?? null,
+          homeAssemblyDistrict: voter?.stateAssmblyDistrict ?? null,
+          party: voter?.party ?? null,
+        },
+        lted: {
+          cityTown: committeeList.cityTown,
+          legDistrict: committeeList.legDistrict,
+          electionDistrict: committeeList.electionDistrict,
+        },
+        committee: {
+          activeMemberCount,
+          maxSeatsPerLted: governanceConfig.maxSeatsPerLted,
+        },
+        warningState: result.warnings.length > 0 ? "HAS_WARNINGS" : "NONE",
+      },
     });
   } catch (error) {
     console.error("Eligibility preflight error:", error);
