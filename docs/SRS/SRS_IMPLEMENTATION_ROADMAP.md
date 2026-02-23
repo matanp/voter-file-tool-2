@@ -140,7 +140,7 @@ Membership is binary: voter has `committeeId` (in committee) or `null` (not). `C
 
 **What to build:**
 
-1. New `MembershipStatus` Prisma enum — see [SRS_DATA_MODEL_CHANGES](SRS_DATA_MODEL_CHANGES.md) §1 for full enum (includes petition statuses: `PETITIONED_WON`, `PETITIONED_LOST`, `PETITIONED_TIE`)
+1. New `MembershipStatus` Prisma enum — see [SRS_DATA_MODEL_CHANGES](SRS_DATA_MODEL_CHANGES.md) §1 for full enum (petition statuses: `PETITIONED_LOST`, `PETITIONED_TIE`; winners use `ACTIVE` + `membershipType=PETITIONED`)
 2. New `CommitteeMembership` model (replaces the `VoterRecord.committeeId` FK pattern):
    - `id`, `voterRecordId`, `committeeListId`, `termId`, `status`, `membershipType` (see 1.3), `seatNumber` (see 1.4)
    - `submittedAt`, `confirmedAt`, `activatedAt`, `resignedAt`, `removedAt`, `rejectedAt`

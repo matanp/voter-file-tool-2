@@ -206,7 +206,7 @@ CommitteesWorkspacePage
 | SUBMITTED | ACTIVE | Admin | Direct accept flow (compatibility path) |
 | ACTIVE | RESIGNED | Admin | Record resignation |
 | ACTIVE | REMOVED | Admin/System | Structured removal / BOE-confirmed removal |
-| ACTIVE | PETITIONED_WON | Admin | Petition outcome |
+| ACTIVE | PETITIONED | Admin | Petition outcome winner/unopposed |
 | ACTIVE | PETITIONED_LOST | Admin | Petition outcome |
 | ACTIVE | PETITIONED_TIE | Admin | Petition outcome |
 

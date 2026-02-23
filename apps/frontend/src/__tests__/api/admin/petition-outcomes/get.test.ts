@@ -51,4 +51,24 @@ describe("GET /api/admin/petition-outcomes", () => {
       }),
     );
   });
+
+  it("accepts canonical petition status filters used by reports/workspace context", async () => {
+    const req = createMockRequest(
+      {},
+      { termId: "term-1", committeeListId: "2", status: "PETITIONED_TIE" },
+      { method: "GET" },
+    );
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    expect(getMembershipMock(prismaMock).findMany).toHaveBeenCalledWith(
+      objectContainingMatcher({
+        where: objectContainingMatcher({
+          termId: "term-1",
+          committeeListId: 2,
+          status: "PETITIONED_TIE",
+        }),
+      }),
+    );
+  });
 });

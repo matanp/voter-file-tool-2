@@ -28,7 +28,6 @@ enum MembershipStatus {
   ACTIVE          // Fully active committee member
   RESIGNED        // Voluntarily resigned (date + method recorded)
   REMOVED         // Administratively removed (reason recorded)
-  PETITIONED_WON  // Won a primary election
   PETITIONED_LOST // Lost a primary election
   PETITIONED_TIE  // Tied in primary (seat vacant)
 }

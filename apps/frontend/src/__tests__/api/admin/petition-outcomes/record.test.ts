@@ -167,6 +167,74 @@ describe("POST /api/admin/petition-outcomes/record", () => {
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
       expectAuditLogCreate({ action: "MEMBER_ACTIVATED" }),
     );
+
+    const allAuditCalls = getAuditLogMock(prismaMock).create.mock.calls;
+    const petitionRecordedCalls = allAuditCalls.filter((call: unknown[]) => {
+      const arg = call[0] as { data: { action: string } };
+      return arg.data.action === "PETITION_RECORDED";
+    });
+    expect(petitionRecordedCalls).toHaveLength(3);
+
+    const candidatePetitionMetadata = petitionRecordedCalls
+      .map((call: unknown[]) => {
+        const arg = call[0] as {
+          data: { metadata?: { candidateVoterRecordId?: string } };
+        };
+        return arg.data.metadata;
+      })
+      .filter(
+        (metadata): metadata is {
+          candidateVoterRecordId: string;
+          seatNumber: number;
+          outcome: "WON" | "LOST";
+          voteCount: number | null;
+          resultingStatus: "ACTIVE" | "PETITIONED_LOST";
+          activated: boolean;
+          exclusionReason: "lost_primary" | null;
+        } =>
+          Boolean(
+            metadata &&
+            typeof metadata === "object" &&
+            "candidateVoterRecordId" in metadata,
+          ),
+      );
+
+    expect(candidatePetitionMetadata).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          candidateVoterRecordId: "V1",
+          seatNumber: 1,
+          outcome: "WON",
+          voteCount: 10,
+          resultingStatus: "ACTIVE",
+          activated: true,
+          exclusionReason: null,
+        }),
+        expect.objectContaining({
+          candidateVoterRecordId: "V2",
+          seatNumber: 1,
+          outcome: "LOST",
+          voteCount: 5,
+          resultingStatus: "PETITIONED_LOST",
+          activated: false,
+          exclusionReason: "lost_primary",
+        }),
+      ]),
+    );
+
+    const summaryMetadata = petitionRecordedCalls
+      .map((call: unknown[]) => {
+        const arg = call[0] as {
+          data: { metadata?: { candidateOutcomes?: unknown[] } };
+        };
+        return arg.data.metadata;
+      })
+      .find((metadata) => metadata && "candidateOutcomes" in metadata);
+    expect(summaryMetadata).toEqual(
+      expect.objectContaining({
+        candidateCount: 2,
+      }),
+    );
   });
 
   it("records unopposed winner as ACTIVE", async () => {
@@ -189,6 +257,28 @@ describe("POST /api/admin/petition-outcomes/record", () => {
         seatNumber: 1,
         membershipType: "PETITIONED",
         petitionSeatNumber: 1,
+      }),
+    );
+
+    const petitionCandidateMetadata = getAuditLogMock(prismaMock).create.mock.calls
+      .map((call: unknown[]) => {
+        const arg = call[0] as {
+          data: { action: string; metadata?: { candidateVoterRecordId?: string } };
+        };
+        if (arg.data.action !== "PETITION_RECORDED") return null;
+        if (!arg.data.metadata || !("candidateVoterRecordId" in arg.data.metadata)) {
+          return null;
+        }
+        return arg.data.metadata;
+      })
+      .find((metadata) => metadata?.candidateVoterRecordId === "V1");
+
+    expect(petitionCandidateMetadata).toEqual(
+      expect.objectContaining({
+        candidateVoterRecordId: "V1",
+        outcome: "UNOPPOSED",
+        resultingStatus: "ACTIVE",
+        activated: true,
       }),
     );
   });
@@ -214,7 +304,45 @@ describe("POST /api/admin/petition-outcomes/record", () => {
       const arg = (call as [{ data: { status: string; seatNumber: number | null } }])[0];
       expect(arg.data.status).toBe("PETITIONED_TIE");
       expect(arg.data.seatNumber).toBeNull();
+      expect(arg.data.status).not.toBe("PETITIONED_WON");
     });
+
+    const tieMetadataRows = getAuditLogMock(prismaMock).create.mock.calls
+      .map((call: unknown[]) => {
+        const arg = call[0] as {
+          data: {
+            action: string;
+            metadata?: {
+              outcome?: string;
+              resultingStatus?: string;
+              exclusionReason?: string | null;
+              activated?: boolean;
+              candidateVoterRecordId?: string;
+            };
+          };
+        };
+        if (arg.data.action !== "PETITION_RECORDED") return null;
+        if (!arg.data.metadata?.candidateVoterRecordId) return null;
+        return arg.data.metadata;
+      })
+      .filter((metadata): metadata is {
+        outcome: string;
+        resultingStatus: string;
+        exclusionReason: string | null;
+        activated: boolean;
+        candidateVoterRecordId: string;
+      } => metadata != null);
+
+    expect(tieMetadataRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outcome: "TIE",
+          resultingStatus: "PETITIONED_TIE",
+          exclusionReason: "tie_primary",
+          activated: false,
+        }),
+      ]),
+    );
   });
 
   it("updates existing membership when candidate already has membership", async () => {
