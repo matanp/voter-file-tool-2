@@ -17,8 +17,11 @@ import {
   type AddCommitteeResponse,
   type CommitteeData,
 } from "~/lib/validations/committee";
-import { getIneligibilityMessage } from "~/lib/eligibilityMessages";
-import type { IneligibilityReason, EligibilityWarning } from "~/lib/eligibility";
+import {
+  ELIGIBILITY_ESCALATION_MESSAGE,
+  getIneligibilityMessages,
+} from "~/lib/eligibilityMessages";
+import type { EligibilityWarning } from "~/lib/eligibility";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
 import {
   type SearchQueryField,
@@ -65,9 +68,9 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [loadingVRCNUM, setLoadingVRCNUM] = useState<string | null>(null);
   const [membershipType, setMembershipType] =
     useState<MembershipType>("APPOINTED");
-  const [ineligibilityReasons, setIneligibilityReasons] = useState<
-    IneligibilityReason[] | null
-  >(null);
+  const [ineligibilityReasons, setIneligibilityReasons] = useState<string[] | null>(
+    null,
+  );
   /** SRS §2.2 — Server-returned warnings only; frontend does not duplicate checks. */
   const [warnings, setWarnings] = useState<EligibilityWarning[] | null>(null);
   const [contactEmail, setContactEmail] = useState<string>("");
@@ -83,6 +86,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const validCommittee =
     city !== "" && legDistrict !== "" && electionDistrict > 0;
+  const buildBlockedSubmissionToastDescription = (messages: string[]): string =>
+    `${messages.join(" ")} ${ELIGIBILITY_ESCALATION_MESSAGE}`;
 
   // API mutation hook
   const addCommitteeMemberMutation = useApiMutation<
@@ -118,8 +123,15 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
           apiErrorBody?: { error?: string; reasons?: string[] };
         }
       ).apiErrorBody;
-      if (apiBody?.error === "INELIGIBLE" && Array.isArray(apiBody.reasons)) {
-        setIneligibilityReasons(apiBody.reasons as IneligibilityReason[]);
+      if (apiBody?.error === "INELIGIBLE") {
+        const reasons = Array.isArray(apiBody.reasons) ? apiBody.reasons : [];
+        const failureMessages = getIneligibilityMessages(reasons);
+        setIneligibilityReasons(reasons);
+        toast({
+          title: "Submission blocked",
+          description: buildBlockedSubmissionToastDescription(failureMessages),
+          variant: "destructive",
+        });
       } else {
         setIneligibilityReasons(null);
         toast({
@@ -201,6 +213,10 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     electionDistrict,
     preflightRefreshKey,
   ]);
+
+  useEffect(() => {
+    setIneligibilityReasons(null);
+  }, [selectedRecord?.VRCNUM, membershipType, contactEmail, contactPhone]);
 
   const handleAddCommitteeMember = async (record: VoterRecord) => {
     setIneligibilityReasons(null);
@@ -339,18 +355,33 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                 error={preflightError}
               />
             )}
-            {ineligibilityReasons != null && ineligibilityReasons.length > 0 && (
-              <div
-                className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
-                role="alert"
-              >
-                <p className="font-medium">Cannot add member:</p>
-                <ul className="mt-1 list-inside list-disc">
-                  {ineligibilityReasons.map((reason) => (
-                    <li key={reason}>{getIneligibilityMessage(reason)}</li>
-                  ))}
-                </ul>
-              </div>
+            {ineligibilityReasons != null && (
+              <Alert variant="destructive">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <AlertTitle>Cannot add member</AlertTitle>
+                    <AlertDescription>
+                      <ul className="mt-1 list-inside list-disc space-y-1">
+                        {getIneligibilityMessages(ineligibilityReasons).map(
+                          (message, index) => (
+                            <li key={`${message}-${index}`}>{message}</li>
+                          ),
+                        )}
+                      </ul>
+                      <p className="mt-2">{ELIGIBILITY_ESCALATION_MESSAGE}</p>
+                    </AlertDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-2 py-1"
+                    onClick={() => setIneligibilityReasons(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </Alert>
             )}
             {warnings != null && warnings.length > 0 && (
               <Alert variant="warning" className="mt-2">

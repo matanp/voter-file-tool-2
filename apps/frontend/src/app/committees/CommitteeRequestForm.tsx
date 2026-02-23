@@ -13,6 +13,7 @@ import { Textarea } from "~/components/ui/textarea";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { Switch } from "~/components/ui/switch";
 import { toast } from "~/components/ui/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import type {
@@ -20,6 +21,10 @@ import type {
   CommitteeRequestResponse,
 } from "~/lib/validations/committee";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
+import {
+  ELIGIBILITY_ESCALATION_MESSAGE,
+  getIneligibilityMessages,
+} from "~/lib/eligibilityMessages";
 import EligibilitySnapshotPanel from "./EligibilitySnapshotPanel";
 
 type CommitteeRequestFormProps = {
@@ -34,6 +39,10 @@ type CommitteeRequestFormProps = {
   onSubmit: () => void;
   addMember?: VoterRecord;
   removeMember?: VoterRecord;
+};
+
+type ApiEligibilityError = Error & {
+  apiErrorBody?: { error?: string; reasons?: string[] };
 };
 
 export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
@@ -65,6 +74,12 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   const [preflight, setPreflight] = useState<EligibilityPreflightResponse | null>(
     null,
   );
+  const [submissionFailureMessages, setSubmissionFailureMessages] = useState<
+    string[] | null
+  >(null);
+
+  const buildBlockedSubmissionToastDescription = (messages: string[]): string =>
+    `${messages.join(" ")} ${ELIGIBILITY_ESCALATION_MESSAGE}`;
 
   // API mutation hook
   const requestMutation = useApiMutation<
@@ -89,11 +104,26 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       setPreflight(null);
       setPreflightError(null);
       setPreflightLoading(false);
+      setSubmissionFailureMessages(null);
     },
     onError: (error) => {
+      const apiBody = (error as ApiEligibilityError).apiErrorBody;
+      if (apiBody?.error === "INELIGIBLE") {
+        const failureMessages = getIneligibilityMessages(apiBody.reasons);
+        setSubmissionFailureMessages(failureMessages);
+        toast({
+          title: "Submission blocked",
+          description: buildBlockedSubmissionToastDescription(failureMessages),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSubmissionFailureMessages(null);
       toast({
         title: "Error",
         description: error.message || "Something went wrong with your request",
+        variant: "destructive",
       });
     },
   });
@@ -157,6 +187,16 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     electionDistrict,
   ]);
 
+  useEffect(() => {
+    setSubmissionFailureMessages(null);
+  }, [
+    requestAddMember?.VRCNUM,
+    requestRemoveMember?.VRCNUM,
+    requestNotes,
+    contactEmail,
+    contactPhone,
+  ]);
+
   const hasHardStops = (preflight?.hardStops.length ?? 0) > 0;
   const requiresAddPreflight = requestAddMember != null;
   const isSubmitBlocked =
@@ -174,10 +214,11 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     _event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     if (requiresAddPreflight && hasHardStops) {
+      const failureMessages = getIneligibilityMessages(preflight?.hardStops);
+      setSubmissionFailureMessages(failureMessages);
       toast({
         title: "Submission blocked",
-        description:
-          "Resolve the eligibility hard stops shown above before submitting.",
+        description: buildBlockedSubmissionToastDescription(failureMessages),
         variant: "destructive",
       });
       return;
@@ -187,16 +228,20 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       return;
     }
 
-    await requestMutation.mutate({
-      cityTown: city,
-      legDistrict: legDistrict === "" ? undefined : Number(legDistrict),
-      electionDistrict: electionDistrict,
-      addMemberId: requestAddMember?.VRCNUM,
-      removeMemberId: requestRemoveMember?.VRCNUM,
-      requestNotes: requestNotes,
-      email: contactEmail.trim() || undefined,
-      phone: contactPhone.trim() || undefined,
-    });
+    try {
+      await requestMutation.mutate({
+        cityTown: city,
+        legDistrict: legDistrict === "" ? undefined : Number(legDistrict),
+        electionDistrict: electionDistrict,
+        addMemberId: requestAddMember?.VRCNUM,
+        removeMemberId: requestRemoveMember?.VRCNUM,
+        requestNotes: requestNotes,
+        email: contactEmail.trim() || undefined,
+        phone: contactPhone.trim() || undefined,
+      });
+    } catch {
+      // onError handles user-visible failure state/toast.
+    }
   };
 
   const removeMemberForm = (
@@ -321,6 +366,32 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
                 loading={preflightLoading}
                 error={preflightError}
               />
+            )}
+            {submissionFailureMessages != null && (
+              <Alert variant="destructive">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <AlertTitle>Submission blocked</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-inside list-disc space-y-1">
+                        {submissionFailureMessages.map((message, index) => (
+                          <li key={`${message}-${index}`}>{message}</li>
+                        ))}
+                      </ul>
+                      <p className="mt-2">{ELIGIBILITY_ESCALATION_MESSAGE}</p>
+                    </AlertDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-2 py-1"
+                    onClick={() => setSubmissionFailureMessages(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </Alert>
             )}
             <div>
               <label>Notes about this request:</label>

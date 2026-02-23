@@ -1,5 +1,8 @@
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import { getIneligibilityMessage } from "~/lib/eligibilityMessages";
+import {
+  ELIGIBILITY_ESCALATION_MESSAGE,
+  getIneligibilityMessage,
+} from "~/lib/eligibilityMessages";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
 
 type EligibilitySnapshotPanelProps = {
@@ -103,6 +106,7 @@ export default function EligibilitySnapshotPanel({
                 <li key={reason}>{getIneligibilityMessage(reason)}</li>
               ))}
             </ul>
+            <p className="mt-2">{ELIGIBILITY_ESCALATION_MESSAGE}</p>
           </AlertDescription>
         </Alert>
       )}

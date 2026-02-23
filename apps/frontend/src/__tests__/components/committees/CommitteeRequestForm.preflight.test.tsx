@@ -11,6 +11,13 @@ jest.mock("~/app/components/RecordSearchForm", () => ({
   default: () => null,
 }));
 
+const toastMock = jest.fn();
+jest.mock("~/components/ui/use-toast", () => ({
+  toast: (props: unknown): void => {
+    toastMock(props);
+  },
+}));
+
 import CommitteeRequestForm from "~/app/committees/CommitteeRequestForm";
 
 describe("CommitteeRequestForm preflight", () => {
@@ -19,6 +26,7 @@ describe("CommitteeRequestForm preflight", () => {
   afterEach(() => {
     global.fetch = originalFetch;
     jest.clearAllMocks();
+    toastMock.mockReset();
   });
 
   it("blocks submit when preflight returns hard stops", async () => {
@@ -85,6 +93,12 @@ describe("CommitteeRequestForm preflight", () => {
     });
 
     expect(screen.getByText("Submission blocked")).toBeInTheDocument();
+    expect(
+      screen.getByText("Committee is at capacity (no open seats)."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("If you believe this is an exception, contact MCDC staff."),
+    ).toBeInTheDocument();
   });
 
   it("allows submit after preflight pass and posts request", async () => {
@@ -166,5 +180,189 @@ describe("CommitteeRequestForm preflight", () => {
       );
     });
     expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders all API hard-stop reasons and escalation guidance when submit fails", async () => {
+    const preflightPass = {
+      eligible: true,
+      hardStops: [],
+      warnings: [],
+      snapshot: {
+        voter: {
+          voterRecordId: "TEST123456",
+          name: "John Doe",
+          homeCityTown: "Test City",
+          homeElectionDistrict: 1,
+          homeAssemblyDistrict: "1",
+          party: "DEM",
+        },
+        lted: {
+          cityTown: "Test City",
+          legDistrict: 1,
+          electionDistrict: 1,
+        },
+        committee: {
+          activeMemberCount: 1,
+          maxSeatsPerLted: 4,
+        },
+        warningState: "NONE",
+      },
+    };
+
+    const fetchMock = jest.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+
+        if (method === "GET" && url.startsWith("/api/committee/eligibility?")) {
+          return Promise.resolve(mockJsonResponse(preflightPass));
+        }
+
+        if (method === "POST" && url === "/api/committee/requestAdd") {
+          return Promise.resolve(
+            mockJsonResponse(
+              {
+                success: false,
+                error: "INELIGIBLE",
+                reasons: ["CAPACITY", "PARTY_MISMATCH"],
+              },
+              { status: 422 },
+            ),
+          );
+        }
+
+        throw new Error(`Unexpected fetch call: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+
+    render(
+      <CommitteeRequestForm
+        city="Test City"
+        legDistrict="1"
+        electionDistrict={1}
+        committeeListId={1}
+        defaultOpen={true}
+        onOpenChange={() => undefined}
+        committeeList={[]}
+        onSubmit={() => undefined}
+        addMember={createMockVoterRecord()}
+      />,
+    );
+
+    const submitButton = screen.getByRole("button", { name: "Submit Request" });
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled();
+    });
+
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Committee is at capacity (no open seats)."),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Party does not match the required party for this committee.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalled();
+    });
+    const blockedToast = toastMock.mock.calls
+      .map(([args]) => args as { title?: string; description?: string })
+      .find((args) => args.title === "Submission blocked");
+
+    expect(blockedToast).toBeDefined();
+    expect(blockedToast?.description).toContain(
+      "If you believe this is an exception, contact MCDC staff.",
+    );
+  });
+
+  it("falls back to deterministic message when API omits reasons array", async () => {
+    const preflightPass = {
+      eligible: true,
+      hardStops: [],
+      warnings: [],
+      snapshot: {
+        voter: {
+          voterRecordId: "TEST123456",
+          name: "John Doe",
+          homeCityTown: "Test City",
+          homeElectionDistrict: 1,
+          homeAssemblyDistrict: "1",
+          party: "DEM",
+        },
+        lted: {
+          cityTown: "Test City",
+          legDistrict: 1,
+          electionDistrict: 1,
+        },
+        committee: {
+          activeMemberCount: 1,
+          maxSeatsPerLted: 4,
+        },
+        warningState: "NONE",
+      },
+    };
+
+    const fetchMock = jest.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+
+        if (method === "GET" && url.startsWith("/api/committee/eligibility?")) {
+          return Promise.resolve(mockJsonResponse(preflightPass));
+        }
+
+        if (method === "POST" && url === "/api/committee/requestAdd") {
+          return Promise.resolve(
+            mockJsonResponse(
+              {
+                success: false,
+                error: "INELIGIBLE",
+              },
+              { status: 422 },
+            ),
+          );
+        }
+
+        throw new Error(`Unexpected fetch call: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+
+    render(
+      <CommitteeRequestForm
+        city="Test City"
+        legDistrict="1"
+        electionDistrict={1}
+        committeeListId={1}
+        defaultOpen={true}
+        onOpenChange={() => undefined}
+        committeeList={[]}
+        onSubmit={() => undefined}
+        addMember={createMockVoterRecord()}
+      />,
+    );
+
+    const submitButton = screen.getByRole("button", { name: "Submit Request" });
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled();
+    });
+
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Submission failed eligibility checks."),
+      ).toBeInTheDocument();
+    });
   });
 });
