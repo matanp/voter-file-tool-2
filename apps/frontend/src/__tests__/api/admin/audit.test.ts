@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { GET as listAudit } from "~/app/api/admin/audit/route";
 import { GET as getAuditDetail } from "~/app/api/admin/audit/[id]/route";
@@ -9,6 +8,7 @@ import {
   createMockSession,
   parseJsonResponse,
   getAuditLogMock,
+  getMockCallArgs,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
 
@@ -28,7 +28,7 @@ const mockAuditEntry = {
 };
 
 function createListRequest(searchParams: Record<string, string> = {}) {
-  return createMockRequest({}, searchParams, { method: "GET" }) as NextRequest;
+  return createMockRequest({}, searchParams, { method: "GET" });
 }
 
 function detailRouteContext(id: string) {
@@ -80,11 +80,10 @@ describe("/api/admin/audit", () => {
 
       await listAudit(createListRequest({ action: "MEMBER_REMOVED" }));
 
-      expect(getAuditLogMock(prismaMock).findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ action: "MEMBER_REMOVED" }),
-        }),
-      );
+      const callArg = getMockCallArgs(getAuditLogMock(prismaMock).findMany)[0];
+      expect(callArg).toMatchObject({
+        where: { action: "MEMBER_REMOVED" },
+      });
     });
 
     it("applies entityType, userId, dateFrom, dateTo filters", async () => {
@@ -100,11 +99,12 @@ describe("/api/admin/audit", () => {
         }),
       );
 
-      const where = getAuditLogMock(prismaMock).findMany.mock
-        .calls[0]?.[0]?.where as Record<string, unknown>;
-      expect(where.entityType).toBe("MeetingRecord");
-      expect(where.userId).toBe("user-1");
-      expect(where.timestamp).toBeDefined();
+      const firstCall = getMockCallArgs(getAuditLogMock(prismaMock).findMany);
+      const where = (firstCall[0] as { where?: Record<string, unknown> })?.where;
+      expect(where).toBeDefined();
+      expect(where!.entityType).toBe("MeetingRecord");
+      expect(where!.userId).toBe("user-1");
+      expect(where!.timestamp).toBeDefined();
     });
 
     it("applies pagination (page 2, pageSize 50)", async () => {
@@ -145,7 +145,7 @@ describe("/api/admin/audit", () => {
       });
 
       const res = await getAuditDetail(
-        createMockRequest() as NextRequest,
+        createMockRequest(),
         detailRouteContext("audit-1"),
       );
 
@@ -166,7 +166,7 @@ describe("/api/admin/audit", () => {
       getAuditLogMock(prismaMock).findUnique.mockResolvedValue(null);
 
       const res = await getAuditDetail(
-        createMockRequest() as NextRequest,
+        createMockRequest(),
         detailRouteContext("nonexistent"),
       );
 
@@ -186,7 +186,7 @@ describe("/api/admin/audit", () => {
       getAuditLogMock(prismaMock).findMany.mockResolvedValue([row1, row2]);
 
       const res = await exportAudit(
-        createListRequest({ format: "csv" }) as NextRequest,
+        createListRequest({ format: "csv" }),
       );
 
       expect(res.status).toBe(200);
@@ -202,7 +202,7 @@ describe("/api/admin/audit", () => {
       getAuditLogMock(prismaMock).count.mockResolvedValue(15000);
 
       const res = await exportAudit(
-        createListRequest({ format: "csv" }) as NextRequest,
+        createListRequest({ format: "csv" }),
       );
 
       expect(res.status).toBe(400);
@@ -215,7 +215,7 @@ describe("/api/admin/audit", () => {
       mockHasPermission(false);
 
       const res = await exportAudit(
-        createListRequest({ format: "csv" }) as NextRequest,
+        createListRequest({ format: "csv" }),
       );
 
       expect(res.status).toBe(403);
@@ -231,7 +231,7 @@ describe("/api/admin/audit", () => {
         { id: "u2", name: "Bob", email: "b@test.org" },
       ]);
 
-      const res = await getAuditUsers(createMockRequest() as NextRequest);
+      const res = await getAuditUsers(createMockRequest());
 
       expect(res.status).toBe(200);
       const body = await parseJsonResponse<{ users: Array<{ id: string; name: string | null; email: string }> }>(res);
@@ -242,7 +242,7 @@ describe("/api/admin/audit", () => {
     it("returns empty users when no audit logs", async () => {
       getAuditLogMock(prismaMock).findMany.mockResolvedValue([]);
 
-      const res = await getAuditUsers(createMockRequest() as NextRequest);
+      const res = await getAuditUsers(createMockRequest());
 
       expect(res.status).toBe(200);
       const body = await parseJsonResponse<{ users: unknown[] }>(res);

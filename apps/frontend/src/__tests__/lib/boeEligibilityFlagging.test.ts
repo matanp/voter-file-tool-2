@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { runBoeEligibilityFlagging } from "@voter-file-tool/shared-prisma";
+import { getMockCallArgs } from "../utils/testUtils";
 
 type MockEligibilityDb = {
   committeeTerm: { findFirst: jest.Mock };
@@ -131,7 +132,7 @@ describe("runBoeEligibilityFlagging", () => {
     expect(summary.existingPending).toBe(0);
     expect(db.eligibilityFlag.createMany).toHaveBeenCalledTimes(1);
     expect(db.eligibilityFlag.updateMany).not.toHaveBeenCalled();
-    const createManyArgs = db.eligibilityFlag.createMany.mock.calls[0][0] as {
+    const createManyArgs = getMockCallArgs(db.eligibilityFlag.createMany)[0] as {
       data: Array<{ reason: string; sourceReportId?: string }>;
     };
     expect(createManyArgs.data).toHaveLength(4);
@@ -288,20 +289,19 @@ describe("runBoeEligibilityFlagging", () => {
 
     expect(summary.newFlags).toBe(0);
     expect(summary.existingPending).toBe(1);
-    expect(db.eligibilityFlag.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          id: "flag-existing",
-          status: "PENDING",
+    const updateArgs = getMockCallArgs(db.eligibilityFlag.updateMany)[0];
+    expect(updateArgs).toMatchObject({
+      where: {
+        id: "flag-existing",
+        status: "PENDING",
+      },
+      data: {
+        sourceReportId: "cm1234567890abcdef123456",
+        details: {
+          expectedPartyCode: "DEM",
+          voterPartyCode: "REP",
         },
-        data: expect.objectContaining({
-          sourceReportId: "cm1234567890abcdef123456",
-          details: expect.objectContaining({
-            expectedPartyCode: "DEM",
-            voterPartyCode: "REP",
-          }),
-        }),
-      }),
-    );
+      },
+    });
   });
 });

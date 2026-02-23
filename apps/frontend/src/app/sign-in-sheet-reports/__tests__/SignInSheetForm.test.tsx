@@ -6,9 +6,9 @@ import { mockJsonResponse } from "../../../__tests__/utils/testUtils";
 import { hasPermissionFor as realHasPermissionFor } from "~/lib/utils";
 
 // Mock GlobalContext module to avoid next-auth/react ESM import error
-let mockActingPermissions = PrivilegeLevel.Admin;
+let mockActingPermissions: PrivilegeLevel = PrivilegeLevel.Admin;
 jest.mock("~/components/providers/GlobalContext", () => {
-  const { createContext } = jest.requireActual<typeof import("react")>("react");
+  const { createContext } = jest.requireActual<{ createContext: typeof React.createContext }>("react");
   const GlobalContext = createContext({
     actingPermissions: PrivilegeLevel.Admin,
     setActingPermissions: jest.fn(),
@@ -89,7 +89,7 @@ describe("SignInSheetForm", () => {
     mockActingPermissions = PrivilegeLevel.Admin;
     // Use real implementation of hasPermissionFor
     mockedHasPermissionFor.mockImplementation(
-      jest.requireActual<typeof import("~/lib/utils")>("~/lib/utils")
+      jest.requireActual<{ hasPermissionFor: typeof realHasPermissionFor }>("~/lib/utils")
         .hasPermissionFor,
     );
     global.fetch = jest.fn().mockResolvedValue(
@@ -109,9 +109,9 @@ describe("SignInSheetForm", () => {
       />,
     );
 
-    const nameInput = screen.getByLabelText("Report Name") as HTMLInputElement;
-    expect(nameInput.value).toContain("Sign-In Sheet");
-    expect(nameInput.value).toMatch(/Sign-In Sheet - .+/);
+    const nameInput = screen.getByLabelText("Report Name");
+    expect(nameInput).toHaveDisplayValue(/Sign-In Sheet/);
+    expect(nameInput).toHaveDisplayValue(/Sign-In Sheet - .+/);
   });
 
   it("shows scope selector for Admin users", () => {

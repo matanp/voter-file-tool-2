@@ -3,9 +3,10 @@ import { PrivilegeLevel } from "@prisma/client";
 /**
  * Tests use the real hasPermissionFor implementation (not the global mock).
  */
-const realHasPermissionFor = jest.requireActual<typeof import("~/lib/utils")>(
-  "~/lib/utils",
-).hasPermissionFor;
+const realHasPermissionFor =
+  jest.requireActual<{ hasPermissionFor: (userRole: PrivilegeLevel, requiredLevel: PrivilegeLevel) => boolean }>(
+    "~/lib/utils",
+  ).hasPermissionFor;
 
 describe("hasPermissionFor", () => {
   // Use real implementation (bypass global mock)
