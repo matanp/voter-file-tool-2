@@ -50,14 +50,23 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
       }, timeoutMs);
 
       try {
+        const isFormDataPayload =
+          typeof FormData !== "undefined" && payload instanceof FormData;
         const headers: Record<string, string> = { Accept: "application/json" };
-        if (payload != null) {
+        if (payload != null && !isFormDataPayload) {
           headers["Content-Type"] = "application/json";
         }
+        const requestBody =
+          payload == null
+            ? undefined
+            : isFormDataPayload
+              ? (payload as FormData)
+              : JSON.stringify(payload);
+
         const response = await fetch(url, {
           method,
           headers,
-          body: payload != null ? JSON.stringify(payload) : undefined,
+          body: requestBody,
           signal: controller.signal,
         });
 
@@ -65,19 +74,31 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
 
         if (!response.ok) {
           let errorMessage = `Request failed with status ${response.status}`;
+          let errorBody: { error?: string; message?: string; reasons?: string[] } | undefined;
 
           try {
-            const errorData = (await response.json()) as {
+            errorBody = (await response.json()) as {
               error?: string;
               message?: string;
+              reasons?: string[];
             };
-            errorMessage = errorData.error ?? errorData.message ?? errorMessage;
+            errorMessage =
+              errorBody.error ?? errorBody.message ?? errorMessage;
           } catch {
             // If response is not JSON, use the status text
             errorMessage = response.statusText.trim() || errorMessage;
           }
 
-          throw new Error(errorMessage);
+          const err = new Error(errorMessage) as Error & {
+            apiErrorBody?: { error?: string; reasons?: string[] };
+          };
+          if (errorBody) {
+            err.apiErrorBody = {
+              error: errorBody.error,
+              reasons: errorBody.reasons,
+            };
+          }
+          throw err;
         }
 
         let result: TData;

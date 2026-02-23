@@ -3,10 +3,12 @@
 import React from "react";
 import { CommitteeUploadDiscrepancies } from "./CommitteeUploadDiscrepancies";
 import { InviteManagement } from "./InviteManagement";
-import { SpecialReports } from "./SpecialReports";
+import { VoterImport } from "./VoterImport";
+import { WeightedTableImport } from "./WeightedTableImport";
+import { LtedCrosswalkTab } from "./LtedCrosswalkTab";
+import { AbsenteeReport } from "./AbsenteeReport";
+import { ElectionConfigTab } from "./ElectionConfigTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { ElectionDates } from "../dashboard/ElectionDates";
-import { ElectionOffices } from "../dashboard/ElectionOffices";
 import type { ElectionDate, OfficeName } from "@prisma/client";
 
 interface AdminDataClientProps {
@@ -21,29 +23,38 @@ export const AdminDataClient = ({
   return (
     <div className="w-full m-4 h-full">
       <Tabs defaultValue="invites" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="invites">User Invites</TabsTrigger>
-          <TabsTrigger value="discrepancies">
-            Committee Upload Discrepancies
-          </TabsTrigger>
-          <TabsTrigger value="election-dates">Election Dates</TabsTrigger>
-          <TabsTrigger value="election-offices">Office Names</TabsTrigger>
-          <TabsTrigger value="special-reports">Special Reports</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-7 overflow-x-auto">
+          <TabsTrigger value="invites">Invites</TabsTrigger>
+          <TabsTrigger value="election-config">Election Config</TabsTrigger>
+          <TabsTrigger value="voter-import">Voter Import</TabsTrigger>
+          <TabsTrigger value="weighted-table">Weighted Table</TabsTrigger>
+          <TabsTrigger value="lted-crosswalk">LTED Crosswalk</TabsTrigger>
+          <TabsTrigger value="discrepancies">Discrepancies</TabsTrigger>
+          <TabsTrigger value="absentee-report">Absentee Report</TabsTrigger>
         </TabsList>
         <TabsContent value="invites">
           <InviteManagement />
         </TabsContent>
+        <TabsContent value="election-config">
+          <ElectionConfigTab
+            electionDates={electionDates}
+            officeNames={officeNames}
+          />
+        </TabsContent>
+        <TabsContent value="voter-import">
+          <VoterImport />
+        </TabsContent>
+        <TabsContent value="weighted-table">
+          <WeightedTableImport />
+        </TabsContent>
+        <TabsContent value="lted-crosswalk">
+          <LtedCrosswalkTab />
+        </TabsContent>
         <TabsContent value="discrepancies">
           <CommitteeUploadDiscrepancies />
         </TabsContent>
-        <TabsContent value="election-dates">
-          <ElectionDates electionDates={electionDates} />
-        </TabsContent>
-        <TabsContent value="election-offices">
-          <ElectionOffices officeNames={officeNames} />
-        </TabsContent>
-        <TabsContent value="special-reports">
-          <SpecialReports />
+        <TabsContent value="absentee-report">
+          <AbsenteeReport />
         </TabsContent>
       </Tabs>
     </div>

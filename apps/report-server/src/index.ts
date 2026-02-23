@@ -10,8 +10,19 @@ import {
   generateHTML,
   generatePDFAndUpload,
   generateCommitteeReportHTML,
+  generateSignInSheetHTML,
+  generateDesignationWeightSummaryHTML,
+  generateVacancyReportHTML,
+  generateChangesReportHTML,
+  generatePetitionOutcomesReportHTML,
 } from './utils';
-import { generateUnifiedXLSXAndUpload } from './xlsxGenerator';
+import {
+  generateUnifiedXLSXAndUpload,
+  generateDesignationWeightSummaryXLSXAndUpload,
+  generateVacancyReportXLSXAndUpload,
+  generateChangesReportXLSXAndUpload,
+  generatePetitionOutcomesReportXLSXAndUpload,
+} from './xlsxGenerator';
 import { processAbsenteeReport } from './reportProcessors';
 import { processVoterImport } from './reportProcessors/voterImportProcessor';
 import { createWebhookSignature } from './webhookUtils';
@@ -29,11 +40,18 @@ import {
   normalizeSearchQuery,
   generateReportFilename,
 } from '@voter-file-tool/shared-validators';
+import { runBoeEligibilityFlagging } from '@voter-file-tool/shared-prisma';
 import {
   mapCommitteesToReportShape,
   fetchCommitteeData,
+  fetchSignInSheetData,
+  fetchDesignationWeights,
+  fetchVacancyData,
+  fetchChangesData,
+  fetchPetitionOutcomesData,
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
+import { processVoterImportJob } from './jobOrchestration';
 
 expand(config());
 
@@ -149,35 +167,20 @@ async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
   }
 }
 
-/**
- * Extracts XLSX configuration from job data
- * @param jobData - The enriched report data
- * @returns XLSX configuration object
- */
-function extractXLSXConfig(jobData: EnrichedReportData) {
+type XLSXReportData = Extract<EnrichedReportData, { type: 'ldCommittees' | 'voterList' }>;
+
+function extractXLSXConfig(jobData: XLSXReportData) {
   return {
-    selectedFields:
-      'includeFields' in jobData
-        ? (jobData.includeFields as VoterRecordField[])
-        : [],
-    includeCompoundFields:
-      'xlsxConfig' in jobData && jobData.xlsxConfig?.includeCompoundFields
-        ? jobData.xlsxConfig.includeCompoundFields
-        : { name: true, address: true },
-    columnOrder:
-      'xlsxConfig' in jobData && jobData.xlsxConfig?.columnOrder
-        ? jobData.xlsxConfig.columnOrder
-        : undefined,
-    columnHeaders:
-      'xlsxConfig' in jobData && jobData.xlsxConfig?.columnHeaders
-        ? jobData.xlsxConfig.columnHeaders
-        : undefined,
+    selectedFields: jobData.includeFields as VoterRecordField[],
+    includeCompoundFields: jobData.xlsxConfig?.includeCompoundFields ?? { name: true, address: true },
+    columnOrder: jobData.xlsxConfig?.columnOrder,
+    columnHeaders: jobData.xlsxConfig?.columnHeaders,
   };
 }
 
 async function processJob(jobData: EnrichedReportData) {
   try {
-    let fileName: string;
+    let fileName = '';
     let metadata:
       | {
           recordsProcessed: number;
@@ -186,21 +189,21 @@ async function processJob(jobData: EnrichedReportData) {
           dropdownsUpdated: boolean;
         }
       | undefined;
-    const { type, reportAuthor, jobId, name, format } = jobData;
+    const { reportAuthor, jobId } = jobData;
+    const shouldSendCallback = jobData.type !== 'boeEligibilityFlagging';
 
-    fileName = generateReportFilename(name, type, format, reportAuthor);
-
-    if (type === 'ldCommittees') {
+    if (jobData.type === 'ldCommittees') {
+      fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
       console.log('Fetching committee data from database...');
       const committeeData = await fetchCommitteeData();
       const payload = mapCommitteesToReportShape(committeeData);
       console.log(`Fetched ${payload.length} committee groups from database`);
 
-      if (format === 'xlsx') {
+      if (jobData.format === 'xlsx') {
         console.log('Generating committee report as XLSX...');
         const xlsxConfig = extractXLSXConfig(jobData);
         await generateUnifiedXLSXAndUpload(
-          committeeData,
+          payload,
           fileName,
           xlsxConfig,
           'ldCommittees'
@@ -210,20 +213,14 @@ async function processJob(jobData: EnrichedReportData) {
         const html = generateCommitteeReportHTML(payload);
         await generatePDFAndUpload(html, true, fileName);
       }
-    } else if (type === 'voterList') {
+    } else if (jobData.type === 'voterList') {
+      fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
       console.log('Processing voter list report as XLSX...');
       const xlsxConfig = extractXLSXConfig(jobData);
 
       console.log('Fetching voter records using search query...');
-
-      let voterRecords: Awaited<ReturnType<typeof prisma.voterRecord.findMany>>;
-      if (type === 'voterList' && 'searchQuery' in jobData) {
-        voterRecords = await fetchVoterRecords(jobData.searchQuery);
-      } else {
-        throw new Error('Missing searchQuery for voterList report');
-      }
-      console.log(`Found 
-        ${voterRecords.length} voter records`);
+      const voterRecords = await fetchVoterRecords(jobData.searchQuery);
+      console.log(`Found ${voterRecords.length} voter records`);
 
       const apiRecords = voterRecords.map(convertPrismaVoterRecordToAPI);
 
@@ -233,20 +230,11 @@ async function processJob(jobData: EnrichedReportData) {
         xlsxConfig,
         'voterList'
       );
-    } else if (type === 'designatedPetition') {
+    } else if (jobData.type === 'designatedPetition') {
+      fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
       console.log('Processing designated petition form...');
-      const payload =
-        'payload' in jobData
-          ? jobData.payload
-          : {
-              candidates: [],
-              vacancyAppointments: [],
-              party: '',
-              electionDate: '',
-              numPages: 0,
-            };
       const { candidates, vacancyAppointments, party, electionDate, numPages } =
-        payload;
+        jobData.payload;
 
       const html = generateHTML(
         candidates,
@@ -256,83 +244,203 @@ async function processJob(jobData: EnrichedReportData) {
         numPages
       );
       await generatePDFAndUpload(html, false, fileName);
-    } else if (type === 'absenteeReport') {
-      if (!('csvFileKey' in jobData) || !jobData.csvFileKey) {
-        throw new Error('csvFileKey is required for absentee reports');
-      }
+    } else if (jobData.type === 'absenteeReport') {
+      fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
 
       await processAbsenteeReport(fileName, jobId, jobData.csvFileKey);
-    } else if (type === 'voterImport') {
+    } else if (jobData.type === 'voterImport') {
       console.log('Processing voter import...');
 
-      // Validate required fields
-      if (!('fileKey' in jobData) || !jobData.fileKey) {
-        throw new Error('fileKey is required for voter import');
-      }
-      if (!('year' in jobData) || typeof jobData.year !== 'number') {
-        throw new Error('year is required for voter import');
-      }
-      if (
-        !('recordEntryNumber' in jobData) ||
-        typeof jobData.recordEntryNumber !== 'number'
-      ) {
-        throw new Error('recordEntryNumber is required for voter import');
-      }
-
-      // Process voter import and capture statistics
-      const importStats = await processVoterImport(
-        jobData.fileKey,
-        jobData.year,
-        jobData.recordEntryNumber,
-        jobId
-      );
+      const voterImportResult = await processVoterImportJob(jobData, {
+        processVoterImport,
+        enqueueJob: (job) => {
+          q.push(job);
+        },
+      });
 
       // For voter import, we don't generate a file to download, so fileName is empty
       fileName = '';
 
       // Store statistics in metadata for webhook
-      metadata = {
-        recordsProcessed: importStats.recordsProcessed,
-        recordsCreated: importStats.recordsCreated,
-        recordsUpdated: importStats.recordsUpdated,
-        dropdownsUpdated: importStats.dropdownsUpdated,
-      };
+      metadata = voterImportResult.metadata;
+      if (voterImportResult.followUpJobs.length > 0) {
+        console.log(
+          `Enqueuing ${String(voterImportResult.followUpJobs.length)} follow-up job(s) after voter import ${jobId}`
+        );
+      }
+    } else if (jobData.type === 'signInSheet') {
+      // TODO: Add integration test for processJob signInSheet handler producing PDF
+      fileName = generateReportFilename(jobData.name, jobData.type, 'pdf', reportAuthor);
+      const { scope, cityTown, legDistrict, meetingDate } = jobData;
+
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      console.log('Fetching sign-in sheet data...');
+      const data = await fetchSignInSheetData(scope, cityTown, legDistrict);
+      console.log(`Fetched ${data.length} committees for sign-in sheet`);
+      const html = generateSignInSheetHTML(data, meetingDate, reportAuthor);
+      await generatePDFAndUpload(html, false, fileName, {
+        format: 'Letter',
+        landscape: false,
+      });
+    } else if (jobData.type === 'designationWeightSummary') {
+      fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
+      const { scope, cityTown, legDistrict } = jobData;
+
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      const scopeDescription =
+        scope === 'countywide'
+          ? 'Countywide'
+          : cityTown === 'ROCHESTER' && legDistrict != null
+            ? `${cityTown} LD ${legDistrict.toString().padStart(2, '0')}`
+            : cityTown ?? 'Jurisdiction';
+
+      console.log('Fetching designation weight data...');
+      const data = await fetchDesignationWeights(scope, cityTown, legDistrict);
+      console.log(`Fetched ${data.length} committees for designation weight summary`);
+
+      if (jobData.format === 'xlsx') {
+        await generateDesignationWeightSummaryXLSXAndUpload(data, fileName);
+      } else {
+        const html = generateDesignationWeightSummaryHTML(
+          data,
+          scopeDescription,
+          reportAuthor,
+        );
+        await generatePDFAndUpload(html, true, fileName, {
+          format: 'Letter',
+          landscape: true,
+        });
+      }
+    } else if (jobData.type === 'vacancyReport') {
+      fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
+      const { scope, cityTown, legDistrict, vacancyFilter } = jobData;
+
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      const vacancyRows = await fetchVacancyData(
+        scope,
+        vacancyFilter,
+        cityTown,
+        legDistrict,
+      );
+      if (jobData.format === 'xlsx') {
+        await generateVacancyReportXLSXAndUpload(vacancyRows, fileName);
+      } else {
+        const html = generateVacancyReportHTML(vacancyRows, reportAuthor);
+        await generatePDFAndUpload(html, true, fileName);
+      }
+    } else if (jobData.type === 'changesReport') {
+      fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
+      const { scope, cityTown, legDistrict, dateFrom, dateTo } = jobData;
+
+      if (!dateFrom || !dateTo) {
+        throw new Error('dateFrom and dateTo are required for changes report');
+      }
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      const changesRows = await fetchChangesData(
+        scope,
+        dateFrom,
+        dateTo,
+        cityTown,
+        legDistrict,
+      );
+      if (jobData.format === 'xlsx') {
+        await generateChangesReportXLSXAndUpload(changesRows, fileName);
+      } else {
+        const html = generateChangesReportHTML(
+          changesRows,
+          dateFrom,
+          dateTo,
+          reportAuthor,
+        );
+        await generatePDFAndUpload(html, true, fileName);
+      }
+    } else if (jobData.type === 'petitionOutcomesReport') {
+      fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
+      const { scope, cityTown, legDistrict } = jobData;
+
+      if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
+        throw new Error('cityTown is required when scope is jurisdiction');
+      }
+
+      const petitionRows = await fetchPetitionOutcomesData(
+        scope,
+        cityTown,
+        legDistrict,
+      );
+      if (jobData.format === 'xlsx') {
+        await generatePetitionOutcomesReportXLSXAndUpload(
+          petitionRows,
+          fileName,
+        );
+      } else {
+        const html = generatePetitionOutcomesReportHTML(
+          petitionRows,
+          reportAuthor,
+        );
+        await generatePDFAndUpload(html, true, fileName);
+      }
+    } else if (jobData.type === 'boeEligibilityFlagging') {
+      console.log(
+        `Processing BOE eligibility flagging job ${jobId} (source report: ${jobData.sourceReportId ?? 'n/a'})`
+      );
+      await runBoeEligibilityFlagging(prisma, {
+        termId: jobData.termId,
+        sourceReportId: jobData.sourceReportId,
+      });
     } else {
       throw new Error('Unknown job type');
     }
 
-    // Create callback payload
-    const callbackPayloadData: ReportCompleteWebhookPayload = {
-      success: true,
-      type: type,
-      url: fileName || undefined, // Empty string becomes undefined for voter imports
-      jobId,
-      ...(metadata ? { metadata } : {}),
-    };
-    const callbackPayload = JSON.stringify(callbackPayloadData);
+    if (shouldSendCallback) {
+      // Create callback payload
+      const callbackPayloadData: ReportCompleteWebhookPayload = {
+        success: true,
+        type: jobData.type,
+        url: fileName || undefined, // Empty string becomes undefined for voter imports
+        jobId,
+        ...(metadata ? { metadata } : {}),
+      };
+      const callbackPayload = JSON.stringify(callbackPayloadData);
 
-    // Create new webhook signature for the callback payload
-    const webhookSecret = process.env.WEBHOOK_SECRET;
-    const callbackSignature = webhookSecret
-      ? createWebhookSignature(callbackPayload, webhookSecret)
-      : undefined;
+      // Create new webhook signature for the callback payload
+      const webhookSecret = process.env.WEBHOOK_SECRET;
+      const callbackSignature = webhookSecret
+        ? createWebhookSignature(callbackPayload, webhookSecret)
+        : undefined;
 
-    const callbackHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (callbackSignature) {
-      callbackHeaders['x-webhook-signature'] = callbackSignature;
+      const callbackHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (callbackSignature) {
+        callbackHeaders['x-webhook-signature'] = callbackSignature;
+      }
+      console.log('calling callback url for report complete');
+
+      await fetch(CALLBACK_URL, {
+        method: 'POST',
+        headers: callbackHeaders,
+        body: callbackPayload,
+      });
+      console.log('done');
     }
-    console.log('calling callback url for report comple');
-
-    await fetch(CALLBACK_URL, {
-      method: 'POST',
-      headers: callbackHeaders,
-      body: callbackPayload,
-    });
-    console.log('done');
   } catch (error) {
     console.error('Error processing job:', error);
+    const shouldSendCallback = jobData.type !== 'boeEligibilityFlagging';
+    if (!shouldSendCallback) {
+      return;
+    }
 
     // Create error callback payload
     const errorCallbackPayloadData: ReportCompleteWebhookPayload = {

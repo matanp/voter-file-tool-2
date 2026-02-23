@@ -3,6 +3,15 @@ import prisma from "~/lib/prisma";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import type { Session } from "next-auth";
+import {
+  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+  getGovernanceConfig,
+} from "~/app/api/lib/committeeValidation";
+import {
+  assignNextAvailableSeat,
+  ensureSeatsExist,
+} from "~/app/api/lib/seatUtils";
+import { logAuditEvent } from "~/lib/auditLog";
 
 export interface HandleDiscrepancyRequest {
   VRCNUM: string;
@@ -13,7 +22,7 @@ export interface HandleDiscrepancyRequest {
 
 async function handleCommitteeDiscrepancyHandler(
   req: NextRequest,
-  _session: Session,
+  session: Session,
 ) {
   try {
     const { VRCNUM, accept, takeAddress } =
@@ -40,26 +49,155 @@ async function handleCommitteeDiscrepancyHandler(
     }
 
     if (accept) {
-      await prisma.committeeList.update({
-        where: {
-          cityTown_legDistrict_electionDistrict: {
-            cityTown: discrepancy.committee.cityTown,
-            legDistrict: discrepancy.committee.legDistrict,
-            electionDistrict: discrepancy.committee.electionDistrict,
-          },
-        },
-        data: {
-          committeeMemberList: {
-            connect: {
-              VRCNUM,
+      const config = await getGovernanceConfig();
+      const actorUserId = session.user?.id ?? "system";
+      const actorRole = session.user?.privilegeLevel ?? PrivilegeLevel.Admin;
+
+      const outcome = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT id
+          FROM "CommitteeList"
+          WHERE id = ${discrepancy.committee.id}
+          FOR UPDATE
+        `;
+
+        await ensureSeatsExist(discrepancy.committee.id, discrepancy.committee.termId, {
+          tx,
+          maxSeats: config.maxSeatsPerLted,
+        });
+
+        const existingMembership = await tx.committeeMembership.findUnique({
+          where: {
+            voterRecordId_committeeListId_termId: {
+              voterRecordId: VRCNUM,
+              committeeListId: discrepancy.committee.id,
+              termId: discrepancy.committee.termId,
             },
           },
-        },
+        });
+
+        if (existingMembership?.status === "ACTIVE") {
+          return { kind: "alreadyActive" } as const;
+        }
+
+        const activeInAnotherCommittee = await tx.committeeMembership.findFirst({
+          where: {
+            voterRecordId: VRCNUM,
+            committeeListId: { not: discrepancy.committee.id },
+            termId: discrepancy.committee.termId,
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        });
+
+        if (activeInAnotherCommittee) {
+          return { kind: "anotherCommittee" } as const;
+        }
+
+        const activeCount = await tx.committeeMembership.count({
+          where: {
+            committeeListId: discrepancy.committee.id,
+            termId: discrepancy.committee.termId,
+            status: "ACTIVE",
+          },
+        });
+
+        if (activeCount >= config.maxSeatsPerLted) {
+          return { kind: "atCapacity" } as const;
+        }
+
+        const seatNumber = await assignNextAvailableSeat(
+          discrepancy.committee.id,
+          discrepancy.committee.termId,
+          {
+            tx,
+            maxSeats: config.maxSeatsPerLted,
+          },
+        );
+
+        if (existingMembership) {
+          await tx.committeeMembership.update({
+            where: { id: existingMembership.id },
+            data: {
+              status: "ACTIVE",
+              activatedAt: new Date(),
+              membershipType: existingMembership.membershipType ?? "APPOINTED",
+              seatNumber,
+              confirmedAt: null,
+              resignedAt: null,
+              removedAt: null,
+              rejectedAt: null,
+              rejectionNote: null,
+              resignationDateReceived: null,
+              resignationMethod: null,
+              removalReason: null,
+              removalNotes: null,
+              petitionVoteCount: null,
+              petitionPrimaryDate: null,
+            },
+          });
+          await logAuditEvent(
+            actorUserId,
+            actorRole,
+            "MEMBER_ACTIVATED",
+            "CommitteeMembership",
+            existingMembership.id,
+            { status: existingMembership.status },
+            { status: "ACTIVE" },
+            {
+              source: "discrepancy_accept",
+              discrepancyVrcnum: VRCNUM,
+            },
+            tx,
+          );
+        } else {
+          const createdMembership = await tx.committeeMembership.create({
+            data: {
+              voterRecordId: VRCNUM,
+              committeeListId: discrepancy.committee.id,
+              termId: discrepancy.committee.termId,
+              status: "ACTIVE",
+              activatedAt: new Date(),
+              membershipType: "APPOINTED",
+              seatNumber,
+            },
+          });
+          await logAuditEvent(
+            actorUserId,
+            actorRole,
+            "MEMBER_ACTIVATED",
+            "CommitteeMembership",
+            createdMembership.id,
+            null,
+            { status: "ACTIVE" },
+            {
+              source: "discrepancy_accept",
+              discrepancyVrcnum: VRCNUM,
+            },
+            tx,
+          );
+        }
+
+        return { kind: "accepted" } as const;
       });
+
+      if (outcome.kind === "atCapacity") {
+        return NextResponse.json(
+          { error: "Committee is at capacity" },
+          { status: 400 },
+        );
+      }
+
+      if (outcome.kind === "anotherCommittee") {
+        return NextResponse.json(
+          { error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
+          { status: 400 },
+        );
+      }
     }
 
     if (takeAddress) {
-      const record = await prisma.voterRecord.update({
+      await prisma.voterRecord.update({
         where: {
           VRCNUM,
         },
@@ -67,8 +205,6 @@ async function handleCommitteeDiscrepancyHandler(
           addressForCommittee: takeAddress,
         },
       });
-
-      console.log(record);
     }
 
     await prisma.committeeUploadDiscrepancy.delete({

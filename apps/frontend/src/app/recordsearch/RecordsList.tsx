@@ -3,7 +3,11 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import VoterRecordSearch from "./VoterRecordSearch";
-import { type DropdownLists, type VoterRecord } from "@prisma/client";
+import {
+  type DropdownLists,
+  type MembershipType,
+  type VoterRecord,
+} from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { getAddress } from "../api/lib/utils";
 import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
@@ -20,6 +24,7 @@ import { SearchFieldProcessor } from "~/lib/searchFieldProcessor";
 import { createSmartFieldsList } from "~/lib/searchFieldUtils";
 import { scrollToElement } from "~/lib/scrollUtils";
 import { Info } from "lucide-react";
+import { Badge } from "~/components/ui/badge";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useContext } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
@@ -244,18 +249,40 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   );
 };
 
+/** SRS 2.1a — optional submission contact overrides (prefer over voter record when displaying committee member). */
+export type SubmissionContactOverrides = {
+  email?: string;
+  phone?: string;
+};
+
 export const VoterCard = ({
   record,
   committee,
+  membershipType,
+  submissionMetadata,
 }: {
   record: VoterRecord;
   committee?: boolean;
+  membershipType?: MembershipType | null;
+  /** SRS 2.1a — when present, display email/phone from submission over voter record. */
+  submissionMetadata?: SubmissionContactOverrides | null;
 }) => {
+  // SRS 2.1a: Prefer submission contact over voter record (BOE imports overwrite VoterRecord; submission preserves leader-provided contact).
+  const displayEmail = submissionMetadata?.email ?? record.email;
+  const displayPhone = submissionMetadata?.phone ?? record.telephone;
+
   return (
     <div className="max-w-lg mx-auto bg-white rounded-lg p-4">
-      <h2 className="text-xl font-medium text-gray-800 mb-4">
-        {`${record.firstName} ${record.lastName}`}
-      </h2>
+      <div className="flex items-center gap-2 mb-4">
+        <h2 className="text-xl font-medium text-gray-800">
+          {`${record.firstName} ${record.lastName}`}
+        </h2>
+        {committee && membershipType != null && (
+          <Badge variant="secondary" hoverable={false}>
+            {membershipType === "APPOINTED" ? "Appointed" : "Petitioned"}
+          </Badge>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm text-gray-600 [&>*>p>span]:font-light">
         <div>
           <p>
@@ -269,10 +296,10 @@ export const VoterCard = ({
             {record.DOB ? new Date(record.DOB).toLocaleDateString() : "-"}
           </p>
           <p>
-            <span>Telephone:</span> {record.telephone ?? "-"}
+            <span>Telephone:</span> {displayPhone ?? "-"}
           </p>
           <p className="break-words">
-            <span>Email:</span> {record.email ?? "-"}
+            <span>Email:</span> {displayEmail ?? "-"}
           </p>
           <p>
             <span>Voter Id:</span> {record.VRCNUM}
