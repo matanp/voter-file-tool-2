@@ -51,7 +51,7 @@ export function buildSummary(entry: AuditEntryForSummary): string {
         ? meta.removalReason
         : null;
 
-  const name =
+  const rawName =
     typeof after.memberName === "string"
       ? after.memberName
       : typeof after.name === "string"
@@ -59,6 +59,8 @@ export function buildSummary(entry: AuditEntryForSummary): string {
         : typeof meta.memberName === "string"
           ? meta.memberName
           : null;
+  /** Empty string treated as missing so ?? fallbacks apply; satisfies prefer-nullish-coalescing. */
+  const name = rawName === "" ? null : rawName;
 
   const cityTown = typeof after.cityTown === "string" ? after.cityTown : null;
   const legDistrict =
