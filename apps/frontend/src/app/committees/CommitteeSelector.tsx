@@ -799,6 +799,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             electionDistrict={selectedDistrict}
             city={selectedCity}
             legDistrict={selectedLegDistrict}
+            committeeListId={selectedCommitteeId}
             committeeList={memberships.map((m) => m.voterRecord)}
             maxSeatsPerLted={maxSeatsPerLted}
             onAdd={fetchCommitteeList}
@@ -810,6 +811,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           city={selectedCity}
           legDistrict={selectedLegDistrict}
           electionDistrict={selectedDistrict}
+          committeeListId={selectedCommitteeId}
           removeMember={requestRemoveRecord}
           maxSeatsPerLted={maxSeatsPerLted}
           defaultOpen={showConfirmForm}

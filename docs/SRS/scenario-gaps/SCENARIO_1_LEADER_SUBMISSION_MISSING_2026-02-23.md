@@ -3,6 +3,8 @@
 Date: 2026-02-23  
 Requirement source: `docs/SRS/SRS_v0.1_Committee_Membership_Governance.md` (Scenario 1)
 
+Status update (2026-02-23): Resolved by Ticket `4.1` (Leader Submission Preflight + Eligibility Snapshot).
+
 ## Missing Items
 
 | Gap ID | Missing item | Evidence | Impact | Severity |
@@ -24,4 +26,3 @@ Requirement source: `docs/SRS/SRS_v0.1_Committee_Membership_Governance.md` (Scen
 - Leaders can view Home ED + AD + LTED + capacity in the add/request UI before clicking submit.
 - Preflight endpoint is called in UI and displays hard stops/warnings before submit.
 - Seat assignment timing is either implemented per SRS wording or formally revised in requirements.
-
