@@ -1,5 +1,9 @@
 import { AuditAction, Prisma, PrivilegeLevel } from "@prisma/client";
-import { logAuditEvent, SYSTEM_USER_ID } from "~/lib/auditLog";
+import {
+  logAuditEvent,
+  logAuditEventOrThrow,
+  SYSTEM_USER_ID,
+} from "~/lib/auditLog";
 import { prismaMock } from "../utils/mocks";
 import {
   expectAuditLogCreate,
@@ -105,6 +109,26 @@ describe("auditLog", () => {
         "Failed to log audit event: action=MEMBER_REMOVED, entityType=CommitteeMembership, entityId=membership-999",
         expect.any(Error),
       );
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("throws when logAuditEventOrThrow is used and audit insert fails", async () => {
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+      prismaMock.auditLog.create.mockRejectedValue(new Error("DB connection lost"));
+
+      await expect(
+        logAuditEventOrThrow(
+          "user-throw",
+          PrivilegeLevel.Admin,
+          AuditAction.MEMBER_REMOVED,
+          "CommitteeMembership",
+          "membership-throw",
+          { status: "ACTIVE" },
+          { status: "REMOVED" },
+        ),
+      ).rejects.toThrow("DB connection lost");
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
       consoleErrorSpy.mockRestore();
     });
 

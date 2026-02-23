@@ -11,7 +11,7 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
-import { logAuditEvent } from "~/lib/auditLog";
+import { logAuditEventOrThrow } from "~/lib/auditLog";
 
 /** SRS 2.3 — Handle resignation: validate resign body, update membership to RESIGNED, log MEMBER_RESIGNED. */
 async function removeCommitteeHandler(req: NextRequest, session: Session) {
@@ -91,6 +91,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
 
     if (isResign) {
       const resignData = validation.data as {
+        resignationReason: RemovalReason;
         resignationDateReceived: string;
         resignationMethod: "EMAIL" | "MAIL";
         removalNotes?: string;
@@ -98,24 +99,69 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       const resignationDateReceived = new Date(
         resignData.resignationDateReceived,
       );
+      const trimmedNotes = resignData.removalNotes?.trim();
 
-      await prisma.committeeMembership.update({
+      await prisma.$transaction(async (tx) => {
+        await tx.committeeMembership.update({
+          where: { id: membership.id },
+          data: {
+            status: "RESIGNED",
+            resignedAt: new Date(),
+            resignationDateReceived,
+            resignationMethod: resignData.resignationMethod,
+            removalReason: resignData.resignationReason,
+            ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
+          },
+        });
+
+        await logAuditEventOrThrow(
+          session.user.id,
+          session.user.privilegeLevel,
+          "MEMBER_RESIGNED",
+          "CommitteeMembership",
+          membership.id,
+          {
+            status: "ACTIVE",
+            ...(membership.seatNumber != null
+              ? { seatNumber: membership.seatNumber }
+              : {}),
+          },
+          {
+            status: "RESIGNED",
+            resignationDateReceived: resignData.resignationDateReceived,
+            resignationMethod: resignData.resignationMethod,
+            resignationReason: resignData.resignationReason,
+            removalReason: resignData.resignationReason,
+            ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
+          },
+          undefined,
+          tx,
+        );
+      });
+
+      return NextResponse.json({ status: "success" }, { status: 200 });
+    }
+
+    const removeData = validation.data as {
+      removalReason: RemovalReason;
+      removalNotes?: string;
+    };
+    const trimmedNotes = removeData.removalNotes?.trim();
+    await prisma.$transaction(async (tx) => {
+      await tx.committeeMembership.update({
         where: { id: membership.id },
         data: {
-          status: "RESIGNED",
-          resignedAt: new Date(),
-          resignationDateReceived,
-          resignationMethod: resignData.resignationMethod,
-          ...(resignData.removalNotes != null && resignData.removalNotes !== ""
-            ? { removalNotes: resignData.removalNotes }
-            : {}),
+          status: "REMOVED",
+          removedAt: new Date(),
+          removalReason: removeData.removalReason,
+          ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
         },
       });
 
-      await logAuditEvent(
-        session.user.id,
-        session.user.privilegeLevel,
-        "MEMBER_RESIGNED",
+      await logAuditEventOrThrow(
+        userId,
+        userRole,
+        "MEMBER_REMOVED",
         "CommitteeMembership",
         membership.id,
         {
@@ -125,52 +171,14 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
             : {}),
         },
         {
-          status: "RESIGNED",
-          resignationDateReceived: resignData.resignationDateReceived,
-          resignationMethod: resignData.resignationMethod,
+          status: "REMOVED",
+          removalReason: removeData.removalReason,
+          ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
         },
+        { source: "manual" },
+        tx,
       );
-
-      return NextResponse.json({ status: "success" }, { status: 200 });
-    }
-
-    const removeData = validation.data as {
-      removalReason: RemovalReason;
-      removalNotes?: string;
-    };
-    await prisma.committeeMembership.update({
-      where: { id: membership.id },
-      data: {
-        status: "REMOVED",
-        removedAt: new Date(),
-        removalReason: removeData.removalReason,
-        ...(removeData.removalNotes != null && removeData.removalNotes !== ""
-          ? { removalNotes: removeData.removalNotes }
-          : {}),
-      },
     });
-
-    await logAuditEvent(
-      userId,
-      userRole,
-      "MEMBER_REMOVED",
-      "CommitteeMembership",
-      membership.id,
-      {
-        status: "ACTIVE",
-        ...(membership.seatNumber != null
-          ? { seatNumber: membership.seatNumber }
-          : {}),
-      },
-      {
-        status: "REMOVED",
-        removalReason: removeData.removalReason,
-        ...(removeData.removalNotes != null && removeData.removalNotes !== ""
-          ? { removalNotes: removeData.removalNotes }
-          : {}),
-      },
-      { source: "manual" },
-    );
 
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {

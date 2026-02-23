@@ -10,7 +10,7 @@ import {
 } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
-import { logAuditEvent } from "~/lib/auditLog";
+import { logAuditEvent, logAuditEventOrThrow } from "~/lib/auditLog";
 import { validateEligibility } from "~/lib/eligibility";
 
 function getRemoveMemberIdFromMetadata(metadata: unknown): string | null {
@@ -262,7 +262,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
               seatNumber: null,
             },
           });
-          await logAuditEvent(
+          await logAuditEventOrThrow(
             userId,
             user.privilegeLevel,
             "MEMBER_REMOVED",

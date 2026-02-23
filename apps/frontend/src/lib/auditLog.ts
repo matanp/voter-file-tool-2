@@ -8,7 +8,9 @@ type AuditLogClient = {
   };
 };
 
-export async function logAuditEvent(
+type AuditMetadata = Record<string, unknown> | Prisma.InputJsonValue;
+
+type WriteAuditEventParams = {
   userId: string,
   userRole: PrivilegeLevel,
   action: AuditAction,
@@ -16,19 +18,34 @@ export async function logAuditEvent(
   entityId: string,
   before?: Record<string, unknown> | null,
   after?: Record<string, unknown> | null,
-  metadata?: Record<string, unknown> | Prisma.InputJsonValue,
-  client: AuditLogClient = prisma,
-): Promise<void> {
+  metadata?: AuditMetadata,
+  client?: AuditLogClient,
+  throwOnError?: boolean,
+};
+
+async function writeAuditEvent({
+  userId,
+  userRole,
+  action,
+  entityType,
+  entityId,
+  before,
+  after,
+  metadata,
+  client = prisma,
+  throwOnError = false,
+}: WriteAuditEventParams): Promise<void> {
+  const beforeValue =
+    before === null
+      ? Prisma.JsonNull
+      : (before as unknown as Prisma.InputJsonValue);
+  const afterValue =
+    after === null
+      ? Prisma.JsonNull
+      : (after as unknown as Prisma.InputJsonValue);
+  const metadataValue = metadata as Prisma.InputJsonValue | undefined;
+
   try {
-    const beforeValue =
-      before === null
-        ? Prisma.JsonNull
-        : (before as unknown as Prisma.InputJsonValue);
-    const afterValue =
-      after === null
-        ? Prisma.JsonNull
-        : (after as unknown as Prisma.InputJsonValue);
-    const metadataValue = metadata as Prisma.InputJsonValue | undefined;
     await client.auditLog.create({
       data: {
         userId,
@@ -46,6 +63,58 @@ export async function logAuditEvent(
       `Failed to log audit event: action=${action}, entityType=${entityType}, entityId=${entityId}`,
       error,
     );
-    // TODO: add `throwOnError` parameter and rethrow here when true for compliance-critical paths
+    if (throwOnError) {
+      throw error;
+    }
   }
+}
+
+export async function logAuditEvent(
+  userId: string,
+  userRole: PrivilegeLevel,
+  action: AuditAction,
+  entityType: string,
+  entityId: string,
+  before?: Record<string, unknown> | null,
+  after?: Record<string, unknown> | null,
+  metadata?: AuditMetadata,
+  client: AuditLogClient = prisma,
+): Promise<void> {
+  await writeAuditEvent({
+    userId,
+    userRole,
+    action,
+    entityType,
+    entityId,
+    before,
+    after,
+    metadata,
+    client,
+    throwOnError: false,
+  });
+}
+
+export async function logAuditEventOrThrow(
+  userId: string,
+  userRole: PrivilegeLevel,
+  action: AuditAction,
+  entityType: string,
+  entityId: string,
+  before?: Record<string, unknown> | null,
+  after?: Record<string, unknown> | null,
+  metadata?: AuditMetadata,
+  client: AuditLogClient = prisma,
+): Promise<void> {
+  await writeAuditEvent({
+    userId,
+    userRole,
+    action,
+    entityType,
+    entityId,
+    before,
+    after,
+    metadata,
+    client,
+    throwOnError: true,
+  });
 }
