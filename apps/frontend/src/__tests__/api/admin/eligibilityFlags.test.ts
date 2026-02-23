@@ -107,11 +107,97 @@ describe("/api/admin/eligibility-flags", () => {
       scanned: number;
       newFlags: number;
       existingPending: number;
+      autoResolved: number;
     }>(response);
     expect(body.termId).toBe("term-1");
     expect(body.scanned).toBe(0);
     expect(body.newFlags).toBe(0);
     expect(body.existingPending).toBe(0);
+    expect(body.autoResolved).toBe(0);
+  });
+
+  it("auto-resolves stale pending flags on re-scan and writes system audit context", async () => {
+    (prismaMock.committeeGovernanceConfig.findFirst as jest.Mock).mockResolvedValue({
+      requiredPartyCode: "DEM",
+      requireAssemblyDistrictMatch: false,
+    });
+    prismaMock.voterRecord.findFirst.mockResolvedValue({
+      latestRecordEntryYear: 2026,
+      latestRecordEntryNumber: 10,
+    } as never);
+    getMembershipMock(prismaMock).findMany.mockResolvedValue([
+      {
+        id: "membership-1",
+        committeeListId: 1,
+        voterRecordId: "V1",
+        committeeList: {
+          cityTown: "Rochester",
+          legDistrict: 1,
+          electionDistrict: 1,
+        },
+        voterRecord: {
+          party: "DEM",
+          stateAssmblyDistrict: "7",
+          latestRecordEntryYear: 2026,
+          latestRecordEntryNumber: 10,
+        },
+      },
+    ]);
+    prismaMock.ltedDistrictCrosswalk.findMany.mockResolvedValue([]);
+    getEligibilityFlagMock(prismaMock).findMany.mockResolvedValue([
+      {
+        id: "flag-stale-1",
+        membershipId: "membership-1",
+        reason: "PARTY_MISMATCH",
+        details: { expectedPartyCode: "DEM", voterPartyCode: "REP" },
+        sourceReportId: "cm1234567890abcdef123456",
+      },
+    ]);
+    getEligibilityFlagMock(prismaMock).createMany.mockResolvedValue({
+      count: 0,
+    });
+    getEligibilityFlagMock(prismaMock).updateMany.mockResolvedValue({
+      count: 1,
+    });
+
+    const response = await runEligibilityFlags(
+      createMockRequest({ termId: "term-1" }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJsonResponse<{
+      autoResolved: number;
+    }>(response);
+    expect(body.autoResolved).toBe(1);
+    expect(getEligibilityFlagMock(prismaMock).updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "flag-stale-1",
+          status: "PENDING",
+        },
+        data: expect.objectContaining({
+          status: "RESOLVED_BY_RESCAN",
+          reviewedById: "system",
+        }) as unknown,
+      }) as unknown,
+    );
+
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "DISCREPANCY_RESOLVED",
+          entityType: "EligibilityFlag",
+          entityId: "flag-stale-1",
+          metadata: expect.objectContaining({
+            decision: "auto_resolve",
+            actorType: "system",
+            actorUserId: "system",
+            flagId: "flag-stale-1",
+            reason: "PARTY_MISMATCH",
+          }) as unknown,
+        }) as unknown,
+      }) as unknown,
+    );
   });
 
   it("dismiss decision updates flag status and logs DISCREPANCY_RESOLVED", async () => {
@@ -147,6 +233,13 @@ describe("/api/admin/eligibility-flags", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           action: "DISCREPANCY_RESOLVED",
+          metadata: expect.objectContaining({
+            decision: "dismiss",
+            flagId: "flag-1",
+            reason: "PARTY_MISMATCH",
+            reviewerUserId: "test-user-id",
+            actorType: "reviewer",
+          }) as unknown,
         }) as unknown,
       }) as unknown,
     );
@@ -190,10 +283,35 @@ describe("/api/admin/eligibility-flags", () => {
         }) as unknown,
       }) as unknown,
     );
-    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         data: expect.objectContaining({
           action: "MEMBER_REMOVED",
+          metadata: expect.objectContaining({
+            source: "boe_flagging",
+            decision: "confirm",
+            flagId: "flag-2",
+            reason: "PARTY_MISMATCH",
+            reviewerUserId: "test-user-id",
+            actorType: "reviewer",
+          }) as unknown,
+        }) as unknown,
+      }) as unknown,
+    );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "DISCREPANCY_RESOLVED",
+          metadata: expect.objectContaining({
+            source: "boe_flagging",
+            decision: "confirm",
+            flagId: "flag-2",
+            reason: "PARTY_MISMATCH",
+            reviewerUserId: "test-user-id",
+            actorType: "reviewer",
+          }) as unknown,
         }) as unknown,
       }) as unknown,
     );

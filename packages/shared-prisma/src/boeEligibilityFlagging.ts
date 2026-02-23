@@ -1,5 +1,6 @@
 import {
   EligibilityFlagStatus,
+  PrivilegeLevel,
   type EligibilityFlagReason,
   type Prisma,
   type PrismaClient,
@@ -20,6 +21,7 @@ export type BoeEligibilityFlaggingRunResult = {
   scanned: number;
   newFlags: number;
   existingPending: number;
+  autoResolved: number;
   durationMs: number;
 };
 
@@ -54,6 +56,37 @@ type PendingFlagRecord = {
   details: Prisma.JsonValue | Prisma.InputJsonValue | null;
   sourceReportId: string | null;
 };
+
+const SYSTEM_USER_ID = "system";
+const RESOLVED_BY_RESCAN_STATUS =
+  "RESOLVED_BY_RESCAN" as EligibilityFlagStatus;
+
+function isJsonObject(
+  value: Prisma.JsonValue | Prisma.InputJsonValue | null,
+): value is Prisma.JsonObject {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function buildRescanResolvedDetails(
+  existing: Prisma.JsonValue | Prisma.InputJsonValue | null,
+  resolvedAt: Date,
+  sourceReportId?: string,
+): Prisma.InputJsonValue {
+  const merged: Record<string, unknown> = isJsonObject(existing)
+    ? { ...existing }
+    : existing != null
+      ? { previousDetails: existing }
+      : {};
+
+  merged.resolution = "RESOLVED_BY_RESCAN";
+  merged.resolutionTimestamp = resolvedAt.toISOString();
+  merged.resolvedByActor = SYSTEM_USER_ID;
+  if (sourceReportId) {
+    merged.resolvedBySourceReportId = sourceReportId;
+  }
+
+  return merged as Prisma.InputJsonValue;
+}
 
 function normalizeText(value: string | null | undefined): string {
   return (value ?? "").trim();
@@ -296,24 +329,19 @@ export async function runBoeEligibilityFlagging(
     );
   }
 
-  const membershipIds = memberships.map((membership) => membership.id);
-  const pendingFlags =
-    membershipIds.length > 0
-      ? await db.eligibilityFlag.findMany({
-          where: {
-            termId: targetTermId,
-            status: EligibilityFlagStatus.PENDING,
-            membershipId: { in: membershipIds },
-          },
-          select: {
-            id: true,
-            membershipId: true,
-            reason: true,
-            details: true,
-            sourceReportId: true,
-          },
-        })
-      : [];
+  const pendingFlags = await db.eligibilityFlag.findMany({
+    where: {
+      termId: targetTermId,
+      status: EligibilityFlagStatus.PENDING,
+    },
+    select: {
+      id: true,
+      membershipId: true,
+      reason: true,
+      details: true,
+      sourceReportId: true,
+    },
+  });
 
   const pendingFlagsByKey = new Map<string, PendingFlagRecord>(
     (pendingFlags as PendingFlagRecord[]).map((flag) => [
@@ -323,11 +351,13 @@ export async function runBoeEligibilityFlagging(
   );
 
   let existingPending = 0;
+  let autoResolved = 0;
   const flagsToCreate: Prisma.EligibilityFlagCreateManyInput[] = [];
   const pendingFlagUpdates: Array<{
     id: string;
     data: Prisma.EligibilityFlagUpdateManyMutationInput;
   }> = [];
+  const detectedPendingKeys = new Set<string>();
 
   for (const membership of memberships) {
     const detected = detectFlagsForMembership(membership, {
@@ -340,6 +370,7 @@ export async function runBoeEligibilityFlagging(
 
     for (const flag of detected) {
       const key = `${membership.id}:${flag.reason}`;
+      detectedPendingKeys.add(key);
       const existingPendingFlag = pendingFlagsByKey.get(key);
       if (existingPendingFlag) {
         existingPending += 1;
@@ -410,11 +441,73 @@ export async function runBoeEligibilityFlagging(
     });
   }
 
+  const stalePendingFlags = (pendingFlags as PendingFlagRecord[]).filter(
+    (flag) => !detectedPendingKeys.has(`${flag.membershipId}:${flag.reason}`),
+  );
+
+  for (const staleFlag of stalePendingFlags) {
+    const resolvedAt = new Date();
+    const updateResult = await db.eligibilityFlag.updateMany({
+      where: {
+        id: staleFlag.id,
+        status: EligibilityFlagStatus.PENDING,
+      },
+      data: {
+        status: RESOLVED_BY_RESCAN_STATUS,
+        reviewedById: SYSTEM_USER_ID,
+        reviewedAt: resolvedAt,
+        details: buildRescanResolvedDetails(
+          staleFlag.details,
+          resolvedAt,
+          input.sourceReportId,
+        ),
+      },
+    });
+
+    if (updateResult.count === 0) {
+      continue;
+    }
+
+    autoResolved += 1;
+
+    await db.auditLog.create({
+      data: {
+        userId: SYSTEM_USER_ID,
+        userRole: PrivilegeLevel.Developer,
+        action: "DISCREPANCY_RESOLVED",
+        entityType: "EligibilityFlag",
+        entityId: staleFlag.id,
+        beforeValue: {
+          status: "PENDING",
+          reason: staleFlag.reason,
+        } as Prisma.InputJsonValue,
+        afterValue: {
+          status: RESOLVED_BY_RESCAN_STATUS,
+          reason: staleFlag.reason,
+        } as Prisma.InputJsonValue,
+        metadata: {
+          source: "boe_flagging",
+          decision: "auto_resolve",
+          actorType: "system",
+          actorUserId: SYSTEM_USER_ID,
+          flagId: staleFlag.id,
+          reason: staleFlag.reason,
+          resolution: "RESOLVED_BY_RESCAN",
+          resolvedAt: resolvedAt.toISOString(),
+          ...(input.sourceReportId
+            ? { triggerSourceReportId: input.sourceReportId }
+            : {}),
+        } as Prisma.InputJsonValue,
+      },
+    });
+  }
+
   return {
     termId: targetTermId,
     scanned: memberships.length,
     newFlags,
     existingPending,
+    autoResolved,
     durationMs: Date.now() - startedAt,
   };
 }

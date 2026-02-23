@@ -573,6 +573,7 @@ enum EligibilityFlagStatus {
   PENDING
   CONFIRMED
   DISMISSED
+  RESOLVED_BY_RESCAN
 }
 
 model CommitteeGovernanceConfig {

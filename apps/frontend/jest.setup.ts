@@ -304,6 +304,7 @@ beforeEach(() => {
         findMany: jest.Mock;
         createMany: jest.Mock;
         update: jest.Mock;
+        updateMany: jest.Mock;
       };
     }
   ).eligibilityFlag = {
@@ -311,6 +312,7 @@ beforeEach(() => {
     findMany: jest.fn().mockResolvedValue([]),
     createMany: jest.fn().mockResolvedValue({ count: 0 }),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   };
   // SRS 2.4 — MeetingRecord mock
   (

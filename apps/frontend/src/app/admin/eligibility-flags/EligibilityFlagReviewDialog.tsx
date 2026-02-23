@@ -22,7 +22,11 @@ export type EligibilityFlagListItem = {
     | "ASSEMBLY_DISTRICT_MISMATCH"
     | "VOTER_NOT_FOUND"
     | "POSSIBLY_INACTIVE";
-  status: "PENDING" | "CONFIRMED" | "DISMISSED";
+  status:
+    | "PENDING"
+    | "CONFIRMED"
+    | "DISMISSED"
+    | "RESOLVED_BY_RESCAN";
   membership: {
     voterRecordId: string;
     voterRecord: {

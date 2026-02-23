@@ -3,7 +3,15 @@
 Date: 2026-02-23  
 Requirement source: `docs/SRS/SRS_v0.1_Committee_Membership_Governance.md` (Scenario 6)
 
-## Missing Items
+## Resolution Update
+
+Status: **Resolved (Ticket 4.6 complete)**
+
+- S6-G1 resolved: recurring BOE flagging schedule added in report-server orchestration/config (`BOE_FLAGGING_RESCAN_*` env settings) in addition to voter-import follow-up chaining.
+- S6-G2 resolved: stale `PENDING` flags are auto-resolved to `RESOLVED_BY_RESCAN` with explicit resolution metadata and timestamp on re-scan.
+- S6-G3 resolved: confirm-removal flow remains transactional/fail-closed (from 4.5), and BOE review/auto-resolution paths now include complete decision/actor audit metadata.
+
+## Original Missing Items (Historical Baseline)
 
 | Gap ID | Missing item | Evidence | Impact | Severity |
 | --- | --- | --- | --- | --- |
@@ -22,4 +30,3 @@ Requirement source: `docs/SRS/SRS_v0.1_Committee_Membership_Governance.md` (Scen
 - Flagging run cadence is enforced by workflow, not operator memory.
 - Pending list reflects currently detected issues, not stale residuals.
 - Confirmed BOE removals are always auditable under failure conditions.
-

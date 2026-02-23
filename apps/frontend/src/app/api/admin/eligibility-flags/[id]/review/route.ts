@@ -156,6 +156,8 @@ async function reviewEligibilityFlagHandler(
           {
             source: "boe_flagging",
             decision: "dismiss",
+            actorType: "reviewer",
+            reviewerUserId: userId,
             flagId: flag.id,
             reason: flag.reason,
             ...(notes?.trim() ? { notes: notes.trim() } : {}),
@@ -210,6 +212,9 @@ async function reviewEligibilityFlagHandler(
         },
         {
           source: "boe_flagging",
+          decision: "confirm",
+          actorType: "reviewer",
+          reviewerUserId: userId,
           flagId: flag.id,
           reason: flag.reason,
         },
@@ -243,6 +248,8 @@ async function reviewEligibilityFlagHandler(
         {
           source: "boe_flagging",
           decision: "confirm",
+          actorType: "reviewer",
+          reviewerUserId: userId,
           flagId: flag.id,
           reason: flag.reason,
           ...(notes?.trim() ? { notes: notes.trim() } : {}),

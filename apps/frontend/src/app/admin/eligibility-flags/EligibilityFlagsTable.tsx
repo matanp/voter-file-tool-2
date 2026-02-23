@@ -34,6 +34,7 @@ type RunResponse = {
   scanned: number;
   newFlags: number;
   existingPending: number;
+  autoResolved: number;
   durationMs: number;
 };
 
@@ -47,7 +48,12 @@ type EligibilityFlagListItemWithContext = EligibilityFlagListItem & {
   };
 };
 
-type StatusFilter = "ALL" | "PENDING" | "CONFIRMED" | "DISMISSED";
+type StatusFilter =
+  | "ALL"
+  | "PENDING"
+  | "CONFIRMED"
+  | "DISMISSED"
+  | "RESOLVED_BY_RESCAN";
 type ReasonFilter =
   | "ALL"
   | "PARTY_MISMATCH"
@@ -59,6 +65,7 @@ const STATUS_VARIANTS: Record<EligibilityFlagListItem["status"], string> = {
   PENDING: "bg-amber-100 text-amber-900",
   CONFIRMED: "bg-red-100 text-red-900",
   DISMISSED: "bg-emerald-100 text-emerald-900",
+  RESOLVED_BY_RESCAN: "bg-slate-100 text-slate-900",
 };
 
 const REASON_LABELS: Record<EligibilityFlagListItem["reason"], string> = {
@@ -93,7 +100,7 @@ export function EligibilityFlagsTable({
       onSuccess: (data) => {
         toast({
           title: "Eligibility check complete",
-          description: `Scanned ${data.scanned} memberships, created ${data.newFlags} new flags.`,
+          description: `Scanned ${data.scanned} memberships, created ${data.newFlags} new flags, auto-resolved ${data.autoResolved}.`,
         });
         void loadFlags();
       },
@@ -188,6 +195,9 @@ export function EligibilityFlagsTable({
             <SelectItem value="PENDING">Pending</SelectItem>
             <SelectItem value="CONFIRMED">Confirmed</SelectItem>
             <SelectItem value="DISMISSED">Dismissed</SelectItem>
+            <SelectItem value="RESOLVED_BY_RESCAN">
+              Auto-resolved by re-scan
+            </SelectItem>
           </SelectContent>
         </Select>
 

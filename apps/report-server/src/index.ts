@@ -51,7 +51,11 @@ import {
   fetchPetitionOutcomesData,
 } from './committeeMappingHelpers';
 import { prisma } from './lib/prisma';
-import { processVoterImportJob } from './jobOrchestration';
+import {
+  processVoterImportJob,
+  resolveRecurringBoeFlaggingSchedule,
+  startRecurringBoeFlaggingSchedule,
+} from './jobOrchestration';
 
 expand(config());
 
@@ -64,6 +68,28 @@ const q = async.queue(async (requestData: EnrichedReportData) => {
     console.error('Queue worker error:', error);
   }
 }, QUEUE_CONCURRENCY);
+
+const recurringBoeSchedule = resolveRecurringBoeFlaggingSchedule();
+const stopRecurringBoeScheduler = startRecurringBoeFlaggingSchedule({
+  schedule: recurringBoeSchedule,
+  enqueueJob: (job) => {
+    q.push(job);
+  },
+});
+
+if (recurringBoeSchedule.enabled) {
+  console.log(
+    `Recurring BOE eligibility re-scan enabled (interval=${String(
+      recurringBoeSchedule.intervalHours
+    )}h, initialDelay=${String(recurringBoeSchedule.initialDelayMinutes)}m${
+      recurringBoeSchedule.termId
+        ? `, termId=${recurringBoeSchedule.termId}`
+        : ''
+    })`
+  );
+} else {
+  console.log('Recurring BOE eligibility re-scan disabled by configuration');
+}
 
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '8080', 10);
@@ -475,4 +501,8 @@ async function processJob(jobData: EnrichedReportData) {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${PORT}`);
+});
+
+process.on('beforeExit', () => {
+  stopRecurringBoeScheduler();
 });

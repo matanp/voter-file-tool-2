@@ -247,6 +247,7 @@ type MockEligibilityFlagModel = {
   findMany: jest.Mock;
   createMany: jest.Mock;
   update: jest.Mock;
+  updateMany: jest.Mock;
 };
 
 export const getEligibilityFlagMock = (

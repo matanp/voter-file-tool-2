@@ -1,5 +1,11 @@
 import type { EnrichedReportData } from '@voter-file-tool/shared-validators';
-import { buildFollowUpJobs, processVoterImportJob } from '../jobOrchestration';
+import {
+  buildFollowUpJobs,
+  buildRecurringBoeFlaggingJob,
+  processVoterImportJob,
+  resolveRecurringBoeFlaggingSchedule,
+  startRecurringBoeFlaggingSchedule,
+} from '../jobOrchestration';
 
 describe('buildFollowUpJobs', () => {
   const voterImportJob: EnrichedReportData = {
@@ -88,5 +94,95 @@ describe('processVoterImportJob', () => {
       recordsUpdated: 80,
       dropdownsUpdated: true,
     });
+  });
+});
+
+describe('resolveRecurringBoeFlaggingSchedule', () => {
+  it('defaults to enabled nightly interval', () => {
+    expect(resolveRecurringBoeFlaggingSchedule({})).toEqual({
+      enabled: true,
+      intervalHours: 24,
+      initialDelayMinutes: 10,
+      termId: undefined,
+    });
+  });
+
+  it('parses explicit schedule config from env', () => {
+    expect(
+      resolveRecurringBoeFlaggingSchedule({
+        BOE_FLAGGING_RESCAN_ENABLED: 'true',
+        BOE_FLAGGING_RESCAN_INTERVAL_HOURS: '6',
+        BOE_FLAGGING_RESCAN_INITIAL_DELAY_MINUTES: '2',
+        BOE_FLAGGING_RESCAN_TERM_ID: 'term-2026',
+      }),
+    ).toEqual({
+      enabled: true,
+      intervalHours: 6,
+      initialDelayMinutes: 2,
+      termId: 'term-2026',
+    });
+  });
+
+  it('supports disabling recurring scans', () => {
+    expect(
+      resolveRecurringBoeFlaggingSchedule({
+        BOE_FLAGGING_RESCAN_ENABLED: 'false',
+      }),
+    ).toEqual({
+      enabled: false,
+      intervalHours: 24,
+      initialDelayMinutes: 10,
+      termId: undefined,
+    });
+  });
+});
+
+describe('recurring BOE schedule', () => {
+  it('builds recurring BOE job payload', () => {
+    expect(
+      buildRecurringBoeFlaggingJob({
+        termId: 'term-2026',
+        createJobId: () => 'job-recurring-1',
+      }),
+    ).toEqual({
+      type: 'boeEligibilityFlagging',
+      format: 'txt',
+      name: 'BOE Eligibility Flagging (Scheduled)',
+      description: 'Recurring BOE eligibility re-scan',
+      reportAuthor: 'system',
+      jobId: 'job-recurring-1',
+      termId: 'term-2026',
+    });
+  });
+
+  it('enqueues scheduled BOE flagging jobs without manual API trigger', () => {
+    jest.useFakeTimers();
+    const enqueueJob = jest.fn();
+
+    const stop = startRecurringBoeFlaggingSchedule({
+      enqueueJob,
+      schedule: {
+        enabled: true,
+        intervalHours: 1,
+        initialDelayMinutes: 1,
+      },
+      createJobId: () => 'job-recurring-1',
+    });
+
+    expect(enqueueJob).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(60_000);
+    expect(enqueueJob).toHaveBeenCalledTimes(1);
+    expect(enqueueJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'boeEligibilityFlagging',
+        reportAuthor: 'system',
+      }),
+    );
+
+    jest.advanceTimersByTime(60 * 60 * 1000);
+    expect(enqueueJob).toHaveBeenCalledTimes(2);
+
+    stop();
+    jest.useRealTimers();
   });
 });

@@ -72,9 +72,12 @@ Status legend:
 
 | Acceptance criterion | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| System flags members affected by BOE updates | Implemented | `packages/shared-prisma/src/boeEligibilityFlagging.ts:192`, `apps/report-server/src/jobOrchestration.ts:17` | Auto follow-up after voter import plus manual trigger route exists. |
+| System flags members affected by BOE updates | Implemented | `packages/shared-prisma/src/boeEligibilityFlagging.ts:222`, `apps/report-server/src/jobOrchestration.ts:18` | Auto follow-up after voter import plus recurring scheduled re-scan are both implemented. |
+| Flagging runs on recurring operational cadence without manual API trigger | Implemented | `apps/report-server/src/jobOrchestration.ts:93`, `apps/report-server/src/index.ts:66`, `apps/report-server/.env.example` | Recurring scheduler defaults to 24-hour cadence, configurable through environment variables. |
+| Stale pending flags are auto-resolved when condition no longer applies | Implemented | `packages/shared-prisma/src/boeEligibilityFlagging.ts:449`, `packages/shared-prisma/src/boeEligibilityFlagging.ts:508` | Stale `PENDING` rows transition to `RESOLVED_BY_RESCAN` with timestamped resolution metadata. |
 | Admin reviews each case | Implemented | `apps/frontend/src/app/api/admin/eligibility-flags/[id]/review/route.ts:121` | Only `PENDING` flags can be reviewed; confirm/dismiss flow enforced. |
-| Confirmed review sets Removed + reason | Implemented | `apps/frontend/src/app/api/admin/eligibility-flags/[id]/review/route.ts:184`, `apps/frontend/src/app/api/admin/eligibility-flags/[id]/review/route.ts:189` | Removal reason mapped from flag reason and persisted. |
+| Confirmed review sets Removed + reason | Implemented | `apps/frontend/src/app/api/admin/eligibility-flags/[id]/review/route.ts:188`, `apps/frontend/src/app/api/admin/eligibility-flags/[id]/review/route.ts:193` | Removal reason mapped from flag reason and persisted. |
+| BOE review/audit metadata includes decision + actor context | Implemented | `apps/frontend/src/app/api/admin/eligibility-flags/[id]/review/route.ts:159`, `packages/shared-prisma/src/boeEligibilityFlagging.ts:483` | Reviewer flows and system auto-resolution both log `DISCREPANCY_RESOLVED` with flag id/reason/decision and actor context. |
 | Removal appears in Changes report | Implemented | `apps/report-server/src/committeeMappingHelpers.ts:531` | Changes dataset includes `Removed` events in date range. |
 | Seat freed for future submissions | Implemented | `apps/frontend/src/lib/eligibility.ts:183` | Capacity checks use active-only count. |
 

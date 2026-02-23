@@ -13,6 +13,9 @@ type MockEligibilityDb = {
     createMany: jest.Mock;
     updateMany: jest.Mock;
   };
+  auditLog: {
+    create: jest.Mock;
+  };
 };
 
 function createDbMock(): MockEligibilityDb {
@@ -26,6 +29,9 @@ function createDbMock(): MockEligibilityDb {
       findMany: jest.fn(),
       createMany: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    auditLog: {
+      create: jest.fn().mockResolvedValue({}),
     },
   };
 }
@@ -130,6 +136,7 @@ describe("runBoeEligibilityFlagging", () => {
     expect(summary.scanned).toBe(4);
     expect(summary.newFlags).toBe(4);
     expect(summary.existingPending).toBe(0);
+    expect(summary.autoResolved).toBe(0);
     expect(db.eligibilityFlag.createMany).toHaveBeenCalledTimes(1);
     expect(db.eligibilityFlag.updateMany).not.toHaveBeenCalled();
     const createManyArgs = getMockCallArgs(db.eligibilityFlag.createMany)[0] as {
@@ -197,6 +204,7 @@ describe("runBoeEligibilityFlagging", () => {
 
     expect(summary.newFlags).toBe(0);
     expect(summary.existingPending).toBe(1);
+    expect(summary.autoResolved).toBe(0);
     expect(db.eligibilityFlag.createMany).not.toHaveBeenCalled();
     expect(db.eligibilityFlag.updateMany).not.toHaveBeenCalled();
   });
@@ -236,6 +244,7 @@ describe("runBoeEligibilityFlagging", () => {
     );
 
     expect(summary.newFlags).toBe(1);
+    expect(summary.autoResolved).toBe(0);
     expect(db.eligibilityFlag.createMany).toHaveBeenCalledTimes(1);
     expect(db.eligibilityFlag.updateMany).not.toHaveBeenCalled();
   });
@@ -289,6 +298,7 @@ describe("runBoeEligibilityFlagging", () => {
 
     expect(summary.newFlags).toBe(0);
     expect(summary.existingPending).toBe(1);
+    expect(summary.autoResolved).toBe(0);
     const updateArgs = getMockCallArgs(db.eligibilityFlag.updateMany)[0];
     expect(updateArgs).toMatchObject({
       where: {
@@ -303,5 +313,80 @@ describe("runBoeEligibilityFlagging", () => {
         },
       },
     });
+  });
+
+  it("auto-resolves stale pending flags and emits system audit metadata", async () => {
+    const db = createDbMock();
+    db.committeeGovernanceConfig.findFirst.mockResolvedValue({
+      requiredPartyCode: "DEM",
+      requireAssemblyDistrictMatch: false,
+    });
+    db.voterRecord.findFirst.mockResolvedValue({
+      latestRecordEntryYear: 2026,
+      latestRecordEntryNumber: 10,
+    });
+    db.committeeMembership.findMany.mockResolvedValue([
+      {
+        id: "m-party",
+        committeeListId: 1,
+        voterRecordId: "V1",
+        committeeList: { cityTown: "A", legDistrict: 1, electionDistrict: 1 },
+        voterRecord: {
+          party: "DEM",
+          stateAssmblyDistrict: "1",
+          latestRecordEntryYear: 2026,
+          latestRecordEntryNumber: 10,
+        },
+      },
+    ]);
+    db.ltedDistrictCrosswalk.findMany.mockResolvedValue([]);
+    db.eligibilityFlag.findMany.mockResolvedValue([
+      {
+        id: "flag-stale",
+        membershipId: "m-party",
+        reason: "PARTY_MISMATCH",
+        details: { expectedPartyCode: "DEM", voterPartyCode: "REP" },
+        sourceReportId: "cm1234567890abcdef123456",
+      },
+    ]);
+    db.eligibilityFlag.createMany.mockResolvedValue({ count: 0 });
+
+    const summary = await runBoeEligibilityFlagging(
+      db as unknown as PrismaClient,
+      { termId: "term-1" },
+    );
+
+    expect(summary.newFlags).toBe(0);
+    expect(summary.existingPending).toBe(0);
+    expect(summary.autoResolved).toBe(1);
+    expect(db.eligibilityFlag.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "flag-stale",
+          status: "PENDING",
+        },
+        data: expect.objectContaining({
+          status: "RESOLVED_BY_RESCAN",
+          reviewedById: "system",
+        }) as unknown,
+      }) as unknown,
+    );
+    expect(db.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "DISCREPANCY_RESOLVED",
+          entityType: "EligibilityFlag",
+          entityId: "flag-stale",
+          metadata: expect.objectContaining({
+            decision: "auto_resolve",
+            actorType: "system",
+            actorUserId: "system",
+            flagId: "flag-stale",
+            reason: "PARTY_MISMATCH",
+            resolution: "RESOLVED_BY_RESCAN",
+          }) as unknown,
+        }) as unknown,
+      }) as unknown,
+    );
   });
 });
