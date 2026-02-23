@@ -1,6 +1,7 @@
 import {
   generateReportSchema,
   enrichedReportDataSchema,
+  isScopedReportData,
 } from '../../schemas/report';
 
 describe('generateReportSchema - signInSheet', () => {
@@ -119,5 +120,26 @@ describe('generateReportSchema - designationWeightSummary', () => {
     };
 
     expect(() => generateReportSchema.parse(invalid)).toThrow();
+  });
+});
+
+describe('isScopedReportData', () => {
+  it.each([
+    ['signInSheet', { type: 'signInSheet', name: 'Test', format: 'pdf', scope: 'countywide' }],
+    ['designationWeightSummary', { type: 'designationWeightSummary', name: 'Test', format: 'pdf', scope: 'countywide' }],
+    ['vacancyReport', { type: 'vacancyReport', name: 'Test', format: 'pdf', scope: 'countywide' }],
+    ['changesReport', { type: 'changesReport', name: 'Test', format: 'pdf', scope: 'countywide', dateFrom: '2025-01-01', dateTo: '2025-12-31' }],
+    ['petitionOutcomesReport', { type: 'petitionOutcomesReport', name: 'Test', format: 'pdf', scope: 'countywide' }],
+  ] as const)('returns true for %s', (_label, raw) => {
+    const data = generateReportSchema.parse(raw);
+    expect(isScopedReportData(data)).toBe(true);
+  });
+
+  it.each([
+    ['ldCommittees', { type: 'ldCommittees', format: 'pdf' }],
+    ['voterList', { type: 'voterList', format: 'xlsx', searchQuery: [], includeFields: [] }],
+  ] as const)('returns false for %s', (_label, raw) => {
+    const data = generateReportSchema.parse(raw);
+    expect(isScopedReportData(data)).toBe(false);
   });
 });

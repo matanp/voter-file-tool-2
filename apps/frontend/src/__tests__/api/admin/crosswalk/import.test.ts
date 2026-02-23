@@ -5,7 +5,7 @@
 import { type NextRequest } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { POST } from "~/app/api/admin/crosswalk/import/route";
-import { parseJsonResponse, createMockSession } from "../../../utils/testUtils";
+import { parseJsonResponse, createMockSession, getMockCallArgs } from "../../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
 import * as xlsx from "xlsx";
 
@@ -75,23 +75,24 @@ describe("/api/admin/crosswalk/import", () => {
       updated: 0,
       skipped: 0,
     });
-    expect((prismaMock.ltedDistrictCrosswalk as { upsert: jest.Mock }).upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          cityTown_legDistrict_electionDistrict: {
-            cityTown: "ROCHESTER",
-            legDistrict: 17,
-            electionDistrict: 1,
-          },
-        },
-        create: expect.objectContaining({
+    const upsertArgs = getMockCallArgs(
+      (prismaMock.ltedDistrictCrosswalk as { upsert: jest.Mock }).upsert,
+    )[0];
+    expect(upsertArgs).toMatchObject({
+      where: {
+        cityTown_legDistrict_electionDistrict: {
           cityTown: "ROCHESTER",
           legDistrict: 17,
           electionDistrict: 1,
-          stateAssemblyDistrict: "131",
-        }),
-      }),
-    );
+        },
+      },
+      create: {
+        cityTown: "ROCHESTER",
+        legDistrict: 17,
+        electionDistrict: 1,
+        stateAssemblyDistrict: "131",
+      },
+    });
   });
 
   it("skips rows with unknown town code and reports errors", async () => {
@@ -120,13 +121,14 @@ describe("/api/admin/crosswalk/import", () => {
     sheetToJsonMock.mockReturnValue([]);
 
     await POST(createFormDataRequest(createUploadFile()));
-    expect((prismaMock.auditLog as { create: jest.Mock }).create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          action: "CROSSWALK_IMPORTED",
-          entityType: "LtedDistrictCrosswalk",
-        }),
-      }),
-    );
+    const auditArgs = getMockCallArgs(
+      (prismaMock.auditLog as { create: jest.Mock }).create,
+    )[0];
+    expect(auditArgs).toMatchObject({
+      data: {
+        action: "CROSSWALK_IMPORTED",
+        entityType: "LtedDistrictCrosswalk",
+      },
+    });
   });
 });

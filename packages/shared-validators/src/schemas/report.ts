@@ -88,6 +88,13 @@ export const baseApiSchema = z.object({
   description: z.string().optional(),
 });
 
+// Shared scope fields used by multiple report types
+const scopeFieldsSchema = z.object({
+  scope: z.enum(['jurisdiction', 'countywide']),
+  cityTown: z.string().optional(),
+  legDistrict: z.number().optional(),
+});
+
 // Individual report type schemas
 const designatedPetitionReportSchema = z.object({
   type: z.literal('designatedPetition'),
@@ -156,9 +163,7 @@ const signInSheetReportSchema = z.object({
   ...baseApiSchema.shape,
   name: z.string(),
   format: z.literal('pdf'),
-  scope: z.enum(['jurisdiction', 'countywide']),
-  cityTown: z.string().optional(),
-  legDistrict: z.number().optional(),
+  ...scopeFieldsSchema.shape,
   meetingDate: z.string().optional(),
 });
 
@@ -167,9 +172,7 @@ const designationWeightSummaryReportSchema = z.object({
   ...baseApiSchema.shape,
   name: z.string(),
   format: z.enum(['pdf', 'xlsx']),
-  scope: z.enum(['jurisdiction', 'countywide']),
-  cityTown: z.string().optional(),
-  legDistrict: z.number().optional(),
+  ...scopeFieldsSchema.shape,
 });
 
 const vacancyReportSchema = z.object({
@@ -177,9 +180,7 @@ const vacancyReportSchema = z.object({
   ...baseApiSchema.shape,
   name: z.string(),
   format: z.enum(['pdf', 'xlsx']),
-  scope: z.enum(['jurisdiction', 'countywide']),
-  cityTown: z.string().optional(),
-  legDistrict: z.number().optional(),
+  ...scopeFieldsSchema.shape,
   vacancyFilter: z.enum(['all', 'vacantOnly']).default('vacantOnly'),
 });
 
@@ -188,9 +189,7 @@ const changesReportSchema = z.object({
   ...baseApiSchema.shape,
   name: z.string(),
   format: z.enum(['pdf', 'xlsx']),
-  scope: z.enum(['jurisdiction', 'countywide']),
-  cityTown: z.string().optional(),
-  legDistrict: z.number().optional(),
+  ...scopeFieldsSchema.shape,
   dateFrom: z.string(),
   dateTo: z.string(),
 });
@@ -200,9 +199,7 @@ const petitionOutcomesReportSchema = z.object({
   ...baseApiSchema.shape,
   name: z.string(),
   format: z.enum(['pdf', 'xlsx']),
-  scope: z.enum(['jurisdiction', 'countywide']),
-  cityTown: z.string().optional(),
-  legDistrict: z.number().optional(),
+  ...scopeFieldsSchema.shape,
 });
 
 // Internal worker job schema (2.8). Not exposed in generateReportSchema.
@@ -360,3 +357,40 @@ export type ReportCompleteResponse = z.infer<
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 export type SearchQueryField = z.infer<typeof searchQueryFieldSchema>;
 export type CommitteeSelection = z.infer<typeof committeeSelectionSchema>;
+
+// Scope-based report types — the 5 report schemas that use scopeFieldsSchema
+export const SCOPE_REPORT_TYPES = [
+  'signInSheet',
+  'designationWeightSummary',
+  'vacancyReport',
+  'changesReport',
+  'petitionOutcomesReport',
+] as const;
+
+export type ScopeReportType = (typeof SCOPE_REPORT_TYPES)[number];
+
+// Extract the union variants that correspond to scope-based report types
+export type ScopedReportData = Extract<
+  GenerateReportData,
+  { type: ScopeReportType }
+>;
+
+// Compile-time exhaustiveness check: ensure every GenerateReportData variant
+// with a `scope` field is listed in SCOPE_REPORT_TYPES.
+// If a new scope-based schema is added to generateReportSchema but not to
+// SCOPE_REPORT_TYPES, this line will produce a TS error.
+type _ScopeExhaustive = Exclude<
+  Extract<GenerateReportData, { scope: string }>['type'],
+  ScopeReportType
+> extends never
+  ? true
+  : { error: 'A scope-based report type is missing from SCOPE_REPORT_TYPES' };
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _assertExhaustive: _ScopeExhaustive = true;
+
+/** Type guard that narrows GenerateReportData to the 5 scope-based variants. */
+export function isScopedReportData(
+  data: GenerateReportData,
+): data is ScopedReportData {
+  return (SCOPE_REPORT_TYPES as readonly string[]).includes(data.type);
+}

@@ -90,7 +90,7 @@ export function buildSummary(entry: AuditEntryForSummary): string {
 
   switch (action) {
     case AuditAction.MEMBER_ACTIVATED:
-      if (entityType === "CommitteeMembership" && (name || location)) {
+      if (entityType === "CommitteeMembership" && (name ?? location)) {
         return `${name ?? "Member"} activated${location ? ` in ${location}` : ""}${seatNumber != null && !Number.isNaN(seatNumber) ? ` Seat ${seatNumber}` : ""}`.trim();
       }
       return `Member activated (${entityType})`;
@@ -101,7 +101,7 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       }
       return `Removed (${entityType})`;
     case AuditAction.MEMBER_RESIGNED:
-      if (entityType === "CommitteeMembership" && (name || location)) {
+      if (entityType === "CommitteeMembership" && (name ?? location)) {
         return `${name ?? "Member"} resigned${location ? ` from ${location}` : ""}`.trim();
       }
       return `Member resigned (${entityType})`;

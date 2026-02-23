@@ -21,7 +21,7 @@ import {
 async function getDesignationWeight(req: NextRequest, session: SessionWithUser) {
   const queryParams = {
     committeeListId: req.nextUrl.searchParams.get("committeeListId"),
-    termId: req.nextUrl.searchParams.get("termId") || undefined,
+    termId: req.nextUrl.searchParams.get("termId") ?? undefined,
   };
 
   const validation = validateRequest(queryParams, designationWeightQuerySchema);
