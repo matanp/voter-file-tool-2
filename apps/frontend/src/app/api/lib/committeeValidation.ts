@@ -24,7 +24,9 @@ export const ALREADY_IN_ANOTHER_COMMITTEE_ERROR =
  */
 export async function getGovernanceConfig(): Promise<CommitteeGovernanceConfig> {
   const config: CommitteeGovernanceConfig | null =
-    await prisma.committeeGovernanceConfig.findFirst();
+    await prisma.committeeGovernanceConfig.findFirst({
+      orderBy: { updatedAt: "desc" },
+    });
   if (!config) throw new Error("CommitteeGovernanceConfig not found — run seed");
   return config;
 }

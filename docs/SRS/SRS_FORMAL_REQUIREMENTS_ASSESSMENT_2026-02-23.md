@@ -40,7 +40,7 @@ Status labels used:
 | Configurable party rule (`requiredPartyCode`) | Partially Implemented | Rule is enforced in code; app-layer validation against `DropdownLists.party` not found. |
 | Configurable max seats (`maxSeatsPerLted`) | Implemented | Used in capacity checks, seat creation, and seat-weight computation. |
 | Configurable AD check (`requireAssemblyDistrictMatch`) | Implemented | Hard-stop and BOE flagging behavior honor toggle. |
-| Operational configurability (admin-managed in app) | Not Implemented | No governance-config CRUD/admin UI path found for these fields. |
+| Operational configurability (admin-managed in app) | Implemented | Admin governance-config read/update API and `/admin/governance-config` UI now manage all required fields in-app. |
 
 ## 3. Highest-Risk Findings
 
@@ -114,10 +114,13 @@ Evidence:
 
 ### 4.5 Configurability operations
 
-Status: `Not Implemented`
+Status: `Implemented`
 
-Finding:
-- No admin route/UI found to update `requiredPartyCode`, `maxSeatsPerLted`, `requireAssemblyDistrictMatch`, `nonOverridableIneligibilityReasons` in-app.
+Evidence:
+- Admin API read/update route (`apps/frontend/src/app/api/admin/governance-config/route.ts`).
+- Admin UI page + edit flow (`apps/frontend/src/app/admin/governance-config/page.tsx`, `apps/frontend/src/app/admin/governance-config/GovernanceConfigClient.tsx`).
+- Validation against `DropdownLists.party`, guardrail-enforced `maxSeatsPerLted`, boolean toggle typing, and enum validation.
+- Audit event on update with before/after snapshots and actor context.
 
 ## 5. Recommended Remediation Order
 
@@ -125,7 +128,7 @@ Finding:
 2. Add eligibility re-validation (same checks as `validateEligibility`) to bulk meeting decision confirmation.
 3. Make audit writes fail-safe for compliance-critical operations (or transactional hard-fail with explicit fallback policy).
 4. Close Scenario 7 gap for leader roster generation (or formally revise SRS acceptance text if product intent changed).
-5. Add governance-config management endpoint/UI and party-code validation against `DropdownLists.party`.
+5. Continue regression hardening around governance-config changes as future scenarios evolve (core config management is now implemented).
 
 ## 6. Companion Document
 

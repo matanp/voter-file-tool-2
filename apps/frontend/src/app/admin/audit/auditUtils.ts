@@ -12,6 +12,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   MEETING_CREATED: "Meeting Created",
   REPORT_GENERATED: "Report Generated",
   TERM_CREATED: "Term Created",
+  GOVERNANCE_CONFIG_UPDATED: "Governance Config Updated",
   JURISDICTION_ASSIGNED: "Jurisdiction Assigned",
   JURISDICTION_REMOVED: "Jurisdiction Removed",
   DISCREPANCY_RESOLVED: "Discrepancy Resolved",
@@ -23,6 +24,7 @@ export const AUDIT_ENTITY_TYPES = [
   "CommitteeMembership",
   "MeetingRecord",
   "CommitteeTerm",
+  "CommitteeGovernanceConfig",
   "Report",
 ] as const;
 
@@ -137,6 +139,8 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       return typeof after.label === "string"
         ? `Term created: ${after.label}`
         : "Term created";
+    case AuditAction.GOVERNANCE_CONFIG_UPDATED:
+      return "Governance config updated";
     case "JURISDICTION_ASSIGNED":
       return location ? `Jurisdiction assigned: ${location}` : "Jurisdiction assigned";
     case AuditAction.DISCREPANCY_RESOLVED:
