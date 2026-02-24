@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { PrivilegeLevel } from "@prisma/client";
 import {
   Card,
   CardHeader,
@@ -8,6 +10,7 @@ import {
   CardDescription,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
+import { hasPermissionFor } from "~/lib/utils";
 
 interface ReportType {
   title: string;
@@ -17,11 +20,12 @@ interface ReportType {
   note?: string;
 }
 
-const reportTypes: ReportType[] = [
+const baseReportTypes: ReportType[] = [
   {
     title: "Committee Roster",
-    description: "Generate PDF or XLSX roster for a committee",
-    href: "/committee-reports",
+    description:
+      "Generate current committee roster reports (jurisdiction-scoped for leaders).",
+    href: "/committee-roster-reports",
     enabled: true,
   },
   {
@@ -72,6 +76,28 @@ const reportTypes: ReportType[] = [
 ];
 
 export default function GenerateReportGrid() {
+  const { data: session } = useSession();
+
+  const isAdminUser = hasPermissionFor(
+    session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+    PrivilegeLevel.Admin,
+  );
+
+  const reportTypes: ReportType[] = [
+    ...baseReportTypes,
+    ...(isAdminUser
+      ? [
+          {
+            title: "Committee Report (Advanced)",
+            description:
+              "Admin-only legacy committee report with field and column configuration.",
+            href: "/committee-reports",
+            enabled: true,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div>
       <h2 className="text-xl font-semibold mb-3">Generate Report</h2>

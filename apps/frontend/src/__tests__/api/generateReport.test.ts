@@ -205,6 +205,124 @@ describe("/api/generateReport", () => {
       expect(prismaMock.report.create).not.toHaveBeenCalled();
     });
 
+    it("should return 403 when Leader requests legacy ldCommittees report", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
+        }),
+      );
+      jest.mocked(hasPermissionFor).mockImplementation(
+        (_principal, required) => required !== PrivilegeLevel.Admin,
+      );
+
+      const request = createMockRequest({
+        type: "ldCommittees",
+        name: "Legacy Committee Report",
+        format: "pdf",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(403);
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
+      expect(json.error).toContain("ldCommittees");
+      expect(prismaMock.report.create).not.toHaveBeenCalled();
+    });
+
+    it("should return 403 when Leader requests committeeRoster with countywide scope", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
+        }),
+      );
+      jest.mocked(hasPermissionFor).mockImplementation(
+        (_principal, required) => required !== PrivilegeLevel.Admin,
+      );
+
+      const request = createMockRequest({
+        type: "committeeRoster",
+        name: "Committee Roster",
+        format: "xlsx",
+        scope: "countywide",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(403);
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
+      expect(json.error).toContain("cannot generate countywide");
+      expect(prismaMock.report.create).not.toHaveBeenCalled();
+    });
+
+    it("should allow Leader committeeRoster generation for assigned jurisdiction", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
+        }),
+      );
+      jest.mocked(hasPermissionFor).mockImplementation(
+        (_principal, required) => required !== PrivilegeLevel.Admin,
+      );
+      (
+        prismaMock.userJurisdiction as unknown as { findMany: jest.Mock }
+      ).findMany.mockResolvedValue([
+        { cityTown: "ROCHESTER", legDistrict: 1 },
+      ]);
+      prismaMock.report.create.mockResolvedValue({
+        id: MOCK_REPORT_ID,
+      } as never);
+      prismaMock.report.update.mockResolvedValue({} as never);
+
+      const request = createMockRequest({
+        type: "committeeRoster",
+        name: "Rochester LD1 Roster",
+        format: "pdf",
+        scope: "jurisdiction",
+        cityTown: "ROCHESTER",
+        legDistrict: 1,
+      });
+
+      const response = await POST(request);
+
+      await expectSuccessResponse(response, {
+        reportId: MOCK_REPORT_ID,
+        jobsAhead: 0,
+      });
+      expect(prismaMock.report.create).toHaveBeenCalled();
+    });
+
+    it("should return 403 when Leader requests committeeRoster outside assigned jurisdiction", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
+        }),
+      );
+      jest.mocked(hasPermissionFor).mockImplementation(
+        (_principal, required) => required !== PrivilegeLevel.Admin,
+      );
+      (
+        prismaMock.userJurisdiction as unknown as { findMany: jest.Mock }
+      ).findMany.mockResolvedValue([
+        { cityTown: "ROCHESTER", legDistrict: 2 },
+      ]);
+
+      const request = createMockRequest({
+        type: "committeeRoster",
+        name: "Unauthorized Roster",
+        format: "pdf",
+        scope: "jurisdiction",
+        cityTown: "ROCHESTER",
+        legDistrict: 1,
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(403);
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
+      expect(json.error).toContain("requested jurisdiction");
+      expect(prismaMock.report.create).not.toHaveBeenCalled();
+    });
+
     it("should succeed with designationWeightSummary type (Admin, countywide)", async () => {
       mockAuthSession(
         createMockSession({

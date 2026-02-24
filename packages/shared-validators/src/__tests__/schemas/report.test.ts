@@ -65,6 +65,44 @@ describe('generateReportSchema - signInSheet', () => {
   });
 });
 
+describe('generateReportSchema - committeeRoster', () => {
+  it('parses valid committeeRoster payload with countywide scope', () => {
+    const valid = {
+      type: 'committeeRoster',
+      name: 'Committee Roster - 2026-02',
+      format: 'xlsx',
+      scope: 'countywide',
+    };
+
+    const result = generateReportSchema.parse(valid);
+    expect(result).toMatchObject({
+      type: 'committeeRoster',
+      scope: 'countywide',
+      format: 'xlsx',
+      name: 'Committee Roster - 2026-02',
+    });
+  });
+
+  it('parses valid committeeRoster payload with jurisdiction scope', () => {
+    const valid = {
+      type: 'committeeRoster',
+      name: 'Rochester Committee Roster',
+      format: 'pdf',
+      scope: 'jurisdiction',
+      cityTown: 'ROCHESTER',
+      legDistrict: 1,
+    };
+
+    const result = generateReportSchema.parse(valid);
+    expect(result).toMatchObject({
+      type: 'committeeRoster',
+      scope: 'jurisdiction',
+      cityTown: 'ROCHESTER',
+      legDistrict: 1,
+    });
+  });
+});
+
 describe('enrichedReportDataSchema - signInSheet', () => {
   it('parses enriched signInSheet payload', () => {
     const valid = {
@@ -168,6 +206,7 @@ describe('generateReportSchema - changesReport', () => {
 
 describe('isScopedReportData', () => {
   it.each([
+    ['committeeRoster', { type: 'committeeRoster', name: 'Test', format: 'pdf', scope: 'countywide' }],
     ['signInSheet', { type: 'signInSheet', name: 'Test', format: 'pdf', scope: 'countywide' }],
     ['designationWeightSummary', { type: 'designationWeightSummary', name: 'Test', format: 'pdf', scope: 'countywide' }],
     ['vacancyReport', { type: 'vacancyReport', name: 'Test', format: 'pdf', scope: 'countywide' }],

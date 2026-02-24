@@ -134,6 +134,52 @@ export async function fetchCommitteeData(): Promise<CommitteeWithMembers[]> {
 }
 
 /**
+ * Fetches committee roster data with optional jurisdiction scope filtering.
+ * Used by the leader-safe committee roster report flow (Ticket 4.7).
+ */
+export async function fetchCommitteeRosterData(
+  scope: 'jurisdiction' | 'countywide',
+  cityTown?: string,
+  legDistrict?: number,
+): Promise<CommitteeWithMembers[]> {
+  const activeTermId = await getActiveTermId();
+
+  const where: Prisma.CommitteeListWhereInput = {
+    termId: activeTermId,
+  };
+
+  if (scope === 'jurisdiction') {
+    if (cityTown == null || cityTown === '') {
+      throw new Error('cityTown is required when scope is jurisdiction');
+    }
+    where.cityTown = cityTown;
+    if (legDistrict != null) {
+      where.legDistrict = legDistrict;
+    }
+  }
+
+  return prisma.committeeList.findMany({
+    where,
+    include: {
+      memberships: {
+        where: {
+          termId: activeTermId,
+          status: 'ACTIVE',
+        },
+        include: {
+          voterRecord: true,
+        },
+      },
+    },
+    orderBy: [
+      { cityTown: 'asc' },
+      { legDistrict: 'asc' },
+      { electionDistrict: 'asc' },
+    ],
+  });
+}
+
+/**
  * Fetches committee data for sign-in sheet reports.
  * Filters by scope and jurisdiction; returns committees sorted by cityTown, legDistrict, electionDistrict.
  * @param scope - 'jurisdiction' (requires cityTown) or 'countywide'

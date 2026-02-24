@@ -12,6 +12,10 @@ export const REPORT_TYPE_MAPPINGS = {
     databaseValue: 'CommitteeReport' as ReportType,
     filename: 'committeeReport',
   },
+  committeeRoster: {
+    databaseValue: 'CommitteeReport' as ReportType,
+    filename: 'committeeRoster',
+  },
   voterList: {
     databaseValue: 'VoterList' as ReportType,
     filename: 'voterList',

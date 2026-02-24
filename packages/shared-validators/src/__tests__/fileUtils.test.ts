@@ -135,6 +135,7 @@ describe('generateReportFilename', () => {
   it('works for all report types', () => {
     const types = [
       'ldCommittees',
+      'committeeRoster',
       'voterList',
       'absenteeReport',
       'designatedPetition',

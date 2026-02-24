@@ -53,9 +53,27 @@ export const POST = withPrivilege(
         throw new Error("Error getting user from session");
       }
 
+      const userPrivilege =
+        session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+
+      // 4.7 hardening: legacy ldCommittees is admin-only.
+      if (
+        reportData.type === "ldCommittees" &&
+        !hasPermissionFor(userPrivilege, PrivilegeLevel.Admin)
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Only admins can generate countywide ldCommittees reports. Use committeeRoster for leader-scoped rosters.",
+          },
+          { status: 403 },
+        );
+      }
+
       // SRS 3.2, 3.3, 3.4 — Jurisdiction enforcement for scope-based reports
       if (isScopedReportData(reportData)) {
         const reportLabels: Record<ScopeReportType, string> = {
+          committeeRoster: "committee rosters",
           signInSheet: "sign-in sheets",
           designationWeightSummary: "designation weight summaries",
           vacancyReport: "vacancy reports",
@@ -63,8 +81,6 @@ export const POST = withPrivilege(
           petitionOutcomesReport: "petition outcomes reports",
         };
         const reportLabel = reportLabels[reportData.type];
-        const userPrivilege =
-          session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
         const validationError = await validateReportJurisdictionAccess(
           reportData,
           session.user.id,

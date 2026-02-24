@@ -1,6 +1,7 @@
 import {
   computeDesignationWeight,
   fetchCommitteeData,
+  fetchCommitteeRosterData,
   fetchSignInSheetData,
   fetchDesignationWeights,
   fetchVacancyData,
@@ -137,6 +138,53 @@ describe('fetchSignInSheetData', () => {
     ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
     await expect(
       fetchSignInSheetData('jurisdiction', undefined),
+    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchCommitteeRosterData', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('fetches all committees when scope is countywide', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    await fetchCommitteeRosterData('countywide');
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1' },
+        include: expect.any(Object),
+        orderBy: [
+          { cityTown: 'asc' },
+          { legDistrict: 'asc' },
+          { electionDistrict: 'asc' },
+        ],
+      }),
+    );
+  });
+
+  it('filters by cityTown and legDistrict when scope is jurisdiction', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    await fetchCommitteeRosterData('jurisdiction', 'ROCHESTER', 1);
+
+    expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { termId: 'term-1', cityTown: 'ROCHESTER', legDistrict: 1 },
+      }),
+    );
+  });
+
+  it('throws when jurisdiction scope is requested without cityTown', async () => {
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
+
+    await expect(
+      fetchCommitteeRosterData('jurisdiction', ''),
     ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
     expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
   });
@@ -305,6 +353,18 @@ describe('mapCommitteesToReportShape', () => {
         '42': [expect.objectContaining({ VRCNUM: 'VRC001' })],
       },
     });
+
+    const member = output[0]?.committees['42']?.[0];
+    expect(member).toMatchObject({
+      VRCNUM: 'VRC001',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      city: 'ROCHESTER',
+      state: 'NY',
+      zipCode: '14604',
+    });
+    expect(typeof member?.name).toBe('string');
+    expect(typeof member?.address).toBe('string');
   });
 
   it('excludes committees with no active memberships from report shape', () => {

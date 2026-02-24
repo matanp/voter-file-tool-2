@@ -44,7 +44,7 @@ Header Navigation:
 │   └── Requests         → /committees/requests
 ├── Petitions            → /petitions          (form generation)
 ├── Reports              → /reports            (hub + generated reports list)
-│   ├── Committee Reports → /committee-reports
+│   ├── Committee Roster Reports → /committee-roster-reports
 │   └── Voter List Reports → /voter-list-reports
 └── Admin                → /admin              (sidebar layout)
     ├── Data             → /admin              (sub-tabs: Invites, Election Config, Voter Import, Discrepancies, Absentee Report)
@@ -205,7 +205,7 @@ pathname?.startsWith('/committees')
 - **Reports Hub:** `/reports` becomes the central "Reports" page with:
   - My Reports | Public Reports (existing)
   - **"Generate Report"** dropdown or card grid linking to:
-    - Committee Roster (PDF/XLSX) → `/committee-reports`
+    - Committee Roster (PDF/XLSX) → `/committee-roster-reports` (leader flow; `/committee-reports` remains admin-only legacy)
     - Voter List (XLSX) → `/voter-list-reports` (note: "Requires search from Record Search first")
     - Designated Petition → `/petitions`
     - Sign-In Sheet → (new; add when 3.2)
@@ -232,9 +232,9 @@ pathname?.startsWith('/committees')
 File: `apps/frontend/src/app/components/header.tsx`
 
 ```ts
-// Current: excludes committee-reports and voter-list-reports
+// Current: excludes committee-roster-reports and voter-list-reports
 // New: include all report-related routes
-["/reports", "/committee-reports", "/voter-list-reports"].some(p => pathname?.startsWith(p))
+["/reports", "/committee-roster-reports", "/committee-reports", "/voter-list-reports"].some(p => pathname?.startsWith(p))
 ```
 
 ### AC6: Restructure Data Sub-Tabs

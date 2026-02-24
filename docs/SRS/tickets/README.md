@@ -53,7 +53,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 43. ~~[3.3 Designation Weight Summary Report UI](3.3-designation-weight-summary-report-ui.md)~~ — **Done**
 44. ~~[3.4 Vacancy, Changes, Petition Reports](3.4-vacancy-changes-petition-reports-ui.md)~~ — **Done**
 45. ~~[4.1 Scenario 1: Leader Submission Preflight + Eligibility Snapshot](4.1-scenario1-leader-submission-preflight.md)~~ — **Done**
-46. **Current queue:** 2.9, 3.6, T1.4–T1.5, T2.1–T2.4, 4.0, 4.4–4.8
+46. **Current queue:** 2.9, 3.6, T1.4–T1.5, T2.1–T2.4, 4.0, 4.4–4.6, 4.8
 
 ---
 
@@ -172,7 +172,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 | [4.4](4.4-scenario4-petition-outcomes-traceability.md) | Scenario 4: Petition Outcome Lifecycle + Traceability | Done | P2 | 2.6, 3.4 |
 | [4.5](4.5-scenario5-resignation-audit-durability.md) | Scenario 5: Resignation Audit Durability + Reason Capture | Done | P0 | 2.3, 2.5, 1.5 |
 | [4.6](4.6-scenario6-boe-flagging-operations.md) | Scenario 6: BOE Flagging Cadence + Stale Resolution | Done | P1 | 2.8, 4.5 |
-| [4.7](4.7-scenario7-leader-reports-scope-and-roster.md) | Scenario 7: Leader Reports Scope Hardening + Roster Export | Open | P0/P1 | 3.0a, 3.1, 3.2, 3.3 |
+| [4.7](4.7-scenario7-leader-reports-scope-and-roster.md) | Scenario 7: Leader Reports Scope Hardening + Roster Export | Done | P0/P1 | 3.0a, 3.1, 3.2, 3.3 |
 | [4.8](4.8-additional-governance-config-admin-controls.md) | Additional Requirements: Governance Config Admin Controls | Open | P1 | 1.1c, 2.1 |
 
 ### Tier 3 parallelization
@@ -234,7 +234,7 @@ Tier 4:
   4.0 — open program ticket
   4.1, 4.2, 4.5 — done
   4.4, 4.6 — done
-  4.7, 4.8 — open remediation backlog mapped to SRS scenarios + additional governance config requirements
+  4.8 — remaining open remediation backlog for additional governance config requirements
 ```
 
 ```mermaid

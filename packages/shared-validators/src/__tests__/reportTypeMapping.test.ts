@@ -58,6 +58,7 @@ describe('validateReportType', () => {
 describe('getPrismaReportType', () => {
   it('returns correct mapping for each type', () => {
     expect(getPrismaReportType('ldCommittees')).toBe('CommitteeReport');
+    expect(getPrismaReportType('committeeRoster')).toBe('CommitteeReport');
     expect(getPrismaReportType('voterList')).toBe('VoterList');
     expect(getPrismaReportType('absenteeReport')).toBe('AbsenteeReport');
     expect(getPrismaReportType('designatedPetition')).toBe(
@@ -79,6 +80,7 @@ describe('getPrismaReportType', () => {
 describe('getFilenameReportType', () => {
   it('returns correct filename for each type', () => {
     expect(getFilenameReportType('ldCommittees')).toBe('committeeReport');
+    expect(getFilenameReportType('committeeRoster')).toBe('committeeRoster');
     expect(getFilenameReportType('voterList')).toBe('voterList');
     expect(getFilenameReportType('absenteeReport')).toBe('absenteeReport');
     expect(getFilenameReportType('designatedPetition')).toBe(

@@ -85,11 +85,11 @@ Status legend:
 
 | Acceptance criterion | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| Leader can generate current committee roster | Partially Implemented | `apps/frontend/src/app/committee-reports/page.tsx:11`, `apps/frontend/src/app/committees/CommitteeSelector.tsx:735` | Leaders can view roster in Committees workspace, but leader-accessible roster export/generation path is not clearly implemented. |
+| Leader can generate current committee roster | Implemented | `apps/frontend/src/app/committee-roster-reports/page.tsx:1`, `apps/frontend/src/app/committee-roster-reports/CommitteeRosterReportForm.tsx:127`, `apps/frontend/src/components/reports/GenerateReportGrid.tsx:24` | Leader-accessible roster generation path now exists in report workflows. |
 | Leader can generate sign-in sheet | Implemented | `apps/frontend/src/app/sign-in-sheet-reports/page.tsx:20`, `apps/frontend/src/app/sign-in-sheet-reports/SignInSheetForm.tsx:163` | Leader report page + generation path are present. |
 | Leader can generate designation weight summary | Implemented | `apps/frontend/src/app/weight-summary-reports/page.tsx:20`, `apps/frontend/src/app/weight-summary-reports/WeightSummaryForm.tsx:155` | Leader report page + generation path are present. |
-| Reports scoped to leader jurisdiction | Implemented with Bugs/Risks | `apps/frontend/src/app/api/generateReport/route.ts:56`, `apps/frontend/src/app/api/lib/committeeValidation.ts:157` | Scope enforcement exists for scoped report types, but `ldCommittees` is not scope-validated in API. |
-| Reports exportable as PDF or CSV | Partially Implemented | `packages/shared-validators/src/schemas/report.ts:165`, `packages/shared-validators/src/schemas/report.ts:174` | Sign-in sheet is PDF-only; Excel (`xlsx`) exists for some reports. CSV-specific output is not primary. |
+| Reports scoped to leader jurisdiction | Implemented | `apps/frontend/src/app/api/generateReport/route.ts:50`, `apps/frontend/src/app/api/generateReport/route.ts:71`, `apps/frontend/src/app/api/lib/committeeValidation.ts:157` | `ldCommittees` is now admin-only; scoped reports (including `committeeRoster`) are server-side jurisdiction validated. |
+| Reports exportable as PDF or CSV | Partially Implemented | `packages/shared-validators/src/schemas/report.ts:128`, `packages/shared-validators/src/schemas/report.ts:170`, `docs/SRS/REPORT_PARAMETER_MATRIX.md` | Current implementation is PDF/XLSX by report type; CSV is not a primary output format. |
 
 ## Cross-Cutting Note: Audit & Defensibility
 

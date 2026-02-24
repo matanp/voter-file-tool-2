@@ -125,6 +125,18 @@ const ldCommitteesReportSchema = z.object({
   xlsxConfig: xlsxConfigSchema,
 });
 
+const committeeRosterReportSchema = z.object({
+  type: z.literal('committeeRoster'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  ...scopeFieldsSchema.shape,
+  // Optional field to specify which VoterRecord fields to include
+  includeFields: z.array(z.string()).optional().default([]),
+  // XLSX-specific configuration (only applies when format is 'xlsx')
+  xlsxConfig: xlsxConfigSchema,
+});
+
 const voterListReportSchema = z.object({
   type: z.literal('voterList'),
   ...baseApiSchema.shape,
@@ -215,6 +227,7 @@ const boeEligibilityFlaggingReportSchema = z.object({
 export const generateReportSchema = z.discriminatedUnion('type', [
   designatedPetitionReportSchema,
   ldCommitteesReportSchema,
+  committeeRosterReportSchema,
   voterListReportSchema,
   absenteeReportSchema,
   voterImportReportSchema,
@@ -239,6 +252,10 @@ export const enrichedReportDataSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     ...ldCommitteesReportSchema.shape,
+    ...enrichedFieldsSchema.shape,
+  }),
+  z.object({
+    ...committeeRosterReportSchema.shape,
     ...enrichedFieldsSchema.shape,
   }),
   z.object({
@@ -360,6 +377,7 @@ export type CommitteeSelection = z.infer<typeof committeeSelectionSchema>;
 
 // Scope-based report types — the 5 report schemas that use scopeFieldsSchema
 export const SCOPE_REPORT_TYPES = [
+  'committeeRoster',
   'signInSheet',
   'designationWeightSummary',
   'vacancyReport',
@@ -388,7 +406,7 @@ type _ScopeExhaustive = Exclude<
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _assertExhaustive: _ScopeExhaustive = true;
 
-/** Type guard that narrows GenerateReportData to the 5 scope-based variants. */
+/** Type guard that narrows GenerateReportData to the scope-based variants. */
 export function isScopedReportData(
   data: GenerateReportData,
 ): data is ScopedReportData {

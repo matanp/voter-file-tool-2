@@ -5,7 +5,9 @@ import { Button } from "~/components/ui/button";
 export const GenerateCommitteeReportButton: React.FC = () => {
   return (
     <Button asChild>
-      <Link href="/committee-reports">Generate Committee Report</Link>
+      <Link href="/committee-roster-reports">
+        Generate Committee Roster Report
+      </Link>
     </Button>
   );
 };

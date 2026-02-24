@@ -65,12 +65,12 @@ Evidence:
 Impact:
 - Conflicts with SRS requirement for an immutable/full audit trail (`SRS v0.1 §11.1`).
 
-4. Leader roster “generation” is not clearly available as a leader-scoped export workflow.  
+4. Leader roster “generation” is now available as a leader-scoped export workflow (resolved by Ticket 4.7).  
 Evidence:
-- Committee report page is admin-only (`apps/frontend/src/app/committee-reports/page.tsx:11`).
-- Leaders can generate sign-in and weight-summary reports (`apps/frontend/src/app/sign-in-sheet-reports/page.tsx:20`, `apps/frontend/src/app/weight-summary-reports/page.tsx:20`).
+- Leader-facing roster report page exists (`apps/frontend/src/app/committee-roster-reports/page.tsx:1`).
+- API now enforces leader scope and blocks legacy `ldCommittees` for non-admin users (`apps/frontend/src/app/api/generateReport/route.ts:50`).
 Impact:
-- Scenario 7 acceptance criteria only partially satisfied as written.
+- Scenario 7 acceptance criteria are satisfied for roster generation and scope hardening.
 
 ## 4. Additional Requirements Assessment (Detailed)
 

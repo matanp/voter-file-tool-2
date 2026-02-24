@@ -44,6 +44,7 @@ import { runBoeEligibilityFlagging } from '@voter-file-tool/shared-prisma';
 import {
   mapCommitteesToReportShape,
   fetchCommitteeData,
+  fetchCommitteeRosterData,
   fetchSignInSheetData,
   fetchDesignationWeights,
   fetchVacancyData,
@@ -193,7 +194,10 @@ async function fetchVoterRecords(searchQuery: SearchQueryField[]) {
   }
 }
 
-type XLSXReportData = Extract<EnrichedReportData, { type: 'ldCommittees' | 'voterList' }>;
+type XLSXReportData = Extract<
+  EnrichedReportData,
+  { type: 'ldCommittees' | 'committeeRoster' | 'voterList' }
+>;
 
 function extractXLSXConfig(jobData: XLSXReportData) {
   return {
@@ -218,10 +222,17 @@ async function processJob(jobData: EnrichedReportData) {
     const { reportAuthor, jobId } = jobData;
     const shouldSendCallback = jobData.type !== 'boeEligibilityFlagging';
 
-    if (jobData.type === 'ldCommittees') {
+    if (jobData.type === 'ldCommittees' || jobData.type === 'committeeRoster') {
       fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
       console.log('Fetching committee data from database...');
-      const committeeData = await fetchCommitteeData();
+      const committeeData =
+        jobData.type === 'committeeRoster'
+          ? await fetchCommitteeRosterData(
+              jobData.scope,
+              jobData.cityTown,
+              jobData.legDistrict,
+            )
+          : await fetchCommitteeData();
       const payload = mapCommitteesToReportShape(committeeData);
       console.log(`Fetched ${payload.length} committee groups from database`);
 
