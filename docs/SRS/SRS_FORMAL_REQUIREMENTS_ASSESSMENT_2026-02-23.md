@@ -1,6 +1,6 @@
-# SRS Formal Requirements Assessment (Current-State)
+# SRS Formal Requirements Assessment (Post Tier 4 Closeout)
 
-Date: 2026-02-23  
+Date: 2026-02-24  
 Scope baseline:
 - `docs/SRS/SRS_v0.1_Committee_Membership_Governance.md`
 - `docs/SRS/SRS_ADDITIONAL_REQUIREMENTS_Governance_Config.md`
@@ -25,52 +25,53 @@ Status labels used:
 | SRS Scenario | Status | Notes |
 | --- | --- | --- |
 | Scenario 1 (Leader submits new member) | Implemented | Preflight snapshot/live checks are wired in UI; seat-assignment timing is formally clarified in addendum. |
-| Scenario 2 (Submission fails eligibility) | Partially Implemented | Backend blocks correctly; leader-facing error guidance is weak and missing “contact MCDC staff” instruction. |
-| Scenario 3 (Executive Committee confirmation) | Implemented with Bugs/Risks | Meeting workflow exists, but active UI flow bypasses meeting linkage and CONFIRMED transition. |
-| Scenario 4 (Petition outcomes) | Implemented with Bugs/Risks | Core behavior works; status-model divergence and edge-case consistency risks remain. |
-| Scenario 5 (Resignation workflow) | Implemented with Bugs/Risks | Required fields/status transitions implemented; audit reliability risk applies. |
+| Scenario 2 (Submission fails eligibility) | Implemented | Leader-facing failure UX now renders reason-specific guidance and explicit escalation messaging. |
+| Scenario 3 (Executive Committee confirmation) | Implemented | Approval paths are meeting-linked and re-validate eligibility before activation, with confirmed/activated audit traceability. |
+| Scenario 4 (Petition outcomes) | Implemented | Petition outcome lifecycle and candidate-level traceability are aligned across schema, route handling, and reporting. |
+| Scenario 5 (Resignation workflow) | Implemented | Resignation/removal paths use fail-closed audit logging with reason/notes capture. |
 | Scenario 6 (BOE-driven removals) | Implemented | Automated flagging after voter import + admin review/removal flow are implemented. |
-| Scenario 7 (Leader reports) | Partially Implemented | Sign-in + weight summary implemented; leader “generate current roster” is not clearly implemented as a leader export path. |
+| Scenario 7 (Leader reports) | Implemented | Leader-scoped roster generation exists and report authorization boundaries are enforced server-side. |
 
 ### Additional Governance Config requirements
 
 | Requirement | Status | Notes |
 | --- | --- | --- |
 | Single `CommitteeGovernanceConfig` row | Implemented | Enforced by singleton unique index migration. |
-| Configurable party rule (`requiredPartyCode`) | Partially Implemented | Rule is enforced in code; app-layer validation against `DropdownLists.party` not found. |
+| Configurable party rule (`requiredPartyCode`) | Implemented | Rule is enforced and admin updates validate `requiredPartyCode` against `DropdownLists.party`. |
 | Configurable max seats (`maxSeatsPerLted`) | Implemented | Used in capacity checks, seat creation, and seat-weight computation. |
 | Configurable AD check (`requireAssemblyDistrictMatch`) | Implemented | Hard-stop and BOE flagging behavior honor toggle. |
 | Operational configurability (admin-managed in app) | Implemented | Admin governance-config read/update API and `/admin/governance-config` UI now manage all required fields in-app. |
 
-## 3. Highest-Risk Findings
+## 3. Tier 4 Remediation Outcomes
 
-1. Meeting approval paths are inconsistent with SRS Executive Committee workflow.  
+1. Meeting approval flow hardening is complete.  
 Evidence:
-- `/committees/requests` uses direct accept/reject against `/api/committee/handleRequest` (`apps/frontend/src/app/committees/requests/RequestCard.tsx:46`, `apps/frontend/src/app/committees/requests/page.tsx:103`).
-- That path activates members without meeting linkage (`apps/frontend/src/app/api/committee/handleRequest/route.ts:274`).
-- Meeting flow exists separately (`apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:127`).
+- Request workflow directs admins to meetings for confirmation (`apps/frontend/src/app/committees/requests/RequestCard.tsx:127`).
+- Direct accept requires `meetingRecordId` (`apps/frontend/src/app/api/committee/handleRequest/route.ts:83`).
 Impact:
-- Scenario 3 traceability (meeting reference + formal confirmation flow) is bypassable.
+- Scenario 3 approval bypass risk is closed.
 
-2. Bulk meeting decisions do not re-run full eligibility validation at approval time.  
+2. Eligibility re-validation at decision time is complete.  
 Evidence:
-- Bulk confirm assigns seat and activates, but does not call `validateEligibility` (`apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:90`).
-- Direct admin accept route *does* validate (`apps/frontend/src/app/api/committee/handleRequest/route.ts:75`).
+- Bulk meeting decisions call `validateEligibility` before activation (`apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:90`).
+- Direct meeting-linked accept path also calls `validateEligibility` (`apps/frontend/src/app/api/committee/handleRequest/route.ts:100`).
 Impact:
-- SRS hard stops can be bypassed during bulk approval if conditions changed post-submission.
+- Approval-time hard-stop drift is closed.
 
-3. Audit logging is best-effort, not guaranteed.  
+3. Compliance-critical audit durability is complete.  
 Evidence:
-- `logAuditEvent` catches and suppresses errors (`apps/frontend/src/lib/auditLog.ts:22`).
+- Fail-closed audit helper is available (`apps/frontend/src/lib/auditLog.ts:97`).
+- Membership-removal paths use fail-closed writes (`apps/frontend/src/app/api/committee/remove/route.ts:117`).
 Impact:
-- Conflicts with SRS requirement for an immutable/full audit trail (`SRS v0.1 §11.1`).
+- Critical membership mutations no longer proceed silently when audit write fails.
 
-4. Leader roster “generation” is now available as a leader-scoped export workflow (resolved by Ticket 4.7).  
+4. Leader roster report scope and format alignment is complete.  
 Evidence:
-- Leader-facing roster report page exists (`apps/frontend/src/app/committee-roster-reports/page.tsx:1`).
-- API now enforces leader scope and blocks legacy `ldCommittees` for non-admin users (`apps/frontend/src/app/api/generateReport/route.ts:50`).
+- Leader roster report flow is available (`apps/frontend/src/app/committee-roster-reports/page.tsx:1`).
+- Legacy countywide `ldCommittees` remains admin-only (`apps/frontend/src/app/api/generateReport/route.ts:61`).
+- Format support is documented in matrix (`docs/SRS/REPORT_PARAMETER_MATRIX.md:7`).
 Impact:
-- Scenario 7 acceptance criteria are satisfied for roster generation and scope hardening.
+- Scenario 7 roster/access requirements are satisfied with explicit output-format documentation.
 
 ## 4. Additional Requirements Assessment (Detailed)
 
@@ -85,14 +86,12 @@ Evidence:
 
 ### 4.2 Party Affiliation (`requiredPartyCode`)
 
-Status: `Partially Implemented`
+Status: `Implemented`
 
-Implemented:
+Evidence:
 - Eligibility hard-stop compares voter party vs config (`apps/frontend/src/lib/eligibility.ts:141`).
 - BOE flagging uses same config-driven logic (`packages/shared-prisma/src/boeEligibilityFlagging.ts:136`).
-
-Gap:
-- No application-layer validation that configured party code is from `DropdownLists.party` (requirement 2.1).
+- Admin governance-config updates validate against `DropdownLists.party` (`apps/frontend/src/app/api/admin/governance-config/route.ts:136`).
 
 ### 4.3 Max Seats per LTED (`maxSeatsPerLted`)
 
@@ -122,13 +121,12 @@ Evidence:
 - Validation against `DropdownLists.party`, guardrail-enforced `maxSeatsPerLted`, boolean toggle typing, and enum validation.
 - Audit event on update with before/after snapshots and actor context.
 
-## 5. Recommended Remediation Order
+## 5. Program Closeout Summary
 
-1. Unify approval flow: require meeting-linked confirmation path (or enforce meeting metadata in `handleRequest`) and remove bypass.
-2. Add eligibility re-validation (same checks as `validateEligibility`) to bulk meeting decision confirmation.
-3. Make audit writes fail-safe for compliance-critical operations (or transactional hard-fail with explicit fallback policy).
-4. Close Scenario 7 gap for leader roster generation (or formally revise SRS acceptance text if product intent changed).
-5. Continue regression hardening around governance-config changes as future scenarios evolve (core config management is now implemented).
+1. All Scenario 1-7 requirements are now rated `Implemented` in the companion matrix.
+2. Additional governance-config requirements are implemented in app and validated at API boundaries.
+3. No signed risk-acceptance exceptions are required for Tier 4 closeout.
+4. Remaining open work in `docs/SRS/tickets/README.md` is outside Tier 4 scope (`2.9`, `3.6`, `T1.4-T1.5`, `T2.1-T2.4`).
 
 ## 6. Companion Document
 

@@ -1,6 +1,7 @@
 # SRS v0.1 User Story Validation Matrix
 
 Date: 2026-02-23  
+Updated: 2026-02-24 (post Tier 4 closeout)  
 Requirement source: `docs/SRS/SRS_v0.1_Committee_Membership_Governance.md` (Scenarios 1-7)
 
 Status legend:
@@ -27,8 +28,8 @@ Status legend:
 | Acceptance criterion | Status | Evidence | Notes |
 | --- | --- | --- | --- |
 | Hard stops block submission | Implemented | `apps/frontend/src/app/api/committee/requestAdd/route.ts:160` | Returns `422` with `INELIGIBLE` and reasons. |
-| Clear error explains failure | Partially Implemented | `apps/frontend/src/hooks/useApiMutation.ts:85`, `apps/frontend/src/app/committees/CommitteeRequestForm.tsx:82` | API returns machine-readable reasons, but leader UI typically surfaces generic error text. |
-| Leader instructed to contact MCDC staff for exceptions | Not Implemented | `apps/frontend/src/lib/eligibilityMessages.ts:12`, `apps/frontend/src/app/committees/CommitteeRequestForm.tsx:82` | No explicit “contact MCDC staff” guidance found in failure UX. |
+| Clear error explains failure | Implemented | `apps/frontend/src/app/committees/CommitteeRequestForm.tsx:111`, `apps/frontend/src/app/committees/CommitteeRequestForm.tsx:217`, `apps/frontend/src/lib/eligibilityMessages.ts:27` | Leader UI renders deterministic hard-stop reasons from eligibility response with centralized message mapping. |
+| Leader instructed to contact MCDC staff for exceptions | Implemented | `apps/frontend/src/lib/eligibilityMessages.ts:27`, `apps/frontend/src/__tests__/components/committees/CommitteeRequestForm.preflight.test.tsx:100` | Escalation guidance is explicitly shown for blocked submissions. |
 | No record created unless admin submits on behalf | Implemented | `apps/frontend/src/app/api/committee/requestAdd/route.ts:160`, `apps/frontend/src/app/api/committee/requestAdd/route.ts:271` | Ineligible path exits before create; admin path exists via `/api/committee/add`. |
 
 ## Scenario 3: Executive Committee confirms vacancy fill
@@ -37,17 +38,17 @@ Status legend:
 | --- | --- | --- | --- |
 | Admin creates/selects meeting record | Implemented | `apps/frontend/src/app/api/admin/meetings/route.ts:33`, `apps/frontend/src/app/api/admin/meetings/[meetingId]/submissions/route.ts:30` | Meeting create/list/select implemented. |
 | Admin selects submitted candidates approved at meeting | Implemented | `apps/frontend/src/app/api/admin/meetings/[meetingId]/submissions/route.ts:42`, `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:65` | Bulk decisions route processes submitted memberships. |
-| Status transitions Submitted -> Confirmed | Implemented with Bugs/Risks | `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:126`, `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:130` | Route comments describe CONFIRMED step, but persisted `status` jumps to `ACTIVE`. |
+| Status transitions Submitted -> Confirmed | Implemented | `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:174`, `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:186`, `apps/frontend/src/app/api/committee/handleRequest/route.ts:340` | Confirmation and activation are recorded as distinct audit events with meeting linkage; persisted state is immediately activated by product design. |
 | Confirmation date + meeting reference stored | Implemented | `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:131`, `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:134` | `confirmedAt` and `meetingRecordId` are set in bulk flow. |
 | Member becomes Active | Implemented | `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:130` | Bulk flow sets active membership. |
 | Seat marked occupied | Implemented | `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:133` | Seat number assigned on confirmation. |
 
-### Scenario 3 implementation risk (important)
+### Scenario 3 remediation verification
 
 | Finding | Status | Evidence | Impact |
 | --- | --- | --- | --- |
-| Active admin request UI can bypass meeting workflow | Implemented with Bugs/Risks | `apps/frontend/src/app/committees/requests/RequestCard.tsx:46`, `apps/frontend/src/app/api/committee/handleRequest/route.ts:274` | Accept path sets `ACTIVE` without meeting linkage or `confirmedAt`, conflicting with formal confirmation workflow. |
-| Bulk meeting confirm does not re-run full eligibility checks | Implemented with Bugs/Risks | `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:90`, `apps/frontend/src/app/api/committee/handleRequest/route.ts:75` | Hard-stop drift between submission time and approval time may go undetected in bulk flow. |
+| Active admin request UI can bypass meeting workflow | Implemented | `apps/frontend/src/app/committees/requests/RequestCard.tsx:127`, `apps/frontend/src/app/api/committee/handleRequest/route.ts:83` | Request-card path now directs to meetings for confirmation; direct accept is blocked unless `meetingRecordId` is supplied. |
+| Bulk meeting confirm does not re-run full eligibility checks | Implemented | `apps/frontend/src/app/api/admin/meetings/[meetingId]/decisions/route.ts:90`, `apps/frontend/src/app/api/committee/handleRequest/route.ts:100` | Bulk and direct approval paths both invoke canonical eligibility validation before activation. |
 
 ## Scenario 4: Petitioned member wins or loses a primary
 
@@ -57,7 +58,7 @@ Status legend:
 | Only winners are eligible to become ACTIVE members | Implemented | `apps/frontend/src/app/api/admin/petition-outcomes/record/route.ts:109`, `apps/frontend/src/app/api/admin/petition-outcomes/record/route.ts:127` | Winner outcomes map to active status + seat assignment. |
 | Tied seats are weighted but vacant | Implemented | `apps/frontend/src/app/api/admin/petition-outcomes/record/route.ts:103`, `apps/frontend/src/app/api/admin/petition-outcomes/record/route.ts:109` | Seat flagged petitioned; tie members get null seat assignment. |
 | Lost-primary people retained historically, not added to committee | Implemented | `apps/frontend/src/app/api/admin/petition-outcomes/record/route.ts:127`, `apps/frontend/src/app/api/admin/petition-outcomes/record/route.ts:132` | Membership rows persisted with non-active petition statuses. |
-| Reports explain why person is not on committee | Partially Implemented | `apps/report-server/src/committeeMappingHelpers.ts:688`, `apps/report-server/src/committeeMappingHelpers.ts:696` | Petition outcomes report includes outcome labels/votes; broader explanatory UX consistency not fully validated. |
+| Reports explain why person is not on committee | Implemented | `apps/report-server/src/committeeMappingHelpers.ts:688`, `apps/report-server/src/committeeMappingHelpers.ts:696`, `docs/SRS/tickets/4.4-scenario4-petition-outcomes-traceability.md` | Candidate-level outcome metadata and report mapping now provide explicit exclusion context (`lost`, `tie`, etc.). |
 
 ## Scenario 5: Committee member resigns
 
@@ -66,7 +67,7 @@ Status legend:
 | Admin records date received + method | Implemented | `apps/frontend/src/app/api/committee/remove/route.ts:93`, `apps/frontend/src/app/api/committee/remove/route.ts:108` | Enforced via resignation validation path. |
 | Status changes to Resigned | Implemented | `apps/frontend/src/app/api/committee/remove/route.ts:105` | Membership moved to `RESIGNED`. |
 | Seat becomes available | Implemented | `apps/frontend/src/lib/eligibility.ts:183`, `apps/frontend/src/app/api/lib/seatUtils.ts:94` | Capacity/occupancy logic only counts `ACTIVE` memberships. |
-| Audit log records action and reason | Partially Implemented | `apps/frontend/src/app/api/committee/remove/route.ts:115`, `apps/frontend/src/lib/auditLog.ts:22` | Action is logged, but audit writes are best-effort (not guaranteed on failure). |
+| Audit log records action and reason | Implemented | `apps/frontend/src/app/api/committee/remove/route.ts:117`, `apps/frontend/src/app/api/committee/remove/route.ts:161`, `apps/frontend/src/lib/auditLog.ts:97` | Resignation/removal paths use fail-closed audit writes via `logAuditEventOrThrow`, including structured reason metadata. |
 
 ## Scenario 6: BOE indicates member no longer eligible
 
@@ -89,9 +90,9 @@ Status legend:
 | Leader can generate sign-in sheet | Implemented | `apps/frontend/src/app/sign-in-sheet-reports/page.tsx:20`, `apps/frontend/src/app/sign-in-sheet-reports/SignInSheetForm.tsx:163` | Leader report page + generation path are present. |
 | Leader can generate designation weight summary | Implemented | `apps/frontend/src/app/weight-summary-reports/page.tsx:20`, `apps/frontend/src/app/weight-summary-reports/WeightSummaryForm.tsx:155` | Leader report page + generation path are present. |
 | Reports scoped to leader jurisdiction | Implemented | `apps/frontend/src/app/api/generateReport/route.ts:50`, `apps/frontend/src/app/api/generateReport/route.ts:71`, `apps/frontend/src/app/api/lib/committeeValidation.ts:157` | `ldCommittees` is now admin-only; scoped reports (including `committeeRoster`) are server-side jurisdiction validated. |
-| Reports exportable as PDF or CSV | Partially Implemented | `packages/shared-validators/src/schemas/report.ts:128`, `packages/shared-validators/src/schemas/report.ts:170`, `docs/SRS/REPORT_PARAMETER_MATRIX.md` | Current implementation is PDF/XLSX by report type; CSV is not a primary output format. |
+| Reports exportable as PDF or CSV | Implemented | `packages/shared-validators/src/schemas/report.ts:128`, `docs/SRS/REPORT_PARAMETER_MATRIX.md:7`, `docs/SRS/tickets/4.7-scenario7-leader-reports-scope-and-roster.md:28` | Requirement wording is aligned to supported formats by report type; leader roster flow is delivered as PDF/XLSX. |
 
 ## Cross-Cutting Note: Audit & Defensibility
 
 SRS v0.1 requires defensible, immutable auditability.  
-Immutability guard is implemented (`apps/frontend/src/lib/auditLogGuard.ts:12` and wired in `apps/frontend/src/lib/prisma.ts:14`), but write operations can still proceed when log writes fail (`apps/frontend/src/lib/auditLog.ts:45`), which is a compliance/traceability risk.
+Immutability guard remains in place (`apps/frontend/src/lib/auditLogGuard.ts:12` and wired in `apps/frontend/src/lib/prisma.ts:14`), and compliance-critical membership mutations now use fail-closed audit writes through `logAuditEventOrThrow` (`apps/frontend/src/lib/auditLog.ts:97`, `apps/frontend/src/app/api/committee/remove/route.ts:117`).

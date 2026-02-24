@@ -53,7 +53,8 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 43. ~~[3.3 Designation Weight Summary Report UI](3.3-designation-weight-summary-report-ui.md)~~ — **Done**
 44. ~~[3.4 Vacancy, Changes, Petition Reports](3.4-vacancy-changes-petition-reports-ui.md)~~ — **Done**
 45. ~~[4.1 Scenario 1: Leader Submission Preflight + Eligibility Snapshot](4.1-scenario1-leader-submission-preflight.md)~~ — **Done**
-46. **Current queue:** 2.9, 3.6, T1.4–T1.5, T2.1–T2.4, 4.0
+46. ~~[4.0 SRS Governance Gap Remediation Program](4.0-srs-governance-gap-remediation-program.md)~~ — **Done**
+47. **Current queue:** 2.9, 3.6, T1.4-T1.5, T2.1-T2.4
 
 ---
 
@@ -165,7 +166,7 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 
 | ID | Title | Status | Priority | Depends on |
 | --- | --- | --- | --- | --- |
-| [4.0](4.0-srs-governance-gap-remediation-program.md) | SRS Governance Gap Remediation Program | Open | P0-P3 | SRS formal assessment + validation matrix |
+| [4.0](4.0-srs-governance-gap-remediation-program.md) | SRS Governance Gap Remediation Program | Done | P0-P3 | SRS formal assessment + validation matrix |
 | [4.1](4.1-scenario1-leader-submission-preflight.md) | Scenario 1: Leader Submission Preflight + Eligibility Snapshot | Done | P1 | 2.1, 2.2, 3.1 |
 | [4.2](4.2-scenario2-eligibility-failure-ux.md) | Scenario 2: Eligibility Failure UX + Escalation Messaging | Done | P1 | 4.1, 2.1 |
 | [4.3](4.3-scenario3-exec-confirmation-hardening.md) | Scenario 3: Executive Confirmation Approval Hardening | Done | P0 | 2.4 |
@@ -228,13 +229,10 @@ Tier 2:
   2.1–2.8 — done; 2.9 — open
 
 Tier 3:
-  3.0, 3.0a, 3.1, 3.1a, 3.7 — done; 3.2–3.6 — open
+  3.0, 3.0a, 3.1, 3.1a, 3.2, 3.3, 3.4, 3.5, 3.7 — done; 3.6 — open
 
 Tier 4:
-  4.0 — open program ticket
-  4.1, 4.2, 4.5 — done
-  4.4, 4.6 — done
-  4.8 — done (governance-config admin controls implemented)
+  4.0-4.8 — done
 ```
 
 ```mermaid
