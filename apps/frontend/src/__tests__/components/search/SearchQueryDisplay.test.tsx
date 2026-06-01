@@ -30,11 +30,11 @@ jest.mock("~/components/ui/button", () => ({
   ),
 }));
 
-// Mock the date formatting function
+// Mock the date formatting function (use UTC for timezone-independent tests)
 jest.mock("~/lib/electionDateUtils", () => ({
   formatElectionDateForDisplay: (date: string) => {
     const d = new Date(date);
-    return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+    return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
   },
 }));
 
@@ -138,7 +138,7 @@ describe("SearchQueryDisplay", () => {
       );
 
       expect(screen.getByText("Date of Birth:")).toBeInTheDocument();
-      expect(screen.getByText("12/31/1989")).toBeInTheDocument();
+      expect(screen.getByText("1/1/1990")).toBeInTheDocument();
     });
   });
 

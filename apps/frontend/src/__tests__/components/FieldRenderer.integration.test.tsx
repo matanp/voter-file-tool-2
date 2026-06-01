@@ -17,7 +17,7 @@ import type { MultiStringInputProps } from "~/components/ui/MultiStringInput";
 import type { MultiStreetSearchProps } from "~/components/ui/MultiStreetSearch";
 import type { BaseSearchField } from "~/types/searchFields";
 
-jest.mock("~/components/ui/DatePicker", () => ({
+jest.mock("~/components/ui/datePicker", () => ({
   DatePicker: ({ initialValue, onChange, ariaLabel }: DatePickerProps) => (
     <button
       onClick={() => onChange(new Date("2023-01-01"))}

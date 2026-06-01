@@ -319,15 +319,15 @@ File: `apps/frontend/src/app/admin/data/ElectionConfigTab.tsx`
 
 ## 6. Deliverables Checklist
 
-- [ ] `02_INFORMATION_ARCHITECTURE.md` updated with:
-  - [ ] v1 IA summary section
-  - [ ] Route placement table (§3 or equivalent)
-  - [ ] §5.1 sidebar decision documented
-  - [ ] §5.3 Requests vs Meetings phased transition
-- [ ] Report parameters matrix created (new doc or section)
-- [ ] Header tab highlighting fixes (Admin, Reports, Committees)
-- [ ] Header "Data" tab renamed to "Admin"
-- [ ] "Generate Report" links on `/reports` page
+- [x] `02_INFORMATION_ARCHITECTURE.md` updated with:
+  - [x] v1 IA summary section
+  - [x] Route placement table (§3 or equivalent)
+  - [x] §5.1 sidebar decision documented
+  - [x] §5.3 Requests vs Meetings phased transition
+- [x] Report parameters matrix created (new doc or section)
+- [x] Header tab highlighting fixes (Admin, Reports, Committees)
+- [x] Header "Data" tab renamed to "Admin"
+- [x] "Generate Report" links on `/reports` page
 - [ ] `/admin` layout with sidebar (`apps/frontend/src/app/admin/layout.tsx`)
 - [ ] Config-driven admin nav (`adminSidebarConfig`) with "coming soon" for unimplemented sections
 - [ ] Sidebar hamburger menu on mobile (Sheet, side: left)

@@ -2,6 +2,35 @@
 
 For full local dev (DB + R2 + report-server + frontend), see [docs/LOCAL_DEVELOPMENT.md](../docs/LOCAL_DEVELOPMENT.md).
 
+## Script Structure
+
+Scripts live in two places:
+
+| Location | Purpose | Examples |
+|----------|---------|----------|
+| **`scripts/`** (repo root) | Shared dev/deploy scripts | `setup-dev-db.sh`, `sync-prisma-models.js`, `deploy-lightsail.sh` |
+| **`apps/frontend/scripts/`** | App-specific one-off scripts | `seedLtedCrosswalk.ts` (LTED crosswalk from Excel) |
+| **`apps/frontend/prisma/`** | Prisma seed (standard location) | `seed.ts` |
+
+**How to run from workspace root:**
+
+```bash
+pnpm db:setup                    # Docker DB setup (or ./scripts/setup-dev-db.sh)
+pnpm db:setup -- --fresh         # Same, with --fresh flag
+pnpm sync-prisma                 # Sync Prisma models to shared-prisma
+pnpm db:seed-lted-crosswalk      # LTED crosswalk seed (optional path as arg)
+pnpm db:seed-lted-crosswalk -- path/to/2024\ LTED\ Matrix.xlsx
+```
+
+**From frontend directory** (`cd apps/frontend`), you can also run:
+
+```bash
+pnpm db:setup                    # Same as root (uses ../../scripts/...)
+pnpm sync-prisma                 # Same as root
+pnpm db:seed                     # Prisma seed (privileged users, config)
+pnpm db:seed-lted-crosswalk      # LTED crosswalk seed
+```
+
 ## setup-dev-db.sh
 
 Automated script to set up your development database environment with Docker and Prisma.
@@ -29,6 +58,10 @@ POSTGRES_PRISMA_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost
 #### From workspace root:
 
 ```bash
+pnpm db:setup                       # Use existing database if present
+pnpm db:setup -- --fresh           # Remove old volume, start fresh
+pnpm db:setup -- --help            # Show usage info
+# Or directly:
 ./scripts/setup-dev-db.sh           # Use existing database if present
 ./scripts/setup-dev-db.sh --fresh   # Remove old volume, start fresh
 ./scripts/setup-dev-db.sh --help    # Show usage info
@@ -135,9 +168,10 @@ SELECT * FROM "PrivilegedUser";
 
 ### Development Workflow
 
-#### First-time setup:
+#### First-time setup (from repo root):
 ```bash
-./scripts/setup-dev-db.sh
+pnpm db:setup
+# or: ./scripts/setup-dev-db.sh
 ```
 
 #### Starting work (database already exists):
@@ -154,7 +188,8 @@ pnpm db_migrate
 
 #### Reset database (testing/debugging):
 ```bash
-./scripts/setup-dev-db.sh --fresh
+pnpm db:setup -- --fresh
+# or: ./scripts/setup-dev-db.sh --fresh
 ```
 
 ## Database Seeding
