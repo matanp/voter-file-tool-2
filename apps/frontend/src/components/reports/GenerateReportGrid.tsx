@@ -39,33 +39,35 @@ const reportTypes: ReportType[] = [
   },
   {
     title: "Sign-In Sheet",
-    description: "Meeting sign-in sheet by jurisdiction and date",
-    href: "/reports/sign-in-sheet",
-    enabled: false,
+    description:
+      "Generate sign-in sheets for committee meetings with member names and signature lines.",
+    href: "/sign-in-sheet-reports",
+    enabled: true,
   },
   {
     title: "Designation Weight Summary",
-    description: "Weight summary by county or jurisdiction scope",
-    href: "/reports/designation-weight",
-    enabled: false,
+    description:
+      "Committee-by-committee breakdown of seat weights, occupancy, and total designation weight.",
+    href: "/weight-summary-reports",
+    enabled: true,
   },
   {
     title: "Vacancy Report",
     description: "Committee vacancies with optional filters",
-    href: "/reports/vacancy",
-    enabled: false,
+    href: "/vacancy-reports",
+    enabled: true,
   },
   {
     title: "Changes Report",
     description: "Membership changes over a date range",
-    href: "/reports/changes",
-    enabled: false,
+    href: "/changes-reports",
+    enabled: true,
   },
   {
     title: "Petition Outcomes",
-    description: "Petition results by term and date range",
-    href: "/reports/petition-outcomes",
-    enabled: false,
+    description: "Petition results by committee and seat",
+    href: "/petition-outcomes-reports",
+    enabled: true,
   },
 ];
 

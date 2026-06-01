@@ -45,7 +45,7 @@ const validatedData: GenerateReportData = result.data;
 
 - **Report Schemas**: `generateReportSchema`, `enrichedReportDataSchema`
 - **Webhook Schemas**: `webhookPayloadSchema`
-- **Committee Schemas**: `ldCommitteesArraySchema`, `committeeMemberSchema`
+- **Committee types**: `CommitteeWithMembers`, `LDCommittees`, `LDCommitteesArrayWithFields`
 - **Petition Schemas**: `generateDesignatedPetitionDataSchema`
 - **API Schemas**: `apiRequestSchema`, `apiResponseSchema`, `errorResponseSchema`
 

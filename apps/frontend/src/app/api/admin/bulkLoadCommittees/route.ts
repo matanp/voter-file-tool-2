@@ -3,21 +3,35 @@ import { NextResponse } from "next/server";
 import { loadCommitteeLists } from "./bulkLoadUtils";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { NextRequest } from "next/server";
 import type { Session } from "next-auth";
 
 async function bulkLoadCommitteesHandler(
   _req: NextRequest,
-  _session: Session,
+  session: Session,
 ) {
   try {
     if (process.env.VERCEL) {
       return NextResponse.json({ error: "Not available in this environment" });
     }
 
+    let activeTermId: string;
+    try {
+      activeTermId = await getActiveTermId();
+    } catch {
+      return NextResponse.json(
+        { error: "No active committee term. Create one in Admin > Terms first." },
+        { status: 503 },
+      );
+    }
+
     await prisma.committeeUploadDiscrepancy.deleteMany({});
 
-    const discrepanciesMap = await loadCommitteeLists();
+    const discrepanciesMap = await loadCommitteeLists({
+      userId: session.user?.id ?? "system",
+      userRole: session.user?.privilegeLevel ?? PrivilegeLevel.Admin,
+    });
 
     const transactionOperations = Array.from(discrepanciesMap.entries()).map(
       ([voterId, discrepancyAndCommittee]) =>
@@ -27,11 +41,12 @@ async function bulkLoadCommitteesHandler(
             discrepancy: discrepancyAndCommittee.discrepancies,
             committee: {
               connect: {
-                cityTown_legDistrict_electionDistrict: {
+                cityTown_legDistrict_electionDistrict_termId: {
                   cityTown: discrepancyAndCommittee.committee.cityTown,
                   legDistrict: discrepancyAndCommittee.committee.legDistrict,
                   electionDistrict:
                     discrepancyAndCommittee.committee.electionDistrict,
+                  termId: activeTermId,
                 },
               },
             },

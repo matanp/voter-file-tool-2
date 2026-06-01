@@ -7,6 +7,8 @@ import {
   type ErrorResponse,
   getPrismaReportType,
   validateReportType,
+  isScopedReportData,
+  type ScopeReportType,
 } from "@voter-file-tool/shared-validators";
 import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
@@ -15,6 +17,8 @@ import type { Session } from "next-auth";
 import { gzipSync } from "node:zlib";
 import { createWebhookSignature } from "~/lib/webhookUtils";
 import { getUserDisplayName } from "@voter-file-tool/shared-validators";
+import { hasPermissionFor } from "~/lib/utils";
+import { validateReportJurisdictionAccess } from "~/app/api/lib/committeeValidation";
 
 const PDF_API_BASE = process.env.PDF_SERVER_URL
   ? process.env.PDF_SERVER_URL
@@ -47,6 +51,30 @@ export const POST = withPrivilege(
 
       if (!session?.user?.id) {
         throw new Error("Error getting user from session");
+      }
+
+      // SRS 3.2, 3.3, 3.4 — Jurisdiction enforcement for scope-based reports
+      if (isScopedReportData(reportData)) {
+        const reportLabels: Record<ScopeReportType, string> = {
+          signInSheet: "sign-in sheets",
+          designationWeightSummary: "designation weight summaries",
+          vacancyReport: "vacancy reports",
+          changesReport: "changes reports",
+          petitionOutcomesReport: "petition outcomes reports",
+        };
+        const reportLabel = reportLabels[reportData.type];
+        const userPrivilege =
+          session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+        const validationError = await validateReportJurisdictionAccess(
+          reportData,
+          session.user.id,
+          userPrivilege,
+          reportLabel,
+          hasPermissionFor,
+        );
+        if (validationError) {
+          return NextResponse.json(validationError, { status: 403 });
+        }
       }
 
       const reportType = getPrismaReportType(

@@ -16,8 +16,60 @@ datasource db {
 enum PrivilegeLevel {
   Developer
   Admin
+  Leader      // SRS §3.2 — jurisdiction-scoped committee leaders
   RequestAccess
   ReadAccess
+}
+
+enum MembershipStatus {
+  SUBMITTED       // Leader/admin submitted candidate; awaiting confirmation
+  REJECTED        // Executive Committee rejected — terminal state
+  CONFIRMED       // Executive Committee confirmed at a meeting
+  ACTIVE          // Fully active committee member
+  RESIGNED        // Voluntarily resigned (date + method recorded)
+  REMOVED         // Administratively removed (reason recorded)
+  PETITIONED_LOST // Lost a primary election
+  PETITIONED_TIE  // Tied in primary (seat vacant)
+}
+
+enum MembershipType {
+  PETITIONED // Gained seat through petition/primary process
+  APPOINTED  // Filled a vacancy via Executive Committee vote
+}
+
+enum MeetingType {
+  EXECUTIVE_COMMITTEE
+  OTHER
+}
+
+enum RemovalReason {
+  PARTY_CHANGE
+  MOVED_OUT_OF_DISTRICT
+  INACTIVE_REGISTRATION
+  DECEASED
+  OTHER
+}
+
+enum ResignationMethod {
+  EMAIL
+  MAIL
+}
+
+enum AuditAction {
+  MEMBER_SUBMITTED
+  MEMBER_REJECTED
+  MEMBER_CONFIRMED
+  MEMBER_ACTIVATED
+  MEMBER_RESIGNED
+  MEMBER_REMOVED
+  PETITION_RECORDED
+  MEETING_CREATED
+  REPORT_GENERATED
+  TERM_CREATED
+  JURISDICTION_ASSIGNED
+  JURISDICTION_REMOVED
+  DISCREPANCY_RESOLVED
+  CROSSWALK_IMPORTED
 }
 
 model User {
@@ -32,9 +84,23 @@ model User {
   // Optional for WebAuthn support
   Authenticator  Authenticator[]
 
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  Report    Report[]
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  Report               Report[]
+
+  // SRS 1.2 — CommitteeMembership relations
+  submittedMemberships CommitteeMembership[]  @relation("SubmittedMemberships")
+
+  // SRS 2.4 — Meeting records created by this user
+  createdMeetings      MeetingRecord[]        @relation("CreatedMeetings")
+
+  // SRS 1.5 — Audit trail
+  auditLogs            AuditLog[]             @relation("AuditLogs")
+  reviewedEligibilityFlags EligibilityFlag[]  @relation("EligibilityFlagsReviewed")
+
+  // SRS 3.1 — Jurisdiction assignments (Leader access scope)
+  jurisdictions        UserJurisdiction[]     @relation("UserJurisdictions")
+  assignedJurisdictions UserJurisdiction[]     @relation("AssignedJurisdictions")
 }
 
 model Account {
@@ -162,7 +228,7 @@ model VoterRecord {
   VRCNUM                     String                @id
   votingRecords              VotingHistoryRecord[]
   committee                  CommitteeList?        @relation(fields: [committeeId], references: [id], onDelete: SetNull)
-  committeeId                Int?
+  committeeId                Int?  // DEPRECATED (SRS 1.2): replaced by CommitteeMembership; removal deferred to ticket 3.0
   addressForCommittee        String?
   latestRecordEntryYear      Int
   latestRecordEntryNumber    Int
@@ -207,6 +273,9 @@ model VoterRecord {
   hasDiscrepancy             Boolean?
   addToCommitteeRequest      CommitteeRequest[]    @relation(name: "addToCommitteeRequest")
   removeFromCommitteeRequest CommitteeRequest[]    @relation(name: "removeFromCommitteeRequest")
+
+  // SRS 1.2 — CommitteeMembership (replaces committeeId FK in ticket 3.0)
+  memberships                CommitteeMembership[]
 }
 
 model VotingHistoryRecord {
@@ -217,16 +286,85 @@ model VotingHistoryRecord {
   value         String
 }
 
+model CommitteeTerm {
+  id        String   @id @default(cuid())
+  label     String   @unique // e.g. "2024–2026"
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false) // Only one term active at a time
+  createdAt DateTime @default(now())
+
+  committeeLists   CommitteeList[]
+  memberships      CommitteeMembership[]
+  seats            Seat[]
+  userJurisdictions UserJurisdiction[]
+}
+
+// SRS 3.1 — Leader jurisdiction scope (cityTown + optional legDistrict per term).
+// legDistrict null = all leg districts in cityTown.
+// NOTE: A partial unique index (WHERE legDistrict IS NULL) exists in
+// prisma/migrations/20260221120000_user_jurisdiction_partial_unique_legdistrict_null/migration.sql
+// but is not reflected here — Prisma does not support partial indexes.
+model UserJurisdiction {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation("UserJurisdictions", fields: [userId], references: [id], onDelete: Cascade)
+  cityTown    String
+  legDistrict Int?          // null = all leg districts in cityTown
+  termId      String
+  term        CommitteeTerm @relation(fields: [termId], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now())
+  createdById String
+  createdBy   User          @relation("AssignedJurisdictions", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([userId, cityTown, legDistrict, termId])
+  @@index([userId, termId])
+  @@index([termId])
+  @@index([createdById])
+}
+
 model CommitteeList {
   id                          Int                          @id @default(autoincrement())
   cityTown                    String
   legDistrict                 Int
   electionDistrict            Int
-  committeeMemberList         VoterRecord[]
+  termId                      String
+  term                        CommitteeTerm                @relation(fields: [termId], references: [id], onDelete: Restrict)
+  ltedWeight                  Decimal?                     // SRS §8.1 — LTED total weight; seat weight = ltedWeight / maxSeatsPerLted
+  committeeMemberList         VoterRecord[]                // deprecated — see ticket 3.0
   CommitteeRequest            CommitteeRequest[]
   CommitteeDiscrepancyRecords CommitteeUploadDiscrepancy[]
+  memberships                 CommitteeMembership[]
+  seats                       Seat[]
 
-  @@unique([cityTown, legDistrict, electionDistrict])
+  @@unique([cityTown, legDistrict, electionDistrict, termId])
+}
+
+// SRS 1.4 — Explicit seat model for weight tracking (§8.1, §8.2)
+model Seat {
+  id              String        @id @default(cuid())
+  committeeList   CommitteeList @relation(fields: [committeeListId], references: [id])
+  committeeListId Int
+  term            CommitteeTerm @relation(fields: [termId], references: [id])
+  termId          String
+  seatNumber      Int           // 1–maxSeatsPerLted
+  isPetitioned    Boolean       @default(false) // Immutable for term; set by petition workflow (future)
+  weight          Decimal?     // ltedWeight / maxSeatsPerLted — null until LTED weight known
+
+  @@unique([committeeListId, termId, seatNumber])
+  @@index([committeeListId, termId])
+}
+
+// SRS 2.4 — Meeting record for bulk confirmation/rejection workflow
+model MeetingRecord {
+  id          String        @id @default(cuid())
+  meetingDate DateTime
+  meetingType MeetingType   @default(EXECUTIVE_COMMITTEE)
+  notes       String?
+  createdById String
+  createdBy   User          @relation("CreatedMeetings", fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+  memberships CommitteeMembership[]
 }
 
 model CommitteeRequest {
@@ -238,6 +376,105 @@ model CommitteeRequest {
   removeVoterRecord   VoterRecord?  @relation(name: "removeFromCommitteeRequest", fields: [removeVoterRecordId], references: [VRCNUM], onDelete: Cascade)
   removeVoterRecordId String?
   requestNotes        String?
+}
+
+// ============================================================================
+// SRS §6 — Authoritative record of a voter's relationship to a committee.
+// Replaces VoterRecord.committeeId (deferred removal to ticket 3.0).
+// Never deleted — status transitions only.
+// ============================================================================
+model CommitteeMembership {
+  id              String           @id @default(cuid())
+
+  voterRecord     VoterRecord      @relation(fields: [voterRecordId], references: [VRCNUM])
+  voterRecordId   String
+  committeeList   CommitteeList    @relation(fields: [committeeListId], references: [id])
+  committeeListId Int
+  term            CommitteeTerm    @relation(fields: [termId], references: [id])
+  termId          String
+
+  status          MembershipStatus @default(SUBMITTED)
+  membershipType  MembershipType?
+  seatNumber      Int?
+
+  submittedAt     DateTime         @default(now())
+  confirmedAt     DateTime?
+  activatedAt     DateTime?
+  resignedAt      DateTime?
+  removedAt       DateTime?
+  rejectedAt      DateTime?
+  rejectionNote   String?
+
+  submittedById   String?
+  submittedBy     User?            @relation("SubmittedMemberships", fields: [submittedById], references: [id])
+  // submissionMetadata.removeMemberId stores the intended replacement target for leader requests
+  submissionMetadata Json?
+
+  meetingRecord   MeetingRecord? @relation(fields: [meetingRecordId], references: [id])
+  meetingRecordId String?
+
+  resignationDateReceived DateTime?
+  resignationMethod       ResignationMethod?
+
+  removalReason   RemovalReason?
+  removalNotes    String?
+
+  petitionVoteCount   Int?
+  petitionPrimaryDate DateTime?
+  // SRS 2.6 — ties candidate/outcome to a specific seat for petition workflow
+  petitionSeatNumber  Int?
+  eligibilityFlags    EligibilityFlag[]
+
+  @@unique([voterRecordId, committeeListId, termId])
+  @@index([committeeListId, termId, status])
+  @@index([termId, status])
+  @@index([voterRecordId])
+  @@index([committeeListId, termId, petitionSeatNumber])
+}
+
+model EligibilityFlag {
+  id              String                @id @default(cuid())
+  membershipId    String
+  membership      CommitteeMembership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  committeeListId Int
+  voterRecordId   String
+  termId          String
+  reason          EligibilityFlagReason
+  status          EligibilityFlagStatus @default(PENDING)
+  details         Json?
+  sourceReportId  String?
+  reviewedById    String?
+  reviewedBy      User?                 @relation("EligibilityFlagsReviewed", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status, createdAt])
+  @@index([committeeListId, termId])
+  @@index([membershipId, reason, status])
+}
+
+// ============================================================================
+// SRS §1.5 — Immutable audit trail for all system changes.
+// Write-once: no update or delete operations permitted.
+// ============================================================================
+model AuditLog {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation("AuditLogs", fields: [userId], references: [id])
+  userRole    PrivilegeLevel
+  action      AuditAction
+  entityType  String         // e.g. "CommitteeMembership", "MeetingRecord"
+  entityId    String         // ID of the affected record
+  timestamp   DateTime       @default(now())
+  beforeValue Json?          // Snapshot before change
+  afterValue  Json?          // Snapshot after change
+  metadata    Json?          // Additional context (override reason, bypass notes, etc.)
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([action])
 }
 
 model DropdownLists {
@@ -302,6 +539,11 @@ enum ReportType {
   VoterList
   AbsenteeReport
   VoterImport
+  SignInSheet
+  DesignationWeightSummary
+  VacancyReport
+  ChangesReport
+  PetitionOutcomesReport
 }
 
 
@@ -310,4 +552,50 @@ enum JobStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum IneligibilityReason {
+  NOT_REGISTERED
+  PARTY_MISMATCH
+  ASSEMBLY_DISTRICT_MISMATCH
+  CAPACITY
+  ALREADY_IN_ANOTHER_COMMITTEE
+}
+
+enum EligibilityFlagReason {
+  PARTY_MISMATCH
+  ASSEMBLY_DISTRICT_MISMATCH
+  VOTER_NOT_FOUND
+  POSSIBLY_INACTIVE
+}
+
+enum EligibilityFlagStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
+}
+
+model CommitteeGovernanceConfig {
+  id                                 String              @id @default(cuid())
+  requiredPartyCode                  String
+  maxSeatsPerLted                    Int                 @default(4)
+  requireAssemblyDistrictMatch       Boolean             @default(true)
+  nonOverridableIneligibilityReasons IneligibilityReason[] @default([])
+  updatedAt                          DateTime            @updatedAt
+}
+
+// SRS §4.2 — LTED-to-district crosswalk. Maps (cityTown, legDistrict, electionDistrict) to Assembly,
+// Senate, Congressional, and local districts. Used for eligibility validation (§7.1) when requireAssemblyDistrictMatch.
+// Populated from MCDC-provided data (format TBD; empty table acceptable until Gaps §2.1 resolved).
+model LtedDistrictCrosswalk {
+  id                    String  @id @default(cuid())
+  cityTown              String
+  legDistrict           Int
+  electionDistrict      Int
+  stateAssemblyDistrict String
+  stateSenateDistrict   String?
+  congressionalDistrict String?
+  countyLegDistrict     String?
+
+  @@unique([cityTown, legDistrict, electionDistrict])
 }

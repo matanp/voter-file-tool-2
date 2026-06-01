@@ -328,17 +328,17 @@ File: `apps/frontend/src/app/admin/data/ElectionConfigTab.tsx`
 - [x] Header tab highlighting fixes (Admin, Reports, Committees)
 - [x] Header "Data" tab renamed to "Admin"
 - [x] "Generate Report" links on `/reports` page
-- [ ] `/admin` layout with sidebar (`apps/frontend/src/app/admin/layout.tsx`)
-- [ ] Config-driven admin nav (`adminSidebarConfig`) with "coming soon" for unimplemented sections
-- [ ] Sidebar hamburger menu on mobile (Sheet, side: left)
-- [ ] `AuthCheck` moved from individual admin pages to admin layout
-- [ ] Data content at `/admin`; `/admin/data` and orphaned routes (`/admin/dashboard`, `/admin/colors`) resolved
-- [ ] Data sub-tabs restructured:
-  - [ ] `useFileUpload` hook extracted (`apps/frontend/src/hooks/useFileUpload.ts`)
-  - [ ] `SpecialReports.tsx` split into `VoterImport.tsx` + `AbsenteeReport.tsx`
-  - [ ] `ElectionConfigTab.tsx` created (Election Dates + Office Names)
-  - [ ] Tab order: Invites | Election Config | Voter Import | Discrepancies | Absentee Report
-  - [ ] "Committee Upload Discrepancies" shortened to "Discrepancies"
+- [x] `/admin` layout with sidebar (`apps/frontend/src/app/admin/layout.tsx`)
+- [x] Config-driven admin nav (`adminSidebarConfig`) with "coming soon" for unimplemented sections
+- [x] Sidebar hamburger menu on mobile (Sheet, side: left)
+- [x] `AuthCheck` moved from individual admin pages to admin layout
+- [x] Data content at `/admin`; `/admin/data` and `/admin/dashboard` redirect to `/admin`; `/admin/colors` auth removed (layout handles it)
+- [x] Data sub-tabs restructured:
+  - [x] `useFileUpload` hook extracted (`apps/frontend/src/hooks/useFileUpload.ts`)
+  - [x] `SpecialReports.tsx` split into `VoterImport.tsx` + `AbsenteeReport.tsx`
+  - [x] `ElectionConfigTab.tsx` created (Election Dates + Office Names)
+  - [x] Tab order: Invites | Election Config | Voter Import | Discrepancies | Absentee Report
+  - [x] "Committee Upload Discrepancies" shortened to "Discrepancies"
 
 ---
 

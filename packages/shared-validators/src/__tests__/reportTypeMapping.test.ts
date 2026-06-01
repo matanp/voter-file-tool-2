@@ -27,6 +27,11 @@ describe('REPORT_TYPE_MAPPINGS', () => {
       'AbsenteeReport',
       'DesignatedPetition',
       'VoterImport',
+      'SignInSheet',
+      'DesignationWeightSummary',
+      'VacancyReport',
+      'ChangesReport',
+      'PetitionOutcomesReport',
     ];
     Object.values(REPORT_TYPE_MAPPINGS).forEach((mapping) => {
       expect(validReportTypes).toContain(mapping.databaseValue);
@@ -59,6 +64,15 @@ describe('getPrismaReportType', () => {
       'DesignatedPetition',
     );
     expect(getPrismaReportType('voterImport')).toBe('VoterImport');
+    expect(getPrismaReportType('signInSheet')).toBe('SignInSheet');
+    expect(getPrismaReportType('designationWeightSummary')).toBe(
+      'DesignationWeightSummary',
+    );
+    expect(getPrismaReportType('vacancyReport')).toBe('VacancyReport');
+    expect(getPrismaReportType('changesReport')).toBe('ChangesReport');
+    expect(getPrismaReportType('petitionOutcomesReport')).toBe(
+      'PetitionOutcomesReport',
+    );
   });
 });
 
@@ -71,5 +85,14 @@ describe('getFilenameReportType', () => {
       'designatedPetition',
     );
     expect(getFilenameReportType('voterImport')).toBe('voterImport');
+    expect(getFilenameReportType('signInSheet')).toBe('signInSheet');
+    expect(getFilenameReportType('designationWeightSummary')).toBe(
+      'designationWeightSummary',
+    );
+    expect(getFilenameReportType('vacancyReport')).toBe('vacancyReport');
+    expect(getFilenameReportType('changesReport')).toBe('changesReport');
+    expect(getFilenameReportType('petitionOutcomesReport')).toBe(
+      'petitionOutcomesReport',
+    );
   });
 });

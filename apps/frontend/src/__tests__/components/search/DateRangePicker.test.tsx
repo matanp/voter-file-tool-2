@@ -59,7 +59,7 @@ describe("DateRangePicker", () => {
   it("calls onChange when start date changes", () => {
     render(<DateRangePicker onChange={mockOnChange} />);
 
-    const startDatePicker = screen.getAllByTestId("date-picker")[0];
+    const startDatePicker = screen.getAllByTestId("date-picker")[0]!;
     fireEvent.change(startDatePicker, { target: { value: "2023-06-15" } });
 
     expect(mockOnChange).toHaveBeenCalledWith({
@@ -71,7 +71,7 @@ describe("DateRangePicker", () => {
   it("calls onChange when end date changes", () => {
     render(<DateRangePicker onChange={mockOnChange} />);
 
-    const endDatePicker = screen.getAllByTestId("date-picker")[1];
+    const endDatePicker = screen.getAllByTestId("date-picker")[1]!;
     fireEvent.change(endDatePicker, { target: { value: "2023-12-31" } });
 
     expect(mockOnChange).toHaveBeenCalledWith({
@@ -90,7 +90,7 @@ describe("DateRangePicker", () => {
       <DateRangePicker initialValue={initialValue} onChange={mockOnChange} />,
     );
 
-    const startDatePicker = screen.getAllByTestId("date-picker")[0];
+    const startDatePicker = screen.getAllByTestId("date-picker")[0]!;
     fireEvent.change(startDatePicker, { target: { value: "2023-06-15" } });
 
     expect(mockOnChange).toHaveBeenCalledWith({
@@ -109,7 +109,7 @@ describe("DateRangePicker", () => {
       <DateRangePicker initialValue={initialValue} onChange={mockOnChange} />,
     );
 
-    const startDatePicker = screen.getAllByTestId("date-picker")[0];
+    const startDatePicker = screen.getAllByTestId("date-picker")[0]!;
     fireEvent.change(startDatePicker, { target: { value: "" } });
 
     expect(mockOnChange).toHaveBeenCalledWith({

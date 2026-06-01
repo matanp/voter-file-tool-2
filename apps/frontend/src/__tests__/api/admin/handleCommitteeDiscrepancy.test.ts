@@ -1,17 +1,37 @@
 /**
  * Tests for POST /api/admin/handleCommitteeDiscrepancy.
- * Tested: 401/403 auth, 400 when VRCNUM missing.
- * Not tested: 404 (discrepancy not found), accept/takeAddress flows, full success with committee update.
+ * T1.3 acceptance: auth, 400 when VRCNUM missing, 404 when discrepancy not found,
+ * accept flow (adds voter to committee), reject flow (does not add), takeAddress,
+ * already-resolved idempotency (404), voter not found at accept (500).
  */
 import { POST } from "~/app/api/admin/handleCommitteeDiscrepancy/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { type Prisma, PrivilegeLevel } from "@prisma/client";
 import {
   createMockRequest,
   createAuthTestSuite,
   expectErrorResponse,
+  parseJsonResponse,
+  createMockSession,
+  createMockMembership,
+  getMembershipMock,
+  getAuditLogMock,
+  expectAuditLogCreate,
+  DEFAULT_ACTIVE_TERM_ID,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+
+const createMockDiscrepancy = (overrides: Record<string, unknown> = {}) => ({
+  VRCNUM: "TEST123",
+  committee: {
+    id: 1,
+    cityTown: "Test City",
+    legDistrict: 1,
+    electionDistrict: 1,
+    termId: DEFAULT_ACTIVE_TERM_ID,
+  },
+  ...overrides,
+});
 
 describe("/api/admin/handleCommitteeDiscrepancy", () => {
   beforeEach(() => {
@@ -33,15 +53,14 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       };
 
       const setupMocks = () => {
-        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue({
-          VRCNUM: "TEST123",
-          committee: {
-            cityTown: "Test City",
-            legDistrict: 1,
-            electionDistrict: 1,
-          },
-        } as never);
-        prismaMock.committeeList.update.mockResolvedValue({} as never);
+        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+          createMockDiscrepancy() as never,
+        );
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+        getMembershipMock(prismaMock).count.mockResolvedValue(0);
+        getMembershipMock(prismaMock).create.mockResolvedValue(
+          createMockMembership({ status: "ACTIVE" }),
+        );
         prismaMock.voterRecord.update.mockResolvedValue({} as never);
         prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue(
           {} as never,
@@ -61,11 +80,8 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       });
     });
 
-    it("should return 400 when VRCNUM is missing", async () => {
-      const mockSession = {
-        user: { id: "1", privilegeLevel: PrivilegeLevel.Admin },
-      };
-      mockAuthSession(mockSession as never);
+    it("returns 400 when VRCNUM is missing", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
 
       const request = createMockRequest({
@@ -77,6 +93,347 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       const response = await POST(request);
 
       await expectErrorResponse(response, 400, "Invalid request");
+    });
+
+    it("returns 404 when discrepancy is not found", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(null);
+
+      const request = createMockRequest({
+        VRCNUM: "UNKNOWN_VRCNUM",
+        accept: true,
+        takeAddress: "",
+      });
+
+      const response = await POST(request);
+
+      await expectErrorResponse(response, 404, "Discrepancy not found");
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeUploadDiscrepancy.delete).not.toHaveBeenCalled();
+    });
+
+    it("accept resolution: activates voter membership and deletes discrepancy", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).create.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+      prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue(
+        {} as never,
+      );
+
+      const request = createMockRequest({
+        VRCNUM: "TEST123",
+        accept: true,
+        takeAddress: "",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      const json = await parseJsonResponse<{ success: boolean; message: string }>(response);
+      expect(json.success).toBe(true);
+      expect(json.message).toBe("Discrepancy handled successfully");
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            voterRecordId: "TEST123",
+            committeeListId: 1,
+            termId: DEFAULT_ACTIVE_TERM_ID,
+            status: "ACTIVE",
+            membershipType: "APPOINTED",
+            seatNumber: 1,
+          }) as unknown,
+        }),
+      );
+      expect(prismaMock.committeeUploadDiscrepancy.delete).toHaveBeenCalledWith({
+        where: { VRCNUM: "TEST123" },
+      });
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          entityType: "CommitteeMembership",
+          metadata: expect.objectContaining({
+            source: "discrepancy_accept",
+            discrepancyVrcnum: "TEST123",
+          }) as Prisma.InputJsonValue,
+        }),
+      );
+    });
+
+    it("accept resolution with existing non-ACTIVE membership: updates to ACTIVE and emits audit with source discrepancy_accept", async () => {
+      const existingMembershipId = "existing-membership-id";
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: existingMembershipId,
+          voterRecordId: "TEST123",
+          committeeListId: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          status: "REMOVED",
+          membershipType: "APPOINTED",
+          seatNumber: null,
+        }),
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(1);
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ id: existingMembershipId, status: "ACTIVE" }),
+      );
+      prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue(
+        {} as never,
+      );
+
+      const request = createMockRequest({
+        VRCNUM: "TEST123",
+        accept: true,
+        takeAddress: "",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: existingMembershipId },
+          data: expect.objectContaining({
+            status: "ACTIVE",
+            membershipType: "APPOINTED",
+          }) as unknown,
+        }),
+      );
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          entityType: "CommitteeMembership",
+          entityId: existingMembershipId,
+          beforeValue: expect.objectContaining({ status: "REMOVED" }) as Prisma.InputJsonValue,
+          afterValue: expect.objectContaining({ status: "ACTIVE" }) as Prisma.InputJsonValue,
+          metadata: expect.objectContaining({
+            source: "discrepancy_accept",
+            discrepancyVrcnum: "TEST123",
+          }) as Prisma.InputJsonValue,
+        }),
+      );
+    });
+
+    it("accept resolution does not write legacy voterRecord.committeeId/committeeMemberList", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).create.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+      prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue(
+        {} as never,
+      );
+
+      const response = await POST(
+        createMockRequest({ VRCNUM: "TEST123", accept: true, takeAddress: "" }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("reject resolution: does not add voter, still deletes discrepancy", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue(
+        {} as never,
+      );
+
+      const request = createMockRequest({
+        VRCNUM: "TEST123",
+        accept: false,
+        takeAddress: "",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      const json = await parseJsonResponse<{ success: boolean; message: string }>(response);
+      expect(json.success).toBe(true);
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      expect(prismaMock.committeeUploadDiscrepancy.delete).toHaveBeenCalledWith({
+        where: { VRCNUM: "TEST123" },
+      });
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when accept would exceed committee capacity", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).count.mockResolvedValue(4);
+
+      const request = createMockRequest({
+        VRCNUM: "TEST123",
+        accept: true,
+        takeAddress: "",
+      });
+
+      const response = await POST(request);
+
+      await expectErrorResponse(response, 400, "Committee is at capacity");
+      expect(prismaMock.committeeUploadDiscrepancy.delete).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when voter is ACTIVE in another committee for the term", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(
+        createMockMembership({
+          id: "active-other-committee",
+          committeeListId: 999,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          status: "ACTIVE",
+        }),
+      );
+
+      const request = createMockRequest({
+        VRCNUM: "TEST123",
+        accept: true,
+        takeAddress: "",
+      });
+
+      const response = await POST(request);
+
+      await expectErrorResponse(
+        response,
+        400,
+        "Member is already in another committee",
+      );
+      expect(prismaMock.committeeUploadDiscrepancy.delete).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("preserves single-active-membership invariant: accept does not create second ACTIVE when voter already active in another committee", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy({ committee: { id: 2, cityTown: "City B", legDistrict: 1, electionDistrict: 2, termId: DEFAULT_ACTIVE_TERM_ID } }) as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(
+        createMockMembership({
+          id: "active-in-committee-1",
+          committeeListId: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          status: "ACTIVE",
+        }),
+      );
+
+      const response = await POST(
+        createMockRequest({ VRCNUM: "TEST123", accept: true, takeAddress: "" }),
+      );
+
+      await expectErrorResponse(response, 400, "Member is already in another committee");
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      expect(prismaMock.committeeUploadDiscrepancy.delete).not.toHaveBeenCalled();
+    });
+
+    it("takeAddress: updates voterRecord.addressForCommittee when provided", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).create.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+      prismaMock.voterRecord.update.mockResolvedValue({} as never);
+      prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue(
+        {} as never,
+      );
+
+      const request = createMockRequest({
+        VRCNUM: "TEST123",
+        accept: true,
+        takeAddress: "456 New St",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(prismaMock.voterRecord.update).toHaveBeenCalledWith({
+        where: { VRCNUM: "TEST123" },
+        data: { addressForCommittee: "456 New St" },
+      });
+    });
+
+    it("already-resolved discrepancy: second call returns 404 (idempotent)", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique
+        .mockResolvedValueOnce(createMockDiscrepancy() as never)
+        .mockResolvedValueOnce(null);
+      prismaMock.committeeUploadDiscrepancy.delete.mockResolvedValue({} as never);
+
+      const request1 = createMockRequest({ VRCNUM: "TEST123", accept: false, takeAddress: "" });
+      const response1 = await POST(request1);
+
+      expect(response1.status).toBe(200);
+
+      const request2 = createMockRequest({ VRCNUM: "TEST123", accept: false, takeAddress: "" });
+      const response2 = await POST(request2);
+
+      await expectErrorResponse(response2, 404, "Discrepancy not found");
+    });
+
+    it("returns 500 when membership activation fails at accept", async () => {
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).create.mockRejectedValue(
+        new Error("Foreign key constraint failed"),
+      );
+
+      const request = createMockRequest({
+        VRCNUM: "TEST123",
+        accept: true,
+        takeAddress: "",
+      });
+
+      const response = await POST(request);
+
+      await expectErrorResponse(response, 500, "Internal server error");
     });
   });
 });

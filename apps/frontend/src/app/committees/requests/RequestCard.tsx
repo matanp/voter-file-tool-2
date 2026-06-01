@@ -8,26 +8,47 @@ import {
   CardContent,
   CardFooter,
 } from "~/components/ui/card";
-import type { CommitteeRequestWithDetails } from "./page";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import type { MembershipRequestWithDetails } from "./page";
+import type { CommitteeMembershipSubmissionMetadata } from "~/lib/validations/committee";
 import { toast } from "~/components/ui/use-toast";
 import { startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { type SimpleApiResponse } from "@voter-file-tool/shared-validators";
+import Link from "next/link";
 
 type RequestCardProps = {
-  request: CommitteeRequestWithDetails;
+  request: MembershipRequestWithDetails;
 };
+
+function getSubmissionMetadata(
+  meta: unknown,
+): CommitteeMembershipSubmissionMetadata | null {
+  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+    const m = meta as Record<string, unknown>;
+    const eligibilityWarnings = Array.isArray(m.eligibilityWarnings)
+      ? m.eligibilityWarnings
+      : undefined;
+    return {
+      ...(typeof m.removeMemberId === "string" && {
+        removeMemberId: m.removeMemberId,
+      }),
+      ...(typeof m.requestNotes === "string" && { requestNotes: m.requestNotes }),
+      ...(eligibilityWarnings?.length ? { eligibilityWarnings } : {}),
+    };
+  }
+  return null;
+}
 
 export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
   const router = useRouter();
 
-  // API mutation hook
   const handleRequestMutation = useApiMutation<
     SimpleApiResponse,
     {
-      committeeRequestId: string;
-      acceptOrReject: "accept" | "reject";
+      membershipId: string;
+      acceptOrReject: "reject";
     }
   >("/api/committee/handleRequest", "POST", {
     onSuccess: (data, payload) => {
@@ -50,50 +71,60 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
     },
   });
 
-  const handleAccept = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    acceptOrReject: "accept" | "reject",
-  ) => {
+  const handleReject = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     void handleRequestMutation.mutate({
-      committeeRequestId: String(request.id),
-      acceptOrReject,
+      membershipId: request.id,
+      acceptOrReject: "reject",
     });
   };
+
+  const submissionMeta = getSubmissionMetadata(request.submissionMetadata);
 
   return (
     <Card className="my-2">
       <CardHeader>
-        <CardTitle>Committee Change Request</CardTitle>
-        <CardDescription>{request.requestNotes}</CardDescription>
+        <CardTitle>Committee Membership Request</CardTitle>
+        <CardDescription>
+          {submissionMeta?.requestNotes ?? "No notes provided"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        {request.addVoterRecord && (
-          <h1>
-            Add{" "}
-            {`${request.addVoterRecord.firstName} ${request.addVoterRecord.lastName}`}
-          </h1>
+        <h1>
+          Add{" "}
+          {`${request.voterRecord.firstName ?? ""} ${request.voterRecord.lastName ?? ""}`.trim()}
+        </h1>
+        {submissionMeta?.removeMemberId && (
+          <p className="text-sm text-muted-foreground">
+            Intended replacement for member ID: {submissionMeta.removeMemberId}
+          </p>
         )}
-        {request.removeVoterRecord && (
-          <h1>
-            Remove{" "}
-            {`${request.removeVoterRecord.firstName} ${request.removeVoterRecord.lastName}`}
-          </h1>
-        )}
+        {submissionMeta?.eligibilityWarnings &&
+          submissionMeta.eligibilityWarnings.length > 0 && (
+            <Alert variant="warning" className="mt-2">
+              <AlertTitle>Eligibility warnings</AlertTitle>
+              <AlertDescription>
+                <ul className="mt-1 list-inside list-disc text-sm">
+                  {submissionMeta.eligibilityWarnings.map((w, i) => (
+                    <li key={typeof w.code === "string" ? w.code : i}>
+                      {typeof w.message === "string" ? w.message : String(w)}
+                    </li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button
           variant="outline"
-          onClick={(e) => handleAccept(e, "reject")}
+          onClick={handleReject}
           disabled={handleRequestMutation.loading}
         >
           {handleRequestMutation.loading ? "Processing..." : "Reject"}
         </Button>
-        <Button
-          onClick={(e) => handleAccept(e, "accept")}
-          disabled={handleRequestMutation.loading}
-        >
-          {handleRequestMutation.loading ? "Processing..." : "Accept"}
+        <Button asChild>
+          <Link href="/admin/meetings">Confirm in Meetings</Link>
         </Button>
       </CardFooter>
     </Card>

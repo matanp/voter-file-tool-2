@@ -1,18 +1,6 @@
-import React from "react";
-import AuthCheck from "~/components/ui/authcheck";
-import prisma from "~/lib/prisma";
-import { ElectionDates } from "./ElectionDates";
+import { redirect } from "next/navigation";
 
-const AdminDashboardPage = async () => {
-  const electionDates = await prisma.electionDate.findMany();
-
-  return (
-    <AuthCheck privilegeLevel="Admin">
-      <div className="w-full m-1">
-        <ElectionDates electionDates={electionDates} />
-      </div>
-    </AuthCheck>
-  );
-};
-
-export default AdminDashboardPage;
+// Redirect /admin/dashboard to /admin (dashboard content is duplicated in Data)
+export default function AdminDashboardPage() {
+  redirect("/admin");
+}

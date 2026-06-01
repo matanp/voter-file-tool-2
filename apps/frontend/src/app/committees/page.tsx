@@ -2,13 +2,17 @@ import React from "react";
 
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
-import type { CommitteeWithMembers } from "@voter-file-tool/shared-validators";
+import {
+  getActiveTermId,
+  getUserJurisdictions,
+  committeeMatchesJurisdictions,
+} from "~/app/api/lib/committeeValidation";
 
 const CommitteeLists = async () => {
   const permissions = await auth();
@@ -18,22 +22,38 @@ const CommitteeLists = async () => {
     PrivilegeLevel.Admin,
   );
 
-  // Only include PII data for admin users
-  const committeeLists: CommitteeWithMembers[] =
-    await prisma.committeeList.findMany({
-      include: isAdminUser
-        ? {
-            committeeMemberList: true,
-          }
-        : {},
-    });
+  const activeTermId = await getActiveTermId();
+
+  // Only include PII data for admin users; filter by active term (SRS §5.1)
+  let committeeLists: CommitteeList[] = await prisma.committeeList.findMany({
+    where: { termId: activeTermId },
+  });
+
+  // SRS 3.1 — Leaders only see committees in their assigned jurisdictions
+  const privilegeLevel = permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+  if (privilegeLevel === PrivilegeLevel.Leader && permissions?.user?.id) {
+    const jurisdictions = await getUserJurisdictions(
+      permissions.user.id,
+      activeTermId,
+      privilegeLevel,
+    );
+    if (Array.isArray(jurisdictions) && jurisdictions.length > 0) {
+      committeeLists = committeeLists.filter((c) =>
+        committeeMatchesJurisdictions(c.cityTown, c.legDistrict, jurisdictions),
+      );
+    } else {
+      committeeLists = [];
+    }
+  }
 
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
-  let committeeRequests = [];
-
+  // SRS 1.2 — Count SUBMITTED CommitteeMemberships instead of CommitteeRequests
+  let pendingRequestCount = 0;
   if (isAdminUser) {
-    committeeRequests = await prisma.committeeRequest.findMany({});
+    pendingRequestCount = await prisma.committeeMembership.count({
+      where: { status: "SUBMITTED", termId: activeTermId },
+    });
   }
 
   if (!committeeLists || !dropdownLists) {
@@ -44,10 +64,10 @@ const CommitteeLists = async () => {
     <div className="w-full p-4">
       {isAdminUser && (
         <div className="flex gap-4 mb-4">
-          {committeeRequests.length > 0 && (
+          {pendingRequestCount > 0 && (
             <div className="flex gap-4 items-center pb-4">
               <h1>
-                There are {committeeRequests.length} pending committee requests
+                There are {pendingRequestCount} pending committee requests
               </h1>
               <Link href="/committees/requests">
                 <Button>View Requests</Button>
