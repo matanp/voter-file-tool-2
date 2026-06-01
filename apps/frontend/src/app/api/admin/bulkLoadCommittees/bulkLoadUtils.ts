@@ -9,12 +9,43 @@ import {
   findDiscrepancies,
 } from "../../lib/utils";
 
-const committeeData = new Map<
-  string,
-  { data: Prisma.CommitteeListCreateManyInput; committeeMembers: string[] }
->();
+export type CommitteeAccumulationEntry = {
+  data: Prisma.CommitteeListCreateManyInput;
+  committeeMembers: string[];
+};
+
+/** Add a committee row to the in-memory LT/ED map without clobbering existing members. */
+export function accumulateCommitteeMember(
+  committeeData: Map<string, CommitteeAccumulationEntry>,
+  mapKey: string,
+  committeeListInput: Prisma.CommitteeListCreateManyInput,
+  voterId: string,
+  recordHasDiscrepancies: boolean,
+): void {
+  if (recordHasDiscrepancies) {
+    if (!committeeData.has(mapKey)) {
+      committeeData.set(mapKey, {
+        data: committeeListInput,
+        committeeMembers: [],
+      });
+    }
+    return;
+  }
+
+  const existingEntry = committeeData.get(mapKey);
+  if (existingEntry) {
+    existingEntry.committeeMembers.push(voterId);
+    return;
+  }
+
+  committeeData.set(mapKey, {
+    data: committeeListInput,
+    committeeMembers: [voterId],
+  });
+}
 
 export async function loadCommitteeLists() {
+  const committeeData = new Map<string, CommitteeAccumulationEntry>();
   const filePath = "data/Committee-File-2025-05-15.xlsx";
   // const filePath = "data/DemocraticCommitteeExport.xlsx";
 
@@ -111,18 +142,17 @@ export async function loadCommitteeLists() {
       throw new Error("Invalid committee data");
     }
 
-    if (committeeData.has(mapKey) && !recordHasDiscrepancies) {
-      committeeData.get(mapKey)?.committeeMembers.push(VRCNUM);
-    } else {
-      committeeData.set(mapKey, {
-        data: {
-          cityTown: city,
-          legDistrict: legDistrict,
-          electionDistrict: electionDistrict,
-        },
-        committeeMembers: recordHasDiscrepancies ? [] : [VRCNUM],
-      });
-    }
+    accumulateCommitteeMember(
+      committeeData,
+      mapKey,
+      {
+        cityTown: city,
+        legDistrict,
+        electionDistrict,
+      },
+      VRCNUM,
+      recordHasDiscrepancies,
+    );
   }
 
   await prisma.committeeList.deleteMany({});
