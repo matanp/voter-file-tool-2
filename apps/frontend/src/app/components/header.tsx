@@ -58,7 +58,7 @@ const Header: React.FC = () => {
             </Button>
           </Link>
           {showDataTab && (
-            <Link href="/admin">
+            <Link href="/admin/data">
               <Button
                 className={`${sharedTabStyle} ${pathname?.startsWith("/admin") ? tabStyleActive : tabStyleInactive}`}
               >
