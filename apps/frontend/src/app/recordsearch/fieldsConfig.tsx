@@ -113,21 +113,36 @@ export const fields: FieldConfig[] = [
       </TableCell>
     ),
   },
-  // {
-  //   name: "apartment",
-  //   head: "Apartment",
-  //   size: "w-[15ch]",
-  //   cell: (record: VoterRecord) => (
-  //     <TableCell key={`${record.VRCNUM}-apartment`}>
-  //       {record.apartment}
-  //     </TableCell>
-  //   ),
-  //   skeletonCell: (index: number) => (
-  //     <TableCell key={`skeleton-apartment-${index}`}>
-  //       <Skeleton className="h-[1rem] w-[8ch]" />
-  //     </TableCell>
-  //   ),
-  // },
+  {
+    name: "apartment",
+    head: "Apartment",
+    size: "w-[15ch]",
+    cell: (record: VoterRecord) => (
+      <TableCell key={`${record.VRCNUM}-apartment`}>
+        {record.apartment}
+      </TableCell>
+    ),
+    skeletonCell: (index: number) => (
+      <TableCell key={`skeleton-apartment-${index}`}>
+        <Skeleton className="h-[1rem] w-[8ch]" />
+      </TableCell>
+    ),
+  },
+  {
+    name: "halfAddress",
+    head: "Half Address",
+    size: "w-[15ch]",
+    cell: (record: VoterRecord) => (
+      <TableCell key={`${record.VRCNUM}-halfAddress`}>
+        {record.halfAddress}
+      </TableCell>
+    ),
+    skeletonCell: (index: number) => (
+      <TableCell key={`skeleton-halfAddress-${index}`}>
+        <Skeleton className="h-[1rem] w-[8ch]" />
+      </TableCell>
+    ),
+  },
   {
     name: "city",
     head: "City",

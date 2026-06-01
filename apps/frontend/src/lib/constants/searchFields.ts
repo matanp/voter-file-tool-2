@@ -53,6 +53,20 @@ export const SEARCH_FIELDS: SearchField[] = [
         type: "Street",
         allowMultiple: true,
       },
+      {
+        name: "apartment",
+        displayName: "Apartment",
+        compoundType: false,
+        type: "String",
+        allowMultiple: true,
+      },
+      {
+        name: "halfAddress",
+        displayName: "Half Address",
+        compoundType: false,
+        type: "String",
+        allowMultiple: true,
+      },
     ],
   },
   {
