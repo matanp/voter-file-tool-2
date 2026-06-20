@@ -4,6 +4,8 @@
 
 Implementation tickets for the MCDC Committee Membership & Governance system. Each ticket maps to a section in the [SRS_IMPLEMENTATION_ROADMAP.md](../SRS_IMPLEMENTATION_ROADMAP.md) and provides concrete acceptance criteria for implementation.
 
+**Branch status:** [FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md](../FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md) — merged formal assessment + open queue.
+
 ---
 
 ## Quick Start (New Implementers)

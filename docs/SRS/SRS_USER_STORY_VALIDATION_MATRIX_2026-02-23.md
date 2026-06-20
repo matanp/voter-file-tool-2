@@ -1,5 +1,7 @@
 # SRS v0.1 User Story Validation Matrix
 
+> **Branch overview:** [FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md](FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md)
+
 Date: 2026-02-23  
 Updated: 2026-02-24 (post Tier 4 closeout)  
 Requirement source: `docs/SRS/SRS_v0.1_Committee_Membership_Governance.md` (Scenarios 1-7)

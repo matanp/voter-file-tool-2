@@ -1,7 +1,9 @@
 # Phase 1 Finalization
 
+> **Note:** The branch has progressed through Tiers 2–4 since this closeout. For current deliverables and open work, see [FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md](FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md).
+
 **Date:** February 2026  
-**Scope baseline:** `develop...feat/srs-implementation` docs review scope
+**Scope baseline:** `develop...feat/srs-implementation` docs review scope (Phase 1 only)
 
 ---
 

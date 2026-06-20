@@ -1,5 +1,7 @@
 # Branch Review: develop vs feat/srs-implementation
 
+> **Historical snapshot (Phase 0 + Phase 1 only, Feb 19 2026).** This review covers ~20 commits and predates Tier 2–4 work. For current branch state, use [FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md](FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md).
+
 **Date:** February 19, 2026  
 **Scope:** Analysis of 20 commits ahead of `develop`, diff across 113 files (~8,700 additions, ~2,500 deletions), and alignment with docs/SRS implementation tickets.
 

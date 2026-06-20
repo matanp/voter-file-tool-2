@@ -1,5 +1,7 @@
 # SRS Formal Requirements Assessment (Post Tier 4 Closeout)
 
+> **Branch overview:** [FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md](FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md) merges this assessment with the open ticket queue in one page.
+
 Date: 2026-02-24  
 Scope baseline:
 - `docs/SRS/SRS_v0.1_Committee_Membership_Governance.md`
@@ -128,7 +130,7 @@ Evidence:
 3. No signed risk-acceptance exceptions are required for Tier 4 closeout.
 4. Remaining open work in `docs/SRS/tickets/README.md` is outside Tier 4 scope (`2.9`, `3.6`, `T1.4-T1.5`, `T2.1-T2.4`).
 
-## 6. Companion Document
+## 6. Companion Documents
 
-Detailed per-acceptance-criteria matrix:
-- `docs/SRS/SRS_USER_STORY_VALIDATION_MATRIX_2026-02-23.md`
+- Branch overview + open queue: [FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md](FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md)
+- Detailed per-acceptance-criteria matrix: [SRS_USER_STORY_VALIDATION_MATRIX_2026-02-23.md](SRS_USER_STORY_VALIDATION_MATRIX_2026-02-23.md)
