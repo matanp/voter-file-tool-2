@@ -6,6 +6,7 @@
   "scripts": {
     "build:packages": "pnpm --filter './packages/**' run build",
     "test": "tsx scripts/run-tests.ts",
+    "compare-committees": "tsx scripts/compare-committee-exports.ts",
     "prepare": "pnpm run build:packages",
     "db:setup": "./scripts/setup-dev-db.sh",
     "sync-prisma": "node scripts/sync-prisma-models.js",
@@ -16,7 +17,8 @@
   "devDependencies": {
     "@types/node": "^20.11.20",
     "listr2": "^8.0.0",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "xlsx": "^0.18.5"
   },
   "pnpm": {
     "overrides": {
