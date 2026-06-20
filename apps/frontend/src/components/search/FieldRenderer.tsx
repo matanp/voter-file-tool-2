@@ -8,7 +8,7 @@ import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
 import { StreetSearch } from "~/app/recordsearch/StreetSearch";
 import { CityTownSearch } from "~/app/recordsearch/CityTownSearch";
-import { isDropdownItem } from "~/app/api/lib/utils";
+import { isDropdownItem } from "~/lib/dropdownItems";
 import type { BaseSearchField, SearchFieldValue } from "~/types/searchFields";
 import type { DropdownLists } from "@prisma/client";
 import { getDropdownItems } from "~/lib/searchHelpers";

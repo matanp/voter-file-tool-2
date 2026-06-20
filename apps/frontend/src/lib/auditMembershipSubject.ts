@@ -4,7 +4,7 @@ import type {
   Prisma,
   VoterRecord,
 } from "@prisma/client";
-import { getName } from "~/app/api/lib/utils";
+import { getName } from "~/lib/voterRecordFormatters";
 import prisma from "~/lib/prisma";
 
 /** Point-in-time who/where snapshot for CommitteeMembership audit events. */

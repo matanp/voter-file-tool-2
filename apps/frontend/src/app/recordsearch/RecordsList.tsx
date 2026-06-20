@@ -9,7 +9,7 @@ import {
   type VoterRecord,
 } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
-import { getAddress } from "../api/lib/utils";
+import { getAddress } from "~/lib/voterRecordFormatters";
 import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
 import { Button } from "~/components/ui/button";
 import { useToast } from "~/components/ui/use-toast";

@@ -6,26 +6,16 @@ import type {
 } from "@prisma/client";
 import { searchQueryFieldSchema } from "@voter-file-tool/shared-validators";
 import { z } from "zod";
+import {
+  dropdownItems,
+  type DropdownItem,
+  isDropdownItem,
+} from "~/lib/dropdownItems";
+import { getAddress, getName } from "~/lib/voterRecordFormatters";
 import prisma from "~/lib/prisma";
 
-export const dropdownItems = [
-  "city",
-  "zipCode",
-  "street",
-  "countyLegDistrict",
-  "stateAssmblyDistrict",
-  "stateSenateDistrict",
-  "congressionalDistrict",
-  "townCode",
-  "electionDistrict",
-  "party",
-] as const;
-
-export type DropdownItem = (typeof dropdownItems)[number];
-
-export function isDropdownItem(value: string): value is DropdownItem {
-  return dropdownItems.includes(value as DropdownItem);
-}
+export { dropdownItems, type DropdownItem, isDropdownItem };
+export { getAddress, getName };
 
 export function isRecordNewer(
   recordArchive: Prisma.VoterRecordArchiveCreateManyInput,
@@ -86,23 +76,6 @@ export async function voterHasDiscrepancy(VRCNUM: string): Promise<boolean> {
 
   return false;
 }
-
-export const getAddress = (record: VoterRecord, committee?: boolean) => {
-  if (record.addressForCommittee && committee) {
-    return record.addressForCommittee;
-  }
-  return `${record.houseNum} ${record.street}${record.apartment ? ` APT ${record.apartment}` : ""}`;
-};
-
-export const getName = (
-  record: Pick<VoterRecord, "firstName" | "middleInitial" | "lastName">,
-) => {
-  const nameParts = [record.firstName, record.middleInitial, record.lastName]
-    .filter((part) => part != null && part !== "")
-    .map((part) => (part === record.middleInitial && part ? `${part}` : part));
-
-  return nameParts.join(" ").trim();
-};
 
 // const DISCREPENCY_FIELDS = [
 //   { incomingField: "firstname", existingField: "firstName" },
