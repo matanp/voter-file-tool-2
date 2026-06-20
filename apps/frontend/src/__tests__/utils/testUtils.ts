@@ -466,13 +466,10 @@ export const createMockGovernanceConfig = (
   }) as CommitteeGovernanceConfig;
 
 /**
- * Mocks Prisma so validateEligibility passes (SRS §2.1): voter exists with matching party/AD,
- * crosswalk matches, under capacity, not in another committee.
- * Use in committee add/requestAdd/handleRequest tests. For requestAdd, override
- * committeeList.findUnique with an implementation that returns the committee for the route's
- * composite-key lookup and list fields for eligibility's id lookup.
+ * Mocks voterRecord + committeeList for membership audit subject snapshots.
+ * Matches createMockMembership defaults (committeeListId 1, DEFAULT_ACTIVE_TERM_ID).
  */
-export function setupEligibilityPass(prismaMock: unknown): void {
+export function setupMembershipAuditSubjectMocks(prismaMock: unknown): void {
   (
     prismaMock as { voterRecord: { findUnique: jest.Mock } }
   ).voterRecord.findUnique.mockResolvedValue(
@@ -481,10 +478,23 @@ export function setupEligibilityPass(prismaMock: unknown): void {
   (
     prismaMock as { committeeList: { findUnique: jest.Mock } }
   ).committeeList.findUnique.mockResolvedValue({
+    id: 1,
     cityTown: "Test City",
     legDistrict: 1,
     electionDistrict: 1,
+    term: { id: DEFAULT_ACTIVE_TERM_ID, label: "2024–2026" },
   });
+}
+
+/**
+ * Mocks Prisma so validateEligibility passes (SRS §2.1): voter exists with matching party/AD,
+ * crosswalk matches, under capacity, not in another committee.
+ * Use in committee add/requestAdd/handleRequest tests. For requestAdd, override
+ * committeeList.findUnique with an implementation that returns the committee for the route's
+ * composite-key lookup and list fields for eligibility's id lookup.
+ */
+export function setupEligibilityPass(prismaMock: unknown): void {
+  setupMembershipAuditSubjectMocks(prismaMock);
   (
     prismaMock as { ltedDistrictCrosswalk: { findUnique: jest.Mock } }
   ).ltedDistrictCrosswalk.findUnique.mockResolvedValue({

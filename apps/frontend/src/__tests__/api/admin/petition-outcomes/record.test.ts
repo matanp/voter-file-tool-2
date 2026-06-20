@@ -12,6 +12,7 @@ import {
   expectAuditLogCreate,
   expectMembershipCreate,
   expectMembershipUpdate,
+  createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   getMembershipMock,
   getAuditLogMock,
@@ -61,6 +62,22 @@ function setupTransactionMocks() {
   getAuditLogMock(prismaMock).create.mockResolvedValue({});
 }
 
+function setupCommitteeAndCandidateVoters() {
+  prismaMock.committeeList.findUnique.mockResolvedValue({
+    id: 1,
+    cityTown: "Test City",
+    legDistrict: 1,
+    electionDistrict: 1,
+    term: { id: DEFAULT_ACTIVE_TERM_ID, label: "2024–2026" },
+  });
+  prismaMock.voterRecord.findMany.mockImplementation(
+    ({ where }: { where: { VRCNUM: { in: string[] } } }) =>
+      Promise.resolve(
+        where.VRCNUM.in.map((VRCNUM) => createMockVoterRecord({ VRCNUM })),
+      ),
+  );
+}
+
 describe("POST /api/admin/petition-outcomes/record", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -71,6 +88,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
     setupSeatAndNoHolder();
     setupNoExistingMemberships();
     setupTransactionMocks();
+    setupCommitteeAndCandidateVoters();
   });
 
   it("returns 422 when no winner and not all tie", async () => {

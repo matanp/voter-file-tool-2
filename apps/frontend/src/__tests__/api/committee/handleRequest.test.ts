@@ -15,6 +15,7 @@ import {
   getAuditLogMock,
   getMeetingRecordMock,
   setupEligibilityPass,
+  setupMembershipAuditSubjectMocks,
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../../utils/testUtils";
@@ -91,6 +92,7 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
+      setupMembershipAuditSubjectMocks(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
@@ -678,6 +680,7 @@ describe("/api/committee/handleRequest", () => {
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
         mockHasPermission(true);
+        setupMembershipAuditSubjectMocks(prismaMock);
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
         );
@@ -765,6 +768,7 @@ describe("/api/committee/handleRequest", () => {
       };
 
       const setupMocks = () => {
+        setupMembershipAuditSubjectMocks(prismaMock);
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
         );

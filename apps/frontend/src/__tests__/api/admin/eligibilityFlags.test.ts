@@ -6,6 +6,8 @@ import {
   createMockRequest,
   createMockSession,
   parseJsonResponse,
+  createMockVoterRecord,
+  DEFAULT_ACTIVE_TERM_ID,
   getMembershipMock,
   getAuditLogMock,
   getEligibilityFlagMock,
@@ -14,6 +16,35 @@ import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mock
 
 function reviewRouteContext(id: string) {
   return { params: Promise.resolve({ id }) };
+}
+
+/** Membership include shape for eligibility flag review (confirm → MEMBER_REMOVED audit). */
+function createReviewMembership(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "membership-2",
+    status: "ACTIVE",
+    seatNumber: 3,
+    voterRecordId: "TEST123456",
+    committeeListId: 1,
+    termId: DEFAULT_ACTIVE_TERM_ID,
+    voterRecord: {
+      VRCNUM: "TEST123456",
+      firstName: "John",
+      middleInitial: null,
+      lastName: "Doe",
+    },
+    committeeList: {
+      id: 1,
+      cityTown: "Test City",
+      legDistrict: 1,
+      electionDistrict: 1,
+    },
+    term: {
+      id: DEFAULT_ACTIVE_TERM_ID,
+      label: "2024–2026",
+    },
+    ...overrides,
+  };
 }
 
 describe("/api/admin/eligibility-flags", () => {
@@ -251,11 +282,7 @@ describe("/api/admin/eligibility-flags", () => {
       reason: "PARTY_MISMATCH",
       status: "PENDING",
       details: null,
-      membership: {
-        id: "membership-2",
-        status: "ACTIVE",
-        seatNumber: 3,
-      },
+      membership: createReviewMembership({ id: "membership-2" }),
     });
     getEligibilityFlagMock(prismaMock).update.mockResolvedValue({});
     getMembershipMock(prismaMock).update.mockResolvedValue({});
@@ -323,11 +350,7 @@ describe("/api/admin/eligibility-flags", () => {
       reason: "PARTY_MISMATCH",
       status: "PENDING",
       details: null,
-      membership: {
-        id: "membership-3",
-        status: "ACTIVE",
-        seatNumber: 4,
-      },
+      membership: createReviewMembership({ id: "membership-3", seatNumber: 4 }),
     });
     getMembershipMock(prismaMock).update.mockResolvedValue({});
     getAuditLogMock(prismaMock).create.mockRejectedValueOnce(
