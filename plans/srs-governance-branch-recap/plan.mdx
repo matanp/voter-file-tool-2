@@ -1,0 +1,385 @@
+---
+title: "feat/srs-implementation — SRS committee governance build"
+kind: recap
+localOnly: true
+visibility: private
+brief: >
+  111 commits on top of main turn the voter-file tool into an SRS-compliant
+  committee governance system: a status-driven CommitteeMembership model with an
+  immutable audit trail, BOE-driven eligibility flagging, seat/term/jurisdiction
+  scoping, a 6-report suite, and an 8-section admin console.
+---
+
+<RichText id="overview">
+
+### What this branch does
+
+`feat/srs-implementation` is a large, multi-tier build (111 commits, 333 files,
+~41k insertions over merge-base `ecfcf74`) that re-platforms committee management
+onto the formal **SRS** requirements. The center of gravity is a new
+**`CommitteeMembership`** record — the authoritative, never-deleted link between a
+voter and a committee that moves through a status lifecycle
+(`SUBMITTED → CONFIRMED → ACTIVE`, with rejection/resignation/removal/petition
+terminal states) — which supersedes the old `VoterRecord.committeeId` foreign key
+(deprecated, removal deferred to ticket 3.0).
+
+Around that core the branch adds: an **immutable `AuditLog`** for every state
+change; **`CommitteeTerm`**, **`Seat`**, and **`UserJurisdiction`** for
+term-scoped seats and Leader access scope; a **BOE eligibility-flagging engine**
+(`packages/shared-prisma/src/boeEligibilityFlagging.ts`) that scans active members
+against governance config and the latest BOE import; a **6-report suite**
+(committee roster, sign-in sheet, designation-weight summary, vacancy, changes,
+petition outcomes); and an **8-section admin console** (Data, Terms, Meetings,
+Governance Config, Users, Eligibility Flags, Petition Outcomes, Audit Trail)
+behind a new `Leader` privilege level. ~26 Prisma migrations back the schema.
+
+</RichText>
+
+<RichText id="ui-heading">
+
+### Admin surface: single Data page → governance console
+
+</RichText>
+
+<Columns id="admin-nav-cmp">
+<Column id="admin-nav-before" label="Before">
+
+<WireframeBlock id="admin-nav-before-wf">
+  <Screen surface="panel" caption="Admin was effectively one Data page with inline Special Reports; no persistent section nav." html='<div style="display:flex;flex-direction:column;gap:12px;padding:16px;height:100%"><h2>Admin</h2><div class="wf-card" style="display:flex;flex-direction:column;gap:8px;padding:12px"><strong>Data</strong><small class="wf-muted">Voter import · committee upload · discrepancies</small></div><div class="wf-card" style="display:flex;flex-direction:column;gap:8px;padding:12px"><strong>Special Reports</strong><small class="wf-muted">Inline report panel (583-line component, now removed)</small></div><div style="flex:1"></div></div>' />
+</WireframeBlock>
+
+</Column>
+<Column id="admin-nav-after" label="After">
+
+<WireframeBlock id="admin-nav-after-wf">
+  <Screen surface="panel" caption="Persistent AdminSidebar (config-driven, eager-prefetched) with 8 governance sections; mobile collapses to a sheet." html='<div style="display:flex;flex-direction:column;gap:6px;padding:16px;height:100%"><h2 style="margin-bottom:6px">Admin</h2><a href="#" style="padding:8px 12px;border-radius:var(--wf-radius);background:var(--wf-accent);color:var(--wf-accent-fg)">Data</a><a href="#" style="padding:8px 12px">Terms</a><a href="#" style="padding:8px 12px">Meetings</a><a href="#" style="padding:8px 12px">Governance Config</a><a href="#" style="padding:8px 12px">Users</a><a href="#" style="padding:8px 12px">Eligibility Flags</a><a href="#" style="padding:8px 12px">Petition Outcomes</a><a href="#" style="padding:8px 12px">Audit Trail</a><div style="flex:1"></div></div>' />
+</WireframeBlock>
+
+</Column>
+</Columns>
+
+<RichText id="elig-heading">
+
+### New governance workflow: eligibility-flag review
+
+</RichText>
+
+<WireframeBlock id="elig-flags-wf">
+  <Screen surface="desktop" caption="New /admin/eligibility-flags surface: BOE-detected flags on active members with PENDING/RESOLVED filters and a per-flag review dialog (resolve, dismiss, override)." html='<div style="display:flex;flex-direction:column;gap:12px;padding:16px;height:100%"><div style="display:flex;align-items:center;width:100%"><h1>Eligibility Flags</h1><div style="flex:1"></div><span class="wf-pill accent">Pending 12</span><span class="wf-pill">Resolved</span><span class="wf-pill">All</span></div><div class="wf-card" style="display:flex;flex-direction:column;gap:0;padding:0"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1.4px solid var(--wf-line);white-space:nowrap"><div style="flex:1;min-width:0"><strong>Maria Gonzalez</strong><br /><small class="wf-muted">Albany · LD 3 · ED 12</small></div><span class="wf-pill" style="border-color:var(--wf-warn)">PARTY_CHANGE</span><span class="wf-pill">PENDING</span><button class="primary">Review</button></div><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1.4px solid var(--wf-line);white-space:nowrap"><div style="flex:1;min-width:0"><strong>James Whitfield</strong><br /><small class="wf-muted">Colonie · LD 5 · ED 4</small></div><span class="wf-pill" style="border-color:var(--wf-warn)">ASSEMBLY_DISTRICT_MISMATCH</span><span class="wf-pill">PENDING</span><button class="primary">Review</button></div><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;white-space:nowrap"><div style="flex:1;min-width:0"><strong>Dana Brooks</strong><br /><small class="wf-muted">Guilderland · LD 2 · ED 8</small></div><span class="wf-pill" style="border-color:var(--wf-warn)">INACTIVE_REGISTRATION</span><span class="wf-pill" style="border-color:var(--wf-ok)">RESOLVED_BY_RESCAN</span><button>View</button></div></div><div class="wf-card" style="display:flex;flex-direction:column;gap:10px;padding:12px"><div style="display:flex;align-items:center;width:100%"><strong>Review flag — Maria Gonzalez</strong><div style="flex:1"></div><span data-icon="x" aria-label="Close"></span></div><small class="wf-muted">Reason: registered party no longer matches required party code.</small><label>Resolution note<input value="Confirmed re-registration with BOE 06/14" /></label><div style="display:flex;gap:8px"><button class="primary">Resolve</button><button>Dismiss</button><button>Keep pending</button></div></div></div>' />
+</WireframeBlock>
+
+<RichText id="lifecycle-heading">
+
+### CommitteeMembership status lifecycle
+
+</RichText>
+
+<Diagram
+  id="membership-lifecycle"
+  data={{
+    caption: "Status transitions on CommitteeMembership. Records are never deleted; every transition is written to AuditLog.",
+    html: '<div class="diagram-panel" data-rough style="display:flex;flex-direction:column;gap:18px"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="diagram-node">SUBMITTED</div><span class="diagram-muted">→ confirm</span><div class="diagram-node">CONFIRMED</div><span class="diagram-muted">→ activate</span><div class="diagram-node" data-accent>ACTIVE</div></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="diagram-muted">from SUBMITTED:</span><div class="diagram-pill">REJECTED</div></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="diagram-muted">from ACTIVE:</span><div class="diagram-pill">RESIGNED</div><div class="diagram-pill">REMOVED</div><div class="diagram-pill">PETITIONED_LOST</div><div class="diagram-pill">PETITIONED_TIE</div></div></div>',
+    css: '.diagram-node{padding:8px 14px;border:1.5px solid var(--wf-line);border-radius:var(--wf-radius);background:var(--wf-card);font-weight:600}.diagram-node[data-accent]{background:var(--wf-accent-soft);border-color:var(--wf-accent)}.diagram-pill{padding:5px 11px;border:1.4px solid var(--wf-line);border-radius:999px}.diagram-muted{color:var(--wf-muted)}'
+  }}
+/>
+
+<RichText id="schema-heading">
+
+### New governance schema
+
+The data model below is the authoritative core. `CommitteeMembership` replaces the
+deprecated `VoterRecord.committeeId` FK; `AuditLog` is write-once; `CommitteeList`
+and `User` gained term/jurisdiction relations.
+
+</RichText>
+
+<DataModel
+  id="srs-data-model"
+  entities={[
+    {
+      id: "CommitteeMembership",
+      name: "CommitteeMembership",
+      change: "added",
+      fields: [
+        { name: "id", type: "cuid", pk: true },
+        { name: "voterRecordId", type: "String", fk: "VoterRecord.VRCNUM" },
+        { name: "committeeListId", type: "Int", fk: "CommitteeList.id" },
+        { name: "termId", type: "String", fk: "CommitteeTerm.id" },
+        { name: "status", type: "MembershipStatus", change: "added" },
+        { name: "membershipType", type: "MembershipType?", change: "added" },
+        { name: "seatNumber", type: "Int?" },
+        { name: "submittedById", type: "String?", fk: "User.id" },
+        { name: "meetingRecordId", type: "String?", fk: "MeetingRecord.id" },
+        { name: "resignationMethod", type: "ResignationMethod?" },
+        { name: "removalReason", type: "RemovalReason?" },
+        { name: "petitionSeatNumber", type: "Int?" },
+        { name: "submissionMetadata", type: "Json?" }
+      ]
+    },
+    {
+      id: "AuditLog",
+      name: "AuditLog",
+      change: "added",
+      fields: [
+        { name: "id", type: "cuid", pk: true },
+        { name: "userId", type: "String", fk: "User.id" },
+        { name: "userRole", type: "PrivilegeLevel" },
+        { name: "action", type: "AuditAction" },
+        { name: "entityType", type: "String" },
+        { name: "entityId", type: "String" },
+        { name: "timestamp", type: "DateTime" },
+        { name: "beforeValue", type: "Json?" },
+        { name: "afterValue", type: "Json?" },
+        { name: "metadata", type: "Json?" }
+      ]
+    },
+    {
+      id: "EligibilityFlag",
+      name: "EligibilityFlag",
+      change: "added",
+      fields: [
+        { name: "id", type: "cuid", pk: true },
+        { name: "membershipId", type: "String", fk: "CommitteeMembership.id" },
+        { name: "committeeListId", type: "Int" },
+        { name: "reason", type: "EligibilityFlagReason" },
+        { name: "status", type: "EligibilityFlagStatus" },
+        { name: "details", type: "Json?" },
+        { name: "sourceReportId", type: "String?" },
+        { name: "reviewedById", type: "String?", fk: "User.id" }
+      ]
+    },
+    {
+      id: "CommitteeTerm",
+      name: "CommitteeTerm",
+      change: "added",
+      fields: [
+        { name: "id", type: "cuid", pk: true },
+        { name: "label", type: "String", nullable: false },
+        { name: "startDate", type: "DateTime" },
+        { name: "endDate", type: "DateTime" },
+        { name: "isActive", type: "Boolean" }
+      ]
+    },
+    {
+      id: "Seat",
+      name: "Seat",
+      change: "added",
+      fields: [
+        { name: "id", type: "cuid", pk: true },
+        { name: "committeeListId", type: "Int", fk: "CommitteeList.id" },
+        { name: "termId", type: "String", fk: "CommitteeTerm.id" },
+        { name: "seatNumber", type: "Int" },
+        { name: "isPetitioned", type: "Boolean" },
+        { name: "weight", type: "Decimal?" }
+      ]
+    },
+    {
+      id: "UserJurisdiction",
+      name: "UserJurisdiction",
+      change: "added",
+      fields: [
+        { name: "id", type: "cuid", pk: true },
+        { name: "userId", type: "String", fk: "User.id" },
+        { name: "cityTown", type: "String" },
+        { name: "legDistrict", type: "Int?" },
+        { name: "termId", type: "String", fk: "CommitteeTerm.id" },
+        { name: "createdById", type: "String", fk: "User.id" }
+      ]
+    },
+    {
+      id: "MeetingRecord",
+      name: "MeetingRecord",
+      change: "added",
+      fields: [
+        { name: "id", type: "cuid", pk: true },
+        { name: "meetingDate", type: "DateTime" },
+        { name: "meetingType", type: "MeetingType" },
+        { name: "notes", type: "String?" },
+        { name: "createdById", type: "String", fk: "User.id" }
+      ]
+    },
+    {
+      id: "CommitteeList",
+      name: "CommitteeList",
+      change: "modified",
+      fields: [
+        { name: "id", type: "Int", pk: true },
+        { name: "cityTown", type: "String" },
+        { name: "legDistrict", type: "Int" },
+        { name: "electionDistrict", type: "Int" },
+        { name: "termId", type: "String", fk: "CommitteeTerm.id", change: "added" },
+        { name: "ltedWeight", type: "Decimal?", change: "added" },
+        { name: "committeeId (on VoterRecord)", type: "Int?", change: "removed", was: "active FK" }
+      ]
+    }
+  ]}
+  relations={[
+    { from: "CommitteeMembership", to: "VoterRecord", kind: "n-1" },
+    { from: "CommitteeMembership", to: "CommitteeList", kind: "n-1" },
+    { from: "CommitteeMembership", to: "CommitteeTerm", kind: "n-1" },
+    { from: "CommitteeMembership", to: "MeetingRecord", kind: "n-1" },
+    { from: "EligibilityFlag", to: "CommitteeMembership", kind: "n-1" },
+    { from: "Seat", to: "CommitteeList", kind: "n-1" },
+    { from: "Seat", to: "CommitteeTerm", kind: "n-1" },
+    { from: "UserJurisdiction", to: "CommitteeTerm", kind: "n-1" },
+    { from: "AuditLog", to: "User", kind: "n-1" },
+    { from: "CommitteeList", to: "CommitteeTerm", kind: "n-1" }
+  ]}
+/>
+
+<FileTree
+  id="srs-file-tree"
+  title="Footprint (key files; 333 changed total)"
+  entries={[
+    { path: "apps/frontend/prisma/schema.prisma", change: "modified", note: "+8 enums, 7 new models, term/jurisdiction relations (+296/-6)" },
+    { path: "apps/frontend/prisma/migrations/", change: "added", note: "~26 migrations backing the governance schema" },
+    { path: "packages/shared-prisma/src/boeEligibilityFlagging.ts", change: "added", note: "BOE eligibility-flagging engine (513 lines)" },
+    { path: "packages/shared-validators/src/schemas/report.ts", change: "added", note: "Zod schemas for the new report types (+144)" },
+    { path: "packages/shared-validators/src/reportTypeMapping.ts", change: "modified", note: "6 new report type mappings" },
+    { path: "apps/frontend/src/app/api/committee/handleRequest/route.ts", change: "modified", note: "Request flow re-keyed to membershipId + seat/eligibility/audit (+386/-74)" },
+    { path: "apps/frontend/src/app/api/admin/eligibility-flags/[id]/review/route.ts", change: "added", note: "Flag review/resolve endpoint" },
+    { path: "apps/frontend/src/app/api/admin/petition-outcomes/record/route.ts", change: "added", note: "Petition/primary outcome recording" },
+    { path: "apps/frontend/src/config/adminNav.ts", change: "added", note: "8-section admin sidebar config" },
+    { path: "apps/frontend/src/app/admin/AdminSidebar.tsx", change: "added", note: "Persistent sidebar + mobile sheet" },
+    { path: "apps/frontend/src/app/admin/audit/AuditTrailClient.tsx", change: "added", note: "Audit trail list + CSV/XLSX export (472)" },
+    { path: "apps/frontend/src/app/admin/governance-config/GovernanceConfigClient.tsx", change: "added", note: "Governance config admin controls (414)" },
+    { path: "apps/frontend/src/app/admin/eligibility-flags/EligibilityFlagsTable.tsx", change: "added", note: "Flag table + review dialog (300)" },
+    { path: "apps/frontend/src/app/admin/meetings/PendingSubmissionsTable.tsx", change: "added", note: "Bulk confirm/reject at a meeting (339)" },
+    { path: "apps/frontend/src/app/committees/CommitteeSelector.tsx", change: "modified", note: "Vacancy/weight summary + membership states (+832/-50)" },
+    { path: "apps/frontend/src/app/sign-in-sheet-reports/", change: "added", note: "One of 6 new report front-ends" },
+    { path: "apps/report-server/src/committeeMappingHelpers.ts", change: "modified", note: "Membership-based report mapping (+660/-8)" },
+    { path: "docs/SRS/", change: "modified", note: "Tier 1–4 tickets, traceability matrices, gap analyses" }
+  ]}
+/>
+
+<RichText id="key-changes-heading">
+
+## Key changes
+
+</RichText>
+
+<TabsBlock
+  id="key-changes"
+  tabs={[
+    {
+      id: "kc-schema",
+      label: "schema.prisma",
+      blocks: [
+        {
+          id: "kc-schema-diff",
+          type: "diff",
+          summary: "CommitteeList becomes term-scoped: termId + LTED weight added and the uniqueness key now includes termId.",
+          data: {
+            filename: "apps/frontend/prisma/schema.prisma",
+            language: "prisma",
+            mode: "split",
+            before: "model CommitteeList {\n  id                  Int      @id @default(autoincrement())\n  cityTown            String\n  legDistrict         Int\n  electionDistrict    Int\n  committeeMemberList VoterRecord[]\n  CommitteeRequest    CommitteeRequest[]\n\n  @@unique([cityTown, legDistrict, electionDistrict])\n}\n",
+            after: "model CommitteeList {\n  id                  Int           @id @default(autoincrement())\n  cityTown            String\n  legDistrict         Int\n  electionDistrict    Int\n  termId              String\n  term                CommitteeTerm @relation(fields: [termId], references: [id], onDelete: Restrict)\n  ltedWeight          Decimal?      // SRS §8.1 LTED total weight\n  committeeMemberList VoterRecord[] // deprecated — see ticket 3.0\n  CommitteeRequest    CommitteeRequest[]\n  memberships         CommitteeMembership[]\n  seats               Seat[]\n\n  @@unique([cityTown, legDistrict, electionDistrict, termId])\n}\n",
+            annotations: [
+              { side: "after", lines: "5-6", label: "Term scope", note: "Lists are now per-term; the unique key gains termId so the same LTED can exist across terms." },
+              { side: "after", lines: "9", label: "Deprecated", note: "VoterRecord[] membership stays until ticket 3.0 removes the legacy committeeId FK." }
+            ]
+          }
+        },
+        {
+          id: "kc-schema-enums",
+          type: "annotated-code",
+          summary: "New enums encode the membership lifecycle, audit actions, and removal/resignation metadata.",
+          data: {
+            filename: "apps/frontend/prisma/schema.prisma",
+            language: "prisma",
+            code: "enum MembershipStatus {\n  SUBMITTED\n  REJECTED\n  CONFIRMED\n  ACTIVE\n  RESIGNED\n  REMOVED\n  PETITIONED_LOST\n  PETITIONED_TIE\n}\n\nenum AuditAction {\n  MEMBER_SUBMITTED\n  MEMBER_CONFIRMED\n  MEMBER_ACTIVATED\n  MEMBER_RESIGNED\n  MEMBER_REMOVED\n  PETITION_RECORDED\n  MEETING_CREATED\n  GOVERNANCE_CONFIG_UPDATED\n  JURISDICTION_ASSIGNED\n  CROSSWALK_IMPORTED\n}",
+            annotations: [
+              { lines: "1-10", label: "Lifecycle", note: "Status drives the whole submit → confirm → activate flow plus terminal states." },
+              { lines: "12-23", label: "Audit vocabulary", note: "Every AuditLog row carries one of these actions (truncated list)." }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      id: "kc-boe",
+      label: "boeEligibilityFlagging.ts",
+      blocks: [
+        {
+          id: "kc-boe-code",
+          type: "annotated-code",
+          summary: "New engine: scans ACTIVE members of the active term against governance config + latest BOE import, then diffs detected flags against existing PENDING flags (create new / keep / auto-resolve).",
+          data: {
+            filename: "packages/shared-prisma/src/boeEligibilityFlagging.ts",
+            language: "ts",
+            code: "export async function runBoeEligibilityFlagging(\n  db: EligibilityFlaggingClient,\n  input: BoeEligibilityFlaggingRunInput = {},\n): Promise<BoeEligibilityFlaggingRunResult> {\n  const startedAt = Date.now();\n\n  const targetTermId =\n    input.termId ??\n    (await db.committeeTerm.findFirst({\n      where: { isActive: true },\n      select: { id: true },\n    }))?.id;\n\n  if (!targetTermId) {\n    throw new Error(\"No active CommitteeTerm found for BOE eligibility flagging\");\n  }\n\n  const governanceConfig = await db.committeeGovernanceConfig.findFirst({\n    select: { requiredPartyCode: true, requireAssemblyDistrictMatch: true },\n  });\n\n  const mostRecentImport = await getMostRecentImportVersion(db);\n\n  const memberships = await db.committeeMembership.findMany({\n    where: { termId: targetTermId, status: \"ACTIVE\" },\n    // ...party / assembly-district / inactivity checks per member\n  });\n\n  return {\n    termId: targetTermId,\n    scanned,\n    newFlags,\n    existingPending,\n    autoResolved,\n    durationMs: Date.now() - startedAt,\n  };\n}",
+            annotations: [
+              { lines: "7-15", label: "Active term", note: "Defaults to the single active term; callers may pass an explicit termId." },
+              { lines: "17-21", label: "Config-driven", note: "Required party code and assembly-district match come from CommitteeGovernanceConfig." },
+              { lines: "29-37", label: "Idempotent result", note: "Returns counts (new / kept / auto-resolved) so a re-scan never double-flags." }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      id: "kc-handle",
+      label: "handleRequest/route.ts",
+      blocks: [
+        {
+          id: "kc-handle-diff",
+          type: "diff",
+          summary: "Accept/reject is re-keyed from committeeRequestId to membershipId, and now threads meeting, admin force-add override, and eligibility validation.",
+          data: {
+            filename: "apps/frontend/src/app/api/committee/handleRequest/route.ts",
+            language: "ts",
+            mode: "split",
+            before: "const { committeeRequestId, acceptOrReject } = validation.data;\n\nconst committeeRequest = await prisma.committeeRequest.findUnique({\n  where: { id: committeeRequestId },\n  include: {\n    committeList: { include: { committeeMemberList: true } },\n  },\n});\n\nif (!committeeRequest) {\n  return NextResponse.json(/* ... */);\n}\n",
+            after: "const { membershipId, acceptOrReject, meetingRecordId, forceAdd, overrideReason } =\n  validation.data;\n\nconst isAdmin = user.privilegeLevel === PrivilegeLevel.Admin;\nconst eligibilityOptions =\n  isAdmin && forceAdd && acceptOrReject === \"accept\"\n    ? { forceAdd: true, overrideReason: overrideReason ?? \"\" }\n    : undefined;\n\nconst membership = await prisma.committeeMembership.findUnique({\n  where: { id: membershipId },\n});\n\nif (!membership) {\n  return NextResponse.json(/* ... */);\n}\n",
+            annotations: [
+              { side: "after", lines: "1-2", label: "Membership-keyed", note: "The workflow now operates on a CommitteeMembership, not a CommitteeRequest row." },
+              { side: "after", lines: "4-8", label: "Admin override", note: "Admins can force-add past an eligibility failure with a recorded overrideReason." }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      id: "kc-reports",
+      label: "reportTypeMapping.ts",
+      blocks: [
+        {
+          id: "kc-reports-diff",
+          type: "diff",
+          summary: "Registers the six new SRS report types alongside the existing committee/voter reports.",
+          data: {
+            filename: "packages/shared-validators/src/reportTypeMapping.ts",
+            language: "ts",
+            mode: "split",
+            before: "export const REPORT_TYPE_MAPPINGS = {\n  committee: { databaseValue: 'CommitteeReport', filename: 'committeeReport' },\n  voterList: { databaseValue: 'VoterList', filename: 'voterList' },\n  voterImport: { databaseValue: 'VoterImport', filename: 'voterImport' },\n} as const;\n",
+            after: "export const REPORT_TYPE_MAPPINGS = {\n  committee: { databaseValue: 'CommitteeReport', filename: 'committeeReport' },\n  committeeRoster: { databaseValue: 'CommitteeReport', filename: 'committeeRoster' },\n  voterList: { databaseValue: 'VoterList', filename: 'voterList' },\n  voterImport: { databaseValue: 'VoterImport', filename: 'voterImport' },\n  signInSheet: { databaseValue: 'SignInSheet', filename: 'signInSheet' },\n  designationWeightSummary: { databaseValue: 'DesignationWeightSummary', filename: 'designationWeightSummary' },\n  vacancyReport: { databaseValue: 'VacancyReport', filename: 'vacancyReport' },\n  changesReport: { databaseValue: 'ChangesReport', filename: 'changesReport' },\n  petitionOutcomesReport: { databaseValue: 'PetitionOutcomesReport', filename: 'petitionOutcomesReport' },\n} as const;\n",
+            annotations: [
+              { side: "after", lines: "6-10", label: "New report suite", note: "Each maps to a report-server renderer and a new /app/*-reports front-end form." }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      id: "kc-nav",
+      label: "adminNav.ts",
+      blocks: [
+        {
+          id: "kc-nav-code",
+          type: "annotated-code",
+          summary: "Single config drives the new sidebar; AdminSidebar maps over it, eager-prefetches enabled routes, and renders disabled items as 'Coming soon'.",
+          data: {
+            filename: "apps/frontend/src/config/adminNav.ts",
+            language: "ts",
+            code: "export const adminSidebarConfig: AdminNavItem[] = [\n  { id: \"data\", label: \"Data\", href: \"/admin\", enabled: true },\n  { id: \"terms\", label: \"Terms\", href: \"/admin/terms\", enabled: true },\n  { id: \"meetings\", label: \"Meetings\", href: \"/admin/meetings\", enabled: true },\n  { id: \"governance-config\", label: \"Governance Config\", href: \"/admin/governance-config\", enabled: true },\n  { id: \"users\", label: \"Users\", href: \"/admin/users\", enabled: true },\n  { id: \"eligibility\", label: \"Eligibility Flags\", href: \"/admin/eligibility-flags\", enabled: true },\n  { id: \"petition-outcomes\", label: \"Petition Outcomes\", href: \"/admin/petition-outcomes\", enabled: true },\n  { id: \"audit\", label: \"Audit Trail\", href: \"/admin/audit\", enabled: true },\n];",
+            annotations: [
+              { lines: "1", label: "Config-driven nav", note: "AdminSidebar renders this list and prefetches each enabled href on mount." },
+              { lines: "4-9", label: "New sections", note: "Six of these eight routes are net-new governance surfaces added on this branch." }
+            ]
+          }
+        }
+      ]
+    }
+  ]}
+/>
