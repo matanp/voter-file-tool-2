@@ -245,10 +245,6 @@ export function InviteManagement() {
     }
   };
 
-  if (loading) {
-    return <div>Loading invites...</div>;
-  }
-
   return (
     <div className="space-y-6">
       {/* Create Invite Form */}
@@ -344,14 +340,18 @@ export function InviteManagement() {
       {/* Invites List */}
       <Card>
         <CardHeader>
-          <CardTitle>Invites ({invites.length})</CardTitle>
+          <CardTitle>
+            {loading ? "Invites" : `Invites (${invites.length})`}
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             You can send invitees the invite URL, or they can login directly
             with a matching email address.
           </p>
         </CardHeader>
         <CardContent>
-          {invites.length === 0 ? (
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : invites.length === 0 ? (
             <p className="text-muted-foreground">No invites found</p>
           ) : (
             <div className="space-y-4">

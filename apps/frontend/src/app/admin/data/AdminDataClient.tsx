@@ -2,7 +2,6 @@
 
 import React from "react";
 import { CommitteeUploadDiscrepancies } from "./CommitteeUploadDiscrepancies";
-import { InviteManagement } from "./InviteManagement";
 import { VoterImport } from "./VoterImport";
 import { WeightedTableImport } from "./WeightedTableImport";
 import { LtedCrosswalkTab } from "./LtedCrosswalkTab";
@@ -22,9 +21,8 @@ export const AdminDataClient = ({
 }: AdminDataClientProps) => {
   return (
     <div className="w-full m-4 h-full">
-      <Tabs defaultValue="invites" className="w-full">
-        <TabsList className="grid w-full grid-cols-7 overflow-x-auto">
-          <TabsTrigger value="invites">Invites</TabsTrigger>
+      <Tabs defaultValue="election-config" className="w-full">
+        <TabsList className="grid w-full grid-cols-6 overflow-x-auto">
           <TabsTrigger value="election-config">Election Config</TabsTrigger>
           <TabsTrigger value="voter-import">Voter Import</TabsTrigger>
           <TabsTrigger value="weighted-table">Weighted Table</TabsTrigger>
@@ -32,9 +30,6 @@ export const AdminDataClient = ({
           <TabsTrigger value="discrepancies">Discrepancies</TabsTrigger>
           <TabsTrigger value="absentee-report">Absentee Report</TabsTrigger>
         </TabsList>
-        <TabsContent value="invites">
-          <InviteManagement />
-        </TabsContent>
         <TabsContent value="election-config">
           <ElectionConfigTab
             electionDates={electionDates}

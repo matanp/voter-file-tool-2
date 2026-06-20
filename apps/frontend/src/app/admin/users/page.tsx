@@ -7,7 +7,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import AuthCheck from "~/components/ui/authcheck";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import prisma from "~/lib/prisma";
-import { UsersClient } from "./UsersClient";
+import { UsersManagementClient } from "./UsersManagementClient";
 
 export type UserWithJurisdictions = {
   id: string;
@@ -43,90 +43,89 @@ async function AdminUsersContent() {
     // No active term
   }
 
-  if (activeTermId == null) {
-    return (
-      <div className="w-full p-6">
-        <h1 className="text-2xl font-semibold mb-6">Users</h1>
-        <p className="text-muted-foreground">
-          No active committee term is set. Configure an active term to manage
-          user jurisdictions.
-        </p>
-      </div>
-    );
-  }
+  let users: UserWithJurisdictions[] = [];
+  let jurisdictionMeta: JurisdictionMeta | null = null;
 
-  const [users, committeeLists] = await Promise.all([
-    prisma.user.findMany({
-      where: {
-        privilegeLevel: {
-          in: [
-            PrivilegeLevel.Leader,
-            PrivilegeLevel.Admin,
-            PrivilegeLevel.Developer,
-          ],
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        privilegeLevel: true,
-        jurisdictions: {
-          where: { termId: activeTermId },
-          select: {
-            id: true,
-            cityTown: true,
-            legDistrict: true,
-            createdAt: true,
+  if (activeTermId != null) {
+    const [fetchedUsers, committeeLists] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          privilegeLevel: {
+            in: [
+              PrivilegeLevel.Leader,
+              PrivilegeLevel.Admin,
+              PrivilegeLevel.Developer,
+            ],
           },
         },
-      },
-    }),
-    prisma.committeeList.findMany({
-      where: { termId: activeTermId },
-      select: { cityTown: true, legDistrict: true },
-    }),
-  ]);
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          privilegeLevel: true,
+          jurisdictions: {
+            where: { termId: activeTermId },
+            select: {
+              id: true,
+              cityTown: true,
+              legDistrict: true,
+              createdAt: true,
+            },
+          },
+        },
+      }),
+      prisma.committeeList.findMany({
+        where: { termId: activeTermId },
+        select: { cityTown: true, legDistrict: true },
+      }),
+    ]);
 
-  const cityTowns = [...new Set(committeeLists.map((c) => c.cityTown))].sort();
-  const legDistrictsByCity: Record<string, number[]> = {};
-  for (const c of committeeLists) {
-    if (!legDistrictsByCity[c.cityTown]) {
-      legDistrictsByCity[c.cityTown] = [];
+    const cityTowns = [...new Set(committeeLists.map((c) => c.cityTown))].sort();
+    const legDistrictsByCity: Record<string, number[]> = {};
+    for (const c of committeeLists) {
+      if (!legDistrictsByCity[c.cityTown]) {
+        legDistrictsByCity[c.cityTown] = [];
+      }
+      if (!legDistrictsByCity[c.cityTown]!.includes(c.legDistrict)) {
+        legDistrictsByCity[c.cityTown]!.push(c.legDistrict);
+      }
     }
-    if (!legDistrictsByCity[c.cityTown]!.includes(c.legDistrict)) {
-      legDistrictsByCity[c.cityTown]!.push(c.legDistrict);
+    for (const arr of Object.values(legDistrictsByCity)) {
+      arr.sort((a, b) => a - b);
     }
-  }
-  for (const arr of Object.values(legDistrictsByCity)) {
-    arr.sort((a, b) => a - b);
-  }
 
-  const serializedUsers: UserWithJurisdictions[] = users.map((u) => ({
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    privilegeLevel: u.privilegeLevel,
-    jurisdictions: u.jurisdictions.map((j) => ({
-      id: j.id,
-      cityTown: j.cityTown,
-      legDistrict: j.legDistrict,
-      createdAt: j.createdAt.toISOString(),
-    })),
-  }));
+    users = fetchedUsers.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      privilegeLevel: u.privilegeLevel,
+      jurisdictions: u.jurisdictions.map((j) => ({
+        id: j.id,
+        cityTown: j.cityTown,
+        legDistrict: j.legDistrict,
+        createdAt: j.createdAt.toISOString(),
+      })),
+    }));
 
-  const meta: JurisdictionMeta = {
-    cityTowns,
-    legDistrictsByCity,
-  };
+    jurisdictionMeta = {
+      cityTowns,
+      legDistrictsByCity,
+    };
+  }
 
   return (
-    <div className="w-full p-6">
-      <h1 className="text-2xl font-semibold mb-6">Users</h1>
-      <UsersClient
-        users={serializedUsers}
+    <div className="w-full p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">User Management</h1>
+        <p className="text-muted-foreground">
+          View Leader accounts and assign jurisdictions, or create and manage
+          pending signup invites.
+        </p>
+      </div>
+      <UsersManagementClient
         activeTermId={activeTermId}
-        jurisdictionMeta={meta}
+        users={users}
+        jurisdictionMeta={jurisdictionMeta}
       />
     </div>
   );
