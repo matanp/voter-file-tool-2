@@ -17,8 +17,8 @@ async function bulkLoadDataHandler(_req: NextRequest, _session: Session) {
   console.time("loadData");
 
   try {
-    const files = ["2024_5_2_voter_records.txt"];
-    const years = [2024];
+    const files = ["2026_1_voter_file.txt"];
+    const years = [2026];
     const recordEntryNumbers = [1];
 
     for (let i = 0; i < files.length; i++) {

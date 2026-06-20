@@ -371,6 +371,45 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     ).toBeDefined();
   });
 
+  it("flags missing voter records as discrepancies and skips CommitteeMembership creation", async () => {
+    sheetToJsonMock.mockReturnValue([
+      {
+        Committee: "Test City",
+        "Serve LT": "1",
+        "Serve ED": "1",
+        "voter id": "VRC_MISSING",
+        name: "Ghost Voter",
+        "res address1": "999 Nowhere St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+    ]);
+
+    prismaMock.voterRecord.findUnique.mockResolvedValue(null);
+    prismaMock.committeeList.upsert.mockResolvedValue({
+      id: 501,
+      cityTown: "TEST CITY",
+      legDistrict: 1,
+      electionDistrict: 1,
+      termId: DEFAULT_ACTIVE_TERM_ID,
+      ltedWeight: null,
+    } as never);
+
+    const discrepancies = await loadCommitteeLists();
+
+    expect(discrepancies.has("VRC_MISSING")).toBe(true);
+    expect(discrepancies.get("VRC_MISSING")?.discrepancies.VRCNUM).toEqual(
+      expect.objectContaining({
+        incoming: "VRC_MISSING",
+        existing: "",
+      }),
+    );
+    expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
   it("logs MEMBER_REMOVED when sync removes an active member not present in import", async () => {
     sheetToJsonMock.mockReturnValue([
       {

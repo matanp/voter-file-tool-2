@@ -109,8 +109,7 @@ export async function loadCommitteeLists(
 ) {
   const committeeData = new Map<string, CommitteeAccumulationEntry>();
 
-  const filePath = "data/Committee-File-2025-05-15.xlsx";
-  // const filePath = "data/DemocraticCommitteeExport.xlsx";
+  const filePath = "data/Committee File 2026-04-16(1).xlsx";
 
   const fileBuffer = fs.readFileSync(filePath);
   const workbook: xlsx.WorkBook = xlsx.read(fileBuffer);
@@ -153,7 +152,11 @@ export async function loadCommitteeLists(
 
     const legDistrict = Number(row["Serve LT"]);
     const electionDistrict = Number(row["Serve ED"]);
-    const VRCNUM = row["voter id"];
+    const rawVrcNum = row["voter id"];
+    const VRCNUM =
+      rawVrcNum === undefined || rawVrcNum === null
+        ? ""
+        : String(rawVrcNum).trim();
 
     if (!VRCNUM) {
       throw new Error("VRCNUM is undefined");
@@ -204,6 +207,8 @@ export async function loadCommitteeLists(
           ltedWeight: null,
         },
       });
+      // Missing voter rows are discrepancies only — never create CommitteeMembership.
+      recordHasDiscrepancies = true;
     }
 
     const mapKey = `${city}-${legDistrict}-${electionDistrict}`;

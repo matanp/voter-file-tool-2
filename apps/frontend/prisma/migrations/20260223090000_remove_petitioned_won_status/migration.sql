@@ -14,6 +14,8 @@ CREATE TYPE "MembershipStatus" AS ENUM (
   'PETITIONED_TIE'
 );
 
+ALTER TABLE "CommitteeMembership" ALTER COLUMN "status" DROP DEFAULT;
+
 ALTER TABLE "CommitteeMembership"
 ALTER COLUMN "status" TYPE "MembershipStatus"
 USING (
@@ -22,5 +24,7 @@ USING (
     ELSE "status"::text
   END
 )::"MembershipStatus";
+
+ALTER TABLE "CommitteeMembership" ALTER COLUMN "status" SET DEFAULT 'SUBMITTED'::"MembershipStatus";
 
 DROP TYPE "MembershipStatus_old";
