@@ -11,7 +11,6 @@ import {
   createMockGovernanceConfig,
   createMockMembership,
   createMockVoterRecord,
-  DEFAULT_ACTIVE_TERM_ID,
   expectMembershipCreate,
   expectMembershipUpdate,
   expectAuditLogCreate,
@@ -45,10 +44,6 @@ describe("/api/committee/add", () => {
         createMockGovernanceConfig(),
       );
       prismaMock.committeeList.upsert.mockResolvedValue(createMockCommittee());
-      prismaMock.committeeTerm.findUnique.mockResolvedValue({
-        id: DEFAULT_ACTIVE_TERM_ID,
-        label: "2024–2026",
-      } as never);
       prismaMock.voterRecord.findUnique.mockResolvedValue(
         createMockVoterRecord(),
       );

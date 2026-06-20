@@ -30,6 +30,7 @@ const createMockDiscrepancy = (overrides: Record<string, unknown> = {}) => ({
     legDistrict: 1,
     electionDistrict: 1,
     termId: DEFAULT_ACTIVE_TERM_ID,
+    term: { id: DEFAULT_ACTIVE_TERM_ID, label: "2024–2026" },
   },
   ...overrides,
 });
@@ -39,10 +40,6 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
     prismaMock.voterRecord.findUnique.mockResolvedValue(
       createMockVoterRecord({ VRCNUM: "TEST123" }),
     );
-    prismaMock.committeeTerm.findUnique.mockResolvedValue({
-      id: DEFAULT_ACTIVE_TERM_ID,
-      label: "2024–2026",
-    } as never);
   };
 
   beforeEach(() => {

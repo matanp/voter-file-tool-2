@@ -85,6 +85,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         electionDistrict,
         termId: activeTermId,
       },
+      include: { term: { select: { id: true, label: true } } },
     });
 
     const eligibility = await validateEligibility(
@@ -140,28 +141,16 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         ? { ...auditMetadata, eligibilityWarnings }
         : auditMetadata;
 
-    const [activeTerm, voterRecord] = await Promise.all([
-      prisma.committeeTerm.findUnique({
-        where: { id: activeTermId },
-        select: { id: true, label: true },
-      }),
-      prisma.voterRecord.findUnique({
-        where: { VRCNUM: memberId },
-        select: {
-          VRCNUM: true,
-          firstName: true,
-          middleInitial: true,
-          lastName: true,
-        },
-      }),
-    ]);
+    const voterRecord = await prisma.voterRecord.findUnique({
+      where: { VRCNUM: memberId },
+      select: {
+        VRCNUM: true,
+        firstName: true,
+        middleInitial: true,
+        lastName: true,
+      },
+    });
 
-    if (!activeTerm) {
-      return NextResponse.json(
-        { success: false, error: "Active term not found" },
-        { status: 500 },
-      );
-    }
     if (!voterRecord) {
       return NextResponse.json(
         { success: false, error: "Member not found" },
@@ -263,7 +252,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           buildMembershipAuditSubject({
             voterRecord,
             committee,
-            term: activeTerm,
+            term: committee.term,
             seatNumber,
           }),
         );
@@ -296,7 +285,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           buildMembershipAuditSubject({
             voterRecord,
             committee,
-            term: activeTerm,
+            term: committee.term,
             seatNumber,
           }),
         );

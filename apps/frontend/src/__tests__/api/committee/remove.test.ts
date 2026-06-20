@@ -12,7 +12,6 @@ import {
   createCommitteeFindUniqueWhereArgs,
   createMockMembership,
   createMockVoterRecord,
-  DEFAULT_ACTIVE_TERM_ID,
   expectMembershipUpdate,
   expectAnyDateForUpdate,
   jsonContaining,
@@ -40,10 +39,6 @@ describe("/api/committee/remove", () => {
       prismaMock.voterRecord.findUnique.mockResolvedValue(
         createMockVoterRecord(),
       );
-      prismaMock.committeeTerm.findUnique.mockResolvedValue({
-        id: DEFAULT_ACTIVE_TERM_ID,
-        label: "2024–2026",
-      } as never);
     };
 
     /** Set up mocks for a successful removal (ACTIVE membership → REMOVED). */

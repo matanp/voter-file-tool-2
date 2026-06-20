@@ -408,6 +408,7 @@ export const createMockCommittee = (
     legDistrict: 1,
     electionDistrict: 1,
     termId: DEFAULT_ACTIVE_TERM_ID,
+    term: { id: DEFAULT_ACTIVE_TERM_ID, label: "2024–2026" },
     memberships: [
       { ...createMockMembership(), voterRecord: createMockVoterRecord() },
     ],
@@ -634,6 +635,7 @@ export const createCommitteeFindUniqueWhereArgs = (
       termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
     },
   },
+  include: { term: { select: { id: true, label: true } } },
 });
 
 /**
@@ -664,6 +666,7 @@ export const createCommitteeUpsertArgs = (
     electionDistrict: overrides.electionDistrict ?? 1,
     termId: overrides.termId ?? DEFAULT_ACTIVE_TERM_ID,
   },
+  include: { term: { select: { id: true, label: true } } },
 });
 
 export const createVoterRecordUpdateArgs = (

@@ -40,7 +40,7 @@ export function buildMembershipAuditSubject(params: {
   seatNumber?: number | null;
 }): AuditMembershipSubject {
   const { voterRecord, committee, term, seatNumber } = params;
-  const memberName = getName(voterRecord as VoterRecord);
+  const memberName = getName(voterRecord);
 
   return {
     memberName: memberName || voterRecord.VRCNUM,

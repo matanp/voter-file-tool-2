@@ -41,7 +41,9 @@ async function handleCommitteeDiscrepancyHandler(
         VRCNUM,
       },
       include: {
-        committee: true,
+        committee: {
+          include: { term: { select: { id: true, label: true } } },
+        },
       },
     });
 
@@ -57,28 +59,20 @@ async function handleCommitteeDiscrepancyHandler(
       const actorUserId = session.user?.id ?? "system";
       const actorRole = session.user?.privilegeLevel ?? PrivilegeLevel.Admin;
 
-      const [voterRecord, committeeTerm] = await Promise.all([
-        prisma.voterRecord.findUnique({
-          where: { VRCNUM },
-          select: {
-            VRCNUM: true,
-            firstName: true,
-            middleInitial: true,
-            lastName: true,
-          },
-        }),
-        prisma.committeeTerm.findUnique({
-          where: { id: discrepancy.committee.termId },
-          select: { id: true, label: true },
-        }),
-      ]);
+      const voterRecord = await prisma.voterRecord.findUnique({
+        where: { VRCNUM },
+        select: {
+          VRCNUM: true,
+          firstName: true,
+          middleInitial: true,
+          lastName: true,
+        },
+      });
 
-      if (!voterRecord || !committeeTerm) {
-        return NextResponse.json(
-          { error: "Voter or term not found" },
-          { status: 404 },
-        );
+      if (!voterRecord) {
+        return NextResponse.json({ error: "Voter not found" }, { status: 404 });
       }
+      const committeeTerm = discrepancy.committee.term;
 
       const outcome = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`

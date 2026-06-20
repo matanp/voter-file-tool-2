@@ -57,6 +57,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
           termId: activeTermId,
         },
       },
+      include: { term: { select: { id: true, label: true } } },
     });
 
     if (!committee) {
@@ -93,25 +94,19 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       );
     }
 
-    const [voterRecord, activeTerm] = await Promise.all([
-      prisma.voterRecord.findUnique({
-        where: { VRCNUM: memberId },
-        select: {
-          VRCNUM: true,
-          firstName: true,
-          middleInitial: true,
-          lastName: true,
-        },
-      }),
-      prisma.committeeTerm.findUnique({
-        where: { id: activeTermId },
-        select: { id: true, label: true },
-      }),
-    ]);
+    const voterRecord = await prisma.voterRecord.findUnique({
+      where: { VRCNUM: memberId },
+      select: {
+        VRCNUM: true,
+        firstName: true,
+        middleInitial: true,
+        lastName: true,
+      },
+    });
 
-    if (!voterRecord || !activeTerm) {
+    if (!voterRecord) {
       return NextResponse.json(
-        { status: "error", error: "Member or term not found" },
+        { status: "error", error: "Member not found" },
         { status: 404 },
       );
     }
@@ -119,7 +114,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     const membershipSubject = buildMembershipAuditSubject({
       voterRecord,
       committee,
-      term: activeTerm,
+      term: committee.term,
       seatNumber: membership.seatNumber,
     });
 
@@ -149,8 +144,8 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         });
 
         await logAuditEventOrThrow(
-          session.user.id,
-          session.user.privilegeLevel,
+          userId,
+          userRole,
           "MEMBER_RESIGNED",
           "CommitteeMembership",
           membership.id,

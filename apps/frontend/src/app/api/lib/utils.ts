@@ -94,7 +94,9 @@ export const getAddress = (record: VoterRecord, committee?: boolean) => {
   return `${record.houseNum} ${record.street}${record.apartment ? ` APT ${record.apartment}` : ""}`;
 };
 
-export const getName = (record: VoterRecord) => {
+export const getName = (
+  record: Pick<VoterRecord, "firstName" | "middleInitial" | "lastName">,
+) => {
   const nameParts = [record.firstName, record.middleInitial, record.lastName]
     .filter((part) => part != null && part !== "")
     .map((part) => (part === record.middleInitial && part ? `${part}` : part));
