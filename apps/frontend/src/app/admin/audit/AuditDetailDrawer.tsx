@@ -8,7 +8,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "~/components/ui/sheet";
-import { AUDIT_ACTION_LABELS } from "./auditUtils";
+import { CopyButton } from "~/components/ui/CopyButton";
+import {
+  buildDrawerTitle,
+  extractMembershipSubject,
+  formatCommitteeContext,
+} from "./auditUtils";
 import type { AuditAction } from "@prisma/client";
 
 type DetailEntry = {
@@ -38,6 +43,34 @@ function formatJson(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+/** Copies text to the clipboard when supported in the browser. */
+async function handleCopy(value: string): Promise<void> {
+  await navigator.clipboard.writeText(value);
+}
+
+function CopyableId({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-1">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="font-mono text-xs break-all">{value}</p>
+      </div>
+      <CopyButton
+        title={`Copy ${label}`}
+        onClick={() => {
+          void handleCopy(value);
+        }}
+      />
+    </div>
+  );
 }
 
 export function AuditDetailDrawer({ entryId, open, onClose }: AuditDetailDrawerProps) {
@@ -72,13 +105,25 @@ export function AuditDetailDrawer({ entryId, open, onClose }: AuditDetailDrawerP
     }
   }, [open, entryId, fetchDetail]);
 
+  const membershipSubject =
+    entry?.entityType === "CommitteeMembership"
+      ? extractMembershipSubject(entry.metadata)
+      : null;
+
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-[400px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="pr-6">
+          <SheetTitle className="pr-6 text-base leading-snug">
             {entry
-              ? `${AUDIT_ACTION_LABELS[entry.action] ?? entry.action} — ${format(new Date(entry.timestamp), "MMM d, yyyy h:mm a")}`
+              ? `${buildDrawerTitle({
+                  action: entry.action,
+                  entityType: entry.entityType,
+                  entityId: entry.entityId,
+                  beforeValue: entry.beforeValue as Record<string, unknown> | null,
+                  afterValue: entry.afterValue as Record<string, unknown> | null,
+                  metadata: entry.metadata as Record<string, unknown> | null,
+                })} · ${format(new Date(entry.timestamp), "MMM d, yyyy h:mm a")}`
               : "Audit entry"}
           </SheetTitle>
         </SheetHeader>
@@ -93,12 +138,21 @@ export function AuditDetailDrawer({ entryId, open, onClose }: AuditDetailDrawerP
                 <p className="text-xs text-muted-foreground">{entry.user.email}</p>
                 <p className="text-xs text-muted-foreground">Role: {entry.userRole}</p>
               </div>
+              {membershipSubject && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Subject</p>
+                  <p className="text-sm font-medium">{membershipSubject.memberName}</p>
+                  <CopyableId
+                    label="Voter ID"
+                    value={membershipSubject.voterRecordId}
+                  />
+                  <p className="mt-2 text-sm">{formatCommitteeContext(membershipSubject)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Entity</p>
                 <p className="text-sm">{entry.entityType}</p>
-                <p className="font-mono text-xs break-all" title={entry.entityId}>
-                  {entry.entityId}
-                </p>
+                <CopyableId label="Entity ID" value={entry.entityId} />
               </div>
               {(entry.beforeValue != null || entry.afterValue != null) && (
                 <div className="space-y-2">

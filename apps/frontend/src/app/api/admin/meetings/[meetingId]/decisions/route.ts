@@ -12,6 +12,10 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import { ensureSeatsExist, assignNextAvailableSeat } from "~/app/api/lib/seatUtils";
 import { validateEligibility } from "~/lib/eligibility";
 import {
+  fetchMembershipAuditSubject,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
+import {
   withPrivilege,
   type SessionWithUser,
 } from "~/app/api/lib/withPrivilege";
@@ -168,6 +172,17 @@ async function bulkDecisionsHandler(
             meetingRecordId: meetingId,
           };
 
+          const decisionSubject = await fetchMembershipAuditSubject(tx, {
+            voterRecordId: membership.voterRecordId,
+            committeeListId: membership.committeeListId,
+            termId: membership.termId,
+            seatNumber,
+          });
+          const confirmMetadata = mergeAuditMetadata(
+            { meetingRecordId: meetingId },
+            decisionSubject,
+          );
+
           await logAuditEvent(
             userId,
             userRole,
@@ -176,7 +191,7 @@ async function bulkDecisionsHandler(
             membershipId,
             beforeSnapshot,
             afterSnapshot,
-            { meetingRecordId: meetingId },
+            confirmMetadata,
             tx,
           );
 
@@ -188,7 +203,7 @@ async function bulkDecisionsHandler(
             membershipId,
             { status: "CONFIRMED" },
             afterSnapshot,
-            { meetingRecordId: meetingId },
+            confirmMetadata,
             tx,
           );
 
@@ -217,6 +232,12 @@ async function bulkDecisionsHandler(
             },
           });
 
+          const rejectSubject = await fetchMembershipAuditSubject(tx, {
+            voterRecordId: membership.voterRecordId,
+            committeeListId: membership.committeeListId,
+            termId: membership.termId,
+          });
+
           await logAuditEvent(
             userId,
             userRole,
@@ -230,7 +251,7 @@ async function bulkDecisionsHandler(
               rejectionNote: rejectionNote ?? null,
               meetingRecordId: meetingId,
             },
-            { meetingRecordId: meetingId },
+            mergeAuditMetadata({ meetingRecordId: meetingId }, rejectSubject),
             tx,
           );
 

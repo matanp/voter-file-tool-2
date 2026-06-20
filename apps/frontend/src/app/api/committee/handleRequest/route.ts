@@ -12,6 +12,11 @@ import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 import { logAuditEvent, logAuditEventOrThrow } from "~/lib/auditLog";
 import { validateEligibility } from "~/lib/eligibility";
+import {
+  fetchMembershipAuditSubject,
+  fetchMembershipAuditSubjectFromDb,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
 
 function getRemoveMemberIdFromMetadata(metadata: unknown): string | null {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
@@ -218,6 +223,11 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         const effectiveActiveCount = activeCount - (replacementTarget ? 1 : 0);
 
         if (effectiveActiveCount >= config.maxSeatsPerLted) {
+          const capacityRejectSubject = await fetchMembershipAuditSubject(tx, {
+            voterRecordId: submittedMembership.voterRecordId,
+            committeeListId: submittedMembership.committeeListId,
+            termId: submittedMembership.termId,
+          });
           await tx.committeeMembership.update({
             where: { id: membershipId },
             data: {
@@ -234,7 +244,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
             membershipId,
             { status: "SUBMITTED" },
             { status: "REJECTED", rejectionNote: "Committee already full" },
-            { reason: "capacity" },
+            mergeAuditMetadata({ reason: "capacity" }, capacityRejectSubject),
             tx,
           );
 
@@ -270,10 +280,18 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
             replacementTarget.id,
             { status: "ACTIVE" },
             { status: "REMOVED", removalReason: "OTHER" },
-            {
-              reason: "replacement",
-              replacementMembershipId: submittedMembership.id,
-            },
+            mergeAuditMetadata(
+              {
+                reason: "replacement",
+                replacementMembershipId: submittedMembership.id,
+              },
+              await fetchMembershipAuditSubject(tx, {
+                voterRecordId: replacementTarget.voterRecordId,
+                committeeListId: replacementTarget.committeeListId,
+                termId: replacementTarget.termId,
+                seatNumber: replacementTarget.seatNumber,
+              }),
+            ),
             tx,
           );
         }
@@ -334,6 +352,17 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           meetingRecordId,
         };
 
+        const acceptedSubject = await fetchMembershipAuditSubject(tx, {
+          voterRecordId: submittedMembership.voterRecordId,
+          committeeListId: submittedMembership.committeeListId,
+          termId: submittedMembership.termId,
+          seatNumber,
+        });
+        const auditMetadataWithSubject = mergeAuditMetadata(
+          auditMetadataWithMeeting,
+          acceptedSubject,
+        );
+
         await logAuditEvent(
           userId,
           user.privilegeLevel,
@@ -342,7 +371,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           membershipId,
           { status: "SUBMITTED" },
           confirmedSnapshot,
-          auditMetadataWithMeeting,
+          auditMetadataWithSubject,
           tx,
         );
 
@@ -354,7 +383,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           membershipId,
           { status: "CONFIRMED" },
           activatedSnapshot,
-          auditMetadataWithMeeting,
+          auditMetadataWithSubject,
           tx,
         );
 
@@ -405,6 +434,11 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         { status: 200 },
       );
     } else if (acceptOrReject === "reject") {
+      const rejectSubject = await fetchMembershipAuditSubjectFromDb({
+        voterRecordId: membership.voterRecordId,
+        committeeListId: membership.committeeListId,
+        termId: membership.termId,
+      });
       // Transition SUBMITTED → REJECTED (conditional to avoid overwriting concurrent accept)
       const updateResult = await prisma.$transaction(async (tx) => {
         const updated = await tx.committeeMembership.updateMany({
@@ -423,7 +457,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
             membershipId,
             { status: "SUBMITTED" },
             { status: "REJECTED" },
-            undefined,
+            mergeAuditMetadata(undefined, rejectSubject),
             tx,
           );
         }

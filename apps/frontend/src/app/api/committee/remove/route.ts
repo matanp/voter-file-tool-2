@@ -12,6 +12,10 @@ import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
+import {
+  buildMembershipAuditSubject,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
 
 /** SRS 2.3 — Handle resignation: validate resign body, update membership to RESIGNED, log MEMBER_RESIGNED. */
 async function removeCommitteeHandler(req: NextRequest, session: Session) {
@@ -89,6 +93,36 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       );
     }
 
+    const [voterRecord, activeTerm] = await Promise.all([
+      prisma.voterRecord.findUnique({
+        where: { VRCNUM: memberId },
+        select: {
+          VRCNUM: true,
+          firstName: true,
+          middleInitial: true,
+          lastName: true,
+        },
+      }),
+      prisma.committeeTerm.findUnique({
+        where: { id: activeTermId },
+        select: { id: true, label: true },
+      }),
+    ]);
+
+    if (!voterRecord || !activeTerm) {
+      return NextResponse.json(
+        { status: "error", error: "Member or term not found" },
+        { status: 404 },
+      );
+    }
+
+    const membershipSubject = buildMembershipAuditSubject({
+      voterRecord,
+      committee,
+      term: activeTerm,
+      seatNumber: membership.seatNumber,
+    });
+
     if (isResign) {
       const resignData = validation.data as {
         resignationReason: RemovalReason;
@@ -134,7 +168,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
             removalReason: resignData.resignationReason,
             ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
           },
-          undefined,
+          mergeAuditMetadata(undefined, membershipSubject),
           tx,
         );
       });
@@ -175,7 +209,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
           removalReason: removeData.removalReason,
           ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
         },
-        { source: "manual" },
+        mergeAuditMetadata({ source: "manual" }, membershipSubject),
         tx,
       );
     });

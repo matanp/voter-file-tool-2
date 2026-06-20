@@ -12,6 +12,10 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import { logAuditEvent } from "~/lib/auditLog";
+import {
+  buildMembershipAuditSubject,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
 
 export interface HandleDiscrepancyRequest {
   VRCNUM: string;
@@ -52,6 +56,29 @@ async function handleCommitteeDiscrepancyHandler(
       const config = await getGovernanceConfig();
       const actorUserId = session.user?.id ?? "system";
       const actorRole = session.user?.privilegeLevel ?? PrivilegeLevel.Admin;
+
+      const [voterRecord, committeeTerm] = await Promise.all([
+        prisma.voterRecord.findUnique({
+          where: { VRCNUM },
+          select: {
+            VRCNUM: true,
+            firstName: true,
+            middleInitial: true,
+            lastName: true,
+          },
+        }),
+        prisma.committeeTerm.findUnique({
+          where: { id: discrepancy.committee.termId },
+          select: { id: true, label: true },
+        }),
+      ]);
+
+      if (!voterRecord || !committeeTerm) {
+        return NextResponse.json(
+          { error: "Voter or term not found" },
+          { status: 404 },
+        );
+      }
 
       const outcome = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`
@@ -143,11 +170,19 @@ async function handleCommitteeDiscrepancyHandler(
             "CommitteeMembership",
             existingMembership.id,
             { status: existingMembership.status },
-            { status: "ACTIVE" },
-            {
-              source: "discrepancy_accept",
-              discrepancyVrcnum: VRCNUM,
-            },
+            { status: "ACTIVE", seatNumber },
+            mergeAuditMetadata(
+              {
+                source: "discrepancy_accept",
+                discrepancyVrcnum: VRCNUM,
+              },
+              buildMembershipAuditSubject({
+                voterRecord,
+                committee: discrepancy.committee,
+                term: committeeTerm,
+                seatNumber,
+              }),
+            ),
             tx,
           );
         } else {
@@ -169,11 +204,19 @@ async function handleCommitteeDiscrepancyHandler(
             "CommitteeMembership",
             createdMembership.id,
             null,
-            { status: "ACTIVE" },
-            {
-              source: "discrepancy_accept",
-              discrepancyVrcnum: VRCNUM,
-            },
+            { status: "ACTIVE", seatNumber },
+            mergeAuditMetadata(
+              {
+                source: "discrepancy_accept",
+                discrepancyVrcnum: VRCNUM,
+              },
+              buildMembershipAuditSubject({
+                voterRecord,
+                committee: discrepancy.committee,
+                term: committeeTerm,
+                seatNumber,
+              }),
+            ),
             tx,
           );
         }

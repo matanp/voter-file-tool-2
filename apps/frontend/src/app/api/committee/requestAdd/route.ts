@@ -13,6 +13,10 @@ import {
 import type { Session } from "next-auth";
 import { logAuditEvent } from "~/lib/auditLog";
 import { validateEligibility } from "~/lib/eligibility";
+import {
+  buildMembershipAuditSubject,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
 
 async function requestAddHandler(req: NextRequest, session: Session) {
   let body: unknown;
@@ -220,6 +224,40 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         ? { ...auditMetadata, eligibilityWarnings }
         : auditMetadata;
 
+    const [voterRecord, activeTerm] = await Promise.all([
+      prisma.voterRecord.findUnique({
+        where: { VRCNUM: sanitizedAddMemberId },
+        select: {
+          VRCNUM: true,
+          firstName: true,
+          middleInitial: true,
+          lastName: true,
+        },
+      }),
+      prisma.committeeTerm.findUnique({
+        where: { id: activeTermId },
+        select: { id: true, label: true },
+      }),
+    ]);
+
+    if (!voterRecord || !activeTerm) {
+      return NextResponse.json(
+        { success: false, error: "Member or term not found" },
+        { status: 404 },
+      );
+    }
+
+    const membershipSubject = buildMembershipAuditSubject({
+      voterRecord,
+      committee: committeeRequested,
+      term: activeTerm,
+      seatNumber: null,
+    });
+    const auditMetadataWithSubject = mergeAuditMetadata(
+      auditMetadataWithWarnings,
+      membershipSubject,
+    );
+
     if (existing) {
       const resubmitted = await prisma.committeeMembership.update({
         where: { id: existing.id },
@@ -254,7 +292,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         resubmitted.id,
         { status: existing.status },
         { status: "SUBMITTED" },
-        auditMetadataWithWarnings as Prisma.InputJsonValue | undefined,
+        auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
       );
 
       return NextResponse.json(
@@ -289,7 +327,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       newMembership.id,
       null,
       { status: "SUBMITTED" },
-      auditMetadataWithWarnings as Prisma.InputJsonValue | undefined,
+      auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
     );
 
     return NextResponse.json(

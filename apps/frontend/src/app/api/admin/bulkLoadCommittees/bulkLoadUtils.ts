@@ -17,6 +17,11 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import { logAuditEvent, SYSTEM_USER_ID } from "~/lib/auditLog";
+import {
+  buildMembershipAuditSubject,
+  mergeAuditMetadata,
+  type AuditMembershipSubject,
+} from "~/lib/auditMembershipSubject";
 
 export type CommitteeAccumulationEntry = {
   data: Prisma.CommitteeListCreateManyInput;
@@ -131,6 +136,14 @@ export async function loadCommitteeLists(
 
   const activeTermId = await getActiveTermId();
   const config = await getGovernanceConfig();
+  const activeTerm = await prisma.committeeTerm.findUnique({
+    where: { id: activeTermId },
+    select: { id: true, label: true },
+  });
+
+  if (!activeTerm) {
+    throw new Error("Active term not found");
+  }
 
   let count = 0;
   let found = 0;
@@ -371,6 +384,43 @@ export async function loadCommitteeLists(
         },
       });
 
+      const voterIdsForCommittee = Array.from(
+        new Set([
+          ...existingActiveMemberships.map(
+            (membership) => membership.voterRecordId,
+          ),
+          ...importedMembers,
+        ]),
+      );
+      const voters = voterIdsForCommittee.length
+        ? await tx.voterRecord.findMany({
+            where: { VRCNUM: { in: voterIdsForCommittee } },
+            select: {
+              VRCNUM: true,
+              firstName: true,
+              middleInitial: true,
+              lastName: true,
+            },
+          })
+        : [];
+      const voterById = new Map(voters.map((voter) => [voter.VRCNUM, voter]));
+
+      const subjectForVoter = (
+        voterRecordId: string,
+        seatNumber?: number | null,
+      ): AuditMembershipSubject => {
+        const voter = voterById.get(voterRecordId);
+        if (!voter) {
+          throw new Error(`Voter not found for bulk import audit: ${voterRecordId}`);
+        }
+        return buildMembershipAuditSubject({
+          voterRecord: voter,
+          committee,
+          term: activeTerm,
+          seatNumber,
+        });
+      };
+
       for (const membership of existingActiveMemberships) {
         if (!importedSet.has(membership.voterRecordId)) {
           await tx.committeeMembership.update({
@@ -391,11 +441,14 @@ export async function loadCommitteeLists(
             membership.id,
             { status: "ACTIVE" },
             { status: "REMOVED", removalReason: "OTHER" },
-            {
-              source: "bulk_import_sync",
-              reason: "not_in_import_file",
-              committeeId: committee.id,
-            },
+            mergeAuditMetadata(
+              {
+                source: "bulk_import_sync",
+                reason: "not_in_import_file",
+                committeeId: committee.id,
+              },
+              subjectForVoter(membership.voterRecordId, null),
+            ),
             tx,
           );
         }
@@ -489,11 +542,15 @@ export async function loadCommitteeLists(
             {
               status: "ACTIVE",
               membershipType: existingMembership.membershipType ?? "APPOINTED",
+              seatNumber,
             },
-            {
-              source: "bulk_import_sync",
-              committeeId: committee.id,
-            },
+            mergeAuditMetadata(
+              {
+                source: "bulk_import_sync",
+                committeeId: committee.id,
+              },
+              subjectForVoter(voterRecordId, seatNumber),
+            ),
             tx,
           );
         } else {
@@ -515,11 +572,14 @@ export async function loadCommitteeLists(
             "CommitteeMembership",
             createdMembership.id,
             null,
-            { status: "ACTIVE", membershipType: "APPOINTED" },
-            {
-              source: "bulk_import_sync",
-              committeeId: committee.id,
-            },
+            { status: "ACTIVE", membershipType: "APPOINTED", seatNumber },
+            mergeAuditMetadata(
+              {
+                source: "bulk_import_sync",
+                committeeId: committee.id,
+              },
+              subjectForVoter(voterRecordId, seatNumber),
+            ),
             tx,
           );
         }

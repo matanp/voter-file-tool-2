@@ -363,7 +363,6 @@ export function AuditTrailClient() {
                   <TableHead className="w-[150px]">User</TableHead>
                   <TableHead className="w-[150px]">Action</TableHead>
                   <TableHead className="w-[120px]">Entity</TableHead>
-                  <TableHead className="w-[100px]">Entity ID</TableHead>
                   <TableHead>Summary</TableHead>
                 </TableRow>
               </TableHeader>
@@ -394,10 +393,6 @@ export function AuditTrailClient() {
                         {AUDIT_ACTION_LABELS[row.action] ?? row.action}
                       </TableCell>
                       <TableCell className="w-[120px]">{row.entityType}</TableCell>
-                      <TableCell className="w-[100px] font-mono text-xs" title={row.entityId}>
-                        {row.entityId.slice(0, 8)}
-                        {row.entityId.length > 8 ? "…" : ""}
-                      </TableCell>
                       <TableCell className="min-w-0">{summary}</TableCell>
                     </TableRow>
                   );

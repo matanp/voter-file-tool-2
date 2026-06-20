@@ -10,6 +10,8 @@ import {
   createCommitteeUpsertArgs,
   createMockGovernanceConfig,
   createMockMembership,
+  createMockVoterRecord,
+  DEFAULT_ACTIVE_TERM_ID,
   expectMembershipCreate,
   expectMembershipUpdate,
   expectAuditLogCreate,
@@ -43,6 +45,13 @@ describe("/api/committee/add", () => {
         createMockGovernanceConfig(),
       );
       prismaMock.committeeList.upsert.mockResolvedValue(createMockCommittee());
+      prismaMock.committeeTerm.findUnique.mockResolvedValue({
+        id: DEFAULT_ACTIVE_TERM_ID,
+        label: "2024–2026",
+      } as never);
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord(),
+      );
       setupEligibilityPassTyped(prismaMock);
       getMembershipMockTyped(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMockTyped(prismaMock).create.mockResolvedValue(
@@ -549,6 +558,14 @@ describe("/api/committee/add", () => {
             entityId: "membership-test-id-001",
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             afterValue: expect.objectContaining({ status: "ACTIVE" }),
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            metadata: expect.objectContaining({
+              subject: expect.objectContaining({
+                memberName: "John Doe",
+                cityTown: "Test City",
+                voterRecordId: "TEST123456",
+              }),
+            }),
           }),
         );
       });

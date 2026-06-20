@@ -11,6 +11,8 @@ import {
   createAuthTestSuite,
   createCommitteeFindUniqueWhereArgs,
   createMockMembership,
+  createMockVoterRecord,
+  DEFAULT_ACTIVE_TERM_ID,
   expectMembershipUpdate,
   expectAnyDateForUpdate,
   jsonContaining,
@@ -34,11 +36,22 @@ describe("/api/committee/remove", () => {
   });
 
   describe("POST /api/committee/remove", () => {
+    const setupAuditSubjectMocks = () => {
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord(),
+      );
+      prismaMock.committeeTerm.findUnique.mockResolvedValue({
+        id: DEFAULT_ACTIVE_TERM_ID,
+        label: "2024–2026",
+      } as never);
+    };
+
     /** Set up mocks for a successful removal (ACTIVE membership → REMOVED). */
     const setupHappyPath = () => {
       prismaMock.committeeList.findUnique.mockResolvedValue(
         createMockCommittee(),
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "ACTIVE" }),
       );
@@ -179,6 +192,7 @@ describe("/api/committee/remove", () => {
       prismaMock.committeeList.findUnique.mockResolvedValue(
         createMockCommittee(),
       );
+      setupAuditSubjectMocks();
 
       await POST(createMockRequest(mockCommitteeData));
 
@@ -196,7 +210,13 @@ describe("/api/committee/remove", () => {
             removalReason: "MOVED_OUT_OF_DISTRICT",
             removalNotes: "Relocated",
           }),
-          metadata: jsonContaining({ source: "manual" }),
+          metadata: jsonContaining({
+            source: "manual",
+            subject: expect.objectContaining({
+              memberName: "John Doe",
+              voterRecordId: "TEST123456",
+            }),
+          }),
         }),
       );
     });
@@ -405,6 +425,7 @@ describe("/api/committee/remove", () => {
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "ACTIVE" }),
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).update.mockRejectedValue(
         new Error("Database error"),
       );
@@ -434,6 +455,7 @@ describe("/api/committee/remove", () => {
         prismaMock.committeeList.findUnique.mockResolvedValue(
           createMockCommittee(),
         );
+        setupAuditSubjectMocks();
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "ACTIVE", seatNumber: 2 }),
         );
@@ -481,6 +503,11 @@ describe("/api/committee/remove", () => {
               resignationMethod: "EMAIL",
               resignationReason: "PARTY_CHANGE",
               removalReason: "PARTY_CHANGE",
+            }),
+            metadata: jsonContaining({
+              subject: expect.objectContaining({
+                memberName: "John Doe",
+              }),
             }),
           }),
         );

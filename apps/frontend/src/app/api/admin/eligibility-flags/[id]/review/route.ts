@@ -8,6 +8,10 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import { reviewEligibilityFlagSchema } from "~/lib/validations/eligibilityFlags";
 import prisma from "~/lib/prisma";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
+import {
+  buildMembershipAuditSubject,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
 
 type RouteContext = { params?: Promise<{ id: string }> };
 
@@ -109,6 +113,31 @@ async function reviewEligibilityFlagHandler(
               id: true,
               status: true,
               seatNumber: true,
+              voterRecordId: true,
+              committeeListId: true,
+              termId: true,
+              voterRecord: {
+                select: {
+                  VRCNUM: true,
+                  firstName: true,
+                  middleInitial: true,
+                  lastName: true,
+                },
+              },
+              committeeList: {
+                select: {
+                  id: true,
+                  cityTown: true,
+                  legDistrict: true,
+                  electionDistrict: true,
+                },
+              },
+              term: {
+                select: {
+                  id: true,
+                  label: true,
+                },
+              },
             },
           },
         },
@@ -183,6 +212,13 @@ async function reviewEligibilityFlagHandler(
         notes,
       );
 
+      const membershipSubject = buildMembershipAuditSubject({
+        voterRecord: flag.membership.voterRecord,
+        committee: flag.membership.committeeList,
+        term: flag.membership.term,
+        seatNumber: flag.membership.seatNumber,
+      });
+
       await tx.committeeMembership.update({
         where: { id: flag.membership.id },
         data: {
@@ -210,14 +246,17 @@ async function reviewEligibilityFlagHandler(
           removalReason,
           ...(removalNotes ? { removalNotes } : {}),
         },
-        {
-          source: "boe_flagging",
-          decision: "confirm",
-          actorType: "reviewer",
-          reviewerUserId: userId,
-          flagId: flag.id,
-          reason: flag.reason,
-        },
+        mergeAuditMetadata(
+          {
+            source: "boe_flagging",
+            decision: "confirm",
+            actorType: "reviewer",
+            reviewerUserId: userId,
+            flagId: flag.id,
+            reason: flag.reason,
+          },
+          membershipSubject,
+        ),
         tx,
       );
 

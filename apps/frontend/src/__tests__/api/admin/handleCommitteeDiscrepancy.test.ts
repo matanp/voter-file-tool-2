@@ -13,6 +13,7 @@ import {
   parseJsonResponse,
   createMockSession,
   createMockMembership,
+  createMockVoterRecord,
   getMembershipMock,
   getAuditLogMock,
   expectAuditLogCreate,
@@ -34,6 +35,16 @@ const createMockDiscrepancy = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("/api/admin/handleCommitteeDiscrepancy", () => {
+  const setupAuditSubjectMocks = () => {
+    prismaMock.voterRecord.findUnique.mockResolvedValue(
+      createMockVoterRecord({ VRCNUM: "TEST123" }),
+    );
+    prismaMock.committeeTerm.findUnique.mockResolvedValue({
+      id: DEFAULT_ACTIVE_TERM_ID,
+      label: "2024–2026",
+    } as never);
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -56,6 +67,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
         prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
           createMockDiscrepancy() as never,
         );
+        setupAuditSubjectMocks();
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
         getMembershipMock(prismaMock).count.mockResolvedValue(0);
         getMembershipMock(prismaMock).create.mockResolvedValue(
@@ -119,6 +131,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMock(prismaMock).count.mockResolvedValue(0);
       getMembershipMock(prismaMock).create.mockResolvedValue(
@@ -174,6 +187,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
           id: existingMembershipId,
@@ -235,6 +249,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMock(prismaMock).count.mockResolvedValue(0);
       getMembershipMock(prismaMock).create.mockResolvedValue(
@@ -289,6 +304,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMock(prismaMock).count.mockResolvedValue(4);
 
@@ -310,6 +326,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(
         createMockMembership({
@@ -343,6 +360,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy({ committee: { id: 2, cityTown: "City B", legDistrict: 1, electionDistrict: 2, termId: DEFAULT_ACTIVE_TERM_ID } }) as never,
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(
         createMockMembership({
@@ -369,6 +387,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMock(prismaMock).count.mockResolvedValue(0);
       getMembershipMock(prismaMock).create.mockResolvedValue(
@@ -419,6 +438,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
+      setupAuditSubjectMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
       getMembershipMock(prismaMock).count.mockResolvedValue(0);
       getMembershipMock(prismaMock).create.mockRejectedValue(

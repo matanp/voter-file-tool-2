@@ -17,6 +17,10 @@ import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
 import { logAuditEvent } from "~/lib/auditLog";
 import { validateEligibility } from "~/lib/eligibility";
+import {
+  buildMembershipAuditSubject,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
 
 async function addCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
@@ -136,6 +140,35 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         ? { ...auditMetadata, eligibilityWarnings }
         : auditMetadata;
 
+    const [activeTerm, voterRecord] = await Promise.all([
+      prisma.committeeTerm.findUnique({
+        where: { id: activeTermId },
+        select: { id: true, label: true },
+      }),
+      prisma.voterRecord.findUnique({
+        where: { VRCNUM: memberId },
+        select: {
+          VRCNUM: true,
+          firstName: true,
+          middleInitial: true,
+          lastName: true,
+        },
+      }),
+    ]);
+
+    if (!activeTerm) {
+      return NextResponse.json(
+        { success: false, error: "Active term not found" },
+        { status: 500 },
+      );
+    }
+    if (!voterRecord) {
+      return NextResponse.json(
+        { success: false, error: "Member not found" },
+        { status: 404 },
+      );
+    }
+
     const outcome = await prisma.$transaction(async (tx) => {
       // Lock committee row for atomic capacity+seat assignment (1.R.7).
       await tx.$queryRaw`
@@ -225,6 +258,15 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             submissionMetadata: metadataForDbOrUndefined,
           },
         });
+        const auditMetadataWithSubject = mergeAuditMetadata(
+          auditMetadataWithWarnings as Record<string, unknown> | undefined,
+          buildMembershipAuditSubject({
+            voterRecord,
+            committee,
+            term: activeTerm,
+            seatNumber,
+          }),
+        );
         await logAuditEvent(
           userId,
           userRole,
@@ -232,8 +274,8 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           "CommitteeMembership",
           existingMembership.id,
           { status: existingMembership.status },
-          { status: "ACTIVE" },
-          auditMetadataWithWarnings,
+          { status: "ACTIVE", seatNumber },
+          auditMetadataWithSubject,
           tx,
         );
       } else {
@@ -249,6 +291,15 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             submissionMetadata: metadataForDbOrUndefined,
           },
         });
+        const auditMetadataWithSubject = mergeAuditMetadata(
+          auditMetadataWithWarnings as Record<string, unknown> | undefined,
+          buildMembershipAuditSubject({
+            voterRecord,
+            committee,
+            term: activeTerm,
+            seatNumber,
+          }),
+        );
         await logAuditEvent(
           userId,
           userRole,
@@ -256,8 +307,8 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           "CommitteeMembership",
           newMembership.id,
           null,
-          { status: "ACTIVE" },
-          auditMetadataWithWarnings,
+          { status: "ACTIVE", seatNumber },
+          auditMetadataWithSubject,
           tx,
         );
       }

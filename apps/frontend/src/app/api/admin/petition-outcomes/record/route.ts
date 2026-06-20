@@ -15,6 +15,10 @@ import {
 } from "~/lib/validations/committee";
 import type { Session } from "next-auth";
 import { logAuditEvent } from "~/lib/auditLog";
+import {
+  buildMembershipAuditSubject,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
 
 type Outcome = RecordPetitionOutcomeData["candidates"][number]["outcome"];
 type CanonicalPetitionStatus = "ACTIVE" | "PETITIONED_LOST" | "PETITIONED_TIE";
@@ -101,6 +105,55 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
 
     const primaryDateObj = new Date(primaryDate);
 
+    const [committeeList, candidateVoters] = await Promise.all([
+      prisma.committeeList.findUnique({
+        where: { id: committeeListId },
+        select: {
+          id: true,
+          cityTown: true,
+          legDistrict: true,
+          electionDistrict: true,
+          term: { select: { id: true, label: true } },
+        },
+      }),
+      prisma.voterRecord.findMany({
+        where: { VRCNUM: { in: candidates.map((c) => c.voterRecordId) } },
+        select: {
+          VRCNUM: true,
+          firstName: true,
+          middleInitial: true,
+          lastName: true,
+        },
+      }),
+    ]);
+
+    if (!committeeList || committeeList.term.id !== termId) {
+      return NextResponse.json(
+        { error: "Committee not found for this term" },
+        { status: 404 },
+      );
+    }
+
+    const voterById = new Map(
+      candidateVoters.map((voter) => [voter.VRCNUM, voter]),
+    );
+
+    const buildCandidateSubject = (
+      voterRecordId: string,
+      candidateSeatNumber: number | null,
+    ) => {
+      const voter = voterById.get(voterRecordId);
+      if (!voter) {
+        throw new Error(`Candidate voter not found: ${voterRecordId}`);
+      }
+      return buildMembershipAuditSubject({
+        voterRecord: voter,
+        committee: committeeList,
+        term: committeeList.term,
+        seatNumber: candidateSeatNumber,
+      });
+    };
+
     await prisma.$transaction(async (tx) => {
       await tx.seat.update({
         where: { id: seat.id },
@@ -170,18 +223,21 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             existing.id,
             beforeMembershipState,
             afterMembershipState,
-            {
-              source: "petition_outcome",
-              committeeListId,
-              termId,
-              candidateVoterRecordId: c.voterRecordId,
-              seatNumber,
-              outcome,
-              voteCount: c.voteCount ?? null,
-              resultingStatus: status,
-              activated: isWinner,
-              exclusionReason,
-            },
+            mergeAuditMetadata(
+              {
+                source: "petition_outcome",
+                committeeListId,
+                termId,
+                candidateVoterRecordId: c.voterRecordId,
+                seatNumber,
+                outcome,
+                voteCount: c.voteCount ?? null,
+                resultingStatus: status,
+                activated: isWinner,
+                exclusionReason,
+              },
+              buildCandidateSubject(c.voterRecordId, finalSeatNumber),
+            ),
             tx,
           );
           candidateOutcomeAuditRows.push({
@@ -203,13 +259,16 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               existing.id,
               { status: beforeStatus },
               { status: "ACTIVE", seatNumber: finalSeatNumber },
-              {
-                source: "petition_outcome",
-                candidateVoterRecordId: c.voterRecordId,
-                petitionSeatNumber: seatNumber,
-                petitionOutcome: outcome,
-                petitionVoteCount: c.voteCount ?? null,
-              },
+              mergeAuditMetadata(
+                {
+                  source: "petition_outcome",
+                  candidateVoterRecordId: c.voterRecordId,
+                  petitionSeatNumber: seatNumber,
+                  petitionOutcome: outcome,
+                  petitionVoteCount: c.voteCount ?? null,
+                },
+                buildCandidateSubject(c.voterRecordId, finalSeatNumber),
+              ),
               tx,
             );
           }
@@ -230,18 +289,21 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             created.id,
             null,
             afterMembershipState,
-            {
-              source: "petition_outcome",
-              committeeListId,
-              termId,
-              candidateVoterRecordId: c.voterRecordId,
-              seatNumber,
-              outcome,
-              voteCount: c.voteCount ?? null,
-              resultingStatus: status,
-              activated: isWinner,
-              exclusionReason,
-            },
+            mergeAuditMetadata(
+              {
+                source: "petition_outcome",
+                committeeListId,
+                termId,
+                candidateVoterRecordId: c.voterRecordId,
+                seatNumber,
+                outcome,
+                voteCount: c.voteCount ?? null,
+                resultingStatus: status,
+                activated: isWinner,
+                exclusionReason,
+              },
+              buildCandidateSubject(c.voterRecordId, finalSeatNumber),
+            ),
             tx,
           );
           candidateOutcomeAuditRows.push({
@@ -263,13 +325,16 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               created.id,
               null,
               { status: "ACTIVE", seatNumber: finalSeatNumber },
-              {
-                source: "petition_outcome",
-                candidateVoterRecordId: c.voterRecordId,
-                petitionSeatNumber: seatNumber,
-                petitionOutcome: outcome,
-                petitionVoteCount: c.voteCount ?? null,
-              },
+              mergeAuditMetadata(
+                {
+                  source: "petition_outcome",
+                  candidateVoterRecordId: c.voterRecordId,
+                  petitionSeatNumber: seatNumber,
+                  petitionOutcome: outcome,
+                  petitionVoteCount: c.voteCount ?? null,
+                },
+                buildCandidateSubject(c.voterRecordId, finalSeatNumber),
+              ),
               tx,
             );
           }
