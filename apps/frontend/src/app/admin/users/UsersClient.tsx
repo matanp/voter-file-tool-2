@@ -213,25 +213,27 @@ export function UsersClient({
                       {isLeader ? jurisdictionCount : "—"}
                     </td>
                     <td className="p-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (isExpanded) {
-                            setExpandedUserId(null);
-                            setAddForUserId(null);
-                            setAddCity("");
-                            setAddLegDistrict("");
-                          } else {
-                            setExpandedUserId(user.id);
-                            setAddForUserId(user.id);
-                            setAddCity("");
-                            setAddLegDistrict("");
-                          }
-                        }}
-                      >
-                        {isExpanded ? "Hide" : "Manage"}
-                      </Button>
+                      {isLeader && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (isExpanded) {
+                              setExpandedUserId(null);
+                              setAddForUserId(null);
+                              setAddCity("");
+                              setAddLegDistrict("");
+                            } else {
+                              setExpandedUserId(user.id);
+                              setAddForUserId(user.id);
+                              setAddCity("");
+                              setAddLegDistrict("");
+                            }
+                          }}
+                        >
+                          {isExpanded ? "Hide" : "Manage"}
+                        </Button>
+                      )}
                     </td>
                   </tr>
                   {isExpanded && isLeader && (
