@@ -63,14 +63,12 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       id: DEFAULT_ACTIVE_TERM_ID,
       label: "2024–2026",
     } as never);
-    prismaMock.voterRecord.findMany.mockImplementation(
-      ({ where }: { where?: { VRCNUM?: { in?: string[] } } }) => {
-        const ids = where?.VRCNUM?.in ?? [];
-        return Promise.resolve(
-          ids.map((VRCNUM) => createMockVoterRecord({ VRCNUM })),
-        );
-      },
-    );
+    prismaMock.voterRecord.findMany.mockImplementation((args) => {
+      const ids = (args?.where?.VRCNUM as { in?: string[] })?.in ?? [];
+      return Promise.resolve(
+        ids.map((VRCNUM) => createMockVoterRecord({ VRCNUM })),
+      ) as never;
+    });
     assignNextAvailableSeatMock.mockResolvedValue(1);
     ensureSeatsExistMock.mockResolvedValue(undefined);
   });

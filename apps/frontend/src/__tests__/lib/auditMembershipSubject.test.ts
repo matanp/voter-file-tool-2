@@ -66,7 +66,7 @@ describe("auditMembershipSubject", () => {
       legDistrict: committee.legDistrict,
       electionDistrict: committee.electionDistrict,
       term,
-    });
+    } as never);
 
     const subject = await fetchMembershipAuditSubject(prismaMock, {
       voterRecordId: voterRecord.VRCNUM,

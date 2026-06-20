@@ -32,17 +32,6 @@ type CommitteeLocationFields = Pick<
 
 type TermLabelFields = Pick<CommitteeTerm, "id" | "label">;
 
-type AuditLogClient = {
-  voterRecord: {
-    findUnique: (args: Prisma.VoterRecordFindUniqueArgs) => Promise<VoterNameFields | null>;
-  };
-  committeeList: {
-    findUnique: (args: Prisma.CommitteeListFindUniqueArgs) => Promise<
-      (CommitteeLocationFields & { term: TermLabelFields }) | null
-    >;
-  };
-};
-
 /** Builds a membership audit subject from already-loaded relations. */
 export function buildMembershipAuditSubject(params: {
   voterRecord: VoterNameFields;
@@ -68,7 +57,7 @@ export function buildMembershipAuditSubject(params: {
 
 /** Loads voter, committee, and term data and builds a membership audit subject. */
 export async function fetchMembershipAuditSubject(
-  client: AuditLogClient,
+  client: Prisma.TransactionClient,
   params: {
     voterRecordId: string;
     committeeListId: number;
