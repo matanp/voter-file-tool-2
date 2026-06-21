@@ -9,7 +9,11 @@ import {
   type RemovalReason,
   type VoterRecord,
 } from "@prisma/client";
-import type { FetchCommitteeListResponse } from "~/lib/validations/committee";
+import type {
+  FetchCommitteeListResponse,
+  RosterResponse,
+  SeatRosterRow,
+} from "~/lib/validations/committee";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
@@ -18,6 +22,7 @@ import { hasPermissionFor } from "~/lib/utils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { CommitteeSummaryBlock } from "./CommitteeSummaryBlock";
+import { CommitteeRosterTable } from "./CommitteeRosterTable";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -114,6 +119,12 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [removeNotes, setRemoveNotes] = useState<string>("");
 
   const [listLoading, setListLoading] = useState<boolean>(false);
+
+  // Committee Roster View §5.1 — town-level view toggle. "drill" is the existing
+  // per-ED detail/mutation flow; "roster" loads every seat across the scope at once.
+  const [viewMode, setViewMode] = useState<"drill" | "roster">("drill");
+  const [rosterData, setRosterData] = useState<RosterResponse | null>(null);
+  const [rosterLoading, setRosterLoading] = useState<boolean>(false);
 
   // SRS 3.1 — Leader jurisdictions for empty-state detection (useApiQuery per code review Rec 4)
   const userJurisdictionsQuery = useApiQuery<
@@ -246,6 +257,11 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   const cities = new Set(committeeLists.map((list) => list.cityTown));
 
+  // City (+ Leg District for Rochester) chosen — the point at which the
+  // Drill down | Roster toggle and either view's loader become available (§5.1).
+  const scopeSelected =
+    selectedCity !== "" && (!useLegDistrict || selectedLegDistrict !== "");
+
   const handleDistrictChange = (districtString: string) => {
     const district = parseInt(districtString);
     setSelectedDistrict(district);
@@ -290,6 +306,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setLtedWeightInput("");
     setSeats([]);
     setDesignationWeightSummary(null);
+    // §5.1 stale-state hygiene: a roster from the previous scope must not linger.
+    setRosterData(null);
   };
 
   const handleLegChange = (legDistrict: string) => {
@@ -305,6 +323,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setLtedWeightInput("");
     setSeats([]);
     setDesignationWeightSummary(null);
+    // §5.1 stale-state hygiene: clear roster when the leg-district scope changes.
+    setRosterData(null);
   };
 
   const fetchCommitteeList = useCallback(
@@ -369,6 +389,72 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       }
     },
     [],
+  );
+
+  // §5.1 — manual roster load (plain fetch + local state, matching
+  // fetchCommitteeList). The button is the "load option, not a preset" ask.
+  const fetchRoster = useCallback(
+    async (city: string, legDistrict?: string) => {
+      setRosterLoading(true);
+      try {
+        const params = new URLSearchParams({ cityTown: city });
+        if (legDistrict) params.set("legDistrict", legDistrict);
+        const response = await fetch(
+          `/api/committee/roster/?${params.toString()}`,
+        );
+        if (response.ok) {
+          setRosterData((await response.json()) as RosterResponse);
+        } else {
+          setRosterData(null);
+          toast({
+            title: "Error",
+            description: "Failed to load committee roster.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching committee roster:", error);
+        setRosterData(null);
+        toast({
+          title: "Error",
+          description: "Failed to load committee roster.",
+          variant: "destructive",
+        });
+      } finally {
+        setRosterLoading(false);
+      }
+    },
+    [toast],
+  );
+
+  // §5.1 — switching back to drill-down must not leave a stale roster visible.
+  const handleViewModeChange = (mode: "drill" | "roster") => {
+    setViewMode(mode);
+    if (mode === "drill") setRosterData(null);
+  };
+
+  // §5.2 — Admin row → drill-down linkage. Setting selection state alone is not
+  // enough; only fetchCommitteeList loads the drill-down's memberships/seats, so
+  // we reuse that path (the same one handleDistrictChange calls today).
+  const handleEditRow = useCallback(
+    (row: SeatRosterRow) => {
+      const legDistrictString = useLegDistrict
+        ? String(row.legDistrict)
+        : undefined;
+      setViewMode("drill");
+      setRosterData(null);
+      setSelectedCity(row.cityTown);
+      if (legDistrictString) setSelectedLegDistrict(legDistrictString);
+      setSelectedDistrict(row.electionDistrict);
+      fetchCommitteeList(
+        row.cityTown,
+        row.electionDistrict,
+        legDistrictString,
+      ).catch((error) => {
+        console.error("Error fetching committee list:", error);
+      });
+    },
+    [fetchCommitteeList, useLegDistrict],
   );
 
   const handleOpenRemoveModal = (record: VoterRecord) => {
@@ -637,8 +723,30 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             />
           </div>
         )}
-        {selectedCity !== "" &&
-          (!useLegDistrict || selectedLegDistrict !== "") && (
+        {scopeSelected && (
+          <div className="flex flex-col">
+            <label className="font-extralight text-sm pl-1">View</label>
+            <div className="flex rounded-md border border-input">
+              <Button
+                type="button"
+                variant={viewMode === "drill" ? "default" : "ghost"}
+                className="rounded-r-none"
+                onClick={() => handleViewModeChange("drill")}
+              >
+                Drill down
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === "roster" ? "default" : "ghost"}
+                className="rounded-l-none"
+                onClick={() => handleViewModeChange("roster")}
+              >
+                Roster
+              </Button>
+            </div>
+          </div>
+        )}
+        {scopeSelected && viewMode === "drill" && (
             <div className="flex flex-col">
               <label className="font-extralight text-sm pl-1">
                 Election District
@@ -666,11 +774,50 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               />
               </div>
           )}
+        {scopeSelected && viewMode === "roster" && (
+          <div className="flex flex-col justify-end">
+            <Button
+              type="button"
+              onClick={() =>
+                fetchRoster(
+                  selectedCity,
+                  useLegDistrict ? selectedLegDistrict : undefined,
+                ).catch((error) => {
+                  console.error("Error fetching committee roster:", error);
+                })
+              }
+              disabled={rosterLoading}
+            >
+              {rosterLoading ? "Loading..." : "Load roster"}
+            </Button>
+          </div>
+        )}
       </Card>
       </div>
       <h1 className="primary-header pt-2">{getCommitteeListHeader()}</h1>
 
-      {listLoading ? (
+      {viewMode === "roster" ? (
+        rosterLoading ? (
+          <p>Loading roster...</p>
+        ) : rosterData ? (
+          <div className="pt-2">
+            <CommitteeRosterTable
+              data={rosterData}
+              isAdmin={isAdmin}
+              onEditRow={isAdmin ? handleEditRow : undefined}
+            />
+          </div>
+        ) : (
+          <p className="pt-2 text-muted-foreground">
+            Click &ldquo;Load roster&rdquo; to view every seat across{" "}
+            {selectedCity}
+            {useLegDistrict && selectedLegDistrict
+              ? ` — Leg District ${selectedLegDistrict}`
+              : ""}
+            .
+          </p>
+        )
+      ) : listLoading ? (
         <p>Loading...</p>
       ) : showNoCommitteesEmptyState ? (
         <Card className="p-6 max-w-md mt-4">
