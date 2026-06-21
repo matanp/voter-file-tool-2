@@ -1,0 +1,4 @@
+interface:
+  display_name: "Auth Check Patterns"
+  short_description: "Separate real and acting privilege checks"
+  default_prompt: "Use $auth-check-patterns to review or implement authentication and privilege checks."

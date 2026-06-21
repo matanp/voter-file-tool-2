@@ -84,3 +84,7 @@ Senior full-stack 10x developer: balances speed, clarity, and maintainability.
 ## Plan Documents
 
 When creating a plan document, put it in the `docs/` folder (or `AI_PLAN_DOCS/` subfolder if gitignored planning material).
+
+## Authentication and privilege changes
+
+Before changing or reviewing authentication, authorization, privileges, or role-gated UI, read `skills/auth-check-patterns/SKILL.md`.
