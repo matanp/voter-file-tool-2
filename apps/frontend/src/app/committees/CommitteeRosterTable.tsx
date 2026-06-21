@@ -55,6 +55,9 @@ function edKey(legDistrict: number, electionDistrict: number): string {
   return `${legDistrict}-${electionDistrict}`;
 }
 
+/** Sticky column labels pinned to the top of the viewport while scrolling. */
+const STICKY_COLUMN_HEAD_CLASS = "sticky top-0 z-20 bg-background";
+
 /**
  * Town-level committee roster: one row per seat (occupied or vacant) plus
  * unassigned-member rows, grouped by Election District. Pure presentational —
@@ -95,17 +98,21 @@ export function CommitteeRosterTable({
         vacant · {summary.edCount} {summary.edCount === 1 ? "ED" : "EDs"}
       </p>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>ED</TableHead>
-            <TableHead>Seat</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Type</TableHead>
-            {showContact ? <TableHead>Contact</TableHead> : null}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+      {/* overflow-visible so sticky th cells stick to the page, not the Table wrapper */}
+      <div className="[&>div]:overflow-visible">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className={STICKY_COLUMN_HEAD_CLASS}>ED</TableHead>
+              <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Seat</TableHead>
+              <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Name</TableHead>
+              <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Type</TableHead>
+              {showContact ? (
+                <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Contact</TableHead>
+              ) : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
           {edRollups.map((rollup) => {
             const key = edKey(rollup.legDistrict, rollup.electionDistrict);
             const groupRows = rowsByEd.get(key) ?? [];
@@ -117,10 +124,7 @@ export function CommitteeRosterTable({
             return (
               <React.Fragment key={key}>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableCell
-                    colSpan={columnCount}
-                    className="sticky top-0 font-medium"
-                  >
+                  <TableCell colSpan={columnCount} className="font-medium">
                     <div className="flex items-center justify-between gap-2">
                       <span>
                         ED {rollup.electionDistrict} · {rollup.filled}/
@@ -173,8 +177,9 @@ export function CommitteeRosterTable({
               </React.Fragment>
             );
           })}
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
