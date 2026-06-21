@@ -109,6 +109,15 @@ export const useApiQuery = <TData = unknown>(
           timeoutRef.current = null;
         }
 
+        // Superseded by a newer refetch or effect cleanup — ignore stale abort.
+        if (
+          err instanceof Error &&
+          err.name === "AbortError" &&
+          controllerRef.current !== controller
+        ) {
+          return null;
+        }
+
         let errorMessage: string;
         let errorToThrow: Error;
 
@@ -125,8 +134,10 @@ export const useApiQuery = <TData = unknown>(
         optionsRef.current?.onError?.(errorToThrow);
         throw errorToThrow;
       } finally {
-        setLoading(false);
-        controllerRef.current = null;
+        if (controllerRef.current === controller) {
+          setLoading(false);
+          controllerRef.current = null;
+        }
       }
     },
     [endpoint],

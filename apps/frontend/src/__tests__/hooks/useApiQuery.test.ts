@@ -62,4 +62,43 @@ describe("useApiQuery", () => {
     ]);
     expect((fetch as jest.Mock).mock.calls).toHaveLength(2);
   });
+
+  it("ignores superseded fetch abort without setting error", async () => {
+    let fetchCallCount = 0;
+    globalThis.fetch = jest.fn((_url, options) => {
+      fetchCallCount += 1;
+      if (fetchCallCount === 1) {
+        return new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+      }
+      return Promise.resolve(
+        mockJsonResponse([{ id: "term-2", label: "2026-2028" }]),
+      );
+    });
+
+    const { result } = renderHook(() =>
+      useApiQuery<Array<{ id: string; label: string }>>("/api/admin/terms"),
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).toEqual([
+      { id: "term-2", label: "2026-2028" },
+    ]);
+    expect((fetch as jest.Mock).mock.calls).toHaveLength(2);
+  });
 });

@@ -5,7 +5,7 @@
  * Import section (Excel upload) + Browse/Edit section (table with CRUD).
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -208,14 +208,7 @@ export const LtedCrosswalkTab = () => {
 
   const handleFilterApply = () => {
     setPage(1);
-    void listQuery.refetch(buildQuery(1, cityTownFilter || undefined, legDistrictFilter ? parseInt(legDistrictFilter, 10) : undefined));
   };
-
-  // Refetch only when page changes; filters apply on Filter click (handleFilterApply).
-  useEffect(() => {
-    void listQuery.refetch(query);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- query intentionally omitted; we refetch on page change only
-  }, [page]);
 
   const data = listQuery.data;
   const records = data?.data ?? [];
