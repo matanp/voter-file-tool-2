@@ -43,16 +43,9 @@ const Header: React.FC = () => {
               Committee List
             </Button>
           </Link>
-          <Link href="/petitions">
-            <Button
-              className={`${sharedTabStyle} ${pathname?.endsWith("petitions") ? tabStyleActive : tabStyleInactive}`}
-            >
-              Petitions
-            </Button>
-          </Link>
           <Link href="/reports">
             <Button
-              className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/committee-roster-reports", "/voter-list-reports"].some(p => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
+              className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/committee-roster-reports", "/voter-list-reports", "/petitions"].some(p => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
             >
               Reports
             </Button>
