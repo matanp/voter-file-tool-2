@@ -123,14 +123,19 @@ describe("CommitteeRosterTable", () => {
     expect(screen.getByText("Sam Loose")).toBeInTheDocument();
   });
 
-  it("hides Contact and Actions columns for Leaders", () => {
+  it("hides Contact column for Leaders but shows View details when handler provided", () => {
     const data = baseResponse();
     // Leaders never receive contact from the API.
     for (const row of data.rows) delete row.contact;
-    render(<CommitteeRosterTable data={data} isAdmin={false} />);
+    render(
+      <CommitteeRosterTable
+        data={data}
+        isAdmin={false}
+        onViewEdDetails={jest.fn()}
+      />,
+    );
     expect(screen.queryByText("Contact")).not.toBeInTheDocument();
-    expect(screen.queryByText("Actions")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View details" })).toBeInTheDocument();
   });
 
   it("shows Contact column with email/phone for Admins", () => {
@@ -140,16 +145,24 @@ describe("CommitteeRosterTable", () => {
     expect(screen.getByText("555-1111")).toBeInTheDocument();
   });
 
-  it("renders Edit and invokes onEditRow with the row for Admins", async () => {
-    const onEditRow = jest.fn();
+  it("renders View details on ED header and invokes onViewEdDetails with the rollup", async () => {
+    const onViewEdDetails = jest.fn();
     render(
-      <CommitteeRosterTable data={baseResponse()} isAdmin onEditRow={onEditRow} />,
+      <CommitteeRosterTable
+        data={baseResponse()}
+        isAdmin={false}
+        onViewEdDetails={onViewEdDetails}
+      />,
     );
-    const editButtons = screen.getAllByRole("button", { name: "Edit" });
-    await userEvent.click(editButtons[0]!);
-    expect(onEditRow).toHaveBeenCalledTimes(1);
-    expect(onEditRow).toHaveBeenCalledWith(
-      expect.objectContaining({ seatNumber: 1, electionDistrict: 5 }),
+    await userEvent.click(screen.getByRole("button", { name: "View details" }));
+    expect(onViewEdDetails).toHaveBeenCalledTimes(1);
+    expect(onViewEdDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        electionDistrict: 5,
+        legDistrict: 1,
+        filled: 1,
+        totalSeats: 3,
+      }),
     );
   });
 

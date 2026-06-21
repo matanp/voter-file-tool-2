@@ -68,6 +68,25 @@ describe("CommitteeSelector petition context link-out (SRS 4.4)", () => {
     mockHasPermission(true);
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
+      if (url.startsWith("/api/committee/roster/")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => "application/json" },
+          json: async () => ({
+            scope: { cityTown: "BRIGHTON" },
+            rows: [],
+            edRollups: [],
+            summary: {
+              totalSeats: 0,
+              filled: 0,
+              vacant: 0,
+              edCount: 0,
+              unassignedCount: 0,
+            },
+          }),
+        } as Response;
+      }
       if (url.startsWith("/api/fetchCommitteeList/")) {
         return {
           ok: true,
@@ -127,6 +146,9 @@ describe("CommitteeSelector petition context link-out (SRS 4.4)", () => {
     await userEvent.selectOptions(
       screen.getByLabelText("Select Election District"),
       "10",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "View committee details" }),
     );
 
     await waitFor(() => {

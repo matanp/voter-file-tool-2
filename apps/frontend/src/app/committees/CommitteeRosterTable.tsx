@@ -20,11 +20,10 @@ export interface CommitteeRosterTableProps {
   data: RosterResponse;
   isAdmin: boolean;
   /**
-   * Invoked when an Admin clicks a row's Edit link. Wiring lives in
-   * CommitteeSelector (switches to drill-down + loads the committee). Optional
-   * so this presentational component renders standalone (e.g. in unit tests).
+   * Invoked when a user clicks View details on an ED group header. Wiring lives
+   * in CommitteeSelector (loads committee detail for that ED).
    */
-  onEditRow?: (row: SeatRosterRow) => void;
+  onViewEdDetails?: (rollup: EdRollup) => void;
 }
 
 const MEMBERSHIP_TYPE_LABEL: Record<MembershipType, string> = {
@@ -63,12 +62,12 @@ function edKey(legDistrict: number, electionDistrict: number): string {
  *
  * Contact (email/phone) renders only for Admins and only when the response
  * carries it (`row.contact !== undefined`); one server flip of `includeContact`
- * removes the column end-to-end. The Edit affordance is Admin-only.
+ * removes the column end-to-end.
  */
 export function CommitteeRosterTable({
   data,
   isAdmin,
-  onEditRow,
+  onViewEdDetails,
 }: CommitteeRosterTableProps) {
   const { rows, edRollups, summary } = data;
 
@@ -76,7 +75,6 @@ export function CommitteeRosterTable({
   // carries contact on some row (spec §2: gate on `row.contact !== undefined`).
   const showContact =
     isAdmin && rows.some((row) => row.contact !== undefined);
-  const showActions = isAdmin;
 
   // Group rows by ED. Within a group: seated rows first (by seat number), then
   // unassigned rows. No cross-group global sort in v1 (would break grouping).
@@ -88,8 +86,7 @@ export function CommitteeRosterTable({
     else rowsByEd.set(key, [row]);
   }
 
-  const columnCount =
-    4 + (showContact ? 1 : 0) + (showActions ? 1 : 0); // ED, Seat, Name, Type
+  const columnCount = 4 + (showContact ? 1 : 0); // ED, Seat, Name, Type
 
   return (
     <div className="flex flex-col gap-3">
@@ -106,9 +103,6 @@ export function CommitteeRosterTable({
             <TableHead>Name</TableHead>
             <TableHead>Type</TableHead>
             {showContact ? <TableHead>Contact</TableHead> : null}
-            {showActions ? (
-              <TableHead className="text-right">Actions</TableHead>
-            ) : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -127,12 +121,25 @@ export function CommitteeRosterTable({
                     colSpan={columnCount}
                     className="sticky top-0 font-medium"
                   >
-                    ED {rollup.electionDistrict} · {rollup.filled}/
-                    {rollup.totalSeats} filled · weight{" "}
-                    {formatRollupWeight(rollup)}
-                    {rollup.unassignedCount > 0
-                      ? ` · ${rollup.unassignedCount} unassigned`
-                      : ""}
+                    <div className="flex items-center justify-between gap-2">
+                      <span>
+                        ED {rollup.electionDistrict} · {rollup.filled}/
+                        {rollup.totalSeats} filled · weight{" "}
+                        {formatRollupWeight(rollup)}
+                        {rollup.unassignedCount > 0
+                          ? ` · ${rollup.unassignedCount} unassigned`
+                          : ""}
+                      </span>
+                      {onViewEdDetails ? (
+                        <button
+                          type="button"
+                          className="shrink-0 text-sm font-medium text-blue-600 hover:underline"
+                          onClick={() => onViewEdDetails(rollup)}
+                        >
+                          View details
+                        </button>
+                      ) : null}
+                    </div>
                   </TableCell>
                 </TableRow>
 
@@ -141,8 +148,6 @@ export function CommitteeRosterTable({
                     key={`${row.committeeListId}-seat-${row.seatNumber}`}
                     row={row}
                     showContact={showContact}
-                    showActions={showActions}
-                    onEditRow={onEditRow}
                   />
                 ))}
 
@@ -161,8 +166,6 @@ export function CommitteeRosterTable({
                         key={`${row.committeeListId}-unassigned-${row.occupant?.VRCNUM ?? i}`}
                         row={row}
                         showContact={showContact}
-                        showActions={showActions}
-                        onEditRow={onEditRow}
                       />
                     ))}
                   </>
@@ -179,11 +182,9 @@ export function CommitteeRosterTable({
 interface SeatRowProps {
   row: SeatRosterRow;
   showContact: boolean;
-  showActions: boolean;
-  onEditRow?: (row: SeatRosterRow) => void;
 }
 
-function SeatRow({ row, showContact, showActions, onEditRow }: SeatRowProps) {
+function SeatRow({ row, showContact }: SeatRowProps) {
   const isVacant = row.occupant === null;
   const name = row.occupant
     ? `${row.occupant.firstName} ${row.occupant.lastName}`.trim()
@@ -213,19 +214,6 @@ function SeatRow({ row, showContact, showActions, onEditRow }: SeatRowProps) {
           ) : (
             "—"
           )}
-        </TableCell>
-      ) : null}
-      {showActions ? (
-        <TableCell className="text-right">
-          {onEditRow ? (
-            <button
-              type="button"
-              className="text-sm font-medium text-blue-600 hover:underline"
-              onClick={() => onEditRow(row)}
-            >
-              Edit
-            </button>
-          ) : null}
         </TableCell>
       ) : null}
     </TableRow>

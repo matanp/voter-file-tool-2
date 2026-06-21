@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useContext, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import {
@@ -10,9 +10,9 @@ import {
   type VoterRecord,
 } from "@prisma/client";
 import type {
+  EdRollup,
   FetchCommitteeListResponse,
   RosterResponse,
-  SeatRosterRow,
 } from "~/lib/validations/committee";
 import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/RecordsList";
@@ -120,9 +120,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   const [listLoading, setListLoading] = useState<boolean>(false);
 
-  // Committee Roster View §5.1 — town-level view toggle. "drill" is the existing
-  // per-ED detail/mutation flow; "roster" loads every seat across the scope at once.
-  const [viewMode, setViewMode] = useState<"drill" | "roster">("drill");
+  // Roster-first navigation: roster auto-loads at scope; detail loads on explicit action.
+  const [contentLayer, setContentLayer] = useState<"roster" | "detail">("roster");
   const [rosterData, setRosterData] = useState<RosterResponse | null>(null);
   const [rosterLoading, setRosterLoading] = useState<boolean>(false);
 
@@ -148,95 +147,6 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     removalReason?: RemovalReason;
   };
 
-  const removeCommitteeMemberMutation = useApiMutation<
-    { status: "success" | "error"; error?: string },
-    RemoveOrResignPayload
-  >("/api/committee/remove", "POST", {
-    onSuccess: (data, payload) => {
-      setRemovingId(null);
-      if (payload && "action" in payload && payload.action === "RESIGN") {
-        setResignModalMember(null);
-        setResignDateReceived("");
-        setResignMethod("");
-        setResignReason("");
-        setResignNotes("");
-      } else {
-        setRemoveModalMember(null);
-        setRemoveReason("");
-        setRemoveNotes("");
-      }
-      // Check for server-reported failure (200 with { status: "error" })
-      if (
-        data &&
-        typeof data === "object" &&
-        "status" in data &&
-        data.status === "error"
-      ) {
-        toast({
-          title: "Error",
-          description: `Failed to ${payload?.action === "RESIGN" ? "record resignation" : "remove committee member"}: ${data.error ?? "Unknown error"}`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (payload) {
-        const legDistrictString = payload.legDistrict
-          ? payload.legDistrict.toString()
-          : undefined;
-
-        if (payload.cityTown && payload.electionDistrict !== undefined) {
-          fetchCommitteeList(
-            payload.cityTown,
-            payload.electionDistrict,
-            legDistrictString,
-          ).catch((error) => {
-            console.error("Error fetching committee list:", error);
-          });
-        }
-      }
-
-      toast({
-        title: "Success",
-        description:
-          payload?.action === "RESIGN"
-            ? "Resignation recorded successfully"
-            : "Committee member removed successfully",
-      });
-    },
-    onError: (error) => {
-      setRemovingId(null);
-      toast({
-        title: "Error",
-        description: `Failed to remove committee member: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateLtedWeightMutation = useApiMutation<
-    { success: boolean },
-    { committeeListId: number; ltedWeight: number | null }
-  >("/api/committee/updateLtedWeight", "PATCH", {
-    onSuccess: () => {
-      toast({ title: "LTED weight updated" });
-      if (selectedCity && selectedDistrict >= 0) {
-        fetchCommitteeList(
-          selectedCity,
-          selectedDistrict,
-          selectedLegDistrict || undefined,
-        ).catch(console.error);
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to update LTED weight: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleSaveLtedWeight = () => {
     if (selectedCommitteeId == null) return;
     const trimmed = ltedWeightInput.trim();
@@ -257,75 +167,18 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   const cities = new Set(committeeLists.map((list) => list.cityTown));
 
-  // City (+ Leg District for Rochester) chosen — the point at which the
-  // Drill down | Roster toggle and either view's loader become available (§5.1).
+  // City (+ Leg District for Rochester) chosen — roster auto-loads at this point.
   const scopeSelected =
     selectedCity !== "" && (!useLegDistrict || selectedLegDistrict !== "");
 
-  const handleDistrictChange = (districtString: string) => {
-    const district = parseInt(districtString);
-    setSelectedDistrict(district);
-    fetchCommitteeList(selectedCity, district, selectedLegDistrict).catch(
-      (error) => {
-        console.error("Error fetching committee list:", error);
-      },
-    );
-  };
-
-  const handleCityChange = (city: string) => {
-    if (city === selectedCity) {
-      setSelectedCity("");
-      setUseLegDistrict(false);
-    } else {
-      setSelectedCity(city);
-      setSelectedDistrict(-1);
-      setSelectedLegDistrict("");
-    }
-    if (city.toUpperCase() === "ROCHESTER") {
-      setUseLegDistrict(true);
-    } else {
-      setUseLegDistrict(false);
-    }
-
-    const legDistricts = Array.from(
-      new Set(
-        committeeLists
-          .filter((list) => list.cityTown === city)
-          .map((list) => String(list.legDistrict)),
-      ),
-    ).sort((a, b) => Number(a) - Number(b));
-
-    setLegDistricts(legDistricts);
-
-    if (legDistricts[0] && legDistricts.length === 1) {
-      setSelectedLegDistrict(legDistricts[0]);
-    }
-
+  /** Clears single-ED detail state without touching cached roster data. */
+  const clearDetailState = useCallback(() => {
     setMemberships([]);
     setSelectedCommitteeId(null);
     setLtedWeightInput("");
     setSeats([]);
     setDesignationWeightSummary(null);
-    // §5.1 stale-state hygiene: a roster from the previous scope must not linger.
-    setRosterData(null);
-  };
-
-  const handleLegChange = (legDistrict: string) => {
-    if (legDistrict === selectedLegDistrict) {
-      setSelectedLegDistrict("");
-    } else {
-      setSelectedLegDistrict(legDistrict);
-    }
-
-    setSelectedDistrict(-1);
-    setMemberships([]);
-    setSelectedCommitteeId(null);
-    setLtedWeightInput("");
-    setSeats([]);
-    setDesignationWeightSummary(null);
-    // §5.1 stale-state hygiene: clear roster when the leg-district scope changes.
-    setRosterData(null);
-  };
+  }, []);
 
   const fetchCommitteeList = useCallback(
     async (city: string, district: number, legDistrict?: string) => {
@@ -365,34 +218,20 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           );
           setDesignationWeightSummary(data.designationWeightSummary ?? null);
         } else if (response.status === 403) {
-          setMemberships([]);
-          setSelectedCommitteeId(null);
-          setLtedWeightInput("");
-          setSeats([]);
-          setDesignationWeightSummary(null);
+          clearDetailState();
         } else {
-          setMemberships([]);
-          setSelectedCommitteeId(null);
-          setLtedWeightInput("");
-          setSeats([]);
-          setDesignationWeightSummary(null);
+          clearDetailState();
         }
       } catch (error) {
         console.error("Error fetching committee list:", error);
-        setMemberships([]);
-        setSelectedCommitteeId(null);
-        setLtedWeightInput("");
-        setSeats([]);
-        setDesignationWeightSummary(null);
+        clearDetailState();
       } finally {
         setListLoading(false);
       }
     },
-    [],
+    [clearDetailState],
   );
 
-  // §5.1 — manual roster load (plain fetch + local state, matching
-  // fetchCommitteeList). The button is the "load option, not a preset" ask.
   const fetchRoster = useCallback(
     async (city: string, legDistrict?: string) => {
       setRosterLoading(true);
@@ -427,35 +266,228 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     [toast],
   );
 
-  // §5.1 — switching back to drill-down must not leave a stale roster visible.
-  const handleViewModeChange = (mode: "drill" | "roster") => {
-    setViewMode(mode);
-    if (mode === "drill") setRosterData(null);
+  /** Refetch town roster after detail mutations so Back to roster stays fresh. */
+  const refreshRosterIfScoped = useCallback(() => {
+    if (!scopeSelected) return;
+    fetchRoster(
+      selectedCity,
+      useLegDistrict ? selectedLegDistrict : undefined,
+    ).catch((error) => {
+      console.error("Error refreshing committee roster:", error);
+    });
+  }, [
+    fetchRoster,
+    scopeSelected,
+    selectedCity,
+    selectedLegDistrict,
+    useLegDistrict,
+  ]);
+
+  const removeCommitteeMemberMutation = useApiMutation<
+    { status: "success" | "error"; error?: string },
+    RemoveOrResignPayload
+  >("/api/committee/remove", "POST", {
+    onSuccess: (data, payload) => {
+      setRemovingId(null);
+      if (payload && "action" in payload && payload.action === "RESIGN") {
+        setResignModalMember(null);
+        setResignDateReceived("");
+        setResignMethod("");
+        setResignReason("");
+        setResignNotes("");
+      } else {
+        setRemoveModalMember(null);
+        setRemoveReason("");
+        setRemoveNotes("");
+      }
+      if (
+        data &&
+        typeof data === "object" &&
+        "status" in data &&
+        data.status === "error"
+      ) {
+        toast({
+          title: "Error",
+          description: `Failed to ${payload?.action === "RESIGN" ? "record resignation" : "remove committee member"}: ${data.error ?? "Unknown error"}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (payload) {
+        const legDistrictString = payload.legDistrict
+          ? payload.legDistrict.toString()
+          : undefined;
+
+        if (payload.cityTown && payload.electionDistrict !== undefined) {
+          fetchCommitteeList(
+            payload.cityTown,
+            payload.electionDistrict,
+            legDistrictString,
+          ).catch((error) => {
+            console.error("Error fetching committee list:", error);
+          });
+        }
+      }
+
+      refreshRosterIfScoped();
+
+      toast({
+        title: "Success",
+        description:
+          payload?.action === "RESIGN"
+            ? "Resignation recorded successfully"
+            : "Committee member removed successfully",
+      });
+    },
+    onError: (error) => {
+      setRemovingId(null);
+      toast({
+        title: "Error",
+        description: `Failed to remove committee member: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateLtedWeightMutation = useApiMutation<
+    { success: boolean },
+    { committeeListId: number; ltedWeight: number | null }
+  >("/api/committee/updateLtedWeight", "PATCH", {
+    onSuccess: () => {
+      toast({ title: "LTED weight updated" });
+      if (selectedCity && selectedDistrict >= 0) {
+        fetchCommitteeList(
+          selectedCity,
+          selectedDistrict,
+          selectedLegDistrict || undefined,
+        ).catch(console.error);
+      }
+      refreshRosterIfScoped();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update LTED weight: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDistrictChange = (districtString: string) => {
+    const district = parseInt(districtString, 10);
+    setSelectedDistrict(district);
   };
 
-  // §5.2 — Admin row → drill-down linkage. Setting selection state alone is not
-  // enough; only fetchCommitteeList loads the drill-down's memberships/seats, so
-  // we reuse that path (the same one handleDistrictChange calls today).
-  const handleEditRow = useCallback(
-    (row: SeatRosterRow) => {
+  const handleLoadCommitteeDetails = useCallback(() => {
+    if (!selectedCity || selectedDistrict < 0) return;
+    setContentLayer("detail");
+    fetchCommitteeList(
+      selectedCity,
+      selectedDistrict,
+      useLegDistrict ? selectedLegDistrict : undefined,
+    ).catch((error) => {
+      console.error("Error fetching committee list:", error);
+    });
+  }, [
+    fetchCommitteeList,
+    selectedCity,
+    selectedDistrict,
+    selectedLegDistrict,
+    useLegDistrict,
+  ]);
+
+  const handleViewEdDetails = useCallback(
+    (rollup: EdRollup) => {
       const legDistrictString = useLegDistrict
-        ? String(row.legDistrict)
+        ? String(rollup.legDistrict)
         : undefined;
-      setViewMode("drill");
-      setRosterData(null);
-      setSelectedCity(row.cityTown);
       if (legDistrictString) setSelectedLegDistrict(legDistrictString);
-      setSelectedDistrict(row.electionDistrict);
+      setSelectedDistrict(rollup.electionDistrict);
+      setContentLayer("detail");
       fetchCommitteeList(
-        row.cityTown,
-        row.electionDistrict,
+        selectedCity,
+        rollup.electionDistrict,
         legDistrictString,
       ).catch((error) => {
         console.error("Error fetching committee list:", error);
       });
     },
-    [fetchCommitteeList, useLegDistrict],
+    [fetchCommitteeList, selectedCity, useLegDistrict],
   );
+
+  const handleBackToRoster = useCallback(() => {
+    setContentLayer("roster");
+    clearDetailState();
+    setSelectedDistrict(-1);
+  }, [clearDetailState]);
+
+  const handleCityChange = (city: string) => {
+    if (city === selectedCity) {
+      setSelectedCity("");
+      setUseLegDistrict(false);
+    } else {
+      setSelectedCity(city);
+      setSelectedDistrict(-1);
+      setSelectedLegDistrict("");
+    }
+    if (city.toUpperCase() === "ROCHESTER") {
+      setUseLegDistrict(true);
+    } else {
+      setUseLegDistrict(false);
+    }
+
+    const legDistricts = Array.from(
+      new Set(
+        committeeLists
+          .filter((list) => list.cityTown === city)
+          .map((list) => String(list.legDistrict)),
+      ),
+    ).sort((a, b) => Number(a) - Number(b));
+
+    setLegDistricts(legDistricts);
+
+    if (legDistricts[0] && legDistricts.length === 1) {
+      setSelectedLegDistrict(legDistricts[0]);
+    }
+
+    setContentLayer("roster");
+    clearDetailState();
+    setRosterData(null);
+  };
+
+  const handleLegChange = (legDistrict: string) => {
+    if (legDistrict === selectedLegDistrict) {
+      setSelectedLegDistrict("");
+    } else {
+      setSelectedLegDistrict(legDistrict);
+    }
+
+    setSelectedDistrict(-1);
+    setContentLayer("roster");
+    clearDetailState();
+    setRosterData(null);
+  };
+
+  // Auto-load roster when city (+ LD for Rochester) scope is complete.
+  useEffect(() => {
+    if (!scopeSelected) return;
+    setContentLayer("roster");
+    clearDetailState();
+    fetchRoster(
+      selectedCity,
+      useLegDistrict ? selectedLegDistrict : undefined,
+    ).catch((error) => {
+      console.error("Error fetching committee roster:", error);
+    });
+  }, [
+    scopeSelected,
+    selectedCity,
+    selectedLegDistrict,
+    useLegDistrict,
+    fetchRoster,
+    clearDetailState,
+  ]);
 
   const handleOpenRemoveModal = (record: VoterRecord) => {
     setRemoveModalMember(record);
@@ -626,16 +658,24 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     return "No active committee members. Use the form below to add members.";
   };
 
-  const getCommitteeListHeader = () => {
-    if (!selectedCity || !selectedLegDistrict || selectedDistrict < 0) {
-      return "Committee List";
+  const getRosterHeader = () => {
+    if (!scopeSelected) {
+      return "Committee roster";
     }
-
-    if (!useLegDistrict) {
-      return `Committee List: ${selectedCity} - Election District ${selectedDistrict}`;
+    if (useLegDistrict && selectedLegDistrict) {
+      return `Committee roster — ${selectedCity} · LD ${selectedLegDistrict}`;
     }
+    return `Committee roster — ${selectedCity}`;
+  };
 
-    return `Committee List: ${selectedCity} - LD - ${selectedLegDistrict}, ED - ${selectedDistrict}`;
+  const getDetailHeader = () => {
+    if (!selectedCity || selectedDistrict < 0) {
+      return "Committee detail";
+    }
+    if (useLegDistrict && selectedLegDistrict) {
+      return `Committee detail — ${selectedCity} · LD ${selectedLegDistrict} · ED ${selectedDistrict}`;
+    }
+    return `Committee detail — ${selectedCity} · ED ${selectedDistrict}`;
   };
 
   // SRS 3.1 — Empty state: Leader with no jurisdictions assigned
@@ -725,101 +765,82 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         )}
         {scopeSelected && (
           <div className="flex flex-col">
-            <label className="font-extralight text-sm pl-1">View</label>
-            <div className="flex rounded-md border border-input">
-              <Button
-                type="button"
-                variant={viewMode === "drill" ? "default" : "ghost"}
-                className="rounded-r-none"
-                onClick={() => handleViewModeChange("drill")}
-              >
-                Drill down
-              </Button>
-              <Button
-                type="button"
-                variant={viewMode === "roster" ? "default" : "ghost"}
-                className="rounded-l-none"
-                onClick={() => handleViewModeChange("roster")}
-              >
-                Roster
-              </Button>
-            </div>
+            <label className="font-extralight text-sm pl-1">
+              Election District
+            </label>
+            <ComboboxDropdown
+              items={Array.from(
+                new Set(
+                  committeeLists
+                    .filter(
+                      (list) =>
+                        list.cityTown === selectedCity &&
+                        (!useLegDistrict ||
+                          list.legDistrict === Number(selectedLegDistrict)),
+                    )
+                    .sort((a, b) => a.electionDistrict - b.electionDistrict)
+                    .map((list) => ({
+                      label: `${list.electionDistrict}`,
+                      value: `${list.electionDistrict}`,
+                    })),
+                ),
+              )}
+              initialValue={`${selectedDistrict}`}
+              displayLabel={"Select Election District"}
+              onSelect={handleDistrictChange}
+            />
           </div>
         )}
-        {scopeSelected && viewMode === "drill" && (
-            <div className="flex flex-col">
-              <label className="font-extralight text-sm pl-1">
-                Election District
-              </label>
-              <ComboboxDropdown
-                items={Array.from(
-                  new Set(
-                    committeeLists
-                      .filter(
-                        (list) =>
-                          list.cityTown === selectedCity &&
-                          (!useLegDistrict ||
-                            list.legDistrict === Number(selectedLegDistrict)),
-                      )
-                      .sort((a, b) => a.electionDistrict - b.electionDistrict)
-                      .map((list) => ({
-                        label: `${list.electionDistrict}`,
-                        value: `${list.electionDistrict}`,
-                      })),
-                  ),
-                )}
-                initialValue={`${selectedDistrict}`}
-                displayLabel={"Select Election District"}
-                onSelect={handleDistrictChange}
-              />
-              </div>
-          )}
-        {scopeSelected && viewMode === "roster" && (
+        {scopeSelected && (
           <div className="flex flex-col justify-end">
             <Button
               type="button"
-              onClick={() =>
-                fetchRoster(
-                  selectedCity,
-                  useLegDistrict ? selectedLegDistrict : undefined,
-                ).catch((error) => {
-                  console.error("Error fetching committee roster:", error);
-                })
-              }
-              disabled={rosterLoading}
+              onClick={handleLoadCommitteeDetails}
+              disabled={selectedDistrict < 0 || listLoading}
             >
-              {rosterLoading ? "Loading..." : "Load roster"}
+              {listLoading ? "Loading..." : "View committee details"}
             </Button>
           </div>
         )}
       </Card>
       </div>
-      <h1 className="primary-header pt-2">{getCommitteeListHeader()}</h1>
+      {scopeSelected && selectedDistrict < 0 && contentLayer === "roster" ? (
+        <p className="pt-2 text-sm text-muted-foreground">
+          Select an election district to view member cards and manage seats.
+        </p>
+      ) : null}
 
-      {viewMode === "roster" ? (
-        rosterLoading ? (
-          <p>Loading roster...</p>
-        ) : rosterData ? (
-          <div className="pt-2">
-            <CommitteeRosterTable
-              data={rosterData}
-              isAdmin={isAdmin}
-              onEditRow={isAdmin ? handleEditRow : undefined}
-            />
-          </div>
-        ) : (
-          <p className="pt-2 text-muted-foreground">
-            Click &ldquo;Load roster&rdquo; to view every seat across{" "}
-            {selectedCity}
-            {useLegDistrict && selectedLegDistrict
-              ? ` — Leg District ${selectedLegDistrict}`
-              : ""}
-            .
-          </p>
-        )
-      ) : listLoading ? (
-        <p>Loading...</p>
-      ) : showNoCommitteesEmptyState ? (
+      {contentLayer === "roster" ? (
+        <>
+          <h1 className="primary-header pt-2">{getRosterHeader()}</h1>
+          {rosterLoading ? (
+            <p>Loading roster...</p>
+          ) : rosterData ? (
+            <div className="pt-2">
+              <CommitteeRosterTable
+                data={rosterData}
+                isAdmin={isAdmin}
+                onViewEdDetails={handleViewEdDetails}
+              />
+            </div>
+          ) : scopeSelected ? (
+            <p className="pt-2 text-muted-foreground">Loading roster...</p>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <Button
+            type="button"
+            variant="link"
+            className="px-0 pt-2"
+            onClick={handleBackToRoster}
+          >
+            ← Back to full roster
+          </Button>
+          <h1 className="primary-header pt-2">{getDetailHeader()}</h1>
+          {listLoading ? (
+            <p>Loading...</p>
+          ) : showNoCommitteesEmptyState ? (
         <Card className="p-6 max-w-md mt-4">
           <CardContent className="text-muted-foreground">
             <p className="font-medium text-foreground">No Committees Found</p>
@@ -1108,9 +1129,16 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             committeeListId={selectedCommitteeId}
             committeeList={memberships.map((m) => m.voterRecord)}
             maxSeatsPerLted={maxSeatsPerLted}
-            onAdd={fetchCommitteeList}
+            onAdd={(city, district, legDistrict) => {
+              fetchCommitteeList(city, district, legDistrict).catch(
+                console.error,
+              );
+              refreshRosterIfScoped();
+            }}
           />
         </div>
+          )}
+        </>
       )}
       {showConfirmForm && requestRemoveRecord !== null && (
         <CommitteeRequestForm
