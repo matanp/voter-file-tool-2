@@ -84,6 +84,11 @@ product decision and are **not** addressed here.
   to `CreateMeetingDialog` and `CommitteeRequestForm`.
 - **P2 — Committee selector overflow:** the control bar now uses
   `flex flex-wrap items-end` instead of `w-max` + non-wrapping flex.
+- **P1 — Reports dashboard advertises inaccessible report types:** per the
+  product call, Leader-only cards (and the Admin-only Voter List card) now carry
+  a `minPrivilege` matching the privilege their report page enforces. Cards the
+  user cannot access are hidden entirely, so no card links into a dead-end
+  access-denied page. (`GenerateReportGrid.tsx`)
 
 **Deferred — needs a product decision (not addressed)**
 
@@ -91,8 +96,6 @@ product decision and are **not** addressed here.
   (and the required jurisdiction-assignment guidance) is a product call.
 - **P1 — Full committees cannot use the replacement workflow:** changing the
   candidate-selection gating for replacements alters request semantics.
-- **P1 — Reports dashboard advertises inaccessible report types:** whether to
-  hide, disable, or keep the Leader-only cards as teasers is a product call.
 - **P1 — Petition Outcomes permits selection of non-petitioned seats:** whether
   to exclude or merely disable non-petitioned seats is a product call.
 
