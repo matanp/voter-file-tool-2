@@ -593,3 +593,97 @@ export const listJurisdictionsQuerySchema = z
 export type ListJurisdictionsQuery = z.infer<
   typeof listJurisdictionsQuerySchema
 >;
+
+// ---------------------------------------------------------------------------
+// Committee Roster View — town-level seat roster (GET /api/committee/roster)
+// See docs/COMMITTEE_ROSTER_VIEW.md.
+// ---------------------------------------------------------------------------
+
+/** City whose committees span multiple legislative districts; legDistrict is required. */
+export const ROCHESTER_CITY = "ROCHESTER";
+
+// Roster query params. `cursor`/`limit` are reserved for phase-2 county-wide
+// pagination and ignored in v1. legDistrict is required only for Rochester.
+export const rosterQuerySchema = z
+  .object({
+    cityTown: z.string().trim().min(1, "City/Town is required"),
+    legDistrict: z
+      .string()
+      .trim()
+      .transform((v) => (v === "" ? undefined : v))
+      .optional()
+      .refine(
+        (val) => {
+          if (val === undefined) return true;
+          const parsed = Number(val);
+          return Number.isInteger(parsed) && parsed > 0;
+        },
+        {
+          message:
+            "Legislative District must be a positive integer when provided",
+        },
+      )
+      .transform((val) => (val === undefined ? undefined : Number(val))),
+    // Reserved for phase-2 county-wide pagination; ignored in v1.
+    cursor: z.string().trim().optional(),
+    limit: z.string().trim().optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (
+      data.cityTown.toUpperCase() === ROCHESTER_CITY &&
+      data.legDistrict === undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Legislative District is required for Rochester",
+        path: ["legDistrict"],
+      });
+    }
+  });
+
+export type RosterQuery = z.infer<typeof rosterQuerySchema>;
+
+/** One row per seat (occupied or vacant) plus extra rows for unassigned members. */
+export type SeatRosterRow = {
+  committeeListId: number;
+  cityTown: string;
+  legDistrict: number;
+  electionDistrict: number;
+  seatNumber: number | null; // null only for unassigned rows
+  isPetitioned: boolean;
+  weight: string | null; // Decimal serialized
+  unassigned?: boolean;
+  petitionedVacant?: boolean; // vacant AND isPetitioned
+  occupant: {
+    VRCNUM: string;
+    firstName: string;
+    lastName: string;
+    membershipType: MembershipType | null;
+  } | null;
+  contact?: { email: string | null; phone: string | null }; // present iff Admin
+};
+
+/** Per-ED subheader summary. */
+export type EdRollup = {
+  electionDistrict: number;
+  legDistrict: number;
+  filled: number; // seats OCCUPIED (distinct seatNumbers with an active occupant)
+  totalSeats: number;
+  unassignedCount: number; // active members with no seatNumber (not counted in `filled`)
+  designationWeight: number | null;
+  missingWeightSeatNumbers: number[]; // petitioned seats lacking weight — render "—"
+};
+
+export type RosterResponse = {
+  scope: { cityTown: string; legDistrict?: number };
+  rows: SeatRosterRow[];
+  edRollups: EdRollup[];
+  summary: {
+    totalSeats: number;
+    filled: number; // seats OCCUPIED, not active-member count
+    vacant: number;
+    edCount: number;
+    unassignedCount: number; // town-wide active members with no seat
+  };
+};
