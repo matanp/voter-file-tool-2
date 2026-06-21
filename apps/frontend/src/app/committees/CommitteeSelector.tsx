@@ -809,7 +809,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                 <h2 className="font-semibold pb-2">
                   Designation Weight Verification
                 </h2>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-w-[800px]">
                   <table className="w-full text-sm border border-primary-200">
                     <thead className="bg-primary-100">
                       <tr>
@@ -849,35 +849,44 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           {selectedCommitteeId != null && seats.length > 0 && (
             <div className="pt-2 pb-4">
               <h2 className="font-semibold pb-2">Seat Roster</h2>
-              <div className="grid gap-2">
-                {seats.map((seat) => {
-                  const occupant = memberships.find(
-                    (m) => m.seatNumber === seat.seatNumber,
-                  );
-                  const weightStr =
-                    seat.weight != null ? String(seat.weight) : "—";
-                  return (
-                    <div
-                      key={seat.seatNumber}
-                      className="flex gap-4 items-center py-1 border-b border-primary-200"
-                    >
-                      <span className="w-8 font-medium">
-                        Seat {seat.seatNumber}
-                      </span>
-                      <span className="flex-1">
-                        {occupant
-                          ? [occupant.voterRecord.lastName, occupant.voterRecord.firstName]
-                              .filter(Boolean)
-                              .join(", ") || occupant.voterRecord.VRCNUM
-                          : "—"}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {seat.isPetitioned ? "Petitioned" : "Appointed"}
-                      </span>
-                      <span className="w-16 text-right">{weightStr}</span>
-                    </div>
-                  );
-                })}
+              <div className="overflow-x-auto max-w-[800px]">
+                <table className="w-full text-sm border border-primary-200">
+                  <thead className="bg-primary-100">
+                    <tr>
+                      <th className="text-left px-2 py-1">Seat</th>
+                      <th className="text-left px-2 py-1">Occupant</th>
+                      <th className="text-left px-2 py-1">Type</th>
+                      <th className="text-right px-2 py-1">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seats.map((seat) => {
+                      const occupant = memberships.find(
+                        (m) => m.seatNumber === seat.seatNumber,
+                      );
+                      const weightStr =
+                        seat.weight != null ? String(seat.weight) : "—";
+                      const occupantName = occupant
+                        ? [occupant.voterRecord.lastName, occupant.voterRecord.firstName]
+                            .filter(Boolean)
+                            .join(", ") || occupant.voterRecord.VRCNUM
+                        : "—";
+                      return (
+                        <tr
+                          key={seat.seatNumber}
+                          className="border-t border-primary-200"
+                        >
+                          <td className="px-2 py-1">{seat.seatNumber}</td>
+                          <td className="px-2 py-1">{occupantName}</td>
+                          <td className="px-2 py-1 text-muted-foreground">
+                            {seat.isPetitioned ? "Petitioned" : "Appointed"}
+                          </td>
+                          <td className="px-2 py-1 text-right">{weightStr}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
