@@ -284,7 +284,7 @@ describe("CommitteeSelector roster-first navigation", () => {
       screen.getByRole("heading", { name: "Committee detail — GREECE · ED 5" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "← Back to full roster" }),
+      screen.getByRole("button", { name: "Back to full roster" }),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("legDistrict=1"),
@@ -370,7 +370,7 @@ describe("CommitteeSelector roster-first navigation", () => {
     await screen.findByTestId("voter-card");
 
     await userEvent.click(
-      screen.getByRole("button", { name: "← Back to full roster" }),
+      screen.getByRole("button", { name: "Back to full roster" }),
     );
 
     expect(await screen.findByText("Jane Doe")).toBeInTheDocument();

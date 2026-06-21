@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 
 import {
   type MembershipType,
@@ -885,11 +886,13 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         <>
           <Button
             type="button"
-            variant="link"
-            className="px-0 pt-2"
+            variant="outline"
+            size="sm"
+            className="my-2 gap-2"
             onClick={handleBackToRoster}
           >
-            ← Back to full roster
+            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Back to full roster
           </Button>
           <h1 className="primary-header pt-2">{getDetailHeader()}</h1>
           {listLoading ? (
