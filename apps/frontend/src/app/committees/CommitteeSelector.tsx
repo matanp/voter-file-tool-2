@@ -26,6 +26,7 @@ import { CommitteeRosterTable } from "./CommitteeRosterTable";
 import { Card, CardContent, CardFooter } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useApiQuery } from "~/hooks/useApiQuery";
 import { useToast } from "~/components/ui/use-toast";
@@ -180,6 +181,41 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setDesignationWeightSummary(null);
   }, []);
 
+  /** Resolves legDistrict query param for detail APIs (towns store actual LD, not sentinel). */
+  const resolveLegDistrictParam = useCallback(
+    (electionDistrict: number, explicitLegDistrict?: string): string | undefined => {
+      const normalizedExplicit = explicitLegDistrict?.trim();
+      if (
+        normalizedExplicit &&
+        normalizedExplicit !== String(LEG_DISTRICT_SENTINEL)
+      ) {
+        return normalizedExplicit;
+      }
+
+      const normalizedSelected = selectedLegDistrict.trim();
+      if (
+        normalizedSelected !== "" &&
+        normalizedSelected !== String(LEG_DISTRICT_SENTINEL)
+      ) {
+        return normalizedSelected;
+      }
+
+      const match = committeeLists.find(
+        (list) =>
+          list.cityTown === selectedCity &&
+          list.electionDistrict === electionDistrict &&
+          (!useLegDistrict ||
+            list.legDistrict === Number(selectedLegDistrict)),
+      );
+      if (match && match.legDistrict !== LEG_DISTRICT_SENTINEL) {
+        return String(match.legDistrict);
+      }
+
+      return undefined;
+    },
+    [committeeLists, selectedCity, selectedLegDistrict, useLegDistrict],
+  );
+
   const fetchCommitteeList = useCallback(
     async (city: string, district: number, legDistrict?: string) => {
       setListLoading(true);
@@ -219,17 +255,33 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           setDesignationWeightSummary(data.designationWeightSummary ?? null);
         } else if (response.status === 403) {
           clearDetailState();
+          toast({
+            title: "Access denied",
+            description: "You do not have access to this committee.",
+            variant: "destructive",
+          });
         } else {
           clearDetailState();
+          toast({
+            title: "Committee not found",
+            description:
+              "Could not load committee members for the selected election district.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error("Error fetching committee list:", error);
         clearDetailState();
+        toast({
+          title: "Error",
+          description: "Failed to load committee members.",
+          variant: "destructive",
+        });
       } finally {
         setListLoading(false);
       }
     },
-    [clearDetailState],
+    [clearDetailState, toast],
   );
 
   const fetchRoster = useCallback(
@@ -385,35 +437,37 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     fetchCommitteeList(
       selectedCity,
       selectedDistrict,
-      useLegDistrict ? selectedLegDistrict : undefined,
+      resolveLegDistrictParam(selectedDistrict),
     ).catch((error) => {
       console.error("Error fetching committee list:", error);
     });
   }, [
     fetchCommitteeList,
+    resolveLegDistrictParam,
     selectedCity,
     selectedDistrict,
-    selectedLegDistrict,
-    useLegDistrict,
   ]);
 
   const handleViewEdDetails = useCallback(
     (rollup: EdRollup) => {
-      const legDistrictString = useLegDistrict
-        ? String(rollup.legDistrict)
-        : undefined;
-      if (legDistrictString) setSelectedLegDistrict(legDistrictString);
+      const legDistrictParam = resolveLegDistrictParam(
+        rollup.electionDistrict,
+        rollup.legDistrict !== LEG_DISTRICT_SENTINEL
+          ? String(rollup.legDistrict)
+          : undefined,
+      );
+      if (legDistrictParam) setSelectedLegDistrict(legDistrictParam);
       setSelectedDistrict(rollup.electionDistrict);
       setContentLayer("detail");
       fetchCommitteeList(
         selectedCity,
         rollup.electionDistrict,
-        legDistrictString,
+        legDistrictParam,
       ).catch((error) => {
         console.error("Error fetching committee list:", error);
       });
     },
-    [fetchCommitteeList, selectedCity, useLegDistrict],
+    [fetchCommitteeList, resolveLegDistrictParam, selectedCity],
   );
 
   const handleBackToRoster = useCallback(() => {

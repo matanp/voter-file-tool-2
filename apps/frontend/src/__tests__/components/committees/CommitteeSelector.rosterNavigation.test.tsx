@@ -286,6 +286,9 @@ describe("CommitteeSelector roster-first navigation", () => {
     expect(
       screen.getByRole("button", { name: "← Back to full roster" }),
     ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("legDistrict=1"),
+    );
   });
 
   it("loads detail from roster View details button", async () => {
