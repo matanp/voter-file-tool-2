@@ -1,18 +1,19 @@
 "use client";
 import { PrivilegeLevel } from "@prisma/client";
-import { useSession } from "next-auth/react";
+import { useContext } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "~/components/ui/button";
 import { SignInButton } from "~/components/ui/signInButton";
 import { hasPermissionFor } from "~/lib/utils";
+import { GlobalContext } from "~/components/providers/GlobalContext";
 
 const Header: React.FC = () => {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { actingPermissions } = useContext(GlobalContext);
 
   const showDataTab = hasPermissionFor(
-    session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+    actingPermissions,
     PrivilegeLevel.Admin,
   );
 
