@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { DatePicker } from "~/components/ui/datePicker";
 import type { ElectionDate } from "@prisma/client";
@@ -73,31 +73,6 @@ export const ElectionDates = ({
       });
     },
   });
-
-  const fetchElectionDates = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/electionDates");
-      const data: ElectionDate[] = (await res.json()) as ElectionDate[];
-      setElectionDates(data);
-    } catch (err) {
-      console.error("Failed to fetch election dates", err);
-      toast({
-        title: "Error",
-        description: "Failed to load election dates. Please refresh the page.",
-        variant: "destructive",
-      });
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    const loadElectionDates = async () => {
-      await fetchElectionDates();
-    };
-
-    loadElectionDates().catch((error) => {
-      console.log(error);
-    });
-  }, [fetchElectionDates]);
 
   const handleAddDate = async () => {
     if (!newDate) return;

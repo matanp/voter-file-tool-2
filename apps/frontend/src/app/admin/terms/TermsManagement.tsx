@@ -46,6 +46,7 @@ export function TermsManagement({ initialTerms }: TermsManagementProps) {
   const termsQuery = useApiQuery<CommitteeTerm[]>("/api/admin/terms", {
     initialData: initialTerms,
     parseResponse: parseTermList,
+    enabled: false,
   });
   const terms = termsQuery.data ?? [];
 
