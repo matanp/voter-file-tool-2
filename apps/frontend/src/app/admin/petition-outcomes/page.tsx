@@ -4,13 +4,9 @@ import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import { PetitionOutcomesClient } from "./PetitionOutcomesClient";
 
 interface PetitionOutcomesPageProps {
-  searchParams?:
-    | {
-        committeeListId?: string;
-      }
-    | Promise<{
-        committeeListId?: string;
-      }>;
+  searchParams?: Promise<{
+    committeeListId?: string;
+  }>;
 }
 
 export default async function PetitionOutcomesPage({

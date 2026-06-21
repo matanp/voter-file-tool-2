@@ -4,6 +4,7 @@ import { Button } from "~/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
@@ -339,6 +340,10 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
       <DialogContent className="max-w-[90vw] w-fit min-w-1/2">
         <DialogHeader>
           <DialogTitle>Committee Change Request</DialogTitle>
+          <DialogDescription>
+            Request to add or replace a committee member for the selected
+            district. The request is submitted for administrator approval.
+          </DialogDescription>
           <h1 className="pt-2">City: {city}</h1>
           {legDistrict !== "" && <h1>Leg District: {legDistrict}</h1>}
           <h1>Election District: {electionDistrict}</h1>

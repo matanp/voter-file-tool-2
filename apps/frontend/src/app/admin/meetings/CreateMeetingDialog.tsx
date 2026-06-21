@@ -15,6 +15,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -104,6 +105,9 @@ export function CreateMeetingDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Meeting Record</DialogTitle>
+          <DialogDescription>
+            Record a committee meeting with its date, type, and optional notes.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid gap-2">
