@@ -3,7 +3,7 @@
  */
 
 import prisma from "~/lib/prisma";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, Prisma } from "@prisma/client";
 import type { ErrorResponse } from "@voter-file-tool/shared-validators";
 import type {
   CommitteeGovernanceConfig,
@@ -131,6 +131,26 @@ export function committeeMatchesJurisdictions(
       j.cityTown === cityTown &&
       (j.legDistrict === null || j.legDistrict === legDistrict),
   );
+}
+
+/**
+ * SRS 3.1 — DB filter counterpart of committeeMatchesJurisdictions, for use in
+ * CommitteeList queries (e.g. the roster route). Builds an OR of jurisdiction
+ * scopes: an entry with legDistrict === null matches any district in that town;
+ * a specific legDistrict matches only that district.
+ *
+ * An empty jurisdictions list yields `{ OR: [] }`, which matches nothing — the
+ * correct empty result for a Leader with no assignments.
+ */
+export function buildJurisdictionWhere(
+  jurisdictions: JurisdictionScope[],
+): Prisma.CommitteeListWhereInput {
+  return {
+    OR: jurisdictions.map((j) => ({
+      cityTown: j.cityTown,
+      ...(j.legDistrict !== null ? { legDistrict: j.legDistrict } : {}),
+    })),
+  };
 }
 
 /** Shape required for jurisdiction-scoped report validation (signInSheet, designationWeightSummary). */

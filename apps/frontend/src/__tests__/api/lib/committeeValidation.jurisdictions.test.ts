@@ -6,6 +6,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   getUserJurisdictions,
   committeeMatchesJurisdictions,
+  buildJurisdictionWhere,
 } from "~/app/api/lib/committeeValidation";
 import { DEFAULT_ACTIVE_TERM_ID } from "../../utils/testUtils";
 import { prismaMock } from "../../utils/mocks";
@@ -114,6 +115,41 @@ describe("committeeValidation — jurisdictions", () => {
       expect(
         committeeMatchesJurisdictions("Rochester", 2, jurisdictions),
       ).toBe(false);
+    });
+  });
+
+  describe("buildJurisdictionWhere", () => {
+    it("omits legDistrict for an all-districts entry (null) so it matches any LD in that town", () => {
+      const where = buildJurisdictionWhere([
+        { cityTown: "Rochester", legDistrict: null },
+      ]);
+      expect(where).toEqual({ OR: [{ cityTown: "Rochester" }] });
+    });
+
+    it("includes legDistrict for a specific-district entry so it matches only that LD", () => {
+      const where = buildJurisdictionWhere([
+        { cityTown: "Rochester", legDistrict: 1 },
+      ]);
+      expect(where).toEqual({
+        OR: [{ cityTown: "Rochester", legDistrict: 1 }],
+      });
+    });
+
+    it("ORs a mixed list of all-district and specific-district entries", () => {
+      const where = buildJurisdictionWhere([
+        { cityTown: "Rochester", legDistrict: 1 },
+        { cityTown: "Brighton", legDistrict: null },
+      ]);
+      expect(where).toEqual({
+        OR: [
+          { cityTown: "Rochester", legDistrict: 1 },
+          { cityTown: "Brighton" },
+        ],
+      });
+    });
+
+    it("yields an empty OR (matches nothing) for an empty list", () => {
+      expect(buildJurisdictionWhere([])).toEqual({ OR: [] });
     });
   });
 });
