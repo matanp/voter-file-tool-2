@@ -75,7 +75,7 @@ describe("useApiQuery", () => {
         });
       }
       return Promise.resolve(
-        mockJsonResponse([{ id: "term-2", label: "2026-2028" }]),
+        mockJsonResponse([{ id: "term-2", label: "2026-2028" }]) as unknown as Response,
       );
     });
 

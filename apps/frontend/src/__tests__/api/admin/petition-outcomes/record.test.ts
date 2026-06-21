@@ -63,14 +63,18 @@ function setupTransactionMocks() {
 }
 
 function setupCommitteeAndCandidateVoters() {
-  prismaMock.committeeList.findUnique.mockResolvedValue({
+  (
+    prismaMock as { committeeList: { findUnique: jest.Mock } }
+  ).committeeList.findUnique.mockResolvedValue({
     id: 1,
     cityTown: "Test City",
     legDistrict: 1,
     electionDistrict: 1,
     term: { id: DEFAULT_ACTIVE_TERM_ID, label: "2024–2026" },
   });
-  prismaMock.voterRecord.findMany.mockImplementation(
+  (
+    prismaMock as { voterRecord: { findMany: jest.Mock } }
+  ).voterRecord.findMany.mockImplementation(
     ({ where }: { where: { VRCNUM: { in: string[] } } }) =>
       Promise.resolve(
         where.VRCNUM.in.map((VRCNUM) => createMockVoterRecord({ VRCNUM })),

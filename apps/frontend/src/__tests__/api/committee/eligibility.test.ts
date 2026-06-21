@@ -20,12 +20,16 @@ describe("/api/committee/eligibility", () => {
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
     );
     mockHasPermission(true);
-    prismaMock.committeeList.findUnique.mockResolvedValue({
+    (
+      prismaMock as { committeeList: { findUnique: jest.Mock } }
+    ).committeeList.findUnique.mockResolvedValue({
       cityTown: "Test City",
       legDistrict: 1,
       electionDistrict: 1,
     });
-    prismaMock.ltedDistrictCrosswalk.findUnique.mockResolvedValue({
+    (
+      prismaMock as { ltedDistrictCrosswalk: { findUnique: jest.Mock } }
+    ).ltedDistrictCrosswalk.findUnique.mockResolvedValue({
       stateAssemblyDistrict: "1",
     });
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
@@ -80,7 +84,9 @@ describe("/api/committee/eligibility", () => {
         latestRecordEntryNumber: 1,
       }),
     );
-    prismaMock.voterRecord.findFirst.mockResolvedValue({
+    (
+      prismaMock as { voterRecord: { findFirst: jest.Mock } }
+    ).voterRecord.findFirst.mockResolvedValue({
       latestRecordEntryYear: 2024,
       latestRecordEntryNumber: 2,
     });

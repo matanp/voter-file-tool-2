@@ -171,14 +171,14 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => rosterResponse("GREECE"),
-        } as Response;
+        } as unknown as Response;
       }
       return {
         ok: true,
         status: 200,
         headers: { get: () => "application/json" },
         json: async () => [],
-      } as Response;
+      } as unknown as Response;
     });
     global.fetch = fetchMock as jest.Mock;
 
@@ -206,7 +206,7 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => rosterResponse("GREECE"),
-        } as Response;
+        } as unknown as Response;
       }
       if (url.startsWith("/api/fetchCommitteeList/")) {
         throw new Error("detail should not load yet");
@@ -216,7 +216,7 @@ describe("CommitteeSelector roster-first navigation", () => {
         status: 200,
         headers: { get: () => "application/json" },
         json: async () => [],
-      } as Response;
+      } as unknown as Response;
     });
     global.fetch = fetchMock as jest.Mock;
 
@@ -249,7 +249,7 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => rosterResponse("GREECE"),
-        } as Response;
+        } as unknown as Response;
       }
       if (url.startsWith("/api/fetchCommitteeList/")) {
         return {
@@ -257,14 +257,14 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => detailResponse(1),
-        } as Response;
+        } as unknown as Response;
       }
       return {
         ok: true,
         status: 200,
         headers: { get: () => "application/json" },
         json: async () => [],
-      } as Response;
+      } as unknown as Response;
     });
     global.fetch = fetchMock as jest.Mock;
 
@@ -300,7 +300,7 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => rosterResponse("GREECE"),
-        } as Response;
+        } as unknown as Response;
       }
       if (url.startsWith("/api/fetchCommitteeList/")) {
         return {
@@ -308,14 +308,14 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => detailResponse(1),
-        } as Response;
+        } as unknown as Response;
       }
       return {
         ok: true,
         status: 200,
         headers: { get: () => "application/json" },
         json: async () => [],
-      } as Response;
+      } as unknown as Response;
     });
     global.fetch = fetchMock as jest.Mock;
 
@@ -336,7 +336,7 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => rosterResponse("GREECE"),
-        } as Response;
+        } as unknown as Response;
       }
       if (url.startsWith("/api/fetchCommitteeList/")) {
         return {
@@ -344,14 +344,14 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => detailResponse(1),
-        } as Response;
+        } as unknown as Response;
       }
       return {
         ok: true,
         status: 200,
         headers: { get: () => "application/json" },
         json: async () => [],
-      } as Response;
+      } as unknown as Response;
     });
     global.fetch = fetchMock as jest.Mock;
 
@@ -391,14 +391,14 @@ describe("CommitteeSelector roster-first navigation", () => {
           status: 200,
           headers: { get: () => "application/json" },
           json: async () => rosterResponse("ROCHESTER", 28),
-        } as Response;
+        } as unknown as Response;
       }
       return {
         ok: true,
         status: 200,
         headers: { get: () => "application/json" },
         json: async () => [],
-      } as Response;
+      } as unknown as Response;
     });
     global.fetch = fetchMock as jest.Mock;
 

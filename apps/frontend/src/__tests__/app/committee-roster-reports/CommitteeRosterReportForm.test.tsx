@@ -6,7 +6,6 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 
 jest.mock("~/components/providers/GlobalContext", () => {
-  const React = require("react");
   return {
     GlobalContext: React.createContext({
       actingPermissions: "ReadAccess",

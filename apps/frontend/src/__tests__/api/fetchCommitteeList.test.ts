@@ -15,6 +15,7 @@ import {
   expectAnything,
   createAuthTestSuite,
   type AuthTestConfig,
+  type CommitteeListWithMembers,
 } from "../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
@@ -786,7 +787,7 @@ describe("/api/fetchCommitteeList", () => {
               ...createMockMembership({ voterRecordId: "MEMBER003" }),
               voterRecord: createMockVoterRecord({ VRCNUM: "MEMBER003", committeeId: 1 }),
             },
-          ],
+          ] as CommitteeListWithMembers["memberships"],
         });
         const mockSession = createMockSession({
           user: { privilegeLevel: PrivilegeLevel.Admin },

@@ -11,6 +11,7 @@ import {
   expectMembershipUpdateMany,
   expectAuditLogCreate,
   expectAnyDate,
+  expectAnyDateForUpdate,
   getMembershipMock,
   getAuditLogMock,
   getMeetingRecordMock,
@@ -74,8 +75,8 @@ describe("/api/committee/handleRequest", () => {
           {
             status: "ACTIVE",
             meetingRecordId: "meeting-test-001",
-            confirmedAt: expectAnyDate(),
-            activatedAt: expectAnyDate(),
+            confirmedAt: expectAnyDateForUpdate(),
+            activatedAt: expectAnyDateForUpdate(),
             membershipType: "APPOINTED",
             seatNumber: 1,
           },

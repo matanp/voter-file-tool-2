@@ -165,8 +165,8 @@ describe("GET /api/admin/meetings", () => {
       total: number;
     };
     expect(json.meetings).toHaveLength(1);
-    expect(json.meetings[0].id).toBe(MEETING_ID);
-    expect(json.meetings[0].membershipCount).toBe(3);
+    expect(json.meetings[0]!.id).toBe(MEETING_ID);
+    expect(json.meetings[0]!.membershipCount).toBe(3);
     expect(json.total).toBe(1);
   });
 });
@@ -214,7 +214,7 @@ describe("GET /api/admin/meetings/[meetingId]/submissions", () => {
       submissions: Array<{ id: string; voterRecordId: string }>;
     };
     expect(json.submissions).toHaveLength(1);
-    expect(json.submissions[0].voterRecordId).toBe("TEST123456");
+    expect(json.submissions[0]!.voterRecordId).toBe("TEST123456");
   });
 
   it("returns 404 for non-existent meeting", async () => {
@@ -272,8 +272,8 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
       }>;
     };
     expect(json.results).toHaveLength(1);
-    expect(json.results[0].success).toBe(true);
-    expect(json.results[0].decision).toBe("confirm");
+    expect(json.results[0]!.success).toBe(true);
+    expect(json.results[0]!.decision).toBe("confirm");
 
     // Verify membership update
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
@@ -321,8 +321,8 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
         success: boolean;
       }>;
     };
-    expect(json.results[0].success).toBe(true);
-    expect(json.results[0].decision).toBe("reject");
+    expect(json.results[0]!.success).toBe(true);
+    expect(json.results[0]!.decision).toBe("reject");
 
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -357,9 +357,9 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     const json = (await response.json()) as {
       results: Array<{ success: boolean; error?: string }>;
     };
-    expect(json.results[0].success).toBe(false);
-    expect(json.results[0].error).toContain("ACTIVE");
-    expect(json.results[0].error).toContain("expected SUBMITTED");
+    expect(json.results[0]!.success).toBe(false);
+    expect(json.results[0]!.error).toContain("ACTIVE");
+    expect(json.results[0]!.error).toContain("expected SUBMITTED");
   });
 
   it("returns capacity error when all seats occupied", async () => {
@@ -383,8 +383,8 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     const json = (await response.json()) as {
       results: Array<{ success: boolean; error?: string }>;
     };
-    expect(json.results[0].success).toBe(false);
-    expect(json.results[0].error).toContain("capacity");
+    expect(json.results[0]!.success).toBe(false);
+    expect(json.results[0]!.error).toContain("capacity");
   });
 
   it("blocks confirmation when eligibility fails at decision time", async () => {
@@ -404,8 +404,8 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     const json = (await response.json()) as {
       results: Array<{ success: boolean; error?: string }>;
     };
-    expect(json.results[0].success).toBe(false);
-    expect(json.results[0].error).toContain("NOT_REGISTERED");
+    expect(json.results[0]!.success).toBe(false);
+    expect(json.results[0]!.error).toContain("NOT_REGISTERED");
     expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
   });
 

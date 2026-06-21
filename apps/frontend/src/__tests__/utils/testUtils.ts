@@ -177,6 +177,7 @@ export type MockMembership = {
   removalNotes: string | null;
   petitionVoteCount: number | null;
   petitionPrimaryDate: Date | null;
+  petitionSeatNumber: number | null;
 };
 
 export const createMockMembership = (
@@ -205,6 +206,7 @@ export const createMockMembership = (
   removalNotes: null,
   petitionVoteCount: null,
   petitionPrimaryDate: null,
+  petitionSeatNumber: null,
   ...overrides,
 });
 

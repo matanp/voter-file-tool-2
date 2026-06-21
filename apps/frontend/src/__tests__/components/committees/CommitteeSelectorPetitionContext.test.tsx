@@ -85,7 +85,7 @@ describe("CommitteeSelector petition context link-out (SRS 4.4)", () => {
               unassignedCount: 0,
             },
           }),
-        } as Response;
+        } as unknown as Response;
       }
       if (url.startsWith("/api/fetchCommitteeList/")) {
         return {
@@ -100,7 +100,7 @@ describe("CommitteeSelector petition context link-out (SRS 4.4)", () => {
             seats: [{ seatNumber: 1, isPetitioned: true, weight: 0.5 }],
             designationWeightSummary: null,
           }),
-        } as Response;
+        } as unknown as Response;
       }
       if (url.startsWith("/api/admin/petition-outcomes?")) {
         return {
@@ -118,14 +118,14 @@ describe("CommitteeSelector petition context link-out (SRS 4.4)", () => {
               petitionVoteCount: 6,
             },
           ],
-        } as Response;
+        } as unknown as Response;
       }
       return {
         ok: true,
         status: 200,
         headers: { get: () => "application/json" },
         json: async () => [],
-      } as Response;
+      } as unknown as Response;
     }) as jest.Mock;
   });
 
