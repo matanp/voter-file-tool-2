@@ -82,6 +82,9 @@ enum DiscrepancyResolution {
   REJECTED
 }
 
+// NOTE: Auth identity emails (User, PrivilegedUser, Invite) are stored lowercase/trimmed per
+// prisma/migrations/20260704233000_canonicalize_auth_emails/migration.sql. Application code
+// must normalize on write; do not rely on case-insensitive DB collation.
 model User {
   id             String          @id @default(cuid())
   name           String?
@@ -181,6 +184,9 @@ model Invite {
 
 // SRS 3.1 — Pending jurisdiction scope captured when a Leader is invited.
 // Applied as UserJurisdiction rows when the invitee accepts via POST /api/auth/invite/[token]/apply (see lib/applyPendingInvite.ts).
+// NOTE: A partial unique index (WHERE legDistrict IS NULL) exists in
+// prisma/migrations/20260621120000_add_invite_jurisdiction/migration.sql
+// but is not reflected here — Prisma does not support partial indexes.
 model InviteJurisdiction {
   id          String        @id @default(cuid())
   inviteId    String
@@ -471,6 +477,9 @@ model CommitteeMembership {
   @@index([committeeListId, termId, petitionSeatNumber])
 }
 
+// NOTE: A partial unique index (WHERE status = 'PENDING') on (membershipId, reason)
+// exists in prisma/migrations/20260221103000_fix_eligibility_flag_pending_uniqueness/migration.sql
+// but is not reflected here — Prisma does not support partial indexes.
 model EligibilityFlag {
   id              String                @id @default(cuid())
   membershipId    String
@@ -622,6 +631,9 @@ enum EligibilityFlagStatus {
   RESOLVED_BY_RESCAN
 }
 
+// NOTE: A partial unique index on ((true)) enforcing a singleton row exists in
+// prisma/migrations/20260218213513_committee_governance_config_singleton/migration.sql
+// but is not reflected here — Prisma does not support partial indexes.
 model CommitteeGovernanceConfig {
   id                                 String              @id @default(cuid())
   requiredPartyCode                  String
