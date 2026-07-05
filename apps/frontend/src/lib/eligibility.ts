@@ -5,7 +5,7 @@
  * see docs/SRS/tickets/2.2-warning-system.md and SRS_IMPLEMENTATION_INACTIVE_VOTER_WARNING.md.
  */
 
-import type { IneligibilityReason } from "@prisma/client";
+import type { CommitteeGovernanceConfig, IneligibilityReason } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import {
   getGovernanceConfig,
@@ -33,9 +33,15 @@ export interface EligibilityWarning {
   metadata?: Record<string, unknown>;
 }
 
+export type ValidateEligibilityPrefetched = {
+  config?: CommitteeGovernanceConfig;
+  activeMemberCount?: number;
+};
+
 export type ValidateEligibilityOptions = {
   forceAdd?: boolean;
   overrideReason?: string;
+  prefetched?: ValidateEligibilityPrefetched;
 };
 
 export type ValidateEligibilityResult = {
@@ -62,7 +68,8 @@ export async function validateEligibility(
   termId: string,
   options?: ValidateEligibilityOptions,
 ): Promise<ValidateEligibilityResult> {
-  const config = await getGovernanceConfig();
+  const config =
+    options?.prefetched?.config ?? (await getGovernanceConfig());
   const hardStops: IneligibilityReason[] = [];
   const warnings: EligibilityWarning[] = [];
 
@@ -188,9 +195,16 @@ export async function validateEligibility(
   }
 
   // 4. CAPACITY
-  if (
-    await isCommitteeAtCapacity(committeeListId, termId, config.maxSeatsPerLted)
-  ) {
+  const prefetchedActiveMemberCount = options?.prefetched?.activeMemberCount;
+  const atCapacity =
+    prefetchedActiveMemberCount !== undefined
+      ? prefetchedActiveMemberCount >= config.maxSeatsPerLted
+      : await isCommitteeAtCapacity(
+          committeeListId,
+          termId,
+          config.maxSeatsPerLted,
+        );
+  if (atCapacity) {
     hardStops.push("CAPACITY");
   }
 

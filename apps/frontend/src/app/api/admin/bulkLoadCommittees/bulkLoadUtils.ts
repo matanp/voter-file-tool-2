@@ -9,6 +9,7 @@ import {
   findDiscrepancies,
 } from "../../lib/utils";
 import {
+  ACTIVE_MEMBERSHIP_STATUS,
   getActiveTerm,
   getGovernanceConfig,
   isActiveMembershipPerTermConflict,
@@ -282,7 +283,7 @@ export async function loadCommitteeLists(
         where: {
           voterRecordId: { in: importedVoterIds },
           termId: activeTermId,
-          status: "ACTIVE",
+          status: ACTIVE_MEMBERSHIP_STATUS,
         },
         select: {
           voterRecordId: true,
@@ -374,7 +375,7 @@ export async function loadCommitteeLists(
         where: {
           committeeListId: committee.id,
           termId: activeTermId,
-          status: "ACTIVE",
+          status: ACTIVE_MEMBERSHIP_STATUS,
         },
         select: {
           id: true,
@@ -437,7 +438,7 @@ export async function loadCommitteeLists(
             "MEMBER_REMOVED",
             "CommitteeMembership",
             membership.id,
-            { status: "ACTIVE" },
+            { status: ACTIVE_MEMBERSHIP_STATUS },
             { status: "REMOVED", removalReason: "OTHER" },
             mergeAuditMetadata(
               {
@@ -499,7 +500,7 @@ export async function loadCommitteeLists(
         });
 
         let seatNumber = existingMembership?.seatNumber ?? null;
-        if (!(existingMembership?.status === "ACTIVE" && seatNumber !== null)) {
+        if (!(existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS && seatNumber !== null)) {
           seatNumber = await assignNextAvailableSeat(committee.id, activeTermId, {
             tx,
             maxSeats: config.maxSeatsPerLted,
@@ -511,7 +512,7 @@ export async function loadCommitteeLists(
             await tx.committeeMembership.update({
               where: { id: existingMembership.id },
               data: {
-                status: "ACTIVE",
+                status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: existingMembership.activatedAt ?? new Date(),
                 membershipType: existingMembership.membershipType ?? "APPOINTED",
                 seatNumber,
@@ -550,7 +551,7 @@ export async function loadCommitteeLists(
             existingMembership.id,
             { status: existingMembership.status },
             {
-              status: "ACTIVE",
+              status: ACTIVE_MEMBERSHIP_STATUS,
               membershipType: existingMembership.membershipType ?? "APPOINTED",
               seatNumber,
             },
@@ -571,7 +572,7 @@ export async function loadCommitteeLists(
                 voterRecordId,
                 committeeListId: committee.id,
                 termId: activeTermId,
-                status: "ACTIVE",
+                status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: new Date(),
                 membershipType: "APPOINTED",
                 seatNumber,
@@ -598,7 +599,7 @@ export async function loadCommitteeLists(
             "CommitteeMembership",
             createdMembership.id,
             null,
-            { status: "ACTIVE", membershipType: "APPOINTED", seatNumber },
+            { status: ACTIVE_MEMBERSHIP_STATUS, membershipType: "APPOINTED", seatNumber },
             mergeAuditMetadata(
               {
                 source: "bulk_import_sync",

@@ -6,6 +6,7 @@ import { committeeDataSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
+  ACTIVE_MEMBERSHIP_STATUS,
   getActiveTermId,
   getGovernanceConfig,
   isActiveMembershipPerTermConflict,
@@ -186,7 +187,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         },
       });
 
-      if (existingMembership?.status === "ACTIVE") {
+      if (existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS) {
         return { kind: "idempotent" } as const;
       }
 
@@ -229,7 +230,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         await tx.committeeMembership.update({
           where: { id: existingMembership.id },
           data: {
-            status: "ACTIVE",
+            status: ACTIVE_MEMBERSHIP_STATUS,
             activatedAt: new Date(),
             membershipType,
             seatNumber,
@@ -263,7 +264,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           "CommitteeMembership",
           existingMembership.id,
           { status: existingMembership.status },
-          { status: "ACTIVE", seatNumber },
+          { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
           auditMetadataWithSubject,
           tx,
         );
@@ -273,7 +274,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             voterRecordId: memberId,
             committeeListId: committee.id,
             termId: activeTermId,
-            status: "ACTIVE",
+            status: ACTIVE_MEMBERSHIP_STATUS,
             activatedAt: new Date(),
             membershipType,
             seatNumber,
@@ -296,7 +297,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           "CommitteeMembership",
           newMembership.id,
           null,
-          { status: "ACTIVE", seatNumber },
+          { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
           auditMetadataWithSubject,
           tx,
         );

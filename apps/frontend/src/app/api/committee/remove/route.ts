@@ -9,7 +9,7 @@ import { PrivilegeLevel, type RemovalReason } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import { ACTIVE_MEMBERSHIP_STATUS, getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -84,7 +84,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       );
     }
 
-    if (membership.status !== "ACTIVE") {
+    if (membership.status !== ACTIVE_MEMBERSHIP_STATUS) {
       return NextResponse.json(
         {
           status: "error",
@@ -150,7 +150,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
           "CommitteeMembership",
           membership.id,
           {
-            status: "ACTIVE",
+            status: ACTIVE_MEMBERSHIP_STATUS,
             ...(membership.seatNumber != null
               ? { seatNumber: membership.seatNumber }
               : {}),
@@ -194,7 +194,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         "CommitteeMembership",
         membership.id,
         {
-          status: "ACTIVE",
+          status: ACTIVE_MEMBERSHIP_STATUS,
           ...(membership.seatNumber != null
             ? { seatNumber: membership.seatNumber }
             : {}),

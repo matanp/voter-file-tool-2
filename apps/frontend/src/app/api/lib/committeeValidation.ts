@@ -3,7 +3,7 @@
  */
 
 import prisma from "~/lib/prisma";
-import { PrivilegeLevel, Prisma } from "@prisma/client";
+import { PrivilegeLevel, Prisma, MembershipStatus } from "@prisma/client";
 import type { ErrorResponse } from "@voter-file-tool/shared-validators";
 import type {
   CommitteeGovernanceConfig,
@@ -48,14 +48,23 @@ export async function getGovernanceConfig(): Promise<CommitteeGovernanceConfig> 
   return config;
 }
 
+type CommitteeTermClient = Pick<typeof prisma, "committeeTerm">;
+
+/** Returns the active CommitteeTerm, or null if none is marked active. */
+export async function findActiveTerm(
+  client: CommitteeTermClient = prisma,
+): Promise<CommitteeTerm | null> {
+  return client.committeeTerm.findFirst({ where: { isActive: true } });
+}
+
 /**
  * Fetch the active CommitteeTerm (SRS §5.1).
  * Throws if no active term exists.
  */
-export async function getActiveTerm(): Promise<CommitteeTerm> {
-  const term: CommitteeTerm | null = await prisma.committeeTerm.findFirst({
-    where: { isActive: true },
-  });
+export async function getActiveTerm(
+  client: CommitteeTermClient = prisma,
+): Promise<CommitteeTerm> {
+  const term = await findActiveTerm(client);
   if (!term) throw new Error("No active CommitteeTerm — create one in Admin > Terms");
   return term;
 }
@@ -66,7 +75,7 @@ export async function getActiveTermId(): Promise<string> {
   return term.id;
 }
 
-const ACTIVE_STATUS = "ACTIVE" as const;
+export const ACTIVE_MEMBERSHIP_STATUS = MembershipStatus.ACTIVE;
 
 export type CommitteeMembershipClient = Pick<typeof prisma, "committeeMembership">;
 
@@ -77,7 +86,7 @@ export async function countActiveMembers(
   client: CommitteeMembershipClient = prisma,
 ): Promise<number> {
   return client.committeeMembership.count({
-    where: { committeeListId, termId, status: ACTIVE_STATUS },
+    where: { committeeListId, termId, status: ACTIVE_MEMBERSHIP_STATUS },
   });
 }
 
@@ -105,7 +114,7 @@ export async function isVoterActiveInAnotherCommittee(
     where: {
       voterRecordId,
       termId,
-      status: ACTIVE_STATUS,
+      status: ACTIVE_MEMBERSHIP_STATUS,
       NOT: { committeeListId: targetCommitteeListId },
     },
     select: { id: true },

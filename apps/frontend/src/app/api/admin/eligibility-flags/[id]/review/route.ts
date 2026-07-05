@@ -6,6 +6,7 @@ import {
 } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { reviewEligibilityFlagSchema } from "~/lib/validations/eligibilityFlags";
+import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 import prisma from "~/lib/prisma";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -200,7 +201,7 @@ async function reviewEligibilityFlagHandler(
         };
       }
 
-      if (flag.membership.status !== "ACTIVE") {
+      if (flag.membership.status !== ACTIVE_MEMBERSHIP_STATUS) {
         return {
           kind: "membershipNotActive" as const,
           membershipStatus: flag.membership.status,
@@ -236,7 +237,7 @@ async function reviewEligibilityFlagHandler(
         "CommitteeMembership",
         flag.membership.id,
         {
-          status: "ACTIVE",
+          status: ACTIVE_MEMBERSHIP_STATUS,
           ...(flag.membership.seatNumber != null
             ? { seatNumber: flag.membership.seatNumber }
             : {}),

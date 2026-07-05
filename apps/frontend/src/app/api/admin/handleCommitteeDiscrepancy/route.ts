@@ -8,6 +8,7 @@ import prisma from "~/lib/prisma";
 import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import {
+  ACTIVE_MEMBERSHIP_STATUS,
   ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
   getGovernanceConfig,
   isActiveMembershipPerTermConflict,
@@ -142,7 +143,7 @@ async function handleCommitteeDiscrepancyHandler(
           },
         });
 
-        if (existingMembership?.status === "ACTIVE") {
+        if (existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS) {
           resolutionMetadata.membershipOutcome = "none";
         } else {
           if (
@@ -190,7 +191,7 @@ async function handleCommitteeDiscrepancyHandler(
             const updatedMembership = await tx.committeeMembership.update({
               where: { id: existingMembership.id },
               data: {
-                status: "ACTIVE",
+                status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: new Date(),
                 membershipType: existingMembership.membershipType ?? "APPOINTED",
                 seatNumber,
@@ -219,7 +220,7 @@ async function handleCommitteeDiscrepancyHandler(
               "CommitteeMembership",
               updatedMembership.id,
               { status: existingMembership.status },
-              { status: "ACTIVE", seatNumber },
+              { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
               mergeAuditMetadata(
                 {
                   source: "discrepancy_accept",
@@ -242,7 +243,7 @@ async function handleCommitteeDiscrepancyHandler(
                 voterRecordId: VRCNUM,
                 committeeListId: discrepancy.committee.id,
                 termId: discrepancy.committee.termId,
-                status: "ACTIVE",
+                status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: new Date(),
                 membershipType: "APPOINTED",
                 seatNumber,
@@ -260,7 +261,7 @@ async function handleCommitteeDiscrepancyHandler(
               "CommitteeMembership",
               createdMembership.id,
               null,
-              { status: "ACTIVE", seatNumber },
+              { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
               mergeAuditMetadata(
                 {
                   source: "discrepancy_accept",

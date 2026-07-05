@@ -1,11 +1,8 @@
-import prisma from "~/lib/prisma";
+import { findActiveTerm } from "~/app/api/lib/committeeValidation";
 import { EligibilityFlagsTable } from "./EligibilityFlagsTable";
 
 export default async function EligibilityFlagsPage() {
-  const activeTerm = await prisma.committeeTerm.findFirst({
-    where: { isActive: true },
-    select: { id: true, label: true },
-  });
+  const activeTerm = await findActiveTerm();
 
   return (
     <div className="w-full p-6 space-y-6">

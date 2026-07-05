@@ -10,6 +10,7 @@ import {
   type PrivilegeLevel,
 } from "@prisma/client";
 import {
+  ACTIVE_MEMBERSHIP_STATUS,
   countActiveMembers,
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
@@ -138,7 +139,7 @@ export async function confirmSubmittedMembership(
       },
     });
 
-    if (!replacementTarget || replacementTarget.status !== "ACTIVE") {
+    if (!replacementTarget || replacementTarget.status !== ACTIVE_MEMBERSHIP_STATUS) {
       return { kind: "replacementTargetInvalid" };
     }
 
@@ -207,7 +208,7 @@ export async function confirmSubmittedMembership(
       "MEMBER_REMOVED",
       "CommitteeMembership",
       replacementTarget.id,
-      { status: "ACTIVE" },
+      { status: ACTIVE_MEMBERSHIP_STATUS },
       { status: "REMOVED", removalReason: "OTHER" },
       mergeAuditMetadata(
         {
@@ -247,7 +248,7 @@ export async function confirmSubmittedMembership(
   await tx.committeeMembership.update({
     where: { id: membershipId },
     data: {
-      status: "ACTIVE",
+      status: ACTIVE_MEMBERSHIP_STATUS,
       confirmedAt: now,
       activatedAt: now,
       meetingRecordId,
@@ -269,7 +270,7 @@ export async function confirmSubmittedMembership(
     meetingRecordId,
   };
   const activatedSnapshot = {
-    status: "ACTIVE" as const,
+    status: ACTIVE_MEMBERSHIP_STATUS,
     membershipType,
     seatNumber,
     confirmedAt: now.toISOString(),

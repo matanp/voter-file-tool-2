@@ -8,7 +8,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { getActiveTermId, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
+import { ACTIVE_MEMBERSHIP_STATUS, getActiveTermId, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
 import {
   recordPetitionOutcomeSchema,
   type RecordPetitionOutcomeData,
@@ -173,7 +173,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
 
       for (const c of candidates) {
         const status = statusForOutcome(c.outcome);
-        const isWinner = status === "ACTIVE";
+        const isWinner = status === ACTIVE_MEMBERSHIP_STATUS;
         const finalSeatNumber = isWinner ? seatNumber : null;
         const activatedAt = isWinner ? new Date() : null;
         const outcome = auditOutcomeFor(c.outcome);
@@ -250,7 +250,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             activated: isWinner,
             exclusionReason,
           });
-          if (isWinner && beforeStatus !== "ACTIVE") {
+          if (isWinner && beforeStatus !== ACTIVE_MEMBERSHIP_STATUS) {
             await logAuditEvent(
               userId,
               userRole,
@@ -258,7 +258,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               "CommitteeMembership",
               existing.id,
               { status: beforeStatus },
-              { status: "ACTIVE", seatNumber: finalSeatNumber },
+              { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber: finalSeatNumber },
               mergeAuditMetadata(
                 {
                   source: "petition_outcome",
@@ -324,7 +324,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               "CommitteeMembership",
               created.id,
               null,
-              { status: "ACTIVE", seatNumber: finalSeatNumber },
+              { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber: finalSeatNumber },
               mergeAuditMetadata(
                 {
                   source: "petition_outcome",

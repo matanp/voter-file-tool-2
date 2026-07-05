@@ -2,6 +2,7 @@ import type { InviteJurisdiction, Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { authEmailsEqual } from "@voter-file-tool/shared-validators";
+import { findActiveTerm } from "~/app/api/lib/committeeValidation";
 import {
   withPrivilege,
   type SessionWithUser,
@@ -32,10 +33,7 @@ async function assertInviteScopeUsesActiveTerm(
 ) {
   if (jurisdictions.length === 0) return;
 
-  const activeTerm = await tx.committeeTerm.findFirst({
-    where: { isActive: true },
-    select: { id: true },
-  });
+  const activeTerm = await findActiveTerm(tx);
   if (!activeTerm) {
     throw new StaleInviteScopeError();
   }

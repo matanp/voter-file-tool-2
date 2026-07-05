@@ -4,9 +4,7 @@
 
 import { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
-import { getGovernanceConfig } from "./committeeValidation";
-
-const ACTIVE_STATUS = "ACTIVE";
+import { getGovernanceConfig, ACTIVE_MEMBERSHIP_STATUS } from "./committeeValidation";
 type SeatUtilsClient = Pick<
   typeof prisma,
   "seat" | "committeeMembership" | "committeeGovernanceConfig" | "committeeList"
@@ -95,7 +93,7 @@ export async function assignNextAvailableSeat(
     where: {
       committeeListId,
       termId,
-      status: ACTIVE_STATUS,
+      status: ACTIVE_MEMBERSHIP_STATUS,
       seatNumber: { not: null },
     },
     select: { seatNumber: true },

@@ -73,6 +73,8 @@ describe("/api/committee/eligibility", () => {
     expect(data.snapshot.committee.activeMemberCount).toBe(2);
     expect(data.snapshot.committee.maxSeatsPerLted).toBe(4);
     expect(data.snapshot.warningState).toBe("NONE");
+    expect(getMembershipMock(prismaMock).count).toHaveBeenCalledTimes(1);
+    expect(prismaMock.committeeGovernanceConfig.findFirst).toHaveBeenCalledTimes(1);
   });
 
   it("returns warning preflight payload for eligible voter with non-blocking warning", async () => {
@@ -117,5 +119,7 @@ describe("/api/committee/eligibility", () => {
     expect(data.warnings[0]?.code).toBe("POSSIBLY_INACTIVE");
     expect(data.snapshot.warningState).toBe("HAS_WARNINGS");
     expect(data.snapshot.committee.activeMemberCount).toBe(1);
+    expect(getMembershipMock(prismaMock).count).toHaveBeenCalledTimes(1);
+    expect(prismaMock.committeeGovernanceConfig.findFirst).toHaveBeenCalledTimes(1);
   });
 });
