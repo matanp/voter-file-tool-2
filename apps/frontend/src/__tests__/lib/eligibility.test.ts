@@ -93,6 +93,23 @@ describe("validateEligibility", () => {
       expect(result.eligible).toBe(false);
       expect(result.hardStops).toContain("PARTY_MISMATCH");
     });
+
+    it("does not return PARTY_MISMATCH when party matches after trim", async () => {
+      setupVoter({ party: " DEM ", stateAssmblyDistrict: "1" });
+      setupCommitteeList();
+      setupCrosswalk("1");
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 1,
+      });
+
+      const result = await validateEligibility(voterId, committeeListId, termId);
+
+      expect(result.eligible).toBe(true);
+      expect(result.hardStops).not.toContain("PARTY_MISMATCH");
+    });
   });
 
   describe("ASSEMBLY_DISTRICT_MISMATCH", () => {
@@ -134,6 +151,23 @@ describe("validateEligibility", () => {
       expect(result.hardStops).not.toContain("ASSEMBLY_DISTRICT_MISMATCH");
       expect(prismaMock.committeeList.findUnique).not.toHaveBeenCalled();
       expect(prismaMock.ltedDistrictCrosswalk.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("does not return ASSEMBLY_DISTRICT_MISMATCH when AD matches after trim", async () => {
+      setupVoter({ party: "DEM", stateAssmblyDistrict: " 1 " });
+      setupCommitteeList();
+      setupCrosswalk("1");
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
+        latestRecordEntryYear: 2024,
+        latestRecordEntryNumber: 1,
+      });
+
+      const result = await validateEligibility(voterId, committeeListId, termId);
+
+      expect(result.eligible).toBe(true);
+      expect(result.hardStops).not.toContain("ASSEMBLY_DISTRICT_MISMATCH");
     });
   });
 

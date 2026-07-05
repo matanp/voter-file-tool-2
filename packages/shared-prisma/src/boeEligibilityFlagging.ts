@@ -6,6 +6,12 @@ import {
   type PrismaClient,
 } from "@prisma/client";
 
+import {
+  isAssemblyDistrictMismatch,
+  isPartyMismatch,
+  normalizeEligibilityText,
+} from "./eligibilityPredicates";
+
 export type MostRecentImportVersion = {
   year: number;
   recordEntryNumber: number;
@@ -88,10 +94,6 @@ function buildRescanResolvedDetails(
   return merged as Prisma.InputJsonValue;
 }
 
-function normalizeText(value: string | null | undefined): string {
-  return (value ?? "").trim();
-}
-
 function jsonValueKey(value: unknown): string {
   return JSON.stringify(value);
 }
@@ -165,9 +167,9 @@ function detectFlagsForMembership(
     return detected;
   }
 
-  const voterParty = normalizeText(voter.party);
-  const requiredParty = normalizeText(context.requiredPartyCode);
-  if (voterParty !== requiredParty) {
+  const voterParty = normalizeEligibilityText(voter.party);
+  const requiredParty = normalizeEligibilityText(context.requiredPartyCode);
+  if (isPartyMismatch(voter.party, context.requiredPartyCode)) {
     detected.push({
       reason: "PARTY_MISMATCH",
       details: {
@@ -183,10 +185,18 @@ function detectFlagsForMembership(
       membership.committeeList.legDistrict,
       membership.committeeList.electionDistrict,
     );
-    const expected = normalizeText(context.crosswalkByKey.get(key)?.stateAssemblyDistrict);
-    const actual = normalizeText(voter.stateAssmblyDistrict);
+    const expectedAssemblyDistrict =
+      context.crosswalkByKey.get(key)?.stateAssemblyDistrict;
+    const expected = normalizeEligibilityText(expectedAssemblyDistrict);
+    const actual = normalizeEligibilityText(voter.stateAssmblyDistrict);
 
-    if (!expected || expected !== actual) {
+    if (
+      isAssemblyDistrictMismatch(
+        voter.stateAssmblyDistrict,
+        expectedAssemblyDistrict,
+        context.requireAssemblyDistrictMatch,
+      )
+    ) {
       detected.push({
         reason: "ASSEMBLY_DISTRICT_MISMATCH",
         details: {

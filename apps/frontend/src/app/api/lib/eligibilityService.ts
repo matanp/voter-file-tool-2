@@ -7,6 +7,9 @@
 
 export {
   getMostRecentImportVersion,
+  isAssemblyDistrictMismatch,
+  isPartyMismatch,
   isVoterPossiblyInactive,
+  normalizeEligibilityText,
   type MostRecentImportVersion,
 } from "@voter-file-tool/shared-prisma";

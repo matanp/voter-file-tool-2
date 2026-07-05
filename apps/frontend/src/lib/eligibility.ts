@@ -10,6 +10,8 @@ import prisma from "~/lib/prisma";
 import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
 import {
   getMostRecentImportVersion,
+  isAssemblyDistrictMismatch,
+  isPartyMismatch,
   isVoterPossiblyInactive,
 } from "~/app/api/lib/eligibilityService";
 
@@ -138,7 +140,7 @@ export async function validateEligibility(
   }
 
   // 2. PARTY_MISMATCH
-  if ((voter.party ?? "").trim() !== (config.requiredPartyCode ?? "").trim()) {
+  if (isPartyMismatch(voter.party, config.requiredPartyCode)) {
     hardStops.push("PARTY_MISMATCH");
   }
 
@@ -169,11 +171,13 @@ export async function validateEligibility(
         select: { stateAssemblyDistrict: true },
       });
 
-      const voterAd = (voter.stateAssmblyDistrict ?? "").toString().trim();
-      const ltedAd =
-        crosswalk?.stateAssemblyDistrict?.toString().trim() ?? "";
-
-      if (!crosswalk || voterAd !== ltedAd) {
+      if (
+        isAssemblyDistrictMismatch(
+          voter.stateAssmblyDistrict,
+          crosswalk?.stateAssemblyDistrict,
+          config.requireAssemblyDistrictMatch,
+        )
+      ) {
         hardStops.push("ASSEMBLY_DISTRICT_MISMATCH");
       }
     }

@@ -140,7 +140,16 @@ describe("runBoeEligibilityFlagging", () => {
     expect(db.eligibilityFlag.createMany).toHaveBeenCalledTimes(1);
     expect(db.eligibilityFlag.updateMany).not.toHaveBeenCalled();
     const createManyArgs = getMockCallArgs(db.eligibilityFlag.createMany)[0] as {
-      data: Array<{ reason: string; sourceReportId?: string }>;
+      data: Array<{
+        reason: string;
+        sourceReportId?: string;
+        details?: {
+          expectedPartyCode?: string;
+          voterPartyCode?: string;
+          expectedAssemblyDistrict?: string | null;
+          voterAssemblyDistrict?: string | null;
+        };
+      }>;
     };
     expect(createManyArgs.data).toHaveLength(4);
     expect(createManyArgs.data.map((row) => row.reason).sort()).toEqual([
@@ -154,6 +163,90 @@ describe("runBoeEligibilityFlagging", () => {
         (row) => row.sourceReportId === "cm1234567890abcdef123456",
       ),
     ).toBe(true);
+
+    const partyFlag = createManyArgs.data.find(
+      (row) => row.reason === "PARTY_MISMATCH",
+    );
+    expect(partyFlag?.details).toEqual({
+      expectedPartyCode: "DEM",
+      voterPartyCode: "REP",
+    });
+
+    const adFlag = createManyArgs.data.find(
+      (row) => row.reason === "ASSEMBLY_DISTRICT_MISMATCH",
+    );
+    expect(adFlag?.details).toEqual({
+      expectedAssemblyDistrict: "2",
+      voterAssemblyDistrict: "99",
+    });
+  });
+
+  it("normalizes whitespace in party and AD flag details", async () => {
+    const db = createDbMock();
+    db.committeeGovernanceConfig.findFirst.mockResolvedValue({
+      requiredPartyCode: "DEM",
+      requireAssemblyDistrictMatch: true,
+    });
+    db.voterRecord.findFirst.mockResolvedValue({
+      latestRecordEntryYear: 2026,
+      latestRecordEntryNumber: 10,
+    });
+    db.committeeMembership.findMany.mockResolvedValue([
+      {
+        id: "m-whitespace",
+        committeeListId: 1,
+        voterRecordId: "V1",
+        committeeList: { cityTown: "A", legDistrict: 1, electionDistrict: 1 },
+        voterRecord: {
+          party: " REP ",
+          stateAssmblyDistrict: " 2 ",
+          latestRecordEntryYear: 2026,
+          latestRecordEntryNumber: 10,
+        },
+      },
+    ]);
+    db.ltedDistrictCrosswalk.findMany.mockResolvedValue([
+      {
+        cityTown: "A",
+        legDistrict: 1,
+        electionDistrict: 1,
+        stateAssemblyDistrict: " 1 ",
+      },
+    ]);
+    db.eligibilityFlag.findMany.mockResolvedValue([]);
+    db.eligibilityFlag.createMany.mockResolvedValue({ count: 2 });
+
+    await runBoeEligibilityFlagging(db as unknown as PrismaClient, {
+      termId: "term-1",
+    });
+
+    const createManyArgs = getMockCallArgs(db.eligibilityFlag.createMany)[0] as {
+      data: Array<{
+        reason: string;
+        details?: {
+          expectedPartyCode?: string;
+          voterPartyCode?: string;
+          expectedAssemblyDistrict?: string | null;
+          voterAssemblyDistrict?: string | null;
+        };
+      }>;
+    };
+
+    const partyFlag = createManyArgs.data.find(
+      (row) => row.reason === "PARTY_MISMATCH",
+    );
+    expect(partyFlag?.details).toEqual({
+      expectedPartyCode: "DEM",
+      voterPartyCode: "REP",
+    });
+
+    const adFlag = createManyArgs.data.find(
+      (row) => row.reason === "ASSEMBLY_DISTRICT_MISMATCH",
+    );
+    expect(adFlag?.details).toEqual({
+      expectedAssemblyDistrict: "1",
+      voterAssemblyDistrict: "2",
+    });
   });
 
   it("does not create duplicate pending flags for the same membership + reason", async () => {

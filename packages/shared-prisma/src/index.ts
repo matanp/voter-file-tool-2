@@ -53,3 +53,9 @@ export {
   type BoeEligibilityFlaggingRunInput,
   type BoeEligibilityFlaggingRunResult,
 } from './boeEligibilityFlagging';
+
+export {
+  normalizeEligibilityText,
+  isPartyMismatch,
+  isAssemblyDistrictMismatch,
+} from './eligibilityPredicates';
