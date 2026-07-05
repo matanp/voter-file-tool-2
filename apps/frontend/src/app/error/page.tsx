@@ -29,7 +29,13 @@ function ErrorPage() {
         <h1 className="text-2xl font-bold">Something went wrong!</h1>
       </CardHeader>
       <CardContent>
-        <p>{error ? `Error: ${error}` : "An unknown error occurred."}</p>
+        <p>
+          {error === "Configuration" || error === "AccessDenied"
+            ? "Sign-in could not be completed. If you were accepting an invitation, try again or contact an administrator."
+            : error
+              ? `Error: ${error}`
+              : "An unknown error occurred."}
+        </p>
       </CardContent>
       <CardFooter>
         <Button onClick={() => router.push("/")}>

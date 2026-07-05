@@ -17,6 +17,10 @@ import {
   withPrivilege,
   type SessionWithUser,
 } from "~/app/api/lib/withPrivilege";
+import {
+  formatJurisdictionNotFoundMessage,
+  jurisdictionExistsInCommitteeList,
+} from "~/app/api/lib/committeeValidation";
 
 async function postHandler(req: NextRequest, session: SessionWithUser) {
   let body: unknown;
@@ -84,6 +88,24 @@ async function postHandler(req: NextRequest, session: SessionWithUser) {
   if (existing) {
     return NextResponse.json(
       { success: false, error: "This jurisdiction is already assigned to the user" },
+      { status: 400 },
+    );
+  }
+
+  const committeeExists = await jurisdictionExistsInCommitteeList({
+    cityTown,
+    legDistrict: legDistrictForDb,
+    termId,
+  });
+  if (!committeeExists) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: formatJurisdictionNotFoundMessage(
+          { cityTown, legDistrict: legDistrictForDb },
+          "this term",
+        ),
+      },
       { status: 400 },
     );
   }

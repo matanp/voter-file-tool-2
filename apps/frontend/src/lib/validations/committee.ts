@@ -579,6 +579,24 @@ export const assignJurisdictionSchema = z
 
 export type AssignJurisdictionData = z.infer<typeof assignJurisdictionSchema>;
 
+// SRS 3.1 — A single jurisdiction captured at Leader invite time (no userId yet —
+// the user does not exist until they accept the invite and sign in for the first time).
+export const inviteJurisdictionSchema = z
+  .object({
+    cityTown: z.string().trim().min(1, "cityTown is required"),
+    legDistrict: z.coerce
+      .number()
+      .int()
+      .optional()
+      .refine((val) => val === undefined || val > 0, {
+        message: "Legislative District must be a positive integer when provided",
+      }),
+    termId: z.string().trim().min(1, "termId is required"),
+  })
+  .strict();
+
+export type InviteJurisdictionData = z.infer<typeof inviteJurisdictionSchema>;
+
 // SRS 3.1 — List jurisdictions query (GET ?userId=&termId=). Requires at least one filter.
 export const listJurisdictionsQuerySchema = z
   .object({

@@ -117,6 +117,48 @@ export async function getUserJurisdictions(
 /** Minimal shape used for jurisdiction scope matching (cityTown + legDistrict). */
 export type JurisdictionScope = Pick<UserJurisdiction, "cityTown" | "legDistrict">;
 
+/** cityTown + legDistrict + termId for CommitteeList existence checks. */
+export type JurisdictionPairInput = {
+  cityTown: string;
+  legDistrict: number | null;
+  termId: string;
+};
+
+/** Formats a user-facing error when no CommitteeList row matches the scope. */
+export function formatJurisdictionNotFoundMessage(
+  input: Pick<JurisdictionPairInput, "cityTown" | "legDistrict">,
+  termLabel: "active term" | "this term" = "this term",
+): string {
+  const scope =
+    input.legDistrict != null
+      ? `${input.cityTown} LD ${input.legDistrict}`
+      : `${input.cityTown} (all districts)`;
+  return `No committee found for ${scope} in the ${termLabel}`;
+}
+
+/**
+ * Returns true when the jurisdiction scope matches at least one CommitteeList
+ * row for the term. legDistrict null means "all districts" — any row in that
+ * cityTown for the term satisfies the check.
+ */
+export async function jurisdictionExistsInCommitteeList(
+  input: JurisdictionPairInput,
+): Promise<boolean> {
+  const where =
+    input.legDistrict === null
+      ? { cityTown: input.cityTown, termId: input.termId }
+      : {
+          cityTown: input.cityTown,
+          legDistrict: input.legDistrict,
+          termId: input.termId,
+        };
+  const row = await prisma.committeeList.findFirst({
+    where,
+    select: { id: true },
+  });
+  return row !== null;
+}
+
 /**
  * SRS 3.1 — Returns true if (cityTown, legDistrict) is allowed by the given jurisdictions.
  * legDistrict in list: null means "all districts" for that cityTown.

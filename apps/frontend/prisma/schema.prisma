@@ -148,6 +148,11 @@ model VerificationToken {
   @@id([identifier, token])
 }
 
+// NOTE: A partial unique index (WHERE usedAt IS NULL AND deleted = false) exists in
+// prisma/migrations/20260704180000_invite_pending_email_unique/migration.sql
+// but is not reflected here — Prisma 5.15 does not support partial indexes.
+// TODO: After upgrading Prisma to a version with partial index support, express
+// this constraint in schema and drop the manual migration-only index.
 model Invite {
   id             String         @id @default(cuid())
   email          String
@@ -160,6 +165,26 @@ model Invite {
   createdAt      DateTime       @default(now())
   deleted        Boolean        @default(false)
   deletedAt      DateTime?
+
+  // SRS 3.1 — Jurisdiction scope captured at Leader invite time, applied on first sign-in.
+  jurisdictions  InviteJurisdiction[]
+}
+
+// SRS 3.1 — Pending jurisdiction scope captured when a Leader is invited.
+// Applied to the new user as UserJurisdiction rows on first sign-in (see auth.ts createUser event).
+model InviteJurisdiction {
+  id          String        @id @default(cuid())
+  inviteId    String
+  invite      Invite        @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  cityTown    String
+  legDistrict Int?          // null = all leg districts in cityTown
+  termId      String
+  term        CommitteeTerm @relation(fields: [termId], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now())
+
+  @@unique([inviteId, cityTown, legDistrict, termId])
+  @@index([inviteId])
+  @@index([termId])
 }
 
 // Optional for WebAuthn support
@@ -299,6 +324,7 @@ model CommitteeTerm {
   memberships      CommitteeMembership[]
   seats            Seat[]
   userJurisdictions UserJurisdiction[]
+  inviteJurisdictions InviteJurisdiction[]
 }
 
 // SRS 3.1 — Leader jurisdiction scope (cityTown + optional legDistrict per term).

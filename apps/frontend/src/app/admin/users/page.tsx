@@ -27,6 +27,12 @@ export type JurisdictionMeta = {
   legDistrictsByCity: Record<string, number[]>;
 };
 
+export type TermOption = {
+  id: string;
+  label: string;
+  isActive: boolean;
+};
+
 export default async function AdminUsersPage() {
   return (
     <AuthCheck privilegeLevel={PrivilegeLevel.Admin}>
@@ -45,6 +51,14 @@ async function AdminUsersContent() {
 
   let users: UserWithJurisdictions[] = [];
   let jurisdictionMeta: JurisdictionMeta | null = null;
+
+  // Terms are listed for display labels; Leader invite scope is pinned to the active term.
+  const terms: TermOption[] = (
+    await prisma.committeeTerm.findMany({
+      orderBy: { startDate: "desc" },
+      select: { id: true, label: true, isActive: true },
+    })
+  ).map((t) => ({ id: t.id, label: t.label, isActive: t.isActive }));
 
   if (activeTermId != null) {
     const [fetchedUsers, committeeLists] = await Promise.all([
@@ -126,6 +140,7 @@ async function AdminUsersContent() {
         activeTermId={activeTermId}
         users={users}
         jurisdictionMeta={jurisdictionMeta}
+        terms={terms}
       />
     </div>
   );

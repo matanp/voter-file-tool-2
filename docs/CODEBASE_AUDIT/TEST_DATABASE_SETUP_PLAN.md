@@ -264,6 +264,12 @@ When CI is added:
 
 ---
 
+## Related use cases (same infra)
+
+Once the test DB and Jest integration config exist, the same pattern applies to frontend signup rollback tests. See [INVITE_GRANT_ROLLBACK_INTEGRATION_TEST.md](../INVITE_GRANT_ROLLBACK_INTEGRATION_TEST.md) for a planned `applyPendingInvite` / adapter transaction test (Leader invite jurisdiction grant).
+
+---
+
 ## Review Comments (February 2025)
 
 ### Gaps to Address

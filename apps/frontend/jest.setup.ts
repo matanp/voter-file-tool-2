@@ -83,10 +83,53 @@ jest.mock("next/server", () => ({
         "content-type": "application/json",
         ...(init?.headers ?? {}),
       });
+      const cookieJar = new Map<
+        string,
+        { value: string; httpOnly?: boolean; sameSite?: string; maxAge?: number }
+      >();
+
       return {
         status,
         ok: status >= 200 && status < 300,
         headers,
+        cookies: {
+          set(
+            name: string,
+            value: string,
+            options?: {
+              httpOnly?: boolean;
+              sameSite?: string;
+              maxAge?: number;
+              path?: string;
+              secure?: boolean;
+            },
+          ) {
+            cookieJar.set(name, {
+              value,
+              httpOnly: options?.httpOnly,
+              sameSite: options?.sameSite,
+              maxAge: options?.maxAge,
+            });
+            const parts = [
+              `${name}=${value}`,
+              `Path=${options?.path ?? "/"}`,
+            ];
+            if (options?.httpOnly) parts.push("HttpOnly");
+            if (options?.sameSite) parts.push(`SameSite=${options.sameSite}`);
+            if (options?.maxAge != null) parts.push(`Max-Age=${String(options.maxAge)}`);
+            if (options?.secure) parts.push("Secure");
+            headers.append("Set-Cookie", parts.join("; "));
+          },
+          get(name: string) {
+            const entry = cookieJar.get(name);
+            if (!entry) return undefined;
+            return {
+              name,
+              value: entry.value,
+              httpOnly: entry.httpOnly ?? false,
+            };
+          },
+        },
         json: async () => data,
         text: async () => JSON.stringify(data),
       };

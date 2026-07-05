@@ -24,6 +24,7 @@ const userJurisdictionMock = prismaMock.userJurisdiction as {
   findMany: jest.Mock;
   create: jest.Mock;
 };
+const committeeListMock = prismaMock.committeeList as { findFirst: jest.Mock };
 
 describe("POST /api/admin/jurisdictions", () => {
   beforeEach(() => {
@@ -51,6 +52,7 @@ describe("POST /api/admin/jurisdictions", () => {
       createdById: "admin-1",
     });
     getAuditLogMock(prismaMock).create.mockResolvedValue({});
+    committeeListMock.findFirst.mockResolvedValue({ id: 1 });
   });
 
   it("creates jurisdiction and returns 201", async () => {
@@ -178,6 +180,36 @@ describe("POST /api/admin/jurisdictions", () => {
       createMockRequest({ userId: "leader-1" /* missing cityTown, termId */ }),
     );
     await expectErrorResponse(response, 422, "Invalid request data");
+  });
+
+  it("returns 400 when cityTown/legDistrict is not in CommitteeList for the term", async () => {
+    committeeListMock.findFirst.mockResolvedValue(null);
+    const body = {
+      userId: "leader-1",
+      cityTown: "FakeTown",
+      legDistrict: 99,
+      termId: DEFAULT_ACTIVE_TERM_ID,
+    };
+    const response = await POST(createMockRequest(body));
+    expect(response.status).toBe(400);
+    const data = await parseJsonResponse<{ success: false; error: string }>(response);
+    expect(data.error).toContain("No committee found");
+    expect(userJurisdictionMock.create).not.toHaveBeenCalled();
+    expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+  });
+
+  it("accepts all-districts scope when any committee exists for the town", async () => {
+    const body = {
+      userId: "leader-1",
+      cityTown: "Brighton",
+      termId: DEFAULT_ACTIVE_TERM_ID,
+    };
+    const response = await POST(createMockRequest(body));
+    expect(response.status).toBe(201);
+    expect(committeeListMock.findFirst).toHaveBeenCalledWith({
+      where: { cityTown: "Brighton", termId: DEFAULT_ACTIVE_TERM_ID },
+      select: { id: true },
+    });
   });
 });
 

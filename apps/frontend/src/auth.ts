@@ -3,12 +3,19 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import prisma from "~/lib/prisma";
 import { PrivilegeLevel } from "@prisma/client";
+import { findValidUnusedInvite } from "~/lib/applyPendingInvite";
+
+type AuthAdapter = ReturnType<typeof PrismaAdapter>;
+
+const baseAdapter = PrismaAdapter(prisma);
+const adapter: AuthAdapter = baseAdapter;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter,
   callbacks: {
     async session({ session, user }) {
       session.privilegeLevel = user.privilegeLevel;
+      session.user.privilegeLevel = user.privilegeLevel;
       return session;
     },
     async signIn({ user }) {
@@ -30,16 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         // Fall back to invite system
-        const validInvite = await prisma.invite.findFirst({
-          where: {
-            email: user.email,
-            usedAt: null,
-            deleted: false,
-            expiresAt: {
-              gt: new Date(),
-            },
-          },
-        });
+        const validInvite = await findValidUnusedInvite(user.email);
 
         // Only allow new user creation if they have a valid invite
         if (!validInvite) {
@@ -49,29 +47,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return true;
       }
 
-      // For existing users, just sync their privilege level from PrivilegedUser table
+      // For existing users, sync privilege level from PrivilegedUser table
       try {
         const privileged = await prisma.privilegedUser.findUnique({
           where: { email: user.email },
         });
 
-        if (privileged && user.privilegeLevel !== privileged.privilegeLevel) {
+        if (
+          privileged &&
+          existingUser.privilegeLevel !== privileged.privilegeLevel
+        ) {
           await prisma.user.update({
             where: { id: existingUser.id },
             data: { privilegeLevel: privileged.privilegeLevel },
           });
-
-          user.privilegeLevel = privileged.privilegeLevel; // update in memory object so the correct privilege level is maintained even before the next call to the db
         }
 
-        if (!privileged && user.privilegeLevel !== PrivilegeLevel.ReadAccess) {
+        if (
+          !privileged &&
+          existingUser.privilegeLevel !== PrivilegeLevel.ReadAccess
+        ) {
           await prisma.user.update({
             where: { id: existingUser.id },
             data: { privilegeLevel: PrivilegeLevel.ReadAccess },
           });
-
-          user.privilegeLevel = PrivilegeLevel.ReadAccess;
         }
+
+        user.privilegeLevel =
+          privileged?.privilegeLevel ?? PrivilegeLevel.ReadAccess;
       } catch (error) {
         console.error("Error updating user privileges:", error);
       }
@@ -81,56 +84,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   events: {
     async createUser({ user }) {
-      if (!user.email) return;
+      if (!user.email || !user.id) return;
 
       try {
-        // Check if user was created via invite by looking for a valid invite
-        const validInvite = await prisma.invite.findFirst({
-          where: {
-            email: user.email,
-            usedAt: null,
-            deleted: false,
-            expiresAt: {
-              gt: new Date(),
-            },
-          },
-        });
-
-        if (validInvite) {
-          console.log(
-            `Found valid invite for new user: ${user.email}, marking as used`,
-          );
-
-          // Mark invite as used first
-          await prisma.invite.update({
-            where: { id: validInvite.id },
-            data: {
-              usedAt: new Date(),
-            },
-          });
-
-          // Update user with invite's privilege level
-          await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              privilegeLevel: validInvite.privilegeLevel,
-            },
-          });
-
-          // Add user to PrivilegedUser table
-          await prisma.privilegedUser.create({
-            data: {
-              email: user.email,
-              privilegeLevel: validInvite.privilegeLevel,
-            },
-          });
-
-          // Update user object in memory
-          user.privilegeLevel = validInvite.privilegeLevel;
-          return;
-        }
-
-        // For non-invite users, check if they should have privileges
         const privilegedUser = await prisma.privilegedUser.findUnique({
           where: { email: user.email },
         });
