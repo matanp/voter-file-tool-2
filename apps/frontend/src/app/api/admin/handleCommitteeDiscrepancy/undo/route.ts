@@ -12,6 +12,7 @@ import {
 import {
   buildDecisionMetadata,
   compensatingAuditActionForStatus,
+  lockDiscrepancyForUpdate,
   membershipBeforeToUpdateData,
   membershipMatchesAfter,
   parseResolutionMetadata,
@@ -24,28 +25,6 @@ type UndoTxResult =
   | { kind: "not_found" }
   | { kind: "not_resolved" }
   | { kind: "membership_diverged" };
-
-/** Locks and re-reads a discrepancy row inside a transaction. */
-async function lockDiscrepancyForUpdate(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  vrcnum: string,
-) {
-  await tx.$queryRaw`
-    SELECT id
-    FROM "CommitteeUploadDiscrepancy"
-    WHERE "VRCNUM" = ${vrcnum}
-    FOR UPDATE
-  `;
-
-  return tx.committeeUploadDiscrepancy.findUnique({
-    where: { VRCNUM: vrcnum },
-    include: {
-      committee: {
-        include: { term: { select: { id: true, label: true } } },
-      },
-    },
-  });
-}
 
 async function undoCommitteeDiscrepancyHandler(
   req: NextRequest,

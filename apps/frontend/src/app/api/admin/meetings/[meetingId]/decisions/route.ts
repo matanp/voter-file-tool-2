@@ -9,7 +9,7 @@ import prisma from "~/lib/prisma";
 import { logAuditEvent } from "~/lib/auditLog";
 import { bulkDecisionSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
+import { ALREADY_IN_ANOTHER_COMMITTEE_ERROR, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
 import { ensureSeatsExist, assignNextAvailableSeat } from "~/app/api/lib/seatUtils";
 import { validateEligibility } from "~/lib/eligibility";
 import {
@@ -170,7 +170,7 @@ async function bulkDecisionsHandler(
                 membershipId,
                 decision,
                 success: false,
-                error: "Member is already in another committee",
+                error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
               });
               continue;
             }

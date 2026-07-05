@@ -13,14 +13,6 @@ export default async function PetitionOutcomesPage({
   searchParams,
 }: PetitionOutcomesPageProps) {
   const activeTermId = await getActiveTermId();
-  if (activeTermId == null) {
-    return (
-      <div className="w-full p-6">
-        <h1 className="text-2xl font-semibold mb-6">Petition & Primary Outcomes</h1>
-        <p className="text-muted-foreground">No active committee term is set. Configure an active term to manage petition outcomes.</p>
-      </div>
-    );
-  }
   const term = await prisma.committeeTerm.findUnique({
     where: { id: activeTermId },
     select: { id: true, label: true },

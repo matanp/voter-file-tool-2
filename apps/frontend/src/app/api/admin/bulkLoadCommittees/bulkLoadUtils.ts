@@ -9,7 +9,7 @@ import {
   findDiscrepancies,
 } from "../../lib/utils";
 import {
-  getActiveTermId,
+  getActiveTerm,
   getGovernanceConfig,
   isActiveMembershipPerTermConflict,
 } from "~/app/api/lib/committeeValidation";
@@ -69,6 +69,7 @@ type CommitteeIdentity = {
 type BulkLoadActor = {
   userId: string;
   userRole: PrivilegeLevel;
+  activeTermId?: string;
 };
 
 function formatCommitteeIdentity(committee: CommitteeIdentity): string {
@@ -120,9 +121,6 @@ export async function loadCommitteeLists(
   const fileBuffer = fs.readFileSync(filePath);
   const workbook: xlsx.WorkBook = xlsx.read(fileBuffer);
 
-  // const committeeExportSheet: xlsx.WorkSheet | undefined =
-  //   workbook.Sheets.Export_to_Excel;
-
   const committeeExportSheet: xlsx.WorkSheet | undefined =
     workbook.Sheets[workbook.SheetNames[0]!];
 
@@ -135,16 +133,22 @@ export async function loadCommitteeLists(
 
   const committeeExportData = unknownCommitteeData as Record<string, string>[];
 
-  const activeTermId = await getActiveTermId();
-  const config = await getGovernanceConfig();
-  const activeTerm = await prisma.committeeTerm.findUnique({
-    where: { id: activeTermId },
-    select: { id: true, label: true },
-  });
-
-  if (!activeTerm) {
-    throw new Error("Active term not found");
+  let activeTerm: { id: string; label: string };
+  if (actor.activeTermId != null) {
+    const term = await prisma.committeeTerm.findUnique({
+      where: { id: actor.activeTermId },
+      select: { id: true, label: true },
+    });
+    if (!term) {
+      throw new Error("Active term not found");
+    }
+    activeTerm = term;
+  } else {
+    const term = await getActiveTerm();
+    activeTerm = { id: term.id, label: term.label };
   }
+  const activeTermId = activeTerm.id;
+  const config = await getGovernanceConfig();
 
   let count = 0;
   let found = 0;
@@ -152,14 +156,6 @@ export async function loadCommitteeLists(
   const discrepanciesMap = new Map<string, DiscrepanciesAndCommittee>();
 
   for (const row of committeeExportData) {
-    // let city = row["LT Description"]?.includes("City")
-    //   ? "Rochester"
-    //   : row["LT Description"];
-
-    // city = city?.toUpperCase();
-
-    // const legDistrict = Number(row.LT);
-    // const electionDistrict = Number(row.ED);
     let city = row.Committee?.includes("LD ") ? "Rochester" : row.Committee;
 
     city = city?.toUpperCase();

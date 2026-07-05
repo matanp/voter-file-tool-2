@@ -64,9 +64,10 @@ async function createInviteHandler(req: NextRequest, session: Session) {
     const { email, privilegeLevel, customMessage, expiresInDays } = parsed;
     const jurisdictions = parsed.jurisdictions ?? [];
 
+    let activeTermId: string | undefined;
     if (privilegeLevel === PrivilegeLevel.Leader) {
       try {
-        await getActiveTermId();
+        activeTermId = await getActiveTermId();
       } catch {
         return NextResponse.json(
           {
@@ -109,14 +110,15 @@ async function createInviteHandler(req: NextRequest, session: Session) {
     // active-term city/LD options). Reject any jurisdiction targeting another
     // term until per-term scope is supported and validated against committee data.
     if (dedupedJurisdictions.length > 0) {
-      let activeTermId: string;
-      try {
-        activeTermId = await getActiveTermId();
-      } catch {
-        return NextResponse.json(
-          { error: "No active committee term is set" },
-          { status: 400 },
-        );
+      if (activeTermId == null) {
+        try {
+          activeTermId = await getActiveTermId();
+        } catch {
+          return NextResponse.json(
+            { error: "No active committee term is set" },
+            { status: 400 },
+          );
+        }
       }
       const offTermId = dedupedJurisdictions
         .map((j) => j.termId)

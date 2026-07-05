@@ -28,6 +28,7 @@ async function bulkLoadCommitteesHandler(
     const discrepanciesMap = await loadCommitteeLists({
       userId: session.user.id,
       userRole: session.user.privilegeLevel ?? PrivilegeLevel.Admin,
+      activeTermId,
     });
 
     await prisma.$transaction(async (tx) => {

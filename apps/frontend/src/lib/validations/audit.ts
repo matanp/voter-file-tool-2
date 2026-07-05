@@ -26,8 +26,8 @@ const coercePageSize = z.coerce.number().int().min(1).max(100).default(25);
 /** Query schema for GET /api/admin/audit (list). */
 export const auditListQuerySchema = z
   .object({
-    page: coercePage.default(1),
-    pageSize: coercePageSize.default(25),
+    page: coercePage,
+    pageSize: coercePageSize,
     action: z.nativeEnum(AuditAction).optional(),
     entityType: optionalNonEmptyString,
     userId: optionalNonEmptyString,

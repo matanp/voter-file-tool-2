@@ -208,3 +208,25 @@ export function parseResolutionMetadata(
 
   return value as ResolutionMetadata;
 }
+
+/** Locks and re-reads a discrepancy row inside a transaction. */
+export async function lockDiscrepancyForUpdate(
+  tx: Prisma.TransactionClient,
+  vrcnum: string,
+) {
+  await tx.$queryRaw`
+    SELECT id
+    FROM "CommitteeUploadDiscrepancy"
+    WHERE "VRCNUM" = ${vrcnum}
+    FOR UPDATE
+  `;
+
+  return tx.committeeUploadDiscrepancy.findUnique({
+    where: { VRCNUM: vrcnum },
+    include: {
+      committee: {
+        include: { term: { select: { id: true, label: true } } },
+      },
+    },
+  });
+}

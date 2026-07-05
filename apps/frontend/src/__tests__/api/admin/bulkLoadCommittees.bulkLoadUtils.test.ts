@@ -28,7 +28,7 @@ jest.mock("xlsx", () => ({
 }));
 
 jest.mock("~/app/api/lib/committeeValidation", () => ({
-  getActiveTermId: jest.fn(),
+  getActiveTerm: jest.fn(),
   getGovernanceConfig: jest.fn(),
 }));
 
@@ -40,7 +40,7 @@ jest.mock("~/app/api/lib/seatUtils", () => ({
 const readFileSyncMock = fs.readFileSync as jest.Mock;
 const readWorkbookMock = xlsx.read as jest.Mock;
 const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
-const getActiveTermIdMock = committeeValidation.getActiveTermId as jest.Mock;
+const getActiveTermMock = committeeValidation.getActiveTerm as jest.Mock;
 const getGovernanceConfigMock = committeeValidation.getGovernanceConfig as jest.Mock;
 const ensureSeatsExistMock = seatUtils.ensureSeatsExist as jest.Mock;
 const assignNextAvailableSeatMock = seatUtils.assignNextAvailableSeat as jest.Mock;
@@ -54,15 +54,14 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       SheetNames: ["Sheet1"],
       Sheets: { Sheet1: {} },
     });
-    getActiveTermIdMock.mockResolvedValue(DEFAULT_ACTIVE_TERM_ID);
+    getActiveTermMock.mockResolvedValue({
+      id: DEFAULT_ACTIVE_TERM_ID,
+      label: "2024–2026",
+    });
     getGovernanceConfigMock.mockResolvedValue({
       id: "mcdc-default",
       maxSeatsPerLted: 4,
     });
-    prismaMock.committeeTerm.findUnique.mockResolvedValue({
-      id: DEFAULT_ACTIVE_TERM_ID,
-      label: "2024–2026",
-    } as never);
     prismaMock.voterRecord.findMany.mockImplementation((args) => {
       const ids = (args?.where?.VRCNUM as { in?: string[] })?.in ?? [];
       return Promise.resolve(
