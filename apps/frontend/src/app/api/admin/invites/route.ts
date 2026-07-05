@@ -24,7 +24,7 @@ const createInviteSchema = z
       }),
     customMessage: z.string().optional(),
     expiresInDays: z.number().min(1).max(365).optional().default(7),
-    // SRS 3.1 — Jurisdiction scope for Leader invites, applied on first sign-in.
+    // SRS 3.1 — Jurisdiction scope for Leader invites, applied on invite acceptance (lib/applyPendingInvite.ts).
     jurisdictions: z.array(inviteJurisdictionSchema).optional(),
   })
   .superRefine((data, ctx) => {

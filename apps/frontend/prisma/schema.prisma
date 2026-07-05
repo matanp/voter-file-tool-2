@@ -166,12 +166,12 @@ model Invite {
   deleted        Boolean        @default(false)
   deletedAt      DateTime?
 
-  // SRS 3.1 — Jurisdiction scope captured at Leader invite time, applied on first sign-in.
+  // SRS 3.1 — Jurisdiction scope captured at Leader invite time, applied on invite acceptance.
   jurisdictions  InviteJurisdiction[]
 }
 
 // SRS 3.1 — Pending jurisdiction scope captured when a Leader is invited.
-// Applied to the new user as UserJurisdiction rows on first sign-in (see auth.ts createUser event).
+// Applied as UserJurisdiction rows when the invitee accepts via POST /api/auth/invite/[token]/apply (see lib/applyPendingInvite.ts).
 model InviteJurisdiction {
   id          String        @id @default(cuid())
   inviteId    String

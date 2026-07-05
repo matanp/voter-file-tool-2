@@ -262,6 +262,46 @@ This document tracks verification and remediation of audit findings. Updated as 
 
 ---
 
+## 30. Invite refactor — stale schema/route comments (2026-07-04)
+
+**Locations:** `apps/frontend/prisma/schema.prisma` (`Invite`, `InviteJurisdiction`), `apps/frontend/src/app/api/admin/invites/route.ts` (`createInviteSchema`)
+
+**Finding:** Comments still referenced first sign-in / `auth.ts` `createUser` event; invite consumption moved to `POST /api/auth/invite/[token]/apply` (`lib/applyPendingInvite.ts`).
+
+**Status:** ✅ **FIXED** — Comments updated to point at the apply route.
+
+---
+
+## 31. Invite apply failure — unreachable `grant-failed` access-denied branch (2026-07-04)
+
+**Location:** `apps/frontend/src/app/auth/access-denied/AccessDeniedContent.tsx` vs `apps/frontend/src/app/api/auth/invite/[token]/apply/route.ts`
+
+**Finding:** UI handles `?reason=grant-failed`, but apply failures return JSON only; nothing redirects with that query param.
+
+**Status:** ⏭️ **DEFERRED** — Low risk. Wire redirect on apply failure or remove the dead branch when touching that flow.
+
+---
+
+## 32. PrivilegedUser sign-in invariant — no explicit test (2026-07-04)
+
+**Location:** `apps/frontend/src/auth.ts` (`signIn` callback)
+
+**Finding:** Existing users not in `PrivilegedUser` are reset to `ReadAccess` on every sign-in. Seed/provisioning should always insert Developers/Admins into `PrivilegedUser`; no test asserts they survive sign-in.
+
+**Status:** ⏭️ **DEFERRED** — Confirm seed coverage; add sign-in test if provisioning gaps are found.
+
+---
+
+## 33. `validateReportJurisdictionAccess` skips check when `cityTown` absent (pre-existing)
+
+**Location:** `apps/frontend/src/app/api/lib/committeeValidation.ts`
+
+**Finding:** For non-admin jurisdiction scope, the match block is guarded by `&& input.cityTown`; missing `cityTown` returns granted. Defense-in-depth only if report routes always require `cityTown` when `scope === "jurisdiction"`.
+
+**Status:** ⏭️ **DEFERRED** — Verify report route schemas require `cityTown` for jurisdiction scope.
+
+---
+
 ## Summary
 
 | Category   | Fixed | Skipped/Deferred |
