@@ -10,6 +10,10 @@ import {
   type PrivilegeLevel,
 } from "@prisma/client";
 import {
+  countActiveMembers,
+  isVoterActiveInAnotherCommittee,
+} from "~/app/api/lib/committeeValidation";
+import {
   assignNextAvailableSeat,
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
@@ -107,17 +111,14 @@ export async function confirmSubmittedMembership(
   `;
 
   // SRS §7.1: Reject if voter is already ACTIVE in another committee.
-  const activeInAnotherCommittee = await tx.committeeMembership.findFirst({
-    where: {
-      voterRecordId: submittedMembership.voterRecordId,
-      committeeListId: { not: submittedMembership.committeeListId },
-      termId: submittedMembership.termId,
-      status: "ACTIVE",
-    },
-    select: { id: true },
-  });
-
-  if (activeInAnotherCommittee) {
+  if (
+    await isVoterActiveInAnotherCommittee(
+      submittedMembership.voterRecordId,
+      submittedMembership.committeeListId,
+      submittedMembership.termId,
+      tx,
+    )
+  ) {
     return { kind: "anotherCommittee" };
   }
 
@@ -146,13 +147,11 @@ export async function confirmSubmittedMembership(
     }
   }
 
-  const activeCount = await tx.committeeMembership.count({
-    where: {
-      committeeListId: submittedMembership.committeeListId,
-      termId: submittedMembership.termId,
-      status: "ACTIVE",
-    },
-  });
+  const activeCount = await countActiveMembers(
+    submittedMembership.committeeListId,
+    submittedMembership.termId,
+    tx,
+  );
 
   const effectiveActiveCount = activeCount - (replacementTarget ? 1 : 0);
 

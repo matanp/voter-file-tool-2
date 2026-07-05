@@ -11,6 +11,8 @@ import {
   ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
   getGovernanceConfig,
   isActiveMembershipPerTermConflict,
+  isCommitteeAtCapacity,
+  isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
@@ -143,29 +145,25 @@ async function handleCommitteeDiscrepancyHandler(
         if (existingMembership?.status === "ACTIVE") {
           resolutionMetadata.membershipOutcome = "none";
         } else {
-          const activeInAnotherCommittee = await tx.committeeMembership.findFirst({
-            where: {
-              voterRecordId: VRCNUM,
-              committeeListId: { not: discrepancy.committee.id },
-              termId: discrepancy.committee.termId,
-              status: "ACTIVE",
-            },
-            select: { id: true },
-          });
-
-          if (activeInAnotherCommittee) {
+          if (
+            await isVoterActiveInAnotherCommittee(
+              VRCNUM,
+              discrepancy.committee.id,
+              discrepancy.committee.termId,
+              tx,
+            )
+          ) {
             return { kind: "anotherCommittee" as const };
           }
 
-          const activeCount = await tx.committeeMembership.count({
-            where: {
-              committeeListId: discrepancy.committee.id,
-              termId: discrepancy.committee.termId,
-              status: "ACTIVE",
-            },
-          });
-
-          if (activeCount >= config!.maxSeatsPerLted) {
+          if (
+            await isCommitteeAtCapacity(
+              discrepancy.committee.id,
+              discrepancy.committee.termId,
+              config!.maxSeatsPerLted,
+              tx,
+            )
+          ) {
             return { kind: "atCapacity" as const };
           }
 

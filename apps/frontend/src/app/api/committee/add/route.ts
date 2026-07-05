@@ -9,6 +9,8 @@ import {
   getActiveTermId,
   getGovernanceConfig,
   isActiveMembershipPerTermConflict,
+  isCommitteeAtCapacity,
+  isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
@@ -189,29 +191,26 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
       }
 
       // SRS §7.1: Reject if voter is already ACTIVE in another committee for this term
-      const activeInAnotherCommittee = await tx.committeeMembership.findFirst({
-        where: {
-          voterRecordId: memberId,
-          termId: activeTermId,
-          status: "ACTIVE",
-          NOT: { committeeListId: committee.id },
-        },
-        select: { id: true },
-      });
-
-      if (activeInAnotherCommittee) {
+      if (
+        await isVoterActiveInAnotherCommittee(
+          memberId,
+          committee.id,
+          activeTermId,
+          tx,
+        )
+      ) {
         return { kind: "anotherCommittee" } as const;
       }
 
       // SRS §7.1: Capacity check — count ACTIVE CommitteeMembership records for this committee+term
-      const activeCount = await tx.committeeMembership.count({
-        where: {
-          committeeListId: committee.id,
-          termId: activeTermId,
-          status: "ACTIVE",
-        },
-      });
-      if (activeCount >= config.maxSeatsPerLted) {
+      if (
+        await isCommitteeAtCapacity(
+          committee.id,
+          activeTermId,
+          config.maxSeatsPerLted,
+          tx,
+        )
+      ) {
         return { kind: "atCapacity" } as const;
       }
 

@@ -7,7 +7,11 @@
 
 import type { IneligibilityReason } from "@prisma/client";
 import prisma from "~/lib/prisma";
-import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
+import {
+  getGovernanceConfig,
+  isCommitteeAtCapacity,
+  isVoterActiveInAnotherCommittee,
+} from "~/app/api/lib/committeeValidation";
 import {
   getMostRecentImportVersion,
   isAssemblyDistrictMismatch,
@@ -184,28 +188,20 @@ export async function validateEligibility(
   }
 
   // 4. CAPACITY
-  const activeCount = await prisma.committeeMembership.count({
-    where: {
-      committeeListId,
-      termId,
-      status: "ACTIVE",
-    },
-  });
-  if (activeCount >= config.maxSeatsPerLted) {
+  if (
+    await isCommitteeAtCapacity(committeeListId, termId, config.maxSeatsPerLted)
+  ) {
     hardStops.push("CAPACITY");
   }
 
   // 5. ALREADY_IN_ANOTHER_COMMITTEE
-  const activeInOther = await prisma.committeeMembership.findFirst({
-    where: {
+  if (
+    await isVoterActiveInAnotherCommittee(
       voterRecordId,
+      committeeListId,
       termId,
-      status: "ACTIVE",
-      NOT: { committeeListId },
-    },
-    select: { id: true },
-  });
-  if (activeInOther) {
+    )
+  ) {
     hardStops.push("ALREADY_IN_ANOTHER_COMMITTEE");
   }
 

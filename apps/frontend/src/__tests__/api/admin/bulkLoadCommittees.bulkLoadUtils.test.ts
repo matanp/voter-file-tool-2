@@ -27,10 +27,16 @@ jest.mock("xlsx", () => ({
   },
 }));
 
-jest.mock("~/app/api/lib/committeeValidation", () => ({
-  getActiveTerm: jest.fn(),
-  getGovernanceConfig: jest.fn(),
-}));
+jest.mock("~/app/api/lib/committeeValidation", () => {
+  const actual = jest.requireActual<
+    typeof import("~/app/api/lib/committeeValidation")
+  >("~/app/api/lib/committeeValidation");
+  return {
+    ...actual,
+    getActiveTerm: jest.fn(),
+    getGovernanceConfig: jest.fn(),
+  };
+});
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
   ensureSeatsExist: jest.fn(),
@@ -62,6 +68,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       id: "mcdc-default",
       maxSeatsPerLted: 4,
     });
+    getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
     prismaMock.voterRecord.findMany.mockImplementation((args) => {
       const ids = (args?.where?.VRCNUM as { in?: string[] })?.in ?? [];
       return Promise.resolve(

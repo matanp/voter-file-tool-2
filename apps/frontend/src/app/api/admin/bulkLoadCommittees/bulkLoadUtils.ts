@@ -12,6 +12,7 @@ import {
   getActiveTerm,
   getGovernanceConfig,
   isActiveMembershipPerTermConflict,
+  isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
@@ -468,17 +469,14 @@ export async function loadCommitteeLists(
           continue;
         }
 
-        const currentlyActiveElsewhere = await tx.committeeMembership.findFirst({
-          where: {
+        if (
+          await isVoterActiveInAnotherCommittee(
             voterRecordId,
-            termId: activeTermId,
-            status: "ACTIVE",
-            committeeListId: { not: committee.id },
-          },
-          select: { id: true },
-        });
-
-        if (currentlyActiveElsewhere) {
+            committee.id,
+            activeTermId,
+            tx,
+          )
+        ) {
           ensureImportDiscrepancy(
             discrepanciesMap,
             voterRecordId,

@@ -8,7 +8,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import prisma from "~/lib/prisma";
-import { getActiveTermId, getGovernanceConfig } from "~/app/api/lib/committeeValidation";
+import {
+  countActiveMembers,
+  getActiveTermId,
+  getGovernanceConfig,
+} from "~/app/api/lib/committeeValidation";
 import { validateEligibility } from "~/lib/eligibility";
 import type { Session } from "next-auth";
 
@@ -72,13 +76,7 @@ async function eligibilityHandler(req: NextRequest, _session: Session) {
         },
       }),
       getGovernanceConfig(),
-      prisma.committeeMembership.count({
-        where: {
-          committeeListId,
-          termId: activeTermId,
-          status: "ACTIVE",
-        },
-      }),
+      countActiveMembers(committeeListId, activeTermId),
     ]);
 
     const voterName = [voter?.firstName, voter?.lastName]

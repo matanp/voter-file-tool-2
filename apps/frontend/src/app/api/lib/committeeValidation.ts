@@ -66,6 +66,53 @@ export async function getActiveTermId(): Promise<string> {
   return term.id;
 }
 
+const ACTIVE_STATUS = "ACTIVE" as const;
+
+export type CommitteeMembershipClient = Pick<typeof prisma, "committeeMembership">;
+
+/** Counts ACTIVE memberships for a committee+term (SRS §7.1 capacity). */
+export async function countActiveMembers(
+  committeeListId: number,
+  termId: string,
+  client: CommitteeMembershipClient = prisma,
+): Promise<number> {
+  return client.committeeMembership.count({
+    where: { committeeListId, termId, status: ACTIVE_STATUS },
+  });
+}
+
+/** True when activeCount >= maxSeatsPerLted for the committee+term. */
+export async function isCommitteeAtCapacity(
+  committeeListId: number,
+  termId: string,
+  maxSeatsPerLted: number,
+  client: CommitteeMembershipClient = prisma,
+): Promise<boolean> {
+  const activeCount = await countActiveMembers(committeeListId, termId, client);
+  return activeCount >= maxSeatsPerLted;
+}
+
+/**
+ * SRS §7.1 — True if voter has an ACTIVE membership in another committee for the term.
+ */
+export async function isVoterActiveInAnotherCommittee(
+  voterRecordId: string,
+  targetCommitteeListId: number,
+  termId: string,
+  client: CommitteeMembershipClient = prisma,
+): Promise<boolean> {
+  const existing = await client.committeeMembership.findFirst({
+    where: {
+      voterRecordId,
+      termId,
+      status: ACTIVE_STATUS,
+      NOT: { committeeListId: targetCommitteeListId },
+    },
+    select: { id: true },
+  });
+  return existing != null;
+}
+
 /**
  * SRS 3.1 — Returns jurisdictions for a user in a term, or null if no scope restriction.
  * Admin/Developer: null (no restriction). Leader: UserJurisdiction[] for that user+term.
