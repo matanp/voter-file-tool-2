@@ -5,6 +5,7 @@
  * 500 when session missing user.id (Gap 1), HMAC/gzip request format (Gap 2).
  */
 import { POST } from "~/app/api/generateReport/route";
+import type { ErrorResponse } from "@voter-file-tool/shared-validators";
 import { PrivilegeLevel, JobStatus } from "@prisma/client";
 import {
   createMockRequest,
@@ -251,6 +252,29 @@ describe("/api/generateReport", () => {
       expect(response.status).toBe(403);
       const json = await parseJsonResponse<ErrorResponseBody>(response);
       expect(json.error).toContain("cannot generate countywide");
+      expect(prismaMock.report.create).not.toHaveBeenCalled();
+    });
+
+    it("should return 400 when jurisdiction scope is missing cityTown", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "admin-1", privilegeLevel: PrivilegeLevel.Admin },
+        }),
+      );
+      mockHasPermission(true);
+
+      const request = createMockRequest({
+        type: "vacancyReport",
+        name: "Vacancy Report",
+        format: "pdf",
+        scope: "jurisdiction",
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      const json = await parseJsonResponse<ErrorResponse>(response);
+      expect(JSON.stringify(json.issues ?? json)).toContain("cityTown");
       expect(prismaMock.report.create).not.toHaveBeenCalled();
     });
 

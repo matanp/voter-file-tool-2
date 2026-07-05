@@ -26,5 +26,8 @@ export * from './constants';
 // Export report type mappings
 export * from './reportTypeMapping';
 
+// Export scope report registry
+export * from './scopeReportRegistry';
+
 // Re-export commonly used Zod utilities
 export { z } from 'zod';

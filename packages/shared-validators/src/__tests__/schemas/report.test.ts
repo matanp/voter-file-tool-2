@@ -204,6 +204,51 @@ describe('generateReportSchema - changesReport', () => {
   });
 });
 
+describe('generateReportSchema - scope jurisdiction validation', () => {
+  it('rejects jurisdiction scope without cityTown for signInSheet', () => {
+    const invalid = {
+      type: 'signInSheet',
+      name: 'Test',
+      format: 'pdf',
+      scope: 'jurisdiction',
+    };
+
+    expect(() => generateReportSchema.parse(invalid)).toThrow(/cityTown is required/);
+  });
+
+  it('rejects jurisdiction scope with empty cityTown for vacancyReport', () => {
+    const invalid = {
+      type: 'vacancyReport',
+      name: 'Test',
+      format: 'pdf',
+      scope: 'jurisdiction',
+      cityTown: '   ',
+    };
+
+    expect(() => generateReportSchema.parse(invalid)).toThrow(/cityTown is required/);
+  });
+});
+
+describe('enrichedReportDataSchema', () => {
+  it('enriches generateReport variants with reportAuthor and jobId', () => {
+    const valid = {
+      type: 'signInSheet',
+      name: 'Test',
+      format: 'pdf',
+      scope: 'countywide',
+      reportAuthor: 'Jane Doe',
+      jobId: 'clxxxxxxxxxxxxxxxxxxxxxxxxx',
+    };
+
+    const result = enrichedReportDataSchema.parse(valid);
+    expect(result).toMatchObject({
+      type: 'signInSheet',
+      reportAuthor: 'Jane Doe',
+      jobId: 'clxxxxxxxxxxxxxxxxxxxxxxxxx',
+    });
+  });
+});
+
 describe('isScopedReportData', () => {
   it.each([
     ['committeeRoster', { type: 'committeeRoster', name: 'Test', format: 'pdf', scope: 'countywide' }],

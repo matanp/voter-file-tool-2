@@ -12,6 +12,10 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
+import {
+  SCOPE_REPORT_UI,
+  SCOPE_REPORT_UI_ORDER,
+} from "~/components/reports/scopeReportUiRegistry";
 
 interface ReportType {
   title: string;
@@ -19,20 +23,10 @@ interface ReportType {
   href: string;
   enabled: boolean;
   note?: string;
-  // Minimum privilege the report page enforces. Cards the user cannot access are
-  // hidden entirely rather than shown as a dead-end link.
   minPrivilege?: PrivilegeLevel;
 }
 
-const baseReportTypes: ReportType[] = [
-  {
-    title: "Committee Roster",
-    description:
-      "Generate current committee roster reports (jurisdiction-scoped for leaders).",
-    href: "/committee-roster-reports",
-    enabled: true,
-    minPrivilege: PrivilegeLevel.Leader,
-  },
+const NON_SCOPE_REPORT_TYPES: ReportType[] = [
   {
     title: "Voter List",
     description: "Export voter list from Record Search results",
@@ -47,44 +41,18 @@ const baseReportTypes: ReportType[] = [
     href: "/petitions",
     enabled: true,
   },
-  {
-    title: "Sign-In Sheet",
-    description:
-      "Generate sign-in sheets for committee meetings with member names and signature lines.",
-    href: "/sign-in-sheet-reports",
-    enabled: true,
-    minPrivilege: PrivilegeLevel.Leader,
-  },
-  {
-    title: "Designation Weight Summary",
-    description:
-      "Committee-by-committee breakdown of seat weights, occupancy, and total designation weight.",
-    href: "/weight-summary-reports",
-    enabled: true,
-    minPrivilege: PrivilegeLevel.Leader,
-  },
-  {
-    title: "Vacancy Report",
-    description: "Committee vacancies with optional filters",
-    href: "/vacancy-reports",
-    enabled: true,
-    minPrivilege: PrivilegeLevel.Leader,
-  },
-  {
-    title: "Changes Report",
-    description: "Membership changes over a date range",
-    href: "/changes-reports",
-    enabled: true,
-    minPrivilege: PrivilegeLevel.Leader,
-  },
-  {
-    title: "Petition Outcomes",
-    description: "Petition results by committee and seat",
-    href: "/petition-outcomes-reports",
-    enabled: true,
-    minPrivilege: PrivilegeLevel.Leader,
-  },
 ];
+
+const scopedReportTypes: ReportType[] = SCOPE_REPORT_UI_ORDER.map((type) => {
+  const ui = SCOPE_REPORT_UI[type];
+  return {
+    title: ui.gridTitle,
+    description: ui.gridDescription,
+    href: ui.href,
+    enabled: true,
+    minPrivilege: ui.minPrivilege,
+  };
+});
 
 export default function GenerateReportGrid() {
   const { actingPermissions } = useContext(GlobalContext);
@@ -95,7 +63,8 @@ export default function GenerateReportGrid() {
   );
 
   const reportTypes: ReportType[] = [
-    ...baseReportTypes,
+    ...scopedReportTypes,
+    ...NON_SCOPE_REPORT_TYPES,
     ...(isAdminUser
       ? [
           {
@@ -109,8 +78,6 @@ export default function GenerateReportGrid() {
       : []),
   ];
 
-  // Hide report types the user cannot access; the remaining cards branch on
-  // `enabled` so a not-yet-built report can still show as a "Coming soon" teaser.
   const visibleReportTypes = reportTypes.filter(
     (report) =>
       !report.minPrivilege ||
@@ -148,7 +115,11 @@ export default function GenerateReportGrid() {
               <CardHeader className="p-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   {report.title}
-                  <Badge variant="outline" hoverable={false} className="text-[10px] px-1.5 py-0">
+                  <Badge
+                    variant="outline"
+                    hoverable={false}
+                    className="text-[10px] px-1.5 py-0"
+                  >
                     Coming soon
                   </Badge>
                 </CardTitle>

@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PrivilegeLevel } from "@prisma/client";
-import { CommitteeRosterReportForm } from "~/app/committee-roster-reports/CommitteeRosterReportForm";
+import { ScopedReportForm } from "~/components/reports/ScopedReportForm";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 
@@ -85,7 +85,8 @@ function renderWithPermissions(actingPermissions: PrivilegeLevel) {
         setActingPermissions: jest.fn(),
       }}
     >
-      <CommitteeRosterReportForm
+      <ScopedReportForm
+        type="committeeRoster"
         committeeLists={committeeLists}
         userPrivilegeLevel={actingPermissions}
       />
@@ -93,7 +94,7 @@ function renderWithPermissions(actingPermissions: PrivilegeLevel) {
   );
 }
 
-describe("CommitteeRosterReportForm", () => {
+describe("ScopedReportForm (committeeRoster)", () => {
   beforeEach(() => {
     mutateMock.mockClear();
     jest.mocked(hasPermissionFor).mockImplementation((user, required) => {

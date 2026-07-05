@@ -89,11 +89,27 @@ export const baseApiSchema = z.object({
 });
 
 // Shared scope fields used by multiple report types
-const scopeFieldsSchema = z.object({
+const scopeFieldsBase = z.object({
   scope: z.enum(['jurisdiction', 'countywide']),
   cityTown: z.string().optional(),
   legDistrict: z.number().optional(),
 });
+
+const scopeFieldsRefinement = (
+  data: z.infer<typeof scopeFieldsBase>,
+  ctx: z.RefinementCtx,
+) => {
+  if (
+    data.scope === 'jurisdiction' &&
+    (data.cityTown == null || data.cityTown.trim() === '')
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'cityTown is required when scope is jurisdiction',
+      path: ['cityTown'],
+    });
+  }
+};
 
 // Individual report type schemas
 const designatedPetitionReportSchema = z.object({
@@ -130,11 +146,57 @@ const committeeRosterReportSchema = z.object({
   ...baseApiSchema.shape,
   name: z.string(),
   format: z.enum(['pdf', 'xlsx']),
-  ...scopeFieldsSchema.shape,
-  // Optional field to specify which VoterRecord fields to include
+  ...scopeFieldsBase.shape,
   includeFields: z.array(z.string()).optional().default([]),
-  // XLSX-specific configuration (only applies when format is 'xlsx')
   xlsxConfig: xlsxConfigSchema,
+});
+
+const signInSheetReportSchema = z.object({
+  type: z.literal('signInSheet'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.literal('pdf'),
+  ...scopeFieldsBase.shape,
+  meetingDate: z.string().optional(),
+});
+
+const designationWeightSummaryReportSchema = z.object({
+  type: z.literal('designationWeightSummary'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  ...scopeFieldsBase.shape,
+});
+
+const vacancyReportSchema = z.object({
+  type: z.literal('vacancyReport'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  ...scopeFieldsBase.shape,
+  vacancyFilter: z.enum(['all', 'vacantOnly']).default('vacantOnly'),
+});
+
+const changesReportSchema = z.object({
+  type: z.literal('changesReport'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  ...scopeFieldsBase.shape,
+  dateFrom: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected ISO date YYYY-MM-DD'),
+  dateTo: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected ISO date YYYY-MM-DD'),
+});
+
+const petitionOutcomesReportSchema = z.object({
+  type: z.literal('petitionOutcomesReport'),
+  ...baseApiSchema.shape,
+  name: z.string(),
+  format: z.enum(['pdf', 'xlsx']),
+  ...scopeFieldsBase.shape,
 });
 
 const voterListReportSchema = z.object({
@@ -170,50 +232,6 @@ const voterImportReportSchema = z.object({
     .min(1, 'Record entry number must be at least 1'),
 });
 
-const signInSheetReportSchema = z.object({
-  type: z.literal('signInSheet'),
-  ...baseApiSchema.shape,
-  name: z.string(),
-  format: z.literal('pdf'),
-  ...scopeFieldsSchema.shape,
-  meetingDate: z.string().optional(),
-});
-
-const designationWeightSummaryReportSchema = z.object({
-  type: z.literal('designationWeightSummary'),
-  ...baseApiSchema.shape,
-  name: z.string(),
-  format: z.enum(['pdf', 'xlsx']),
-  ...scopeFieldsSchema.shape,
-});
-
-const vacancyReportSchema = z.object({
-  type: z.literal('vacancyReport'),
-  ...baseApiSchema.shape,
-  name: z.string(),
-  format: z.enum(['pdf', 'xlsx']),
-  ...scopeFieldsSchema.shape,
-  vacancyFilter: z.enum(['all', 'vacantOnly']).default('vacantOnly'),
-});
-
-const changesReportSchema = z.object({
-  type: z.literal('changesReport'),
-  ...baseApiSchema.shape,
-  name: z.string(),
-  format: z.enum(['pdf', 'xlsx']),
-  ...scopeFieldsSchema.shape,
-  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected ISO date YYYY-MM-DD'),
-  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected ISO date YYYY-MM-DD'),
-});
-
-const petitionOutcomesReportSchema = z.object({
-  type: z.literal('petitionOutcomesReport'),
-  ...baseApiSchema.shape,
-  name: z.string(),
-  format: z.enum(['pdf', 'xlsx']),
-  ...scopeFieldsSchema.shape,
-});
-
 // Internal worker job schema (2.8). Not exposed in generateReportSchema.
 const boeEligibilityFlaggingReportSchema = z.object({
   type: z.literal('boeEligibilityFlagging'),
@@ -224,7 +242,7 @@ const boeEligibilityFlaggingReportSchema = z.object({
 });
 
 // Generate Report Schema - discriminated union for different report types
-export const generateReportSchema = z.discriminatedUnion('type', [
+const generateReportVariants = [
   designatedPetitionReportSchema,
   ldCommitteesReportSchema,
   committeeRosterReportSchema,
@@ -236,7 +254,21 @@ export const generateReportSchema = z.discriminatedUnion('type', [
   vacancyReportSchema,
   changesReportSchema,
   petitionOutcomesReportSchema,
-]);
+] as const;
+
+export const generateReportSchema = z
+  .discriminatedUnion('type', generateReportVariants)
+  .superRefine((data, ctx) => {
+    if ('scope' in data) {
+      scopeFieldsRefinement(
+        {
+          scope: data.scope,
+          cityTown: 'cityTown' in data ? data.cityTown : undefined,
+        },
+        ctx,
+      );
+    }
+  });
 
 // Additional fields for enriched report data
 const enrichedFieldsSchema = z.object({
@@ -244,57 +276,34 @@ const enrichedFieldsSchema = z.object({
   jobId: z.string().cuid('Job ID must be a valid CUID'),
 });
 
+const enrichVariant = <
+  T extends z.ZodObject<z.ZodRawShape & { type: z.ZodTypeAny }>,
+>(
+  schema: T,
+) => schema.merge(enrichedFieldsSchema);
+
+type EnrichedDiscriminatedOptions = [
+  z.ZodDiscriminatedUnionOption<'type'>,
+  ...z.ZodDiscriminatedUnionOption<'type'>[],
+];
+
 // Enriched report data that extends the generate report schema with additional fields
-export const enrichedReportDataSchema = z.discriminatedUnion('type', [
-  z.object({
-    ...designatedPetitionReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...ldCommitteesReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...committeeRosterReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...voterListReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...absenteeReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...voterImportReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...signInSheetReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...designationWeightSummaryReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...vacancyReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...changesReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...petitionOutcomesReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-  z.object({
-    ...boeEligibilityFlaggingReportSchema.shape,
-    ...enrichedFieldsSchema.shape,
-  }),
-]);
+export const enrichedReportDataSchema = z
+  .discriminatedUnion('type', [
+    ...generateReportVariants.map(enrichVariant),
+    enrichVariant(boeEligibilityFlaggingReportSchema),
+  ] as unknown as EnrichedDiscriminatedOptions)
+  .superRefine((data, ctx) => {
+    if ('scope' in data) {
+      scopeFieldsRefinement(
+        {
+          scope: data.scope,
+          cityTown: 'cityTown' in data ? data.cityTown : undefined,
+        },
+        ctx,
+      );
+    }
+  });
 
 // Voter import metadata schema (reusable)
 export const voterImportMetadataSchema = z.object({
@@ -375,17 +384,12 @@ export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 export type SearchQueryField = z.infer<typeof searchQueryFieldSchema>;
 export type CommitteeSelection = z.infer<typeof committeeSelectionSchema>;
 
-// Scope-based report types — the 5 report schemas that use scopeFieldsSchema
-export const SCOPE_REPORT_TYPES = [
-  'committeeRoster',
-  'signInSheet',
-  'designationWeightSummary',
-  'vacancyReport',
-  'changesReport',
-  'petitionOutcomesReport',
-] as const;
+import {
+  SCOPE_REPORT_TYPES,
+  type ScopeReportType,
+} from '../scopeReportRegistry';
 
-export type ScopeReportType = (typeof SCOPE_REPORT_TYPES)[number];
+export { SCOPE_REPORT_TYPES, type ScopeReportType };
 
 // Extract the union variants that correspond to scope-based report types
 export type ScopedReportData = Extract<

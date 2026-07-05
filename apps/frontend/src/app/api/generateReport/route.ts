@@ -7,8 +7,8 @@ import {
   type ErrorResponse,
   getPrismaReportType,
   validateReportType,
+  getScopeReportJurisdictionLabel,
   isScopedReportData,
-  type ScopeReportType,
 } from "@voter-file-tool/shared-validators";
 import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
@@ -72,15 +72,7 @@ export const POST = withPrivilege(
 
       // SRS 3.2, 3.3, 3.4 — Jurisdiction enforcement for scope-based reports
       if (isScopedReportData(reportData)) {
-        const reportLabels: Record<ScopeReportType, string> = {
-          committeeRoster: "committee rosters",
-          signInSheet: "sign-in sheets",
-          designationWeightSummary: "designation weight summaries",
-          vacancyReport: "vacancy reports",
-          changesReport: "changes reports",
-          petitionOutcomesReport: "petition outcomes reports",
-        };
-        const reportLabel = reportLabels[reportData.type];
+        const reportLabel = getScopeReportJurisdictionLabel(reportData.type);
         const validationError = await validateReportJurisdictionAccess(
           reportData,
           session.user.id,

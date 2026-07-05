@@ -48,7 +48,7 @@ jest.mock("~/components/ui/use-toast", () => ({
 }));
 
 // Import after mocks are set up
-import { SignInSheetForm } from "../SignInSheetForm";
+import { ScopedReportForm } from "~/components/reports/ScopedReportForm";
 
 const MOCK_COMMITTEE_LISTS = [
   {
@@ -81,7 +81,7 @@ const mockedHasPermissionFor = jest.mocked(
   realHasPermissionFor,
 ) as jest.MockedFunction<typeof realHasPermissionFor>;
 
-describe("SignInSheetForm", () => {
+describe("ScopedReportForm (signInSheet)", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -103,7 +103,8 @@ describe("SignInSheetForm", () => {
 
   it("renders with default report name containing today's date", () => {
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
@@ -116,7 +117,8 @@ describe("SignInSheetForm", () => {
 
   it("shows scope selector for Admin users", () => {
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
@@ -129,7 +131,8 @@ describe("SignInSheetForm", () => {
   it("hides scope selector for Leader users", () => {
     mockActingPermissions = PrivilegeLevel.Leader;
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Leader}
       />,
@@ -143,7 +146,8 @@ describe("SignInSheetForm", () => {
     const user = userEvent.setup();
 
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
@@ -165,7 +169,8 @@ describe("SignInSheetForm", () => {
     const user = userEvent.setup();
 
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
@@ -184,7 +189,8 @@ describe("SignInSheetForm", () => {
     const user = userEvent.setup();
 
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
@@ -213,7 +219,8 @@ describe("SignInSheetForm", () => {
     const user = userEvent.setup();
 
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
@@ -231,7 +238,8 @@ describe("SignInSheetForm", () => {
   it("shows City/Town dropdown for Leader users", () => {
     mockActingPermissions = PrivilegeLevel.Leader;
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Leader}
       />,
@@ -243,7 +251,8 @@ describe("SignInSheetForm", () => {
 
   it("shows meeting date field", () => {
     render(
-      <SignInSheetForm
+      <ScopedReportForm
+        type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,

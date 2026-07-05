@@ -2,19 +2,12 @@
 // Purpose: Centralized report type mappings to eliminate duplication across API and report server
 
 import type { ReportType } from '@voter-file-tool/shared-prisma';
+import { getScopeReportTypeMappings } from './scopeReportRegistry';
 
-/**
- * Centralized mapping of report types to their various representations
- * Eliminates duplication between API route and report server
- */
-export const REPORT_TYPE_MAPPINGS = {
+const NON_SCOPE_REPORT_TYPE_MAPPINGS = {
   ldCommittees: {
     databaseValue: 'CommitteeReport' as ReportType,
     filename: 'committeeReport',
-  },
-  committeeRoster: {
-    databaseValue: 'CommitteeReport' as ReportType,
-    filename: 'committeeRoster',
   },
   voterList: {
     databaseValue: 'VoterList' as ReportType,
@@ -32,26 +25,15 @@ export const REPORT_TYPE_MAPPINGS = {
     databaseValue: 'VoterImport' as ReportType,
     filename: 'voterImport',
   },
-  signInSheet: {
-    databaseValue: 'SignInSheet' as ReportType,
-    filename: 'signInSheet',
-  },
-  designationWeightSummary: {
-    databaseValue: 'DesignationWeightSummary' as ReportType,
-    filename: 'designationWeightSummary',
-  },
-  vacancyReport: {
-    databaseValue: 'VacancyReport' as ReportType,
-    filename: 'vacancyReport',
-  },
-  changesReport: {
-    databaseValue: 'ChangesReport' as ReportType,
-    filename: 'changesReport',
-  },
-  petitionOutcomesReport: {
-    databaseValue: 'PetitionOutcomesReport' as ReportType,
-    filename: 'petitionOutcomesReport',
-  },
+} as const;
+
+/**
+ * Centralized mapping of report types to their various representations
+ * Eliminates duplication between API route and report server
+ */
+export const REPORT_TYPE_MAPPINGS = {
+  ...NON_SCOPE_REPORT_TYPE_MAPPINGS,
+  ...getScopeReportTypeMappings(),
 } as const;
 
 export type ReportTypeKey = keyof typeof REPORT_TYPE_MAPPINGS;

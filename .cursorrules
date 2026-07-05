@@ -88,3 +88,5 @@ When creating a plan document, put it in the `docs/` folder (or `AI_PLAN_DOCS/` 
 ## Authentication and privilege changes
 
 Before changing or reviewing authentication, authorization, privileges, or role-gated UI, read `skills/auth-check-patterns/SKILL.md`.
+
+Before adding or extending report types, read `skills/adding-reports/SKILL.md`.
