@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { Prisma, PrivilegeLevel } from "@prisma/client";
+import { canonicalEmailSchema } from "@voter-file-tool/shared-validators";
 import prisma from "~/lib/prisma";
 import { randomBytes } from "crypto";
 import { z } from "zod";
@@ -14,7 +15,7 @@ import {
 
 const createInviteSchema = z
   .object({
-    email: z.string().email("Invalid email address"),
+    email: canonicalEmailSchema,
     privilegeLevel: z
       .nativeEnum(PrivilegeLevel, {
         errorMap: () => ({ message: "Invalid privilege level" }),

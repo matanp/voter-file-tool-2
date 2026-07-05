@@ -5,6 +5,11 @@ import {
   type Prisma,
   PrivilegeLevel,
 } from "@prisma/client";
+import {
+  authEmailsEqual,
+  canonicalizeAuthEmail,
+  canonicalizeAuthEmailOrNull,
+} from "@voter-file-tool/shared-validators";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import prisma from "~/lib/prisma";
 
@@ -74,20 +79,22 @@ async function resolvePendingInvite(
 export async function findValidUnusedInvite(
   email: string | null | undefined,
 ): Promise<Invite | null> {
-  if (!email) return null;
+  const canonicalEmail = canonicalizeAuthEmailOrNull(email);
+  if (!canonicalEmail) return null;
 
   return prisma.invite.findFirst({
-    where: unusedInviteWhere(email),
+    where: unusedInviteWhere(canonicalEmail),
   });
 }
 
 export async function findValidUnusedInviteWithScope(
   email: string | null | undefined,
 ): Promise<InviteWithScope | null> {
-  if (!email) return null;
+  const canonicalEmail = canonicalizeAuthEmailOrNull(email);
+  if (!canonicalEmail) return null;
 
   return prisma.invite.findFirst({
-    where: unusedInviteWhere(email),
+    where: unusedInviteWhere(canonicalEmail),
     include: {
       jurisdictions: {
         include: { term: { select: { label: true } } },
@@ -189,7 +196,11 @@ async function checkAlreadyApplied(
         orderBy: { usedAt: "desc" },
       });
   if (!usedInvite) return null;
-  if (usedInvite.email !== email || !usedInvite.usedAt || usedInvite.deleted) {
+  if (
+    !authEmailsEqual(usedInvite.email, email) ||
+    !usedInvite.usedAt ||
+    usedInvite.deleted
+  ) {
     return null;
   }
 
@@ -312,31 +323,38 @@ export async function applyPendingInvite(
   userId: string,
   options?: ApplyPendingInviteOptions,
 ): Promise<InviteGrantResult> {
+  const canonicalEmail = canonicalizeAuthEmail(email);
   const { tx, expectedInviteId } = options ?? {};
 
   const run = async (client: DbClient): Promise<InviteGrantResult> => {
     if (expectedInviteId) {
       const alreadyApplied = await checkAlreadyApplied(
         client,
-        email,
+        canonicalEmail,
         userId,
         expectedInviteId,
       );
       if (alreadyApplied) return alreadyApplied;
     }
 
-    const invite = await resolvePendingInvite(client, email);
+    const invite = await resolvePendingInvite(client, canonicalEmail);
     if (!invite) {
       const alreadyApplied = await checkAlreadyApplied(
         client,
-        email,
+        canonicalEmail,
         userId,
         expectedInviteId,
       );
       return alreadyApplied ?? { status: "no_invite" };
     }
 
-    return grantInvite(client, invite, email, userId, expectedInviteId);
+    return grantInvite(
+      client,
+      invite,
+      canonicalEmail,
+      userId,
+      expectedInviteId,
+    );
   };
 
   if (tx) return run(tx);

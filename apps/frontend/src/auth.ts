@@ -1,6 +1,7 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { canonicalizeAuthEmail } from "@voter-file-tool/shared-validators";
 import prisma from "~/lib/prisma";
 import { PrivilegeLevel } from "@prisma/client";
 import { findValidUnusedInvite } from "~/lib/applyPendingInvite";
@@ -14,12 +15,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter,
   callbacks: {
     async session({ session, user }) {
+      if (session.user?.email) {
+        session.user.email = canonicalizeAuthEmail(session.user.email);
+      }
       session.privilegeLevel = user.privilegeLevel;
       session.user.privilegeLevel = user.privilegeLevel;
       return session;
     },
     async signIn({ user }) {
       if (!user.email) return false;
+
+      user.email = canonicalizeAuthEmail(user.email);
 
       const existingUser = await prisma.user.findUnique({
         where: { email: user.email },
@@ -85,6 +91,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   events: {
     async createUser({ user }) {
       if (!user.email || !user.id) return;
+
+      user.email = canonicalizeAuthEmail(user.email);
 
       try {
         const privilegedUser = await prisma.privilegedUser.findUnique({

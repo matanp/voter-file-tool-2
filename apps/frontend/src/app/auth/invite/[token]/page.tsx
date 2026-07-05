@@ -15,6 +15,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { PrivilegeLevel, type Invite } from "@prisma/client";
+import { authEmailsEqual } from "@voter-file-tool/shared-validators";
 import { useApiMutation } from "~/hooks/useApiMutation";
 
 type SerializedInviteJurisdiction = {
@@ -137,7 +138,7 @@ export default function InvitePage() {
       return;
     }
 
-    if (session.user.email !== invite.email) {
+    if (!authEmailsEqual(session.user.email, invite.email)) {
       return;
     }
 
@@ -205,14 +206,14 @@ export default function InvitePage() {
     status === "authenticated" &&
     !!sessionEmail &&
     !!invite &&
-    sessionEmail !== invite.email;
+    !authEmailsEqual(sessionEmail, invite.email);
 
   const isApplying =
     applyLoading ||
     (status === "authenticated" &&
       !!sessionEmail &&
       !!invite &&
-      sessionEmail === invite.email &&
+      authEmailsEqual(sessionEmail, invite.email) &&
       !applySuccess &&
       !error);
 

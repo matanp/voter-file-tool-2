@@ -46,3 +46,15 @@ If a feature requires full server-rendered role simulation, first design a serve
 - Are server-side data queries and audit roles based on actual privilege?
 - Are client-only role gates based on `actingPermissions`?
 - Does a Developer acting as `ReadAccess` lose the Admin navigation and privileged controls, while real API authorization remains unchanged?
+
+## Canonicalize email identity
+
+Auth identity (`User.email`, `PrivilegedUser.email`, `Invite.email`) is case-insensitive.
+
+- **Store and query** with `canonicalizeAuthEmail()` from `@voter-file-tool/shared-validators`.
+- **Validate API input** with `canonicalEmailSchema` (not raw `z.string().email()`).
+- **Compare emails** with `authEmailsEqual(a, b)` — never raw `===`.
+- In NextAuth callbacks, normalize `user.email` once at entry and write back before adapter persistence; normalize `session.user.email` in the session callback.
+- Back with a data migration to lowercase existing rows; add a DB-level case-insensitive uniqueness constraint when schema changes are planned.
+
+Do not use these helpers for voter-record or report email fields unless those flows are explicitly scoped the same way.

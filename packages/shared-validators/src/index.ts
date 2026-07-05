@@ -18,6 +18,7 @@ export * from './searchQueryErrors';
 export * from './searchQueryFieldValidators';
 export * from './searchQueryNormalizers';
 export * from './fileUtils';
+export * from './emailIdentity';
 
 // Export shared constants
 export * from './constants';

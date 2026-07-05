@@ -1,6 +1,7 @@
 import type { InviteJurisdiction, Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { authEmailsEqual } from "@voter-file-tool/shared-validators";
 import {
   withPrivilege,
   type SessionWithUser,
@@ -74,7 +75,7 @@ async function applyInviteHandler(
       );
     }
 
-    if (sessionEmail !== loaded.invite.email) {
+    if (!authEmailsEqual(sessionEmail, loaded.invite.email)) {
       return NextResponse.json(
         { error: "Signed-in email does not match this invite" },
         { status: 403 },

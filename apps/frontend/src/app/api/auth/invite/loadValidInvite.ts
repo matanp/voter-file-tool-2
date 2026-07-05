@@ -1,4 +1,5 @@
 import type { InviteJurisdiction, PrivilegeLevel } from "@prisma/client";
+import { authEmailsEqual } from "@voter-file-tool/shared-validators";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
 
@@ -161,7 +162,7 @@ export async function loadInviteForApply(
       error: { status: 410, error: "This invite has expired" },
     };
   }
-  if (invite.usedAt && invite.email !== sessionEmail) {
+  if (invite.usedAt && !authEmailsEqual(invite.email, sessionEmail)) {
     return {
       ok: false,
       error: { status: 409, error: "This invite has already been used" },
