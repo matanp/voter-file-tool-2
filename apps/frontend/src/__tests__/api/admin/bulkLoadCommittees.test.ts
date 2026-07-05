@@ -118,10 +118,6 @@ describe("/api/admin/bulkLoadCommittees", () => {
         {} as never,
       );
       prismaMock.voterRecord.findMany.mockResolvedValue([]);
-      (prismaMock.$transaction as jest.Mock).mockImplementation(
-        async (arg: unknown): Promise<unknown[]> =>
-          Array.isArray(arg) ? (arg as unknown[]) : [],
-      );
 
       const response = await POST(createMockRequest({}));
 
@@ -133,10 +129,13 @@ describe("/api/admin/bulkLoadCommittees", () => {
       expect(json.message).toBe("Committee lists loaded successfully");
       expect(json.discrepanciesMap).toEqual([]);
       expect(json.recordsWithDiscrepancies).toEqual([]);
-      expect(prismaMock.committeeUploadDiscrepancy.create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeUploadDiscrepancy.deleteMany).toHaveBeenCalledWith({
+        where: { resolvedAt: null },
+      });
+      expect(prismaMock.committeeUploadDiscrepancy.upsert).not.toHaveBeenCalled();
     });
 
-    it("creates CommitteeUploadDiscrepancy records when loadCommitteeLists returns discrepancies", async () => {
+    it("upserts CommitteeUploadDiscrepancy records when loadCommitteeLists returns discrepancies", async () => {
       const discrepanciesMap = new Map([
         [
           "VRCNUM1",
@@ -163,7 +162,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
       prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue(
         {} as never,
       );
-      prismaMock.committeeUploadDiscrepancy.create.mockResolvedValue({
+      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue({
         id: "cuid-1",
         VRCNUM: "VRCNUM1",
         committeeId: 1,
@@ -173,10 +172,6 @@ describe("/api/admin/bulkLoadCommittees", () => {
         { VRCNUM: "VRCNUM1" },
         { VRCNUM: "VRCNUM2" },
       ] as never);
-      (prismaMock.$transaction as jest.Mock).mockImplementation(
-        async (arg: unknown): Promise<unknown[]> =>
-          Array.isArray(arg) ? (arg as unknown[]) : [],
-      );
 
       const response = await POST(createMockRequest({}));
 
@@ -186,12 +181,15 @@ describe("/api/admin/bulkLoadCommittees", () => {
       );
       expect(json.success).toBe(true);
       expect(json.discrepanciesMap).toHaveLength(2);
-      expect(prismaMock.committeeUploadDiscrepancy.create).toHaveBeenCalledTimes(
+      expect(prismaMock.committeeUploadDiscrepancy.deleteMany).toHaveBeenCalledWith({
+        where: { resolvedAt: null },
+      });
+      expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledTimes(
         2,
       );
     });
 
-    it("VRCNUM not found in DB: discrepancy still created (bulkLoadUtils flags as discrepancy)", async () => {
+    it("VRCNUM not found in DB: discrepancy still upserted (bulkLoadUtils flags as discrepancy)", async () => {
       // bulkLoadUtils sets discrepancy { VRCNUM: { incoming, existing: "" } } when voter not in DB
       const discrepanciesMap = new Map([
         [
@@ -211,17 +209,13 @@ describe("/api/admin/bulkLoadCommittees", () => {
       prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue(
         {} as never,
       );
-      prismaMock.committeeUploadDiscrepancy.create.mockResolvedValue({
+      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue({
         id: "cuid-1",
         VRCNUM: "VRCNUM_NOT_IN_DB",
         committeeId: 1,
         discrepancy: {},
       } as never);
       prismaMock.voterRecord.findMany.mockResolvedValue([]);
-      (prismaMock.$transaction as jest.Mock).mockImplementation(
-        async (arg: unknown): Promise<unknown[]> =>
-          Array.isArray(arg) ? (arg as unknown[]) : [],
-      );
 
       const response = await POST(createMockRequest({}));
 
@@ -231,15 +225,18 @@ describe("/api/admin/bulkLoadCommittees", () => {
       );
       expect(json.success).toBe(true);
       expect(json.discrepanciesMap).toHaveLength(1);
-      expect(prismaMock.committeeUploadDiscrepancy.create).toHaveBeenCalledWith(
+      expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ VRCNUM: "VRCNUM_NOT_IN_DB" }) as
-            unknown,
+          where: { VRCNUM: "VRCNUM_NOT_IN_DB" },
+          update: expect.objectContaining({
+            resolvedAt: null,
+            resolution: null,
+          }) as unknown,
         }),
       );
     });
 
-    it("returns 500 when loadCommitteeLists throws", async () => {
+    it("failed load leaves unresolved discrepancies intact", async () => {
       loadCommitteeListsMock.mockRejectedValue(new Error("File not found"));
       mockAuthSession({
         user: { id: "1", privilegeLevel: PrivilegeLevel.Admin },
@@ -251,6 +248,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
         500,
         "Error loading committee lists",
       );
+      expect(prismaMock.committeeUploadDiscrepancy.deleteMany).not.toHaveBeenCalled();
     });
   });
 });

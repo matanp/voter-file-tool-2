@@ -7,6 +7,7 @@ import type { Session } from "next-auth";
 async function fetchLoadedHandler(_req: NextRequest, _session: Session) {
   try {
     const discrepanciesMap = await prisma.committeeUploadDiscrepancy.findMany({
+      where: { resolvedAt: null },
       include: { committee: true },
     });
 

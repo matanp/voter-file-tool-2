@@ -473,6 +473,9 @@ describe("/api/committee/add", () => {
         new Prisma.PrismaClientKnownRequestError("Unique constraint", {
           code: "P2002",
           clientVersion: "5.0.0",
+          meta: {
+            target: ["voterRecordId", "committeeListId", "termId"],
+          },
         }),
       );
 
@@ -487,6 +490,35 @@ describe("/api/committee/add", () => {
         },
         200,
       );
+    });
+
+    it("should return 422 INELIGIBLE for P2002 active-per-term conflict", async () => {
+      const mockCommitteeData = createMockCommitteeData();
+      const mockSession = createMockSession({
+        user: { privilegeLevel: PrivilegeLevel.Admin },
+      });
+
+      mockAuthSession(mockSession);
+      mockHasPermission(true);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig(),
+      );
+      prismaMock.committeeList.upsert.mockResolvedValue(createMockCommittee());
+      setupEligibilityPassTyped(prismaMock);
+      getMembershipMockTyped(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMockTyped(prismaMock).create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint", {
+          code: "P2002",
+          clientVersion: "5.0.0",
+          meta: { target: ["voterRecordId", "termId"] },
+        }),
+      );
+
+      const response = await POST(createMockRequest(mockCommitteeData));
+
+      await expectErrorResponse(response, 422, "INELIGIBLE");
+      const body = (await response.json()) as { reasons?: string[] };
+      expect(body.reasons).toContain("ALREADY_IN_ANOTHER_COMMITTEE");
     });
 
     it("should return 500 for generic database error", async () => {

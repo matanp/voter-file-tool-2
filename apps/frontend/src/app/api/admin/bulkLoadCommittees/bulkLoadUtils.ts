@@ -11,6 +11,7 @@ import {
 import {
   getActiveTermId,
   getGovernanceConfig,
+  isActiveMembershipPerTermConflict,
 } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
@@ -512,26 +513,41 @@ export async function loadCommitteeLists(
         }
 
         if (existingMembership) {
-          await tx.committeeMembership.update({
-            where: { id: existingMembership.id },
-            data: {
-              status: "ACTIVE",
-              activatedAt: existingMembership.activatedAt ?? new Date(),
-              membershipType: existingMembership.membershipType ?? "APPOINTED",
-              seatNumber,
-              confirmedAt: null,
-              resignedAt: null,
-              removedAt: null,
-              rejectedAt: null,
-              rejectionNote: null,
-              resignationDateReceived: null,
-              resignationMethod: null,
-              removalReason: null,
-              removalNotes: null,
-              petitionVoteCount: null,
-              petitionPrimaryDate: null,
-            },
-          });
+          try {
+            await tx.committeeMembership.update({
+              where: { id: existingMembership.id },
+              data: {
+                status: "ACTIVE",
+                activatedAt: existingMembership.activatedAt ?? new Date(),
+                membershipType: existingMembership.membershipType ?? "APPOINTED",
+                seatNumber,
+                confirmedAt: null,
+                resignedAt: null,
+                removedAt: null,
+                rejectedAt: null,
+                rejectionNote: null,
+                resignationDateReceived: null,
+                resignationMethod: null,
+                removalReason: null,
+                removalNotes: null,
+                petitionVoteCount: null,
+                petitionPrimaryDate: null,
+              },
+            });
+          } catch (error) {
+            if (isActiveMembershipPerTermConflict(error)) {
+              ensureImportDiscrepancy(
+                discrepanciesMap,
+                voterRecordId,
+                committeeIdentity,
+                "alreadyActiveInAnotherCommittee",
+                formattedCommittee,
+                "Voter is already active in another committee for this term",
+              );
+              continue;
+            }
+            throw error;
+          }
           await logAuditEvent(
             actor.userId,
             actor.userRole,
@@ -554,17 +570,33 @@ export async function loadCommitteeLists(
             tx,
           );
         } else {
-          const createdMembership = await tx.committeeMembership.create({
-            data: {
-              voterRecordId,
-              committeeListId: committee.id,
-              termId: activeTermId,
-              status: "ACTIVE",
-              activatedAt: new Date(),
-              membershipType: "APPOINTED",
-              seatNumber,
-            },
-          });
+          let createdMembership;
+          try {
+            createdMembership = await tx.committeeMembership.create({
+              data: {
+                voterRecordId,
+                committeeListId: committee.id,
+                termId: activeTermId,
+                status: "ACTIVE",
+                activatedAt: new Date(),
+                membershipType: "APPOINTED",
+                seatNumber,
+              },
+            });
+          } catch (error) {
+            if (isActiveMembershipPerTermConflict(error)) {
+              ensureImportDiscrepancy(
+                discrepanciesMap,
+                voterRecordId,
+                committeeIdentity,
+                "alreadyActiveInAnotherCommittee",
+                formattedCommittee,
+                "Voter is already active in another committee for this term",
+              );
+              continue;
+            }
+            throw error;
+          }
           await logAuditEvent(
             actor.userId,
             actor.userRole,

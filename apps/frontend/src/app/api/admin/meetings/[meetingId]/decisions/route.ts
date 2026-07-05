@@ -9,6 +9,7 @@ import prisma from "~/lib/prisma";
 import { logAuditEvent } from "~/lib/auditLog";
 import { bulkDecisionSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
+import { isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
 import { ensureSeatsExist, assignNextAvailableSeat } from "~/app/api/lib/seatUtils";
 import { validateEligibility } from "~/lib/eligibility";
 import {
@@ -151,17 +152,30 @@ async function bulkDecisionsHandler(
           };
 
           // SUBMITTED → CONFIRMED → ACTIVE (per v1 spec, immediate activation)
-          await tx.committeeMembership.update({
-            where: { id: membershipId },
-            data: {
-              status: "ACTIVE",
-              confirmedAt: now,
-              activatedAt: now,
-              seatNumber,
-              meetingRecordId: meetingId,
-              membershipType: membership.membershipType ?? "APPOINTED",
-            },
-          });
+          try {
+            await tx.committeeMembership.update({
+              where: { id: membershipId },
+              data: {
+                status: "ACTIVE",
+                confirmedAt: now,
+                activatedAt: now,
+                seatNumber,
+                meetingRecordId: meetingId,
+                membershipType: membership.membershipType ?? "APPOINTED",
+              },
+            });
+          } catch (error) {
+            if (isActiveMembershipPerTermConflict(error)) {
+              decisionResults.push({
+                membershipId,
+                decision,
+                success: false,
+                error: "Member is already in another committee",
+              });
+              continue;
+            }
+            throw error;
+          }
 
           const afterSnapshot = {
             status: "ACTIVE",

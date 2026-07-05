@@ -74,13 +74,19 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
 
         if (!response.ok) {
           let errorMessage = `Request failed with status ${response.status}`;
-          let errorBody: { error?: string; message?: string; reasons?: string[] } | undefined;
+          let errorBody: {
+            error?: string;
+            message?: string;
+            reasons?: string[];
+            reason?: string;
+          } | undefined;
 
           try {
             errorBody = (await response.json()) as {
               error?: string;
               message?: string;
               reasons?: string[];
+              reason?: string;
             };
             errorMessage =
               errorBody.error ?? errorBody.message ?? errorMessage;
@@ -90,12 +96,13 @@ export const useApiMutation = <TData = unknown, TPayload = unknown>(
           }
 
           const err = new Error(errorMessage) as Error & {
-            apiErrorBody?: { error?: string; reasons?: string[] };
+            apiErrorBody?: { error?: string; reasons?: string[]; reason?: string };
           };
           if (errorBody) {
             err.apiErrorBody = {
               error: errorBody.error,
               reasons: errorBody.reasons,
+              reason: errorBody.reason,
             };
           }
           throw err;

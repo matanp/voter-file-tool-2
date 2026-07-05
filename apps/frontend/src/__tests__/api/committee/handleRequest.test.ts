@@ -1,5 +1,5 @@
 import { POST } from "~/app/api/committee/handleRequest/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { Prisma, PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
   createMockRequest,
@@ -409,6 +409,39 @@ describe("/api/committee/handleRequest", () => {
       const body = (await response.json()) as { reasons?: string[] };
       expect(body.reasons).toContain("ALREADY_IN_ANOTHER_COMMITTEE");
       expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+    });
+
+    it("should return 422 INELIGIBLE on P2002 active-per-term conflict during accept", async () => {
+      const mockRequestData = createMockHandleRequestData({
+        acceptOrReject: "accept",
+      });
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "SUBMITTED" }),
+      );
+      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      prismaMock.$queryRaw.mockResolvedValue([] as never);
+      getMembershipMock(prismaMock).update.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint", {
+          code: "P2002",
+          clientVersion: "5.0.0",
+          meta: { target: ["voterRecordId", "termId"] },
+        }),
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(response, 422, "INELIGIBLE");
+      const body = (await response.json()) as { reasons?: string[] };
+      expect(body.reasons).toContain("ALREADY_IN_ANOTHER_COMMITTEE");
     });
 
     it("should return 422 INELIGIBLE when committee is at capacity on accept", async () => {

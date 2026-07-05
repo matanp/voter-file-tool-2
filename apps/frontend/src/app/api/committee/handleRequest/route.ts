@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { type Prisma, PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
+import { getGovernanceConfig, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
@@ -476,6 +476,12 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
       { status: 200 },
     );
   } catch (error) {
+    if (isActiveMembershipPerTermConflict(error)) {
+      return NextResponse.json(
+        { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },
+        { status: 422 },
+      );
+    }
     console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },

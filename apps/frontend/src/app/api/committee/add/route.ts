@@ -8,6 +8,7 @@ import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
   getActiveTermId,
   getGovernanceConfig,
+  isActiveMembershipPerTermConflict,
 } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
@@ -367,6 +368,16 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
           { status: 404 },
         );
       } else if (error.code === "P2002") {
+        if (isActiveMembershipPerTermConflict(error)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "INELIGIBLE",
+              reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"],
+            },
+            { status: 422 },
+          );
+        }
         return NextResponse.json(
           {
             success: true,

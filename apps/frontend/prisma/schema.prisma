@@ -70,7 +70,16 @@ enum AuditAction {
   JURISDICTION_ASSIGNED
   JURISDICTION_REMOVED
   DISCREPANCY_RESOLVED
+  DISCREPANCY_ACCEPTED
+  DISCREPANCY_REJECTED
+  DISCREPANCY_UNDONE
   CROSSWALK_IMPORTED
+}
+
+enum DiscrepancyResolution {
+  ACCEPTED
+  ACCEPTED_WITH_ADDRESS
+  REJECTED
 }
 
 model User {
@@ -452,6 +461,9 @@ model CommitteeMembership {
   petitionSeatNumber  Int?
   eligibilityFlags    EligibilityFlag[]
 
+  // NOTE: A partial unique index (WHERE status = 'ACTIVE') on (voterRecordId, termId)
+  // exists in prisma/migrations/20260704230000_committee_membership_one_active_per_term/migration.sql
+  // — Prisma does not support partial indexes.
   @@unique([voterRecordId, committeeListId, termId])
   @@index([committeeListId, termId, status])
   @@index([termId, status])
@@ -524,6 +536,13 @@ model CommitteeUploadDiscrepancy {
   committee   CommitteeList @relation(fields: [committeeId], references: [id], onDelete: Cascade)
   committeeId Int
   discrepancy Json
+
+  resolvedAt         DateTime?
+  resolvedBy         String?
+  resolution         DiscrepancyResolution?
+  resolutionMetadata Json?
+
+  @@index([resolvedAt])
 }
 
 model ElectionDate {

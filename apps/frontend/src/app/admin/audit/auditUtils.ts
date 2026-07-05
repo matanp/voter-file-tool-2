@@ -17,12 +17,16 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   JURISDICTION_ASSIGNED: "Jurisdiction Assigned",
   JURISDICTION_REMOVED: "Jurisdiction Removed",
   DISCREPANCY_RESOLVED: "Discrepancy Resolved",
+  DISCREPANCY_ACCEPTED: "Discrepancy Accepted",
+  DISCREPANCY_REJECTED: "Discrepancy Rejected",
+  DISCREPANCY_UNDONE: "Discrepancy Undone",
   CROSSWALK_IMPORTED: "Crosswalk Imported",
 };
 
 /** Entity types shown in the filter dropdown. */
 export const AUDIT_ENTITY_TYPES = [
   "CommitteeMembership",
+  "CommitteeUploadDiscrepancy",
   "MeetingRecord",
   "CommitteeTerm",
   "CommitteeGovernanceConfig",
@@ -239,6 +243,11 @@ export function buildSummary(entry: AuditEntryForSummary): string {
         ? `${name ?? "Member"} confirmed${location ? ` (${location})` : ""}`
         : `Confirmed (${entityType})`;
     case "PETITION_RECORDED":
+      if (meta.source === "discrepancy_undo") {
+        return location && seatNumber != null
+          ? `Petition outcome reversed for ${location} Seat ${seatNumber}`
+          : "Petition outcome reversed (discrepancy undo)";
+      }
       if (location && seatNumber != null) {
         return `Petition outcome recorded for ${location} Seat ${seatNumber}`;
       }
@@ -264,6 +273,24 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       return entityType === "CommitteeMembership"
         ? `Discrepancy resolved${name ? `: ${name}` : ""}`
         : "Discrepancy resolved";
+    case AuditAction.DISCREPANCY_ACCEPTED: {
+      const vrcnum = typeof meta.VRCNUM === "string" ? meta.VRCNUM : null;
+      return vrcnum
+        ? `Upload discrepancy accepted for ${vrcnum}`
+        : "Upload discrepancy accepted";
+    }
+    case AuditAction.DISCREPANCY_REJECTED: {
+      const vrcnum = typeof meta.VRCNUM === "string" ? meta.VRCNUM : null;
+      return vrcnum
+        ? `Upload discrepancy rejected for ${vrcnum}`
+        : "Upload discrepancy rejected";
+    }
+    case AuditAction.DISCREPANCY_UNDONE: {
+      const vrcnum = typeof meta.VRCNUM === "string" ? meta.VRCNUM : null;
+      return vrcnum
+        ? `Upload discrepancy undo for ${vrcnum}`
+        : "Upload discrepancy undone";
+    }
     default:
       return `${AUDIT_ACTION_LABELS[action] ?? action} — ${entityType} ${entityId.slice(0, 8)}`;
   }

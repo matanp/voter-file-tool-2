@@ -8,7 +8,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import { getActiveTermId, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
 import {
   recordPetitionOutcomeSchema,
   type RecordPetitionOutcomeData,
@@ -366,6 +366,15 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
       { status: 200 },
     );
   } catch (error) {
+    if (isActiveMembershipPerTermConflict(error)) {
+      return NextResponse.json(
+        {
+          error:
+            "Candidate is already active in another committee for this term",
+        },
+        { status: 409 },
+      );
+    }
     console.error("Record petition outcome error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

@@ -1,15 +1,14 @@
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
 import { loadCommitteeLists } from "./bulkLoadUtils";
-import { withPrivilege } from "~/app/api/lib/withPrivilege";
-import { PrivilegeLevel } from "@prisma/client";
+import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
+import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { NextRequest } from "next/server";
-import type { Session } from "next-auth";
 
 async function bulkLoadCommitteesHandler(
   _req: NextRequest,
-  session: Session,
+  session: SessionWithUser,
 ) {
   try {
     if (process.env.VERCEL) {
@@ -26,35 +25,44 @@ async function bulkLoadCommitteesHandler(
       );
     }
 
-    await prisma.committeeUploadDiscrepancy.deleteMany({});
-
     const discrepanciesMap = await loadCommitteeLists({
-      userId: session.user?.id ?? "system",
-      userRole: session.user?.privilegeLevel ?? PrivilegeLevel.Admin,
+      userId: session.user.id,
+      userRole: session.user.privilegeLevel ?? PrivilegeLevel.Admin,
     });
 
-    const transactionOperations = Array.from(discrepanciesMap.entries()).map(
-      ([voterId, discrepancyAndCommittee]) =>
-        prisma.committeeUploadDiscrepancy.create({
-          data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.committeeUploadDiscrepancy.deleteMany({
+        where: { resolvedAt: null },
+      });
+
+      for (const [voterId, discrepancyAndCommittee] of discrepanciesMap.entries()) {
+        const committeeConnect = {
+          cityTown_legDistrict_electionDistrict_termId: {
+            cityTown: discrepancyAndCommittee.committee.cityTown,
+            legDistrict: discrepancyAndCommittee.committee.legDistrict,
+            electionDistrict: discrepancyAndCommittee.committee.electionDistrict,
+            termId: activeTermId,
+          },
+        };
+
+        await tx.committeeUploadDiscrepancy.upsert({
+          where: { VRCNUM: voterId },
+          create: {
             VRCNUM: voterId,
             discrepancy: discrepancyAndCommittee.discrepancies,
-            committee: {
-              connect: {
-                cityTown_legDistrict_electionDistrict_termId: {
-                  cityTown: discrepancyAndCommittee.committee.cityTown,
-                  legDistrict: discrepancyAndCommittee.committee.legDistrict,
-                  electionDistrict:
-                    discrepancyAndCommittee.committee.electionDistrict,
-                  termId: activeTermId,
-                },
-              },
-            },
+            committee: { connect: committeeConnect },
           },
-        }),
-    );
-
-    await prisma.$transaction(transactionOperations);
+          update: {
+            discrepancy: discrepancyAndCommittee.discrepancies,
+            committee: { connect: committeeConnect },
+            resolvedAt: null,
+            resolvedBy: null,
+            resolution: null,
+            resolutionMetadata: Prisma.JsonNull,
+          },
+        });
+      }
+    });
 
     const recordsWithDiscrepancies = await prisma.voterRecord.findMany({
       where: {

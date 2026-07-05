@@ -18,6 +18,26 @@ const ACTIVE_STATUS = "ACTIVE";
 export const ALREADY_IN_ANOTHER_COMMITTEE_ERROR =
   "Member is already in another committee";
 
+/** True when P2002 is from the one-active-membership-per-term partial unique index. */
+export function isActiveMembershipPerTermConflict(error: unknown): boolean {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== "P2002"
+  ) {
+    return false;
+  }
+  const target = error.meta?.target;
+  if (!Array.isArray(target)) {
+    return false;
+  }
+  // Existing @@unique is [voterRecordId, committeeListId, termId]
+  return (
+    target.includes("voterRecordId") &&
+    target.includes("termId") &&
+    !target.includes("committeeListId")
+  );
+}
+
 /**
  * Fetch the singleton CommitteeGovernanceConfig row.
  * Throws if no config exists (run seed to create it).
