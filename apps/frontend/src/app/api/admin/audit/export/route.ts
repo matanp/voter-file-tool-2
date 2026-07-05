@@ -6,7 +6,7 @@ import prisma from "~/lib/prisma";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { auditExportQuerySchema } from "~/lib/validations/audit";
-import { buildAuditWhere } from "../route";
+import { buildAuditWhere } from "../buildAuditWhere";
 import { buildSummary, AUDIT_ACTION_LABELS } from "~/app/admin/audit/auditUtils";
 
 const EXPORT_ROW_LIMIT = 10_000;

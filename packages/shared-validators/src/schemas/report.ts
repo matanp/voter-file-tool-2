@@ -276,23 +276,31 @@ const enrichedFieldsSchema = z.object({
   jobId: z.string().cuid('Job ID must be a valid CUID'),
 });
 
-const enrichVariant = <
-  T extends z.ZodObject<z.ZodRawShape & { type: z.ZodTypeAny }>,
->(
-  schema: T,
-) => schema.merge(enrichedFieldsSchema);
-
-type EnrichedDiscriminatedOptions = [
-  z.ZodDiscriminatedUnionOption<'type'>,
-  ...z.ZodDiscriminatedUnionOption<'type'>[],
-];
+// Enrich each variant with `.merge(enrichedFieldsSchema)` inline. Do NOT route
+// this through a generic helper: a generic `<T extends ZodObject<...>>` wrapper
+// widens the merged shape to `{ [x: string]: any }`, erasing the `type` literal,
+// which degrades `z.infer<typeof enrichedReportDataSchema>` to `never` for
+// consumers. Inline `.merge()` keeps the discriminant, so the inferred type is
+// correct and can be exported directly. Keep this list in sync with
+// `generateReportVariants` above (plus the worker-only boe variant).
+const enrichedReportVariants = [
+  designatedPetitionReportSchema.merge(enrichedFieldsSchema),
+  ldCommitteesReportSchema.merge(enrichedFieldsSchema),
+  committeeRosterReportSchema.merge(enrichedFieldsSchema),
+  voterListReportSchema.merge(enrichedFieldsSchema),
+  absenteeReportSchema.merge(enrichedFieldsSchema),
+  voterImportReportSchema.merge(enrichedFieldsSchema),
+  signInSheetReportSchema.merge(enrichedFieldsSchema),
+  designationWeightSummaryReportSchema.merge(enrichedFieldsSchema),
+  vacancyReportSchema.merge(enrichedFieldsSchema),
+  changesReportSchema.merge(enrichedFieldsSchema),
+  petitionOutcomesReportSchema.merge(enrichedFieldsSchema),
+  boeEligibilityFlaggingReportSchema.merge(enrichedFieldsSchema),
+] as const;
 
 // Enriched report data that extends the generate report schema with additional fields
 export const enrichedReportDataSchema = z
-  .discriminatedUnion('type', [
-    ...generateReportVariants.map(enrichVariant),
-    enrichVariant(boeEligibilityFlaggingReportSchema),
-  ] as unknown as EnrichedDiscriminatedOptions)
+  .discriminatedUnion('type', enrichedReportVariants)
   .superRefine((data, ctx) => {
     if ('scope' in data) {
       scopeFieldsRefinement(
@@ -367,6 +375,23 @@ export type FieldValueType<T extends SearchableFieldName> =
 // Type exports
 export type GenerateReportData = z.infer<typeof generateReportSchema>;
 export type EnrichedReportData = z.infer<typeof enrichedReportDataSchema>;
+
+// Enforce, at compile time, that `enrichedReportVariants` stays in sync with
+// `generateReportVariants`: every generate variant's `type` must have a matching
+// enriched variant. Because the enriched list is hand-maintained (see the comment
+// on `enrichedReportVariants`), dropping a variant would otherwise silently narrow
+// `EnrichedReportData` with no error. If this line fails to compile, add the
+// missing variant's `.merge(enrichedFieldsSchema)` to `enrichedReportVariants`.
+// (The reverse is fine: `enrichedReportVariants` intentionally adds the
+// worker-only `boeEligibilityFlagging` variant.)
+type _EnrichedCoversGenerate = Exclude<
+  GenerateReportData['type'],
+  EnrichedReportData['type']
+> extends never
+  ? true
+  : { error: 'A generateReport variant is missing from enrichedReportVariants' };
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _assertEnrichedExhaustive: _EnrichedCoversGenerate = true;
 export type VoterImportMetadata = z.infer<typeof voterImportMetadataSchema>;
 export type ReportCompleteWebhookPayload = z.infer<
   typeof reportCompleteWebhookPayloadSchema

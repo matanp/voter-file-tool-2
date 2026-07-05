@@ -1,38 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { type AuditAction, PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
 import type { Session } from "next-auth";
 import prisma from "~/lib/prisma";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { auditListQuerySchema } from "~/lib/validations/audit";
-import type { Prisma } from "@prisma/client";
-
-/** Build Prisma where clause from validated list/export filters. */
-export function buildAuditWhere(filters: {
-  action?: AuditAction;
-  entityType?: string;
-  userId?: string;
-  dateFrom?: string;
-  dateTo?: string;
-}): Prisma.AuditLogWhereInput {
-  const { action, entityType, userId, dateFrom, dateTo } = filters;
-  const where: Prisma.AuditLogWhereInput = {};
-  if (action) where.action = action;
-  if (entityType) where.entityType = entityType;
-  if (userId) where.userId = userId;
-  if (dateFrom) {
-    const from = new Date(dateFrom);
-    from.setUTCHours(0, 0, 0, 0);
-    where.timestamp = { ...((where.timestamp as Prisma.DateTimeFilter) ?? {}), gte: from };
-  }
-  if (dateTo) {
-    const to = new Date(dateTo);
-    to.setUTCHours(23, 59, 59, 999);
-    const existing = where.timestamp as Prisma.DateTimeFilter | undefined;
-    where.timestamp = existing ? { ...existing, lte: to } : { lte: to };
-  }
-  return where;
-}
+import { buildAuditWhere } from "./buildAuditWhere";
 
 /** Handles GET /api/admin/audit: returns a paginated, filterable audit log list. */
 async function getAuditListHandler(req: NextRequest, _session: Session) {
