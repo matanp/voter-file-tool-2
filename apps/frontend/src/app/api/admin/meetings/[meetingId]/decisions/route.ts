@@ -6,16 +6,19 @@
 import { PrivilegeLevel } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { logAuditEvent } from "~/lib/auditLog";
 import { bulkDecisionSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { ALREADY_IN_ANOTHER_COMMITTEE_ERROR, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
-import { ensureSeatsExist, assignNextAvailableSeat } from "~/app/api/lib/seatUtils";
-import { validateEligibility } from "~/lib/eligibility";
 import {
-  fetchMembershipAuditSubject,
-  mergeAuditMetadata,
-} from "~/lib/auditMembershipSubject";
+  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+  getGovernanceConfig,
+  isActiveMembershipPerTermConflict,
+} from "~/app/api/lib/committeeValidation";
+import {
+  confirmSubmittedMembership,
+  rejectSubmittedMembership,
+  type ConfirmSubmittedMembershipResult,
+} from "~/app/api/lib/membershipConfirmation";
+import { validateEligibility } from "~/lib/eligibility";
 import {
   withPrivilege,
   type SessionWithUser,
@@ -29,6 +32,23 @@ type DecisionResult = {
   success: boolean;
   error?: string;
 };
+
+function confirmErrorMessage(
+  kind: Exclude<ConfirmSubmittedMembershipResult["kind"], "accepted">,
+): string {
+  switch (kind) {
+    case "notFound":
+      return "Membership not found";
+    case "notSubmitted":
+      return "Membership is not in SUBMITTED status";
+    case "anotherCommittee":
+      return ALREADY_IN_ANOTHER_COMMITTEE_ERROR;
+    case "replacementTargetInvalid":
+      return "Replacement target not found or no longer active";
+    case "atCapacity":
+      return "Committee is at capacity";
+  }
+}
 
 async function bulkDecisionsHandler(
   req: NextRequest,
@@ -49,9 +69,9 @@ async function bulkDecisionsHandler(
   const { decisions } = validation.data;
   const userId = session.user.id;
   const userRole = session.user.privilegeLevel ?? PrivilegeLevel.Admin;
+  const actor = { userId, userRole };
 
   try {
-    // Verify meeting exists
     const meeting = await prisma.meetingRecord.findUnique({
       where: { id: meetingId },
     });
@@ -61,6 +81,9 @@ async function bulkDecisionsHandler(
         { status: 404 },
       );
     }
+
+    const config = await getGovernanceConfig();
+    const maxSeats = config.maxSeatsPerLted;
 
     const results = await prisma.$transaction(async (tx) => {
       const decisionResults: DecisionResult[] = [];
@@ -91,7 +114,6 @@ async function bulkDecisionsHandler(
         }
 
         if (decision === "confirm") {
-          // SRS 4.3 — Re-check canonical eligibility at meeting decision time.
           const eligibility = await validateEligibility(
             membership.voterRecordId,
             membership.committeeListId,
@@ -116,54 +138,30 @@ async function bulkDecisionsHandler(
             continue;
           }
 
-          // Ensure seats exist for this committee+term
           try {
-            await ensureSeatsExist(membership.committeeListId, membership.termId, { tx });
-          } catch {
-            // Non-fatal: seats may already exist
-          }
-
-          // Attempt seat assignment
-          let seatNumber: number;
-          try {
-            seatNumber = await assignNextAvailableSeat(
-              membership.committeeListId,
-              membership.termId,
-              { tx },
-            );
-          } catch {
-            decisionResults.push({
+            const outcome = await confirmSubmittedMembership(tx, {
               membershipId,
-              decision,
-              success: false,
-              error: "No available seats — committee is at capacity",
+              meetingRecordId: meetingId,
+              actor,
+              maxSeats,
+              membershipType: membership.membershipType ?? "APPOINTED",
+              auditMetadata: { meetingRecordId: meetingId },
             });
-            continue;
-          }
 
-          const now = new Date();
-          const beforeSnapshot = {
-            status: membership.status,
-            membershipType: membership.membershipType,
-            seatNumber: membership.seatNumber,
-            confirmedAt: membership.confirmedAt,
-            activatedAt: membership.activatedAt,
-            meetingRecordId: membership.meetingRecordId,
-          };
-
-          // SUBMITTED → CONFIRMED → ACTIVE (per v1 spec, immediate activation)
-          try {
-            await tx.committeeMembership.update({
-              where: { id: membershipId },
-              data: {
-                status: "ACTIVE",
-                confirmedAt: now,
-                activatedAt: now,
-                seatNumber,
-                meetingRecordId: meetingId,
-                membershipType: membership.membershipType ?? "APPOINTED",
-              },
-            });
+            if (outcome.kind === "accepted") {
+              decisionResults.push({
+                membershipId,
+                decision,
+                success: true,
+              });
+            } else {
+              decisionResults.push({
+                membershipId,
+                decision,
+                success: false,
+                error: confirmErrorMessage(outcome.kind),
+              });
+            }
           } catch (error) {
             if (isActiveMembershipPerTermConflict(error)) {
               decisionResults.push({
@@ -176,104 +174,36 @@ async function bulkDecisionsHandler(
             }
             throw error;
           }
-
-          const afterSnapshot = {
-            status: "ACTIVE",
-            membershipType: membership.membershipType ?? "APPOINTED",
-            seatNumber,
-            confirmedAt: now.toISOString(),
-            activatedAt: now.toISOString(),
-            meetingRecordId: meetingId,
-          };
-
-          const decisionSubject = await fetchMembershipAuditSubject(tx, {
-            voterRecordId: membership.voterRecordId,
-            committeeListId: membership.committeeListId,
-            termId: membership.termId,
-            seatNumber,
-          });
-          const confirmMetadata = mergeAuditMetadata(
-            { meetingRecordId: meetingId },
-            decisionSubject,
-          );
-
-          await logAuditEvent(
-            userId,
-            userRole,
-            "MEMBER_CONFIRMED",
-            "CommitteeMembership",
-            membershipId,
-            beforeSnapshot,
-            afterSnapshot,
-            confirmMetadata,
-            tx,
-          );
-
-          await logAuditEvent(
-            userId,
-            userRole,
-            "MEMBER_ACTIVATED",
-            "CommitteeMembership",
-            membershipId,
-            { status: "CONFIRMED" },
-            afterSnapshot,
-            confirmMetadata,
-            tx,
-          );
-
-          decisionResults.push({
-            membershipId,
-            decision,
-            success: true,
-          });
         } else {
-          // Reject path
-          const now = new Date();
-          const beforeSnapshot = {
-            status: membership.status,
-            rejectedAt: membership.rejectedAt,
-            rejectionNote: membership.rejectionNote,
-            meetingRecordId: membership.meetingRecordId,
-          };
-
-          await tx.committeeMembership.update({
-            where: { id: membershipId },
-            data: {
-              status: "REJECTED",
-              rejectedAt: now,
-              rejectionNote: rejectionNote ?? null,
-              meetingRecordId: meetingId,
-            },
-          });
-
-          const rejectSubject = await fetchMembershipAuditSubject(tx, {
-            voterRecordId: membership.voterRecordId,
-            committeeListId: membership.committeeListId,
-            termId: membership.termId,
-          });
-
-          await logAuditEvent(
-            userId,
-            userRole,
-            "MEMBER_REJECTED",
-            "CommitteeMembership",
+          const outcome = await rejectSubmittedMembership(tx, {
             membershipId,
-            beforeSnapshot,
-            {
-              status: "REJECTED",
-              rejectedAt: now.toISOString(),
-              rejectionNote: rejectionNote ?? null,
-              meetingRecordId: meetingId,
-            },
-            mergeAuditMetadata({ meetingRecordId: meetingId }, rejectSubject),
-            tx,
-          );
-
-          decisionResults.push({
-            membershipId,
-            decision,
-            success: true,
+            actor,
+            meetingRecordId: meetingId,
+            rejectionNote: rejectionNote ?? null,
+            auditMetadata: { meetingRecordId: meetingId },
           });
+
+          if (outcome.kind === "rejected") {
+            decisionResults.push({
+              membershipId,
+              decision,
+              success: true,
+            });
+          } else if (outcome.kind === "notFound") {
+            decisionResults.push({
+              membershipId,
+              decision,
+              success: false,
+              error: "Membership not found",
+            });
+          } else {
+            decisionResults.push({
+              membershipId,
+              decision,
+              success: false,
+              error: `Membership status is not SUBMITTED`,
+            });
+          }
         }
       }
 

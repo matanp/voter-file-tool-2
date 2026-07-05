@@ -17,6 +17,7 @@ import {
   expectErrorResponse,
   expectAuditLogCreate,
   expectAnyDate,
+  expectMembershipUpdateMany,
   getMembershipMock,
   getAuditLogMock,
   getMeetingRecordMock,
@@ -250,8 +251,22 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
       createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
     );
     getMembershipMock(prismaMock).update.mockResolvedValue({});
+    getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+    getMembershipMock(prismaMock).count.mockResolvedValue(2);
     getAuditLogMock(prismaMock).create.mockResolvedValue({});
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    (prismaMock.seat as { count: jest.Mock }).count = jest
+      .fn()
+      .mockResolvedValue(4);
+    (prismaMock.seat as { findMany: jest.Mock }).findMany = jest
+      .fn()
+      .mockResolvedValue([
+        { seatNumber: 1 },
+        { seatNumber: 2 },
+        { seatNumber: 3 },
+        { seatNumber: 4 },
+      ]);
   });
 
   it("confirms a membership: sets ACTIVE, assigns seat, logs audit events", async () => {
@@ -324,15 +339,15 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     expect(json.results[0]!.success).toBe(true);
     expect(json.results[0]!.decision).toBe("reject");
 
-    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: MEMBERSHIP_ID },
-        data: expect.objectContaining({
+    expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith(
+      expectMembershipUpdateMany(
+        {
           status: "REJECTED",
           rejectionNote: "Not eligible",
           meetingRecordId: MEETING_ID,
-        }) as unknown,
-      }) as unknown,
+        },
+        { id: MEMBERSHIP_ID, status: "SUBMITTED" },
+      ),
     );
 
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
@@ -362,14 +377,12 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     expect(json.results[0]!.error).toContain("expected SUBMITTED");
   });
 
-  it("returns capacity error when all seats occupied", async () => {
-    // Make assignNextAvailableSeat throw (all seats occupied)
-    getMembershipMock(prismaMock).findMany.mockResolvedValue([
-      { seatNumber: 1 },
-      { seatNumber: 2 },
-      { seatNumber: 3 },
-      { seatNumber: 4 },
-    ]);
+  it("returns capacity error and auto-rejects when committee is full", async () => {
+    getMembershipMock(prismaMock).count.mockImplementation(async () => {
+      const callCount = getMembershipMock(prismaMock).count.mock.calls.length;
+      // validateEligibility pre-check: under capacity; service tx: at capacity
+      return callCount <= 1 ? 2 : 4;
+    });
 
     const body = {
       decisions: [{ membershipId: MEMBERSHIP_ID, decision: "confirm" }],
@@ -385,6 +398,80 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     };
     expect(json.results[0]!.success).toBe(false);
     expect(json.results[0]!.error).toContain("capacity");
+    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MEMBERSHIP_ID },
+        data: expect.objectContaining({
+          status: "REJECTED",
+          rejectionNote: "Committee already full",
+        }) as unknown,
+      }) as unknown,
+    );
+  });
+
+  it("confirms replacement request when committee is at capacity", async () => {
+    const replacementTarget = createMockMembership({
+      id: "membership-target-id-002",
+      voterRecordId: "OLD_MEMBER_ID",
+      status: "ACTIVE",
+      seatNumber: 2,
+    });
+    getMembershipMock(prismaMock).findUnique
+      .mockResolvedValueOnce(
+        createMockMembership({
+          id: MEMBERSHIP_ID,
+          status: "SUBMITTED",
+          submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        createMockMembership({
+          id: MEMBERSHIP_ID,
+          status: "SUBMITTED",
+          submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
+        }),
+      )
+      .mockResolvedValueOnce(replacementTarget);
+    getMembershipMock(prismaMock).count.mockImplementation(async () => {
+      const callCount = getMembershipMock(prismaMock).count.mock.calls.length;
+      return callCount <= 1 ? 2 : 4;
+    });
+
+    const body = {
+      decisions: [{ membershipId: MEMBERSHIP_ID, decision: "confirm" }],
+    };
+    const response = await bulkDecisions(
+      createMockRequest(body),
+      routeContext(MEETING_ID),
+    );
+    expect(response.status).toBe(200);
+
+    const json = (await response.json()) as {
+      results: Array<{ success: boolean }>;
+    };
+    expect(json.results[0]!.success).toBe(true);
+  });
+
+  it("returns notSubmitted error on reject when membership already transitioned", async () => {
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
+    );
+    getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 0 });
+
+    const body = {
+      decisions: [{ membershipId: MEMBERSHIP_ID, decision: "reject" }],
+    };
+    const response = await bulkDecisions(
+      createMockRequest(body),
+      routeContext(MEETING_ID),
+    );
+    expect(response.status).toBe(200);
+
+    const json = (await response.json()) as {
+      results: Array<{ success: boolean; error?: string }>;
+    };
+    expect(json.results[0]!.success).toBe(false);
+    expect(json.results[0]!.error).toContain("SUBMITTED");
   });
 
   it("blocks confirmation when eligibility fails at decision time", async () => {

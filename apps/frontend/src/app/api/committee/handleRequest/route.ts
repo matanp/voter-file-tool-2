@@ -1,35 +1,16 @@
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { type Prisma, PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { getGovernanceConfig, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
 import {
-  assignNextAvailableSeat,
-  ensureSeatsExist,
-} from "~/app/api/lib/seatUtils";
+  confirmSubmittedMembership,
+  rejectSubmittedMembership,
+} from "~/app/api/lib/membershipConfirmation";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
-import { logAuditEvent, logAuditEventOrThrow } from "~/lib/auditLog";
 import { validateEligibility } from "~/lib/eligibility";
-import {
-  fetchMembershipAuditSubject,
-  fetchMembershipAuditSubjectFromDb,
-  mergeAuditMetadata,
-} from "~/lib/auditMembershipSubject";
-
-function getRemoveMemberIdFromMetadata(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return null;
-  }
-
-  const removeMemberId = (metadata as { removeMemberId?: unknown })
-    .removeMemberId;
-  if (typeof removeMemberId !== "string") return null;
-
-  const trimmed = removeMemberId.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 async function handleRequestHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
@@ -81,6 +62,9 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         { status: 400 },
       );
     }
+
+    const actor = { userId, userRole: user.privilegeLevel };
+    const resolvedMembershipType = membership.membershipType ?? "APPOINTED";
 
     if (acceptOrReject === "accept") {
       if (!meetingRecordId) {
@@ -142,253 +126,17 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         meetingRecordId,
       };
 
-      const outcome = await prisma.$transaction(async (tx) => {
-        const submittedMembership = await tx.committeeMembership.findUnique({
-          where: { id: membershipId },
-        });
-
-        if (!submittedMembership) {
-          return { kind: "notFound" } as const;
-        }
-
-        if (submittedMembership.status !== "SUBMITTED") {
-          return { kind: "notSubmitted" } as const;
-        }
-
-        // Lock committee row for atomic capacity+seat assignment (1.R.7).
-        await tx.$queryRaw`
-          SELECT id
-          FROM "CommitteeList"
-          WHERE id = ${submittedMembership.committeeListId}
-          FOR UPDATE
-        `;
-
-        // SRS §7.1: Reject if voter is already ACTIVE in another committee.
-        const activeInAnotherCommittee = await tx.committeeMembership.findFirst(
-          {
-            where: {
-              voterRecordId: submittedMembership.voterRecordId,
-              committeeListId: { not: submittedMembership.committeeListId },
-              termId: submittedMembership.termId,
-              status: "ACTIVE",
-            },
-            select: { id: true },
-          },
-        );
-
-        if (activeInAnotherCommittee) {
-          return { kind: "anotherCommittee" } as const;
-        }
-
-        // Extract removeMemberId before capacity check so replacements
-        // can account for the freed seat (1.R.14).
-        const removeMemberId = getRemoveMemberIdFromMetadata(
-          submittedMembership.submissionMetadata,
-        );
-
-        // Validate replacement target early so we can adjust the capacity check.
-        let replacementTarget: Awaited<
-          ReturnType<typeof tx.committeeMembership.findUnique>
-        > = null;
-        if (removeMemberId) {
-          replacementTarget = await tx.committeeMembership.findUnique({
-            where: {
-              voterRecordId_committeeListId_termId: {
-                voterRecordId: removeMemberId,
-                committeeListId: submittedMembership.committeeListId,
-                termId: submittedMembership.termId,
-              },
-            },
-          });
-
-          if (!replacementTarget || replacementTarget.status !== "ACTIVE") {
-            return { kind: "replacementTargetInvalid" } as const;
-          }
-
-          // Guard: replacement target must not be the incoming membership itself.
-          if (replacementTarget.id === submittedMembership.id) {
-            return { kind: "replacementTargetInvalid" } as const;
-          }
-        }
-
-        // Capacity check — subtract 1 when a valid replacement frees a seat.
-        const activeCount = await tx.committeeMembership.count({
-          where: {
-            committeeListId: submittedMembership.committeeListId,
-            termId: submittedMembership.termId,
-            status: "ACTIVE",
-          },
-        });
-
-        const effectiveActiveCount = activeCount - (replacementTarget ? 1 : 0);
-
-        if (effectiveActiveCount >= config.maxSeatsPerLted) {
-          const capacityRejectSubject = await fetchMembershipAuditSubject(tx, {
-            voterRecordId: submittedMembership.voterRecordId,
-            committeeListId: submittedMembership.committeeListId,
-            termId: submittedMembership.termId,
-          });
-          await tx.committeeMembership.update({
-            where: { id: membershipId },
-            data: {
-              status: "REJECTED",
-              rejectedAt: new Date(),
-              rejectionNote: "Committee already full",
-            },
-          });
-          await logAuditEvent(
-            userId,
-            user.privilegeLevel,
-            "MEMBER_REJECTED",
-            "CommitteeMembership",
-            membershipId,
-            { status: "SUBMITTED" },
-            { status: "REJECTED", rejectionNote: "Committee already full" },
-            mergeAuditMetadata({ reason: "capacity" }, capacityRejectSubject),
-            tx,
-          );
-
-          return { kind: "atCapacity" } as const;
-        }
-
-        await ensureSeatsExist(
-          submittedMembership.committeeListId,
-          submittedMembership.termId,
-          {
-            tx,
-            maxSeats: config.maxSeatsPerLted,
-          },
-        );
-
-        // Remove the replacement target (already validated above).
-        if (replacementTarget) {
-          await tx.committeeMembership.update({
-            where: { id: replacementTarget.id },
-            data: {
-              status: "REMOVED",
-              removedAt: new Date(),
-              removalReason: "OTHER",
-              removalNotes: "Replacement request accepted",
-              seatNumber: null,
-            },
-          });
-          await logAuditEventOrThrow(
-            userId,
-            user.privilegeLevel,
-            "MEMBER_REMOVED",
-            "CommitteeMembership",
-            replacementTarget.id,
-            { status: "ACTIVE" },
-            { status: "REMOVED", removalReason: "OTHER" },
-            mergeAuditMetadata(
-              {
-                reason: "replacement",
-                replacementMembershipId: submittedMembership.id,
-              },
-              await fetchMembershipAuditSubject(tx, {
-                voterRecordId: replacementTarget.voterRecordId,
-                committeeListId: replacementTarget.committeeListId,
-                termId: replacementTarget.termId,
-                seatNumber: replacementTarget.seatNumber,
-              }),
-            ),
-            tx,
-          );
-        }
-
-        const seatNumber = await assignNextAvailableSeat(
-          submittedMembership.committeeListId,
-          submittedMembership.termId,
-          {
-            tx,
-            maxSeats: config.maxSeatsPerLted,
-          },
-        );
-
-        const now = new Date();
-
-        // Transition SUBMITTED → ACTIVE (meeting-linked approval path); leader submissions are vacancy fills (APPOINTED)
-        // SRS §2.2 — Persist eligibility warning snapshot at accept time
-        const existingMeta =
-          submittedMembership.submissionMetadata &&
-          typeof submittedMembership.submissionMetadata === "object" &&
-          !Array.isArray(submittedMembership.submissionMetadata)
-            ? (submittedMembership.submissionMetadata as Record<string, unknown>)
-            : {};
-        const updatedSubmissionMetadata =
-          eligibilityWarnings.length > 0
-            ? { ...existingMeta, eligibilityWarnings }
-            : existingMeta;
-
-        await tx.committeeMembership.update({
-          where: { id: membershipId },
-          data: {
-            status: "ACTIVE",
-            confirmedAt: now,
-            activatedAt: now,
-            meetingRecordId,
-            membershipType: "APPOINTED",
-            seatNumber,
-            submissionMetadata:
-              Object.keys(updatedSubmissionMetadata).length > 0
-                ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
-                : undefined,
-          },
-        });
-        const confirmedSnapshot = {
-          status: "CONFIRMED",
-          membershipType: "APPOINTED",
-          seatNumber,
-          confirmedAt: now.toISOString(),
-          activatedAt: now.toISOString(),
-          meetingRecordId,
-        };
-        const activatedSnapshot = {
-          status: "ACTIVE",
-          membershipType: "APPOINTED",
-          seatNumber,
-          confirmedAt: now.toISOString(),
-          activatedAt: now.toISOString(),
-          meetingRecordId,
-        };
-
-        const acceptedSubject = await fetchMembershipAuditSubject(tx, {
-          voterRecordId: submittedMembership.voterRecordId,
-          committeeListId: submittedMembership.committeeListId,
-          termId: submittedMembership.termId,
-          seatNumber,
-        });
-        const auditMetadataWithSubject = mergeAuditMetadata(
-          auditMetadataWithMeeting,
-          acceptedSubject,
-        );
-
-        await logAuditEvent(
-          userId,
-          user.privilegeLevel,
-          "MEMBER_CONFIRMED",
-          "CommitteeMembership",
+      const outcome = await prisma.$transaction(async (tx) =>
+        confirmSubmittedMembership(tx, {
           membershipId,
-          { status: "SUBMITTED" },
-          confirmedSnapshot,
-          auditMetadataWithSubject,
-          tx,
-        );
-
-        await logAuditEvent(
-          userId,
-          user.privilegeLevel,
-          "MEMBER_ACTIVATED",
-          "CommitteeMembership",
-          membershipId,
-          { status: "CONFIRMED" },
-          activatedSnapshot,
-          auditMetadataWithSubject,
-          tx,
-        );
-
-        return { kind: "accepted" } as const;
-      });
+          meetingRecordId,
+          actor,
+          maxSeats: config.maxSeatsPerLted,
+          membershipType: resolvedMembershipType,
+          eligibilityWarnings,
+          auditMetadata: auditMetadataWithMeeting,
+        }),
+      );
 
       if (outcome.kind === "notFound") {
         return NextResponse.json(
@@ -424,6 +172,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           { status: 422 },
         );
       }
+
       return NextResponse.json(
         {
           message: "Request accepted",
@@ -434,36 +183,21 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         { status: 200 },
       );
     } else if (acceptOrReject === "reject") {
-      const rejectSubject = await fetchMembershipAuditSubjectFromDb({
-        voterRecordId: membership.voterRecordId,
-        committeeListId: membership.committeeListId,
-        termId: membership.termId,
-      });
-      // Transition SUBMITTED → REJECTED (conditional to avoid overwriting concurrent accept)
-      const updateResult = await prisma.$transaction(async (tx) => {
-        const updated = await tx.committeeMembership.updateMany({
-          where: { id: membershipId, status: "SUBMITTED" },
-          data: {
-            status: "REJECTED",
-            rejectedAt: new Date(),
-          },
-        });
-        if (updated.count > 0) {
-          await logAuditEvent(
-            userId,
-            user.privilegeLevel,
-            "MEMBER_REJECTED",
-            "CommitteeMembership",
-            membershipId,
-            { status: "SUBMITTED" },
-            { status: "REJECTED" },
-            mergeAuditMetadata(undefined, rejectSubject),
-            tx,
-          );
-        }
-        return updated.count;
-      });
-      if (updateResult === 0) {
+      const outcome = await prisma.$transaction(async (tx) =>
+        rejectSubmittedMembership(tx, {
+          membershipId,
+          actor,
+        }),
+      );
+
+      if (outcome.kind === "notFound") {
+        return NextResponse.json(
+          { error: "Committee membership request not found" },
+          { status: 404 },
+        );
+      }
+
+      if (outcome.kind === "notSubmitted") {
         return NextResponse.json(
           { error: "This membership is not in a pending (SUBMITTED) state" },
           { status: 400 },
