@@ -69,7 +69,9 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   const [requestRemoveMember, setRequestRemoveMember] =
     useState<VoterRecord | null>(removeMember ?? null);
   const [addFormRecords, setAddFormRecords] = useState<VoterRecord[]>([]);
-  const [addMemberFormOpen, setAddMemberFormOpen] = useState<boolean>(false);
+  const [addMemberFormOpen, setAddMemberFormOpen] = useState<boolean>(
+    removeMember != null,
+  );
   const [preflightLoading, setPreflightLoading] = useState<boolean>(false);
   const [preflightError, setPreflightError] = useState<string | null>(null);
   const [preflight, setPreflight] = useState<EligibilityPreflightResponse | null>(
@@ -198,6 +200,8 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     contactPhone,
   ]);
 
+  const isReplacementRequest = requestRemoveMember != null;
+  const isCommitteeFull = committeeList.length >= maxSeatsPerLted;
   const hasHardStops = (preflight?.hardStops.length ?? 0) > 0;
   const requiresAddPreflight = requestAddMember != null;
   const isSubmitBlocked =
@@ -281,7 +285,9 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     <div>
       <div className="flex gap-4 items-center">
         <h2 className="py-2">
-          Would you like to add someone to the committee?
+          {isReplacementRequest
+            ? "Who should replace the removed member?"
+            : "Would you like to add someone to the committee?"}
         </h2>
         <Switch
           checked={addMemberFormOpen}
@@ -298,7 +304,11 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
         <>
           <RecordSearchForm
             handleResults={setAddFormRecords}
-            submitButtonText="Find Members to Add"
+            submitButtonText={
+              isReplacementRequest
+                ? "Find Replacement Candidates"
+                : "Find Members to Add"
+            }
           />
           <VoterRecordTable
             records={addFormRecords.slice(0, 4)}
@@ -312,17 +322,22 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
               const getMessage = () => {
                 if (member) {
                   return "Already in this committee";
-                } else if (committeeList.length >= maxSeatsPerLted) {
-                  return "Committee Full";
-                } else {
-                  return "Select Candidate";
                 }
+                if (isCommitteeFull && !isReplacementRequest) {
+                  return "Committee Full";
+                }
+                if (isReplacementRequest) {
+                  return "Select Replacement";
+                }
+                return "Select Candidate";
               };
+              const isAddBlocked =
+                !!member || (isCommitteeFull && !isReplacementRequest);
               return (
                 <div className="flex gap-4">
                   <Button
                     onClick={() => setRequestAddMember(record)}
-                    disabled={!!member || committeeList.length >= maxSeatsPerLted}
+                    disabled={isAddBlocked}
                   >
                     {getMessage()}
                   </Button>
@@ -347,13 +362,20 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           <h1 className="pt-2">City: {city}</h1>
           {legDistrict !== "" && <h1>Leg District: {legDistrict}</h1>}
           <h1>Election District: {electionDistrict}</h1>
-          {requestAddMember && (
+          {requestAddMember && requestRemoveMember && (
+            <p>
+              Replacing {requestRemoveMember.firstName}{" "}
+              {requestRemoveMember.lastName} with {requestAddMember.firstName}{" "}
+              {requestAddMember.lastName}
+            </p>
+          )}
+          {requestAddMember && !requestRemoveMember && (
             <p>
               Adding to the committee: {requestAddMember.firstName}{" "}
               {requestAddMember.lastName}
             </p>
           )}
-          {requestRemoveMember && (
+          {requestRemoveMember && !requestAddMember && (
             <p>
               Removing from the committee: {requestRemoveMember.firstName}{" "}
               {requestRemoveMember.lastName}
