@@ -6,18 +6,23 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "postinstall": "prisma generate --schema=../../apps/frontend/prisma/schema.prisma",
-    "build": "prisma generate --schema=../../apps/frontend/prisma/schema.prisma && tsc",
+    "build": "prisma generate --schema=../../apps/frontend/prisma/schema.prisma && tsc -p tsconfig.build.json",
     "dev": "tsc --watch",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prebuild": "pnpm clean",
-    "sync": "node ../../scripts/sync-prisma-models.js"
+    "sync": "node ../../scripts/sync-prisma-models.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@prisma/client": "^5.15.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.5",
-    "prisma": "^5.15.0"
+    "@types/jest": "^30.0.0",
+    "jest": "^30.1.2",
+    "prisma": "^5.15.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.4.5"
   },
   "peerDependencies": {
     "@prisma/client": "^5.15.0"

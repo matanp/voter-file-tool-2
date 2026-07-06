@@ -1,4 +1,4 @@
-import type { CommitteeMembership, Seat, VoterRecord } from '@prisma/client';
+import type { Seat, VoterRecord } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import type {
   CommitteeWithMembers,
@@ -8,6 +8,10 @@ import {
   convertPrismaVoterRecordToAPI,
   applyCompoundFields,
 } from '@voter-file-tool/shared-validators';
+import {
+  computeDesignationWeight as computeDesignationWeightCore,
+  type SeatContribution,
+} from '@voter-file-tool/shared-prisma';
 import { prisma } from './lib/prisma';
 
 export type { CommitteeWithMembers };
@@ -235,15 +239,8 @@ export async function fetchSignInSheetData(
 // SRS 2.7 — Designation-weight helpers for report generation (§3.3/§3.4)
 // ---------------------------------------------------------------------------
 
-export type SeatWeightBreakdown = {
-  seatNumber: number;
-  isPetitioned: boolean;
-  isOccupied: boolean;
-  occupantMembershipType: string | null;
-  seatWeight: number | null;
-  contributes: boolean;
-  contributionWeight: number;
-};
+// Per-seat breakdown shape is owned by the shared weight engine.
+export type SeatWeightBreakdown = SeatContribution;
 
 export type DesignationWeightSummary = {
   committeeListId: number;
@@ -269,76 +266,28 @@ export function computeDesignationWeight(
     (m) => m.status === 'ACTIVE' && m.seatNumber != null,
   );
 
-  const seatOccupants = new Map<number, CommitteeMembership & { voterRecord: VoterRecord }>();
-  for (const m of activeMemberships) {
-    if (m.seatNumber != null) {
-      if (seatOccupants.has(m.seatNumber)) {
-        throw new Error(
-          `Data integrity error: duplicate active memberships on seat ${String(m.seatNumber)} ` +
-            `for committee ${String(committee.id)} term ${committee.termId}`,
-        );
-      }
-      seatOccupants.set(m.seatNumber, m);
-    }
-  }
-
-  const missingWeightSeatNumbers: number[] = [];
-  let totalWeightDecimal = new Prisma.Decimal(0);
-  let totalContributingSeats = 0;
-
-  const seatBreakdowns: SeatWeightBreakdown[] = seats
-    .slice()
-    .sort((a, b) => a.seatNumber - b.seatNumber)
-    .map((seat) => {
-      const occupant = seatOccupants.get(seat.seatNumber);
-      const isOccupied = !!occupant;
-      const seatWeight =
-        seat.weight != null ? new Prisma.Decimal(seat.weight).toNumber() : null;
-
-      if (!seat.isPetitioned || seatWeight == null) {
-        if (seat.isPetitioned && seatWeight == null) {
-          missingWeightSeatNumbers.push(seat.seatNumber);
-        }
-        return {
-          seatNumber: seat.seatNumber,
-          isPetitioned: seat.isPetitioned,
-          isOccupied,
-          occupantMembershipType: occupant?.membershipType ?? null,
-          seatWeight,
-          contributes: false,
-          contributionWeight: 0,
-        };
-      }
-
-      const contributes = isOccupied;
-      const contributionWeight = contributes ? seatWeight : 0;
-      if (contributes) {
-        totalWeightDecimal = totalWeightDecimal.add(
-          new Prisma.Decimal(contributionWeight),
-        );
-        totalContributingSeats += 1;
-      }
-
-      return {
-        seatNumber: seat.seatNumber,
-        isPetitioned: true,
-        isOccupied,
-        occupantMembershipType: occupant?.membershipType ?? null,
-        seatWeight,
-        contributes,
-        contributionWeight,
-      };
-    });
+  const core = computeDesignationWeightCore({
+    seats: seats.map((s) => ({
+      seatNumber: s.seatNumber,
+      isPetitioned: s.isPetitioned,
+      weight: s.weight,
+    })),
+    memberships: activeMemberships.map((m) => ({
+      seatNumber: m.seatNumber,
+      membershipType: m.membershipType,
+    })),
+    context: { committeeListId: committee.id, termId: committee.termId },
+  });
 
   return {
     committeeListId: committee.id,
     cityTown: committee.cityTown,
     legDistrict: committee.legDistrict,
     electionDistrict: committee.electionDistrict,
-    totalWeight: totalWeightDecimal.toNumber(),
-    totalContributingSeats,
-    seats: seatBreakdowns,
-    missingWeightSeatNumbers,
+    totalWeight: core.totalWeight,
+    totalContributingSeats: core.totalContributingSeats,
+    seats: core.seats,
+    missingWeightSeatNumbers: core.missingWeightSeatNumbers,
   };
 }
 

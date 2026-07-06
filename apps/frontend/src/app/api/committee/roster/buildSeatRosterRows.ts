@@ -7,6 +7,7 @@
  */
 
 import type { Prisma, MembershipType } from "@prisma/client";
+import { indexActiveMembershipsBySeat } from "@voter-file-tool/shared-prisma";
 import { computeDesignationWeightFromData } from "~/lib/designationWeight";
 import type {
   CommitteeMembershipSubmissionMetadata,
@@ -64,8 +65,7 @@ function serializeWeight(
  * Read-only: synthesizes virtual vacant seats in memory when a committee has no
  * Seat records (never writes via ensureSeatsExist). Throws a "Data integrity
  * error" (surfaced as 409 by the route) when two active memberships claim the
- * same seat — delegated to computeDesignationWeightFromData, which already
- * detects that condition.
+ * same seat — via indexActiveMembershipsBySeat / computeDesignationWeightFromData.
  */
 export function buildSeatRosterRows(
   committees: RosterCommittee[],
@@ -91,7 +91,15 @@ export function buildSeatRosterRows(
             weight: null,
           }));
 
-    // Throws on duplicate active memberships on one seat AND yields weight data.
+    // Index occupants once; shared with the weight engine to avoid duplicate work.
+    const occupantBySeat = indexActiveMembershipsBySeat(committee.memberships, {
+      committeeListId: committee.id,
+      termId,
+    });
+    const unassignedMembers = committee.memberships.filter(
+      (m) => m.seatNumber == null,
+    );
+
     const designation = computeDesignationWeightFromData({
       committeeListId: committee.id,
       termId,
@@ -101,18 +109,8 @@ export function buildSeatRosterRows(
         membershipType: m.membershipType,
         voterRecordId: m.voterRecordId,
       })),
+      seatOccupants: occupantBySeat,
     });
-
-    // Map seat -> occupant (safe: compute above already rejected duplicates).
-    const occupantBySeat = new Map<number, RosterMembership>();
-    const unassignedMembers: RosterMembership[] = [];
-    for (const m of committee.memberships) {
-      if (m.seatNumber == null) {
-        unassignedMembers.push(m);
-        continue;
-      }
-      occupantBySeat.set(m.seatNumber, m);
-    }
 
     const buildContact = (m: RosterMembership) => {
       const meta = m.submissionMetadata as

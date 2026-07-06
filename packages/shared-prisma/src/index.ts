@@ -32,8 +32,10 @@ export type {
 // Re-export PrismaClient class
 export { PrismaClient } from '@prisma/client';
 
-// Re-export Prisma namespace for all input types, where clauses, etc.
-export type { Prisma } from '@prisma/client';
+// Re-export Prisma namespace for input types, where clauses, and runtime
+// utilities (e.g. `new Prisma.Decimal(...)`). Value export so both the type
+// and the runtime namespace are available to consumers.
+export { Prisma } from '@prisma/client';
 
 // Re-export common Prisma utilities
 export {
@@ -59,3 +61,15 @@ export {
   isPartyMismatch,
   isAssemblyDistrictMismatch,
 } from './eligibilityPredicates';
+
+export {
+  computeDesignationWeight,
+  indexActiveMembershipsBySeat,
+  type ComputeDesignationWeightInput,
+  type DesignationMembershipInput,
+  type DesignationSeatInput,
+  type DesignationWeightContext,
+  type DesignationWeightResult,
+  type OccupantMembershipType,
+  type SeatContribution,
+} from './committeeDesignationWeight';
