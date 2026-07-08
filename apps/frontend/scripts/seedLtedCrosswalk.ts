@@ -13,49 +13,34 @@
 import * as fs from "fs";
 import * as path from "path";
 import { config } from "dotenv";
-import * as xlsx from "xlsx";
 
 config({ path: path.join(process.cwd(), ".env") });
 config({ path: path.join(process.cwd(), "..", ".env") });
 
 import prisma from "../src/lib/prisma";
+import { parseDistrictValue, normalizeTownCode } from "../src/lib/lted/digitParsing";
+import { lookupCityTown } from "../src/lib/lted/monroeTownCodes";
+import { getRowValue, parseXlsxBuffer } from "../src/lib/lted/xlsxUpload";
 
-// Monroe County town code → cityTown (matches CommitteeList.cityTown format)
-// Source: 2024 LTED Matrix town codes; 080=Rochester per SRS_LTED_WEIGHT_SOURCE.md
-// Extend as needed when new town codes appear
-const TOWN_CODE_TO_CITY: Record<string, string> = {
-  "005": "BRIGHTON",
-  "010": "CHILI",
-  "015": "CLARKSON",
-  "017": "CLARKSON", // ED 17 may share town
-  "020": "EAST ROCHESTER",
-  "025": "BRIGHTON",
-  "030": "GATES",
-  "035": "GATES",
-  "040": "GREECE",
-  "045": "HAMLIN",
-  "050": "HENRIETTA",
-  "055": "OGDEN",
-  "060": "RIGA",
-  "065": "RUSH",
-  "070": "SWEDEN",
-  "075": "PENFIELD",
-  "080": "ROCHESTER",
-  "085": "PERINTON",
-  "090": "PITTSFORD",
-  "095": "WEBSTER",
-  "100": "WHEATLAND",
-};
-
+/** Resolve town code to cityTown with warn-on-unknown fallback for seeding. */
 function getCityTown(townCode: string): string {
-  const normalized = String(townCode ?? "").trim();
-  const city = TOWN_CODE_TO_CITY[normalized];
-  if (city) return city;
-  // Fallback: use code as-is (may not match CommitteeList; log warning)
+  const normalized = normalizeTownCode(townCode);
+  if (!normalized) {
+    console.warn(
+      `Invalid town code "${townCode}" - using UNKNOWN`,
+    );
+    return "UNKNOWN";
+  }
+
+  const mapped = lookupCityTown(normalized, "strict");
+  if (mapped) {
+    return mapped;
+  }
+
   console.warn(
     `Unknown town code "${townCode}" - using as cityTown (may not match CommitteeList)`,
   );
-  return normalized.toUpperCase() || "UNKNOWN";
+  return normalized;
 }
 
 async function main() {
@@ -75,16 +60,14 @@ async function main() {
 
   console.log(`Reading ${filePath}...`);
   const fileBuffer = fs.readFileSync(filePath);
-  const workbook = xlsx.read(fileBuffer);
-  const sheet =
-    workbook.Sheets.NEW_LTED_Matrix ??
-    workbook.Sheets[workbook.SheetNames[0]!];
+  const parsed = parseXlsxBuffer(fileBuffer, {
+    sheetPreference: "preferNewLtedMatrix",
+  });
 
-  if (!sheet) {
-    throw new Error("Sheet NEW_LTED_Matrix not found");
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
   }
 
-  const rows = xlsx.utils.sheet_to_json<Record<string, string | number>>(sheet);
   const records: Array<{
     cityTown: string;
     legDistrict: number;
@@ -95,43 +78,49 @@ async function main() {
     countyLegDistrict: string | null;
   }> = [];
 
-  for (const row of rows) {
-    const lted = String(row.LTED ?? "").trim();
-    const ward = String(row.ward ?? row.Ward ?? "").trim();
-    const district = String(row.district ?? row.District ?? "").trim();
-    const town = String(row.town ?? row.Town ?? "").trim();
-    const stlegDist = String(row.stleg_dist ?? "").trim();
-    const stsenDist =
-      row.stsen_dist != null ? String(row.stsen_dist).trim() : "";
-    const congDist = row.cong_dist != null ? String(row.cong_dist).trim() : "";
-    const othrDist1 =
-      row.othr_dist1 != null ? String(row.othr_dist1).trim() : null;
+  for (const row of parsed.rows) {
+    const lted = String(getRowValue(row, "LTED")).trim();
+    const ward = getRowValue(row, "ward", "Ward");
+    const district = getRowValue(row, "district", "District");
+    const town = getRowValue(row, "town", "Town");
+    const stlegDist = String(getRowValue(row, "stleg_dist")).trim();
+    const stsenRaw = getRowValue(row, "stsen_dist");
+    const congRaw = getRowValue(row, "cong_dist");
+    const othrRaw = getRowValue(row, "othr_dist1");
 
-    if (!lted || !ward || !district || !town || !stlegDist) {
+    if (
+      !lted ||
+      ward === "" ||
+      district === "" ||
+      town === "" ||
+      !stlegDist
+    ) {
       console.warn(
-        `Skipping incomplete row: LTED=${lted}, ward=${ward}, district=${district}, town=${town}`,
+        `Skipping incomplete row: LTED=${lted}, ward=${String(ward)}, district=${String(district)}, town=${String(town)}`,
       );
       continue;
     }
 
-    const legDistrict = parseInt(ward.replace(/^0+/, "") || "0", 10);
-    const electionDistrict = parseInt(district.replace(/^0+/, "") || "0", 10);
+    const legDistrict = parseDistrictValue(ward);
+    const electionDistrict = parseDistrictValue(district);
 
-    if (isNaN(legDistrict) || isNaN(electionDistrict)) {
+    if (legDistrict === null || electionDistrict === null) {
       console.warn(
-        `Skipping invalid LD/ED: ward=${ward}, district=${district}`,
+        `Skipping invalid LD/ED: ward=${String(ward)}, district=${String(district)}`,
       );
       continue;
     }
 
     records.push({
-      cityTown: getCityTown(town),
+      cityTown: getCityTown(String(town)),
       legDistrict,
       electionDistrict,
       stateAssemblyDistrict: stlegDist,
-      stateSenateDistrict: stsenDist || null,
-      congressionalDistrict: congDist || null,
-      countyLegDistrict: othrDist1 ?? null,
+      stateSenateDistrict:
+        stsenRaw !== "" ? String(stsenRaw).trim() : null,
+      congressionalDistrict:
+        congRaw !== "" ? String(congRaw).trim() : null,
+      countyLegDistrict: othrRaw !== "" ? String(othrRaw).trim() : null,
     });
   }
 

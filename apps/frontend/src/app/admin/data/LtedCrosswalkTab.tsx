@@ -5,7 +5,7 @@
  * Import section (Excel upload) + Browse/Edit section (table with CRUD).
  */
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -43,6 +43,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { Alert, AlertDescription } from "~/components/ui/alert";
+import { XlsxUploadCard } from "~/components/admin/XlsxUploadCard";
 import { useToast } from "~/components/ui/use-toast";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useApiQuery } from "~/hooks/useApiQuery";
@@ -76,6 +77,34 @@ type ImportSummary = {
   errors: { row: number; message: string }[];
 };
 
+type CrosswalkImportResponse = {
+  success: boolean;
+  summary: ImportSummary;
+};
+
+const CrosswalkImportSummary = ({ summary }: { summary: ImportSummary }) => (
+  <div className="space-y-2">
+    <p>
+      {summary.rowsProcessed} rows processed. Created: {summary.created}, Updated:{" "}
+      {summary.updated}, Skipped: {summary.skipped}
+    </p>
+    {summary.errors.length > 0 && (
+      <details className="mt-2">
+        <summary className="cursor-pointer text-sm font-medium">
+          {summary.errors.length} error(s)
+        </summary>
+        <ul className="mt-1 list-inside text-sm">
+          {summary.errors.map((e, i) => (
+            <li key={i}>
+              Row {e.row}: {e.message}
+            </li>
+          ))}
+        </ul>
+      </details>
+    )}
+  </div>
+);
+
 const PAGE_SIZE = 25;
 
 function buildQuery(page: number, cityTown?: string, legDistrict?: number): string {
@@ -93,12 +122,9 @@ export const LtedCrosswalkTab = () => {
   const [page, setPage] = useState(1);
   const [cityTownFilter, setCityTownFilter] = useState<string>("");
   const [legDistrictFilter, setLegDistrictFilter] = useState<string>("");
-  const [file, setFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<ImportSummary | null>(null);
   const [editRecord, setEditRecord] = useState<LtedDistrictCrosswalk | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LtedDistrictCrosswalk | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
   const query = buildQuery(
     page,
@@ -109,27 +135,6 @@ export const LtedCrosswalkTab = () => {
   const listQuery = useApiQuery<CrosswalkListResponse>(query, {
     enabled: true,
   });
-
-  const importMutation = useApiMutation<{ success: boolean; summary: ImportSummary }, FormData>(
-    "/api/admin/crosswalk/import",
-    "POST",
-    {
-      onSuccess: (data) => {
-        setImportResult(data.summary);
-        setFile(null);
-        formRef.current?.reset();
-        void listQuery.refetch(query);
-        toast({ title: "Import completed" });
-      },
-      onError: (error) => {
-        toast({
-          title: "Import failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      },
-    },
-  );
 
   const upsertMutation = useApiMutation<LtedDistrictCrosswalk, unknown>(
     "/api/admin/crosswalk",
@@ -169,33 +174,6 @@ export const LtedCrosswalkTab = () => {
       },
     },
   );
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFile(e.target.files?.[0] ?? null);
-    setImportResult(null);
-  };
-
-  const handleImportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) {
-      toast({
-        title: "No file selected",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!file.name.toLowerCase().endsWith(".xlsx")) {
-      toast({
-        title: "Invalid file type",
-        description: "Please select an .xlsx file",
-        variant: "destructive",
-      });
-      return;
-    }
-    const formData = new FormData();
-    formData.set("file", file);
-    await importMutation.mutate(formData);
-  };
 
   const handleDeleteClick = (record: LtedDistrictCrosswalk) => {
     setDeleteTarget(record);
@@ -237,65 +215,19 @@ export const LtedCrosswalkTab = () => {
       </Alert>
 
       {/* Import Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Import LTED Matrix</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {lastImported != null && (
-            <p className="text-sm text-muted-foreground">
-              Last imported: {new Date(lastImported).toLocaleString()}
-            </p>
-          )}
-          {lastImported == null && (
-            <p className="text-sm text-muted-foreground">Last imported: Never</p>
-          )}
-          <form ref={formRef} onSubmit={handleImportSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="crosswalk-file">LTED Matrix (Excel)</Label>
-              <Input
-                id="crosswalk-file"
-                type="file"
-                accept=".xlsx"
-                onChange={handleFileChange}
-                disabled={importMutation.loading}
-              />
-            </div>
-            <Button type="submit" disabled={!file || importMutation.loading}>
-              {importMutation.loading ? "Importing..." : "Upload LTED Matrix"}
-            </Button>
-          </form>
-          {importMutation.error != null && (
-            <Alert variant="destructive">
-              <AlertDescription>{importMutation.error}</AlertDescription>
-            </Alert>
-          )}
-          {importResult != null && (
-            <Alert>
-              <AlertDescription className="space-y-2">
-                <p>
-                  {importResult.rowsProcessed} rows processed. Created: {importResult.created},
-                  Updated: {importResult.updated}, Skipped: {importResult.skipped}
-                </p>
-                {importResult.errors.length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-sm font-medium">
-                      {importResult.errors.length} error(s)
-                    </summary>
-                    <ul className="mt-1 list-inside text-sm">
-                      {importResult.errors.map((e, i) => (
-                        <li key={i}>
-                          Row {e.row}: {e.message}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+      <XlsxUploadCard<CrosswalkImportResponse>
+        endpoint="/api/admin/crosswalk/import"
+        formFieldName="file"
+        title="Import LTED Matrix"
+        label="LTED Matrix (Excel)"
+        inputId="crosswalk-file"
+        submitLabel="Upload LTED Matrix"
+        lastImported={lastImported}
+        onSuccess={() => {
+          void listQuery.refetch(query);
+        }}
+        renderResult={(data) => <CrosswalkImportSummary summary={data.summary} />}
+      />
 
       {/* Browse/Edit Section */}
       <Card>

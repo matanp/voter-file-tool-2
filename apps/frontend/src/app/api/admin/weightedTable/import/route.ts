@@ -6,11 +6,21 @@
 
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
-import * as xlsx from "xlsx";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import { recomputeSeatWeights } from "~/app/api/lib/seatUtils";
+import {
+  normalizeDigits,
+  normalizeTownCode,
+  parseDistrictValue,
+} from "~/lib/lted/digitParsing";
+import { lookupCityTown } from "~/lib/lted/monroeTownCodes";
+import {
+  getRowValue,
+  isUploadFile,
+  parseXlsxUpload,
+} from "~/lib/lted/xlsxUpload";
 import type { NextRequest } from "next/server";
 import type { Session } from "next-auth";
 
@@ -26,43 +36,7 @@ type MatrixMatch = {
   electionDistrict: number;
 };
 
-type UploadFile = {
-  arrayBuffer: () => Promise<ArrayBuffer>;
-};
-
-const TOWN_CODE_TO_CITY: Record<string, string> = {
-  "005": "BRIGHTON",
-  "010": "CHILI",
-  "015": "CLARKSON",
-  "017": "CLARKSON",
-  "020": "EAST ROCHESTER",
-  "025": "BRIGHTON",
-  "030": "GATES",
-  "035": "GATES",
-  "040": "GREECE",
-  "045": "HAMLIN",
-  "050": "HENRIETTA",
-  "055": "OGDEN",
-  "060": "RIGA",
-  "065": "RUSH",
-  "070": "SWEDEN",
-  "075": "PENFIELD",
-  "080": "ROCHESTER",
-  "085": "PERINTON",
-  "090": "PITTSFORD",
-  "095": "WEBSTER",
-  "100": "WHEATLAND",
-};
-
-function normalizeDigits(value: unknown): string | null {
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  const withoutDecimal = raw.replace(/\.0+$/, "");
-  if (!/^\d+$/.test(withoutDecimal)) return null;
-  const noLeadingZeros = withoutDecimal.replace(/^0+/, "");
-  return noLeadingZeros.length > 0 ? noLeadingZeros : "0";
-}
-
+/** Parse an LTED key into leg district and election district components. */
 function parseLted(value: unknown): ParsedLted | null {
   const ltedKey = normalizeDigits(value);
   if (!ltedKey || ltedKey.length < 4) return null;
@@ -74,24 +48,6 @@ function parseLted(value: unknown): ParsedLted | null {
   if (Number.isNaN(legDistrict) || Number.isNaN(electionDistrict)) return null;
   if (legDistrict < 0 || electionDistrict < 0) return null;
   return { ltedKey, legDistrict, electionDistrict };
-}
-
-function parseDistrictValue(value: unknown): number | null {
-  const digits = normalizeDigits(value);
-  if (!digits) return null;
-  const parsed = Number.parseInt(digits, 10);
-  if (Number.isNaN(parsed) || parsed < 0) return null;
-  return parsed;
-}
-
-function normalizeTownCode(value: unknown): string | null {
-  const parsed = parseDistrictValue(value);
-  if (parsed === null) return null;
-  return parsed.toString().padStart(3, "0");
-}
-
-function toCityTown(townCode: string): string {
-  return (TOWN_CODE_TO_CITY[townCode] ?? townCode).trim().toUpperCase();
 }
 
 function committeeKey(
@@ -106,19 +62,15 @@ function districtKey(legDistrict: number, electionDistrict: number): string {
   return `${legDistrict}|${electionDistrict}`;
 }
 
-function isUploadFile(value: unknown): value is UploadFile {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "arrayBuffer" in value &&
-    typeof (value as { arrayBuffer?: unknown }).arrayBuffer === "function"
-  );
-}
-
 async function importHandler(req: NextRequest, _session: Session) {
   try {
     const formData = await req.formData();
     const file = formData.get("weightedTable");
+    // TODO: The `ltedMatrix` param is never sent by the single-file XlsxUploadCard
+    // UI, so the matrix-disambiguation branch below is currently dead from the
+    // normal import path. Split this into two routes: a normal weighted-table
+    // import (weightedTable only) and a separate bulk import that also accepts
+    // ltedMatrix — and move this param out of the normal route.
     const matrixFile = formData.get("ltedMatrix");
 
     if (!isUploadFile(file)) {
@@ -128,17 +80,12 @@ async function importHandler(req: NextRequest, _session: Session) {
       );
     }
 
-    const buf = Buffer.from(await file.arrayBuffer());
-    const workbook = xlsx.read(buf);
-    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? ""];
-    if (!sheet) {
-      return NextResponse.json(
-        { error: "No sheet found in workbook" },
-        { status: 400 },
-      );
+    const parsed = await parseXlsxUpload(file, { sheetPreference: "first" });
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const rows = xlsx.utils.sheet_to_json<Record<string, string | number>>(sheet);
+    const { rows } = parsed;
     const activeTermId = await getActiveTermId();
 
     const weightedRows: Array<{
@@ -149,13 +96,13 @@ async function importHandler(req: NextRequest, _session: Session) {
     }> = [];
 
     for (const row of rows) {
-      const parsed = parseLted(row.LTED ?? row.Lted ?? row.lted ?? "");
-      if (!parsed) continue;
+      const parsedLted = parseLted(getRowValue(row, "LTED", "Lted", "lted"));
+      if (!parsedLted) continue;
 
       const weightRaw =
-        row["Weighted Vote"] ?? row.Weight ?? row.weight ?? null;
+        getRowValue(row, "Weighted Vote", "Weight", "weight") ?? null;
       const weight =
-        weightRaw != null
+        weightRaw != null && weightRaw !== ""
           ? typeof weightRaw === "number"
             ? weightRaw
             : Number(String(weightRaw).trim())
@@ -163,7 +110,7 @@ async function importHandler(req: NextRequest, _session: Session) {
       if (weight != null && (Number.isNaN(weight) || weight < 0)) continue;
 
       weightedRows.push({
-        ...parsed,
+        ...parsedLted,
         weight,
       });
     }
@@ -172,35 +119,34 @@ async function importHandler(req: NextRequest, _session: Session) {
     const ambiguousMatrixLted = new Set<string>();
 
     if (isUploadFile(matrixFile)) {
-      const matrixBuffer = Buffer.from(await matrixFile.arrayBuffer());
-      const matrixWorkbook = xlsx.read(matrixBuffer);
-      const matrixSheet =
-        matrixWorkbook.Sheets.NEW_LTED_Matrix ??
-        matrixWorkbook.Sheets[matrixWorkbook.SheetNames[0] ?? ""];
+      const matrixParsed = await parseXlsxUpload(matrixFile, {
+        sheetPreference: "preferNewLtedMatrix",
+      });
 
-      if (matrixSheet) {
-        const matrixRows =
-          xlsx.utils.sheet_to_json<Record<string, string | number>>(matrixSheet);
-        for (const matrixRow of matrixRows) {
+      if (matrixParsed.ok) {
+        for (const matrixRow of matrixParsed.rows) {
           const parsedFromLted = parseLted(
-            matrixRow.LTED ?? matrixRow.Lted ?? matrixRow.lted ?? "",
+            getRowValue(matrixRow, "LTED", "Lted", "lted"),
           );
           if (!parsedFromLted) continue;
 
           const townCode = normalizeTownCode(
-            matrixRow.town ?? matrixRow.Town ?? "",
+            getRowValue(matrixRow, "town", "Town"),
           );
           if (!townCode) continue;
 
           const legDistrict =
-            parseDistrictValue(matrixRow.ward ?? matrixRow.Ward) ??
+            parseDistrictValue(getRowValue(matrixRow, "ward", "Ward")) ??
             parsedFromLted.legDistrict;
           const electionDistrict =
-            parseDistrictValue(matrixRow.district ?? matrixRow.District) ??
+            parseDistrictValue(getRowValue(matrixRow, "district", "District")) ??
             parsedFromLted.electionDistrict;
 
+          const cityTown = lookupCityTown(townCode, "fallback");
+          if (!cityTown) continue;
+
           const match: MatrixMatch = {
-            cityTown: toCityTown(townCode),
+            cityTown,
             legDistrict,
             electionDistrict,
           };

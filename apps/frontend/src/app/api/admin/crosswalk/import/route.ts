@@ -5,52 +5,24 @@
 
 import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
-import * as xlsx from "xlsx";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { logAuditEvent } from "~/lib/auditLog";
+import {
+  normalizeTownCode,
+  parseDistrictValue,
+} from "~/lib/lted/digitParsing";
+import { lookupCityTown } from "~/lib/lted/monroeTownCodes";
+import {
+  getRowValue,
+  isUploadFile,
+  parseXlsxUpload,
+} from "~/lib/lted/xlsxUpload";
+import type { XlsxRow } from "~/lib/lted/xlsxUpload";
 import type { NextRequest } from "next/server";
 import type { SessionWithUser } from "~/app/api/lib/withPrivilege";
 
-const TOWN_CODE_TO_CITY: Record<string, string> = {
-  "005": "BRIGHTON",
-  "010": "CHILI",
-  "015": "CLARKSON",
-  "017": "CLARKSON",
-  "020": "EAST ROCHESTER",
-  "025": "BRIGHTON",
-  "030": "GATES",
-  "035": "GATES",
-  "040": "GREECE",
-  "045": "HAMLIN",
-  "050": "HENRIETTA",
-  "055": "OGDEN",
-  "060": "RIGA",
-  "065": "RUSH",
-  "070": "SWEDEN",
-  "075": "PENFIELD",
-  "080": "ROCHESTER",
-  "085": "PERINTON",
-  "090": "PITTSFORD",
-  "095": "WEBSTER",
-  "100": "WHEATLAND",
-};
-
 const MAX_ERROR_REPORT = 50;
-
-function normalizeTownCode(value: unknown): string | null {
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  const digits = raw.replace(/^0+/, "") || "0";
-  const parsed = Number.parseInt(digits, 10);
-  if (Number.isNaN(parsed) || parsed < 0) return null;
-  return parsed.toString().padStart(3, "0");
-}
-
-function toCityTown(townCode: string): string | null {
-  const city = TOWN_CODE_TO_CITY[townCode];
-  return city ? city.trim().toUpperCase() : null;
-}
 
 type ParsedRow = {
   cityTown: string;
@@ -62,46 +34,45 @@ type ParsedRow = {
   countyLegDistrict: string | null;
 };
 
+/** Validate and normalize one LTED Matrix row for crosswalk upsert. */
 function parseRow(
-  row: Record<string, string | number>,
+  row: XlsxRow,
   rowIndex: number,
 ): { ok: ParsedRow } | { error: string } {
-  const townRaw = row.town ?? row.Town ?? "";
-  const townCode = normalizeTownCode(townRaw);
+  const townCode = normalizeTownCode(getRowValue(row, "town", "Town"));
   if (!townCode) {
     return { error: `Row ${rowIndex}: missing or invalid town` };
   }
 
-  const cityTown = toCityTown(townCode);
+  const cityTown = lookupCityTown(townCode, "strict");
   if (!cityTown) {
     return { error: `Row ${rowIndex}: unknown town code "${townCode}"` };
   }
 
-  const wardRaw = row.ward ?? row.Ward ?? "";
-  const wardStr = String(wardRaw).trim().replace(/^0+/, "") || "0";
-  const legDistrict = Number.parseInt(wardStr, 10);
-  if (Number.isNaN(legDistrict) || legDistrict < 0) {
+  const legDistrict = parseDistrictValue(getRowValue(row, "ward", "Ward"));
+  if (legDistrict === null) {
     return { error: `Row ${rowIndex}: invalid leg district` };
   }
 
-  const districtRaw = row.district ?? row.District ?? "";
-  const districtStr = String(districtRaw).trim().replace(/^0+/, "") || "0";
-  const electionDistrict = Number.parseInt(districtStr, 10);
-  if (Number.isNaN(electionDistrict) || electionDistrict < 0) {
+  const electionDistrict = parseDistrictValue(
+    getRowValue(row, "district", "District"),
+  );
+  if (electionDistrict === null) {
     return { error: `Row ${rowIndex}: invalid election district` };
   }
 
-  const stlegDist = String(row.stleg_dist ?? "").trim();
+  const stlegDist = String(getRowValue(row, "stleg_dist")).trim();
   if (!stlegDist) {
     return { error: `Row ${rowIndex}: missing state assembly district` };
   }
 
+  const stsenRaw = getRowValue(row, "stsen_dist");
+  const congRaw = getRowValue(row, "cong_dist");
+  const othrRaw = getRowValue(row, "othr_dist1");
   const stsenDist =
-    row.stsen_dist != null ? String(row.stsen_dist).trim() : null;
-  const congDist =
-    row.cong_dist != null ? String(row.cong_dist).trim() : null;
-  const othrDist1 =
-    row.othr_dist1 != null ? String(row.othr_dist1).trim() : null;
+    stsenRaw !== "" ? String(stsenRaw).trim() : null;
+  const congDist = congRaw !== "" ? String(congRaw).trim() : null;
+  const othrDist1 = othrRaw !== "" ? String(othrRaw).trim() : null;
 
   return {
     ok: {
@@ -109,20 +80,11 @@ function parseRow(
       legDistrict,
       electionDistrict,
       stateAssemblyDistrict: stlegDist,
-      stateSenateDistrict: stsenDist ?? null,
-      congressionalDistrict: congDist ?? null,
-      countyLegDistrict: othrDist1 ?? null,
+      stateSenateDistrict: stsenDist,
+      congressionalDistrict: congDist,
+      countyLegDistrict: othrDist1,
     },
   };
-}
-
-function isUploadFile(value: unknown): value is { arrayBuffer: () => Promise<ArrayBuffer> } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "arrayBuffer" in value &&
-    typeof (value as { arrayBuffer?: unknown }).arrayBuffer === "function"
-  );
 }
 
 async function importHandler(req: NextRequest, session: SessionWithUser) {
@@ -137,20 +99,14 @@ async function importHandler(req: NextRequest, session: SessionWithUser) {
       );
     }
 
-    const buf = Buffer.from(await file.arrayBuffer());
-    const workbook = xlsx.read(buf);
-    const sheet =
-      workbook.Sheets.NEW_LTED_Matrix ??
-      workbook.Sheets[workbook.SheetNames[0] ?? ""];
-
-    if (!sheet) {
-      return NextResponse.json(
-        { error: "No sheet found in workbook" },
-        { status: 400 },
-      );
+    const parsed = await parseXlsxUpload(file, {
+      sheetPreference: "preferNewLtedMatrix",
+    });
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const rows = xlsx.utils.sheet_to_json<Record<string, string | number>>(sheet);
+    const { rows } = parsed;
     const errors: { row: number; message: string }[] = [];
     let created = 0;
     let updated = 0;
