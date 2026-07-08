@@ -11,7 +11,7 @@ import {
   committeeMatchesJurisdictions,
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
-import { logAuditEvent } from "~/lib/auditLog";
+import { logAuditEventOrThrow } from "~/lib/auditLog";
 import { validateEligibility } from "~/lib/eligibility";
 import {
   buildMembershipAuditSubject,
@@ -122,7 +122,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     }
 
     // SRS 3.1 — Leader may only submit to committees in their jurisdictions
-    if (userPrivilegeLevel === PrivilegeLevel.Leader) {
+    if (userRole === PrivilegeLevel.Leader) {
       const jurisdictions = await getUserJurisdictions(
         userId,
         activeTermId,
@@ -254,41 +254,44 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     );
 
     if (existing) {
-      const resubmitted = await prisma.committeeMembership.update({
-        where: { id: existing.id },
-        data: {
-          status: "SUBMITTED",
-          submittedAt: new Date(),
-          submittedById: userId,
-          membershipType: null,
-          seatNumber: null,
-          activatedAt: null,
-          confirmedAt: null,
-          resignedAt: null,
-          removedAt: null,
-          rejectedAt: null,
-          rejectionNote: null,
-          resignationDateReceived: null,
-          resignationMethod: null,
-          removalReason: null,
-          removalNotes: null,
-          petitionVoteCount: null,
-          petitionPrimaryDate: null,
-          // Rebuild metadata from the current request intent.
-          submissionMetadata: requestMetadata,
-        },
-      });
+      await prisma.$transaction(async (tx) => {
+        const resubmitted = await tx.committeeMembership.update({
+          where: { id: existing.id },
+          data: {
+            status: "SUBMITTED",
+            submittedAt: new Date(),
+            submittedById: userId,
+            membershipType: null,
+            seatNumber: null,
+            activatedAt: null,
+            confirmedAt: null,
+            resignedAt: null,
+            removedAt: null,
+            rejectedAt: null,
+            rejectionNote: null,
+            resignationDateReceived: null,
+            resignationMethod: null,
+            removalReason: null,
+            removalNotes: null,
+            petitionVoteCount: null,
+            petitionPrimaryDate: null,
+            // Rebuild metadata from the current request intent.
+            submissionMetadata: requestMetadata,
+          },
+        });
 
-      await logAuditEvent(
-        userId,
-        userRole,
-        "MEMBER_SUBMITTED",
-        "CommitteeMembership",
-        resubmitted.id,
-        { status: existing.status },
-        { status: "SUBMITTED" },
-        auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
-      );
+        await logAuditEventOrThrow(
+          userId,
+          userRole,
+          "MEMBER_SUBMITTED",
+          "CommitteeMembership",
+          resubmitted.id,
+          { status: existing.status },
+          { status: "SUBMITTED" },
+          auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
+          tx,
+        );
+      });
 
       return NextResponse.json(
         {
@@ -302,28 +305,31 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     }
 
     // Create CommitteeMembership with status=SUBMITTED
-    const newMembership = await prisma.committeeMembership.create({
-      data: {
-        voterRecordId: sanitizedAddMemberId,
-        committeeListId: committeeRequested.id,
-        termId: activeTermId,
-        status: "SUBMITTED",
-        submittedById: userId,
-        // Store intended replacement target and notes for admin review.
-        submissionMetadata: requestMetadata,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      const newMembership = await tx.committeeMembership.create({
+        data: {
+          voterRecordId: sanitizedAddMemberId,
+          committeeListId: committeeRequested.id,
+          termId: activeTermId,
+          status: "SUBMITTED",
+          submittedById: userId,
+          // Store intended replacement target and notes for admin review.
+          submissionMetadata: requestMetadata,
+        },
+      });
 
-    await logAuditEvent(
-      userId,
-      userRole,
-      "MEMBER_SUBMITTED",
-      "CommitteeMembership",
-      newMembership.id,
-      null,
-      { status: "SUBMITTED" },
-      auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
-    );
+      await logAuditEventOrThrow(
+        userId,
+        userRole,
+        "MEMBER_SUBMITTED",
+        "CommitteeMembership",
+        newMembership.id,
+        null,
+        { status: "SUBMITTED" },
+        auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
+        tx,
+      );
+    });
 
     return NextResponse.json(
       {

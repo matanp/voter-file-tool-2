@@ -13,6 +13,7 @@ import {
   expectMembershipCreate,
   expectMembershipUpdate,
   getMembershipMock,
+  getAuditLogMock,
   parseJsonResponse,
   setupEligibilityPass,
   validationTestCases,
@@ -629,6 +630,24 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(createMockRequest(mockRequestData));
 
       await expectErrorResponse(response, 500, "Internal server error");
+    });
+
+    it("should return 500 when audit log write fails during membership creation", async () => {
+      const mockRequestData = createMockRequestData();
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+      setupHappyPath();
+      getAuditLogMock(prismaMock).create.mockRejectedValue(
+        new Error("Audit log write failed"),
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(response, 500, "Internal server error");
+      expect(prismaMock.$transaction).toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalled();
     });
 
     // Authentication tests

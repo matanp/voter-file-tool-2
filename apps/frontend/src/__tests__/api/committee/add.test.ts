@@ -618,7 +618,7 @@ describe("/api/committee/add", () => {
         expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
       });
 
-      it("should still return success if audit log fails", async () => {
+      it("should return 500 when audit log write fails", async () => {
         const mockCommitteeData = createMockCommitteeData();
         const mockSession = createMockSession({
           user: { privilegeLevel: PrivilegeLevel.Admin },
@@ -633,11 +633,8 @@ describe("/api/committee/add", () => {
 
         const response = await POST(createMockRequest(mockCommitteeData));
 
-        await expectSuccessResponse(
-          response,
-          { success: true, message: "Member added to committee" },
-          200,
-        );
+        await expectErrorResponse(response, 500, "Internal server error");
+        expect(prismaMock.$transaction).toHaveBeenCalled();
       });
     });
 

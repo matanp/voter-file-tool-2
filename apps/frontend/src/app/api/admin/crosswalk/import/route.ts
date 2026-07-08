@@ -210,6 +210,7 @@ async function importHandler(req: NextRequest, session: SessionWithUser) {
       errors,
     };
 
+    // Fail-open: crosswalk import summary is reference/config telemetry, not membership state.
     await logAuditEvent(
       session.user.id,
       session.user.privilegeLevel ?? PrivilegeLevel.Admin,

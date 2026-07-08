@@ -505,4 +505,173 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       }),
     );
   });
+
+  it("rolls back committee sync when audit write fails", async () => {
+    sheetToJsonMock.mockReturnValue([
+      {
+        Committee: "Test City",
+        "Serve LT": "1",
+        "Serve ED": "1",
+        "voter id": "VRC_NEW",
+        name: "New Member",
+        "res address1": "10 Main St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+    ]);
+
+    prismaMock.voterRecord.findUnique.mockResolvedValue(
+      createMockVoterRecord({
+        VRCNUM: "VRC_NEW",
+        firstName: "New",
+        middleInitial: null,
+        lastName: "Member",
+        houseNum: 10,
+        street: "Main St",
+        apartment: null,
+        city: "Testville",
+        state: "NY",
+        zipCode: "14604",
+      }),
+    );
+
+    prismaMock.committeeList.upsert.mockResolvedValue({
+      id: 301,
+      cityTown: "TEST CITY",
+      legDistrict: 1,
+      electionDistrict: 1,
+      termId: DEFAULT_ACTIVE_TERM_ID,
+      ltedWeight: null,
+    } as never);
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
+
+    getMembershipMock(prismaMock).findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: "m-to-remove", voterRecordId: "VRC_OLD" },
+      ] as never);
+    getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+    getMembershipMock(prismaMock).create.mockResolvedValue(
+      createMockMembership({
+        id: "m-new",
+        voterRecordId: "VRC_NEW",
+        committeeListId: 301,
+        status: "ACTIVE",
+        seatNumber: 1,
+      }),
+    );
+    getAuditLogMock(prismaMock).create.mockRejectedValue(
+      new Error("Audit write failed"),
+    );
+
+    await expect(loadCommitteeLists()).rejects.toThrow("Audit write failed");
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+  });
+
+  it("commits earlier committees and aborts the batch when a later committee's audit fails", async () => {
+    // Two committees, each processed in its own per-committee transaction.
+    // The first committee's audit succeeds (committed); the second's audit
+    // fails, so its transaction rolls back and the batch aborts — proving the
+    // rollback scope is per-committee, not the whole import.
+    sheetToJsonMock.mockReturnValue([
+      {
+        Committee: "Alpha City",
+        "Serve LT": "1",
+        "Serve ED": "1",
+        "voter id": "VRC_A",
+        name: "Alpha Member",
+        "res address1": "10 Main St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+      {
+        Committee: "Beta City",
+        "Serve LT": "1",
+        "Serve ED": "1",
+        "voter id": "VRC_B",
+        name: "Beta Member",
+        "res address1": "20 Oak St",
+        "res city": "Testville",
+        "res state": "NY",
+        "res zip": "14604",
+      },
+    ]);
+
+    prismaMock.voterRecord.findUnique.mockImplementation((args) => {
+      const vrcnum = (args?.where as { VRCNUM?: string })?.VRCNUM;
+      if (vrcnum === "VRC_A") {
+        return Promise.resolve(
+          createMockVoterRecord({
+            VRCNUM: "VRC_A",
+            firstName: "Alpha",
+            middleInitial: null,
+            lastName: "Member",
+            houseNum: 10,
+            street: "Main St",
+            apartment: null,
+            city: "Testville",
+            state: "NY",
+            zipCode: "14604",
+          }),
+        ) as never;
+      }
+      return Promise.resolve(
+        createMockVoterRecord({
+          VRCNUM: "VRC_B",
+          firstName: "Beta",
+          middleInitial: null,
+          lastName: "Member",
+          houseNum: 20,
+          street: "Oak St",
+          apartment: null,
+          city: "Testville",
+          state: "NY",
+          zipCode: "14604",
+        }),
+      ) as never;
+    });
+
+    prismaMock.committeeList.upsert.mockImplementation((args) => {
+      const cityTown = (
+        args.where as {
+          cityTown_legDistrict_electionDistrict_termId: { cityTown: string };
+        }
+      ).cityTown_legDistrict_electionDistrict_termId.cityTown;
+      return Promise.resolve({
+        id: cityTown === "ALPHA CITY" ? 401 : 402,
+        cityTown,
+        legDistrict: 1,
+        electionDistrict: 1,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        ltedWeight: null,
+      }) as never;
+    });
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
+
+    getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+    getMembershipMock(prismaMock).create.mockResolvedValue(
+      createMockMembership({
+        id: "m-new",
+        status: "ACTIVE",
+        seatNumber: 1,
+      }),
+    );
+
+    // First committee's activation audit succeeds; the second one fails.
+    getAuditLogMock(prismaMock).create
+      .mockResolvedValueOnce({} as never)
+      .mockRejectedValue(new Error("Audit write failed"));
+
+    await expect(loadCommitteeLists()).rejects.toThrow("Audit write failed");
+
+    // Both committees entered a transaction and attempted their membership
+    // write: the first committed, the second aborted on the audit failure.
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
+    expect(getMembershipMock(prismaMock).create).toHaveBeenCalledTimes(2);
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledTimes(2);
+  });
 });

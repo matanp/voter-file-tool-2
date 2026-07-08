@@ -39,6 +39,7 @@ async function createMeetingHandler(
       },
     });
 
+    // Fail-open: meeting records are operational logs, not membership compliance state.
     await logAuditEvent(
       userId,
       userRole,

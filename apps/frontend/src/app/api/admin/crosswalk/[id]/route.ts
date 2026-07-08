@@ -33,6 +33,7 @@ async function deleteHandler(
     where: { id },
   });
 
+  // Fail-open: crosswalk delete is reference/config data, not membership compliance state.
   await logAuditEvent(
     session.user.id,
     session.user.privilegeLevel ?? PrivilegeLevel.Admin,

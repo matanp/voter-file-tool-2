@@ -402,4 +402,15 @@ describe("POST /api/admin/petition-outcomes/record", () => {
       ),
     );
   });
+
+  it("returns 500 when audit write fails and rolls back the transaction", async () => {
+    getAuditLogMock(prismaMock).create.mockRejectedValue(
+      new Error("Audit write failed"),
+    );
+
+    const response = await POST(createMockRequest(createValidPayload()));
+
+    await expectErrorResponse(response, 500, "Internal server error");
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+  });
 });

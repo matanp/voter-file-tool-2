@@ -14,7 +14,7 @@ import {
   type RecordPetitionOutcomeData,
 } from "~/lib/validations/committee";
 import type { Session } from "next-auth";
-import { logAuditEvent } from "~/lib/auditLog";
+import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
@@ -215,7 +215,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             where: { id: existing.id },
             data: baseData,
           });
-          await logAuditEvent(
+          await logAuditEventOrThrow(
             userId,
             userRole,
             "PETITION_RECORDED",
@@ -251,7 +251,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             exclusionReason,
           });
           if (isWinner && beforeStatus !== ACTIVE_MEMBERSHIP_STATUS) {
-            await logAuditEvent(
+            await logAuditEventOrThrow(
               userId,
               userRole,
               "MEMBER_ACTIVATED",
@@ -281,7 +281,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               ...baseData,
             },
           });
-          await logAuditEvent(
+          await logAuditEventOrThrow(
             userId,
             userRole,
             "PETITION_RECORDED",
@@ -317,7 +317,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             exclusionReason,
           });
           if (isWinner) {
-            await logAuditEvent(
+            await logAuditEventOrThrow(
               userId,
               userRole,
               "MEMBER_ACTIVATED",
@@ -341,14 +341,14 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
         }
       }
 
-      await logAuditEvent(
+      await logAuditEventOrThrow(
         userId,
         userRole,
         "PETITION_RECORDED",
         "Seat",
         seat.id,
-        null,
-        null,
+        { isPetitioned: seat.isPetitioned },
+        { isPetitioned: true },
         {
           committeeListId,
           termId,

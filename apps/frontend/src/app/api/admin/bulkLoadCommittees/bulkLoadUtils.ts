@@ -19,7 +19,7 @@ import {
   assignNextAvailableSeat,
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
-import { logAuditEvent, SYSTEM_USER_ID } from "~/lib/auditLog";
+import { logAuditEventOrThrow, SYSTEM_USER_ID } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
@@ -432,7 +432,7 @@ export async function loadCommitteeLists(
               seatNumber: null,
             },
           });
-          await logAuditEvent(
+          await logAuditEventOrThrow(
             actor.userId,
             actor.userRole,
             "MEMBER_REMOVED",
@@ -543,7 +543,7 @@ export async function loadCommitteeLists(
             }
             throw error;
           }
-          await logAuditEvent(
+          await logAuditEventOrThrow(
             actor.userId,
             actor.userRole,
             "MEMBER_ACTIVATED",
@@ -592,7 +592,7 @@ export async function loadCommitteeLists(
             }
             throw error;
           }
-          await logAuditEvent(
+          await logAuditEventOrThrow(
             actor.userId,
             actor.userRole,
             "MEMBER_ACTIVATED",

@@ -39,6 +39,7 @@ async function deleteHandler(
     await prisma.userJurisdiction.delete({ where: { id } });
 
     const userRole = session.user.privilegeLevel ?? PrivilegeLevel.Admin;
+    // Fail-open: jurisdiction assignment is reference/config data, not membership compliance state.
     await logAuditEvent(
       session.user.id,
       userRole,

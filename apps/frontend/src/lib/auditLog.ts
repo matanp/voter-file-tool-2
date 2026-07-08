@@ -69,6 +69,7 @@ async function writeAuditEvent({
   }
 }
 
+/** Best-effort audit for non-compliance-critical events (reference/config data, diagnostics). */
 export async function logAuditEvent(
   userId: string,
   userRole: PrivilegeLevel,
@@ -94,6 +95,7 @@ export async function logAuditEvent(
   });
 }
 
+/** Fail-closed audit for compliance-critical durable state changes (membership, petitions, etc.). */
 export async function logAuditEventOrThrow(
   userId: string,
   userRole: PrivilegeLevel,

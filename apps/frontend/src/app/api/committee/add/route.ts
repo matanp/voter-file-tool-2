@@ -19,7 +19,7 @@ import {
 } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
-import { logAuditEvent } from "~/lib/auditLog";
+import { logAuditEventOrThrow } from "~/lib/auditLog";
 import { validateEligibility } from "~/lib/eligibility";
 import {
   buildMembershipAuditSubject,
@@ -257,7 +257,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             seatNumber,
           }),
         );
-        await logAuditEvent(
+        await logAuditEventOrThrow(
           userId,
           userRole,
           "MEMBER_ACTIVATED",
@@ -290,7 +290,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             seatNumber,
           }),
         );
-        await logAuditEvent(
+        await logAuditEventOrThrow(
           userId,
           userRole,
           "MEMBER_ACTIVATED",

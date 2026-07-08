@@ -122,6 +122,7 @@ async function postHandler(req: NextRequest, session: SessionWithUser) {
     });
 
     const userRole = session.user.privilegeLevel ?? PrivilegeLevel.Admin;
+    // Fail-open: jurisdiction assignment is reference/config data, not membership compliance state.
     await logAuditEvent(
       session.user.id,
       userRole,
