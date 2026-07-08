@@ -1,13 +1,12 @@
 "use client";
 
 import React from "react";
-import { CommitteeUploadDiscrepancies } from "./CommitteeUploadDiscrepancies";
-import { VoterImport } from "./VoterImport";
-import { WeightedTableImport } from "./WeightedTableImport";
-import { LtedCrosswalkTab } from "./LtedCrosswalkTab";
-import { AbsenteeReport } from "./AbsenteeReport";
-import { ElectionConfigTab } from "./ElectionConfigTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  buildAdminDataTabs,
+  getAdminDataDefaultTab,
+  getVisibleAdminDataTabs,
+} from "./adminDataTabs";
 import type { ElectionDate, OfficeName } from "@prisma/client";
 
 interface AdminDataClientProps {
@@ -19,38 +18,30 @@ export const AdminDataClient = ({
   electionDates,
   officeNames,
 }: AdminDataClientProps) => {
+  const tabs = buildAdminDataTabs();
+  const visibleTabs = getVisibleAdminDataTabs(tabs);
+  const ctx = { electionDates, officeNames };
+
   return (
     <div className="w-full m-4 h-full">
-      <Tabs defaultValue="election-config" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 overflow-x-auto">
-          <TabsTrigger value="election-config">Election Config</TabsTrigger>
-          <TabsTrigger value="voter-import">Voter Import</TabsTrigger>
-          <TabsTrigger value="weighted-table">Weighted Table</TabsTrigger>
-          <TabsTrigger value="lted-crosswalk">LTED Crosswalk</TabsTrigger>
-          <TabsTrigger value="discrepancies">Discrepancies</TabsTrigger>
-          <TabsTrigger value="absentee-report">Absentee Report</TabsTrigger>
+      <Tabs defaultValue={getAdminDataDefaultTab(tabs)} className="w-full">
+        <TabsList
+          className="grid w-full overflow-x-auto"
+          style={{
+            gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))`,
+          }}
+        >
+          {visibleTabs.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
-        <TabsContent value="election-config">
-          <ElectionConfigTab
-            electionDates={electionDates}
-            officeNames={officeNames}
-          />
-        </TabsContent>
-        <TabsContent value="voter-import">
-          <VoterImport />
-        </TabsContent>
-        <TabsContent value="weighted-table">
-          <WeightedTableImport />
-        </TabsContent>
-        <TabsContent value="lted-crosswalk">
-          <LtedCrosswalkTab />
-        </TabsContent>
-        <TabsContent value="discrepancies">
-          <CommitteeUploadDiscrepancies />
-        </TabsContent>
-        <TabsContent value="absentee-report">
-          <AbsenteeReport />
-        </TabsContent>
+        {visibleTabs.map((tab) => (
+          <TabsContent key={tab.id} value={tab.id}>
+            {tab.render(ctx)}
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

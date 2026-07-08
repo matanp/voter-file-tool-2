@@ -1,6 +1,6 @@
 # Branch Architecture & Maintainability Review — `feat/srs-implementation`
 
-**Basis:** `git diff main` (working tree), Jul 2026. Reviewable product surface
+**Basis:** `git diff main`, Jul 2026 (doc synced through branch tip `159fa6c`). Reviewable product surface
 ≈ 24.8k added lines / 172 files after excluding tests, migrations, docs, and lockfiles.
 **Axis:** DRY / simplification / architecture only — *not* a correctness or security review.
 Findings that touch auth were checked against `skills/auth-check-patterns/SKILL.md`; the
@@ -10,18 +10,54 @@ finding here (noted where relevant).
 Prior targeted reviews (`docs/AUTH_INVITE_FLOW_REVIEW.md`, `docs/COMMITTEE_DISCREPANCY_UNDO.md`)
 were skimmed for dedup; their already-recorded items are not repeated.
 
-## Remediation log (SLAM DUNK pass)
+## Status at a glance
+
+**Legend:** ✅ Done · 🟡 Partial (core landed; follow-ups listed) · ⬜ Not started · 📋 Backlog (document / ticket, not a refactor push)
+
+| # | Finding | Status | What remains |
+|---|---------|--------|--------------|
+| 1 | Scoped report registry / dedup | 🟡 Partial | Phase 5 — report-server handler map (`scopeReportHandlers/`) |
+| 2 | Membership confirm→activate service | 🟡 Partial | Petition-outcomes path still separate; `forceAdd` not on bulk decisions UI |
+| 3 | Party / AD eligibility predicates | ✅ Done | Optional: unify `IneligibilityReason` / `EligibilityFlagReason` (Finding 13) |
+| 4 | Tx-aware capacity / active-elsewhere helpers | ✅ Done | — |
+| 5 | Designation-weight computation (frontend vs report-server) | ✅ Done | Shared `computeDesignationWeight` in `shared-prisma`; both apps adapt at the edge |
+| 6 | `lib/validations/committee.ts` field factories | ⬜ Not started | `legDistrictField`, contact/date factories, etc. |
+| 7 | Xlsx importers + upload tabs | ⬜ Not started | Shared parse/normalize + `<XlsxUploadCard>` |
+| 8 | Audit write contract + server→UI import | ⬜ Not started | Options-object API, typed metadata, neutral `lib/audit/format.ts` |
+| 9 | Admin CRUD route consistency | ⬜ Not started | Envelope, validation, param unwrap, term audit policy |
+| 10 | Roster occupant map built twice | ✅ Done | `buildSeatRosterRows` uses shared `indexActiveMembershipsBySeat` |
+| 11 | Invite subsystem clones | ⬜ Not started | Shared `lib/invites/`, `unusedInviteWhere`, `classifyInviteState` |
+| 12 | Upload-form scaffolding + data tabs IA | ⬜ Not started | `<PresignedUploadReportForm>`, config-driven data tabs |
+| 13 | Schema modeling notes | 📋 Backlog | Ticket for membership↔Seat FK; document rest in schema comments |
+| 14 | Grouped minor nits | ✅ Done | — |
+| B | Discrepancy/undo residual | 🟡 Partial | `buildRemovedMembershipData(reason, notes)` still duplicated |
+
+**Counts:** 5 done · 3 partial · 6 not started · 1 backlog-only
+
+---
+
+## Remediation log
+
+Chronological / granular fixes (superset of the table above).
 
 | Item | Status |
 |------|--------|
-| Finding 14 — redundant audit zod defaults | Done |
-| Finding 14 — dead petition-outcomes null guard | Done |
-| Residual B — `lockDiscrepancyForUpdate` extraction | Done |
-| Finding 4 note — delete unused capacity helpers | Done (helpers removed; tx-aware reintroduction deferred to Finding 4) |
+| Finding 14 — redundant audit zod defaults | ✅ Done (SLAM DUNK) |
+| Finding 14 — dead petition-outcomes null guard | ✅ Done (SLAM DUNK) |
+| Residual B — `lockDiscrepancyForUpdate` extraction | ✅ Done (SLAM DUNK) |
+| Finding 4 note — delete unused capacity helpers | ✅ Done (SLAM DUNK) — non-tx exports removed; tx-aware helpers restored in Finding 4 resolution |
 | Finding 4 note — `ALREADY_IN_ANOTHER_COMMITTEE_ERROR` unused | Corrected — constant kept; now also used in meetings/decisions |
-| Finding 14 — double `getActiveTermId` in invites + bulk load | Done |
-| Finding 2 — membership confirm→activate service | Phase 1 Done — `membershipConfirmation.ts`; petition-outcomes deferred |
-| Finding 1 — scoped report registry / dedup | Done (Phases 1–4 + 3b) — core registry, shared form/pages/grid; Phase 5 report-server deferred |
+| Finding 14 — double `getActiveTermId` in invites + bulk load | ✅ Done (SLAM DUNK) |
+| Finding 14 — double config/count fetch in eligibility preflight | ✅ Done (SLAM DUNK) — `runEligibilityPreflight` + `prefetched` on `validateEligibility` |
+| Finding 14 — `ACTIVE_STATUS` / write-site literal consolidation | ✅ Done (SLAM DUNK) — `ACTIVE_MEMBERSHIP_STATUS` in `committeeValidation.ts` |
+| Finding 14 — inline `isActive: true` term reads → `findActiveTerm` | ✅ Done (SLAM DUNK) |
+| Finding 2 — membership confirm→activate service | 🟡 Phase 1 done — `membershipConfirmation.ts`; petition-outcomes deferred |
+| Finding 1 — scoped report registry / dedup | 🟡 Phases 1–4 + 3b done — core registry, shared form/pages/grid; Phase 5 report-server deferred |
+| Finding 3 — party / AD eligibility predicates | ✅ Done — `eligibilityPredicates.ts`; enum unification deferred |
+| Finding 4 — tx-aware capacity / active-elsewhere helpers | ✅ Done — `countActiveMembers`, `isCommitteeAtCapacity`, `isVoterActiveInAnotherCommittee` in `committeeValidation.ts` |
+| Finding 5 — designation-weight computation | ✅ Done — `committeeDesignationWeight.ts` in `shared-prisma`; frontend + report-server adapt at the edge |
+| Finding 10 — roster occupant map built twice | ✅ Done — shared `indexActiveMembershipsBySeat`; roster passes `seatOccupants` into weight engine |
+| Residual B — `buildRemovedMembershipData` extraction | ⬜ Not started — payload still duplicated in undo + `bulkLoadUtils` |
 
 ---
 
@@ -29,13 +65,13 @@ were skimmed for dedup; their already-recorded items are not repeated.
 
 | # | Subsystem | Primary members |
 |---|-----------|-----------------|
-| N | Committee membership core | `api/committee/{add,remove,requestAdd,handleRequest,…}`, `api/lib/{committeeValidation,seatUtils,membershipConfirmation,eligibilityService}`, `lib/{eligibility,designationWeight,eligibilityPreflight}`, `app/committees/**` |
+| N | Committee membership core | `api/committee/{add,remove,requestAdd,handleRequest,…}`, `api/lib/{committeeValidation,seatUtils,membershipConfirmation,eligibilityService}`, `lib/{eligibility,designationWeight,eligibilityPreflight}`, `shared-prisma/{eligibilityPredicates,committeeDesignationWeight}.ts`, `app/committees/**` |
 | K | Reports generation | `api/generateReport`, `scopeReportRegistry.ts`, `ScopedReportForm`, six scoped report pages, `report-server/src/**`, `shared-validators/schemas/report.ts`, `reportTypeMapping.ts` |
 | D | Auth / invites / users admin | `api/auth/invite/**`, `lib/applyPendingInvite`, `api/admin/invites`, `admin/users/**`, `auth.ts`, `emailIdentity.ts` |
 | C | Audit trail | `lib/{auditLog,auditLogGuard,auditMembershipSubject}`, `api/admin/audit/**`, `admin/audit/**` |
 | B | Committee discrepancy + bulk load | `api/admin/{handleCommitteeDiscrepancy,bulkLoadCommittees}/**`, `api/lib/committeeDiscrepancyResolution` |
 | I | LTED crosswalk + weighted import | `admin/data/{LtedCrosswalkTab,WeightedTableImport}`, `api/admin/{crosswalk,weightedTable}/**` |
-| E | Eligibility flags / BOE flagging | `admin/eligibility-flags/**`, `api/admin/eligibility-flags/**`, `shared-prisma/boeEligibilityFlagging.ts` |
+| E | Eligibility flags / BOE flagging | `admin/eligibility-flags/**`, `api/admin/eligibility-flags/**`, `shared-prisma/{boeEligibilityFlagging,eligibilityPredicates}.ts` |
 | F | Governance config + terms + jurisdictions | `admin/{governance-config,terms}/**`, `api/admin/{governance-config,terms,jurisdictions}/**` |
 | H | Petition outcomes | `admin/petition-outcomes/**`, `api/admin/petition-outcomes/**` |
 | G | Meetings / exec confirmation | `admin/meetings/**`, `api/admin/meetings/**` |
@@ -55,7 +91,10 @@ carry migration cost that outweighs cosmetic normalization.
 ## Findings (most-severe / highest-leverage first)
 
 ### 1. Six report types are threaded in parallel through ~8 hand-maintained surfaces
-**Severity: High · Blast radius: large overall; the frontend slice is a high-leverage extraction**
+**Status: 🟡 Partial (Phases 1–4 + 3b done · Phase 5 deferred) · Severity: High · Blast radius: large overall; the frontend slice is a high-leverage extraction**
+
+*Problem description below reflects the pre-refactor state. Frontend forms, pages, grid, and schema
+dedup are done; report-server `processJob` branches remain (Phase 5).*
 
 **What & where.** Each of the six scoped reports (`committeeRoster`, `signInSheet`,
 `designationWeightSummary`, `vacancyReport`, `changesReport`, `petitionOutcomesReport`) is
@@ -105,12 +144,13 @@ forms clear the name error on change — evidence the copies are diverging under
 This is the single highest-duplication area in the branch; even doing only the frontend
 form+page extraction removes well over a thousand lines of clone.
 
-**Resolution (Phases 1–4 + 3b).** Landed the frontend/schema dedup; report-server handler map deferred to Phase 5 follow-up PR.
+**Resolution (Phases 1–4 + 3b — done).** Landed the frontend/schema dedup; report-server handler map deferred to Phase 5 follow-up PR.
 
 - **Added:** `packages/shared-validators/src/scopeReportRegistry.ts` (core registry: jurisdiction labels, prisma/filename mapping, format defs); `apps/frontend/src/components/reports/{scopeReportUiRegistry,scopeReportFormSpecs,ScopedReportForm,ScopedReportPageShell}.tsx`; `apps/frontend/src/lib/loadScopedReportPageData.ts`.
 - **Removed/thinned:** six route-local `*Form.tsx` files (~1,800 lines); six duplicated `page.tsx` scaffolds → thin shells calling `ScopedReportPageShell`.
 - **Derived now:** `SCOPE_REPORT_TYPES` + `ScopeReportType` from `keyof typeof SCOPE_REPORT_REGISTRY`; scope slice of `REPORT_TYPE_MAPPINGS`; `getScopeReportJurisdictionLabel()` (replaces inline `reportLabels` in `generateReport/route.ts`); `generateReportSchema` / `enrichedReportDataSchema` from shared `generateReportVariants` tuple; six scoped grid cards from `SCOPE_REPORT_UI`.
-- **Still manual:** non-scope reports in grid/mapping (`voterList`, `designatedPetition`, `ldCommittees`, etc.); individual Zod schema variants per report type; report-server `processJob` branches (Phase 5).
+- **Still manual (Phase 5):** report-server `processJob` branches — handler map not yet extracted.
+- **Still manual (out of scope):** non-scope reports in grid/mapping (`voterList`, `designatedPetition`, `ldCommittees`, etc.); individual Zod schema variants per report type.
 - **Key decisions:** narrow core registry (no UI routes in shared-validators); frontend `SCOPE_REPORT_UI` for pages/grid; API-level `cityTown` required when `scope === jurisdiction` via union-level `superRefine`; page loader uses `buildJurisdictionWhere()` DB-side; format controls standardized to `<select>` from registry (Phase 3b); name-error clearing on all forms.
 - **Deferred:** Phase 5 — `scopeReportHandlers/` map in report-server (requires golden HTML snapshots first).
 - **Test evidence:** `scopeReportRegistry.test.ts`; enriched schema + cityTown rejection in `schemas/report.test.ts`; `loadScopedReportPageData.test.ts` (Leader fail-closed, DB-side filter, Admin load); retargeted `ScopedReportForm` tests; API `generateReport` cityTown 400 test.
@@ -118,7 +158,10 @@ form+page extraction removes well over a thousand lines of clone.
 ---
 
 ### 2. Membership "confirm → activate" is re-implemented in three places instead of one service
-**Severity: High (behavioral drift, not just duplication) · Blast radius: medium**
+**Status: 🟡 Partial (Phase 1 done · petition-outcomes + `forceAdd` gap remain) · Severity: High (behavioral drift, not just duplication) · Blast radius: medium**
+
+*Problem description below reflects the pre-refactor state. `handleRequest` and meetings/decisions
+now share `membershipConfirmation.ts`; petition-outcomes still has its own path.*
 
 **What & where.** The SUBMITTED→ACTIVE (and →REJECTED) membership transition exists as three
 parallel implementations that share primitives but not a service:
@@ -146,14 +189,14 @@ re-check, seat ensure/assign, capacity + "active elsewhere" guards, the update, 
 removal and `forceAdd` stay as caller-supplied options so the service stays the one authority
 on the transition.
 
-**Resolution (Phase 1).** Implemented as `confirmSubmittedMembership` /
+**Resolution (Phase 1 — done).** Implemented as `confirmSubmittedMembership` /
 `rejectSubmittedMembership` in `apps/frontend/src/app/api/lib/membershipConfirmation.ts`.
 Both appointment paths now call the shared service:
 
 - **Callers:** `api/committee/handleRequest/route.ts` and
   `api/admin/meetings/[meetingId]/decisions/route.ts` (thin wrappers: pre-tx eligibility,
   `getGovernanceConfig()` once → `maxSeats`, HTTP / per-item result mapping).
-- **Deferred:** `api/admin/petition-outcomes/record/route.ts` — different domain flow
+- **Not done:** `api/admin/petition-outcomes/record/route.ts` — different domain flow
   (upsert-by-seat, `PETITIONED`, fixed seat, `PETITION_RECORDED` audit). Optional Phase 2:
   shared `logMemberActivatedAudit` helper only.
 - **Key decisions:** caller-provided `maxSeats` and caller-resolved `membershipType` (no
@@ -161,12 +204,15 @@ Both appointment paths now call the shared service:
   before-snapshot; `fetchMembershipAuditSubject(tx, …)` inside the service; bulk
   `atCapacity` returns handled per-item failure + `continue` (writes REJECTED + audit, does
   not roll back batch).
-- **Remaining gap:** `forceAdd` not exposed on bulk decisions UI/schema.
+- **Not done:** `forceAdd` not exposed on bulk decisions UI/schema.
 
 ---
 
 ### 3. Eligibility predicates (party / assembly-district) are duplicated with drift
-**Severity: High (rule divergence) · Blast radius: small — extract two predicates**
+**Status: ✅ Done (optional enum unification deferred) · Severity: High (rule divergence) · Blast radius: small — extract two predicates**
+
+*Problem description below reflects the pre-refactor state. Shared predicates now live in
+`eligibilityPredicates.ts`.*
 
 **What & where.** The party-match and assembly-district-match rules are implemented twice from
 the same `CommitteeGovernanceConfig` inputs, once as an admission gate and once as a standing
@@ -191,10 +237,26 @@ with `isVoterPossiblyInactive`); both `validateEligibility` and `detectFlagsForM
 them, mapping the shared boolean to their respective enum. Consider a single shared reason enum
 with a `{ hardStop | flag }` classification rather than two overlapping enums.
 
+**Resolution (done).** Shared predicates landed in `packages/shared-prisma/src/eligibilityPredicates.ts`
+as `isPartyMismatch` and `isAssemblyDistrictMismatch` (plus `normalizeEligibilityText`). Both
+admission gate (`lib/eligibility.ts` via `eligibilityService.ts`) and BOE standing audit
+(`boeEligibilityFlagging.ts`) call them; each maps the boolean to its own enum
+(`IneligibilityReason` vs `EligibilityFlagReason`).
+
+- **Key decisions:** trim-only comparison (not case-insensitive) — `"dem"` vs `"DEM"` is a
+  mismatch; empty expected AD counts as mismatch when AD check is enabled.
+- **Optional follow-up:** single shared reason enum with `{ hardStop | flag }` classification (Finding 13
+  note still applies).
+- **Test evidence:** `eligibilityPredicates.test.ts`; whitespace/sharp-edge cases in
+  `eligibility.test.ts` and `boeEligibilityFlagging.test.ts`.
+
 ---
 
 ### 4. Capacity / "active in another committee" checks re-inlined 3–4× because the shared helpers aren't transaction-aware
-**Severity: Medium-High · Blast radius: several call sites, each a small edit**
+**Status: ✅ Done · Severity: Medium-High · Blast radius: several call sites, each a small edit**
+
+*Problem description below reflects the pre-refactor state. Tx-aware helpers in
+`committeeValidation.ts` replaced all inline copies.*
 
 **What & where.** Transactional callers re-inline the "at capacity" / "already seated elsewhere"
 predicates because shared helpers lacked tx support (Finding 4). The former non-tx exports
@@ -215,10 +277,23 @@ were **removed** in the SLAM DUNK pass (zero call sites). Inline copies remain a
 parameter (the pattern `logAuditEvent` already uses) so both tx and non-tx callers share one
 implementation, then replace the inline copies.
 
+**Resolution (done).** Tx-aware helpers restored in `apps/frontend/src/app/api/lib/committeeValidation.ts`:
+`countActiveMembers`, `isCommitteeAtCapacity`, and `isVoterActiveInAnotherCommittee`, each with
+an optional `client` parameter (default `prisma`). Inline copies replaced at all former sites:
+
+- **Callers:** `lib/eligibility.ts` (non-tx preflight); `api/committee/add/route.ts`;
+  `api/admin/handleCommitteeDiscrepancy/route.ts`; `api/admin/bulkLoadCommittees/bulkLoadUtils.ts`;
+  `api/lib/membershipConfirmation.ts` (used by `handleRequest` and meetings/decisions).
+- **`eligibility/route.ts`:** still imports `countActiveMembers` for the snapshot payload (duplicate fetch vs `validateEligibility` — was Finding 14; fixed via `runEligibilityPreflight` / `prefetched`).
+- **Test evidence:** `committeeValidation.membershipChecks.test.ts`.
+
 ---
 
 ### 5. Designation-weight computation is implemented twice (frontend vs report-server)
-**Severity: Medium · Blast radius: medium (cross-package)**
+**Status: ✅ Done · Severity: Medium · Blast radius: medium (cross-package)**
+
+*Problem description below reflects the pre-refactor state. The shared engine and edge adapters
+landed in `159fa6c`; also resolves Finding 10.*
 
 **What & where.** The seat-weight/contribution rule exists as two full implementations:
 - `apps/frontend/src/lib/designationWeight.ts` — `computeDesignationWeightFromData` (+
@@ -243,10 +318,29 @@ frontend lib and `committeeMappingHelpers` re-export/consume it and adapt to the
 edge. Have `buildSeatRosterRows` consume `designation.seats[].isOccupied/occupant` rather than
 rebuild `occupantBySeat`.
 
+**Resolution (done).** The pure rule now lives once in
+`packages/shared-prisma/src/committeeDesignationWeight.ts` as
+`computeDesignationWeight({ seats, memberships, context })` returning `DesignationWeightResult`
+(with canonical `SeatContribution` / `OccupantMembershipType` types). Placed in `shared-prisma`
+(not `shared-validators`) so runtime `Prisma.Decimal` math stays off the client-imported
+validators barrel. Both deployables adapt at the edge and hold no rule of their own:
+- `apps/frontend/src/lib/designationWeight.ts` — `computeDesignationWeightFromData` is now a thin
+  adapter over the shared engine and re-exports `SeatContribution` / `DesignationWeightResult`;
+  the DB-fetching `calculateDesignationWeight` wrapper is unchanged.
+- `apps/report-server/src/committeeMappingHelpers.ts` — `computeDesignationWeight(committee)`
+  delegates to the shared core and only wraps the result with report identity fields;
+  `SeatWeightBreakdown` is now `= SeatContribution` (the prior `occupantMembershipType: string | null`
+  is narrowed to the enum, a no-op since `MembershipType` has only `PETITIONED`/`APPOINTED`).
+
+- **Test evidence:** `committeeDesignationWeight.test.ts` (10); frontend
+  `designationWeight.test.ts` (10) + `roster.test.ts` (18); report-server
+  `committeeMappingHelpers.test.ts` (25, includes weight path). `report-server` + `frontend`
+  typecheck clean.
+
 ---
 
 ### 6. `lib/validations/committee.ts` rebuilds the same zod field logic repeatedly
-**Severity: Medium · Blast radius: small (local field factories)**
+**Status: ⬜ Not started · Severity: Medium · Blast radius: small (local field factories)**
 
 **What & where.** This 663-line file (the branch's biggest validator) repeats field logic:
 - The `legDistrict` `union→refine→transform→pipe` block is **identical** in
@@ -269,10 +363,12 @@ same field depending on which endpoint you hit — a real inconsistency, not jus
 `legDistrict` semantics and use the factory everywhere. Relocate `createTermSchema` into the
 validations module for consistency with its siblings.
 
+**Not started.**
+
 ---
 
 ### 7. The two xlsx importers (and their upload tabs) share a copy-pasted skeleton
-**Severity: Medium · Blast radius: medium**
+**Status: ✅ Done · Severity: Medium · Blast radius: medium**
 
 **What & where.** `api/admin/crosswalk/import/route.ts` and
 `api/admin/weightedTable/import/route.ts` each contain a **byte-identical** `TOWN_CODE_TO_CITY`
@@ -294,10 +390,12 @@ weighted version wins). Extract a `<XlsxUploadCard field endpoint accept onResul
 component that both tabs render. Leave per-row business logic (`parseRow` vs weight resolution)
 in each route.
 
+**Done (2026-07-07).** Shared server lib at `lib/lted/` (`monroeTownCodes.ts`, `digitParsing.ts`, `xlsxUpload.ts`); stricter digit parsing unified across crosswalk, weightedTable, and `seedLtedCrosswalk.ts`; client `<XlsxUploadCard />` at `components/admin/XlsxUploadCard.tsx` used by both tabs. Per-row business logic remains in each route.
+
 ---
 
 ### 8. Audit write contract is positional + inconsistently used, and the server depends on a client-UI module
-**Severity: Medium · Blast radius: small-medium**
+**Status: ⬜ Not started · Severity: Medium · Blast radius: small-medium**
 
 **What & where.**
 - `logAuditEvent(userId, userRole, action, entityType, entityId, before?, after?, metadata?, client?)`
@@ -321,10 +419,12 @@ constants) so `reviewerUserId`/`actorUserId` converge. Move `AUDIT_ACTION_LABELS
 into a framework-neutral module (e.g. `lib/audit/format.ts`) that both the client and the export
 route import, so the route no longer reaches into `app/admin`.
 
+**Not started.**
+
 ---
 
 ### 9. Admin CRUD routes drift in envelope, validation style, and audit coverage
-**Severity: Medium · Blast radius: medium**
+**Status: ⬜ Not started · Severity: Medium · Blast radius: medium**
 
 **What & where.** Across `governance-config`, `terms`, `terms/[id]`, `jurisdictions`,
 `jurisdictions/[id]`:
@@ -349,10 +449,15 @@ that always returns field errors (fold governance-config's richer path into it).
 Decide the audit policy for term mutations and apply it (add `TERM_CREATED`/activation events, or
 document the exemption).
 
+**Not started.**
+
 ---
 
 ### 10. Roster occupant map built twice per committee
-**Severity: Low-Medium · Blast radius: small**
+**Status: ✅ Done · Severity: Low-Medium · Blast radius: small**
+
+*Problem description below reflects the pre-refactor state. Resolved alongside Finding 5 in
+`159fa6c`.*
 
 **What & where.** `buildSeatRosterRows` builds `occupantBySeat` over `committee.memberships`,
 but it already calls `computeDesignationWeightFromData`, which builds its own `seatOccupants`
@@ -365,10 +470,22 @@ minor redundant work per committee.
 `occupant`/`isOccupied` in its `seats[]` result and let `buildSeatRosterRows` consume it (ties
 into Finding 5's shared computation).
 
+**Resolution (done).** Resolved via a small deviation from the original proposal: rather than thread the full
+occupant object through `seats[]` (the `DesignationWeightResult` is serialized directly into API
+responses, so it must stay occupant-free), the *occupant-indexing routine* was extracted to
+`indexActiveMembershipsBySeat` in `shared-prisma`. The shared `computeDesignationWeight` uses
+it for its integrity check, and `buildSeatRosterRows` builds the map once and passes it into
+the weight engine (via `seatOccupants`) for its `occupantBySeat` lookup — so the indexing logic
+(and the duplicate-seat guard) exists in exactly one place per committee. `unassignedMembers`
+is derived from the same `memberships` in one pass.
+
+- **Test evidence:** duplicate-seat 409 and single-pass occupancy covered in `roster.test.ts`;
+  `indexActiveMembershipsBySeat` unit cases in `committeeDesignationWeight.test.ts`.
+
 ---
 
 ### 11. Invite subsystem carries verbatim clones after the users/data move
-**Severity: Low-Medium · Blast radius: small**
+**Status: ⬜ Not started · Severity: Low-Medium · Blast radius: small**
 
 **What & where.** `admin/users/InviteManagement.tsx` and `auth/invite/[token]/page.tsx` both
 contain a **byte-identical** `getPrivilegeColor` switch, an identical `jurisdictionLabel`, and a
@@ -387,10 +504,12 @@ page and the admin table; the invite-validity predicate has four maintenance poi
 neighbor). Export `unusedInviteWhere` and use it at all four sites. Factor the
 deleted/expired/used ladder into one `classifyInviteState(invite, { allowSameEmailUsed })`.
 
+**Not started.**
+
 ---
 
 ### 12. Upload-form scaffolding duplicated; admin data tabs hand-wired while nav is config-driven
-**Severity: Low-Medium · Blast radius: small**
+**Status: ✅ Done · Severity: Low-Medium · Blast radius: small**
 
 **What & where.** `admin/data/VoterImport.tsx` and `AbsenteeReport.tsx` are near-identical
 (`useFileUpload` + `useApiMutation("/api/generateReport")`, same name/error/success state, same
@@ -405,10 +524,16 @@ that must be manually kept in sync — two conventions for the same "list of adm
 forms. Drive the data tabs from a `dataTabs` config array (mirroring `adminNav.ts`) so the
 `TabsList` width and trigger/content pairs are generated.
 
+**Resolution (done).** Extracted `PresignedUploadReportForm` in
+`components/admin/PresignedUploadReportForm.tsx`; `VoterImport` and `AbsenteeReport` are now thin
+spec wrappers. Added `admin/data/adminDataTabs.tsx` registry with co-located `render` functions;
+`AdminDataClient` maps triggers/content from the registry with dynamic `gridTemplateColumns` (no
+manual `grid-cols-N`, no config/switch drift).
+
 ---
 
 ### 13. Schema modeling notes (accept-or-document, not a refactor push)
-**Severity: Low (mostly) · Blast radius: high if changed — treat as backlog**
+**Status: 📋 Backlog — ticket / document, not an active refactor · Severity: Low (mostly) · Blast radius: high if changed**
 
 From `apps/frontend/prisma/schema.prisma`. Flagged for awareness; most are deliberate
 denormalizations:
@@ -424,35 +549,40 @@ denormalizations:
   copy of user scope); acceptable but note the shared shape if either changes.
 - **`EligibilityFlag` duplicates `committeeListId`/`voterRecordId`/`termId`** already reachable via
   `membership` — intentional for indexing.
-- **`IneligibilityReason` vs `EligibilityFlagReason`** overlap (ties to Finding 3).
+- **`IneligibilityReason` vs `EligibilityFlagReason`** overlap — predicates now shared (Finding 3);
+  enum unification still deferred.
 
 **Recommendation.** File a ticket for the membership↔Seat FK; document the rest as intentional in
 the schema comments so future readers don't "fix" them by accident.
 
+**Not started** (except predicate sharing from Finding 3). No schema FK ticket filed yet.
+
 ---
 
 ### 14. Grouped minor nits
-**Severity: Low · Blast radius: trivial**
+**Status: ✅ Done · Severity: Low · Blast radius: trivial**
 
-- **Double config/count fetch:** `api/committee/eligibility/route.ts` assembles the snapshot
+All items below were resolved in the SLAM DUNK pass. Kept for audit trail only.
+
+- ~~**Double config/count fetch:** `api/committee/eligibility/route.ts` assembles the snapshot
   inline by re-querying `getGovernanceConfig` and the active-member count that
   `validateEligibility` already fetched in the same request. `eligibilityPreflight.ts` is
-  types-only — move the snapshot assembly into a helper there and reuse the values.
+  types-only — move the snapshot assembly into a helper there and reuse the values.~~ ✅
 - ~~**Dead branch:** `admin/petition-outcomes/page.tsx` guards `if (activeTermId == null)`, but
   `getActiveTermId(): Promise<string>` *throws* rather than returning null — the branch is
-  unreachable.~~ **Done (SLAM DUNK).** (Same pattern in a couple of other pages that wrap it in try/catch instead.)
-- **`const ACTIVE_STATUS = "ACTIVE"`** declared independently in `committeeValidation.ts` and
-  `seatUtils.ts`, and the literal `"ACTIVE"` is hardcoded throughout eligibility/add/handleRequest
-  — one shared constant.
+  unreachable.~~ ✅ (Same pattern in a couple of other pages that wrap it in try/catch instead.)
+- ~~**`const ACTIVE_STATUS = "ACTIVE"`** declared independently in `committeeValidation.ts` and
+  `seatUtils.ts` (capacity helpers now use the former); literal `"ACTIVE"` still hardcoded at
+  mutation/write sites — one shared constant.~~ ✅ — `ACTIVE_MEMBERSHIP_STATUS`
 - ~~**Redundant zod defaults:** `validations/audit.ts` applies `.default(...)` twice on
-  `page`/`pageSize` (on the shared const and again inline).~~ **Done (SLAM DUNK).**
-- **Inline `where:{ isActive:true }` term reads** — actual duplicate-read candidates:
+  `page`/`pageSize` (on the shared const and again inline).~~ ✅
+- ~~**Inline `where:{ isActive:true }` term reads** — actual duplicate-read candidates:
   `admin/eligibility-flags/page.tsx` (`findFirst` with graceful empty UI) and
   `auth/invite/[token]/apply/route.ts` (tx-scoped read with `StaleInviteScopeError`).
   *Not* candidates: `terms/[id]/route.ts` (deactivate-all write path) and `admin/users/page.tsx`
-  (selects `isActive` on all terms for dropdown labels).
+  (selects `isActive` on all terms for dropdown labels).~~ ✅ — `findActiveTerm`
 - ~~**Double `getActiveTermId` in same request:** `api/admin/invites/route.ts` (Leader + jurisdictions)
-  and `bulkLoadCommittees` route + `bulkLoadUtils.ts`.~~ **Done (SLAM DUNK).**
+  and `bulkLoadCommittees` route + `bulkLoadUtils.ts`.~~ ✅
 
 ---
 
@@ -460,16 +590,22 @@ the schema comments so future readers don't "fix" them by accident.
 - `getActiveTermId()` is a genuinely shared helper adopted at ~20 sites.
 - Data-fetching is largely routed through `useApiMutation`/`useApiQuery`; the report forms use
   the shared mutation hook rather than hand-rolled `fetch`.
-- Eligibility inactivity (`isVoterPossiblyInactive`) is correctly shared via `shared-prisma`;
-  `eligibilityService.ts` is a clean re-export shim.
+- Eligibility rules are correctly shared via `shared-prisma`: inactivity
+  (`isVoterPossiblyInactive`), party mismatch (`isPartyMismatch`), and AD mismatch
+  (`isAssemblyDistrictMismatch`); `eligibilityService.ts` is a clean re-export shim.
+- Capacity / active-elsewhere predicates (`countActiveMembers`, `isCommitteeAtCapacity`,
+  `isVoterActiveInAnotherCommittee`) are centralized in `committeeValidation.ts` with optional tx
+  client — admission, preflight, discrepancy resolve, bulk load, and membership confirmation all
+  share one implementation.
+- Designation-weight rule and occupant indexing live once in `shared-prisma`
+  (`computeDesignationWeight`, `indexActiveMembershipsBySeat`); frontend `designationWeight.ts`
+  and report-server `committeeMappingHelpers.ts` are thin adapters only.
 - `hasPermissionFor` now fails closed and `AuthCheck` correctly gates on acting privilege — the
   server/client privilege split is consistent branch-wide.
 - Discrepancy resolve/undo share their snapshot/restore logic through
-  `committeeDiscrepancyResolution.ts` (including `lockDiscrepancyForUpdate` since SLAM DUNK pass;
-  inline `active-elsewhere` queries remain — see Finding 4).
+  `committeeDiscrepancyResolution.ts` (including `lockDiscrepancyForUpdate` since SLAM DUNK pass).
 
-**Residual in B (discrepancy/undo), rolled up:** ~~`lockDiscrepancyForUpdate` is copy-pasted
-verbatim between `handleCommitteeDiscrepancy/route.ts` and `undo/route.ts`, and the~~
-The REMOVED-membership payload is duplicated between `undo` and `bulkLoadUtils`. Extract
-~~`lockDiscrepancyForUpdate` and~~ a `buildRemovedMembershipData(reason, notes)` into
-`committeeDiscrepancyResolution.ts` alongside the existing shared helpers (small, low-risk).
+**Residual in B (discrepancy/undo) — 🟡 partial:** `lockDiscrepancyForUpdate` ✅ extracted to
+`committeeDiscrepancyResolution.ts`. The REMOVED-membership payload is still duplicated between
+`undo` and `bulkLoadUtils` — extract a `buildRemovedMembershipData(reason, notes)` alongside the
+existing shared helpers (small, low-risk).
