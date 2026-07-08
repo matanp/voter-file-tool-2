@@ -7,6 +7,7 @@ import type { PrivilegeLevel } from "@prisma/client";
 import { hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 
+/** Client-only gate on acting privilege (Developer role simulation). Not authorization — use `getAdminPageAccess` / `getAuthenticatedPageAccess` in Server Components before fetching data. */
 export default function AuthCheck({
   children,
   privilegeLevel,

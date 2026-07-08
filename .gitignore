@@ -18,6 +18,9 @@ terraform.tfstate*
 
 AI_PLAN_DOCS/
 
+# Architecture review manifests and cited-files lists (local, not for version control)
+.review/
+
 # Local planning/review docs (not for version control)
 docs/ADMIN_USER_MANAGEMENT_REVIEW.md
 docs/AUDIT_TRAIL_PREVIOUS_SEAT_OCCUPANT.md

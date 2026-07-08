@@ -1,6 +1,8 @@
 import React from "react";
-import prisma from "~/lib/prisma";
+import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
+import prisma from "~/lib/prisma";
 import { PetitionOutcomesClient } from "./PetitionOutcomesClient";
 
 interface PetitionOutcomesPageProps {
@@ -12,7 +14,29 @@ interface PetitionOutcomesPageProps {
 export default async function PetitionOutcomesPage({
   searchParams,
 }: PetitionOutcomesPageProps) {
-  const activeTermId = await getActiveTermId();
+  const access = await getAdminPageAccess();
+  if (!access.ok) {
+    return <AdminPageAccessDenied />;
+  }
+
+  let activeTermId: string | null = null;
+  try {
+    activeTermId = await getActiveTermId();
+  } catch {
+    // No active term
+  }
+
+  if (activeTermId == null) {
+    return (
+      <div className="w-full p-6">
+        <h1 className="text-2xl font-semibold mb-6">Petition & Primary Outcomes</h1>
+        <p className="text-muted-foreground">
+          No active committee term is set. Configure an active term to manage petition outcomes.
+        </p>
+      </div>
+    );
+  }
+
   const term = await prisma.committeeTerm.findUnique({
     where: { id: activeTermId },
     select: { id: true, label: true },

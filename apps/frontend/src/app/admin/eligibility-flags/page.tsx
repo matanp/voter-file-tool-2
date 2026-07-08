@@ -1,7 +1,14 @@
+import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
 import { findActiveTerm } from "~/app/api/lib/committeeValidation";
+import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import { EligibilityFlagsTable } from "./EligibilityFlagsTable";
 
 export default async function EligibilityFlagsPage() {
+  const access = await getAdminPageAccess();
+  if (!access.ok) {
+    return <AdminPageAccessDenied />;
+  }
+
   const activeTerm = await findActiveTerm();
 
   return (

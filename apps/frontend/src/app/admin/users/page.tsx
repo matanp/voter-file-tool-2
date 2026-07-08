@@ -4,8 +4,9 @@
 
 import React from "react";
 import { PrivilegeLevel } from "@prisma/client";
-import AuthCheck from "~/components/ui/authcheck";
+import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 import { UsersManagementClient } from "./UsersManagementClient";
 
@@ -34,11 +35,12 @@ export type TermOption = {
 };
 
 export default async function AdminUsersPage() {
-  return (
-    <AuthCheck privilegeLevel={PrivilegeLevel.Admin}>
-      <AdminUsersContent />
-    </AuthCheck>
-  );
+  const access = await getAdminPageAccess();
+  if (!access.ok) {
+    return <AdminPageAccessDenied />;
+  }
+
+  return <AdminUsersContent />;
 }
 
 async function AdminUsersContent() {

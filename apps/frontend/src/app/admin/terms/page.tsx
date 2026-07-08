@@ -1,9 +1,16 @@
 import React from "react";
+import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
+import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 import type { CommitteeTerm } from "@prisma/client";
 import { TermsManagement } from "./TermsManagement";
 
 export default async function TermsPage() {
+  const access = await getAdminPageAccess();
+  if (!access.ok) {
+    return <AdminPageAccessDenied />;
+  }
+
   // Prisma client is typed in ~/lib/prisma; ESLint sometimes misresolves in RSC context
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   const terms: CommitteeTerm[] = await prisma.committeeTerm.findMany({

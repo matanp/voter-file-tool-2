@@ -1,8 +1,15 @@
 import React from "react";
 import { AdminDataClient } from "./data/AdminDataClient";
+import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
+import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 
 const AdminPage = async () => {
+  const access = await getAdminPageAccess();
+  if (!access.ok) {
+    return <AdminPageAccessDenied />;
+  }
+
   const electionDates = await prisma.electionDate.findMany();
   const officeNames = await prisma.officeName.findMany();
 

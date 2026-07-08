@@ -1,9 +1,16 @@
 import React from "react";
-import prisma from "~/lib/prisma";
+import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
+import prisma from "~/lib/prisma";
 import { MeetingsManagement } from "./MeetingsManagement";
 
 export default async function MeetingsPage() {
+  const access = await getAdminPageAccess();
+  if (!access.ok) {
+    return <AdminPageAccessDenied />;
+  }
+
   let activeTermId: string | null = null;
   try {
     activeTermId = await getActiveTermId();
