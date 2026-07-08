@@ -62,6 +62,64 @@ describe("governance-config update affects downstream eligibility checks", () =>
     );
     (prismaMock.voterRecord as { findFirst: jest.Mock }).findFirst.mockResolvedValue(null);
 
+    (prismaMock.committeeList as { findMany: jest.Mock }).findMany.mockResolvedValue([
+      { id: 1 },
+    ]);
+    (prismaMock.committeeList as { findUnique: jest.Mock }).findUnique.mockResolvedValue({
+      id: 1,
+      cityTown: "Test City",
+      legDistrict: 1,
+      electionDistrict: 1,
+      ltedWeight: 128,
+    });
+    getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+    (prismaMock.seat as { findMany: jest.Mock }).findMany.mockImplementation(
+      async ({
+        where,
+      }: {
+        where: {
+          termId?: string;
+          seatNumber?: { gt?: number };
+          isPetitioned?: boolean;
+          committeeListId?: { in: number[] };
+        };
+      }) => {
+        const activeTermExcessSeats = [
+          {
+            id: "seat-3",
+            committeeListId: 1,
+            termId: "term-default-2024-2026",
+            seatNumber: 3,
+            isPetitioned: false,
+          },
+          {
+            id: "seat-4",
+            committeeListId: 1,
+            termId: "term-default-2024-2026",
+            seatNumber: 4,
+            isPetitioned: false,
+          },
+        ];
+
+        if (where.isPetitioned === true) {
+          return [];
+        }
+        if (where.seatNumber?.gt != null) {
+          return activeTermExcessSeats;
+        }
+        if (where.committeeListId?.in != null) {
+          return [];
+        }
+        return [];
+      },
+    );
+    (prismaMock.seat as { deleteMany: jest.Mock }).deleteMany.mockResolvedValue({
+      count: 2,
+    });
+    (prismaMock.seat as { updateMany: jest.Mock }).updateMany.mockResolvedValue({
+      count: 4,
+    });
+
     getMembershipMock(prismaMock).count.mockResolvedValue(3);
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
 

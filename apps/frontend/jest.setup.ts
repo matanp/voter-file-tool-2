@@ -322,6 +322,7 @@ beforeEach(() => {
         findMany: jest.Mock;
         findUnique: jest.Mock;
         createMany: jest.Mock;
+        deleteMany: jest.Mock;
         update: jest.Mock;
         updateMany: jest.Mock;
       };
@@ -331,6 +332,7 @@ beforeEach(() => {
     findMany: jest.fn().mockResolvedValue([]),
     findUnique: jest.fn(),
     createMany: jest.fn().mockResolvedValue({ count: 4 }),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     update: jest.fn(),
     updateMany: jest.fn().mockResolvedValue({ count: 4 }),
   };

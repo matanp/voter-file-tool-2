@@ -1,6 +1,16 @@
 import { AuditAction, PrivilegeLevel } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { findActiveTerm } from "~/app/api/lib/committeeValidation";
+import {
+  reconcileSeatsForMaxSeatsChange,
+  SeatDecreaseConflictError,
+  type SeatReconciliationSummary,
+} from "~/app/api/lib/seatReconciliation";
+import {
+  withPrivilege,
+  type SessionWithUser,
+} from "~/app/api/lib/withPrivilege";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import prisma from "~/lib/prisma";
 import {
@@ -8,10 +18,6 @@ import {
   governanceConfigUpdateSchema,
   type GovernanceConfigUpdateInput,
 } from "~/lib/validations/governanceConfig";
-import {
-  withPrivilege,
-  type SessionWithUser,
-} from "~/app/api/lib/withPrivilege";
 
 const DEFAULT_CONFIG_ID = "mcdc-default";
 
@@ -138,59 +144,114 @@ async function patchHandler(req: NextRequest, session: SessionWithUser) {
     });
   }
 
-  const savedConfig = await prisma.$transaction(async (tx) => {
-    const rows = await tx.committeeGovernanceConfig.findMany({
-      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-    });
+  const currentConfigPreview = await prisma.committeeGovernanceConfig.findFirst({
+    orderBy: { updatedAt: "desc" },
+  });
+  const maxSeatsChanged =
+    currentConfigPreview != null &&
+    currentConfigPreview.maxSeatsPerLted !== parsed.data.maxSeatsPerLted;
 
-    const currentConfig = rows[0] ?? null;
-
-    // Defensive cleanup: singleton index should prevent duplicates, but we keep one
-    // canonical row enforceable at runtime if legacy data exists.
-    if (rows.length > 1 && currentConfig) {
-      await tx.committeeGovernanceConfig.deleteMany({
-        where: { id: { not: currentConfig.id } },
+  let activeTermId: string | null = null;
+  if (maxSeatsChanged) {
+    const activeTerm = await findActiveTerm();
+    if (!activeTerm) {
+      return validationErrorResponse({
+        maxSeatsPerLted: [
+          "Cannot change maxSeatsPerLted without an active committee term",
+        ],
       });
     }
+    activeTermId = activeTerm.id;
+  }
 
-    const updateData: GovernanceConfigUpdateInput = {
-      requiredPartyCode,
-      maxSeatsPerLted: parsed.data.maxSeatsPerLted,
-      requireAssemblyDistrictMatch: parsed.data.requireAssemblyDistrictMatch,
-      nonOverridableIneligibilityReasons:
-        parsed.data.nonOverridableIneligibilityReasons,
-    };
-
-    const beforePayload = currentConfig ? toApiPayload(currentConfig) : null;
-    const persisted = currentConfig
-      ? await tx.committeeGovernanceConfig.update({
-          where: { id: currentConfig.id },
-          data: updateData,
-        })
-      : await tx.committeeGovernanceConfig.create({
-          data: {
-            id: DEFAULT_CONFIG_ID,
-            ...updateData,
-          },
+  let savedConfig;
+  try {
+    savedConfig = await prisma.$transaction(
+      async (tx) => {
+        const rows = await tx.committeeGovernanceConfig.findMany({
+          orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         });
 
-    const afterPayload = toApiPayload(persisted);
-    await logAuditEventOrThrow(
-      session.user.id,
-      session.user.privilegeLevel ?? PrivilegeLevel.Admin,
-      AuditAction.GOVERNANCE_CONFIG_UPDATED,
-      "CommitteeGovernanceConfig",
-      persisted.id,
-      beforePayload,
-      afterPayload,
-      {
-        source: "admin_governance_config",
-      },
-      tx,
-    );
+        const currentConfig = rows[0] ?? null;
 
-    return persisted;
-  });
+        // Defensive cleanup: singleton index should prevent duplicates, but we keep one
+        // canonical row enforceable at runtime if legacy data exists.
+        if (rows.length > 1 && currentConfig) {
+          await tx.committeeGovernanceConfig.deleteMany({
+            where: { id: { not: currentConfig.id } },
+          });
+        }
+
+        const updateData: GovernanceConfigUpdateInput = {
+          requiredPartyCode,
+          maxSeatsPerLted: parsed.data.maxSeatsPerLted,
+          requireAssemblyDistrictMatch: parsed.data.requireAssemblyDistrictMatch,
+          nonOverridableIneligibilityReasons:
+            parsed.data.nonOverridableIneligibilityReasons,
+        };
+
+        const beforePayload = currentConfig ? toApiPayload(currentConfig) : null;
+
+        let reconciliationSummary: SeatReconciliationSummary | null = null;
+        if (
+          maxSeatsChanged &&
+          activeTermId != null &&
+          currentConfig != null
+        ) {
+          reconciliationSummary = await reconcileSeatsForMaxSeatsChange(tx, {
+            termId: activeTermId,
+            oldMaxSeats: currentConfig.maxSeatsPerLted,
+            newMaxSeats: parsed.data.maxSeatsPerLted,
+          });
+        }
+
+        const persisted = currentConfig
+          ? await tx.committeeGovernanceConfig.update({
+              where: { id: currentConfig.id },
+              data: updateData,
+            })
+          : await tx.committeeGovernanceConfig.create({
+              data: {
+                id: DEFAULT_CONFIG_ID,
+                ...updateData,
+              },
+            });
+
+        const afterPayload = toApiPayload(persisted);
+        await logAuditEventOrThrow(
+          session.user.id,
+          session.user.privilegeLevel ?? PrivilegeLevel.Admin,
+          AuditAction.GOVERNANCE_CONFIG_UPDATED,
+          "CommitteeGovernanceConfig",
+          persisted.id,
+          beforePayload,
+          afterPayload,
+          {
+            source: "admin_governance_config",
+            ...(reconciliationSummary
+              ? { reconciliation: reconciliationSummary }
+              : {}),
+          },
+          tx,
+        );
+
+        return persisted;
+      },
+      maxSeatsChanged ? { timeout: 30_000, maxWait: 10_000 } : undefined,
+    );
+  } catch (error: unknown) {
+    if (error instanceof SeatDecreaseConflictError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          conflict: error.details,
+        },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
 
   return NextResponse.json(
     {
