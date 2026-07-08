@@ -624,13 +624,57 @@ describe('fetchVacancyData', () => {
 });
 
 describe('fetchChangesData', () => {
+  const dateFrom = '2026-07-06';
+  const dateTo = '2026-07-06';
+  const fromInclusive = new Date(Date.UTC(2026, 6, 6));
+  const toExclusive = new Date(Date.UTC(2026, 6, 7));
+
+  /** Minimal membership row for fetchChangesData filtering tests. */
+  function buildRemovedMembership(removedAt: Date) {
+    return {
+      id: 'm-1',
+      voterRecordId: 'voter-1',
+      committeeListId: 1,
+      termId: 'term-1',
+      status: 'REMOVED',
+      membershipType: 'APPOINTED',
+      seatNumber: 1,
+      submittedAt: null,
+      activatedAt: null,
+      confirmedAt: null,
+      resignedAt: null,
+      removedAt,
+      rejectedAt: null,
+      rejectionNote: null,
+      removalReason: 'Term ended',
+      removalNotes: null,
+      resignationDateReceived: null,
+      resignationMethod: null,
+      petitionVoteCount: null,
+      petitionPrimaryDate: null,
+      submittedById: null,
+      submissionMetadata: null,
+      meetingRecordId: null,
+      petitionSeatNumber: null,
+      voterRecord: {
+        VRCNUM: 'VRC001',
+        firstName: 'Jane',
+        lastName: 'Doe',
+      },
+      committeeList: {
+        cityTown: 'ROCHESTER',
+        legDistrict: 1,
+        electionDistrict: 42,
+      },
+    };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
   });
 
   it('throws when dateFrom or dateTo is invalid', async () => {
-    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
-
     await expect(
       fetchChangesData('countywide', 'invalid', '2025-01-15'),
     ).rejects.toThrow(/Invalid dateFrom or dateTo/);
@@ -640,11 +684,60 @@ describe('fetchChangesData', () => {
   });
 
   it('throws when scope is jurisdiction and cityTown is empty', async () => {
-    prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
-
     await expect(
       fetchChangesData('jurisdiction', '2025-01-01', '2025-01-31', ''),
     ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+  });
+
+  it('queries with half-open UTC range ending at start of day after dateTo', async () => {
+    prismaMock.committeeMembership.findMany.mockResolvedValue([]);
+
+    await fetchChangesData('countywide', dateFrom, dateTo);
+
+    expect(prismaMock.committeeMembership.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          termId: 'term-1',
+          OR: [
+            { activatedAt: { gte: fromInclusive, lt: toExclusive } },
+            { resignedAt: { gte: fromInclusive, lt: toExclusive } },
+            { removedAt: { gte: fromInclusive, lt: toExclusive } },
+            { confirmedAt: { gte: fromInclusive, lt: toExclusive } },
+            { petitionPrimaryDate: { gte: fromInclusive, lt: toExclusive } },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    ['start of dateFrom', new Date(Date.UTC(2026, 6, 6, 0, 0, 0, 0))],
+    ['noon on dateTo', new Date(Date.UTC(2026, 6, 6, 12, 0, 0, 0))],
+    ['end of dateTo', new Date(Date.UTC(2026, 6, 6, 23, 59, 59, 999))],
+  ])('includes removedAt event at %s', async (_label, removedAt) => {
+    prismaMock.committeeMembership.findMany.mockResolvedValue([
+      buildRemovedMembership(removedAt),
+    ]);
+
+    const rows = await fetchChangesData('countywide', dateFrom, dateTo);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      memberName: 'Jane Doe',
+      changeType: 'Removed',
+      changeDate: '2026-07-06',
+      details: 'Term ended',
+    });
+  });
+
+  it('excludes removedAt event at start of the next day', async () => {
+    prismaMock.committeeMembership.findMany.mockResolvedValue([
+      buildRemovedMembership(new Date(Date.UTC(2026, 6, 7, 0, 0, 0, 0))),
+    ]);
+
+    const rows = await fetchChangesData('countywide', dateFrom, dateTo);
+
+    expect(rows).toHaveLength(0);
   });
 });
 

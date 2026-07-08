@@ -442,6 +442,44 @@ export type ChangesReportRow = {
   details: string;
 };
 
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+type InclusiveDateOnlyRange = {
+  fromInclusive: Date;
+  toExclusive: Date;
+};
+
+/** Parses YYYY-MM-DD inputs as UTC calendar days for half-open date-range queries. */
+function parseInclusiveDateOnlyRange(
+  dateFrom: string,
+  dateTo: string,
+): InclusiveDateOnlyRange {
+  const fromMatch = DATE_ONLY_PATTERN.exec(dateFrom);
+  const toMatch = DATE_ONLY_PATTERN.exec(dateTo);
+  if (!fromMatch || !toMatch) {
+    throw new Error('Invalid dateFrom or dateTo');
+  }
+
+  // Strict date-only parsing: report forms submit YYYY-MM-DD, not datetimes.
+  const fromInclusive = new Date(
+    Date.UTC(Number(fromMatch[1]), Number(fromMatch[2]) - 1, Number(fromMatch[3])),
+  );
+  const toInclusive = new Date(
+    Date.UTC(Number(toMatch[1]), Number(toMatch[2]) - 1, Number(toMatch[3])),
+  );
+
+  // Compare inclusive calendar endpoints before adding a day for the exclusive upper bound.
+  if (fromInclusive > toInclusive) {
+    throw new Error('dateFrom must be <= dateTo');
+  }
+
+  const toExclusive = new Date(
+    Date.UTC(Number(toMatch[1]), Number(toMatch[2]) - 1, Number(toMatch[3]) + 1),
+  );
+
+  return { fromInclusive, toExclusive };
+}
+
 /**
  * Fetches committee membership changes within a date range.
  */
@@ -453,25 +491,18 @@ export async function fetchChangesData(
   legDistrict?: number,
 ): Promise<ChangesReportRow[]> {
   const activeTermId = await getActiveTermId();
-  const fromDate = new Date(dateFrom);
-  const toDate = new Date(dateTo);
-  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
-    throw new Error('Invalid dateFrom or dateTo');
-  }
-  if (fromDate > toDate) {
-    throw new Error('dateFrom must be <= dateTo');
-  }
+  const { fromInclusive, toExclusive } = parseInclusiveDateOnlyRange(dateFrom, dateTo);
 
   const rows: ChangesReportRow[] = [];
 
   const membershipWhere: Prisma.CommitteeMembershipWhereInput = {
     termId: activeTermId,
     OR: [
-      { activatedAt: { gte: fromDate, lte: toDate } },
-      { resignedAt: { gte: fromDate, lte: toDate } },
-      { removedAt: { gte: fromDate, lte: toDate } },
-      { confirmedAt: { gte: fromDate, lte: toDate } },
-      { petitionPrimaryDate: { gte: fromDate, lte: toDate } },
+      { activatedAt: { gte: fromInclusive, lt: toExclusive } },
+      { resignedAt: { gte: fromInclusive, lt: toExclusive } },
+      { removedAt: { gte: fromInclusive, lt: toExclusive } },
+      { confirmedAt: { gte: fromInclusive, lt: toExclusive } },
+      { petitionPrimaryDate: { gte: fromInclusive, lt: toExclusive } },
     ],
   };
 
@@ -508,7 +539,7 @@ export async function fetchChangesData(
 
     const candidates: { changeType: ChangesReportRow['changeType']; changeDate: Date; details: string }[] = [];
 
-    if (m.activatedAt && m.activatedAt >= fromDate && m.activatedAt <= toDate) {
+    if (m.activatedAt && m.activatedAt >= fromInclusive && m.activatedAt < toExclusive) {
       const changeType: ChangesReportRow['changeType'] =
         m.membershipType === 'PETITIONED' ? 'Petition Won' : 'Added';
       candidates.push({
@@ -519,22 +550,22 @@ export async function fetchChangesData(
           : '',
       });
     }
-    if (m.resignedAt && m.resignedAt >= fromDate && m.resignedAt <= toDate) {
+    if (m.resignedAt && m.resignedAt >= fromInclusive && m.resignedAt < toExclusive) {
       const details = m.resignationMethod ? `Method: ${m.resignationMethod}` : '';
       candidates.push({ changeType: 'Resigned', changeDate: m.resignedAt, details });
     }
-    if (m.removedAt && m.removedAt >= fromDate && m.removedAt <= toDate) {
+    if (m.removedAt && m.removedAt >= fromInclusive && m.removedAt < toExclusive) {
       const details = [m.removalReason, m.removalNotes].filter(Boolean).join(' — ') || '';
       candidates.push({ changeType: 'Removed', changeDate: m.removedAt, details });
     }
-    if (m.confirmedAt && m.confirmedAt >= fromDate && m.confirmedAt <= toDate) {
+    if (m.confirmedAt && m.confirmedAt >= fromInclusive && m.confirmedAt < toExclusive) {
       candidates.push({ changeType: 'Confirmed', changeDate: m.confirmedAt, details: '' });
     }
     if (
       (m.status === 'PETITIONED_LOST' || m.status === 'PETITIONED_TIE') &&
       m.petitionPrimaryDate &&
-      m.petitionPrimaryDate >= fromDate &&
-      m.petitionPrimaryDate <= toDate
+      m.petitionPrimaryDate >= fromInclusive &&
+      m.petitionPrimaryDate < toExclusive
     ) {
       const details = m.petitionVoteCount != null
         ? `${m.petitionVoteCount} votes`
