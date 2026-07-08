@@ -11,6 +11,9 @@ import {
   canonicalizeAuthEmailOrNull,
 } from "@voter-file-tool/shared-validators";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
+import {
+  unusedInviteWhere,
+} from "~/lib/invites/validity";
 import prisma from "~/lib/prisma";
 
 export class InviteGrantError extends Error {
@@ -58,13 +61,6 @@ type DbClient = Prisma.TransactionClient | typeof prisma;
 
 const LEADER_EMPTY_SCOPE_MESSAGE =
   "Leader invite requires at least one jurisdiction";
-
-const unusedInviteWhere = (email: string) => ({
-  email,
-  usedAt: null,
-  deleted: false,
-  expiresAt: { gt: new Date() },
-});
 
 async function resolvePendingInvite(
   client: DbClient,
@@ -258,10 +254,7 @@ async function grantInvite(
   const consumeResult = await client.invite.updateMany({
     where: {
       id: invite.id,
-      email,
-      usedAt: null,
-      deleted: false,
-      expiresAt: { gt: now },
+      ...unusedInviteWhere(email, now),
     },
     data: { usedAt: now },
   });

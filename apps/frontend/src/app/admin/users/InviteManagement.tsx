@@ -16,7 +16,7 @@ import {
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { PrivilegeLevel, type Invite } from "@prisma/client";
+import { type Invite } from "@prisma/client";
 import { z } from "zod";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Calendar, User, Mail, MapPin, AlertCircle } from "lucide-react";
@@ -24,6 +24,12 @@ import { useToast } from "~/components/ui/use-toast";
 import { DeleteButton } from "~/components/ui/DeleteButton";
 import { CopyButton } from "~/components/ui/CopyButton";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
+import {
+  formatInviteDate,
+  getPrivilegeColor,
+  jurisdictionLabel,
+  type SerializedInviteJurisdiction,
+} from "~/lib/invites/display";
 import type { JurisdictionMeta, TermOption } from "./page";
 
 // A jurisdiction captured for a Leader invite (no userId yet — applied on signup).
@@ -32,15 +38,6 @@ type PendingJurisdiction = {
   legDistrict: number | null;
   termId: string;
   termLabel: string;
-};
-
-// Serialized jurisdiction returned by GET /api/admin/invites.
-type SerializedInviteJurisdiction = {
-  id: string;
-  cityTown: string;
-  legDistrict: number | null;
-  termId: string;
-  term: { label: string };
 };
 
 // Type for serialized Invite data (dates as strings)
@@ -95,12 +92,6 @@ const EMPTY_FORM = (): {
   expiresInDays: 7,
   jurisdictions: [],
 });
-
-function jurisdictionLabel(cityTown: string, legDistrict: number | null) {
-  return legDistrict != null
-    ? `${cityTown} — LD ${legDistrict}`
-    : `${cityTown} (all districts)`;
-}
 
 export function InviteManagement({
   terms,
@@ -351,33 +342,6 @@ export function InviteManagement({
       undefined, // No payload needed since ID is in URL
       `/api/admin/invites?id=${inviteId}`,
     );
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getPrivilegeColor = (level: PrivilegeLevel) => {
-    switch (level) {
-      case PrivilegeLevel.Developer:
-        return "bg-purple-100 text-purple-800";
-      case PrivilegeLevel.Admin:
-        return "bg-red-100 text-red-800";
-      case PrivilegeLevel.Leader:
-        return "bg-blue-100 text-blue-800";
-      case PrivilegeLevel.RequestAccess:
-        return "bg-yellow-100 text-yellow-800";
-      case PrivilegeLevel.ReadAccess:
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
   };
 
   const cityItems = (jurisdictionMeta?.cityTowns ?? []).map((c) => ({
@@ -709,13 +673,13 @@ export function InviteManagement({
                       <Calendar className="h-4 w-4" />
                       <span>
                         {invite.usedAt
-                          ? `Used: ${formatDate(invite.usedAt)}`
-                          : `Expires: ${formatDate(invite.expiresAt)}`}
+                          ? `Used: ${formatInviteDate(invite.usedAt, { month: "short" })}`
+                          : `Expires: ${formatInviteDate(invite.expiresAt, { month: "short" })}`}
                       </span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <User className="h-4 w-4" />
-                      <span>Created: {formatDate(invite.createdAt)}</span>
+                      <span>Created: {formatInviteDate(invite.createdAt, { month: "short" })}</span>
                     </div>
                   </div>
                 </div>

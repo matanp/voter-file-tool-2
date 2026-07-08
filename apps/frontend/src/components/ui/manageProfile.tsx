@@ -16,6 +16,7 @@ import { SignOutButton } from "./signInButton";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import Link from "next/link";
+import { jurisdictionLabel } from "~/lib/invites/display";
 
 type ManageProfileButtonProps = {
   session: Session;
@@ -31,12 +32,6 @@ type PendingInvite = {
     term: { label: string };
   }>;
 };
-
-function jurisdictionLabel(cityTown: string, legDistrict: number | null) {
-  return legDistrict != null
-    ? `${cityTown} LD ${legDistrict}`
-    : `${cityTown} (all districts)`;
-}
 
 export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
   session,

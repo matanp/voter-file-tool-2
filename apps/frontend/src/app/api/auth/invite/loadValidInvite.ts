@@ -1,6 +1,6 @@
 import type { InviteJurisdiction, PrivilegeLevel } from "@prisma/client";
-import { authEmailsEqual } from "@voter-file-tool/shared-validators";
 import { z } from "zod";
+import { classifyInviteState } from "~/lib/invites/validity";
 import prisma from "~/lib/prisma";
 
 export const inviteTokenSchema = z.string().trim().min(1, "Token is required");
@@ -48,6 +48,15 @@ export type InviteLoadResult =
 export type ApplyInviteLoadResult =
   | { ok: true; invite: ApplyInviteLoadedInvite }
   | { ok: false; error: InviteLoadError };
+
+const INVITE_STATE_ERRORS: Record<
+  "deleted" | "expired" | "used",
+  InviteLoadError
+> = {
+  deleted: { status: 410, error: "This invite has been deleted" },
+  expired: { status: 410, error: "This invite has expired" },
+  used: { status: 409, error: "This invite has already been used" },
+};
 
 function tokenValidationError(
   token: string,
@@ -102,23 +111,10 @@ export async function loadValidUnusedInvite(
   if (!invite) {
     return { ok: false, error: { status: 404, error: "Invite not found" } };
   }
-  if (invite.deleted) {
-    return {
-      ok: false,
-      error: { status: 410, error: "This invite has been deleted" },
-    };
-  }
-  if (new Date() > invite.expiresAt) {
-    return {
-      ok: false,
-      error: { status: 410, error: "This invite has expired" },
-    };
-  }
-  if (invite.usedAt) {
-    return {
-      ok: false,
-      error: { status: 409, error: "This invite has already been used" },
-    };
+
+  const state = classifyInviteState(invite);
+  if (!state.ok) {
+    return { ok: false, error: INVITE_STATE_ERRORS[state.reason] };
   }
 
   return {
@@ -150,23 +146,13 @@ export async function loadInviteForApply(
   if (!invite) {
     return { ok: false, error: { status: 404, error: "Invite not found" } };
   }
-  if (invite.deleted) {
-    return {
-      ok: false,
-      error: { status: 410, error: "This invite has been deleted" },
-    };
-  }
-  if (new Date() > invite.expiresAt) {
-    return {
-      ok: false,
-      error: { status: 410, error: "This invite has expired" },
-    };
-  }
-  if (invite.usedAt && !authEmailsEqual(invite.email, sessionEmail)) {
-    return {
-      ok: false,
-      error: { status: 409, error: "This invite has already been used" },
-    };
+
+  const state = classifyInviteState(invite, {
+    allowSameEmailUsed: true,
+    sessionEmail,
+  });
+  if (!state.ok) {
+    return { ok: false, error: INVITE_STATE_ERRORS[state.reason] };
   }
 
   return { ok: true, invite };

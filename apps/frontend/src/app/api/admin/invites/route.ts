@@ -12,6 +12,10 @@ import {
   getActiveTermId,
   jurisdictionExistsInCommitteeList,
 } from "~/app/api/lib/committeeValidation";
+import {
+  expiredUnusedInviteWhere,
+  unusedInviteWhere,
+} from "~/lib/invites/validity";
 
 const createInviteSchema = z
   .object({
@@ -153,22 +157,12 @@ async function createInviteHandler(req: NextRequest, session: Session) {
       invite = await prisma.$transaction(async (tx) => {
         const now = new Date();
         await tx.invite.updateMany({
-          where: {
-            email,
-            usedAt: null,
-            deleted: false,
-            expiresAt: { lte: now },
-          },
+          where: expiredUnusedInviteWhere(email, now),
           data: { deleted: true, deletedAt: now },
         });
 
         const existingInvite = await tx.invite.findFirst({
-          where: {
-            email,
-            usedAt: null,
-            deleted: false,
-            expiresAt: { gt: now },
-          },
+          where: unusedInviteWhere(email, now),
         });
 
         if (existingInvite) {

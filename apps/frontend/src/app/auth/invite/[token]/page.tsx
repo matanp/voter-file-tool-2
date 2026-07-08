@@ -17,14 +17,12 @@ import {
 import { PrivilegeLevel, type Invite } from "@prisma/client";
 import { authEmailsEqual } from "@voter-file-tool/shared-validators";
 import { useApiMutation } from "~/hooks/useApiMutation";
-
-type SerializedInviteJurisdiction = {
-  id: string;
-  cityTown: string;
-  legDistrict: number | null;
-  termId: string;
-  term: { label: string };
-};
+import {
+  formatInviteDate,
+  getPrivilegeColor,
+  jurisdictionLabel,
+  type SerializedInviteJurisdiction,
+} from "~/lib/invites/display";
 
 type InviteData = Pick<Invite, "email" | "privilegeLevel" | "customMessage"> & {
   expiresAt: string;
@@ -35,12 +33,6 @@ type ApplyInviteResponse = {
   status: "applied" | "already_applied";
   privilegeLevel: PrivilegeLevel;
 };
-
-function jurisdictionLabel(cityTown: string, legDistrict: number | null) {
-  return legDistrict != null
-    ? `${cityTown} — LD ${legDistrict}`
-    : `${cityTown} (all districts)`;
-}
 
 export default function InvitePage() {
   const params = useParams();
@@ -172,33 +164,6 @@ export default function InvitePage() {
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
-  };
-
-  const getPrivilegeColor = (level: PrivilegeLevel) => {
-    switch (level) {
-      case PrivilegeLevel.Developer:
-        return "bg-purple-100 text-purple-800";
-      case PrivilegeLevel.Admin:
-        return "bg-red-100 text-red-800";
-      case PrivilegeLevel.Leader:
-        return "bg-blue-100 text-blue-800";
-      case PrivilegeLevel.RequestAccess:
-        return "bg-yellow-100 text-yellow-800";
-      case PrivilegeLevel.ReadAccess:
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   const sessionEmail = session?.user?.email;
@@ -400,7 +365,7 @@ export default function InvitePage() {
             <div className="flex items-center space-x-2">
               <Calendar className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Expires: {formatDate(invite.expiresAt)}
+                Expires: {formatInviteDate(invite.expiresAt, { month: "long" })}
               </span>
             </div>
           </div>
