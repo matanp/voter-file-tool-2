@@ -90,9 +90,24 @@ for (const match of source.matchAll(/`([^`\n]+)`/g)) {
   codeRanges.push([match.index, match.index + match[0].length]);
 }
 
+// Test/mock artifacts are out of manifest scope: deliverables must name them in
+// prose (uncited), never as a backticked path. Catch both the repo-root form
+// (apps/.../__tests__/...) and the short forms reviewers tend to write
+// (__tests__/api/..., foo.test.ts) that would otherwise dodge the manifest check.
+// Only whitespace-free spans count: an Evidence grep command that *mentions* the
+// __tests__ dir (e.g. `grep -rl foo apps/.../__tests__`) is allowed — the rule is
+// about citing a test file as a path token, not referencing the directory.
+const TEST_PATH_RE = /__tests__|__mocks__|\.test\.[cm]?[jt]sx?|\.spec\.[cm]?[jt]sx?/;
+const isTestPathSpan = (span) => !/\s/.test(span) && TEST_PATH_RE.test(span);
+
 const cited = [];
 const malformed = [];
+const testPaths = [];
 for (const span of codeSpans) {
+  if (isTestPathSpan(span)) {
+    testPaths.push(span);
+    continue;
+  }
   if (!shouldValidateCodeSpan(span)) continue;
   const reason = invalidReason(span);
   if (reason) {
@@ -130,8 +145,20 @@ writeLines(
 );
 writeLines(join(REVIEW_DIR, "scope-malformed-citations.txt"), uniqueSorted(malformed));
 writeLines(join(REVIEW_DIR, "scope-bare-paths.txt"), uniqueSorted(barePaths));
+writeLines(join(REVIEW_DIR, "scope-test-paths.txt"), uniqueSorted(testPaths));
 
 let failed = false;
+
+if (testPaths.length > 0) {
+  failed = true;
+  console.error(
+    "Scope gate FAILED: test/mock paths must not appear inside backticks (name them uncited in prose):",
+  );
+  for (const item of uniqueSorted(testPaths)) {
+    console.error(`  ${item}`);
+  }
+  console.error();
+}
 
 if (malformed.length > 0) {
   failed = true;

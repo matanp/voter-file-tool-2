@@ -22,7 +22,7 @@ flag user messages when they block operators from diagnosing or recovering produ
 
 ```bash
 MODEL_SLUG=<model-slug> pnpm review:freeze operations
-pnpm review:scans
+pnpm review:scans operations
 ```
 
 ## Severity rubric

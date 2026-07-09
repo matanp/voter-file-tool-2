@@ -12,7 +12,7 @@ description: Run a findings-only whole-app cross-boundary contract review in vot
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze contracts
-pnpm review:scans
+pnpm review:scans contracts
 ```
 
 Prefix, axis, scan profile, and methodology doc resolve from `scripts/review/vectors.conf`.

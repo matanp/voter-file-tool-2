@@ -12,7 +12,7 @@ description: Run a findings-only whole-app operations readiness review in voter-
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze operations
-pnpm review:scans
+pnpm review:scans operations
 ```
 
 Prefix, axis, scan profile, and methodology doc resolve from `scripts/review/vectors.conf`.

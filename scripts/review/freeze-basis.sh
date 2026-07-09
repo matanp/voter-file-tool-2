@@ -64,6 +64,7 @@ branch=$BRANCH
 commit=$COMMIT
 date=$DATE
 model=$MODEL_SLUG
+review_vector=${VECTOR:-}
 review_prefix=$REVIEW_PREFIX
 axis=$AXIS
 scan_profile=$SCAN_PROFILE

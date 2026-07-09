@@ -23,7 +23,7 @@ use the trust vector for who may invoke a route, and this vector for what sensit
 
 ```bash
 MODEL_SLUG=<model-slug> pnpm review:freeze pii
-pnpm review:scans
+pnpm review:scans pii
 ```
 
 ## Severity rubric

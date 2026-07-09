@@ -25,6 +25,7 @@ code. Not a penetration test; not maintainability/DRY (that is the architecture 
 
 ```bash
 MODEL_SLUG=<model-slug> pnpm review:freeze trust   # prefix, axis, profile from scripts/review/vectors.conf
+pnpm review:scans trust                            # writes trust scans into the frozen run dir
 ```
 
 ## Severity rubric
@@ -52,10 +53,11 @@ Apply `skills/auth-check-patterns/SKILL.md`. Checklist: `AGENTS.md` illegible-bu
 
 ## Mechanical scans
 
-`pnpm review:scans` (trust profile) → api routes, validation, parse/casts, prisma writes,
+`pnpm review:scans trust` → run-local api routes, validation, parse/casts, prisma writes,
 api-route-wrappers. Triage order: `scan-api-route-wrappers.txt` (from `pnpm check:api-routes`)
 first, then `scan-api-routes.txt`, `scan-validation.txt`, `scan-parse-casts-params.txt`,
-`scan-prisma-writes.txt`.
+`scan-prisma-writes.txt`. Ignore loose `.review/scan-*.txt` and lane files outside the frozen run
+directory.
 
 ## Finding template addition
 
@@ -69,5 +71,6 @@ first, then `scan-api-routes.txt`, `scan-validation.txt`, `scan-parse-casts-para
 ## Final checklist
 
 - [ ] `pnpm review:gate` clean on trust deliverable
+- [ ] Basis cites the run directory; run-local `scan-profile.txt` is `trust`
 - [ ] Every High finding names a reachable trust failure, not hypothetical refactor
 - [ ] Negative auth gaps noted where routes lack test proof (pointer to validation vector optional)

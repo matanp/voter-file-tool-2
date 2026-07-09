@@ -22,7 +22,7 @@ review unless latency causes incorrect lifecycle state.
 
 ```bash
 MODEL_SLUG=<model-slug> pnpm review:freeze async-reliability
-pnpm review:scans
+pnpm review:scans async-reliability
 ```
 
 ## Severity rubric

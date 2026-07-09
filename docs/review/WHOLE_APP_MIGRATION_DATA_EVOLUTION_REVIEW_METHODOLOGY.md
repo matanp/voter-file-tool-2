@@ -23,7 +23,7 @@ context.
 
 ```bash
 MODEL_SLUG=<model-slug> pnpm review:freeze migration
-pnpm review:scans
+pnpm review:scans migration
 ```
 
 ## Severity rubric

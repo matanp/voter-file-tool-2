@@ -12,7 +12,7 @@ description: Run a findings-only whole-app migration and data evolution review i
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze migration
-pnpm review:scans
+pnpm review:scans migration
 pnpm review:report-matrix
 ```
 

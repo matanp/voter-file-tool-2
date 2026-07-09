@@ -12,7 +12,7 @@ description: Run a findings-only whole-app PII and data exposure review in voter
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze pii
-pnpm review:scans
+pnpm review:scans pii
 pnpm review:route-inventory
 ```
 

@@ -12,7 +12,7 @@ description: Run a findings-only whole-app architecture and maintainability revi
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze architecture
-pnpm review:scans
+pnpm review:scans architecture
 ```
 
 Prefix, axis, scan profile, and methodology doc resolve from `scripts/review/vectors.conf`.

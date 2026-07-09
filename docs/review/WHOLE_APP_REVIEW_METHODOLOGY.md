@@ -20,6 +20,7 @@ to the tooling — no env vars to export beyond `MODEL_SLUG`. Vector deltas and 
 | Async reliability | [WHOLE_APP_ASYNC_RELIABILITY_REVIEW_METHODOLOGY.md](./WHOLE_APP_ASYNC_RELIABILITY_REVIEW_METHODOLOGY.md) | `skills/whole-app-async-reliability-review/SKILL.md` |
 | Migration & data evolution | [WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_METHODOLOGY.md) | `skills/whole-app-migration-review/SKILL.md` |
 | Operations readiness | [WHOLE_APP_OPERATIONS_READINESS_REVIEW_METHODOLOGY.md](./WHOLE_APP_OPERATIONS_READINESS_REVIEW_METHODOLOGY.md) | `skills/whole-app-operations-review/SKILL.md` |
+| Data lifecycle & retention | [WHOLE_APP_DATA_LIFECYCLE_RETENTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_DATA_LIFECYCLE_RETENTION_REVIEW_METHODOLOGY.md) | `skills/whole-app-data-lifecycle-review/SKILL.md` |
 
 Base workflow skill: `skills/whole-app-review/SKILL.md`.
 
@@ -27,13 +28,15 @@ Base workflow skill: `skills/whole-app-review/SKILL.md`.
 
 ## Rules
 
-- **Scope:** Product code only. Every scan and citation traces to `.review/product-files.txt`
+- **Scope:** Product code only. Every scan and citation traces to the frozen manifest in the
+  review run directory, `.review/runs/<run-id>/product-files.txt`
   ([Appendix A](#appendix-a-product-code-manifest)). Exclude tests, mocks, coverage, node packages,
   build output, docs, lockfiles, generated artifacts, data dumps, and infrastructure unless a
   product boundary requires a brief mention. `packages/xlsx-tester/**` is always out of scope.
 - **Manifest:** Run inventory and all scans from the repo root. Paths are repo-relative everywhere.
-  Artifacts live under `.review/` (gitignored; not `/tmp/`). Do not widen `find` roots or ad-hoc
-  exclusion globs.
+  Each review owns a dedicated scratch directory under `.review/runs/<run-id>/` (gitignored; not
+  `/tmp/`). The `.review/` root may contain only convenience pointers such as `current`, not
+  evidence. Do not widen `find` roots or ad-hoc exclusion globs.
 - **Output:** Findings register only — no remediation log, phases, tickets, or proposed code changes.
   One-sentence **Opportunity** per finding is OK; solution design belongs in a later pass.
 - **Count:** **8–20** combined Findings + Backlog-only notes **after merge**. Lanes report
@@ -43,6 +46,16 @@ Base workflow skill: `skills/whole-app-review/SKILL.md`.
   `` `apps/frontend/src/foo.ts` `` — repeat for each file). Never comma-separate, brace-expand, or
   glob inside backticks; the scope gate treats the whole string as one path. No bare paths, line
   numbers, or colon suffixes. Required for the mechanical scope gate.
+- **Applies gate-wide, not just to Findings.** The scope gate scans **every** backtick pair in the
+  deliverable, including the **Section 3 subsystem-map** cells. A subsystem-map cell must therefore be
+  a single in-manifest file path or carry no backticks at all — do **not** copy the globbed/brace form
+  from [Appendix B](#appendix-b-boundary-files--subsystem-buckets) (that table is reference prose, not a
+  citation template). Prefer un-backticked capability descriptions there; backtick only when you mean a
+  specific manifest file.
+- **No test/mock paths in backticks.** Tests are out of manifest scope. Name a test file in prose or
+  in Evidence **without** backticks; the gate rejects any backticked path token containing `__tests__`,
+  `__mocks__`, `.test.*`, or `.spec.*` (a grep *command* that mentions the `__tests__` dir is fine — the
+  rule targets single path tokens, not commands).
 - **Skills:** Lane A → `skills/auth-check-patterns/SKILL.md` (mandatory). Any lane touching
   auth/privileges/scope → same. Report extensibility → `skills/adding-reports/SKILL.md`.
   Base workflow → `skills/whole-app-review/SKILL.md`. Each vector adds its own overlay skill (see
@@ -63,7 +76,7 @@ exact path. Pass it to the scope gate.
 
 | # | Section | Content |
 |---|---------|---------|
-| 1 | Basis | Branch, commit, date, model, file count, sha256 checksum, axis |
+| 1 | Basis | Branch, commit, date, model, run directory, file count, sha256 checksum, axis |
 | 2 | At a glance | Prioritized table: severity, blast, opportunity |
 | 3 | Subsystem map | Product areas and defining files/routes/packages |
 | 4 | Findings | Evidence-backed; High/Medium/Low; ordered by leverage |
@@ -78,6 +91,7 @@ exact path. Pass it to the scope gate.
 ## Basis
 - **Branch:** `feat/...` · **Commit:** `abc1234` · **Date:** YYYY-MM-DD · **Model:** `<model-slug>`
 - **Deliverable:** `docs/<PREFIX>_<model-slug>_YYYY-MM-DD.md`
+- **Review run:** `.review/runs/<PREFIX>_<model-slug>_YYYY-MM-DD-abc1234`
 - **Product files:** N · **checksum:** `<sha256>` · **algorithm:** sha256
 - **Inventory:** `pnpm review:freeze <vector>` ([Appendix A](#appendix-a-product-code-manifest))
 - **Axis:** per vector delta
@@ -122,14 +136,21 @@ several entry points; small = one route/component/helper/package.
 
 ## Workflow
 
-1. **Freeze basis** — Run `pnpm review:freeze <vector>` ([Appendix A](#appendix-a-product-code-manifest));
-   record branch, commit, date, model, file count, sha256 checksum in Basis. Set the reviewer slug
-   with `MODEL_SLUG=… pnpm review:freeze <vector>`.
+1. **Freeze basis** — Run `pnpm review:freeze <vector>` ([Appendix A](#appendix-a-product-code-manifest))
+   to completion before starting scans; do not run freeze and scans in parallel. Freeze creates a
+   unique run directory such as
+   `.review/runs/WHOLE_APP_TRUST_BOUNDARY_REVIEW_gpt-5-codex_2026-07-08-daaf2c7/`
+   and writes `basis.txt`, `product-files.txt`, `scan-profile.txt`, and any convenience pointer
+   under `.review/current`. Record the run directory, branch, commit, date, model, file count, and
+   sha256 checksum in Basis. Set the reviewer slug with
+   `MODEL_SLUG=… pnpm review:freeze <vector>`.
 2. **Subsystem map** — Read [Appendix B boundary files](#appendix-b-boundary-files--subsystem-buckets)
    first; map by product capability ([Appendix B table](#appendix-b-boundary-files--subsystem-buckets));
    mark each bucket high/medium/light depth.
-3. **Mechanical scans** — Run `pnpm review:scans`; triage `.review/scan-*.txt` ([Mechanical scans](#mechanical-scans));
-   group hits by repeated product concept, not text similarity.
+3. **Mechanical scans** — Run `pnpm review:scans <vector>`; it must read the frozen basis and write
+   `scan-*.txt` only inside that run directory. Triage those run-local files
+   ([Mechanical scans](#mechanical-scans)); group hits by repeated product concept, not text
+   similarity. If `.review/scan-*.txt` or stale lane files exist at the root, ignore them.
 4. **Lane deep-dives** — Work [lanes A–F](#review-lanes) per the vector's lane emphasis; write
    findings immediately after each.
 5. **Draft & dedupe** — Same root cause → one finding; order by leverage; target 8–20 combined
@@ -138,11 +159,28 @@ several entry points; small = one route/component/helper/package.
    backlog-vs-finding triage.
 7. **Finalize** — At-a-glance table, counts, `pnpm review:gate <deliverable>` ([scope gate](#evidence--scope-gate)); resolve every gate hit.
 
-**Parallel runs:** Split by lane; same manifest for all reviewers. Lane drafts:
-`.review/lane-<A-F>_<model-slug>.md` (e.g. `.review/lane-A_composer-2.5-fast.md`). Lanes uncapped.
-Final editor reads all lane files + `.review/product-files.txt`, merges subsystem map, dedupes,
-enforces evidence standard, lands 8–20 combined Findings + Backlog-only notes, orders by leverage,
-writes the deliverable under `docs/`.
+**Parallel runs:** Split by lane; all reviewers use the same run directory and manifest. Lane drafts
+live under `.review/runs/<run-id>/lane-<A-F>_<model-slug>.md` (for example,
+`.review/runs/<run-id>/lane-A_composer-2.5-fast.md`). Lanes uncapped. The final editor reads only
+lane files and `product-files.txt` from that run directory, merges subsystem map, dedupes, enforces
+evidence standard, lands 8–20 combined Findings + Backlog-only notes, orders by leverage, writes
+the deliverable under `docs/`.
+
+## Review Scratch Directory
+
+Each review run must have isolated scratch space:
+
+- **Run directory:** `.review/runs/<PREFIX>_<model-slug>_<YYYY-MM-DD>-<commit>/`.
+- **Run-local evidence:** `basis.txt`, `product-files.txt`, `scan-profile.txt`, `scan-*.txt`,
+  `api-route-inventory.tsv`, `report-contract-matrix.tsv`, `test-coverage-map.txt`, lane drafts,
+  `cited-files.txt`, and scope-gate outputs.
+- **Root `.review/`:** convenience pointers only, such as `current`; never use loose root files as
+  evidence for a deliverable.
+- **Tooling contract:** every review command after freeze reads the run directory from the frozen
+  basis or an explicit `REVIEW_RUN_DIR`, and refuses to mix artifacts from a different run id,
+  vector, commit, or checksum.
+- **Final sanity check:** before finalizing, confirm the deliverable Basis run directory, the
+  run-local `scan-profile.txt`, and the run-local manifest checksum all agree.
 
 ---
 
@@ -171,10 +209,10 @@ Run from repo root in an **unsandboxed shell** (normal terminal, Codex VM, or Cu
 permissions). Use the repo scripts:
 
 ```sh
-pnpm review:freeze <vector>   # manifest → .review/product-files.txt; Basis block + deliverable path
-pnpm review:scans             # scan-*.txt under .review/ (profile from the frozen basis or a vector arg)
-pnpm review:route-inventory   # API method/wrapper/privilege TSV
-pnpm review:report-matrix     # report schema/mapping/UI/worker TSV
+pnpm review:freeze <vector>   # creates .review/runs/<run-id>/; prints Basis + deliverable path
+pnpm review:scans <vector>    # scan-*.txt under the run dir; fails if it disagrees with frozen basis
+pnpm review:route-inventory   # API method/wrapper/privilege TSV under the run dir
+pnpm review:report-matrix     # report schema/mapping/UI/worker TSV under the run dir
 pnpm review:doctor            # sanity-check review docs, skills, registry, and scripts
 ```
 
@@ -192,17 +230,18 @@ never scan raw directory trees.
 `scan-migration-data.txt`, `scan-operations.txt`, `scan-api-route-wrappers.txt` (from
 `pnpm check:api-routes`). The vector delta lists which scans its profile emits and the triage order.
 
-Additional review artifacts:
+Additional run-local review artifacts:
 
 - `api-route-inventory.tsv` — route, method, wrapper, and `withPrivilege` argument.
 - `report-contract-matrix.tsv` — report type presence across Prisma enum, shared schemas, mappings,
   scoped UI registry, and report-server branches.
 - `test-coverage-map.txt` — route/schema test mirror heuristic for the validation vector.
 
-Manual `scan()` for ad-hoc patterns (requires `.review/product-files.txt`):
+Manual `scan()` for ad-hoc patterns (requires the run-local manifest):
 
 ```sh
 source scripts/review/lib.sh
+REVIEW_RUN_DIR=.review/runs/<run-id>
 scan_manifest 'your-pattern' 'optional/subpath/filter'   # stdout
 ```
 
@@ -229,12 +268,13 @@ pnpm review:gate docs/<PREFIX>_<model-slug>_YYYY-MM-DD.md
 # or: REVIEW_DOC=docs/... pnpm review:gate
 ```
 
-Implementation: `scripts/review/scope-gate.sh`. Writes `.review/cited-files.txt` and reports
-violations. Expected: no output except `scripts/` paths (tag as boundary context in the finding).
-Fix missed paths in the finding text — do not hand-edit `.review/cited-files.txt`. Every other line is
-a scope violation: drop the finding or tag as boundary context. Comma-separated or brace-expanded
-paths inside a single backtick pair fail the gate even when each file is in the manifest — cite
-each file in its own pair ([Rules](#rules)).
+Implementation: `scripts/review/scope-gate.sh`. It reads the manifest from the review run
+directory, writes run-local `cited-files.txt` and scope outputs, and reports violations. Expected:
+no output except `scripts/` paths (tag as boundary context in the finding). Fix missed paths in the
+finding text — do not hand-edit the run-local `cited-files.txt`. Every other line is a scope
+violation: drop the finding or tag as boundary context. Comma-separated or brace-expanded paths
+inside a single backtick pair fail the gate even when each file is in the manifest — cite each file
+in its own pair ([Rules](#rules)).
 
 Checksum helper: macOS `shasum -a 256`; Linux `sha256sum` (used by `pnpm review:freeze`).
 
@@ -251,7 +291,7 @@ Checksum helper: macOS `shasum -a 256`; Linux `sha256sum` (used by `pnpm review:
 only with a boundary-context tag; the gate surfaces `scripts/` hits so they can't slip through.
 
 **Light touch, in the manifest:** legacy `apps/report-server/components/**` is a `find` root (so
-it lands in `.review/product-files.txt`). Product report UI lives under
+it lands in the run-local `product-files.txt`). Product report UI lives under
 `apps/report-server/src/components/**`; cite legacy files only if something still imports
 `report-server/components` (expected: no matches).
 
@@ -266,7 +306,8 @@ pnpm review:freeze <vector>
 Implementation: `scripts/review/freeze-basis.sh`. Equivalent manual inventory:
 
 ```sh
-mkdir -p .review
+RUN_DIR=.review/runs/<PREFIX>_<model-slug>_<YYYY-MM-DD>-<commit>
+mkdir -p "$RUN_DIR"
 find \
   apps/frontend/src apps/frontend/prisma apps/frontend/next.config.ts apps/frontend/package.json \
   apps/report-server/src apps/report-server/components apps/report-server/package.json \
@@ -278,9 +319,9 @@ find \
   -not -path '*/__tests__/*' -not -name '*.test.*' -not -name '*.spec.*' \
   -not -path '*/__mocks__/*' -not -path '*/coverage/*' \
   -not -path '*/dist/*' -not -path '*/build/*' \
-  2>/dev/null | sort > .review/product-files.txt
-wc -l < .review/product-files.txt
-shasum -a 256 .review/product-files.txt    # macOS; Linux: sha256sum
+  2>/dev/null | sort > "$RUN_DIR/product-files.txt"
+wc -l < "$RUN_DIR/product-files.txt"
+shasum -a 256 "$RUN_DIR/product-files.txt"    # macOS; Linux: sha256sum
 ```
 
 Record file count and checksum in Basis. Checksum is an in-run integrity marker, not cross-time

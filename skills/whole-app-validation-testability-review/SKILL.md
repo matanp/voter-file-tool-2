@@ -12,7 +12,7 @@ description: Run a findings-only whole-app validation consistency and testabilit
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze validation
-pnpm review:scans
+pnpm review:scans validation
 pnpm review:test-map
 ```
 

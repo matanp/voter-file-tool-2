@@ -53,7 +53,7 @@ MODEL_SLUG=composer-2.5-fast pnpm review:freeze <vector>
 ```
 
 Vector names: `architecture` · `trust` · `domain-invariants` · `contracts` · `validation` ·
-`pii` · `async-reliability` · `migration` · `operations`.
+`pii` · `async-reliability` · `migration` · `operations` · `data-lifecycle`.
 `MODEL_SLUG` is the only env var (reviewer model slug; defaults to a placeholder). Add or edit a
 vector by adding one row in `vectors.conf`, one scan profile in `run-scans.sh`, and the matching
 methodology + skill overlay.

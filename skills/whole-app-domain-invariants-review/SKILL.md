@@ -12,7 +12,7 @@ description: Run a findings-only whole-app domain invariant review in voter-file
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze domain-invariants
-pnpm review:scans
+pnpm review:scans domain-invariants
 ```
 
 Prefix, axis, scan profile, and methodology doc resolve from `scripts/review/vectors.conf`.

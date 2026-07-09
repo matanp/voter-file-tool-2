@@ -18,6 +18,7 @@ All vectors share this workflow. Pick an **axis overlay** skill for rubric, lane
 | Async reliability | [whole-app-async-reliability-review](../whole-app-async-reliability-review/SKILL.md) | [ASYNC_RELIABILITY](../../docs/review/WHOLE_APP_ASYNC_RELIABILITY_REVIEW_METHODOLOGY.md) |
 | Migration & data evolution | [whole-app-migration-review](../whole-app-migration-review/SKILL.md) | [MIGRATION_DATA_EVOLUTION](../../docs/review/WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_METHODOLOGY.md) |
 | Operations readiness | [whole-app-operations-review](../whole-app-operations-review/SKILL.md) | [OPERATIONS_READINESS](../../docs/review/WHOLE_APP_OPERATIONS_READINESS_REVIEW_METHODOLOGY.md) |
+| Data lifecycle & retention | [whole-app-data-lifecycle-review](../whole-app-data-lifecycle-review/SKILL.md) | [DATA_LIFECYCLE_RETENTION](../../docs/review/WHOLE_APP_DATA_LIFECYCLE_RETENTION_REVIEW_METHODOLOGY.md) |
 
 ## Quick start
 
@@ -25,32 +26,33 @@ Pass the **vector name** to the tooling — it resolves the prefix, scan profile
 methodology doc from the registry (`scripts/review/vectors.conf`). No env vars to export.
 
 ```bash
-# Vector names: architecture · trust · domain-invariants · contracts · validation · pii · async-reliability · migration · operations
+# Vector names: architecture · trust · domain-invariants · contracts · validation · pii · async-reliability · migration · operations · data-lifecycle
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze trust
-pnpm review:scans            # reads the profile frozen into .review/basis.txt
+pnpm review:scans trust      # writes scans into the frozen run directory
 # validation vector also: pnpm review:test-map
 pnpm review:gate docs/<DELIVERABLE>.md   # freeze prints the deliverable path
 ```
 
-The deliverable path and Basis block are printed by `pnpm review:freeze`. Read the vector overlay
-skill for severity rubric, lane emphasis, and triage rules.
+The deliverable path, Basis block, and review run directory are printed by `pnpm review:freeze`.
+Read the vector overlay skill for severity rubric, lane emphasis, and triage rules.
 
 ## Shared workflow
 
-1. **Freeze basis** — `pnpm review:freeze <vector>`.
+1. **Freeze basis** — `pnpm review:freeze <vector>` to completion; do not run freeze and scans in parallel. Use the unique `.review/runs/<run-id>/` scratch directory it creates.
 2. **Subsystem map** — [reference.md](reference.md) boundary files + [Appendix B](../../docs/review/WHOLE_APP_REVIEW_METHODOLOGY.md#appendix-b-boundary-files--subsystem-buckets) in the base methodology.
-3. **Mechanical scans** — `pnpm review:scans` (scan profile comes from the frozen vector).
-4. **Lane deep-dives** — Lanes A–F per overlay emphasis; drafts `.review/lane-<A-F>_<model-slug>.md`.
+3. **Mechanical scans** — `pnpm review:scans <vector>` (explicit vector, checked against the frozen basis; outputs stay in the run directory).
+4. **Lane deep-dives** — Lanes A–F per overlay emphasis; drafts `.review/runs/<run-id>/lane-<A-F>_<model-slug>.md`.
 5. **Draft & dedupe** — Target **8–20** combined Findings + Backlog-only notes.
 6. **Calibrate** — Already good / Not a finding per overlay rules.
 7. **Finalize** — `pnpm review:gate` on deliverable.
 
 ## Shared rules
 
-- **Scope:** Product code only; manifest `.review/product-files.txt` ([Appendix A](../../docs/review/WHOLE_APP_REVIEW_METHODOLOGY.md#appendix-a-product-code-manifest)).
+- **Scope:** Product code only; manifest `.review/runs/<run-id>/product-files.txt` ([Appendix A](../../docs/review/WHOLE_APP_REVIEW_METHODOLOGY.md#appendix-a-product-code-manifest)).
 - **Citations:** Repo-relative; **one path per backtick pair**; no line numbers in backticks.
 - **Output:** Findings register only — no remediation log.
 - **Lanes A–F:** Same geography across vectors; overlay skill defines emphasis and questions.
+- **Scratch:** Treat root `.review/` files as stale unless they are pointers into the current run directory.
 
 ## Lane map (geography)
 
@@ -67,12 +69,12 @@ skill for severity rubric, lane emphasis, and triage rules.
 
 | Command | Purpose |
 | --- | --- |
-| `pnpm review:freeze <vector>` | Resolve vector from `scripts/review/vectors.conf`; manifest + checksum + Basis block |
-| `pnpm review:scans [vector]` | Scan-profile subset → `.review/scan-*.txt` (profile from arg or `.review/basis.txt`) |
-| `pnpm review:test-map` | Product routes/schemas vs `__tests__/` mirror (validation vector) |
-| `pnpm review:route-inventory` | API method → wrapper/privilege TSV for trust and PII reviews |
-| `pnpm review:report-matrix` | Report type contract TSV across schema/mapping/UI/worker |
+| `pnpm review:freeze <vector>` | Resolve vector from `scripts/review/vectors.conf`; create `.review/runs/<run-id>/`; write manifest + checksum + Basis block |
+| `pnpm review:scans <vector>` | Scan-profile subset → run-local `scan-*.txt` |
+| `pnpm review:test-map` | Product routes/schemas vs `__tests__/` mirror (validation vector), run-local output |
+| `pnpm review:route-inventory` | API method → wrapper/privilege TSV for trust and PII reviews, run-local output |
+| `pnpm review:report-matrix` | Report type contract TSV across schema/mapping/UI/worker, run-local output |
 | `pnpm review:doctor` | Validate vector docs, skills, scripts, and stale workflow markers |
-| `pnpm review:gate` | Cited paths vs manifest |
+| `pnpm review:gate` | Cited paths vs run-local manifest |
 
 Templates: [reference.md](reference.md).

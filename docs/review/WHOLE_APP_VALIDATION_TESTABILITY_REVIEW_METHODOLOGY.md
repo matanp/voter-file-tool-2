@@ -63,7 +63,7 @@ Cite **product path** only in backticks. Mention test file in prose without back
 ## Mechanical tooling
 
 ```bash
-pnpm review:scans      # validation-testability profile
+pnpm review:scans validation
 pnpm review:test-map   # route/schema ↔ __tests__ mirror
 ```
 
@@ -71,10 +71,20 @@ pnpm review:test-map   # route/schema ↔ __tests__ mirror
 - API `route.ts` without `__tests__/api/...` mirror
 - `packages/shared-validators/src/schemas/*.ts` without sibling `__tests__` exercise (heuristic)
 
+**`test-map` is a path-name heuristic, not proof of absence.** It matches three test naming
+conventions — `api/<route>/*.test.ts`, flat `api/<route>.test.ts`, and `api/<route>/route.test.ts`
+— but a route tested under a different filename or folded into a broader suite still reads as
+`MISSING_TEST`/`HIGH_RISK_MISSING`. **Never file a coverage-gap finding on a `test-map` verdict
+alone: confirm real absence by grepping `__tests__` contents for the route handler / imported symbol
+first.** (Regression guarded: the high-risk loop previously used a directory-only match and produced
+false positives on this repo's flat-named committee/report tests.)
+
 **Triage order:**
 1. `pnpm review:test-map` → `.review/test-coverage-map.txt`
 2. `scan-validation.txt`, `scan-parse-casts-params.txt`, `scan-messages-envelopes.txt`, `scan-domain-enums.txt`
-3. Grep `__tests__` for route families flagged in test-map (read only; do not cite test paths in the scope gate)
+3. Grep `__tests__` **contents** for every route family flagged `MISSING_TEST`/`HIGH_RISK_MISSING`
+   (read only; do not cite test paths in the scope gate). Only surfaces with no content match survive
+   as findings.
 
 ## Data consistency checks
 
@@ -90,5 +100,8 @@ pnpm review:test-map   # route/schema ↔ __tests__ mirror
 ## Final checklist
 
 - [ ] `pnpm review:test-map` run and triaged
+- [ ] Every `MISSING_TEST`/`HIGH_RISK_MISSING` verdict confirmed by a `__tests__` **content** grep
+      before it becomes a finding (path-name heuristic is not proof of absence)
 - [ ] High-risk surfaces from AGENTS.md checklist explicitly checked
-- [ ] No test file paths inside backtick pairs in deliverable
+- [ ] No test file paths inside backtick pairs in deliverable (now enforced by `pnpm review:gate` —
+      it rejects backticked `__tests__`/`__mocks__`/`.test.*`/`.spec.*` path tokens; name tests in prose)

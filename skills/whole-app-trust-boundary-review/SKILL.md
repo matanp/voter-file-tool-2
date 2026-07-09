@@ -12,7 +12,7 @@ description: Run a findings-only whole-app trust-boundary review in voter-file-t
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze trust
-pnpm review:scans
+pnpm review:scans trust
 ```
 
 Prefix, axis, scan profile, and methodology doc resolve from `scripts/review/vectors.conf`.

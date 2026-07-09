@@ -60,8 +60,13 @@ for sub in "${HIGH_RISK_SUBPATHS[@]}"; do
   if ! grep -qxF "$route_path" "$MANIFEST" 2>/dev/null; then
     continue
   fi
-  test_dir="${FRONTEND_TESTS}/api/${sub}"
-  if [[ -d "$test_dir" ]] && compgen -G "${test_dir}/*.test.ts" >/dev/null; then
+  # Accept the same three naming conventions as the MISSING_TEST loop above:
+  # directory mirror (api/<sub>/*.test.ts), flat file (api/<sub>.test.ts), and
+  # api/<sub>/route.test.ts. This repo names route tests flat (handleRequest.test.ts),
+  # so a directory-only check reports false HIGH_RISK_MISSING on covered routes.
+  if compgen -G "${FRONTEND_TESTS}/api/${sub}/*.test.ts" >/dev/null ||
+    [[ -f "${FRONTEND_TESTS}/api/${sub}.test.ts" ]] ||
+    [[ -f "${FRONTEND_TESTS}/api/${sub}/route.test.ts" ]]; then
     echo "COVERED | $route_path"
     high_risk_covered=$((high_risk_covered + 1))
   else

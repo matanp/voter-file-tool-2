@@ -12,18 +12,32 @@ ensure_manifest
 while [[ "${1:-}" == "--" ]]; do
   shift
 done
+REQUESTED_VECTOR=""
 if [[ -n "${1:-}" ]]; then
-  lookup_vector "$1" || exit 1
+  REQUESTED_VECTOR="$1"
+  lookup_vector "$REQUESTED_VECTOR" || exit 1
 fi
 
 SCAN_PROFILE="${SCAN_PROFILE-}"
-if [[ -z "$SCAN_PROFILE" ]] && [[ -f "$REVIEW_DIR/basis.txt" ]]; then
+profile_from_basis=""
+if [[ -f "$REVIEW_DIR/basis.txt" ]]; then
   profile_from_basis="$(grep -E '^scan_profile=' "$REVIEW_DIR/basis.txt" | cut -d= -f2- || true)"
-  if [[ -n "$profile_from_basis" ]]; then
-    SCAN_PROFILE="$profile_from_basis"
-  fi
+fi
+
+if [[ -z "$SCAN_PROFILE" ]] && [[ -n "$profile_from_basis" ]]; then
+  SCAN_PROFILE="$profile_from_basis"
 fi
 SCAN_PROFILE="${SCAN_PROFILE:-architecture}"
+
+if [[ -n "$profile_from_basis" && "$profile_from_basis" != "$SCAN_PROFILE" ]]; then
+  {
+    echo "Scan profile mismatch:"
+    echo "  frozen basis: $profile_from_basis"
+    echo "  requested:    $SCAN_PROFILE${REQUESTED_VECTOR:+ (vector: $REQUESTED_VECTOR)}"
+    echo "Run 'pnpm review:freeze${REQUESTED_VECTOR:+ $REQUESTED_VECTOR}' to completion before scans, then rerun 'pnpm review:scans${REQUESTED_VECTOR:+ $REQUESTED_VECTOR}'."
+  } >&2
+  exit 1
+fi
 
 rm -f "$REVIEW_DIR"/scan-*.txt
 echo "scan_profile=$SCAN_PROFILE" >"$REVIEW_DIR/scan-profile.txt"
@@ -50,6 +64,7 @@ scan_def() {
     async-jobs)         printf '%s\t%s' 'reportJob|ReportJob|reportComplete|webhook|Ably|status|retry|idempot|queue|timeout|setTimeout' '' ;;
     migration-data)     printf '%s\t%s' 'enum |ReportType|MembershipStatus|PrivilegeLevel|@default|@@unique|@@index|backfill|legacy|deprecated' '' ;;
     operations)         printf '%s\t%s' 'process\.env|env\.|NEXT_PUBLIC|Sentry|console\.(error|warn)|logger|health|timeout|retry|fallback' '' ;;
+    data-lifecycle)     printf '%s\t%s' 'expiresIn|expiresAt|expir|presigned|uploadUrl|reportUrl|fileUrl|getSignedUrl|deleteObject|DeleteObject|cleanup|retention|archive|purge|stale|inviteToken|token.*expir|ReportJob|reportComplete' '' ;;
     *) return 1 ;;
   esac
 }
@@ -68,6 +83,7 @@ profile_scans() {
     async-reliability)      echo "async-jobs prisma-writes messages-envelopes shared-helpers api-routes" ;;
     migration-data-evolution) echo "migration-data domain-enums prisma-writes validation shared-helpers" ;;
     operations-readiness)   echo "operations upload async-jobs messages-envelopes api-routes" ;;
+    data-lifecycle-retention) echo "data-lifecycle upload async-jobs pii-data prisma-writes api-routes" ;;
     *) return 1 ;;
   esac
 }
@@ -103,7 +119,7 @@ run_scan() {
 
 if ! scans="$(profile_scans "$SCAN_PROFILE")"; then
   echo "Unknown SCAN_PROFILE: $SCAN_PROFILE" >&2
-  echo "Valid: architecture, trust, domain-invariants, contracts, validation-testability, pii-data, async-reliability, migration-data-evolution, operations-readiness" >&2
+  echo "Valid: architecture, trust, domain-invariants, contracts, validation-testability, pii-data, async-reliability, migration-data-evolution, operations-readiness, data-lifecycle-retention" >&2
   exit 1
 fi
 

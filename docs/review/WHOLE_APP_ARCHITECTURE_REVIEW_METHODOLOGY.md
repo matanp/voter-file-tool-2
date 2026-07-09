@@ -25,7 +25,7 @@ test coverage unless they reveal architecture-level duplication or drift.
 
 ```bash
 MODEL_SLUG=<model-slug> pnpm review:freeze architecture   # prefix, axis, profile from scripts/review/vectors.conf
-pnpm review:scans
+pnpm review:scans architecture
 ```
 
 ## Severity rubric

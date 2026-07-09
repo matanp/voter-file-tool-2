@@ -12,7 +12,7 @@ description: Run a findings-only whole-app async reliability review in voter-fil
 
 ```bash
 MODEL_SLUG=composer-2.5-fast pnpm review:freeze async-reliability
-pnpm review:scans
+pnpm review:scans async-reliability
 ```
 
 Prefix, axis, scan profile, and methodology doc resolve from `scripts/review/vectors.conf`.
