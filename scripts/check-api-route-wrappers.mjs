@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +25,7 @@ const HTTP_METHODS = [
   "HEAD",
 ];
 const WRAPPERS = ["withPrivilege", "withBackendCheck", "withPublic"];
+const REVIEW_DIR = join(WORKSPACE_ROOT, ".review");
 
 const methodAlternation = HTTP_METHODS.join("|");
 const exportConstPattern = new RegExp(
@@ -72,20 +73,43 @@ function findWrappers(initializer) {
   return [...initializer.matchAll(wrapperPattern)].map((match) => match[1]);
 }
 
+function requiredPrivilegeFor(initializer, wrapper) {
+  if (wrapper !== "withPrivilege") return "";
+  const match = initializer.match(
+    /\bwithPrivilege\s*(?:<[\s\S]*?>)?\s*\(\s*([^,\n)]+)/,
+  );
+  return match?.[1]?.trim() ?? "UNKNOWN";
+}
+
+function inventoryRow(filePath, method, line, initializer, wrappers) {
+  const wrapper = wrappers.length === 1 ? wrappers[0] : wrappers.length > 1 ? "AMBIGUOUS" : "MISSING";
+  return {
+    method,
+    route: routePathFor(filePath),
+    wrapper,
+    requiredPrivilege: requiredPrivilegeFor(initializer, wrapper),
+    path: relative(WORKSPACE_ROOT, filePath),
+    line,
+  };
+}
+
 function checkSource(filePath, source) {
   const findings = [];
+  const inventory = [];
   const exportedMethods = new Set();
 
   for (const match of source.matchAll(exportConstPattern)) {
     const [, method, initializer] = match;
     exportedMethods.add(method);
     const wrappers = findWrappers(initializer);
+    const line = lineFor(source, match.index ?? 0);
+    inventory.push(inventoryRow(filePath, method, line, initializer, wrappers));
 
     if (wrappers.length === 0) {
       findings.push({
         filePath,
         method,
-        line: lineFor(source, match.index ?? 0),
+        line,
         message: "missing withPrivilege, withBackendCheck, or withPublic wrapper",
       });
       continue;
@@ -95,7 +119,7 @@ function checkSource(filePath, source) {
       findings.push({
         filePath,
         method,
-        line: lineFor(source, match.index ?? 0),
+        line,
         message: `has ambiguous wrappers: ${wrappers.join(", ")}`,
       });
     }
@@ -104,28 +128,61 @@ function checkSource(filePath, source) {
   for (const match of source.matchAll(exportFunctionPattern)) {
     const [, method] = match;
     exportedMethods.add(method);
+    const line = lineFor(source, match.index ?? 0);
+    inventory.push(inventoryRow(filePath, method, line, "", []));
     findings.push({
       filePath,
       method,
-      line: lineFor(source, match.index ?? 0),
+      line,
       message:
         "exports a direct handler function; wrap it with withPrivilege, withBackendCheck, or withPublic",
     });
   }
 
-  return { exportedMethods, findings };
+  return { exportedMethods, findings, inventory };
+}
+
+async function writeInventory(rows) {
+  await mkdir(REVIEW_DIR, { recursive: true });
+  const header = "method\troute\twrapper\trequired_privilege\tpath\tline";
+  const body = rows.map((row) =>
+    [
+      row.method,
+      row.route,
+      row.wrapper,
+      row.requiredPrivilege,
+      row.path,
+      String(row.line),
+    ].join("\t"),
+  );
+  const outputPath = join(REVIEW_DIR, "api-route-inventory.tsv");
+  await writeFile(outputPath, `${[header, ...body].join("\n")}\n`);
+  return outputPath;
 }
 
 async function main() {
+  const writeInventoryFlag = process.argv.includes("--inventory");
+  const inventoryOnly = process.argv.includes("--inventory-only");
   const routeFiles = (await listRouteFiles(API_ROOT)).sort();
   const allFindings = [];
+  const inventoryRows = [];
   let checkedMethods = 0;
 
   for (const filePath of routeFiles) {
     const source = await readFile(filePath, "utf8");
-    const { exportedMethods, findings } = checkSource(filePath, source);
+    const { exportedMethods, findings, inventory } = checkSource(filePath, source);
     checkedMethods += exportedMethods.size;
     allFindings.push(...findings);
+    inventoryRows.push(...inventory);
+  }
+
+  if (writeInventoryFlag || inventoryOnly) {
+    const outputPath = await writeInventory(inventoryRows);
+    console.log(`API route inventory written: ${relative(WORKSPACE_ROOT, outputPath)}`);
+    console.log(
+      `  methods: ${checkedMethods} across ${routeFiles.length} route files`,
+    );
+    if (inventoryOnly) return;
   }
 
   if (allFindings.length > 0) {

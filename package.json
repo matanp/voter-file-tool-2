@@ -6,6 +6,13 @@
   "scripts": {
     "build:packages": "pnpm --filter './packages/**' run build",
     "check:api-routes": "node scripts/check-api-route-wrappers.mjs",
+    "review:freeze": "bash scripts/review/freeze-basis.sh",
+    "review:scans": "bash scripts/review/run-scans.sh",
+    "review:test-map": "bash scripts/review/test-coverage-map.sh",
+    "review:route-inventory": "node scripts/check-api-route-wrappers.mjs --inventory",
+    "review:report-matrix": "node scripts/review/report-contract-matrix.mjs",
+    "review:doctor": "node scripts/review/doctor.mjs",
+    "review:gate": "bash scripts/review/scope-gate.sh",
     "test": "tsx scripts/run-tests.ts",
     "compare-committees": "tsx scripts/compare-committee-exports.ts",
     "prepare": "pnpm run build:packages",

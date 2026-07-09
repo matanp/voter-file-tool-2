@@ -9,8 +9,40 @@ Scripts live in two places:
 | Location | Purpose | Examples |
 |----------|---------|----------|
 | **`scripts/`** (repo root) | Shared dev/deploy scripts | `setup-dev-db.sh`, `sync-prisma-models.js`, `deploy-lightsail.sh` |
+| **`scripts/review/`** | Whole-app review tooling | `pnpm review:freeze`, `review:scans`, `review:gate`, `review:doctor` |
 | **`apps/frontend/scripts/`** | App-specific one-off scripts | `seedLtedCrosswalk.ts` (LTED crosswalk from Excel) |
 | **`apps/frontend/prisma/`** | Prisma seed (standard location) | `seed.ts` |
+
+### Whole-app reviews
+
+See `skills/whole-app-review/SKILL.md` (base), vector overlays under `skills/whole-app-*-review/`, and methodologies under `docs/review/`.
+
+```bash
+# Vector names: architecture, trust, domain-invariants, contracts, validation,
+# pii, async-reliability, migration, operations
+MODEL_SLUG=composer-2.5-fast pnpm review:freeze architecture
+pnpm review:scans
+pnpm review:gate docs/WHOLE_APP_ARCHITECTURE_REVIEW_<model-slug>_YYYY-MM-DD.md
+
+# Trust boundary vector
+MODEL_SLUG=composer-2.5-fast pnpm review:freeze trust
+pnpm review:scans
+pnpm review:route-inventory
+
+# Validation & testability vector (+ test map)
+MODEL_SLUG=composer-2.5-fast pnpm review:freeze validation
+pnpm review:scans
+pnpm review:test-map
+
+# Contracts / report-heavy reviews
+pnpm review:report-matrix
+
+# Tooling/docs sanity check
+pnpm review:doctor
+```
+
+Artifacts: `.review/product-files.txt`, `scan-*.txt`, `basis.txt`, `test-coverage-map.txt`,
+`api-route-inventory.tsv`, `report-contract-matrix.tsv` (gitignored).
 
 **How to run from workspace root:**
 

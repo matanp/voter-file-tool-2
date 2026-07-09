@@ -1,0 +1,21 @@
+# Whole-App Review Methodologies
+
+Findings-only review specs for product code at branch tip. Shared, vector-agnostic base:
+[WHOLE_APP_REVIEW_METHODOLOGY.md](./WHOLE_APP_REVIEW_METHODOLOGY.md) (Rules, Workflow, Lanes,
+Mechanical scans, Appendix A manifest, Appendix B boundary files + subsystem buckets). Each vector
+below is a thin *delta* overlay on that base. Shared workflow skill and tooling:
+`skills/whole-app-review/SKILL.md`, `scripts/review/`, `pnpm review:*`.
+
+| Vector | Methodology (delta) | Deliverable prefix |
+| --- | --- | --- |
+| Architecture & maintainability | [WHOLE_APP_ARCHITECTURE_REVIEW_METHODOLOGY.md](./WHOLE_APP_ARCHITECTURE_REVIEW_METHODOLOGY.md) | `WHOLE_APP_ARCHITECTURE_REVIEW_*` |
+| Trust boundary | [WHOLE_APP_TRUST_BOUNDARY_REVIEW_METHODOLOGY.md](./WHOLE_APP_TRUST_BOUNDARY_REVIEW_METHODOLOGY.md) | `WHOLE_APP_TRUST_BOUNDARY_REVIEW_*` |
+| Domain invariants | [WHOLE_APP_DOMAIN_INVARIANTS_REVIEW_METHODOLOGY.md](./WHOLE_APP_DOMAIN_INVARIANTS_REVIEW_METHODOLOGY.md) | `WHOLE_APP_DOMAIN_INVARIANTS_REVIEW_*` |
+| Cross-boundary contracts | [WHOLE_APP_CONTRACTS_REVIEW_METHODOLOGY.md](./WHOLE_APP_CONTRACTS_REVIEW_METHODOLOGY.md) | `WHOLE_APP_CONTRACTS_REVIEW_*` |
+| Validation & testability | [WHOLE_APP_VALIDATION_TESTABILITY_REVIEW_METHODOLOGY.md](./WHOLE_APP_VALIDATION_TESTABILITY_REVIEW_METHODOLOGY.md) | `WHOLE_APP_VALIDATION_TESTABILITY_REVIEW_*` |
+| PII & data exposure | [WHOLE_APP_PII_DATA_EXPOSURE_REVIEW_METHODOLOGY.md](./WHOLE_APP_PII_DATA_EXPOSURE_REVIEW_METHODOLOGY.md) | `WHOLE_APP_PII_DATA_EXPOSURE_REVIEW_*` |
+| Async reliability | [WHOLE_APP_ASYNC_RELIABILITY_REVIEW_METHODOLOGY.md](./WHOLE_APP_ASYNC_RELIABILITY_REVIEW_METHODOLOGY.md) | `WHOLE_APP_ASYNC_RELIABILITY_REVIEW_*` |
+| Migration & data evolution | [WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_METHODOLOGY.md) | `WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_*` |
+| Operations readiness | [WHOLE_APP_OPERATIONS_READINESS_REVIEW_METHODOLOGY.md](./WHOLE_APP_OPERATIONS_READINESS_REVIEW_METHODOLOGY.md) | `WHOLE_APP_OPERATIONS_READINESS_REVIEW_*` |
+
+Completed review deliverables remain under `docs/` (e.g. `docs/WHOLE_APP_ARCHITECTURE_REVIEW_<model>_YYYY-MM-DD.md`).
