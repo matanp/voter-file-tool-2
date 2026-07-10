@@ -24,6 +24,16 @@ type Outcome = RecordPetitionOutcomeData["candidates"][number]["outcome"];
 type CanonicalPetitionStatus = "ACTIVE" | "PETITIONED_LOST" | "PETITIONED_TIE";
 type AuditOutcome = "WON" | "UNOPPOSED" | "LOST" | "TIE";
 
+const OUTCOME_ALREADY_RECORDED_ERROR =
+  "Outcome already recorded for this seat; it cannot be resubmitted";
+
+class OutcomeAlreadyRecordedError extends Error {
+  constructor() {
+    super(OUTCOME_ALREADY_RECORDED_ERROR);
+    this.name = "OutcomeAlreadyRecordedError";
+  }
+}
+
 function statusForOutcome(outcome: Outcome): CanonicalPetitionStatus {
   if (outcome === "WON_PRIMARY" || outcome === "UNOPPOSED") return "ACTIVE";
   if (outcome === "LOST_PRIMARY") return "PETITIONED_LOST";
@@ -71,6 +81,13 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
       return NextResponse.json(
         { error: "Seat not found for this committee and term" },
         { status: 404 },
+      );
+    }
+
+    if (seat.isPetitioned) {
+      return NextResponse.json(
+        { error: OUTCOME_ALREADY_RECORDED_ERROR },
+        { status: 409 },
       );
     }
 
@@ -155,10 +172,13 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
     };
 
     await prisma.$transaction(async (tx) => {
-      await tx.seat.update({
-        where: { id: seat.id },
+      const claimedSeat = await tx.seat.updateMany({
+        where: { id: seat.id, isPetitioned: false },
         data: { isPetitioned: true },
       });
+      if (claimedSeat.count !== 1) {
+        throw new OutcomeAlreadyRecordedError();
+      }
 
       const candidateOutcomeAuditRows: Array<{
         membershipId: string;
@@ -366,6 +386,12 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
       { status: 200 },
     );
   } catch (error) {
+    if (error instanceof OutcomeAlreadyRecordedError) {
+      return NextResponse.json(
+        { error: OUTCOME_ALREADY_RECORDED_ERROR },
+        { status: 409 },
+      );
+    }
     if (isActiveMembershipPerTermConflict(error)) {
       return NextResponse.json(
         {

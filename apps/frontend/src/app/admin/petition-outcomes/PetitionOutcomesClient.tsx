@@ -66,6 +66,9 @@ export function PetitionOutcomesClient({
 
   const selectedCommittee = committeeLists.find((c) => c.id === committeeListId);
   const seats = selectedCommittee?.seats ?? [];
+  const availableSeats = seats.filter((s) => !s.isPetitioned);
+  const selectedSeat = seats.find((s) => s.seatNumber === seatNumber);
+  const selectedSeatIsAvailable = selectedSeat != null && !selectedSeat.isPetitioned;
 
   const recordMutation = useApiMutation<
     { message: string; seatNumber: number },
@@ -158,6 +161,14 @@ export function PetitionOutcomesClient({
       });
       return;
     }
+    if (!selectedSeatIsAvailable) {
+      toast({
+        title: "Validation",
+        description: "Select a seat that has not already had its outcome recorded.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!primaryDate.trim()) {
       toast({
         title: "Validation",
@@ -167,11 +178,17 @@ export function PetitionOutcomesClient({
       return;
     }
     setShowConfirm(true);
-  }, [candidates, committeeListId, seatNumber, primaryDate, toast]);
+  }, [candidates, committeeListId, seatNumber, primaryDate, selectedSeatIsAvailable, toast]);
 
   const handleConfirmSubmit = useCallback(() => {
     const filled = candidates.filter((c) => c.voterRecordId.trim() !== "");
-    if (filled.length === 0 || committeeListId == null || seatNumber == null || !primaryDate.trim()) {
+    if (
+      filled.length === 0 ||
+      committeeListId == null ||
+      seatNumber == null ||
+      !primaryDate.trim() ||
+      !selectedSeatIsAvailable
+    ) {
       return;
     }
     void recordMutation.mutate({
@@ -185,7 +202,15 @@ export function PetitionOutcomesClient({
         outcome: c.outcome,
       })),
     });
-  }, [candidates, committeeListId, seatNumber, primaryDate, activeTermId, recordMutation]);
+  }, [
+    candidates,
+    committeeListId,
+    seatNumber,
+    primaryDate,
+    selectedSeatIsAvailable,
+    activeTermId,
+    recordMutation,
+  ]);
 
   return (
     <>
@@ -230,13 +255,22 @@ export function PetitionOutcomesClient({
             </SelectTrigger>
             <SelectContent>
               {seats.map((s) => (
-                <SelectItem key={s.id} value={String(s.seatNumber)}>
+                <SelectItem
+                  key={s.id}
+                  value={String(s.seatNumber)}
+                  disabled={s.isPetitioned}
+                >
                   Seat {s.seatNumber}
-                  {s.isPetitioned ? " (petitioned)" : ""}
+                  {s.isPetitioned ? " — Outcome already recorded" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {selectedCommittee && availableSeats.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Every seat in this committee already has a recorded outcome for this term.
+            </p>
+          )}
         </div>
 
         <div className="grid gap-2">
@@ -263,7 +297,10 @@ export function PetitionOutcomesClient({
           />
         </div>
 
-        <Button onClick={validateAndOpenConfirm} disabled={recordMutation.loading}>
+        <Button
+          onClick={validateAndOpenConfirm}
+          disabled={recordMutation.loading || !selectedSeatIsAvailable}
+        >
           Record outcome
         </Button>
       </div>

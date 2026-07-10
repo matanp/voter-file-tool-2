@@ -50,7 +50,9 @@ function setupNoExistingMemberships() {
 }
 
 function setupTransactionMocks() {
-  (prismaMock.seat as { update: jest.Mock }).update.mockResolvedValue({});
+  (prismaMock.seat as { updateMany: jest.Mock }).updateMany.mockResolvedValue({
+    count: 1,
+  });
   getMembershipMock(prismaMock).create.mockResolvedValue({
     id: "mem-1",
     voterRecordId: "V1",
@@ -145,6 +147,46 @@ describe("POST /api/admin/petition-outcomes/record", () => {
     );
   });
 
+  it("returns 409 when seat has already had an outcome recorded", async () => {
+    (prismaMock.seat as { findUnique: jest.Mock }).findUnique.mockResolvedValue({
+      id: SEAT_ID,
+      committeeListId: 1,
+      termId: DEFAULT_ACTIVE_TERM_ID,
+      seatNumber: 1,
+      isPetitioned: true,
+    });
+    const response = await POST(createMockRequest(createValidPayload()));
+    await expectErrorResponse(
+      response,
+      409,
+      "Outcome already recorded for this seat; it cannot be resubmitted",
+    );
+    expect(getMembershipMock(prismaMock).findFirst).not.toHaveBeenCalled();
+    expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when a concurrent request records the seat before transaction writes", async () => {
+    (prismaMock.seat as { updateMany: jest.Mock }).updateMany.mockResolvedValue({
+      count: 0,
+    });
+
+    const response = await POST(createMockRequest(createValidPayload()));
+
+    await expectErrorResponse(
+      response,
+      409,
+      "Outcome already recorded for this seat; it cannot be resubmitted",
+    );
+    expect((prismaMock.seat as { updateMany: jest.Mock }).updateMany).toHaveBeenCalledWith({
+      where: { id: SEAT_ID, isPetitioned: false },
+      data: { isPetitioned: true },
+    });
+    expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+    expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+  });
+
   it("returns 409 when seat is occupied by another member", async () => {
     getMembershipMock(prismaMock).findFirst.mockResolvedValue({
       voterRecordId: "OTHER",
@@ -177,9 +219,9 @@ describe("POST /api/admin/petition-outcomes/record", () => {
       },
     });
 
-    const seatUpdate = (prismaMock.seat as { update: jest.Mock }).update;
+    const seatUpdate = (prismaMock.seat as { updateMany: jest.Mock }).updateMany;
     expect(seatUpdate).toHaveBeenCalledWith({
-      where: { id: SEAT_ID },
+      where: { id: SEAT_ID, isPetitioned: false },
       data: { isPetitioned: true },
     });
 
