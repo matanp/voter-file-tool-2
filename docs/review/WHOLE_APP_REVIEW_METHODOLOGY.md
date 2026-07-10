@@ -147,12 +147,16 @@ several entry points; small = one route/component/helper/package.
 2. **Subsystem map** — Read [Appendix B boundary files](#appendix-b-boundary-files--subsystem-buckets)
    first; map by product capability ([Appendix B table](#appendix-b-boundary-files--subsystem-buckets));
    mark each bucket high/medium/light depth.
-3. **Mechanical scans** — Run `pnpm review:scans <vector>`; it must read the frozen basis and write
-   `scan-*.txt` only inside that run directory. Triage those run-local files
-   ([Mechanical scans](#mechanical-scans)); group hits by repeated product concept, not text
-   similarity. If `.review/scan-*.txt` or stale lane files exist at the root, ignore them.
+3. **Mechanical scans** — Run `pnpm review:scans <vector>` immediately after freeze in the
+   same session; it must read the frozen basis and write `scan-*.txt` only inside that run
+   directory. **Do not triage scan output until both freeze and scans have completed** — never
+   trust pre-existing `.review/scan-*.txt` at the repo root (legacy) or from a prior vector run.
+   Triage run-local files ([Mechanical scans](#mechanical-scans)); group hits by repeated product
+   concept, not text similarity.
 4. **Lane deep-dives** — Work [lanes A–F](#review-lanes) per the vector's lane emphasis; write
-   findings immediately after each.
+   findings immediately after each. For **single-reviewer** runs, lane draft files are optional —
+   synthesize directly into the deliverable. For **parallel lane splits**, write
+   `.review/runs/<run-id>/lane-<A-F>_<model-slug>.md` as described below.
 5. **Draft & dedupe** — Same root cause → one finding; order by leverage; target 8–20 combined
    Findings + Backlog-only notes at merge.
 6. **Calibrate** — Add Already good / Not a finding; downgrade cosmetic items; apply the vector's
@@ -161,10 +165,10 @@ several entry points; small = one route/component/helper/package.
 
 **Parallel runs:** Split by lane; all reviewers use the same run directory and manifest. Lane drafts
 live under `.review/runs/<run-id>/lane-<A-F>_<model-slug>.md` (for example,
-`.review/runs/<run-id>/lane-A_composer-2.5-fast.md`). Lanes uncapped. The final editor reads only
-lane files and `product-files.txt` from that run directory, merges subsystem map, dedupes, enforces
-evidence standard, lands 8–20 combined Findings + Backlog-only notes, orders by leverage, writes
-the deliverable under `docs/`.
+`.review/runs/<run-id>/lane-A_composer-2.5-fast.md`). Lanes uncapped. The final editor reads lane
+files (when present) and `product-files.txt` from that run directory, merges subsystem map, dedupes,
+enforces evidence standard, lands 8–20 combined Findings + Backlog-only notes, orders by leverage,
+writes the deliverable under `docs/`. Single-reviewer runs may skip persisted lane files.
 
 ## Review Scratch Directory
 
@@ -174,8 +178,9 @@ Each review run must have isolated scratch space:
 - **Run-local evidence:** `basis.txt`, `product-files.txt`, `scan-profile.txt`, `scan-*.txt`,
   `api-route-inventory.tsv`, `report-contract-matrix.tsv`, `test-coverage-map.txt`, lane drafts,
   `cited-files.txt`, and scope-gate outputs.
-- **Root `.review/`:** convenience pointers only, such as `current`; never use loose root files as
-  evidence for a deliverable.
+- **Root `.review/`:** convenience pointer only — `.review/current` contains the repo-relative
+  path to the active run directory (for example `.review/runs/WHOLE_APP_…_2026-07-08-abc1234`).
+  Loose files at `.review/` root are legacy/stale; never use them as evidence.
 - **Tooling contract:** every review command after freeze reads the run directory from the frozen
   basis or an explicit `REVIEW_RUN_DIR`, and refuses to mix artifacts from a different run id,
   vector, commit, or checksum.

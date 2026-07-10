@@ -3,9 +3,11 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveReviewDir } from "./review/review-dir.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = join(SCRIPT_DIR, "..");
+const REVIEW_DIR = resolveReviewDir(WORKSPACE_ROOT);
 const API_ROOT = join(
   WORKSPACE_ROOT,
   "apps",
@@ -25,7 +27,6 @@ const HTTP_METHODS = [
   "HEAD",
 ];
 const WRAPPERS = ["withPrivilege", "withBackendCheck", "withPublic"];
-const REVIEW_DIR = join(WORKSPACE_ROOT, ".review");
 
 const methodAlternation = HTTP_METHODS.join("|");
 const exportConstPattern = new RegExp(

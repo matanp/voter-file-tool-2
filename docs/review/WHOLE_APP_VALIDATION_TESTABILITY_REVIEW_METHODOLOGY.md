@@ -55,7 +55,7 @@ Allowed format:
 **What & where.** `apps/frontend/src/app/api/committee/handleRequest/route.ts`
 **Why it hurts.** Illegible-bug checklist expects unauthenticated, insufficient privilege, and cross-scope cases; `pnpm review:test-map` shows no mirrored test file.
 **Opportunity.** Add route tests using shared testUtils matchers.
-**Evidence.** `.review/test-coverage-map.txt`; AGENTS.md negative auth item.
+**Evidence.** `<run-dir>/test-coverage-map.txt`; AGENTS.md negative auth item.
 ```
 
 Cite **product path** only in backticks. Mention test file in prose without backticks, or name it in Evidence uncited.
@@ -80,7 +80,7 @@ first.** (Regression guarded: the high-risk loop previously used a directory-onl
 false positives on this repo's flat-named committee/report tests.)
 
 **Triage order:**
-1. `pnpm review:test-map` → `.review/test-coverage-map.txt`
+1. `pnpm review:test-map` → `<run-dir>/test-coverage-map.txt` (active run: `.review/current`)
 2. `scan-validation.txt`, `scan-parse-casts-params.txt`, `scan-messages-envelopes.txt`, `scan-domain-enums.txt`
 3. Grep `__tests__` **contents** for every route family flagged `MISSING_TEST`/`HIGH_RISK_MISSING`
    (read only; do not cite test paths in the scope gate). Only surfaces with no content match survive

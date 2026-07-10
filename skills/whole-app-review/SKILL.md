@@ -27,7 +27,7 @@ methodology doc from the registry (`scripts/review/vectors.conf`). No env vars t
 
 ```bash
 # Vector names: architecture · trust · domain-invariants · contracts · validation · pii · async-reliability · migration · operations · data-lifecycle
-MODEL_SLUG=composer-2.5-fast pnpm review:freeze trust
+MODEL_SLUG=<your-model-slug> pnpm review:freeze trust
 pnpm review:scans trust      # writes scans into the frozen run directory
 # validation vector also: pnpm review:test-map
 pnpm review:gate docs/<DELIVERABLE>.md   # freeze prints the deliverable path
@@ -38,10 +38,10 @@ Read the vector overlay skill for severity rubric, lane emphasis, and triage rul
 
 ## Shared workflow
 
-1. **Freeze basis** — `pnpm review:freeze <vector>` to completion; do not run freeze and scans in parallel. Use the unique `.review/runs/<run-id>/` scratch directory it creates.
+1. **Freeze basis** — `pnpm review:freeze <vector>` to completion; do not run freeze and scans in parallel. Use the unique `.review/runs/<run-id>/` scratch directory it creates (`.review/current` points at it).
 2. **Subsystem map** — [reference.md](reference.md) boundary files + [Appendix B](../../docs/review/WHOLE_APP_REVIEW_METHODOLOGY.md#appendix-b-boundary-files--subsystem-buckets) in the base methodology.
-3. **Mechanical scans** — `pnpm review:scans <vector>` (explicit vector, checked against the frozen basis; outputs stay in the run directory).
-4. **Lane deep-dives** — Lanes A–F per overlay emphasis; drafts `.review/runs/<run-id>/lane-<A-F>_<model-slug>.md`.
+3. **Mechanical scans** — `pnpm review:scans <vector>` immediately after freeze in the same session; outputs stay in the run directory. Do not triage scan files until both commands finish.
+4. **Lane deep-dives** — Lanes A–F per overlay emphasis. For parallel lane splits, draft `.review/runs/<run-id>/lane-<A-F>_<model-slug>.md`; single-reviewer runs may synthesize directly into the deliverable.
 5. **Draft & dedupe** — Target **8–20** combined Findings + Backlog-only notes.
 6. **Calibrate** — Already good / Not a finding per overlay rules.
 7. **Finalize** — `pnpm review:gate` on deliverable.

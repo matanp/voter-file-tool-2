@@ -3,10 +3,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveReviewDir } from "./review-dir.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, "../..");
-const REVIEW_DIR = join(REPO_ROOT, ".review");
+const REVIEW_DIR = resolveReviewDir(REPO_ROOT);
 
 function readRel(path) {
   const full = join(REPO_ROOT, path);

@@ -140,6 +140,23 @@ for (const script of [
   }
 }
 
+const libSh = readRel("scripts/review/lib.sh");
+check(
+  libSh.includes("review_init_run_dir") && libSh.includes("REVIEW_CURRENT_POINTER"),
+  "lib.sh must implement review_init_run_dir and .review/current pointer",
+  errors,
+);
+check(
+  readRel("scripts/review/freeze-basis.sh").includes("review_init_run_dir"),
+  "freeze-basis.sh must call review_init_run_dir",
+  errors,
+);
+check(
+  fileExists("scripts/review/review-dir.mjs"),
+  "Missing scripts/review/review-dir.mjs",
+  errors,
+);
+
 if (warnings.length > 0) {
   console.log("Review doctor warnings:");
   for (const warning of warnings) console.log(`  - ${warning}`);

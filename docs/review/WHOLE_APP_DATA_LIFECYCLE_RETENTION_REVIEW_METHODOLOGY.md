@@ -23,9 +23,12 @@ leave; use this vector for how long it persists and whether cleanup/expiry is en
 ## Run
 
 ```bash
-MODEL_SLUG=<model-slug> pnpm review:freeze data-lifecycle
+MODEL_SLUG=<your-model-slug> pnpm review:freeze data-lifecycle
 pnpm review:scans data-lifecycle
 ```
+
+Run freeze and scans back-to-back in the same session; triage only the `scan-*.txt` files inside the
+run directory printed by freeze (see `.review/current`).
 
 ## Severity rubric
 
@@ -61,6 +64,35 @@ Triage order: data-lifecycle hits grouped by artifact family (report file, uploa
 audit/archive), then upload and async-jobs for job-to-object coupling, then prisma-writes for
 delete/cleanup paths.
 
+### Negative-scan triage
+
+The `data-lifecycle` scan includes `deleteObject` and `DeleteObject`. **Zero product hits** on
+those patterns is a primary signal: trace every artifact family (report output, upload source, invite
+row) for a compensating delete, bucket lifecycle rule, or documented operator purge. Absence in scan
+*plus* absence in `s3Utils` helpers is strong evidence for a retention finding on this axis.
+
+## Cross-vector routing
+
+Route borderline observations to the matching vector rather than reporting them here:
+
+| Observation | Route to |
+| --- | --- |
+| Who can subscribe to a job channel / presigned URL exposure to wrong user | PII & data exposure |
+| Callback retry, webhook idempotency, PROCESSING stuck after worker crash | Async reliability |
+| Missing `withPrivilege` on delete or re-issue routes | Trust boundary |
+| Audit immutability with no stated shorter retention policy | Not a finding here (see checklist) |
+
+## Artifact-family trace (pre-finalize)
+
+Confirm each row has create → use → expire/delete (or a backlog note):
+
+| Family | Create | Use | Expire / delete |
+| --- | --- | --- | --- |
+| Generated report file | report-server upload + `Report.fileKey` | presigned read / list APIs | soft-delete? R2 delete? row purge? |
+| Upload source (CSV / voter file) | presign + PUT | report-server import / absentee load | post-job delete? |
+| Invite token | admin create + `expiresAt` | load / apply consume | expired purge? soft-delete? |
+| Audit row | `auditLog.create` | export / admin read | archival policy (if any) |
+
 ## Not a finding examples
 
 - Intentional long-lived audit rows required for compliance when no product policy claims shorter
@@ -70,6 +102,9 @@ delete/cleanup paths.
 
 ## Final checklist
 
+- [ ] Freeze and scans completed in the same session; only run-local `scan-*.txt` triaged.
 - [ ] Each durable artifact family has a traced create → use → expire/delete path (or explicit backlog note why not).
+- [ ] `deleteObject` / `DeleteObject` scan hits reviewed; zero hits traced to missing cleanup helpers.
 - [ ] Findings name the storage surface (DB row, S3 key, client cache, token) and the missing lifecycle step.
 - [ ] No finding relies only on "data exists" without a retention or orphan risk on this vector's axis.
+- [ ] Cross-vector items deferred per table above.

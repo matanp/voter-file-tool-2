@@ -49,7 +49,7 @@ Prefix, scan profile, axis, and methodology doc all come from the registry
 `scripts/review/vectors.conf` — pass the **vector name** to the tooling:
 
 ```bash
-MODEL_SLUG=composer-2.5-fast pnpm review:freeze <vector>
+MODEL_SLUG=<your-model-slug> pnpm review:freeze <vector>
 ```
 
 Vector names: `architecture` · `trust` · `domain-invariants` · `contracts` · `validation` ·

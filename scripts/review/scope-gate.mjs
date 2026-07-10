@@ -3,11 +3,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveManifestPath, resolveReviewDir } from "./review-dir.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, "../..");
-const REVIEW_DIR = join(REPO_ROOT, ".review");
-const MANIFEST = join(REVIEW_DIR, "product-files.txt");
+const REVIEW_DIR = resolveReviewDir(REPO_ROOT);
+const MANIFEST = resolveManifestPath(REPO_ROOT);
 
 function usage() {
   console.error("Usage: pnpm review:gate -- <deliverable.md>");
@@ -208,4 +209,5 @@ if (scriptViolations.length > 0) {
   console.log("Scope gate PASSED: all cited paths are in the product manifest.");
 }
 console.log(`  deliverable: ${reviewDoc}`);
+console.log(`  review run:  ${relative(REPO_ROOT, REVIEW_DIR)}`);
 console.log(`  cited:       ${citedUnique.length} unique paths`);

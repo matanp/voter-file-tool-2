@@ -1,11 +1,40 @@
 #!/usr/bin/env bash
-# Shared helpers for whole-app architecture review tooling.
+# Shared helpers for whole-app review tooling.
 
 REVIEW_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REVIEW_REPO_ROOT="$(cd "$REVIEW_LIB_DIR/../.." && pwd)"
-REVIEW_DIR="$REVIEW_REPO_ROOT/.review"
-MANIFEST="$REVIEW_DIR/product-files.txt"
+REVIEW_ROOT="$REVIEW_REPO_ROOT/.review"
+REVIEW_RUNS_DIR="$REVIEW_ROOT/runs"
+REVIEW_CURRENT_POINTER="$REVIEW_ROOT/current"
 VECTORS_CONF="$REVIEW_LIB_DIR/vectors.conf"
+
+# Defaults until review_use_active_dir / review_init_run_dir run.
+REVIEW_DIR="$REVIEW_ROOT"
+MANIFEST="$REVIEW_DIR/product-files.txt"
+
+# Resolve REVIEW_DIR and MANIFEST from REVIEW_RUN_DIR, .review/current, or legacy flat .review/.
+review_use_active_dir() {
+  if [[ -n "${REVIEW_RUN_DIR:-}" ]]; then
+    REVIEW_DIR="$REVIEW_REPO_ROOT/$REVIEW_RUN_DIR"
+  elif [[ -f "$REVIEW_CURRENT_POINTER" ]]; then
+    local rel
+    rel="$(tr -d '[:space:]' <"$REVIEW_CURRENT_POINTER")"
+    REVIEW_DIR="$REVIEW_REPO_ROOT/$rel"
+  else
+    REVIEW_DIR="$REVIEW_ROOT"
+  fi
+  MANIFEST="$REVIEW_DIR/product-files.txt"
+}
+
+# Create an isolated run directory and point .review/current at it.
+review_init_run_dir() {
+  local run_id="$1"
+  REVIEW_RUN_DIR=".review/runs/$run_id"
+  REVIEW_DIR="$REVIEW_REPO_ROOT/$REVIEW_RUN_DIR"
+  MANIFEST="$REVIEW_DIR/product-files.txt"
+  mkdir -p "$REVIEW_DIR" "$REVIEW_RUNS_DIR"
+  printf '%s\n' "$REVIEW_RUN_DIR" >"$REVIEW_CURRENT_POINTER"
+}
 
 # Resolve a review vector by name from vectors.conf (single source of truth).
 # On success sets REVIEW_VECTOR, REVIEW_PREFIX, SCAN_PROFILE, AXIS, METHODOLOGY_DOC.
@@ -55,10 +84,16 @@ sha256_file() {
   fi
 }
 
-# Require a frozen manifest from freeze-basis.sh.
+# Require a frozen manifest from freeze-basis.sh in the active run directory.
 ensure_manifest() {
+  review_use_active_dir
   if [[ ! -f "$MANIFEST" ]]; then
-    echo "Missing $MANIFEST — run: pnpm review:freeze" >&2
+    echo "Missing $MANIFEST — run: pnpm review:freeze <vector>" >&2
+    if [[ -f "$REVIEW_CURRENT_POINTER" ]]; then
+      echo "  active run pointer: $(tr -d '[:space:]' <"$REVIEW_CURRENT_POINTER")" >&2
+    else
+      echo "  (no .review/current pointer — freeze a vector first)" >&2
+    fi
     exit 1
   fi
 }

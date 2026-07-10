@@ -32,6 +32,7 @@ tooling once they are proven useful.
   findings-only reviews.
 - Add a small cross-vector routing table for common borderline cases, such as missing guards,
   inconsistent envelopes, over-broad PII fields, missing tests, and schema-shape concerns.
+  *(Partial: data-lifecycle methodology now includes a routing table.)*
 - Require each vector overlay to list its extra tooling explicitly, including optional tools such as
   `review:route-inventory`, `review:report-matrix`, and `review:test-map`.
 

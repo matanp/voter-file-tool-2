@@ -20,18 +20,18 @@ See `skills/whole-app-review/SKILL.md` (base), vector overlays under `skills/who
 ```bash
 # Vector names: architecture, trust, domain-invariants, contracts, validation,
 # pii, async-reliability, migration, operations
-MODEL_SLUG=composer-2.5-fast pnpm review:freeze architecture
-pnpm review:scans
+MODEL_SLUG=<your-model-slug> pnpm review:freeze architecture
+pnpm review:scans architecture
 pnpm review:gate docs/WHOLE_APP_ARCHITECTURE_REVIEW_<model-slug>_YYYY-MM-DD.md
 
 # Trust boundary vector
-MODEL_SLUG=composer-2.5-fast pnpm review:freeze trust
-pnpm review:scans
+MODEL_SLUG=<your-model-slug> pnpm review:freeze trust
+pnpm review:scans trust
 pnpm review:route-inventory
 
 # Validation & testability vector (+ test map)
-MODEL_SLUG=composer-2.5-fast pnpm review:freeze validation
-pnpm review:scans
+MODEL_SLUG=<your-model-slug> pnpm review:freeze validation
+pnpm review:scans validation
 pnpm review:test-map
 
 # Contracts / report-heavy reviews
@@ -41,8 +41,9 @@ pnpm review:report-matrix
 pnpm review:doctor
 ```
 
-Artifacts: `.review/product-files.txt`, `scan-*.txt`, `basis.txt`, `test-coverage-map.txt`,
-`api-route-inventory.tsv`, `report-contract-matrix.tsv` (gitignored).
+Artifacts live under `.review/runs/<run-id>/` (active run: read `.review/current`). Files include
+`product-files.txt`, `scan-*.txt`, `basis.txt`, `test-coverage-map.txt`, `api-route-inventory.tsv`,
+`report-contract-matrix.tsv` (gitignored).
 
 **How to run from workspace root:**
 
