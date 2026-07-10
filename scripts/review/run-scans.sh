@@ -65,6 +65,9 @@ scan_def() {
     migration-data)     printf '%s\t%s' 'enum |ReportType|MembershipStatus|PrivilegeLevel|@default|@@unique|@@index|backfill|legacy|deprecated' '' ;;
     operations)         printf '%s\t%s' 'process\.env|env\.|NEXT_PUBLIC|Sentry|console\.(error|warn)|logger|health|timeout|retry|fallback' '' ;;
     data-lifecycle)     printf '%s\t%s' 'expiresIn|expiresAt|expir|presigned|uploadUrl|reportUrl|fileUrl|getSignedUrl|deleteObject|DeleteObject|cleanup|retention|archive|purge|stale|inviteToken|token.*expir|ReportJob|reportComplete' '' ;;
+    frontend-state)     printf '%s\t%s' 'isLoading|isSubmitting|isPending|useOptimistic|startTransition|window\.confirm|AlertDialog|disabled=\{|minPrivilege|hasPermissionFor' '' ;;
+    accessibility)      printf '%s\t%s' 'aria-[a-z]+=|role=|DialogDescription|DialogTitle|VisuallyHidden|htmlFor=|alt=|flex-wrap|w-max|overflow-x-auto' '' ;;
+    dev-experience)     printf '%s\t%s' 'DATABASE_URL|\.env\.(local|example)|docker-compose|setup-dev-db|db:seed|seed-lted-crosswalk|testcontainers|TEST_DATABASE_URL|beforeAll\(|afterAll\(|process\.env\.[A-Z_]+ \?\?|require.*localhost' '' ;;
     *) return 1 ;;
   esac
 }
@@ -84,6 +87,9 @@ profile_scans() {
     migration-data-evolution) echo "migration-data domain-enums prisma-writes validation shared-helpers" ;;
     operations-readiness)   echo "operations upload async-jobs messages-envelopes api-routes" ;;
     data-lifecycle-retention) echo "data-lifecycle upload async-jobs pii-data prisma-writes api-routes" ;;
+    frontend-state-interaction) echo "frontend-state client-api-ui messages-envelopes domain-enums api-routes" ;;
+    accessibility-mobile)   echo "accessibility client-api-ui labels upload" ;;
+    dev-experience-reproducibility) echo "dev-experience operations migration-data shared-helpers" ;;
     *) return 1 ;;
   esac
 }
@@ -119,7 +125,7 @@ run_scan() {
 
 if ! scans="$(profile_scans "$SCAN_PROFILE")"; then
   echo "Unknown SCAN_PROFILE: $SCAN_PROFILE" >&2
-  echo "Valid: architecture, trust, domain-invariants, contracts, validation-testability, pii-data, async-reliability, migration-data-evolution, operations-readiness, data-lifecycle-retention" >&2
+  echo "Valid: architecture, trust, domain-invariants, contracts, validation-testability, pii-data, async-reliability, migration-data-evolution, operations-readiness, data-lifecycle-retention, frontend-state-interaction, accessibility-mobile, dev-experience-reproducibility" >&2
   exit 1
 fi
 

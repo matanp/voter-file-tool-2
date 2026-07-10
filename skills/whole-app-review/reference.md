@@ -53,7 +53,8 @@ MODEL_SLUG=<your-model-slug> pnpm review:freeze <vector>
 ```
 
 Vector names: `architecture` · `trust` · `domain-invariants` · `contracts` · `validation` ·
-`pii` · `async-reliability` · `migration` · `operations` · `data-lifecycle`.
+`pii` · `async-reliability` · `migration` · `operations` · `data-lifecycle` · `frontend-state` ·
+`accessibility` · `dev-experience`.
 `MODEL_SLUG` is the only env var (reviewer model slug; defaults to a placeholder). Add or edit a
 vector by adding one row in `vectors.conf`, one scan profile in `run-scans.sh`, and the matching
 methodology + skill overlay.

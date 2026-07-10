@@ -19,6 +19,9 @@ All vectors share this workflow. Pick an **axis overlay** skill for rubric, lane
 | Migration & data evolution | [whole-app-migration-review](../whole-app-migration-review/SKILL.md) | [MIGRATION_DATA_EVOLUTION](../../docs/review/WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_METHODOLOGY.md) |
 | Operations readiness | [whole-app-operations-review](../whole-app-operations-review/SKILL.md) | [OPERATIONS_READINESS](../../docs/review/WHOLE_APP_OPERATIONS_READINESS_REVIEW_METHODOLOGY.md) |
 | Data lifecycle & retention | [whole-app-data-lifecycle-review](../whole-app-data-lifecycle-review/SKILL.md) | [DATA_LIFECYCLE_RETENTION](../../docs/review/WHOLE_APP_DATA_LIFECYCLE_RETENTION_REVIEW_METHODOLOGY.md) |
+| Frontend state & interaction correctness | [whole-app-frontend-state-review](../whole-app-frontend-state-review/SKILL.md) | [FRONTEND_STATE_INTERACTION](../../docs/review/WHOLE_APP_FRONTEND_STATE_INTERACTION_REVIEW_METHODOLOGY.md) |
+| Accessibility & mobile operability | [whole-app-accessibility-review](../whole-app-accessibility-review/SKILL.md) | [ACCESSIBILITY_MOBILE](../../docs/review/WHOLE_APP_ACCESSIBILITY_MOBILE_REVIEW_METHODOLOGY.md) |
+| Dev experience & local reproducibility | [whole-app-dev-experience-review](../whole-app-dev-experience-review/SKILL.md) | [DEV_EXPERIENCE_REPRODUCIBILITY](../../docs/review/WHOLE_APP_DEV_EXPERIENCE_REPRODUCIBILITY_REVIEW_METHODOLOGY.md) |
 
 ## Quick start
 
@@ -26,7 +29,7 @@ Pass the **vector name** to the tooling — it resolves the prefix, scan profile
 methodology doc from the registry (`scripts/review/vectors.conf`). No env vars to export.
 
 ```bash
-# Vector names: architecture · trust · domain-invariants · contracts · validation · pii · async-reliability · migration · operations · data-lifecycle
+# Vector names: architecture · trust · domain-invariants · contracts · validation · pii · async-reliability · migration · operations · data-lifecycle · frontend-state · accessibility · dev-experience
 MODEL_SLUG=<your-model-slug> pnpm review:freeze trust
 pnpm review:scans trust      # writes scans into the frozen run directory
 # validation vector also: pnpm review:test-map

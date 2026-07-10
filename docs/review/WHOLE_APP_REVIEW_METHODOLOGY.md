@@ -21,6 +21,9 @@ to the tooling — no env vars to export beyond `MODEL_SLUG`. Vector deltas and 
 | Migration & data evolution | [WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_MIGRATION_DATA_EVOLUTION_REVIEW_METHODOLOGY.md) | `skills/whole-app-migration-review/SKILL.md` |
 | Operations readiness | [WHOLE_APP_OPERATIONS_READINESS_REVIEW_METHODOLOGY.md](./WHOLE_APP_OPERATIONS_READINESS_REVIEW_METHODOLOGY.md) | `skills/whole-app-operations-review/SKILL.md` |
 | Data lifecycle & retention | [WHOLE_APP_DATA_LIFECYCLE_RETENTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_DATA_LIFECYCLE_RETENTION_REVIEW_METHODOLOGY.md) | `skills/whole-app-data-lifecycle-review/SKILL.md` |
+| Frontend state & interaction correctness | [WHOLE_APP_FRONTEND_STATE_INTERACTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_FRONTEND_STATE_INTERACTION_REVIEW_METHODOLOGY.md) | `skills/whole-app-frontend-state-review/SKILL.md` |
+| Accessibility & mobile operability | [WHOLE_APP_ACCESSIBILITY_MOBILE_REVIEW_METHODOLOGY.md](./WHOLE_APP_ACCESSIBILITY_MOBILE_REVIEW_METHODOLOGY.md) | `skills/whole-app-accessibility-review/SKILL.md` |
+| Dev experience & local reproducibility | [WHOLE_APP_DEV_EXPERIENCE_REPRODUCIBILITY_REVIEW_METHODOLOGY.md](./WHOLE_APP_DEV_EXPERIENCE_REPRODUCIBILITY_REVIEW_METHODOLOGY.md) | `skills/whole-app-dev-experience-review/SKILL.md` |
 
 Base workflow skill: `skills/whole-app-review/SKILL.md`.
 
@@ -232,7 +235,8 @@ never scan raw directory trees.
 `scan-validation.txt`, `scan-parse-casts-params.txt`, `scan-domain-enums.txt`,
 `scan-prisma-writes.txt`, `scan-client-api-ui.txt`, `scan-upload.txt`, `scan-messages-envelopes.txt`,
 `scan-labels.txt`, `scan-shared-helpers.txt`, `scan-pii-data.txt`, `scan-async-jobs.txt`,
-`scan-migration-data.txt`, `scan-operations.txt`, `scan-api-route-wrappers.txt` (from
+`scan-migration-data.txt`, `scan-operations.txt`, `scan-frontend-state.txt`,
+`scan-accessibility.txt`, `scan-dev-experience.txt`, `scan-api-route-wrappers.txt` (from
 `pnpm check:api-routes`). The vector delta lists which scans its profile emits and the triage order.
 
 Additional run-local review artifacts:

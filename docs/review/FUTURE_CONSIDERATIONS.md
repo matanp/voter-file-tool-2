@@ -54,10 +54,12 @@ tooling once they are proven useful.
 
 ## Candidate new vectors
 
-- **Frontend State & Interaction Correctness:** stale cache, optimistic UI, double submit, destructive
-  confirmation, loading/error state, undo behavior, and server/client permission drift.
-- **Accessibility & Mobile Operability:** keyboard paths, form labels, modal focus, table overflow,
-  mobile admin/report workflows, and screen-reader clarity on dense operational pages.
+- ~~**Frontend State & Interaction Correctness:**~~ promoted — see `frontend-state` vector in
+  `scripts/review/vectors.conf` and
+  [WHOLE_APP_FRONTEND_STATE_INTERACTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_FRONTEND_STATE_INTERACTION_REVIEW_METHODOLOGY.md).
+- ~~**Accessibility & Mobile Operability:**~~ promoted — see `accessibility` vector in
+  `scripts/review/vectors.conf` and
+  [WHOLE_APP_ACCESSIBILITY_MOBILE_REVIEW_METHODOLOGY.md](./WHOLE_APP_ACCESSIBILITY_MOBILE_REVIEW_METHODOLOGY.md).
 - **Performance & Scale:** voter search query shape, Prisma select discipline, large-table rendering,
   report-generation memory, import batch size, queue pressure, and N+1 risks.
 - **Dependency & Supply Chain Health:** package-manager compatibility, dependency drift, vulnerable
@@ -65,8 +67,9 @@ tooling once they are proven useful.
 - ~~**Data Lifecycle & Retention:**~~ promoted — see `data-lifecycle` vector in
   `scripts/review/vectors.conf` and
   [WHOLE_APP_DATA_LIFECYCLE_RETENTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_DATA_LIFECYCLE_RETENTION_REVIEW_METHODOLOGY.md).
-- **Developer Experience & Local Reproducibility:** setup drift, seed data, test database ergonomics,
-  scripts that require external state, and whether a new contributor can reproduce review findings.
+- ~~**Developer Experience & Local Reproducibility:**~~ promoted — see `dev-experience` vector in
+  `scripts/review/vectors.conf` and
+  [WHOLE_APP_DEV_EXPERIENCE_REPRODUCIBILITY_REVIEW_METHODOLOGY.md](./WHOLE_APP_DEV_EXPERIENCE_REPRODUCIBILITY_REVIEW_METHODOLOGY.md).
 
 ## Extensibility checklist for adding a vector
 
