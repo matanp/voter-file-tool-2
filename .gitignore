@@ -9,6 +9,7 @@ terraform.tfstate*
 **/dist/
 **/coverage/
 .vercel
+.pnpm-store/
 
 **/.DS_Store
 
