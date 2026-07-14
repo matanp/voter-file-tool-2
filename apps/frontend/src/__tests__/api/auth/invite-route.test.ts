@@ -7,6 +7,7 @@ import {
   createMockRequest,
   createMockSession,
   DEFAULT_ACTIVE_TERM_ID,
+  type ErrorResponseBody,
   parseJsonResponse,
 } from "../../utils/testUtils";
 import { mockAuthSession, prismaMock } from "../../utils/mocks";
@@ -31,8 +32,20 @@ const userJurisdictionMock = prismaMock.userJurisdiction as unknown as {
 };
 const TOKEN = "invite-token";
 const EMAIL = "leader@example.com";
+const WRONG_EMAIL = "someone-else@example.com";
 const USER_ID = "user-1";
 const INVITE_ID = "invite-1";
+
+function authenticatedSession(email = EMAIL) {
+  return createMockSession({
+    user: {
+      id: USER_ID,
+      email,
+      privilegeLevel: PrivilegeLevel.ReadAccess,
+    },
+    privilegeLevel: PrivilegeLevel.ReadAccess,
+  });
+}
 
 function context(token = TOKEN) {
   return { params: Promise.resolve({ token }) };
@@ -83,6 +96,45 @@ describe("GET /api/auth/invite/[token]", () => {
     }>(response);
     expect(body.invite.email).toBe(EMAIL);
     expect(body.invite.jurisdictions).toHaveLength(1);
+  });
+
+  it("returns 404 when the token does not resolve to an invite", async () => {
+    inviteMock.findUnique.mockResolvedValue(null);
+
+    const response = await getInvite(
+      createMockRequest(undefined, {}, { method: "GET" }),
+      context(),
+    );
+
+    expect(response.status).toBe(404);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("Invite not found");
+  });
+
+  it("returns 410 for a deleted invite", async () => {
+    inviteMock.findUnique.mockResolvedValue(invite({ deleted: true }));
+
+    const response = await getInvite(
+      createMockRequest(undefined, {}, { method: "GET" }),
+      context(),
+    );
+
+    expect(response.status).toBe(410);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("This invite has been deleted");
+  });
+
+  it("returns 409 for an already-used invite (no same-email idempotency)", async () => {
+    inviteMock.findUnique.mockResolvedValue(invite({ usedAt: new Date() }));
+
+    const response = await getInvite(
+      createMockRequest(undefined, {}, { method: "GET" }),
+      context(),
+    );
+
+    expect(response.status).toBe(409);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("This invite has already been used");
   });
 });
 
@@ -161,6 +213,100 @@ describe("POST /api/auth/invite/[token]/apply", () => {
     expect(body.reason).toBe("stale-term");
     expect(inviteMock.updateMany).not.toHaveBeenCalled();
   });
+
+  it("rejects an unauthenticated caller with 401", async () => {
+    mockAuthSession(null);
+
+    const response = await applyInvite(
+      createMockRequest(undefined, {}, { method: "POST" }),
+      context(),
+    );
+
+    expect(response.status).toBe(401);
+    expect(inviteMock.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the signed-in email does not match the invite", async () => {
+    mockAuthSession(authenticatedSession(WRONG_EMAIL));
+
+    const response = await applyInvite(
+      createMockRequest(undefined, {}, { method: "POST" }),
+      context(),
+    );
+
+    expect(response.status).toBe(403);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("Signed-in email does not match this invite");
+    expect(inviteMock.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns 410 for a deleted invite token", async () => {
+    inviteMock.findUnique.mockResolvedValue(invite({ deleted: true }));
+
+    const response = await applyInvite(
+      createMockRequest(undefined, {}, { method: "POST" }),
+      context(),
+    );
+
+    expect(response.status).toBe(410);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("This invite has been deleted");
+    expect(inviteMock.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns 410 for an expired invite token", async () => {
+    inviteMock.findUnique.mockResolvedValue(
+      invite({ expiresAt: new Date(Date.now() - 86400000) }),
+    );
+
+    const response = await applyInvite(
+      createMockRequest(undefined, {}, { method: "POST" }),
+      context(),
+    );
+
+    expect(response.status).toBe(410);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("This invite has expired");
+  });
+
+  it("returns 409 when a used invite is applied by a different email", async () => {
+    mockAuthSession(authenticatedSession(WRONG_EMAIL));
+    inviteMock.findUnique.mockResolvedValue(invite({ usedAt: new Date() }));
+
+    const response = await applyInvite(
+      createMockRequest(undefined, {}, { method: "POST" }),
+      context(),
+    );
+
+    expect(response.status).toBe(409);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("This invite has already been used");
+  });
+
+  it("returns 404 when the invite token does not exist", async () => {
+    inviteMock.findUnique.mockResolvedValue(null);
+
+    const response = await applyInvite(
+      createMockRequest(undefined, {}, { method: "POST" }),
+      context("missing-token"),
+    );
+
+    expect(response.status).toBe(404);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("Invite not found");
+  });
+
+  it("returns 400 for a blank invite token without hitting the database", async () => {
+    const response = await applyInvite(
+      createMockRequest(undefined, {}, { method: "POST" }),
+      context("   "),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await parseJsonResponse<ErrorResponseBody>(response);
+    expect(body.error).toBe("Invalid invite link");
+    expect(inviteMock.findUnique).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET /api/auth/invite/pending", () => {
@@ -188,5 +334,29 @@ describe("GET /api/auth/invite/pending", () => {
       where: expect.objectContaining({ email: EMAIL, usedAt: null }),
       include: expect.any(Object),
     });
+  });
+
+  it("returns 401 for an unauthenticated caller", async () => {
+    mockAuthSession(null);
+
+    const response = await getPendingInvite(
+      createMockRequest(undefined, {}, { method: "GET" }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(inviteMock.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("returns null when the caller has no pending invite", async () => {
+    mockAuthSession(authenticatedSession());
+    inviteMock.findFirst.mockResolvedValue(null);
+
+    const response = await getPendingInvite(
+      createMockRequest(undefined, {}, { method: "GET" }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJsonResponse<null>(response);
+    expect(body).toBeNull();
   });
 });

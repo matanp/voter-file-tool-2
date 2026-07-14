@@ -19,12 +19,31 @@ jest.mock("~/components/ui/use-toast", () => ({
 }));
 
 jest.mock("~/components/ui/select", () => {
-  const ReactActual = jest.requireActual("react");
+  const ReactActual = jest.requireActual<typeof React>("react");
 
-  function SelectTrigger({ children }: { children: React.ReactNode }) {
-    return <>{children}</>;
+  type SelectTriggerProps = { id?: string; children: React.ReactNode };
+  type MarkedSelectTrigger = ((props: SelectTriggerProps) => React.ReactNode) & {
+    __isSelectTrigger: true;
+  };
+  type SelectTriggerElement = React.ReactElement<SelectTriggerProps> & {
+    type: MarkedSelectTrigger;
+  };
+
+  const SelectTrigger = Object.assign(
+    function SelectTrigger({ children }: SelectTriggerProps) {
+      return <>{children}</>;
+    },
+    { __isSelectTrigger: true as const },
+  );
+
+  function isSelectTriggerElement(child: React.ReactNode): child is SelectTriggerElement {
+    return (
+      ReactActual.isValidElement<SelectTriggerProps>(child) &&
+      typeof child.type !== "string" &&
+      "__isSelectTrigger" in child.type &&
+      child.type.__isSelectTrigger === true
+    );
   }
-  (SelectTrigger as unknown as { __isSelectTrigger: boolean }).__isSelectTrigger = true;
 
   function SelectValue() {
     return null;
@@ -61,13 +80,10 @@ jest.mock("~/components/ui/select", () => {
     disabled?: boolean;
     children: React.ReactNode;
   }) {
-    const childArray = ReactActual.Children.toArray(children) as Array<{
-      type?: { __isSelectTrigger?: boolean };
-      props: { id?: string; children?: React.ReactNode };
-    }>;
-    const trigger = childArray.find((c) => c.type?.__isSelectTrigger);
+    const childArray = ReactActual.Children.toArray(children);
+    const trigger = childArray.find(isSelectTriggerElement);
     const id = trigger?.props.id;
-    const rest = childArray.filter((c) => c !== trigger);
+    const rest = childArray.filter((child) => !isSelectTriggerElement(child));
     return (
       <select
         id={id}
@@ -76,7 +92,7 @@ jest.mock("~/components/ui/select", () => {
         onChange={(e) => onValueChange(e.target.value)}
       >
         <option value="" />
-        {rest as unknown as React.ReactNode}
+        {rest}
       </select>
     );
   }

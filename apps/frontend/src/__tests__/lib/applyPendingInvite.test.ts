@@ -132,6 +132,36 @@ describe("applyPendingInvite", () => {
     expect(result.status).toBe("already_applied");
     expect(inviteMock.updateMany).not.toHaveBeenCalled();
   });
+
+  it("returns no_invite when neither a pending nor a used invite exists", async () => {
+    const result = await applyPendingInvite(EMAIL, USER_ID);
+
+    expect(result.status).toBe("no_invite");
+    expect(inviteMock.updateMany).not.toHaveBeenCalled();
+    expect(userMock.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Leader invite that carries no jurisdiction scope", async () => {
+    inviteMock.findFirst.mockResolvedValue(buildInvite({ jurisdictions: [] }));
+
+    await expect(applyPendingInvite(EMAIL, USER_ID)).rejects.toThrow(
+      InviteGrantError,
+    );
+    expect(inviteMock.updateMany).not.toHaveBeenCalled();
+    expect(userMock.update).not.toHaveBeenCalled();
+  });
+
+  it("throws when the invite cannot be consumed and was not already applied", async () => {
+    inviteMock.findFirst.mockResolvedValue(buildInvite());
+    inviteMock.updateMany.mockResolvedValue({ count: 0 });
+    privilegedUserMock.findUnique.mockResolvedValue(null);
+
+    await expect(applyPendingInvite(EMAIL, USER_ID)).rejects.toThrow(
+      InviteGrantError,
+    );
+    expect(userMock.update).not.toHaveBeenCalled();
+    expect(userJurisdictionMock.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("findValidUnusedInvite", () => {

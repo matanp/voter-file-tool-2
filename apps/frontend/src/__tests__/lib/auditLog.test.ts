@@ -20,7 +20,7 @@ describe("auditLog", () => {
   describe("logAuditEvent", () => {
     it("creates an AuditLog record with correct fields", async () => {
       const session = createMockSession();
-      const user = session.user!;
+      const user = session.user;
       const userId = user.id ?? "test-user-id";
       prismaMock.auditLog.create.mockResolvedValue({} as never);
 
