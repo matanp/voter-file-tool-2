@@ -1,6 +1,8 @@
 import { RecordsList } from "./RecordsList";
 import prisma from "~/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const RecordSearch: React.FC = async () => {
   const dropdownList = await prisma.dropdownLists.findFirst();
 

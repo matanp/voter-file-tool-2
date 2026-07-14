@@ -4,6 +4,8 @@ import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
 import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const AdminPage = async () => {
   const access = await getAdminPageAccess();
   if (!access.ok) {

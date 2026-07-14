@@ -5,6 +5,8 @@ import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 import { PetitionOutcomesClient } from "./PetitionOutcomesClient";
 
+export const dynamic = "force-dynamic";
+
 interface PetitionOutcomesPageProps {
   searchParams?: Promise<{
     committeeListId?: string;

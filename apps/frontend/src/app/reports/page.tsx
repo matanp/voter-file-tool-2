@@ -7,6 +7,8 @@ import { getAuthenticatedPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 import { JobStatus } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 export default async function ReportsPage() {
   const access = await getAuthenticatedPageAccess();
   if (!access.ok) {

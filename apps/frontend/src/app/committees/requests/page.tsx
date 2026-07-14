@@ -20,6 +20,8 @@ import { Button } from "~/components/ui/button";
 import { RequestCard } from "./RequestCard";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 
+export const dynamic = "force-dynamic";
+
 export type MembershipRequestWithDetails = {
   id: string;
   committeeListId: number;

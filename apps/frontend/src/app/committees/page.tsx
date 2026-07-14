@@ -14,6 +14,8 @@ import {
   committeeMatchesJurisdictions,
 } from "~/app/api/lib/committeeValidation";
 
+export const dynamic = "force-dynamic";
+
 const CommitteeLists = async () => {
   const permissions = await auth();
 

@@ -8,6 +8,8 @@ import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
 import { getAuthenticatedPageAccess } from "~/lib/getAdminPageAccess";
 import { hasPermissionFor } from "~/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 const PetitionsPage: React.FC = async () => {
   const access = await getAuthenticatedPageAccess();
   if (!access.ok) {

@@ -10,6 +10,8 @@ import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 import { UsersManagementClient } from "./UsersManagementClient";
 
+export const dynamic = "force-dynamic";
+
 export type UserWithJurisdictions = {
   id: string;
   name: string | null;

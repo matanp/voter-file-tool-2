@@ -5,6 +5,8 @@ import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 import { MeetingsManagement } from "./MeetingsManagement";
 
+export const dynamic = "force-dynamic";
+
 export default async function MeetingsPage() {
   const access = await getAdminPageAccess();
   if (!access.ok) {

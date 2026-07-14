@@ -5,6 +5,8 @@ import prisma from "~/lib/prisma";
 import type { CommitteeTerm } from "@prisma/client";
 import { TermsManagement } from "./TermsManagement";
 
+export const dynamic = "force-dynamic";
+
 export default async function TermsPage() {
   const access = await getAdminPageAccess();
   if (!access.ok) {
