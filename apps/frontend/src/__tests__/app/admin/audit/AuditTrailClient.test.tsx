@@ -1,7 +1,7 @@
 import React from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { AuditAction } from "@prisma/client";
+import { AuditAction } from "@prisma/client";
 import { AuditTrailClient } from "~/app/admin/audit/AuditTrailClient";
 import { mockJsonResponse } from "../../../utils/testUtils";
 
@@ -70,15 +70,48 @@ function createDeferred<T>() {
 let currentSearchParams = new URLSearchParams();
 let rerenderAuditTrail: () => void = () => undefined;
 
+/**
+ * When true, `router.replace` records the URL instead of echoing it back through
+ * `useSearchParams` immediately. Real Next router updates are asynchronous and can
+ * land out of order relative to newer writes; `flushUrlEcho` replays them by hand.
+ */
+let deferUrlEchoes = false;
+const deferredUrlEchoes: string[] = [];
+
+function toAbsoluteUrl(url: string): string {
+  return url.startsWith("http")
+    ? url
+    : `http://localhost${url.startsWith("/") ? url : `/${url}`}`;
+}
+
+function applyUrlEcho(absoluteUrl: string) {
+  currentSearchParams = new URL(absoluteUrl).searchParams;
+  rerenderAuditTrail();
+}
+
+/** Delivers one deferred router write by index, simulating a late URL echo. */
+async function flushUrlEcho(index: number) {
+  const echo = deferredUrlEchoes[index];
+  if (echo === undefined) {
+    throw new Error(`No deferred URL echo at index ${index}`);
+  }
+  await act(async () => {
+    applyUrlEcho(echo);
+  });
+}
+
+const mockRouterReplace = jest.fn((url: string) => {
+  const normalized = toAbsoluteUrl(url);
+  if (deferUrlEchoes) {
+    deferredUrlEchoes.push(normalized);
+    return;
+  }
+  applyUrlEcho(normalized);
+});
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
-    replace: (url: string) => {
-      const normalized = url.startsWith("http")
-        ? url
-        : `http://localhost${url.startsWith("/") ? url : `/${url}`}`;
-      currentSearchParams = new URL(normalized).searchParams;
-      rerenderAuditTrail();
-    },
+    replace: mockRouterReplace,
   }),
   useSearchParams: () => currentSearchParams,
 }));
@@ -214,17 +247,42 @@ function isAuditListUrl(url: string): boolean {
   return url.includes("/api/admin/audit") && !url.includes("/users") && !url.includes("/export");
 }
 
+function getActionSelect(): HTMLElement {
+  const actionSelect = screen.getAllByRole("combobox")[0];
+  if (!actionSelect) {
+    throw new Error("Action select not found");
+  }
+  return actionSelect;
+}
+
+function getRecordTypeSelect(): HTMLElement {
+  const recordTypeSelect = screen.getAllByRole("combobox")[1];
+  if (!recordTypeSelect) {
+    throw new Error("Record type select not found");
+  }
+  return recordTypeSelect;
+}
+
+function getListUrls(fetchMock: jest.Mock): string[] {
+  return fetchMock.mock.calls
+    .map(([input]) => String(input))
+    .filter(isAuditListUrl);
+}
+
 describe("AuditTrailClient", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
     currentSearchParams = new URLSearchParams();
     rerenderAuditTrail = () => undefined;
+    deferUrlEchoes = false;
+    deferredUrlEchoes.length = 0;
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
   it("shows centered loading on initial load without flashing the empty state", async () => {
@@ -494,6 +552,297 @@ describe("AuditTrailClient", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Internal Server Error")).toBeInTheDocument();
+    });
+  });
+
+  it("updates the action select immediately and fetches the filtered endpoint", async () => {
+    const fetchMock = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/admin/audit/users")) {
+        return Promise.resolve(mockJsonResponse({ users: [] }));
+      }
+      if (isAuditListUrl(url)) {
+        return Promise.resolve(mockJsonResponse(buildAuditListResponse()));
+      }
+      throw new Error(`Unexpected fetch call: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    renderAuditTrailClient();
+
+    await screen.findByText("Alice Admin");
+
+    const actionSelect = getActionSelect();
+    expect(actionSelect).toHaveValue("all");
+
+    await user.selectOptions(actionSelect, AuditAction.MEMBER_CONFIRMED);
+
+    expect(actionSelect).toHaveValue(AuditAction.MEMBER_CONFIRMED);
+
+    await waitFor(() => {
+      const listUrls = fetchMock.mock.calls
+        .map(([input]) => String(input))
+        .filter((url) => isAuditListUrl(url));
+      expect(
+        listUrls.some((url) => url.includes(`action=${AuditAction.MEMBER_CONFIRMED}`)),
+      ).toBe(true);
+    });
+  });
+
+  it("keeps date URL and list sync debounced with the page reset", async () => {
+    jest.useFakeTimers();
+    currentSearchParams = new URLSearchParams("page=2");
+
+    const fetchMock = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/admin/audit/users")) {
+        return Promise.resolve(mockJsonResponse({ users: [] }));
+      }
+      if (isAuditListUrl(url) && url.includes("dateFrom=2026-02-01")) {
+        return Promise.resolve(
+          mockJsonResponse(
+            buildAuditListResponse({
+              page: 1,
+              items: [
+                buildAuditItem({
+                  id: "audit-filtered",
+                  user: { name: "Date Filtered", email: "filtered@example.com" },
+                }),
+              ],
+            }),
+          ),
+        );
+      }
+      if (isAuditListUrl(url) && url.includes("page=2")) {
+        return Promise.resolve(
+          mockJsonResponse(
+            buildAuditListResponse({
+              page: 2,
+              items: [
+                buildAuditItem({
+                  id: "audit-page-2",
+                  user: { name: "Page Two", email: "page2@example.com" },
+                }),
+              ],
+            }),
+          ),
+        );
+      }
+      if (isAuditListUrl(url)) {
+        return Promise.resolve(mockJsonResponse(buildAuditListResponse()));
+      }
+      throw new Error(`Unexpected fetch call: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const view = renderAuditTrailClient();
+
+    await screen.findByText("Page Two");
+
+    const dateInputs = view.container.querySelectorAll('input[type="date"]');
+    const dateFromInput = dateInputs[0];
+    if (!dateFromInput) {
+      throw new Error("Date from input not found");
+    }
+
+    fireEvent.change(dateFromInput, { target: { value: "2026-02-01" } });
+
+    const beforeDebounceListUrls = fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter(isAuditListUrl);
+    expect(beforeDebounceListUrls).toEqual(["/api/admin/audit?page=2"]);
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Date Filtered")).toBeInTheDocument();
+    });
+
+    const listUrls = fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter(isAuditListUrl);
+    expect(listUrls).toContain("/api/admin/audit?dateFrom=2026-02-01");
+    expect(listUrls).not.toContain("/api/admin/audit");
+  });
+
+  it("does not treat normalized-equivalent URL echoes as external changes", async () => {
+    const fetchMock = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/admin/audit/users")) {
+        return Promise.resolve(mockJsonResponse({ users: [] }));
+      }
+      if (isAuditListUrl(url)) {
+        return Promise.resolve(mockJsonResponse(buildAuditListResponse()));
+      }
+      throw new Error(`Unexpected fetch call: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    renderAuditTrailClient();
+
+    await screen.findByText("Alice Admin");
+
+    const actionSelect = getActionSelect();
+    await user.selectOptions(actionSelect, AuditAction.MEMBER_CONFIRMED);
+
+    await waitFor(() => {
+      expect(actionSelect).toHaveValue(AuditAction.MEMBER_CONFIRMED);
+    });
+
+    mockRouterReplace.mockClear();
+    currentSearchParams = new URLSearchParams(
+      `page=1&action=${AuditAction.MEMBER_CONFIRMED}`,
+    );
+    rerenderAuditTrail();
+
+    await waitFor(() => {
+      expect(actionSelect).toHaveValue(AuditAction.MEMBER_CONFIRMED);
+    });
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+  });
+
+  it("exports using active local filters", async () => {
+    const fetchMock = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/admin/audit/users")) {
+        return Promise.resolve(mockJsonResponse({ users: [] }));
+      }
+      if (url.includes("/api/admin/audit/export")) {
+        const blob = new Blob(["csv"]);
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            "Content-Disposition": 'attachment; filename="audit.csv"',
+          }),
+          blob: async () => blob,
+          json: async () => {
+            throw new Error("not json");
+          },
+        } as unknown as Response);
+      }
+      if (isAuditListUrl(url)) {
+        return Promise.resolve(mockJsonResponse(buildAuditListResponse()));
+      }
+      throw new Error(`Unexpected fetch call: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    renderAuditTrailClient();
+
+    await screen.findByText("Alice Admin");
+
+    const actionSelect = getActionSelect();
+    await user.selectOptions(actionSelect, AuditAction.MEMBER_CONFIRMED);
+
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    await user.click(screen.getByRole("menuitem", { name: "CSV" }));
+
+    await waitFor(() => {
+      const exportUrls = fetchMock.mock.calls.map(([input]) => String(input));
+      expect(
+        exportUrls.some((url) =>
+          url.includes(
+            `/api/admin/audit/export?action=${AuditAction.MEMBER_CONFIRMED}&format=csv`,
+          ),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("ignores a stale URL echo that lands after a newer filter change", async () => {
+    deferUrlEchoes = true;
+
+    const fetchMock = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/admin/audit/users")) {
+        return Promise.resolve(mockJsonResponse({ users: [] }));
+      }
+      if (isAuditListUrl(url)) {
+        return Promise.resolve(mockJsonResponse(buildAuditListResponse()));
+      }
+      throw new Error(`Unexpected fetch call: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    renderAuditTrailClient();
+
+    await screen.findByText("Alice Admin");
+
+    await user.selectOptions(getActionSelect(), AuditAction.MEMBER_CONFIRMED);
+    await user.selectOptions(getRecordTypeSelect(), "CommitteeMembership");
+
+    const combinedEndpoint = `/api/admin/audit?action=${AuditAction.MEMBER_CONFIRMED}&entityType=CommitteeMembership`;
+    await waitFor(() => {
+      expect(getListUrls(fetchMock)).toContain(combinedEndpoint);
+    });
+
+    // Both writes were sent before either echoed back through useSearchParams.
+    expect(mockRouterReplace).toHaveBeenCalledTimes(2);
+    expect(deferredUrlEchoes).toHaveLength(2);
+    const urlsBeforeEcho = getListUrls(fetchMock);
+
+    // The first (now stale) write echoes back after the second was already sent.
+    await flushUrlEcho(0);
+
+    expect(getActionSelect()).toHaveValue(AuditAction.MEMBER_CONFIRMED);
+    expect(getRecordTypeSelect()).toHaveValue("CommitteeMembership");
+    expect(getListUrls(fetchMock)).toEqual(urlsBeforeEcho);
+
+    // The newer echo lands and is likewise recognized as our own write.
+    await flushUrlEcho(1);
+
+    expect(getActionSelect()).toHaveValue(AuditAction.MEMBER_CONFIRMED);
+    expect(getRecordTypeSelect()).toHaveValue("CommitteeMembership");
+    expect(getListUrls(fetchMock)).toEqual(urlsBeforeEcho);
+    expect(mockRouterReplace).toHaveBeenCalledTimes(2);
+  });
+
+  it("still adopts a back-navigation to a URL matching an earlier write", async () => {
+    const fetchMock = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/admin/audit/users")) {
+        return Promise.resolve(mockJsonResponse({ users: [] }));
+      }
+      if (isAuditListUrl(url)) {
+        return Promise.resolve(mockJsonResponse(buildAuditListResponse()));
+      }
+      throw new Error(`Unexpected fetch call: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    renderAuditTrailClient();
+
+    await screen.findByText("Alice Admin");
+
+    await user.selectOptions(getActionSelect(), AuditAction.MEMBER_CONFIRMED);
+    await user.selectOptions(getRecordTypeSelect(), "CommitteeMembership");
+
+    await waitFor(() => {
+      expect(getRecordTypeSelect()).toHaveValue("CommitteeMembership");
+    });
+
+    // Browser back to the action-only URL, which the hook wrote earlier. Its echo
+    // has already been consumed, so this must be treated as external navigation.
+    await act(async () => {
+      applyUrlEcho(
+        `http://localhost/admin/audit?action=${AuditAction.MEMBER_CONFIRMED}`,
+      );
+    });
+
+    expect(getActionSelect()).toHaveValue(AuditAction.MEMBER_CONFIRMED);
+    expect(getRecordTypeSelect()).toHaveValue("all");
+    await waitFor(() => {
+      expect(getListUrls(fetchMock)).toContain(
+        `/api/admin/audit?action=${AuditAction.MEMBER_CONFIRMED}`,
+      );
     });
   });
 });

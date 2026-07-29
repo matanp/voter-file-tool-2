@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useApiQuery } from "~/hooks/useApiQuery";
 import { format } from "date-fns";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
@@ -33,6 +32,8 @@ import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { useToast } from "~/components/ui/use-toast";
 import { buildSummary, AUDIT_ACTION_LABELS, AUDIT_ENTITY_TYPE_OPTIONS, formatEntityTypeLabel } from "./auditUtils";
 import { AuditDetailDrawer } from "./AuditDetailDrawer";
+import { toAuditAction } from "./auditFilterState";
+import { useAuditFilters } from "./useAuditFilters";
 import type { AuditAction } from "@prisma/client";
 
 type AuditLogItem = {
@@ -64,12 +65,8 @@ type AuditUsersResponse = {
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 const MAX_VISIBLE_PAGES = 5;
 
-/** Loads paginated audit log rows for the current URL search params. */
-function useAuditList() {
-  const searchParams = useSearchParams();
-  const queryString = searchParams.toString();
-  const listEndpoint = `/api/admin/audit${queryString ? `?${queryString}` : ""}`;
-
+/** Loads paginated audit log rows for the given list endpoint. */
+function useAuditList(listEndpoint: string) {
   const { data, loading, error, refetch } =
     useApiQuery<AuditListResponse>(listEndpoint);
 
@@ -97,75 +94,30 @@ function useAuditUsers() {
 }
 
 export function AuditTrailClient() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { data, loading, error, refetch } = useAuditList();
+  const {
+    filters,
+    listEndpoint,
+    exportQueryString,
+    setFilter,
+    setPage,
+    setPageSize,
+    clearFilters,
+  } = useAuditFilters();
+  const { data, loading, error, refetch } = useAuditList(listEndpoint);
   const users = useAuditUsers();
   const { toast } = useToast();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
 
-  const urlPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-  const urlPageSize =
-    Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "25", 10) || 25)) ||
-    25;
-  const action = searchParams.get("action") ?? "";
-  const entityType = searchParams.get("entityType") ?? "";
-  const userId = searchParams.get("userId") ?? "";
-  const dateFrom = searchParams.get("dateFrom") ?? "";
-  const dateTo = searchParams.get("dateTo") ?? "";
+  const { action, entityType, userId, dateFrom, dateTo, page, pageSize } = filters;
   const selectedRecordTypeLabel = entityType
     ? formatEntityTypeLabel(entityType)
     : "All record types";
 
-  const updateParams = useCallback(
-    (updates: Record<string, string | number | undefined>) => {
-      const next = new URLSearchParams(searchParams.toString());
-      for (const [key, value] of Object.entries(updates)) {
-        if (value === undefined || value === "" || value === "all") {
-          next.delete(key);
-        } else {
-          next.set(key, String(value));
-        }
-      }
-      next.set("page", "1");
-      router.replace(`/admin/audit?${next.toString()}`, { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const setPage = useCallback(
-    (newPage: number) => {
-      const next = new URLSearchParams(searchParams.toString());
-      next.set("page", String(newPage));
-      router.replace(`/admin/audit?${next.toString()}`, { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const setPageSize = useCallback(
-    (size: number) => {
-      const next = new URLSearchParams(searchParams.toString());
-      next.set("pageSize", String(size));
-      next.set("page", "1");
-      router.replace(`/admin/audit?${next.toString()}`, { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const clearFilters = useCallback(() => {
-    router.replace("/admin/audit", { scroll: false });
-  }, [router]);
-
   const handleExport = useCallback(
     async (format: "csv" | "xlsx") => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(exportQueryString);
       params.set("format", format);
-      if (action) params.set("action", action);
-      if (entityType) params.set("entityType", entityType);
-      if (userId) params.set("userId", userId);
-      if (dateFrom) params.set("dateFrom", dateFrom);
-      if (dateTo) params.set("dateTo", dateTo);
       setExportLoading(true);
       try {
         const url = `/api/admin/audit/export?${params.toString()}`;
@@ -191,7 +143,7 @@ export function AuditTrailClient() {
         setExportLoading(false);
       }
     },
-    [action, entityType, userId, dateFrom, dateTo, toast],
+    [exportQueryString, toast],
   );
 
   const userItems = useMemo(
@@ -207,8 +159,8 @@ export function AuditTrailClient() {
   const showInitialLoading = !hasLoaded && !error;
   const refreshing = loading && hasLoaded;
 
-  const displayPage = refreshing ? (data?.page ?? urlPage) : urlPage;
-  const displayPageSize = refreshing ? (data?.pageSize ?? urlPageSize) : urlPageSize;
+  const displayPage = refreshing ? (data?.page ?? page) : page;
+  const displayPageSize = refreshing ? (data?.pageSize ?? pageSize) : pageSize;
   const displayTotal = data?.total ?? 0;
   const displayTotalPages = data?.totalPages ?? 1;
   const items = data?.items ?? [];
@@ -250,7 +202,9 @@ export function AuditTrailClient() {
             <Label className="text-xs">Action</Label>
             <Select
               value={action || "all"}
-              onValueChange={(v) => updateParams({ action: v === "all" ? undefined : v })}
+              onValueChange={(v) =>
+                setFilter("action", v === "all" ? "" : toAuditAction(v))
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="All actions" />
@@ -271,7 +225,7 @@ export function AuditTrailClient() {
             <Label className="text-xs">Record type</Label>
             <Select
               value={entityType || "all"}
-              onValueChange={(v) => updateParams({ entityType: v === "all" ? undefined : v })}
+              onValueChange={(v) => setFilter("entityType", v === "all" ? "" : v)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All record types">
@@ -304,7 +258,7 @@ export function AuditTrailClient() {
               items={userItems}
               initialValue={userId}
               displayLabel="All users"
-              onSelect={(v) => updateParams({ userId: v })}
+              onSelect={(v) => setFilter("userId", v)}
             />
           </div>
           <div className="flex items-end gap-2">
@@ -313,7 +267,7 @@ export function AuditTrailClient() {
               <Input
                 type="date"
                 value={dateFrom}
-                onChange={(e) => updateParams({ dateFrom: e.target.value || undefined })}
+                onChange={(e) => setFilter("dateFrom", e.target.value)}
                 className="w-[140px]"
               />
             </div>
@@ -322,7 +276,7 @@ export function AuditTrailClient() {
               <Input
                 type="date"
                 value={dateTo}
-                onChange={(e) => updateParams({ dateTo: e.target.value || undefined })}
+                onChange={(e) => setFilter("dateTo", e.target.value)}
                 className="w-[140px]"
               />
             </div>
@@ -419,7 +373,7 @@ export function AuditTrailClient() {
               </p>
               <div className="flex items-center gap-2">
                 <Select
-                  value={String(urlPageSize)}
+                  value={String(pageSize)}
                   onValueChange={(v) => setPageSize(Number(v))}
                 >
                   <SelectTrigger className="w-[70px]">
