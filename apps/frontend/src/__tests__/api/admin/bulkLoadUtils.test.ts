@@ -7,6 +7,7 @@ const BRIGHTON_45_35 = {
   cityTown: "BRIGHTON",
   legDistrict: 45,
   electionDistrict: 35,
+  termId: "test-term-id",
 };
 
 function createCommitteeData(): Map<string, CommitteeAccumulationEntry> {
