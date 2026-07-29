@@ -34,7 +34,6 @@ enum MembershipStatus {
   ACTIVE           // Fully active committee member
   RESIGNED         // Voluntarily resigned (date + method recorded)
   REMOVED          // Administratively removed (reason recorded)
-  PETITIONED_WON   // Won a primary election (becomes ACTIVE)
   PETITIONED_LOST  // Lost a primary election (retained in history only)
   PETITIONED_TIE   // Tied in primary (seat is weighted but vacant)
 }
@@ -115,6 +114,8 @@ enum IneligibilityReason {
   ALREADY_IN_ANOTHER_COMMITTEE
 }
 ```
+
+Canonical petition winner semantics: winners (including unopposed winners) are represented as `status=ACTIVE` with `membershipType=PETITIONED`.
 
 ---
 

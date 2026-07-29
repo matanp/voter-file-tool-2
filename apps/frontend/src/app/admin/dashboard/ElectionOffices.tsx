@@ -1,7 +1,7 @@
 "use client";
 
 import type { OfficeName } from "@prisma/client";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
@@ -83,41 +83,6 @@ export const ElectionOffices = ({
       },
     },
   );
-
-  const fetchOffices = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        const res = await fetch("/api/admin/officeNames", { signal });
-        if (!res.ok) {
-          throw new Error(
-            `Failed to fetch office names (${res.status} ${res.statusText})`,
-          );
-        }
-        const data = (await res.json()) as OfficeName[];
-        setOfficeNames(data);
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        console.error("Failed to fetch office names", err);
-        toast({
-          title: "Error",
-          description: "Could not load office names. Please refresh.",
-          variant: "destructive",
-        });
-      }
-    },
-    [toast],
-  );
-
-  useEffect(() => {
-    const ac = new AbortController();
-    const loadOffices = async () => {
-      await fetchOffices(ac.signal);
-    };
-    loadOffices().catch((error) => {
-      console.error("Failed to load offices", error);
-    });
-    return () => ac.abort();
-  }, [fetchOffices]);
 
   const handleAddOffice = async () => {
     if (!newOffice.trim()) return;

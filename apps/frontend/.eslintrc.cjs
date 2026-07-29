@@ -25,6 +25,7 @@ const config = {
       "warn",
       {
         argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
       },
     ],
     "@typescript-eslint/require-await": "off",
@@ -43,6 +44,9 @@ const config = {
       env: { jest: true },
       rules: {
         "@typescript-eslint/unbound-method": "off",
+        "@typescript-eslint/no-unsafe-assignment": "warn",
+        "@typescript-eslint/no-unsafe-member-access": "warn",
+        "@typescript-eslint/non-nullable-type-assertion-style": "warn",
       },
     },
     {

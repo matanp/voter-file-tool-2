@@ -15,7 +15,7 @@ export function SignInButton() {
     return <ManageProfileButton session={session} />;
   }
 
-  return <Button onClick={() => signIn()}>Sign In</Button>;
+  return <Button onClick={() => signIn(undefined, { callbackUrl: "/" })}>Sign In</Button>;
 }
 
 export function SignOutButton() {

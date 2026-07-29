@@ -7,6 +7,9 @@ declare module "next-auth" {
    */
   interface Session extends DefaultSession {
     privilegeLevel: PrivilegeLevel;
+    user: DefaultSession["user"] & {
+      privilegeLevel: PrivilegeLevel;
+    };
   }
 
   interface User extends DefaultUser {

@@ -1,18 +1,19 @@
 "use client";
 import { PrivilegeLevel } from "@prisma/client";
-import { useSession } from "next-auth/react";
+import { useContext } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "~/components/ui/button";
 import { SignInButton } from "~/components/ui/signInButton";
 import { hasPermissionFor } from "~/lib/utils";
+import { GlobalContext } from "~/components/providers/GlobalContext";
 
 const Header: React.FC = () => {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { actingPermissions } = useContext(GlobalContext);
 
   const showDataTab = hasPermissionFor(
-    session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+    actingPermissions,
     PrivilegeLevel.Admin,
   );
 
@@ -43,16 +44,9 @@ const Header: React.FC = () => {
               Committee List
             </Button>
           </Link>
-          <Link href="/petitions">
-            <Button
-              className={`${sharedTabStyle} ${pathname?.endsWith("petitions") ? tabStyleActive : tabStyleInactive}`}
-            >
-              Petitions
-            </Button>
-          </Link>
           <Link href="/reports">
             <Button
-              className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/voter-list-reports"].some(p => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
+              className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/committee-roster-reports", "/voter-list-reports", "/petitions", "/sign-in-sheet-reports", "/weight-summary-reports", "/vacancy-reports", "/changes-reports", "/petition-outcomes-reports"].some(p => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
             >
               Reports
             </Button>

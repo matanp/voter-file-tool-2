@@ -36,6 +36,7 @@ Use a **separate dev R2 instance** in the cloud (different bucket/credentials fr
 
 - **Location:** `apps/report-server`
 - **Env:** Copy `apps/report-server/.env.example` to `.env` and fill in values. For local dev, `CALLBACK_URL` should point at your frontend (e.g. `http://localhost:3000/api/reportComplete`).
+- **Scheduler:** BOE re-scan runs on a recurring schedule by default (`BOE_FLAGGING_RESCAN_INTERVAL_HOURS=24`). Set `BOE_FLAGGING_RESCAN_ENABLED=false` in local `.env` if you want manual-only runs.
 - **Run:** `pnpm dev` (listens on port 8080 by default). CSS is built automatically; if needed, run `pnpm build:css` once.
 
 ## Frontend

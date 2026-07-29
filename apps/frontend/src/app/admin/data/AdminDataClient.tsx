@@ -1,12 +1,12 @@
 "use client";
 
 import React from "react";
-import { CommitteeUploadDiscrepancies } from "./CommitteeUploadDiscrepancies";
-import { InviteManagement } from "./InviteManagement";
-import { SpecialReports } from "./SpecialReports";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { ElectionDates } from "../dashboard/ElectionDates";
-import { ElectionOffices } from "../dashboard/ElectionOffices";
+import {
+  buildAdminDataTabs,
+  getAdminDataDefaultTab,
+  getVisibleAdminDataTabs,
+} from "./adminDataTabs";
 import type { ElectionDate, OfficeName } from "@prisma/client";
 
 interface AdminDataClientProps {
@@ -18,33 +18,30 @@ export const AdminDataClient = ({
   electionDates,
   officeNames,
 }: AdminDataClientProps) => {
+  const tabs = buildAdminDataTabs();
+  const visibleTabs = getVisibleAdminDataTabs(tabs);
+  const ctx = { electionDates, officeNames };
+
   return (
     <div className="w-full m-4 h-full">
-      <Tabs defaultValue="invites" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="invites">User Invites</TabsTrigger>
-          <TabsTrigger value="discrepancies">
-            Committee Upload Discrepancies
-          </TabsTrigger>
-          <TabsTrigger value="election-dates">Election Dates</TabsTrigger>
-          <TabsTrigger value="election-offices">Office Names</TabsTrigger>
-          <TabsTrigger value="special-reports">Special Reports</TabsTrigger>
+      <Tabs defaultValue={getAdminDataDefaultTab(tabs)} className="w-full">
+        <TabsList
+          className="grid w-full overflow-x-auto"
+          style={{
+            gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))`,
+          }}
+        >
+          {visibleTabs.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
-        <TabsContent value="invites">
-          <InviteManagement />
-        </TabsContent>
-        <TabsContent value="discrepancies">
-          <CommitteeUploadDiscrepancies />
-        </TabsContent>
-        <TabsContent value="election-dates">
-          <ElectionDates electionDates={electionDates} />
-        </TabsContent>
-        <TabsContent value="election-offices">
-          <ElectionOffices officeNames={officeNames} />
-        </TabsContent>
-        <TabsContent value="special-reports">
-          <SpecialReports />
-        </TabsContent>
+        {visibleTabs.map((tab) => (
+          <TabsContent key={tab.id} value={tab.id}>
+            {tab.render(ctx)}
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

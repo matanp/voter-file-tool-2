@@ -3,14 +3,16 @@ import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
+import { getGovernanceConfig, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
 import {
-  isVoterInAnotherCommittee,
-  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
-} from "~/app/api/lib/committeeValidation";
+  confirmSubmittedMembership,
+  rejectSubmittedMembership,
+} from "~/app/api/lib/membershipConfirmation";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
+import { validateEligibility } from "~/lib/eligibility";
 
-async function handleRequestHandler(req: NextRequest, _session: Session) {
+async function handleRequestHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
   const validation = validateRequest(body, handleCommitteeRequestDataSchema);
 
@@ -18,111 +20,189 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
     return validation.response;
   }
 
-  const { committeeRequestId, acceptOrReject } = validation.data;
+  const {
+    membershipId,
+    acceptOrReject,
+    meetingRecordId,
+    forceAdd,
+    overrideReason,
+  } =
+    validation.data;
+
+  if (!session.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const user = session.user;
+  if (!user.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = user.id;
+
+  const isAdmin = user.privilegeLevel === PrivilegeLevel.Admin;
+  const eligibilityOptions =
+    isAdmin && forceAdd && acceptOrReject === "accept"
+      ? { forceAdd: true, overrideReason: overrideReason ?? "" }
+      : undefined;
 
   try {
-    const committeeRequest = await prisma.committeeRequest.findUnique({
-      where: {
-        id: committeeRequestId,
-      },
-      include: {
-        committeList: {
-          include: {
-            committeeMemberList: true,
-          },
-        },
-      },
+    const membership = await prisma.committeeMembership.findUnique({
+      where: { id: membershipId },
     });
 
-    if (!committeeRequest) {
+    if (!membership) {
       return NextResponse.json(
-        { error: "Committee request not found" },
+        { error: "Committee membership request not found" },
         { status: 404 },
       );
     }
 
+    if (membership.status !== "SUBMITTED") {
+      return NextResponse.json(
+        { error: "This membership is not in a pending (SUBMITTED) state" },
+        { status: 400 },
+      );
+    }
+
+    const actor = { userId, userRole: user.privilegeLevel };
+    const resolvedMembershipType = membership.membershipType ?? "APPOINTED";
+
     if (acceptOrReject === "accept") {
-      if (committeeRequest.removeVoterRecordId) {
-        await prisma.committeeList.update({
-          where: {
-            id: committeeRequest.committeeListId,
-          },
-          data: {
-            committeeMemberList: {
-              disconnect: {
-                VRCNUM: committeeRequest.removeVoterRecordId,
-              },
-            },
-          },
-        });
+      if (!meetingRecordId) {
+        return NextResponse.json(
+          { error: "meetingRecordId is required when accepting a request" },
+          { status: 422 },
+        );
       }
 
-      // Only check committee capacity when adding a member
-      // For replacements (remove + add), we need to account for the removal
-      if (committeeRequest.addVoterRecordId) {
-        // SRS §7.1: Reject if member is already in another committee
-        const voter = await prisma.voterRecord.findUnique({
-          where: { VRCNUM: committeeRequest.addVoterRecordId },
-          select: { committeeId: true },
-        });
-        if (
-          voter &&
-          isVoterInAnotherCommittee(
-            voter.committeeId,
-            committeeRequest.committeeListId,
-          )
-        ) {
-          return NextResponse.json(
-            { success: false, error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR },
-            { status: 400 },
-          );
-        }
-
-        const currentMemberCount =
-          committeeRequest.committeList.committeeMemberList.length -
-          (committeeRequest.removeVoterRecordId ? 1 : 0);
-
-        if (currentMemberCount >= 4) {
-          await prisma.committeeRequest.delete({
-            where: {
-              id: committeeRequestId,
-            },
-          });
-
-          return NextResponse.json(
-            {
-              message:
-                "Request processed - Committee already full, no changes made",
-            },
-            { status: 200 },
-          );
-        }
-
-        await prisma.committeeList.update({
-          where: {
-            id: committeeRequest.committeeListId,
-          },
-          data: {
-            committeeMemberList: {
-              connect: {
-                VRCNUM: committeeRequest.addVoterRecordId,
-              },
-            },
-          },
-        });
-      }
-
-      await prisma.committeeRequest.delete({
-        where: {
-          id: committeeRequestId,
-        },
+      const meetingRecord = await prisma.meetingRecord.findUnique({
+        where: { id: meetingRecordId },
+        select: { id: true },
       });
+
+      if (!meetingRecord) {
+        return NextResponse.json(
+          { error: "Invalid meetingRecordId" },
+          { status: 422 },
+        );
+      }
+
+      const eligibility = await validateEligibility(
+        membership.voterRecordId,
+        membership.committeeListId,
+        membership.termId,
+        eligibilityOptions,
+      );
+
+      if (eligibility.validationError) {
+        return NextResponse.json(
+          { error: eligibility.validationError },
+          { status: 422 },
+        );
+      }
+
+      if (!eligibility.eligible) {
+        return NextResponse.json(
+          { error: "INELIGIBLE", reasons: eligibility.hardStops },
+          { status: 422 },
+        );
+      }
+
+      const config = await getGovernanceConfig();
+      const eligibilityWarnings = eligibility.warnings;
+      const auditMetadata =
+        eligibility.bypassedReasons?.length &&
+        eligibilityOptions?.overrideReason
+          ? {
+              bypassedReasons: eligibility.bypassedReasons,
+              overrideReason: eligibilityOptions.overrideReason,
+            }
+          : undefined;
+      const auditMetadataWithWarnings =
+        eligibilityWarnings.length > 0
+          ? { ...auditMetadata, eligibilityWarnings }
+          : auditMetadata;
+      const auditMetadataWithMeeting = {
+        ...(auditMetadataWithWarnings ?? {}),
+        meetingRecordId,
+      };
+
+      const outcome = await prisma.$transaction(async (tx) =>
+        confirmSubmittedMembership(tx, {
+          membershipId,
+          meetingRecordId,
+          actor,
+          maxSeats: config.maxSeatsPerLted,
+          membershipType: resolvedMembershipType,
+          eligibilityWarnings,
+          auditMetadata: auditMetadataWithMeeting,
+        }),
+      );
+
+      if (outcome.kind === "notFound") {
+        return NextResponse.json(
+          { error: "Committee membership request not found" },
+          { status: 404 },
+        );
+      }
+
+      if (outcome.kind === "notSubmitted") {
+        return NextResponse.json(
+          { error: "This membership is not in a pending (SUBMITTED) state" },
+          { status: 400 },
+        );
+      }
+
+      if (outcome.kind === "anotherCommittee") {
+        return NextResponse.json(
+          { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },
+          { status: 422 },
+        );
+      }
+
+      if (outcome.kind === "replacementTargetInvalid") {
+        return NextResponse.json(
+          { error: "Replacement target not found or no longer active" },
+          { status: 422 },
+        );
+      }
+
+      if (outcome.kind === "atCapacity") {
+        return NextResponse.json(
+          { error: "INELIGIBLE", reasons: ["CAPACITY"] },
+          { status: 422 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          message: "Request accepted",
+          ...(eligibilityWarnings.length > 0
+            ? { warnings: eligibilityWarnings }
+            : {}),
+        },
+        { status: 200 },
+      );
     } else if (acceptOrReject === "reject") {
-      await prisma.committeeRequest.delete({
-        where: {
-          id: committeeRequestId,
-        },
-      });
+      const outcome = await prisma.$transaction(async (tx) =>
+        rejectSubmittedMembership(tx, {
+          membershipId,
+          actor,
+        }),
+      );
+
+      if (outcome.kind === "notFound") {
+        return NextResponse.json(
+          { error: "Committee membership request not found" },
+          { status: 404 },
+        );
+      }
+
+      if (outcome.kind === "notSubmitted") {
+        return NextResponse.json(
+          { error: "This membership is not in a pending (SUBMITTED) state" },
+          { status: 400 },
+        );
+      }
     }
 
     return NextResponse.json(
@@ -130,6 +210,12 @@ async function handleRequestHandler(req: NextRequest, _session: Session) {
       { status: 200 },
     );
   } catch (error) {
+    if (isActiveMembershipPerTermConflict(error)) {
+      return NextResponse.json(
+        { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },
+        { status: 422 },
+      );
+    }
     console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },

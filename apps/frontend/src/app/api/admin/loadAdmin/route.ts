@@ -2,10 +2,14 @@ import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
+import { canonicalizeAuthEmail } from "@voter-file-tool/shared-validators";
 import type { NextRequest } from "next/server";
 import type { Session } from "next-auth";
 
-const developerEmails = ["mpresberg@gmail.com", "avi.presberg@gmail.com"];
+const developerEmails = [
+  "mpresberg@gmail.com",
+  "avi.presberg@gmail.com",
+].map(canonicalizeAuthEmail);
 
 /** Handles loading admin data for the admin API route; accepts NextRequest and Session and returns admin payload or error response. */
 async function loadAdminHandler(_req: NextRequest, _session: Session) {

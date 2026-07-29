@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useContext } from "react";
+import { PrivilegeLevel } from "@prisma/client";
 import {
   Card,
   CardHeader,
@@ -8,6 +10,12 @@ import {
   CardDescription,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
+import { hasPermissionFor } from "~/lib/utils";
+import { GlobalContext } from "~/components/providers/GlobalContext";
+import {
+  SCOPE_REPORT_UI,
+  SCOPE_REPORT_UI_ORDER,
+} from "~/components/reports/scopeReportUiRegistry";
 
 interface ReportType {
   title: string;
@@ -15,66 +23,73 @@ interface ReportType {
   href: string;
   enabled: boolean;
   note?: string;
+  minPrivilege?: PrivilegeLevel;
 }
 
-const reportTypes: ReportType[] = [
-  {
-    title: "Committee Roster",
-    description: "Generate PDF or XLSX roster for a committee",
-    href: "/committee-reports",
-    enabled: true,
-  },
+const NON_SCOPE_REPORT_TYPES: ReportType[] = [
   {
     title: "Voter List",
     description: "Export voter list from Record Search results",
     href: "/voter-list-reports",
     enabled: true,
     note: "Requires search from Record Search first",
+    minPrivilege: PrivilegeLevel.Admin,
   },
   {
     title: "Designated Petition",
     description: "Generate designated petition forms (PDF)",
     href: "/petitions",
     enabled: true,
-  },
-  {
-    title: "Sign-In Sheet",
-    description: "Meeting sign-in sheet by jurisdiction and date",
-    href: "/reports/sign-in-sheet",
-    enabled: false,
-  },
-  {
-    title: "Designation Weight Summary",
-    description: "Weight summary by county or jurisdiction scope",
-    href: "/reports/designation-weight",
-    enabled: false,
-  },
-  {
-    title: "Vacancy Report",
-    description: "Committee vacancies with optional filters",
-    href: "/reports/vacancy",
-    enabled: false,
-  },
-  {
-    title: "Changes Report",
-    description: "Membership changes over a date range",
-    href: "/reports/changes",
-    enabled: false,
-  },
-  {
-    title: "Petition Outcomes",
-    description: "Petition results by term and date range",
-    href: "/reports/petition-outcomes",
-    enabled: false,
+    minPrivilege: PrivilegeLevel.RequestAccess,
   },
 ];
 
+const scopedReportTypes: ReportType[] = SCOPE_REPORT_UI_ORDER.map((type) => {
+  const ui = SCOPE_REPORT_UI[type];
+  return {
+    title: ui.gridTitle,
+    description: ui.gridDescription,
+    href: ui.href,
+    enabled: true,
+    minPrivilege: ui.minPrivilege,
+  };
+});
+
 export default function GenerateReportGrid() {
+  const { actingPermissions } = useContext(GlobalContext);
+
+  const isAdminUser = hasPermissionFor(
+    actingPermissions,
+    PrivilegeLevel.Admin,
+  );
+
+  const reportTypes: ReportType[] = [
+    ...scopedReportTypes,
+    ...NON_SCOPE_REPORT_TYPES,
+    ...(isAdminUser
+      ? [
+          {
+            title: "Committee Report (Advanced)",
+            description:
+              "Admin-only legacy committee report with field and column configuration.",
+            href: "/committee-reports",
+            enabled: true,
+          },
+        ]
+      : []),
+  ];
+
+  const visibleReportTypes = reportTypes.filter(
+    (report) =>
+      !report.minPrivilege ||
+      hasPermissionFor(actingPermissions, report.minPrivilege),
+  );
+
   return (
     <div>
       <h2 className="text-xl font-semibold mb-3">Generate Report</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {reportTypes.map((report) =>
+        {visibleReportTypes.map((report) =>
           report.enabled ? (
             <Link key={report.title} href={report.href}>
               <Card className="h-full hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
@@ -101,7 +116,11 @@ export default function GenerateReportGrid() {
               <CardHeader className="p-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   {report.title}
-                  <Badge variant="outline" hoverable={false} className="text-[10px] px-1.5 py-0">
+                  <Badge
+                    variant="outline"
+                    hoverable={false}
+                    className="text-[10px] px-1.5 py-0"
+                  >
                     Coming soon
                   </Badge>
                 </CardTitle>

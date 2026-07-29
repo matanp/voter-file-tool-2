@@ -7,6 +7,8 @@ import {
   type ErrorResponse,
   getPrismaReportType,
   validateReportType,
+  getScopeReportJurisdictionLabel,
+  isScopedReportData,
 } from "@voter-file-tool/shared-validators";
 import { withPrivilege } from "../lib/withPrivilege";
 import prisma from "~/lib/prisma";
@@ -15,6 +17,8 @@ import type { Session } from "next-auth";
 import { gzipSync } from "node:zlib";
 import { createWebhookSignature } from "~/lib/webhookUtils";
 import { getUserDisplayName } from "@voter-file-tool/shared-validators";
+import { hasPermissionFor } from "~/lib/utils";
+import { validateReportJurisdictionAccess } from "~/app/api/lib/committeeValidation";
 
 const PDF_API_BASE = process.env.PDF_SERVER_URL
   ? process.env.PDF_SERVER_URL
@@ -47,6 +51,38 @@ export const POST = withPrivilege(
 
       if (!session?.user?.id) {
         throw new Error("Error getting user from session");
+      }
+
+      const userPrivilege =
+        session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+
+      // 4.7 hardening: legacy ldCommittees is admin-only.
+      if (
+        reportData.type === "ldCommittees" &&
+        !hasPermissionFor(userPrivilege, PrivilegeLevel.Admin)
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Only admins can generate countywide ldCommittees reports. Use committeeRoster for leader-scoped rosters.",
+          },
+          { status: 403 },
+        );
+      }
+
+      // SRS 3.2, 3.3, 3.4 — Jurisdiction enforcement for scope-based reports
+      if (isScopedReportData(reportData)) {
+        const reportLabel = getScopeReportJurisdictionLabel(reportData.type);
+        const validationError = await validateReportJurisdictionAccess(
+          reportData,
+          session.user.id,
+          userPrivilege,
+          reportLabel,
+          hasPermissionFor,
+        );
+        if (validationError) {
+          return NextResponse.json(validationError, { status: 403 });
+        }
       }
 
       const reportType = getPrismaReportType(

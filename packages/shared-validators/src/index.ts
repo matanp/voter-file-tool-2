@@ -4,6 +4,7 @@ export * from './schemas/ldCommittees';
 export * from './schemas/voterRecord';
 export * from './schemas/report';
 export * from './schemas/api';
+export * from './schemas/committeeDiscrepancy';
 
 // Export voter import types and validators
 export * from './voterImport';
@@ -17,12 +18,16 @@ export * from './searchQueryErrors';
 export * from './searchQueryFieldValidators';
 export * from './searchQueryNormalizers';
 export * from './fileUtils';
+export * from './emailIdentity';
 
 // Export shared constants
 export * from './constants';
 
 // Export report type mappings
 export * from './reportTypeMapping';
+
+// Export scope report registry
+export * from './scopeReportRegistry';
 
 // Re-export commonly used Zod utilities
 export { z } from 'zod';

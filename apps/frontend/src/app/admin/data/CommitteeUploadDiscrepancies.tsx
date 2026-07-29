@@ -8,6 +8,7 @@ import DiscrepancyRecordsTable, {
   type CommitteeUploadRecords,
 } from "./DiscrepancyTable";
 import { DiscrepanciesActionsMenu } from "./DiscrepancyActionsMenu";
+import { DiscrepancyUndoButton } from "./DiscrepancyUndoButton";
 import {
   Accordion,
   AccordionItem,
@@ -292,16 +293,40 @@ export const CommitteeUploadDiscrepancies: React.FC = () => {
                                   {acceptedDiscrepancies.includes(
                                     record.VRCNUM,
                                   ) && (
-                                    <p className="text-green-500">
-                                      Accepted, record saved to committee
-                                    </p>
+                                    <div className="flex items-center">
+                                      <p className="text-green-500">
+                                        Accepted, record saved to committee
+                                      </p>
+                                      <DiscrepancyUndoButton
+                                        VRCNUM={record.VRCNUM}
+                                        onUndo={() => {
+                                          setAcceptedDiscrepancies((prev) =>
+                                            prev.filter(
+                                              (v) => v !== record.VRCNUM,
+                                            ),
+                                          );
+                                        }}
+                                      />
+                                    </div>
                                   )}
                                   {rejectedDiscrepancies.includes(
                                     record.VRCNUM,
                                   ) && (
-                                    <p className="text-red-500">
-                                      Rejected, record not saved to committee
-                                    </p>
+                                    <div className="flex items-center">
+                                      <p className="text-red-500">
+                                        Rejected, record not saved to committee
+                                      </p>
+                                      <DiscrepancyUndoButton
+                                        VRCNUM={record.VRCNUM}
+                                        onUndo={() => {
+                                          setRejectedDiscrepancies((prev) =>
+                                            prev.filter(
+                                              (v) => v !== record.VRCNUM,
+                                            ),
+                                          );
+                                        }}
+                                      />
+                                    </div>
                                   )}
                                   {!acceptedDiscrepancies.includes(
                                     record.VRCNUM,

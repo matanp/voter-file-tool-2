@@ -21,7 +21,7 @@ Work items are organized into **tiers by effort/complexity**, then sequenced wit
 
 ## Implementation Tickets
 
-Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Start with [0.1 Backend enforcement](tickets/0.1-backend-enforcement-already-in-committee.md) and [1.1 Committee Term Model](tickets/1.1-committee-term-model.md). Planning: [IA-01 Admin IA v1 spec](tickets/IA-01-admin-ia-v1-spec.md) (SRS_UI_PLANNING_GAPS §16) unblocks placement of new admin pages.
+Implementation work is tracked in [tickets/](tickets/README.md). Each ticket provides acceptance criteria and links back to the roadmap. Phase 0 and Phase 1 foundation work (0.1, 1.1–1.5) are done, and the full Phase 1 remediation set (1.R.1–1.R.12) is now resolved. Next implementation queue starts at [2.1 Eligibility Validation](tickets/2.1-eligibility-validation.md). See [tickets/README.md §Phase 1 Remediation](tickets/README.md) for ticket-level status and [PHASE1_FINALIZATION.md](PHASE1_FINALIZATION.md) for closeout criteria.
 
 ---
 
@@ -33,13 +33,13 @@ These items can be done immediately with the current schema. They close correctn
 
 ### 0.1 Backend Enforcement for "Already in Another Committee" — **Done**
 
-|                |                                                    |
-| -------------- | -------------------------------------------------- |
+|                |                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------- |
 | **Ticket**     | [0.1 Backend enforcement](tickets/0.1-backend-enforcement-already-in-committee.md) |
-| **SRS Ref**    | §7.1                                               |
-| **Effort**     | Small (0.5–1 day)                                  |
-| **Depends on** | Nothing                                            |
-| **Priority**   | High — can be done immediately with current schema |
+| **SRS Ref**    | §7.1                                                                               |
+| **Effort**     | Small (0.5–1 day)                                                                  |
+| **Depends on** | Nothing                                                                            |
+| **Priority**   | High — can be done immediately with current schema                                 |
 
 **What exists today:** UI disables "Add" when `record.committeeId` is set. Backend does not enforce.
 
@@ -60,7 +60,7 @@ These items restructure the core data model. Almost everything else depends on t
 
 ---
 
-### 1.1 Committee Term Model
+### 1.1 Committee Term Model — **Done**
 
 |                |                                                                       |
 | -------------- | --------------------------------------------------------------------- |
@@ -84,15 +84,15 @@ These items restructure the core data model. Almost everything else depends on t
 
 ---
 
-### 1.1b LTED-to-Assembly-District Mapping
+### 1.1b LTED-to-Assembly-District Mapping — **Done**
 
-|                |                                                             |
-| -------------- | ----------------------------------------------------------- |
+|                |                                                                        |
+| -------------- | ---------------------------------------------------------------------- |
 | **Ticket**     | [1.1b LTED→AD Mapping](tickets/1.1b-lted-assembly-district-mapping.md) |
-| **SRS Ref**    | §4.2, §7.1                                                  |
-| **Effort**     | Small–Medium (1–2 days)                                     |
-| **Depends on** | Nothing (or 1.1 if term affects crosswalk)                  |
-| **Priority**   | Critical — required for eligibility validation AD hard stop |
+| **SRS Ref**    | §4.2, §7.1                                                             |
+| **Effort**     | Small–Medium (1–2 days)                                                |
+| **Depends on** | Nothing (or 1.1 if term affects crosswalk)                             |
+| **Priority**   | Critical — required for eligibility validation AD hard stop            |
 
 **What exists today:** No LTED→Assembly District mapping. `CommitteeList` has no AD field. SRS §4.2 describes "LTED-to-district crosswalk table provided by MCDC."
 
@@ -105,15 +105,15 @@ These items restructure the core data model. Almost everything else depends on t
 
 ---
 
-### 1.1c Committee Governance Config
+### 1.1c Committee Governance Config — **Done**
 
-|                |                              |
-| -------------- | ---------------------------- |
+|                |                                                                                 |
+| -------------- | ------------------------------------------------------------------------------- |
 | **Ticket**     | [1.1c Committee Governance Config](tickets/1.1c-committee-governance-config.md) |
-| **SRS Ref**    | Additional Requirements doc  |
-| **Effort**     | Small (0.5–1 day)            |
-| **Depends on** | Nothing                      |
-| **Priority**   | Critical — unblocks 2.1, 1.4 |
+| **SRS Ref**    | Additional Requirements doc                                                     |
+| **Effort**     | Small (0.5–1 day)                                                               |
+| **Depends on** | Nothing                                                                         |
+| **Priority**   | Critical — unblocks 2.1, 1.4                                                    |
 
 **What exists today:** No governance config. Party (DEM), capacity (4), and AD check are hardcoded.
 
@@ -125,22 +125,22 @@ These items restructure the core data model. Almost everything else depends on t
 
 ---
 
-### 1.2 Membership Status Enum
+### 1.2 Membership Status Enum + CommitteeMembership Model — **Done**
 
-|                |                                             |
-| -------------- | ------------------------------------------- |
-| **Ticket**     | *(Created when 1.1 complete)*                |
-| **SRS Ref**    | §6.2                                        |
-| **Effort**     | Medium (3–5 days)                           |
-| **Depends on** | 1.1 (Term Model)                            |
-| **Priority**   | Critical — unblocks all lifecycle workflows |
+|                |                                                                            |
+| -------------- | -------------------------------------------------------------------------- |
+| **Ticket**     | [1.2 CommitteeMembership Model](tickets/1.2-committee-membership-model.md) |
+| **SRS Ref**    | §6.2                                                                       |
+| **Effort**     | Medium (3–5 days)                                                          |
+| **Depends on** | 1.1 (Term Model)                                                           |
+| **Priority**   | Critical — unblocks all lifecycle workflows                                |
 
 **What exists today:**
 Membership is binary: voter has `committeeId` (in committee) or `null` (not). `CommitteeRequest` is a separate table that gets deleted on accept/reject. No status field.
 
 **What to build:**
 
-1. New `MembershipStatus` Prisma enum — see [SRS_DATA_MODEL_CHANGES](SRS_DATA_MODEL_CHANGES.md) §1 for full enum (includes petition statuses: `PETITIONED_WON`, `PETITIONED_LOST`, `PETITIONED_TIE`)
+1. New `MembershipStatus` Prisma enum — see [SRS_DATA_MODEL_CHANGES](SRS_DATA_MODEL_CHANGES.md) §1 for full enum (petition statuses: `PETITIONED_LOST`, `PETITIONED_TIE`; winners use `ACTIVE` + `membershipType=PETITIONED`)
 2. New `CommitteeMembership` model (replaces the `VoterRecord.committeeId` FK pattern):
    - `id`, `voterRecordId`, `committeeListId`, `termId`, `status`, `membershipType` (see 1.3), `seatNumber` (see 1.4)
    - `submittedAt`, `confirmedAt`, `activatedAt`, `resignedAt`, `removedAt`, `rejectedAt`
@@ -155,7 +155,7 @@ Membership is binary: voter has `committeeId` (in committee) or `null` (not). `C
 
 ---
 
-### 1.3 Membership Type (Petitioned vs. Appointed)
+### 1.3 Membership Type (Petitioned vs. Appointed) — **Done**
 
 |                |                                  |
 | -------------- | -------------------------------- |
@@ -176,7 +176,7 @@ No distinction between petitioned and appointed members.
 
 ---
 
-### 1.4 Seat Model
+### 1.4 Seat Model — **Done**
 
 |                |                                                                               |
 | -------------- | ----------------------------------------------------------------------------- |
@@ -199,7 +199,7 @@ No distinction between petitioned and appointed members.
 
 ---
 
-### 1.5 Audit Trail Infrastructure
+### 1.5 Audit Trail Infrastructure — **Done**
 
 |                |                                                                                                |
 | -------------- | ---------------------------------------------------------------------------------------------- |
@@ -223,6 +223,31 @@ Only `createdAt`/`updatedAt` timestamps. No action logging.
 
 ---
 
+## Phase 1 Remediation — Bugs / Gaps from Scope Check
+
+These tickets addressed issues found during a full scope check of Phase 1 completion. They are now resolved and retained here for traceability.
+
+| Ticket                                                          | Title                                                              | Priority      | Effort    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------ | ------------- | --------- |
+| [1.R.1](tickets/1.R.1-leader-privilege-escalation.md)           | Leader Privilege Escalation                                        | P0 (Critical) | 0.5 day   |
+| [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md)    | requestAdd Resubmission for Non-Active Memberships                 | P1            | 0.5–1 day |
+| [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md)      | Replacement Flow Not Implemented in handleRequest                  | P1            | 1–2 days  |
+| [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md)       | Bulk Import Incompatible with Phase 1 Schema                       | P1            | 2–3 days  |
+| [1.R.5](tickets/1.R.5-source-of-truth-split.md)                 | Source-of-Truth Split (committeeMemberList vs CommitteeMembership) | P1            | 2–3 days  |
+| [1.R.6](tickets/1.R.6-audit-tests-fail.md)                      | Audit Tests Fail (AuditAction Undefined)                           | P2            | 0.5 day   |
+| [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md)   | Capacity + Seat Assignment Non-Atomic (Race Risk)                  | P2            | 1–2 days  |
+| [1.R.8](tickets/1.R.8-phase1-remediation-closeout.md)           | Phase 1 Remediation Closeout (Tests + Docs)                        | P1            | 1–2 days  |
+| [1.R.9](tickets/1.R.9-formdata-support-for-use-api-mutation.md) | FormData Support for useApiMutation                                | P2            | 1–2 days  |
+| [1.R.10](tickets/1.R.10-update-lted-weight-atomic-recompute.md) | updateLtedWeight Atomicity for Weight Recompute                    | P2            | 1 day     |
+| [1.R.11](tickets/1.R.11-admin-get-hook-standardization.md)      | Admin GET Data Hook Standardization                                | P3            | 0.5–1 day |
+| [1.R.12](tickets/1.R.12-drop-redundant-lted-crosswalk-index.md) | Drop Redundant LTED Crosswalk Index                                | P3            | 0.5 day   |
+
+**Recommended execution order:** [1.R.1](tickets/1.R.1-leader-privilege-escalation.md), then [1.R.2](tickets/1.R.2-requestAdd-resubmission-non-active.md) + [1.R.3](tickets/1.R.3-replacement-flow-not-implemented.md), then [1.R.4](tickets/1.R.4-bulk-import-phase1-incompatible.md), then [1.R.5](tickets/1.R.5-source-of-truth-split.md), then [1.R.6](tickets/1.R.6-audit-tests-fail.md) + [1.R.7](tickets/1.R.7-capacity-seat-assignment-non-atomic.md), then [1.R.8](tickets/1.R.8-phase1-remediation-closeout.md), then [1.R.10](tickets/1.R.10-update-lted-weight-atomic-recompute.md) + [1.R.9](tickets/1.R.9-formdata-support-for-use-api-mutation.md), with [1.R.11](tickets/1.R.11-admin-get-hook-standardization.md) and [1.R.12](tickets/1.R.12-drop-redundant-lted-crosswalk-index.md) as low-priority cleanup.
+
+See [tickets/README.md §Phase 1 Remediation](tickets/README.md) and [PHASE1_FINALIZATION.md](PHASE1_FINALIZATION.md) for closeout scope details.
+
+---
+
 ## Tier 2 — Core Business Logic
 
 These items implement the SRS business rules on top of the Tier 1 foundation.
@@ -242,7 +267,7 @@ These items implement the SRS business rules on top of the Tier 1 foundation.
 
 - LTED capacity (max 4) — done, tested
 - Already in this committee (idempotent) — done, tested
-- Already in another committee — UI only, no backend enforcement (Tier 0 quick fix adds backend enforcement for current schema)
+- Already in another committee — backend-enforced (Tier 0 done), uses `CommitteeMembership`-based check
 
 **What to build:**
 
@@ -262,19 +287,19 @@ These items implement the SRS business rules on top of the Tier 1 foundation.
 
 ### 2.1a Email/Phone During Leader Submission (SRS §9.1, Gaps 5.2)
 
-|                |                                                                 |
-| -------------- | --------------------------------------------------------------- |
-| **SRS Ref**    | §9.1                                                            |
-| **Effort**     | Small (0.5–1 day)                                               |
+|                |                                                                       |
+| -------------- | --------------------------------------------------------------------- |
+| **SRS Ref**    | §9.1                                                                  |
+| **Effort**     | Small (0.5–1 day)                                                     |
 | **Depends on** | 1.2 (Membership Status) — CommitteeMembership with submissionMetadata |
-| **Priority**   | Medium                                                          |
+| **Priority**   | Medium                                                                |
 
 **What exists today:** No email/phone entry in add/request forms. `VoterRecord` has `email` and `telephone` from BOE, but not editable during submission.
 
 **What to build:**
 
 1. Add optional email and phone fields to `AddCommitteeForm.tsx` and the request-add flow
-2. Store in `CommitteeMembership.submissionMetadata` as `{ email?: string; phone?: string }`. Do *not* save to `VoterRecord` — voter import overwrites BOE-sourced fields; metadata survives imports
+2. Store in `CommitteeMembership.submissionMetadata` as `{ email?: string; phone?: string }`. Do _not_ save to `VoterRecord` — voter import overwrites BOE-sourced fields; metadata survives imports
 3. Validate with Zod (email format if provided)
 4. Display logic for rosters/sign-in sheets: `submissionMetadata?.email ?? voterRecord.email` (same for phone)
 5. API: accept optional `email`, `phone` in `committee/add` and `committee/requestAdd`; persist to `submissionMetadata` when creating CommitteeMembership/CommitteeRequest (migrated request flow stores in membership record on accept)
@@ -461,7 +486,7 @@ No weight fields, no calculation logic.
 
 **Integration (triggers):**
 
-- **Auto after import:** In report-server, immediately after successful `processVoterImport()`, enqueue a new job type `boeEligibilityFlagging` on the same worker queue. The job creates its own Report record and runs asynchronously. No config toggle—runs after every BOE import.
+- **Auto after import:** In report-server, immediately after successful `processVoterImport()`, enqueue a new job type `boeEligibilityFlagging` on the same worker queue. The job creates its own Report record and runs asynchronously. No runtime feature toggle—runs after every BOE import. Implement this through a centralized internal orchestration map (for example: `voterImport -> boeEligibilityFlagging`) that can be injected/overridden in tests to decouple job chaining.
 - **Manual:** Admin "Run eligibility check" action (button/API) to re-run without re-importing (e.g., after governance config changes or data fixes).
 
 ---
@@ -481,8 +506,8 @@ These items build on top of the Tier 1+2 foundation to complete the SRS.
 | **Depends on** | 1.2 (Membership Status / CommitteeMembership model)   |
 | **Priority**   | Critical — required for roster report after migration |
 
-**What exists today:**
-ldCommittees report uses `committeeMemberList` (VoterRecord.committeeId) via `fetchCommitteeData()` and `mapCommitteesToReportShape()` in report-server.
+**What existed (migrated in 3.0):**
+ldCommittees report previously used `committeeMemberList` (VoterRecord.committeeId). Migration complete: `fetchCommitteeData()` and `mapCommitteesToReportShape()` now use `memberships` (CommitteeMembership, status=ACTIVE).
 
 **What to build:**
 
@@ -506,7 +531,7 @@ ldCommittees report uses `committeeMemberList` (VoterRecord.committeeId) via `fe
 
 | Report             | Uses committee membership?                    | Migration needed? | Covered by |
 | ------------------ | --------------------------------------------- | ----------------- | ---------- |
-| ldCommittees       | Yes — fetchCommitteeData, committeeMemberList | Yes               | 3.0        |
+| ldCommittees       | Yes — fetchCommitteeData, memberships (migrated) | Yes               | 3.0        |
 | designatedPetition | No — form payload only                        | No                | N/A        |
 | voterList          | No                                            | No                | N/A        |
 | absenteeReport     | No                                            | No                | N/A        |
@@ -514,11 +539,11 @@ ldCommittees report uses `committeeMemberList` (VoterRecord.committeeId) via `fe
 
 **ldCommittees update checklist (3.0):**
 
-- [ ] `fetchCommitteeData()` — query memberships where status = ACTIVE
-- [ ] `mapCommitteesToReportShape()` — consume memberships instead of committeeMemberList
-- [ ] `CommitteeWithMembers` type — update in report-server and shared-validators
-- [ ] PDF path (CommitteeReport.tsx, utils.ts) — verify unchanged output
-- [ ] XLSX path (xlsxGenerator.ts) — verify unchanged output
+- [x] `fetchCommitteeData()` — query memberships where status = ACTIVE
+- [x] `mapCommitteesToReportShape()` — consume memberships instead of committeeMemberList
+- [x] `CommitteeWithMembers` type — update in report-server and shared-validators
+- [x] PDF path (CommitteeReport.tsx, utils.ts) — verify unchanged output
+- [x] XLSX path (xlsxGenerator.ts) — verify unchanged output
 
 ---
 
@@ -557,11 +582,11 @@ ldCommittees report uses `committeeMemberList` (VoterRecord.committeeId) via `fe
 
 **Extension path (future flexibility):**
 
-| If you need later…       | Change required                                              |
-| ------------------------ | ------------------------------------------------------------ |
-| Read-only leaders        | Add `ReadOnlyLeader`; restrict submit/request APIs          |
-| Report-only users        | Add `ReportAccess` or similar; gate report APIs             |
-| Different admin sub-roles | Evaluate then — may still not need RBAC                    |
+| If you need later…        | Change required                                    |
+| ------------------------- | -------------------------------------------------- |
+| Read-only leaders         | Add `ReadOnlyLeader`; restrict submit/request APIs |
+| Report-only users         | Add `ReportAccess` or similar; gate report APIs    |
+| Different admin sub-roles | Evaluate then — may still not need RBAC            |
 
 Adding new privilege levels requires: new enum value, update to permission-order array, a few route-level checks. No new tables or RBAC.
 
@@ -576,7 +601,7 @@ Adding new privilege levels requires: new enum value, update to permission-order
 | **Depends on** | 1.2 (Membership Status) for vacancy; 2.7 (Weight Logic) for weight |
 | **Priority**   | Medium — satisfies in-app view of open seats and weight            |
 
-**What exists today:** CommitteeSelector shows member cards only. Vacancy is implicit (fewer than 4 members). No weight data.
+**What exists today:** CommitteeSummaryBlock component between district selectors and member list; standardized vacancy badges (Full, 1/N open seats, All N vacant); designation weight with 2-decimal format and "—" fallback; finalized empty states (no jurisdictions, no committees in jurisdictions, no members).
 
 **What to build:**
 
@@ -610,22 +635,24 @@ Adding new privilege levels requires: new enum value, update to permission-order
 
 ---
 
-### 3.3 Designation Weight Summary Report
+### 3.3 Designation Weight Summary Report — Done
 
 |                |                         |
 | -------------- | ----------------------- |
+| **Ticket**     | [3.3](tickets/3.3-designation-weight-summary-report-ui.md) |
 | **SRS Ref**    | §10.1, Scenario 7       |
 | **Effort**     | Small–Medium (2–4 days) |
 | **Depends on** | 2.7 (Weight Logic)      |
 | **Priority**   | Medium                  |
+| **Status**     | Done                    |
 
-**What to build:**
+**What was built:**
 
-1. New report type: `designationWeightSummary`
-2. 1-page PDF: lists each LTED, total weight, seats (petitioned/non-petitioned, occupied/vacant), contributing weight
-3. Totals row at bottom
-4. Scope by jurisdiction or countywide
-5. Add to frontend report generation UI
+1. New report type: `designationWeightSummary` (PDF + XLSX)
+2. PDF: groups by cityTown/LD; table with ED, seats, weights, subtotals, grand total
+3. Scope by jurisdiction or countywide; Leader restricted to jurisdictions
+4. Frontend: `/weight-summary-reports` with WeightSummaryForm
+5. Report picker card enabled in GenerateReportGrid
 
 ---
 
@@ -670,19 +697,36 @@ Adding new privilege levels requires: new enum value, update to permission-order
 ## Implementation Sequence Summary
 
 ```
-Phase 0: Quick Fixes (can run in parallel with Phase 1)
-└── 0.1 Backend enforcement — [ticket](tickets/0.1-backend-enforcement-already-in-committee.md)
+Phase 0: Quick Fixes — Done
+└── 0.1 Backend enforcement — [ticket](tickets/0.1-backend-enforcement-already-in-committee.md) Done
 
-Phase 1: Foundation (Weeks 1–3)
-├── 1.1 Committee Term Model — [ticket](tickets/1.1-committee-term-model.md)
-├── 1.1b LTED-to-Assembly-District Mapping — [ticket](tickets/1.1b-lted-assembly-district-mapping.md)
-├── 1.1c Committee Governance Config — [ticket](tickets/1.1c-committee-governance-config.md)
-├── 1.2 Membership Status Enum + CommitteeMembership model
-├── 1.3 Membership Type (Petitioned vs. Appointed)
-├── 1.4 Seat Model
-└── 1.5 Audit Trail Infrastructure
+Phase 1: Foundation — Done
+├── 1.1 Committee Term Model — [ticket](tickets/1.1-committee-term-model.md) Done
+├── 1.1b LTED-to-Assembly-District Mapping — [ticket](tickets/1.1b-lted-assembly-district-mapping.md) Done
+├── 1.1c Committee Governance Config — [ticket](tickets/1.1c-committee-governance-config.md) Done
+├── 1.2 Membership Status Enum + CommitteeMembership model Done
+├── 1.3 Membership Type (Petitioned vs. Appointed) Done
+├── 1.4 Seat Model Done
+└── 1.5 Audit Trail Infrastructure Done
 
-Phase 2: Core Business Logic (Weeks 4–7)
+Phase 1 Follow-Up: Remediation (Done; historical execution order)
+├── 1.R.1 Leader Privilege Escalation (P0)
+├── 1.R.2 requestAdd Resubmission for Non-Active Memberships
+├── 1.R.3 Replacement Flow Not Implemented in handleRequest
+├── 1.R.4 Bulk Import Incompatible with Phase 1 Schema
+├── 1.R.5 Source-of-Truth Split (committeeMemberList vs CommitteeMembership)
+├── 1.R.6 Audit Tests Fail (AuditAction Undefined)
+├── 1.R.7 Capacity + Seat Assignment Non-Atomic (Race Risk)
+├── 1.R.8 Phase 1 Remediation Closeout (Tests + Docs)
+├── 1.R.9 FormData Support for useApiMutation
+├── 1.R.10 updateLtedWeight Atomicity for Weight Recompute
+├── 1.R.11 Admin GET Data Hook Standardization
+└── 1.R.12 Drop Redundant LTED Crosswalk Index
+
+Phase 1.1 — Pre–Phase 2 gate (recommended)
+└── Address [PHASE1_CODE_REVIEW_FINDINGS.md](PHASE1_CODE_REVIEW_FINDINGS.md): fix 4 P1 findings + add/expand tests before starting 2.1
+
+Phase 2: Core Business Logic (current queue)
 ├── 2.1 Eligibility Validation (Hard Stops)
 ├── 2.1a Email/Phone During Leader Submission (SRS §9.1)
 ├── 2.2 Warning System
@@ -693,7 +737,7 @@ Phase 2: Core Business Logic (Weeks 4–7)
 ├── 2.7 Weight / Designation Logic
 └── 2.8 BOE-Driven Eligibility Flagging
 
-Phase 3: Workflows, Reports & Access (Weeks 8–10)
+Phase 3: Workflows, Reports & Access
 ├── 3.0 Report-server: Migrate ldCommittees to CommitteeMembership
 ├── 3.0a Audit and update all reports for CommitteeMembership
 ├── 3.1 Jurisdiction-Scoped Access
@@ -704,7 +748,7 @@ Phase 3: Workflows, Reports & Access (Weeks 8–10)
 └── 3.5 Audit Trail UI & Export
 ```
 
-**Total estimated effort:** 10–14 weeks for one developer, depending on iteration speed and review cycles.
+**Total estimated effort:** 11–16 weeks for one developer, depending on iteration speed and review cycles (includes Phase 1 follow-up remediation tickets 1.R.1–1.R.12).
 
 ---
 
@@ -714,10 +758,10 @@ Items below are out of scope for the governance migration but should be planned 
 
 ### Microsoft Access Database Import
 
-|              |                                                                              |
-| ------------ | ---------------------------------------------------------------------------- |
-| **SRS Ref**  | §4.1                                                                         |
-| **v1 Scope** | Out of scope — v1 supports CSV import only                                   |
+|              |                                            |
+| ------------ | ------------------------------------------ |
+| **SRS Ref**  | §4.1                                       |
+| **v1 Scope** | Out of scope — v1 supports CSV import only |
 
 SRS §4.1 lists "CSV and Microsoft Access database" as voter data formats. v1 implements CSV import only. Future work options:
 
@@ -780,14 +824,14 @@ These are features that are already shipping to users with zero automated test c
 
 ---
 
-### T1.1 `handleRequest` Route
+### T1.1 `handleRequest` Route ✅ Done
 
-|                  |                                                                  |
-| ---------------- | ---------------------------------------------------------------- |
+|                  |                                                                       |
+| ---------------- | --------------------------------------------------------------------- |
 | **Ticket**       | [T1.1 handleRequest tests](tickets/T1.1-handleRequest-route-tests.md) |
-| **Effort**       | Small (0.5–1 day)                                                |
-| **Risk**         | High — this is the accept/reject workflow for committee requests |
-| **File to test** | `apps/frontend/src/app/api/committee/handleRequest/route.ts`     |
+| **Effort**       | Small (0.5–1 day)                                                     |
+| **Risk**         | High — this is the accept/reject workflow for committee requests      |
+| **File to test** | `apps/frontend/src/app/api/committee/handleRequest/route.ts`          |
 
 **Pre-migration fix:** Fix `CommitteeRequest.committList` schema typo (missing 't') before or during CommitteeRequest deprecation. Rename relation to `committeeList` and column to `committeeListId` if not already correct. See [CODE_REVIEW_RECOMMENDATIONS.md](../CODEBASE_AUDIT/CODE_REVIEW_RECOMMENDATIONS.md).
 
@@ -804,13 +848,14 @@ These are features that are already shipping to users with zero automated test c
 
 ---
 
-### T1.2 Report Generation API Route
+### T1.2 Report Generation API Route ✅ Done
 
-|                  |                                                     |
-| ---------------- | --------------------------------------------------- |
-| **Effort**       | Medium (1–2 days)                                   |
-| **Risk**         | Medium — report failures are user-visible           |
-| **File to test** | `apps/frontend/src/app/api/generateReport/route.ts` |
+|                  |                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------- |
+| **Ticket**       | [T1.2 Report generation API tests](tickets/T1.2-report-generation-api-tests.md) |
+| **Effort**       | Medium (1–2 days)                                                               |
+| **Risk**         | Medium — report failures are user-visible                                       |
+| **File to test** | `apps/frontend/src/app/api/generateReport/route.ts`                             |
 
 **What to cover:**
 
@@ -823,10 +868,11 @@ These are features that are already shipping to users with zero automated test c
 
 ---
 
-### T1.3 Committee Discrepancy Handling
+### T1.3 Committee Discrepancy Handling ✅ Done
 
 |                   |                                                                                                                                      |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Ticket**        | [T1.3 Committee discrepancy handling tests](tickets/T1.3-discrepancy-handling-tests.md)                                              |
 | **Effort**        | Medium (1–2 days)                                                                                                                    |
 | **Risk**          | Medium — data integrity during BOE updates                                                                                           |
 | **Files to test** | `apps/frontend/src/app/api/admin/bulkLoadCommittees/route.ts`, `apps/frontend/src/app/api/admin/handleCommitteeDiscrepancy/route.ts` |
@@ -1045,9 +1091,9 @@ As each Tier 1/2 implementation item is built, tests should be written alongside
 
 ```
 Immediate (before new feature work):
-├── T1.1 handleRequest route tests — [ticket](tickets/T1.1-handleRequest-route-tests.md) (0.5–1 day)
-├── T1.2 Report generation API tests            (1–2 days)
-├── T1.3 Discrepancy handling tests             (1–2 days)
+├── T1.1 handleRequest route tests — [ticket](tickets/T1.1-handleRequest-route-tests.md) Done
+├── T1.2 Report generation API tests — [ticket](tickets/T1.2-report-generation-api-tests.md) Done
+├── T1.3 Discrepancy handling tests — [ticket](tickets/T1.3-discrepancy-handling-tests.md) Done
 ├── T1.4 Voter import processor tests           (2–3 days)
 └── T1.5 Report-server core tests               (3–5 days)
 
@@ -1067,22 +1113,21 @@ With each new feature (Tier 3):
 
 ## Combined Timeline
 
-| Week | Implementation                                                                   | Testing                           |
-| ---- | -------------------------------------------------------------------------------- | --------------------------------- |
-| 0    | [0.1](tickets/0.1-backend-enforcement-already-in-committee.md) Backend enforcement (quick fix) | —                                 |
-| 1    | [1.1](tickets/1.1-committee-term-model.md), [1.1b](tickets/1.1b-lted-assembly-district-mapping.md), [1.1c](tickets/1.1c-committee-governance-config.md) | [T1.1](tickets/T1.1-handleRequest-route-tests.md) handleRequest tests |
-| 2    | 1.2 Membership Status + CommitteeMembership                                      | T1.2 Report generation API tests  |
-| 3    | 1.3 Membership Type, 1.4 Seat Model                                              | T1.3 Discrepancy handling tests   |
-| 4    | 1.5 Audit Trail Infrastructure                                                   | T1.4 Voter import processor tests |
-| 5    | 2.1 Eligibility Hard Stops, 2.1a Email/Phone + tests                             | T1.5 Report-server tests (start)  |
-| 6    | 2.2 Warnings, 2.3 Resignation + tests                                            | T1.5 Report-server tests (finish) |
-| 7    | 2.4 Meeting Record + Confirmation + tests                                        | T2.1 CommitteeSelector tests      |
-| 8    | 2.5 Removal Reasons, 2.6 Petition Tracking                                       | T2.2–T2.4 Component tests         |
-| 9    | 2.7 Weight Logic + tests                                                         | — (tests included in feature)     |
-| 10   | 2.8 BOE Flagging + tests                                                         | —                                 |
-| 11   | 3.1 Jurisdiction Scoping + tests                                                 | —                                 |
-| 12   | 3.2 Sign-In Sheet, 3.3 Weight Report                                             | —                                 |
-| 13   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                 | —                                 |
-| 14   | 3.5 Audit Trail UI + Export                                                      | —                                 |
+| Week | Implementation                                                                                                                                              | Testing                           |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| 0–4  | Phase 0 & 1 done: Backend enforcement, Foundation (Terms, LTED crosswalk, Governance Config, CommitteeMembership, Membership Type, Seat model, Audit Trail) | T1.1–T1.3 done                    |
+| 5    | **Phase 1 follow-up remediation:** 1.R.1, 1.R.2, 1.R.3                                                                                                      | T1.5 Report-server tests (start)  |
+| 6    | **Phase 1 follow-up remediation:** 1.R.4, 1.R.5, 1.R.6, 1.R.7, 1.R.8, 1.R.10                                                                                | T1.5 Report-server tests (finish) |
+| 7    | **Phase 1 follow-up remediation cleanup:** 1.R.9, 1.R.11, 1.R.12                                                                                            | T2.1 CommitteeSelector tests      |
+| 8    | 2.1 Eligibility Hard Stops, 2.1a Email/Phone + tests                                                                                                        | T2.2–T2.4 Component tests         |
+| 9    | 2.2 Warnings, 2.3 Resignation + tests                                                                                                                       | — (tests included in feature)     |
+| 10   | 2.4 Meeting Record + Confirmation + tests                                                                                                                   | —                                 |
+| 11   | 2.5 Removal Reasons, 2.6 Petition Tracking                                                                                                                  | —                                 |
+| 12   | 2.7 Weight Logic + tests                                                                                                                                    | —                                 |
+| 13   | 2.8 BOE Flagging + tests                                                                                                                                    | —                                 |
+| 14   | 3.1 Jurisdiction Scoping + tests                                                                                                                            | —                                 |
+| 15   | 3.2 Sign-In Sheet, 3.3 Weight Report                                                                                                                        | —                                 |
+| 16   | 3.4 Vacancy, Changes & Petition Outcomes Reports                                                                                                            | —                                 |
+| 17   | 3.5 Audit Trail UI + Export                                                                                                                                 | —                                 |
 
-**Total: ~14 weeks** for one developer doing both implementation and testing remediation in parallel.
+**Current status:** Phase 0, Phase 1 foundation, T1.1–T1.3, and Phase 1 remediation (1.R.1–1.R.12) are complete. **Current focus:** Tier 2 implementation starting at 2.1 Eligibility Validation.

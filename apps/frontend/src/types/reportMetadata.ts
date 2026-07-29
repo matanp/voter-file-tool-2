@@ -12,11 +12,15 @@ export type ReportMetadataMap = {
   [ReportType.DesignatedPetition]: null;
   [ReportType.VoterList]: null;
   [ReportType.AbsenteeReport]: null;
+  [ReportType.SignInSheet]: null;
+  [ReportType.DesignationWeightSummary]: null;
+  [ReportType.VacancyReport]: null;
+  [ReportType.ChangesReport]: null;
+  [ReportType.PetitionOutcomesReport]: null;
 };
 
 // Helper type to get metadata for a specific report type
-export type MetadataForReportType<T extends ReportType> =
-  ReportMetadataMap[T];
+export type MetadataForReportType<T extends ReportType> = ReportMetadataMap[T];
 
 // Type guard for voter import metadata
 export function isVoterImportMetadata(

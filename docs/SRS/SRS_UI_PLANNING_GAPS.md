@@ -20,9 +20,30 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 
 ---
 
+## Ticket Mapping (February 20, 2026)
+
+| Gap Area | Tracking Ticket(s) |
+| --- | --- |
+| Admin override UX | [2.1](tickets/2.1-eligibility-validation.md) |
+| Meeting confirmation workflow UI | [2.4](tickets/2.4-meeting-record-confirmation-workflow.md) |
+| Resignation UI | [2.3](tickets/2.3-resignation-workflow.md) |
+| Structured removal UI | [2.5](tickets/2.5-structured-removal-reasons.md) |
+| Petition outcomes UI | [2.6](tickets/2.6-petition-primary-outcome-tracking.md) |
+| BOE eligibility queue UI | [2.8](tickets/2.8-boe-driven-automatic-eligibility-flagging.md) |
+| Term management UI | [1.1](tickets/1.1-committee-term-model.md), [1.R.17](tickets/1.R.17-phase1-ui-fixes.md) |
+| Jurisdiction assignment UI | [3.1](tickets/3.1-jurisdiction-assignment-ui.md) |
+| CommitteeSelector vacancy/weight and empty states | [3.1a](tickets/3.1a-committee-selector-vacancy-weight-empty-states.md) |
+| Report UI additions (3.2-3.4) | [3.2](tickets/3.2-sign-in-sheet-report-ui.md), [3.3](tickets/3.3-designation-weight-summary-report-ui.md), [3.4](tickets/3.4-vacancy-changes-petition-reports-ui.md) |
+| Audit trail UI | [3.5](tickets/3.5-audit-trail-ui-export.md) |
+| Mobile/a11y baseline | [3.6](tickets/3.6-mobile-accessibility-baseline.md) |
+| LTED crosswalk import UI | [3.7](tickets/3.7-lted-crosswalk-import-ui.md) |
+| Admin IA/navigation | [IA-01](tickets/IA-01-admin-ia-v1-spec.md) |
+
+---
+
 ## 1. Admin Override UX (Roadmap 2.1, Gaps 3.1)
 
-**Status:** Open in SRS_GAPS_AND_CONSIDERATIONS §3.1
+**Status:** Tracked by [2.1](tickets/2.1-eligibility-validation.md)
 
 **What's planned:** "Admin override flag or bypass for hard stops when justified, logged to audit trail."
 
@@ -188,52 +209,29 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 
 ---
 
-## 11. CommitteeSelector Vacancy & Weight Display (Roadmap 3.1a)
+## 11. CommitteeSelector Vacancy & Weight Display (Roadmap 3.1a) — Resolved
 
 **What's planned:** "Display summary: vacancy count (e.g., '2 open seats' or 'Full') and designation weight total."
 
-**UI gaps:**
-
-- **Placement:** "Small summary block in existing flow" — above member cards? Below city/LD/ED selectors? In the committee card header?
-- **Copy:** "2 open seats" vs "Full" — exact wording. "Designation weight: X.XX" — units? Label?
-- **When no weight:** Before 2.7 (Weight Logic) exists — show "—" or hide? Conditional display.
-- **Visual design:** Compact block — font size, color, icon? Consistency with rest of CommitteeSelector.
-
-**Recommendation:** Add a 1–2 line spec: placement (e.g., above member list), copy variants, and fallback when weight unavailable.
+**Resolved by [3.1a](tickets/3.1a-committee-selector-vacancy-weight-empty-states.md):** CommitteeSummaryBlock component defines placement (between district selectors and member list), copy variants (Full, 1 open seat, N open seats, All N seats vacant with color-coded badges), and weight display (rounded to 2 decimals, "—" when unavailable, tooltip for missingWeightSeatNumbers).
 
 ---
 
-## 12. Leader Empty State (Roadmap 3.1)
+## 12. Leader Empty State (Roadmap 3.1) — Resolved
 
 **What's planned:** "Leader with no jurisdictions: Show empty committee list and 'Contact admin to get assigned'."
 
-**UI gaps:**
-
-- **Exact placement:** CommitteeSelector when `committeeLists` is empty — but is empty because of no jurisdictions vs. no committees in the DB? Different messages?
-- **Copy:** "Contact admin to get assigned" — full sentence? Link to help or admin contact?
-- **Consistency:** Same pattern for "no committees in your jurisdiction" (assigned but empty) vs "no jurisdiction assigned"?
-
-**Recommendation:** Define two empty states: (1) No jurisdictions assigned → "Contact an administrator to be assigned committee access." (2) Assigned but no committees → "No committees in your jurisdiction."
+**Resolved by [3.1a](tickets/3.1a-committee-selector-vacancy-weight-empty-states.md):** Two empty states implemented: (1) No jurisdictions assigned → "No Committee Access" / "You have not been assigned any jurisdictions. Contact your county administrator to get committee access." (replaces entire selector). (2) Jurisdictions assigned but no committees → "No Committees Found" with assigned areas list (dropdowns visible but disabled, empty card in member list area).
 
 ---
 
-## 13. Report Generation UI Additions (Roadmap 3.2, 3.3, 3.4)
+## 13. Report Generation UI Additions (Roadmap 3.2, 3.3, 3.4) — Resolved
+
+**Status:** 3.2 (Sign-In Sheet), 3.3 (Designation Weight Summary), and 3.4 (Vacancy, Changes, Petition Outcomes) done.
 
 **What's planned:** New report types: SignInSheet, DesignationWeightSummary, VacancyReport, ChangesReport, PetitionOutcomesReport.
 
-**UI gaps:**
-
-- **Report picker:** Current report UI (e.g., committee-reports, voter-list-reports) — how are new types added? New tabs? Single page with type dropdown? Per-roadmap item placement?
-- **Parameters per report:**
-  - SignInSheet: Scope (jurisdiction/date)? Same as ldCommittees?
-  - DesignationWeightSummary: Scope (county vs jurisdiction)?
-  - VacancyReport: Scope, filters?
-  - ChangesReport: Date range — required? Default?
-  - PetitionOutcomesReport: Term? Date range?
-- **Access control:** "Admin countywide; leader scoped to jurisdiction" — does UI auto-hide or disable scope options for leaders?
-- **Naming:** Report type labels in UI (e.g., "Sign-in Sheet" vs `SignInSheet`) — consistent naming not specified.
-
-**Recommendation:** Add a report UI matrix: report type → parameters → default values → leader vs admin behavior. Update reports page IA to accommodate new types.
+**Resolved by [3.2](tickets/3.2-sign-in-sheet-report-ui.md), [3.3](tickets/3.3-designation-weight-summary-report-ui.md), and [3.4](tickets/3.4-vacancy-changes-petition-reports-ui.md):** Report picker (GenerateReportGrid) includes new types as cards with dedicated form pages (e.g. `/sign-in-sheet-reports`, `/vacancy-reports`, `/changes-reports`, `/petition-outcomes-reports`). Each report has scope (jurisdiction/countywide) with type-specific params (date range for Changes, vacancy filter for Vacancy). Access control: scope options and API enforce leader vs admin behavior (leaders jurisdiction-only). Report parameter matrix is documented in ticket 3.4 §E.
 
 ---
 
@@ -320,12 +318,16 @@ These are areas that would benefit from more detailed design, wireframes, or spe
 | AddCommitteeForm layout & states | Roadmap 2.1/2.2         | 0.5 day  |
 | CommitteeSelector vacancy block  | Roadmap 3.1a            | 0.25 day |
 | Leader empty states              | Roadmap 3.1             | 0.25 day |
-| Report params matrix             | Roadmap 3.2–3.4         | 0.5 day  |
+| Report params matrix             | Roadmap 3.2–3.4 (in 3.4 ticket §E) | ✓        |
 | Audit table & filters            | Roadmap 3.5             | 0.5 day  |
 | Admin IA diagram                 | New doc                 | 0.5 day  |
 
 **Total:** ~8–10 days of planning for UI clarity before or in parallel with implementation.
 
 ---
+
+## Retirement Gate
+
+This document can be removed from active SRS docs when every gap area in the ticket-mapping table above is covered by a `Resolved`/`Done` ticket and the checklist items are fully closed.
 
 _This document should be updated as UI specs are added and gaps are resolved._
