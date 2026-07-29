@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useApiQuery } from "~/hooks/useApiQuery";
 import { format } from "date-fns";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -63,38 +64,16 @@ type AuditUsersResponse = {
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 const MAX_VISIBLE_PAGES = 5;
 
+/** Loads paginated audit log rows for the current URL search params. */
 function useAuditList() {
   const searchParams = useSearchParams();
-  const [data, setData] = useState<AuditListResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const queryString = searchParams.toString();
+  const listEndpoint = `/api/admin/audit${queryString ? `?${queryString}` : ""}`;
 
-  const fetchList = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const url = `/api/admin/audit${queryString ? `?${queryString}` : ""}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(res.status === 401 ? "Unauthorized" : "Failed to load audit log");
-      }
-      const json = (await res.json()) as AuditListResponse;
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load audit log");
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [queryString]);
+  const { data, loading, error, refetch } =
+    useApiQuery<AuditListResponse>(listEndpoint);
 
-  useEffect(() => {
-    void fetchList();
-  }, [fetchList]);
-
-  return { data, loading, error, refetch: fetchList };
+  return { data, loading, error, refetch };
 }
 
 /** Fetches admin/leader users for the audit trail user filter dropdown. */
@@ -126,8 +105,8 @@ export function AuditTrailClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
 
-  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-  const pageSize =
+  const urlPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const urlPageSize =
     Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "25", 10) || 25)) ||
     25;
   const action = searchParams.get("action") ?? "";
@@ -224,27 +203,39 @@ export function AuditTrailClient() {
     [users],
   );
 
-  const totalPages = data?.totalPages ?? 1;
-  const total = data?.total ?? 0;
+  const hasLoaded = data != null;
+  const showInitialLoading = !hasLoaded && !error;
+  const refreshing = loading && hasLoaded;
+
+  const displayPage = refreshing ? (data?.page ?? urlPage) : urlPage;
+  const displayPageSize = refreshing ? (data?.pageSize ?? urlPageSize) : urlPageSize;
+  const displayTotal = data?.total ?? 0;
+  const displayTotalPages = data?.totalPages ?? 1;
   const items = data?.items ?? [];
-  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const end = Math.min(page * pageSize, total);
+  const start =
+    displayTotal === 0 ? 0 : (displayPage - 1) * displayPageSize + 1;
+  const end = Math.min(displayPage * displayPageSize, displayTotal);
 
   const getPageNumbers = useCallback(() => {
-    if (totalPages <= MAX_VISIBLE_PAGES) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (displayTotalPages <= MAX_VISIBLE_PAGES) {
+      return Array.from({ length: displayTotalPages }, (_, i) => i + 1);
     }
-    const start = Math.max(1, page - 2);
-    const end = Math.min(totalPages, start + MAX_VISIBLE_PAGES - 1);
-    const from = Math.max(1, end - MAX_VISIBLE_PAGES + 1);
-    return Array.from({ length: end - from + 1 }, (_, i) => from + i);
-  }, [page, totalPages]);
+    const pageStart = Math.max(1, displayPage - 2);
+    const pageEnd = Math.min(displayTotalPages, pageStart + MAX_VISIBLE_PAGES - 1);
+    const from = Math.max(1, pageEnd - MAX_VISIBLE_PAGES + 1);
+    return Array.from({ length: pageEnd - from + 1 }, (_, i) => from + i);
+  }, [displayPage, displayTotalPages]);
 
   if (error) {
     return (
       <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
         <p className="text-destructive">{error}</p>
-        <Button variant="outline" size="sm" className="mt-2" onClick={() => void refetch()}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => void refetch().catch(() => undefined)}
+        >
           Try again
         </Button>
       </div>
@@ -361,17 +352,22 @@ export function AuditTrailClient() {
       </div>
 
       <div className="rounded-md border">
-        {loading ? (
+        {showInitialLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             Loading…
           </div>
-        ) : items.length === 0 ? (
+        ) : hasLoaded && items.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
             No audit entries match your filters.
           </div>
         ) : (
           <>
-            <Table>
+            {refreshing ? (
+              <div className="px-4 py-2 text-right text-sm text-muted-foreground">
+                Refreshing…
+              </div>
+            ) : null}
+            <Table className={refreshing ? "opacity-60" : undefined}>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[180px]">Timestamp</TableHead>
@@ -419,11 +415,11 @@ export function AuditTrailClient() {
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-2">
               <p className="text-sm text-muted-foreground">
-                Showing {start}–{end} of {total} entries
+                Showing {start}–{end} of {displayTotal} entries
               </p>
               <div className="flex items-center gap-2">
                 <Select
-                  value={String(pageSize)}
+                  value={String(urlPageSize)}
                   onValueChange={(v) => setPageSize(Number(v))}
                 >
                   <SelectTrigger className="w-[70px]">
@@ -442,7 +438,7 @@ export function AuditTrailClient() {
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    disabled={page <= 1}
+                    disabled={displayPage <= 1}
                     onClick={() => setPage(1)}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -450,7 +446,7 @@ export function AuditTrailClient() {
                   {getPageNumbers().map((n) => (
                     <Button
                       key={n}
-                      variant={page === n ? "default" : "outline"}
+                      variant={displayPage === n ? "default" : "outline"}
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => setPage(n)}
@@ -462,8 +458,8 @@ export function AuditTrailClient() {
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage(totalPages)}
+                    disabled={displayPage >= displayTotalPages}
+                    onClick={() => setPage(displayTotalPages)}
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
