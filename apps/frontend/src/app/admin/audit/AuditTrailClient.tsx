@@ -30,7 +30,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { useToast } from "~/components/ui/use-toast";
-import { buildSummary, AUDIT_ACTION_LABELS, AUDIT_ENTITY_TYPES } from "./auditUtils";
+import { buildSummary, AUDIT_ACTION_LABELS, AUDIT_ENTITY_TYPE_OPTIONS, formatEntityTypeLabel } from "./auditUtils";
 import { AuditDetailDrawer } from "./AuditDetailDrawer";
 import type { AuditAction } from "@prisma/client";
 
@@ -135,6 +135,9 @@ export function AuditTrailClient() {
   const userId = searchParams.get("userId") ?? "";
   const dateFrom = searchParams.get("dateFrom") ?? "";
   const dateTo = searchParams.get("dateTo") ?? "";
+  const selectedRecordTypeLabel = entityType
+    ? formatEntityTypeLabel(entityType)
+    : "All record types";
 
   const updateParams = useCallback(
     (updates: Record<string, string | number | undefined>) => {
@@ -274,25 +277,37 @@ export function AuditTrailClient() {
             </Select>
           </div>
           <div className="min-w-[160px]">
-            <Label className="text-xs">Entity type</Label>
+            <Label className="text-xs">Record type</Label>
             <Select
               value={entityType || "all"}
               onValueChange={(v) => updateParams({ entityType: v === "all" ? undefined : v })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="All types" />
+                <SelectValue placeholder="All record types">
+                  {selectedRecordTypeLabel}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                {AUDIT_ENTITY_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
+                <SelectItem value="all">All record types</SelectItem>
+                {AUDIT_ENTITY_TYPE_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    textValue={option.label}
+                    className="items-start py-2"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span>{option.label}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="min-w-[200px]">
+          <div className="min-w-[200px] flex flex-col gap-1">
             <Label className="text-xs">User</Label>
             <ComboboxDropdown
               items={userItems}
@@ -362,7 +377,7 @@ export function AuditTrailClient() {
                   <TableHead className="w-[180px]">Timestamp</TableHead>
                   <TableHead className="w-[150px]">User</TableHead>
                   <TableHead className="w-[150px]">Action</TableHead>
-                  <TableHead className="w-[120px]">Entity</TableHead>
+                  <TableHead className="w-[120px]">Record type</TableHead>
                   <TableHead>Summary</TableHead>
                 </TableRow>
               </TableHeader>
@@ -392,7 +407,9 @@ export function AuditTrailClient() {
                       <TableCell className="w-[150px]">
                         {AUDIT_ACTION_LABELS[row.action] ?? row.action}
                       </TableCell>
-                      <TableCell className="w-[120px]">{row.entityType}</TableCell>
+                      <TableCell className="w-[120px]">
+                        {formatEntityTypeLabel(row.entityType)}
+                      </TableCell>
                       <TableCell className="min-w-0">{summary}</TableCell>
                     </TableRow>
                   );

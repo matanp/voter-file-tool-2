@@ -18,6 +18,7 @@ Comprehensive review of the voter-file-tool frontend UI: current state, informat
 | [03_RECOMMENDATIONS.md](03_RECOMMENDATIONS.md)                     | **Quick Wins**, **Worthwhile Adjustments**, **Large Refactors**     |
 | [04_SRS_GAP_MAPPING.md](04_SRS_GAP_MAPPING.md)                     | Cross-reference of SRS UI gaps to recommendations                   |
 | [05_CURRENT_UI_ANALYSIS.md](05_CURRENT_UI_ANALYSIS.md)             | **Codebase-derived** layout, responsive, design, and UX findings    |
+| [06_UI_POLISH_TECHNICAL_PLAN_2026-07-29.md](06_UI_POLISH_TECHNICAL_PLAN_2026-07-29.md) | Technical plan for reusable UI primitives, layout consistency, responsive forms, and design linting |
 | [PARALLEL_INVESTIGATION_PLANS.md](PARALLEL_INVESTIGATION_PLANS.md) | Task breakdowns for parallel sub-agent execution                    |
 
 ---
@@ -54,6 +55,14 @@ Comprehensive review of the voter-file-tool frontend UI: current state, informat
 
 - ~~U1: Admin Data link~~ — done
 - U2–U5: Requests width, member cards responsive, loading skeleton, VoterCard tokens
+
+### UI Polish Technical Plan (06_UI_POLISH_TECHNICAL_PLAN_2026-07-29.md)
+
+- Add shared page shell, header, section, and state components
+- Add responsive form-row primitives for Record Search and related workflows
+- Extract committee detail panels and shared compact table patterns
+- Add warning-only UI design linting for common polish regressions
+- Defer Playwright visual smoke checks and Storybook/component previews until primitives stabilize
 
 ---
 

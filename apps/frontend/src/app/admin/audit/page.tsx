@@ -13,7 +13,8 @@ export default async function AuditTrailPage() {
       <div>
         <h1 className="text-2xl font-semibold">Audit Trail</h1>
         <p className="text-muted-foreground">
-          View and export a filterable log of system changes (memberships, meetings, reports, and more).
+          View and export a filterable log of system changes. Each entry shows what
+          happened (action) and what was changed (record type).
         </p>
       </div>
       <AuditTrailClient />

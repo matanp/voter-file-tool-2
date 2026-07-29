@@ -195,6 +195,9 @@ describe("/api/admin/audit", () => {
       const text = await res.text();
       expect(text).toContain("Timestamp");
       expect(text).toContain("User Name");
+      expect(text).toContain("Record Type");
+      expect(text).not.toContain("Entity Type");
+      expect(text).toContain("Committee membership");
       expect(text).toContain("Summary");
     });
 

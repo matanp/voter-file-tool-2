@@ -13,6 +13,8 @@ import {
   buildDrawerTitle,
   extractMembershipSubject,
   formatCommitteeContext,
+  formatEntityTypeLabel,
+  getAuditEntityTypeOption,
 } from "./auditUtils";
 import type { AuditAction } from "@prisma/client";
 
@@ -109,6 +111,9 @@ export function AuditDetailDrawer({ entryId, open, onClose }: AuditDetailDrawerP
     entry?.entityType === "CommitteeMembership"
       ? extractMembershipSubject(entry.metadata)
       : null;
+  const recordTypeOption = entry
+    ? getAuditEntityTypeOption(entry.entityType)
+    : undefined;
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -150,9 +155,14 @@ export function AuditDetailDrawer({ entryId, open, onClose }: AuditDetailDrawerP
                 </div>
               )}
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Entity</p>
-                <p className="text-sm">{entry.entityType}</p>
-                <CopyableId label="Entity ID" value={entry.entityId} />
+                <p className="text-xs font-medium text-muted-foreground">Record type</p>
+                <p className="text-sm">{formatEntityTypeLabel(entry.entityType)}</p>
+                {recordTypeOption && (
+                  <p className="text-xs text-muted-foreground">
+                    {recordTypeOption.description}
+                  </p>
+                )}
+                <CopyableId label="Record ID" value={entry.entityId} />
               </div>
               {(entry.beforeValue != null || entry.afterValue != null) && (
                 <div className="space-y-2">

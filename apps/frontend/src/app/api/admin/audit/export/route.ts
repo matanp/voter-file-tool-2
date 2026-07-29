@@ -7,7 +7,7 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { auditExportQuerySchema } from "~/lib/validations/audit";
 import { buildAuditWhere } from "../buildAuditWhere";
-import { buildSummary, AUDIT_ACTION_LABELS } from "~/app/admin/audit/auditUtils";
+import { buildSummary, AUDIT_ACTION_LABELS, formatEntityTypeLabel } from "~/app/admin/audit/auditUtils";
 
 const EXPORT_ROW_LIMIT = 10_000;
 
@@ -57,8 +57,8 @@ async function getAuditExportHandler(req: NextRequest, _session: Session) {
         "User Email",
         "User Role",
         "Action",
-        "Entity Type",
-        "Entity ID",
+        "Record Type",
+        "Record ID",
         "Summary",
       ];
       const csvRows = [
@@ -86,7 +86,7 @@ async function getAuditExportHandler(req: NextRequest, _session: Session) {
             escape(r.user.email),
             escape(r.userRole),
             escape(AUDIT_ACTION_LABELS[r.action] ?? r.action),
-            escape(r.entityType),
+            escape(formatEntityTypeLabel(r.entityType)),
             escape(r.entityId),
             escape(summary),
           ].join(",");
@@ -109,8 +109,8 @@ async function getAuditExportHandler(req: NextRequest, _session: Session) {
       "User Email",
       "User Role",
       "Action",
-      "Entity Type",
-      "Entity ID",
+      "Record Type",
+      "Record ID",
       "Summary",
       "Before Value",
       "After Value",
@@ -131,7 +131,7 @@ async function getAuditExportHandler(req: NextRequest, _session: Session) {
         r.user.email,
         r.userRole,
         AUDIT_ACTION_LABELS[r.action] ?? r.action,
-        r.entityType,
+        formatEntityTypeLabel(r.entityType),
         r.entityId,
         summary,
         r.beforeValue != null ? JSON.stringify(r.beforeValue) : "",

@@ -1,11 +1,12 @@
 # feat/srs-implementation Branch Changelog
 
-**Last updated:** 2026-06-20  
-**Branch:** `feat/srs-implementation`  
+**Last updated:** 2026-07-29  
+**Branch:** `feat/srs-implementation` (merged to `main`)  
+**Merge status:** Merged to `main`; production database migrated (2026-07-29).  
 **Baseline:** `develop` (~112 commits ahead, ~333 files, +41k / −3.6k lines)  
 **Tip commit:** `4e99c91` — `fix(admin): treat missing voters as discrepancies in committee bulk load`
 
-Use this document as the **single source of truth** for what the branch delivers, what is still open, and where to drill down.
+Use this document as the **single source of truth** for what the branch delivers, what is still open post-merge, and where to drill down.
 
 ---
 
@@ -19,7 +20,7 @@ This branch implements the MCDC Committee Membership & Governance SRS program th
 | Tier 2 workflows | Done (except 2.9) | Eligibility, warnings, resignation, meetings, petitions, weights, BOE flagging |
 | Tier 3 UI & reports | Done (except 3.6) | Report-server migration, leader/admin report UIs, audit trail UI, crosswalk import |
 | Tier 4 scenario remediation | Done | Tickets 4.1–4.8; all SRS v0.1 Scenarios 1–7 rated **Implemented** |
-| Open follow-ups | 8 tickets | 2.9, 3.6, T1.4–T1.5, T2.1–T2.4 (see [Open Queue](#open-queue)) |
+| Open follow-ups | 13 items | 3 P1 compliance gaps, 2 P2 follow-ups, 8 deferred tickets (see [Post-merge open work](#post-merge-open-work)) |
 
 **Formal requirement sources:**
 
@@ -124,9 +125,34 @@ Schema reference: [`SRS_DATA_MODEL_CHANGES.md`](SRS_DATA_MODEL_CHANGES.md)
 
 ---
 
-## Open Queue
+## Post-merge open work
 
-These tickets are **outside Tier 4 scope** and remain open on the branch. Full details in [`tickets/README.md`](tickets/README.md).
+Remaining work after merge to `main` and production deploy. Full index in [`tickets/README.md`](tickets/README.md). July branch-review P1 items: [`fix-plans/2026-07-06-srs-branch-findings-confirmation.md`](fix-plans/2026-07-06-srs-branch-findings-confirmation.md).
+
+### P1 compliance gaps
+
+Fix each item **or** document signed product acceptance that the current behavior is intentional.
+
+| ID | Title | Status | Detail |
+| --- | --- | --- | --- |
+| **P1-requestAdd-scope** | `requestAdd` Leader + jurisdiction scope | Open | [`fix-plans/01-requestadd-leader-jurisdiction-scope.md`](fix-plans/01-requestadd-leader-jurisdiction-scope.md) |
+| **P1-admin-direct-add** | Admin direct activation vs exec confirmation | Open | [`fix-plans/02-admin-direct-add-exec-confirmation.md`](fix-plans/02-admin-direct-add-exec-confirmation.md) |
+| **P1-replacement-full** | Replacement CAPACITY on full committees | Open (UI partial in `384226e`) | [`tickets/P1-replacement-workflow-full-committee-fix.md`](tickets/P1-replacement-workflow-full-committee-fix.md) |
+
+### P2 follow-ups
+
+| ID | Title | Status | Detail |
+| --- | --- | --- | --- |
+| **P2-isPetitioned** | `seat.isPetitioned` overloaded semantics | Open | [`tickets/P2-seat-ispetitioned-overloaded-flag.md`](tickets/P2-seat-ispetitioned-overloaded-flag.md) |
+| **P2-report-audit** | `REPORT_GENERATED` / `TERM_CREATED` declared but never written — report pulls are absent from the audit trail | Open | [`tickets/P2-audit-report-generation-not-logged.md`](tickets/P2-audit-report-generation-not-logged.md) |
+
+**Audit trail UI (2026-07-29):** entity-type vocabulary reworked to "record type" with
+human-readable labels + descriptions across the filter, table, detail drawer, and CSV/XLSX export
+(`apps/frontend/src/app/admin/audit/`). Spec updated in [`tickets/3.5-audit-trail-ui-export.md`](tickets/3.5-audit-trail-ui-export.md).
+
+### Deferred quality/product tickets
+
+These are **outside Tier 4 scope**. Safe to defer if risk is accepted.
 
 | ID | Title | Type | Effort | Blocker? |
 | --- | --- | --- | --- | --- |
@@ -141,9 +167,10 @@ These tickets are **outside Tier 4 scope** and remain open on the branch. Full d
 
 **Suggested next actions:**
 
-1. **2.9** — Decide Option A (Serve ED = Home ED) vs Option B (explicit `serveEd` model); update [`SRS_GAPS_AND_CONSIDERATIONS.md`](SRS_GAPS_AND_CONSIDERATIONS.md) §5.3.
-2. **3.6** — Apply [`ACCESSIBILITY_MOBILE_CHECKLIST.md`](ACCESSIBILITY_MOBILE_CHECKLIST.md) to Tier 2/3 UI surfaces and record pass/fail.
-3. **T1.4–T2.4** — Parallel test hardening; no functional blockers for merge if risk is accepted.
+1. **P1 gaps** — Address in recommended order per fix-plans index: requestAdd scope → admin direct-add → replacement CAPACITY.
+2. **2.9** — Decide Option A (Serve ED = Home ED) vs Option B (explicit `serveEd` model); update [`SRS_GAPS_AND_CONSIDERATIONS.md`](SRS_GAPS_AND_CONSIDERATIONS.md) §5.3.
+3. **3.6** — Apply [`ACCESSIBILITY_MOBILE_CHECKLIST.md`](ACCESSIBILITY_MOBILE_CHECKLIST.md) to Tier 2/3 UI surfaces and record pass/fail.
+4. **T1.4–T2.4** — Parallel test hardening.
 
 ---
 
@@ -169,8 +196,9 @@ Phase 1 code review P1 items (dual ACTIVE memberships, stale `removeMemberId`, e
 
 | Need | Document |
 | --- | --- |
-| **This page** — branch overview + open queue | `FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md` (here) |
+| **This page** — branch overview + post-merge open work | `FEAT_SRS_IMPLEMENTATION_BRANCH_CHANGELOG.md` (here) |
 | Ticket statuses & dependency graph | [`tickets/README.md`](tickets/README.md) |
+| July branch-review P1 fix plans | [`fix-plans/2026-07-06-srs-branch-findings-confirmation.md`](fix-plans/2026-07-06-srs-branch-findings-confirmation.md) |
 | Acceptance criteria ↔ code (file:line) | [`SRS_USER_STORY_VALIDATION_MATRIX_2026-02-23.md`](SRS_USER_STORY_VALIDATION_MATRIX_2026-02-23.md) |
 | Per-scenario implementation mapping | [`user-story-mapping/`](user-story-mapping/) |
 | Formal assessment (detailed) | [`SRS_FORMAL_REQUIREMENTS_ASSESSMENT_2026-02-23.md`](SRS_FORMAL_REQUIREMENTS_ASSESSMENT_2026-02-23.md) |

@@ -56,9 +56,23 @@ Implementation tickets for the MCDC Committee Membership & Governance system. Ea
 44. ~~[3.4 Vacancy, Changes, Petition Reports](3.4-vacancy-changes-petition-reports-ui.md)~~ — **Done**
 45. ~~[4.1 Scenario 1: Leader Submission Preflight + Eligibility Snapshot](4.1-scenario1-leader-submission-preflight.md)~~ — **Done**
 46. ~~[4.0 SRS Governance Gap Remediation Program](4.0-srs-governance-gap-remediation-program.md)~~ — **Done**
-47. **Current queue:** 2.9, 3.6, T1.4-T1.5, T2.1-T2.4
+47. **Current queue:** P1-requestAdd-scope, P1-admin-direct-add, P1-replacement-full, P2-isPetitioned, P2-report-audit; plus 2.9, 3.6, T1.4-T1.5, T2.1-T2.4
 
 ---
+
+## Post-merge open gaps
+
+Branch merged to `main` and production DB migrated (2026-07-29). These items remain open. Fix each P1 **or** document signed product acceptance.
+
+| ID | Title | Priority | Doc |
+| --- | --- | --- | --- |
+| P1-requestAdd-scope | Leader + jurisdiction on `requestAdd` | P1 | [fix-plans/01-requestadd-leader-jurisdiction-scope.md](../fix-plans/01-requestadd-leader-jurisdiction-scope.md) |
+| P1-admin-direct-add | Admin direct activation vs exec confirmation | P1 | [fix-plans/02-admin-direct-add-exec-confirmation.md](../fix-plans/02-admin-direct-add-exec-confirmation.md) |
+| P1-replacement-full | Replacement CAPACITY on full committees | P1 | [P1-replacement-workflow-full-committee-fix.md](P1-replacement-workflow-full-committee-fix.md) |
+| P2-isPetitioned | `seat.isPetitioned` overloaded semantics | P2 | [P2-seat-ispetitioned-overloaded-flag.md](P2-seat-ispetitioned-overloaded-flag.md) |
+| P2-report-audit | `REPORT_GENERATED` / `TERM_CREATED` declared but never written | P2 | [P2-audit-report-generation-not-logged.md](P2-audit-report-generation-not-logged.md) |
+
+July branch-review index: [fix-plans/2026-07-06-srs-branch-findings-confirmation.md](../fix-plans/2026-07-06-srs-branch-findings-confirmation.md).
 
 ## Ticket Index
 

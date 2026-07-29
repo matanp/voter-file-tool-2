@@ -23,17 +23,77 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   CROSSWALK_IMPORTED: "Crosswalk Imported",
 };
 
-/** Entity types shown in the filter dropdown. */
-export const AUDIT_ENTITY_TYPES = [
-  "CommitteeMembership",
-  "CommitteeUploadDiscrepancy",
-  "MeetingRecord",
-  "CommitteeTerm",
-  "CommitteeGovernanceConfig",
-  "Report",
-] as const;
+export type AuditEntityTypeOption = {
+  readonly value: string;
+  readonly label: string;
+  readonly description: string;
+};
 
-export type AuditEntityTypeOption = (typeof AUDIT_ENTITY_TYPES)[number];
+/**
+ * Record types shown in the audit filter dropdown, sorted alphabetically by label.
+ *
+ * Only include types that some code path actually writes to `AuditLog.entityType` —
+ * an option that can never match reads as "this never happened" rather than
+ * "this was never recorded". `auditUtils.test.ts` asserts both directions.
+ */
+export const AUDIT_ENTITY_TYPE_OPTIONS: readonly AuditEntityTypeOption[] = [
+  {
+    value: "CommitteeMembership",
+    label: "Committee membership",
+    description: "Adds, removals, activations, and petition outcomes",
+  },
+  {
+    value: "Seat",
+    label: "Committee seat",
+    description: "Seat-level petition outcome recording",
+  },
+  {
+    value: "LtedDistrictCrosswalk",
+    label: "District crosswalk",
+    description: "Legislative-to-election district crosswalk data",
+  },
+  {
+    value: "EligibilityFlag",
+    label: "Eligibility flag",
+    description: "BOE eligibility flag reviews",
+  },
+  {
+    value: "CommitteeGovernanceConfig",
+    label: "Governance config",
+    description: "Committee rules and governance settings",
+  },
+  {
+    value: "MeetingRecord",
+    label: "Meeting",
+    description: "Committee meeting records",
+  },
+  {
+    value: "CommitteeUploadDiscrepancy",
+    label: "Upload discrepancy",
+    description: "Bulk upload conflict resolution",
+  },
+  {
+    value: "UserJurisdiction",
+    label: "User jurisdiction",
+    description: "Leader jurisdiction assignments and removals",
+  },
+];
+
+const AUDIT_ENTITY_TYPE_LABELS = new Map(
+  AUDIT_ENTITY_TYPE_OPTIONS.map((option) => [option.value, option.label]),
+);
+
+/** Returns the registry entry for a stored entityType value, if known. */
+export function getAuditEntityTypeOption(
+  value: string,
+): AuditEntityTypeOption | undefined {
+  return AUDIT_ENTITY_TYPE_OPTIONS.find((option) => option.value === value);
+}
+
+/** Human-readable label for an audit record type; falls back to the raw value. */
+export function formatEntityTypeLabel(entityType: string): string {
+  return AUDIT_ENTITY_TYPE_LABELS.get(entityType) ?? entityType;
+}
 
 /** Minimal audit entry shape used to generate a summary (from API list/detail or export row). */
 export interface AuditEntryForSummary {
@@ -218,30 +278,30 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       if (entityType === "CommitteeMembership" && (name ?? location)) {
         return `${name ?? "Member"} activated${location ? ` in ${location}` : ""}${seatNumber != null ? ` Seat ${seatNumber}` : ""}`.trim();
       }
-      return `Member activated (${entityType})`;
+      return `Member activated (${formatEntityTypeLabel(entityType)})`;
     case AuditAction.MEMBER_REMOVED:
       if (entityType === "CommitteeMembership") {
         const who = name ?? "Member";
         return removalReason ? `${who} removed (${removalReason})` : `${who} removed`;
       }
-      return `Removed (${entityType})`;
+      return `Removed (${formatEntityTypeLabel(entityType)})`;
     case AuditAction.MEMBER_RESIGNED:
       if (entityType === "CommitteeMembership" && (name ?? location)) {
         return `${name ?? "Member"} resigned${location ? ` from ${location}` : ""}`.trim();
       }
-      return `Member resigned (${entityType})`;
+      return `Member resigned (${formatEntityTypeLabel(entityType)})`;
     case "MEMBER_SUBMITTED":
       return entityType === "CommitteeMembership"
         ? `${name ?? "Member"} submitted for committee${location ? ` (${location})` : ""}`
-        : `Submitted (${entityType})`;
+        : `Submitted (${formatEntityTypeLabel(entityType)})`;
     case AuditAction.MEMBER_REJECTED:
       return entityType === "CommitteeMembership"
         ? `${name ?? "Request"} rejected${location ? ` (${location})` : ""}`
-        : `Rejected (${entityType})`;
+        : `Rejected (${formatEntityTypeLabel(entityType)})`;
     case AuditAction.MEMBER_CONFIRMED:
       return entityType === "CommitteeMembership"
         ? `${name ?? "Member"} confirmed${location ? ` (${location})` : ""}`
-        : `Confirmed (${entityType})`;
+        : `Confirmed (${formatEntityTypeLabel(entityType)})`;
     case "PETITION_RECORDED":
       if (meta.source === "discrepancy_undo") {
         return location && seatNumber != null
@@ -292,7 +352,7 @@ export function buildSummary(entry: AuditEntryForSummary): string {
         : "Upload discrepancy undone";
     }
     default:
-      return `${AUDIT_ACTION_LABELS[action] ?? action} — ${entityType} ${entityId.slice(0, 8)}`;
+      return `${AUDIT_ACTION_LABELS[action] ?? action} — ${formatEntityTypeLabel(entityType)} ${entityId.slice(0, 8)}`;
   }
 }
 
