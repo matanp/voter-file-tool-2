@@ -4,6 +4,8 @@ import PendingJobsIndicator from "~/components/reports/PendingJobsIndicator";
 import GenerateReportGrid from "~/components/reports/GenerateReportGrid";
 import PageSignInRequired from "~/components/ui/PageSignInRequired";
 import { getAuthenticatedPageAccess } from "~/lib/getAdminPageAccess";
+import { PageContainer } from "~/components/layout/PageContainer";
+import { PageHeader } from "~/components/layout/PageHeader";
 import prisma from "~/lib/prisma";
 import { JobStatus } from "@prisma/client";
 
@@ -28,15 +30,11 @@ export default async function ReportsPage() {
   });
 
   return (
-    <div className="w-full p-4 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="primary-header">Reports Dashboard</h1>
-          <p className="text-muted-foreground">
-            View and manage your reports and report generation jobs
-          </p>
-        </div>
-      </div>
+    <PageContainer width="wide">
+      <PageHeader
+        title="Reports Dashboard"
+        description="View and manage your reports and report generation jobs"
+      />
 
       <div className="space-y-6">
         {/* Report Jobs - Always at the top */}
@@ -64,6 +62,6 @@ export default async function ReportsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
