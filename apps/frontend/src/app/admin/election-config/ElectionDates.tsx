@@ -101,7 +101,7 @@ export const ElectionDates = ({
 
   return (
     <div className="p-4 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Election Dates</h1>
+      <h2 className="section-header mb-4">Election Dates</h2>
 
       <ul className="mb-4">
         {electionDates.map((ed) => (

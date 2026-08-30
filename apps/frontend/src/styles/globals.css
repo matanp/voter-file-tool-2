@@ -64,4 +64,11 @@
   .primary-header {
     @apply text-2xl text-primary font-bold;
   }
+
+  /* Page title on the admin surface, which has its own sidebar chrome and a
+     primary-coloured active nav item. Deliberately quieter than
+     .primary-header so the heading does not compete with that chrome. */
+  .section-header {
+    @apply text-2xl font-semibold;
+  }
 }

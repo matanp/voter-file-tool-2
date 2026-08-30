@@ -23,7 +23,7 @@ export default async function MeetingsPage() {
   if (activeTermId == null) {
     return (
       <div className="w-full p-6">
-        <h1 className="text-2xl font-semibold mb-6">Meetings</h1>
+        <h1 className="section-header mb-6">Meetings</h1>
         <p className="text-muted-foreground">
           No active committee term is set. Configure an active term to manage meetings.
         </p>
@@ -52,7 +52,7 @@ export default async function MeetingsPage() {
 
   return (
     <div className="w-full p-6">
-      <h1 className="text-2xl font-semibold mb-6">Meetings</h1>
+      <h1 className="section-header mb-6">Meetings</h1>
       <MeetingsManagement
         activeTermId={activeTermId}
         initialMeetings={serializedMeetings}
