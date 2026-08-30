@@ -5,6 +5,7 @@ export * from './schemas/voterRecord';
 export * from './schemas/report';
 export * from './schemas/api';
 export * from './schemas/committeeDiscrepancy';
+export * from './schemas/committeeTerm';
 
 // Export voter import types and validators
 export * from './voterImport';

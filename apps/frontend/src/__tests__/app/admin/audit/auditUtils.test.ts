@@ -100,6 +100,7 @@ describe("auditUtils entity type labels", () => {
    */
   const LOGGED_ENTITY_TYPES = [
     "CommitteeMembership",
+    "CommitteeTerm",
     "CommitteeUploadDiscrepancy",
     "MeetingRecord",
     "CommitteeGovernanceConfig",
@@ -157,5 +158,34 @@ describe("auditUtils entity type labels", () => {
         entityId: "flag-1",
       }),
     ).toBe("Removed (Eligibility flag)");
+  });
+
+  it("buildSummary describes term create, update, and activate", () => {
+    expect(
+      buildSummary({
+        action: AuditAction.TERM_CREATED,
+        entityType: "CommitteeTerm",
+        entityId: "term-1",
+        afterValue: { label: "2026–2028" },
+      }),
+    ).toBe("Term created: 2026–2028");
+
+    expect(
+      buildSummary({
+        action: AuditAction.TERM_UPDATED,
+        entityType: "CommitteeTerm",
+        entityId: "term-1",
+        afterValue: { label: "2026–2028" },
+      }),
+    ).toBe("Term updated: 2026–2028");
+
+    expect(
+      buildSummary({
+        action: AuditAction.TERM_UPDATED,
+        entityType: "CommitteeTerm",
+        entityId: "term-1",
+        afterValue: { label: "2026–2028", isActive: true },
+      }),
+    ).toBe("Term activated: 2026–2028");
   });
 });

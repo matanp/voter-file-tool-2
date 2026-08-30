@@ -13,6 +13,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   MEETING_CREATED: "Meeting Created",
   REPORT_GENERATED: "Report Generated",
   TERM_CREATED: "Term Created",
+  TERM_UPDATED: "Term Updated",
   GOVERNANCE_CONFIG_UPDATED: "Governance Config Updated",
   JURISDICTION_ASSIGNED: "Jurisdiction Assigned",
   JURISDICTION_REMOVED: "Jurisdiction Removed",
@@ -46,6 +47,11 @@ export const AUDIT_ENTITY_TYPE_OPTIONS: readonly AuditEntityTypeOption[] = [
     value: "Seat",
     label: "Committee seat",
     description: "Seat-level petition outcome recording",
+  },
+  {
+    value: "CommitteeTerm",
+    label: "Committee term",
+    description: "Committee term create, edit, and active-term changes",
   },
   {
     value: "LtedDistrictCrosswalk",
@@ -325,6 +331,15 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       return typeof after.label === "string"
         ? `Term created: ${after.label}`
         : "Term created";
+    case AuditAction.TERM_UPDATED:
+      if (after.isActive === true) {
+        return typeof after.label === "string"
+          ? `Term activated: ${after.label}`
+          : "Term activated";
+      }
+      return typeof after.label === "string"
+        ? `Term updated: ${after.label}`
+        : "Term updated";
     case AuditAction.GOVERNANCE_CONFIG_UPDATED:
       return "Governance config updated";
     case "JURISDICTION_ASSIGNED":

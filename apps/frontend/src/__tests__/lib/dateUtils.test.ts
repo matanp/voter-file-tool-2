@@ -1,4 +1,9 @@
-import { parseCalendarDate } from "~/lib/dateUtils";
+import {
+  formatCalendarDateForDisplay,
+  formatCalendarDateForForm,
+  parseCalendarDate,
+  parseTermDateRange,
+} from "~/lib/dateUtils";
 
 describe("parseCalendarDate", () => {
   describe("YYYY-MM-DD format parsing", () => {
@@ -67,5 +72,52 @@ describe("parseCalendarDate", () => {
       expect(result?.getUTCMinutes()).toBe(0);
       expect(result?.getUTCSeconds()).toBe(0);
     });
+  });
+});
+
+describe("parseTermDateRange", () => {
+  it("parses a valid range", () => {
+    const result = parseTermDateRange("2026-01-01", "2028-12-31");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.start.toISOString()).toBe(
+        parseCalendarDate("2026-01-01")?.toISOString(),
+      );
+      expect(result.end.toISOString()).toBe(
+        parseCalendarDate("2028-12-31")?.toISOString(),
+      );
+    }
+  });
+
+  it("rejects end on or before start", () => {
+    expect(parseTermDateRange("2026-01-01", "2026-01-01")).toEqual({
+      ok: false,
+      error: "End date must be after start date",
+    });
+    expect(parseTermDateRange("2028-01-01", "2026-01-01")).toEqual({
+      ok: false,
+      error: "End date must be after start date",
+    });
+  });
+
+  it("rejects unparseable dates", () => {
+    expect(parseTermDateRange("not-a-date", "2028-12-31")).toEqual({
+      ok: false,
+      error: "Invalid start or end date",
+    });
+  });
+});
+
+describe("formatCalendarDateForForm and display", () => {
+  it("formats UTC calendar parts as YYYY-MM-DD", () => {
+    expect(
+      formatCalendarDateForForm(new Date("2026-01-01T12:00:00.000Z")),
+    ).toBe("2026-01-01");
+  });
+
+  it("formats UTC calendar parts for display", () => {
+    expect(
+      formatCalendarDateForDisplay(new Date("2026-01-01T12:00:00.000Z")),
+    ).toBe("Jan 1, 2026");
   });
 });
