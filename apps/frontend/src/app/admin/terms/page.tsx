@@ -21,7 +21,7 @@ export default async function TermsPage() {
 
   return (
     <div className="w-full p-6">
-      <h1 className="text-2xl font-semibold mb-6">Committee Terms</h1>
+      <h1 className="section-header mb-6">Committee Terms</h1>
       <TermsManagement initialTerms={terms} />
     </div>
   );

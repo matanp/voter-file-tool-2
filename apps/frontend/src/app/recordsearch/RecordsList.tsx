@@ -168,8 +168,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   return (
     <div>
       <div className="bg-primary-foreground pt-2">
-        <div className="w-full flex justify-center text-2xl text-primary font-bold">
-          <h1>Record Search</h1>
+        <div className="w-full flex justify-center">
+          <h1 className="primary-header">Record Search</h1>
         </div>
         <div className="border-grey-400 border-b-2">
           <VoterRecordSearch
@@ -179,8 +179,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           />
         </div>
       </div>
-      <div className="w-full flex justify-center text-2xl text-primary font-bold pt-2">
-        <h1>Voter Records</h1>
+      <div className="w-full flex justify-center pt-2">
+        <h2 className="primary-header">Voter Records</h2>
       </div>
       {hasSearched && totalRecords > 0 && canExport && (
         <div className="w-full flex flex-col items-center pt-4 space-y-4">

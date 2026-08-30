@@ -134,7 +134,7 @@ async function AdminUsersContent() {
   return (
     <div className="w-full p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">User Management</h1>
+        <h1 className="section-header">User Management</h1>
         <p className="text-muted-foreground">
           View Leader accounts and assign jurisdictions, or create and manage
           pending signup invites.

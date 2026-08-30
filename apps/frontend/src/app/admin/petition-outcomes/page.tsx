@@ -31,7 +31,7 @@ export default async function PetitionOutcomesPage({
   if (activeTermId == null) {
     return (
       <div className="w-full p-6">
-        <h1 className="text-2xl font-semibold mb-6">Petition & Primary Outcomes</h1>
+        <h1 className="section-header mb-6">Petition & Primary Outcomes</h1>
         <p className="text-muted-foreground">
           No active committee term is set. Configure an active term to manage petition outcomes.
         </p>
@@ -62,7 +62,7 @@ export default async function PetitionOutcomesPage({
 
   return (
     <div className="w-full p-6">
-      <h1 className="text-2xl font-semibold mb-6">Petition & Primary Outcomes</h1>
+      <h1 className="section-header mb-6">Petition & Primary Outcomes</h1>
       <PetitionOutcomesClient
         activeTermId={activeTermId}
         termLabel={term?.label ?? ""}

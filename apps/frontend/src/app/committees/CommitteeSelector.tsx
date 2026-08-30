@@ -779,9 +779,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   return (
     <div>
-      <label htmlFor="district-select" className="primary-header">
-        Committee Selector
-      </label>
+      <h2 className="primary-header">Committee Selector</h2>
       <div
         className={
           showNoCommitteesEmptyState ? "pointer-events-none opacity-60" : ""
@@ -801,10 +799,14 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         </div>
         {useLegDistrict && (
           <div className="flex flex-col">
-            <label className="font-extralight text-sm pl-1">
+            <Label
+              htmlFor="district-select"
+              className="font-extralight text-sm pl-1"
+            >
               Legislative District
-            </label>
+            </Label>
             <ComboboxDropdown
+              id="district-select"
               items={Array.from(
                 new Set(
                   legDistricts.map((legDistrict) => ({

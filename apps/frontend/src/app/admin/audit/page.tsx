@@ -11,7 +11,7 @@ export default async function AuditTrailPage() {
   return (
     <div className="w-full p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Audit Trail</h1>
+        <h1 className="section-header">Audit Trail</h1>
         <p className="text-muted-foreground">
           View and export a filterable log of system changes. Each entry shows what
           happened (action) and what was changed (record type).
