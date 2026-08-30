@@ -28,3 +28,5 @@ docs/AUDIT_TRAIL_PREVIOUS_SEAT_OCCUPANT.md
 
 *.tsbuildinfo
 .test-results/
+
+.agents/
