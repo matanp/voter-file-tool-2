@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { ElectionDates } from "../dashboard/ElectionDates";
-import { ElectionOffices } from "../dashboard/ElectionOffices";
+import { ElectionDates } from "./ElectionDates";
+import { ElectionOffices } from "./ElectionOffices";
 import type { ElectionDate, OfficeName } from "@prisma/client";
 
 interface ElectionConfigTabProps {

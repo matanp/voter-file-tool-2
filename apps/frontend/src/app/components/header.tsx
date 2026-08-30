@@ -12,10 +12,7 @@ const Header: React.FC = () => {
   const pathname = usePathname();
   const { actingPermissions } = useContext(GlobalContext);
 
-  const showDataTab = hasPermissionFor(
-    actingPermissions,
-    PrivilegeLevel.Admin,
-  );
+  const showDataTab = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
 
   const sharedTabStyle =
     "h-16 text-xl font-semibold w-42 flex items-center justify-center";
@@ -46,13 +43,13 @@ const Header: React.FC = () => {
           </Link>
           <Link href="/reports">
             <Button
-              className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/committee-roster-reports", "/voter-list-reports", "/petitions", "/sign-in-sheet-reports", "/weight-summary-reports", "/vacancy-reports", "/changes-reports", "/petition-outcomes-reports"].some(p => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
+              className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/committee-roster-reports", "/voter-list-reports", "/petitions", "/sign-in-sheet-reports", "/weight-summary-reports", "/vacancy-reports", "/changes-reports", "/petition-outcomes-reports"].some((p) => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
             >
               Reports
             </Button>
           </Link>
           {showDataTab && (
-            <Link href="/admin/data">
+            <Link href="/admin">
               <Button
                 className={`${sharedTabStyle} ${pathname?.startsWith("/admin") ? tabStyleActive : tabStyleInactive}`}
               >
