@@ -87,6 +87,7 @@ async function postTermHandler(req: NextRequest, session: SessionWithUser) {
           endDate: created.endDate.toISOString(),
           isActive: created.isActive,
         },
+        undefined,
         tx,
       );
 

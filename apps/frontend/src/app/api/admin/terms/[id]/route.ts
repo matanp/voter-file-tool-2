@@ -183,6 +183,7 @@ async function updateTermHandler(
           startDate: updated.startDate.toISOString(),
           endDate: updated.endDate.toISOString(),
         },
+        undefined,
         tx,
       );
 
