@@ -24,6 +24,10 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   CROSSWALK_IMPORTED: "Crosswalk Imported",
   OFFICE_NAMES_BULK_CREATED: "Office Names Bulk Created",
   ELECTION_DATES_BULK_CREATED: "Election Dates Bulk Created",
+  OFFICE_NAME_CREATED: "Office Name Created",
+  OFFICE_NAME_DELETED: "Office Name Deleted",
+  ELECTION_DATE_CREATED: "Election Date Created",
+  ELECTION_DATE_DELETED: "Election Date Deleted",
 };
 
 export type AuditEntityTypeOption = {
@@ -63,7 +67,7 @@ export const AUDIT_ENTITY_TYPE_OPTIONS: readonly AuditEntityTypeOption[] = [
   {
     value: "ElectionDate",
     label: "Election date",
-    description: "Bulk-added election dates",
+    description: "Election dates added or removed",
   },
   {
     value: "EligibilityFlag",
@@ -83,7 +87,7 @@ export const AUDIT_ENTITY_TYPE_OPTIONS: readonly AuditEntityTypeOption[] = [
   {
     value: "OfficeName",
     label: "Office name",
-    description: "Bulk-added election office names",
+    description: "Election office names added or removed",
   },
   {
     value: "CommitteeUploadDiscrepancy",
@@ -279,7 +283,9 @@ function resolveSummaryContext(entry: AuditEntryForSummary): SummaryContext {
 
 /** Produces a human-readable one-liner for the audit entry. */
 export function buildSummary(entry: AuditEntryForSummary): string {
-  const { action, entityType, entityId, afterValue, metadata } = entry;
+  const { action, entityType, entityId, beforeValue, afterValue, metadata } =
+    entry;
+  const before = beforeValue ?? {};
   const after = afterValue ?? {};
   const meta = metadata ?? {};
   const { name, location, seatNumber } = resolveSummaryContext(entry);
@@ -352,6 +358,24 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       return typeof after.label === "string"
         ? `Term updated: ${after.label}`
         : "Term updated";
+    case AuditAction.ELECTION_DATE_CREATED:
+    case AuditAction.ELECTION_DATE_DELETED: {
+      const created = action === AuditAction.ELECTION_DATE_CREATED;
+      const raw = created ? after.date : before.date;
+      // Stored as an ISO instant; the calendar day is the only meaningful part.
+      const label = typeof raw === "string" ? raw.slice(0, 10) : null;
+      const verb = created ? "added" : "deleted";
+      return label ? `Election date ${verb}: ${label}` : `Election date ${verb}`;
+    }
+    case AuditAction.OFFICE_NAME_CREATED:
+    case AuditAction.OFFICE_NAME_DELETED: {
+      const created = action === AuditAction.OFFICE_NAME_CREATED;
+      const raw = created ? after.officeName : before.officeName;
+      const verb = created ? "added" : "deleted";
+      return typeof raw === "string"
+        ? `Office name ${verb}: ${raw}`
+        : `Office name ${verb}`;
+    }
     case AuditAction.GOVERNANCE_CONFIG_UPDATED:
       return "Governance config updated";
     case "JURISDICTION_ASSIGNED":

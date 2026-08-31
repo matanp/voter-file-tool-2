@@ -13,6 +13,7 @@ import {
   createMockSession,
   createMockRequest,
   createAuthTestSuite,
+  expectAuditLogCreate,
   expectErrorResponse,
   parseJsonResponse,
   type ErrorResponseBody,
@@ -249,6 +250,65 @@ describe("/api/admin/electionDates", () => {
         },
       });
       expect(prismaMock.electionDate.create).not.toHaveBeenCalled();
+    });
+
+    it("writes a fail-open audit row for the created date", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.electionDate.findFirst.mockResolvedValue(null);
+      prismaMock.electionDate.create.mockResolvedValue({
+        id: 3,
+        date: new Date(Date.UTC(2026, 10, 3)),
+      } as never);
+
+      const response = await POST(createMockRequest({ date: "2026-11-03" }));
+
+      expect(response.status).toBe(201);
+      expect(prismaMock.auditLog.create).toHaveBeenCalledTimes(1);
+      expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "ELECTION_DATE_CREATED",
+          entityType: "ElectionDate",
+          entityId: "3",
+        }),
+      );
+    });
+
+    it("still returns 201 when the audit write fails (fail-open)", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.electionDate.findFirst.mockResolvedValue(null);
+      prismaMock.electionDate.create.mockResolvedValue({
+        id: 3,
+        date: new Date(Date.UTC(2026, 10, 3)),
+      } as never);
+      (prismaMock.auditLog.create as jest.Mock).mockRejectedValue(
+        new Error("audit down"),
+      );
+
+      const response = await POST(createMockRequest({ date: "2026-11-03" }));
+
+      expect(response.status).toBe(201);
+    });
+
+    it("writes no audit row when the date already exists", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.electionDate.findFirst.mockResolvedValue({
+        id: 1,
+        date: new Date(Date.UTC(2026, 10, 3)),
+      } as never);
+
+      const response = await POST(createMockRequest({ date: "2026-11-03" }));
+
+      expect(response.status).toBe(409);
+      expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
     });
 
     it("should return 409 on Prisma P2002 unique constraint violation", async () => {

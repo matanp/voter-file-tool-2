@@ -2,9 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import prisma from "~/lib/prisma";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import {
+  withPrivilege,
+  type SessionWithUser,
+} from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import type { Session } from "next-auth";
+import { logAuditEvent } from "~/lib/auditLog";
 import {
   INVALID_DATE_MESSAGE,
   parseCalendarDate,
@@ -40,7 +44,10 @@ const createDateSchema = z.object({
   }),
 });
 
-async function postElectionDateHandler(req: NextRequest, _session: Session) {
+async function postElectionDateHandler(
+  req: NextRequest,
+  session: SessionWithUser,
+) {
   try {
     const body = (await req.json()) as unknown;
     const parsed = createDateSchema.parse(body);
@@ -69,6 +76,18 @@ async function postElectionDateHandler(req: NextRequest, _session: Session) {
     const newDate = await prisma.electionDate.create({
       data: { date: electionDate },
     });
+
+    // Fail-open, matching the bulk route: election-config edits are reference/config
+    // telemetry, not membership state, so a failed audit write must not fail the add.
+    await logAuditEvent(
+      session.user.id,
+      session.user.privilegeLevel ?? PrivilegeLevel.Admin,
+      "ELECTION_DATE_CREATED",
+      "ElectionDate",
+      String(newDate.id),
+      null,
+      { id: newDate.id, date: newDate.date },
+    );
 
     revalidatePath("/petitions");
 

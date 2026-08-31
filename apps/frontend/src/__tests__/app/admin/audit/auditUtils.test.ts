@@ -122,6 +122,44 @@ describe("auditUtils entity type labels", () => {
     expect(formatEntityTypeLabel("FutureRecordType")).toBe("FutureRecordType");
   });
 
+  it("buildSummary describes single-record election-config edits", () => {
+    expect(
+      buildSummary({
+        action: AuditAction.ELECTION_DATE_CREATED,
+        entityType: "ElectionDate",
+        entityId: "3",
+        afterValue: { id: 3, date: "2026-11-03T00:00:00.000Z" },
+      }),
+    ).toBe("Election date added: 2026-11-03");
+
+    expect(
+      buildSummary({
+        action: AuditAction.ELECTION_DATE_DELETED,
+        entityType: "ElectionDate",
+        entityId: "3",
+        beforeValue: { id: 3, date: "2026-11-03T00:00:00.000Z" },
+      }),
+    ).toBe("Election date deleted: 2026-11-03");
+
+    expect(
+      buildSummary({
+        action: AuditAction.OFFICE_NAME_CREATED,
+        entityType: "OfficeName",
+        entityId: "4",
+        afterValue: { id: 4, officeName: "Mayor" },
+      }),
+    ).toBe("Office name added: Mayor");
+
+    expect(
+      buildSummary({
+        action: AuditAction.OFFICE_NAME_DELETED,
+        entityType: "OfficeName",
+        entityId: "4",
+        beforeValue: { id: 4, officeName: "Mayor" },
+      }),
+    ).toBe("Office name deleted: Mayor");
+  });
+
   it("AUDIT_ENTITY_TYPE_OPTIONS includes all currently logged entity types", () => {
     const optionValues = AUDIT_ENTITY_TYPE_OPTIONS.map((option) => option.value);
     for (const entityType of LOGGED_ENTITY_TYPES) {
