@@ -1,11 +1,22 @@
 "use client";
 
 import type { OfficeName } from "@prisma/client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
+import { useDebouncedValue } from "~/hooks/useDebouncedValue";
+import {
+  normalizeOfficeName,
+  officeNameMatchKey,
+  splitPastedLines,
+} from "~/lib/electionConfigParsing";
+import {
+  BulkAddSection,
+  summarizeBulkResult,
+  type PreviewRow,
+} from "./BulkAddSection";
 
 interface ElectionOfficesProps {
   officeNames: OfficeName[];
@@ -18,6 +29,54 @@ export const ElectionOffices = ({
   const [officeNames, setOfficeNames] = useState<OfficeName[]>(initialOffices);
   const [newOffice, setNewOffice] = useState<string>("");
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [bulkMode, setBulkMode] = useState(false);
+  // The paste lives here, not in BulkAddSection, so toggling back to single-add and
+  // returning does not discard it.
+  const [bulkText, setBulkText] = useState("");
+  const debouncedBulkText = useDebouncedValue(bulkText);
+
+  // `rows` is a pure function of the (debounced) pasted text. Matching is client-side
+  // against the list already in local state; no fetch is involved in the preview.
+  const bulkRows = useMemo<PreviewRow[]>(() => {
+    const existing = new Map(
+      officeNames.map((o) => [officeNameMatchKey(o.officeName), o.officeName]),
+    );
+    const seen = new Map<string, string>();
+
+    return splitPastedLines(debouncedBulkText).map((line, lineIndex) => {
+      const value = normalizeOfficeName(line);
+      const key = officeNameMatchKey(line);
+
+      const existingMatch = existing.get(key);
+      if (existingMatch !== undefined) {
+        return {
+          lineIndex,
+          original: line,
+          value,
+          status: "exists" as const,
+          detail: `already exists as ${existingMatch}`,
+        };
+      }
+
+      const earlier = seen.get(key);
+      if (earlier !== undefined) {
+        return {
+          lineIndex,
+          original: line,
+          value,
+          status: "duplicate" as const,
+          detail: `duplicate of ${earlier}`,
+        };
+      }
+
+      seen.set(key, value);
+      return { lineIndex, original: line, value, status: "new" as const };
+    });
+  }, [debouncedBulkText, officeNames]);
+
+  const newOfficeNames = bulkRows
+    .filter((row) => row.status === "new")
+    .map((row) => row.value);
 
   // API mutation hooks
   const addOfficeMutation = useApiMutation<OfficeName, { name: string }>(
@@ -84,6 +143,49 @@ export const ElectionOffices = ({
     },
   );
 
+  const bulkAddMutation = useApiMutation<
+    { created: OfficeName[]; skipped: string[] },
+    { names: string[] }
+  >("/api/admin/officeNames/bulk", "POST", {
+    onSuccess: (data) => {
+      setOfficeNames((prev) =>
+        [...prev, ...data.created].sort((a, b) =>
+          a.officeName.localeCompare(b.officeName),
+        ),
+      );
+      // Clearing the text clears the preview — the text is the only source of truth.
+      setBulkText("");
+      toast({
+        title: "Success",
+        description: summarizeBulkResult(
+          data.created.length,
+          data.skipped.length,
+          "office",
+        ),
+      });
+    },
+    onError: (error) => {
+      console.error("Failed to bulk add offices", error);
+      // Nothing else changes: the textarea and preview stay intact so Confirm can be
+      // retried.
+      toast({
+        title: "Error",
+        description:
+          error.message || "Failed to add office names. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBulkConfirm = async () => {
+    if (newOfficeNames.length === 0) return;
+    try {
+      await bulkAddMutation.mutate({ names: newOfficeNames });
+    } catch (_error) {
+      // onError already handles user feedback/logging.
+    }
+  };
+
   const handleAddOffice = async () => {
     if (!newOffice.trim()) return;
     try {
@@ -131,21 +233,45 @@ export const ElectionOffices = ({
         ))}
       </ul>
 
-      <div className="space-y-2">
-        <Input
-          value={newOffice}
-          onChange={(e) => setNewOffice(e.target.value)}
-          placeholder="New office name"
-        />
+      <div className="mb-2 flex justify-end">
         <Button
           type="button"
-          onClick={handleAddOffice}
-          disabled={!newOffice.trim() || addOfficeMutation.loading}
-          aria-busy={addOfficeMutation.loading}
+          size="sm"
+          variant={bulkMode ? "default" : "outline"}
+          aria-pressed={bulkMode}
+          onClick={() => setBulkMode((prev) => !prev)}
         >
-          {addOfficeMutation.loading ? "Adding..." : "Add Office"}
+          Bulk add
         </Button>
       </div>
+
+      {bulkMode ? (
+        <BulkAddSection
+          rows={bulkRows}
+          text={bulkText}
+          onTextChange={setBulkText}
+          onConfirm={handleBulkConfirm}
+          confirmLabel={`Add ${newOfficeNames.length} office${
+            newOfficeNames.length === 1 ? "" : "s"
+          }`}
+        />
+      ) : (
+        <div className="space-y-2">
+          <Input
+            value={newOffice}
+            onChange={(e) => setNewOffice(e.target.value)}
+            placeholder="New office name"
+          />
+          <Button
+            type="button"
+            onClick={handleAddOffice}
+            disabled={!newOffice.trim() || addOfficeMutation.loading}
+            aria-busy={addOfficeMutation.loading}
+          >
+            {addOfficeMutation.loading ? "Adding..." : "Add Office"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

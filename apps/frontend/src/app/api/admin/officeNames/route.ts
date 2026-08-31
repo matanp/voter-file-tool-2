@@ -4,7 +4,11 @@ import prisma from "~/lib/prisma";
 import { z, ZodError } from "zod";
 import { Prisma, PrivilegeLevel } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import {
+  withPrivilege,
+  type SessionWithUser,
+} from "~/app/api/lib/withPrivilege";
+import { logAuditEvent } from "~/lib/auditLog";
 
 async function getOfficeNamesHandler(_req: NextRequest, _session: Session) {
   try {
@@ -28,7 +32,10 @@ const createOfficeSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
 });
 
-async function createOfficeHandler(request: NextRequest) {
+async function createOfficeHandler(
+  request: NextRequest,
+  session: SessionWithUser,
+) {
   try {
     const body = (await request.json()) as unknown;
     const parsed = createOfficeSchema.parse(body);
@@ -47,6 +54,18 @@ async function createOfficeHandler(request: NextRequest) {
     const newOffice = await prisma.officeName.create({
       data: { officeName: parsed.name },
     });
+
+    // Fail-open, matching the bulk route: election-config edits are reference/config
+    // telemetry, not membership state, so a failed audit write must not fail the add.
+    await logAuditEvent(
+      session.user.id,
+      session.user.privilegeLevel ?? PrivilegeLevel.Admin,
+      "OFFICE_NAME_CREATED",
+      "OfficeName",
+      String(newOffice.id),
+      null,
+      { id: newOffice.id, officeName: newOffice.officeName },
+    );
 
     revalidatePath("/petitions");
     return NextResponse.json(newOffice, { status: 201 });

@@ -13,6 +13,7 @@ import {
   createMockSession,
   createMockRequest,
   createAuthTestSuite,
+  expectAuditLogCreate,
   expectErrorResponse,
   parseJsonResponse,
   type ErrorResponseBody,
@@ -172,6 +173,142 @@ describe("/api/admin/electionDates", () => {
       expect(response.status).toBe(400);
       const json = await parseJsonResponse<ErrorResponseBody>(response);
       expect(json.error).toBe("Invalid input");
+    });
+
+    // The route now shares the strict calendar-date parser: full ISO instants, which the
+    // old `Date.parse` path accepted (and its own client used to send), are rejected.
+    it("should reject a full ISO instant with 400", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+
+      const request = createMockRequest({ date: "2025-06-15T04:00:00.000Z" });
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      const json = await parseJsonResponse<ErrorResponseBody>(response);
+      expect(json.error).toBe("Invalid input");
+      expect(prismaMock.electionDate.create).not.toHaveBeenCalled();
+    });
+
+    it("should reject a long-form date with 400", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+
+      const request = createMockRequest({ date: "November 3, 2026" });
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(prismaMock.electionDate.create).not.toHaveBeenCalled();
+    });
+
+    it("should accept M/D/YYYY and store UTC midnight for that calendar day", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.electionDate.findFirst.mockResolvedValue(null);
+      prismaMock.electionDate.create.mockResolvedValue({
+        id: 2,
+        date: new Date(Date.UTC(2026, 10, 3)),
+      } as never);
+
+      const request = createMockRequest({ date: "11/3/2026" });
+      const response = await POST(request);
+
+      expect(response.status).toBe(201);
+      expect(prismaMock.electionDate.create).toHaveBeenCalledWith({
+        data: { date: new Date(Date.UTC(2026, 10, 3)) },
+      });
+    });
+
+    it("should match an existing date by UTC day range, not exact instant", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      // A stray non-midnight row for the same calendar day. An equality precheck would
+      // miss it and land a silent duplicate; the day-range query reports it as existing.
+      prismaMock.electionDate.findFirst.mockResolvedValue({
+        id: 7,
+        date: new Date("2026-11-03T13:45:00.000Z"),
+      } as never);
+
+      const request = createMockRequest({ date: "2026-11-03" });
+      const response = await POST(request);
+
+      await expectErrorResponse(response, 409, "Election date already exists");
+      expect(prismaMock.electionDate.findFirst).toHaveBeenCalledWith({
+        where: {
+          date: {
+            gte: new Date(Date.UTC(2026, 10, 3)),
+            lt: new Date(Date.UTC(2026, 10, 4)),
+          },
+        },
+      });
+      expect(prismaMock.electionDate.create).not.toHaveBeenCalled();
+    });
+
+    it("writes a fail-open audit row for the created date", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.electionDate.findFirst.mockResolvedValue(null);
+      prismaMock.electionDate.create.mockResolvedValue({
+        id: 3,
+        date: new Date(Date.UTC(2026, 10, 3)),
+      } as never);
+
+      const response = await POST(createMockRequest({ date: "2026-11-03" }));
+
+      expect(response.status).toBe(201);
+      expect(prismaMock.auditLog.create).toHaveBeenCalledTimes(1);
+      expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "ELECTION_DATE_CREATED",
+          entityType: "ElectionDate",
+          entityId: "3",
+        }),
+      );
+    });
+
+    it("still returns 201 when the audit write fails (fail-open)", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.electionDate.findFirst.mockResolvedValue(null);
+      prismaMock.electionDate.create.mockResolvedValue({
+        id: 3,
+        date: new Date(Date.UTC(2026, 10, 3)),
+      } as never);
+      (prismaMock.auditLog.create as jest.Mock).mockRejectedValue(
+        new Error("audit down"),
+      );
+
+      const response = await POST(createMockRequest({ date: "2026-11-03" }));
+
+      expect(response.status).toBe(201);
+    });
+
+    it("writes no audit row when the date already exists", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.electionDate.findFirst.mockResolvedValue({
+        id: 1,
+        date: new Date(Date.UTC(2026, 10, 3)),
+      } as never);
+
+      const response = await POST(createMockRequest({ date: "2026-11-03" }));
+
+      expect(response.status).toBe(409);
+      expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
     });
 
     it("should return 409 on Prisma P2002 unique constraint violation", async () => {
