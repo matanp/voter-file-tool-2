@@ -14,7 +14,7 @@ import {
 } from "~/lib/electionConfigParsing";
 import {
   BulkAddSection,
-  summarizePreviewRows,
+  summarizeBulkResult,
   type PreviewRow,
 } from "./BulkAddSection";
 
@@ -148,7 +148,6 @@ export const ElectionOffices = ({
     { names: string[] }
   >("/api/admin/officeNames/bulk", "POST", {
     onSuccess: (data) => {
-      const summary = summarizePreviewRows(bulkRows);
       setOfficeNames((prev) =>
         [...prev, ...data.created].sort((a, b) =>
           a.officeName.localeCompare(b.officeName),
@@ -156,7 +155,14 @@ export const ElectionOffices = ({
       );
       // Clearing the text clears the preview — the text is the only source of truth.
       setBulkText("");
-      toast({ title: "Success", description: summary });
+      toast({
+        title: "Success",
+        description: summarizeBulkResult(
+          data.created.length,
+          data.skipped.length,
+          "office",
+        ),
+      });
     },
     onError: (error) => {
       console.error("Failed to bulk add offices", error);

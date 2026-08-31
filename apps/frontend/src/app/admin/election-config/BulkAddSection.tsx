@@ -71,8 +71,8 @@ export function countByStatus(
 }
 
 /**
- * The one-line count summary shown above the preview table. The panels reuse the same
- * string for the success toast, which is why it is exported rather than inlined.
+ * The one-line count summary shown above the preview table. It describes what the
+ * preview *predicts*; `summarizeBulkResult` describes what the server actually did.
  */
 export function summarizePreviewRows(rows: PreviewRow[]): string {
   const counts = countByStatus(rows);
@@ -90,20 +90,58 @@ export function summarizePreviewRows(rows: PreviewRow[]): string {
 }
 
 /**
+ * The post-confirm summary, built from the **server's** counts rather than the preview's.
+ *
+ * The preview can overstate what actually landed: it matches against the list in local
+ * state, which may be stale, and a concurrent admin can claim a row between preview and
+ * insert. Only the response knows what was really created.
+ */
+export function summarizeBulkResult(
+  createdCount: number,
+  skippedCount: number,
+  noun: string,
+): string {
+  const plural = createdCount === 1 ? "" : "s";
+  return skippedCount > 0
+    ? `Added ${createdCount} ${noun}${plural} · ${skippedCount} skipped`
+    : `Added ${createdCount} ${noun}${plural}`;
+}
+
+/**
  * Removes the `lineIndex`-th non-blank line from `text`, preserving everything else
  * (including blank lines) verbatim.
+ *
+ * `expected` guards a race: rows are derived from the *debounced* text, so a ✕ clicked
+ * within the debounce window carries an index into a stale line list. When the line at
+ * `lineIndex` is no longer the one the row displayed, fall back to the first line that
+ * still matches it, and remove nothing when there is no match — deleting the wrong line
+ * is worse than a no-op the admin can retry.
  */
-function removeLineAt(text: string, lineIndex: number): string {
+function removeLineAt(
+  text: string,
+  lineIndex: number,
+  expected: string,
+): string {
+  const lines = text.split("\n");
+
   let seen = -1;
-  const kept: string[] = [];
-  for (const line of text.split("\n")) {
-    if (line.trim().length > 0) {
-      seen += 1;
-      if (seen === lineIndex) continue;
-    }
-    kept.push(line);
-  }
-  return kept.join("\n");
+  let atIndex = -1;
+  let firstMatch = -1;
+  lines.forEach((line, i) => {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) return;
+    seen += 1;
+    if (seen === lineIndex) atIndex = i;
+    if (firstMatch === -1 && trimmed === expected) firstMatch = i;
+  });
+
+  const removeAt =
+    atIndex !== -1 && lines[atIndex]?.trim() === expected
+      ? atIndex
+      : firstMatch;
+  if (removeAt === -1) return text;
+
+  return lines.filter((_, i) => i !== removeAt).join("\n");
 }
 
 export interface BulkAddSectionProps {
@@ -206,7 +244,9 @@ export const BulkAddSection = ({
                       aria-label={`Remove ${row.original}`}
                       className="px-2 text-muted-foreground hover:text-foreground"
                       onClick={() =>
-                        onTextChange(removeLineAt(text, row.lineIndex))
+                        onTextChange(
+                          removeLineAt(text, row.lineIndex, row.original),
+                        )
                       }
                     >
                       ✕

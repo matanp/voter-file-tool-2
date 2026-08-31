@@ -145,7 +145,9 @@ export function extractMembershipSubject(
   const voterRecordId =
     typeof subject.voterRecordId === "string" ? subject.voterRecordId : null;
   const committeeListId =
-    typeof subject.committeeListId === "number" ? subject.committeeListId : null;
+    typeof subject.committeeListId === "number"
+      ? subject.committeeListId
+      : null;
   const termId = typeof subject.termId === "string" ? subject.termId : null;
   const termLabel =
     typeof subject.termLabel === "string" ? subject.termLabel : null;
@@ -206,7 +208,9 @@ export function formatCommitteeLocation(
 }
 
 /** Formats committee context including optional seat and term label. */
-export function formatCommitteeContext(subject: AuditMembershipSubject): string {
+export function formatCommitteeContext(
+  subject: AuditMembershipSubject,
+): string {
   const location = formatCommitteeLocation(subject);
   const seatPart =
     subject.seatNumber != null ? ` · Seat ${subject.seatNumber}` : "";
@@ -306,7 +310,9 @@ export function buildSummary(entry: AuditEntryForSummary): string {
     case AuditAction.MEMBER_REMOVED:
       if (entityType === "CommitteeMembership") {
         const who = name ?? "Member";
-        return removalReason ? `${who} removed (${removalReason})` : `${who} removed`;
+        return removalReason
+          ? `${who} removed (${removalReason})`
+          : `${who} removed`;
       }
       return `Removed (${formatEntityTypeLabel(entityType)})`;
     case AuditAction.MEMBER_RESIGNED:
@@ -358,6 +364,26 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       return typeof after.label === "string"
         ? `Term updated: ${after.label}`
         : "Term updated";
+    case AuditAction.ELECTION_DATES_BULK_CREATED:
+    case AuditAction.OFFICE_NAMES_BULK_CREATED: {
+      // Bulk rows carry a synthetic `bulk-<timestamp>` entityId, so the counts in
+      // metadata are the only meaningful thing to show.
+      const noun =
+        action === AuditAction.ELECTION_DATES_BULK_CREATED
+          ? "election date"
+          : "office name";
+      const createdCount =
+        typeof meta.createdCount === "number" ? meta.createdCount : null;
+      const skippedCount =
+        typeof meta.skippedCount === "number" ? meta.skippedCount : null;
+      if (createdCount === null) {
+        return `Bulk added ${noun}s`;
+      }
+      const plural = createdCount === 1 ? "" : "s";
+      return skippedCount
+        ? `Bulk added ${createdCount} ${noun}${plural} (${skippedCount} skipped)`
+        : `Bulk added ${createdCount} ${noun}${plural}`;
+    }
     case AuditAction.ELECTION_DATE_CREATED:
     case AuditAction.ELECTION_DATE_DELETED: {
       const created = action === AuditAction.ELECTION_DATE_CREATED;
@@ -365,7 +391,9 @@ export function buildSummary(entry: AuditEntryForSummary): string {
       // Stored as an ISO instant; the calendar day is the only meaningful part.
       const label = typeof raw === "string" ? raw.slice(0, 10) : null;
       const verb = created ? "added" : "deleted";
-      return label ? `Election date ${verb}: ${label}` : `Election date ${verb}`;
+      return label
+        ? `Election date ${verb}: ${label}`
+        : `Election date ${verb}`;
     }
     case AuditAction.OFFICE_NAME_CREATED:
     case AuditAction.OFFICE_NAME_DELETED: {
@@ -379,7 +407,9 @@ export function buildSummary(entry: AuditEntryForSummary): string {
     case AuditAction.GOVERNANCE_CONFIG_UPDATED:
       return "Governance config updated";
     case "JURISDICTION_ASSIGNED":
-      return location ? `Jurisdiction assigned: ${location}` : "Jurisdiction assigned";
+      return location
+        ? `Jurisdiction assigned: ${location}`
+        : "Jurisdiction assigned";
     case AuditAction.DISCREPANCY_RESOLVED:
       return entityType === "CommitteeMembership"
         ? `Discrepancy resolved${name ? `: ${name}` : ""}`
@@ -408,7 +438,9 @@ export function buildSummary(entry: AuditEntryForSummary): string {
 }
 
 /** Builds a drawer title from action label and summary text. */
-export function buildDrawerTitle(entry: AuditEntryForSummary & { timestamp?: string }): string {
+export function buildDrawerTitle(
+  entry: AuditEntryForSummary & { timestamp?: string },
+): string {
   const summary = buildSummary(entry);
   const actionLabel = AUDIT_ACTION_LABELS[entry.action] ?? entry.action;
   return `${actionLabel} — ${summary}`;

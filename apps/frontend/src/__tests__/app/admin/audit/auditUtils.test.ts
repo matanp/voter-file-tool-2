@@ -24,9 +24,9 @@ const membershipSubject = {
 
 describe("auditUtils membership subject", () => {
   it("extractMembershipSubject parses metadata.subject", () => {
-    expect(
-      extractMembershipSubject({ subject: membershipSubject }),
-    ).toEqual(membershipSubject);
+    expect(extractMembershipSubject({ subject: membershipSubject })).toEqual(
+      membershipSubject,
+    );
     expect(extractMembershipSubject(null)).toBeNull();
   });
 
@@ -113,13 +113,44 @@ describe("auditUtils entity type labels", () => {
   ] as const;
 
   it("formatEntityTypeLabel returns human-readable labels for known types", () => {
-    expect(formatEntityTypeLabel("CommitteeMembership")).toBe("Committee membership");
+    expect(formatEntityTypeLabel("CommitteeMembership")).toBe(
+      "Committee membership",
+    );
     expect(formatEntityTypeLabel("MeetingRecord")).toBe("Meeting");
     expect(formatEntityTypeLabel("UserJurisdiction")).toBe("User jurisdiction");
   });
 
   it("formatEntityTypeLabel falls back to raw value for unknown types", () => {
     expect(formatEntityTypeLabel("FutureRecordType")).toBe("FutureRecordType");
+  });
+
+  it("buildSummary describes bulk election-config adds from metadata counts", () => {
+    expect(
+      buildSummary({
+        action: AuditAction.OFFICE_NAMES_BULK_CREATED,
+        entityType: "OfficeName",
+        entityId: "bulk-1756512000000",
+        metadata: { createdCount: 12, skippedCount: 0 },
+      }),
+    ).toBe("Bulk added 12 office names");
+
+    expect(
+      buildSummary({
+        action: AuditAction.ELECTION_DATES_BULK_CREATED,
+        entityType: "ElectionDate",
+        entityId: "bulk-1756512000000",
+        metadata: { createdCount: 1, skippedCount: 3 },
+      }),
+    ).toBe("Bulk added 1 election date (3 skipped)");
+
+    // Without counts there is nothing to say: the synthetic entityId is not worth showing.
+    expect(
+      buildSummary({
+        action: AuditAction.ELECTION_DATES_BULK_CREATED,
+        entityType: "ElectionDate",
+        entityId: "bulk-1756512000000",
+      }),
+    ).toBe("Bulk added election dates");
   });
 
   it("buildSummary describes single-record election-config edits", () => {
@@ -161,7 +192,9 @@ describe("auditUtils entity type labels", () => {
   });
 
   it("AUDIT_ENTITY_TYPE_OPTIONS includes all currently logged entity types", () => {
-    const optionValues = AUDIT_ENTITY_TYPE_OPTIONS.map((option) => option.value);
+    const optionValues = AUDIT_ENTITY_TYPE_OPTIONS.map(
+      (option) => option.value,
+    );
     for (const entityType of LOGGED_ENTITY_TYPES) {
       expect(optionValues).toContain(entityType);
     }

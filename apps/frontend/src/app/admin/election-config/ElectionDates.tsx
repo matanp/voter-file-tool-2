@@ -21,7 +21,7 @@ import {
 } from "~/lib/electionConfigParsing";
 import {
   BulkAddSection,
-  summarizePreviewRows,
+  summarizeBulkResult,
   type PreviewRow,
 } from "./BulkAddSection";
 
@@ -160,13 +160,19 @@ export const ElectionDates = ({
     { dates: string[] }
   >("/api/admin/electionDates/bulk", "POST", {
     onSuccess: (data) => {
-      const summary = summarizePreviewRows(bulkRows);
       // Re-sort: the list is served date-ascending, so appending a pasted 2024-2028
       // range would stack it below 2030 in arrival order until the next reload.
       setElectionDates((prev) => sortElectionDates([...prev, ...data.created]));
       // Clearing the text clears the preview — the text is the only source of truth.
       setBulkText("");
-      toast({ title: "Success", description: summary });
+      toast({
+        title: "Success",
+        description: summarizeBulkResult(
+          data.created.length,
+          data.skipped.length,
+          "election date",
+        ),
+      });
     },
     onError: (error) => {
       console.error("Failed to bulk add election dates", error);
