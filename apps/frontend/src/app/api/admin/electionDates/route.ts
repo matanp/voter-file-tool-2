@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import type { Session } from "next-auth";
+import {
+  INVALID_DATE_MESSAGE,
+  parseCalendarDate,
+  utcDayRange,
+} from "~/lib/electionConfigParsing";
 
 /** Fetch and return all electionDate records ordered by date for the admin API. */
 async function getElectionDatesHandler(_req: NextRequest, _session: Session) {
@@ -22,15 +27,17 @@ async function getElectionDatesHandler(_req: NextRequest, _session: Session) {
   }
 }
 
+/**
+ * Strict calendar-date input: `YYYY-MM-DD` or `M/D/YYYY` only.
+ *
+ * This deliberately narrows what the route used to accept (anything `Date.parse`
+ * swallowed, including full ISO instants). Two definitions of "a valid election date" in
+ * one tree is exactly the duplication the shared parser exists to stop.
+ */
 const createDateSchema = z.object({
-  date: z.string().refine(
-    (val) => {
-      return !isNaN(Date.parse(val));
-    },
-    {
-      message: "Invalid date string",
-    },
-  ),
+  date: z.string().refine((val) => parseCalendarDate(val) !== null, {
+    message: INVALID_DATE_MESSAGE,
+  }),
 });
 
 async function postElectionDateHandler(req: NextRequest, _session: Session) {
@@ -38,12 +45,18 @@ async function postElectionDateHandler(req: NextRequest, _session: Session) {
     const body = (await req.json()) as unknown;
     const parsed = createDateSchema.parse(body);
 
-    // Normalize to midnight UTC for day-level uniqueness
-    const electionDate = new Date(parsed.date);
-    electionDate.setUTCHours(0, 0, 0, 0);
+    // The schema already rejected anything the strict parser cannot read; it returns a
+    // UTC-midnight Date, so no further normalization is needed.
+    const electionDate = parseCalendarDate(parsed.date);
+    if (electionDate === null) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
 
+    // Match by UTC day, never by exact instant: a stray non-midnight row would be missed
+    // by an equality check, pass the `@unique` index (it is a different instant), and
+    // land as a silent duplicate — two Nov 3 entries in the dropdown.
     const existingDate = await prisma.electionDate.findFirst({
-      where: { date: electionDate },
+      where: { date: utcDayRange(electionDate) },
     });
 
     if (existingDate) {
@@ -81,4 +94,7 @@ async function postElectionDateHandler(req: NextRequest, _session: Session) {
 }
 
 export const GET = withPrivilege(PrivilegeLevel.Admin, getElectionDatesHandler);
-export const POST = withPrivilege(PrivilegeLevel.Admin, postElectionDateHandler);
+export const POST = withPrivilege(
+  PrivilegeLevel.Admin,
+  postElectionDateHandler,
+);

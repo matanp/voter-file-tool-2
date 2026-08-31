@@ -108,6 +108,8 @@ describe("auditUtils entity type labels", () => {
     "EligibilityFlag",
     "LtedDistrictCrosswalk",
     "Seat",
+    "OfficeName",
+    "ElectionDate",
   ] as const;
 
   it("formatEntityTypeLabel returns human-readable labels for known types", () => {

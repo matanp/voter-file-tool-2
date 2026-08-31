@@ -22,6 +22,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   DISCREPANCY_REJECTED: "Discrepancy Rejected",
   DISCREPANCY_UNDONE: "Discrepancy Undone",
   CROSSWALK_IMPORTED: "Crosswalk Imported",
+  OFFICE_NAMES_BULK_CREATED: "Office Names Bulk Created",
+  ELECTION_DATES_BULK_CREATED: "Election Dates Bulk Created",
 };
 
 export type AuditEntityTypeOption = {
@@ -59,6 +61,11 @@ export const AUDIT_ENTITY_TYPE_OPTIONS: readonly AuditEntityTypeOption[] = [
     description: "Legislative-to-election district crosswalk data",
   },
   {
+    value: "ElectionDate",
+    label: "Election date",
+    description: "Bulk-added election dates",
+  },
+  {
     value: "EligibilityFlag",
     label: "Eligibility flag",
     description: "BOE eligibility flag reviews",
@@ -72,6 +79,11 @@ export const AUDIT_ENTITY_TYPE_OPTIONS: readonly AuditEntityTypeOption[] = [
     value: "MeetingRecord",
     label: "Meeting",
     description: "Committee meeting records",
+  },
+  {
+    value: "OfficeName",
+    label: "Office name",
+    description: "Bulk-added election office names",
   },
   {
     value: "CommitteeUploadDiscrepancy",

@@ -1,12 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { DatePicker } from "~/components/ui/datePicker";
 import type { ElectionDate } from "@prisma/client";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
-import { formatElectionDateForDisplay } from "~/lib/electionDateUtils";
+import { useDebouncedValue } from "~/hooks/useDebouncedValue";
+import {
+  formatElectionDateForDisplay,
+  formatElectionDateForForm,
+  sortElectionDates,
+} from "~/lib/electionDateUtils";
+import {
+  calendarDateFromLocalDate,
+  formatCalendarDateWithWeekday,
+  INVALID_DATE_MESSAGE,
+  parseCalendarDate,
+  splitPastedLines,
+} from "~/lib/electionConfigParsing";
+import {
+  BulkAddSection,
+  summarizePreviewRows,
+  type PreviewRow,
+} from "./BulkAddSection";
 
 interface ElectionDateProps {
   electionDates: ElectionDate[];
@@ -20,6 +37,70 @@ export const ElectionDates = ({
     useState<ElectionDate[]>(initialDates);
   const [newDate, setNewDate] = useState<Date | null>(null);
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [bulkMode, setBulkMode] = useState(false);
+  // The paste lives here, not in BulkAddSection, so toggling back to single-add and
+  // returning does not discard it.
+  const [bulkText, setBulkText] = useState("");
+  const debouncedBulkText = useDebouncedValue(bulkText);
+
+  // `rows` is a pure function of the (debounced) pasted text. Matching is client-side
+  // against the list already in local state; no fetch is involved in the preview.
+  // Dates are matched by UTC day: `formatElectionDateForDisplay` renders UTC components,
+  // so it doubles as a day key and copes with dates that arrived as JSON strings.
+  const { bulkRows, newDatePayloads } = useMemo(() => {
+    const existing = new Set(
+      electionDates.map((ed) => formatElectionDateForDisplay(ed.date)),
+    );
+    const seen = new Map<string, string>();
+    const payloads: string[] = [];
+
+    const rows = splitPastedLines(debouncedBulkText).map<PreviewRow>(
+      (line, lineIndex) => {
+        const parsed = parseCalendarDate(line);
+        if (parsed === null) {
+          return {
+            lineIndex,
+            original: line,
+            value: "—",
+            status: "invalid",
+            detail: INVALID_DATE_MESSAGE,
+          };
+        }
+
+        // Weekday is shown deliberately: NY elections are Tuesdays, so a fat-fingered
+        // 11/4/2026 -> Wed is visible at a glance.
+        const value = formatCalendarDateWithWeekday(parsed);
+        const key = formatElectionDateForDisplay(parsed);
+
+        if (existing.has(key)) {
+          return {
+            lineIndex,
+            original: line,
+            value,
+            status: "exists",
+            detail: "already in the list",
+          };
+        }
+
+        const earlier = seen.get(key);
+        if (earlier !== undefined) {
+          return {
+            lineIndex,
+            original: line,
+            value,
+            status: "duplicate",
+            detail: `duplicate of ${earlier}`,
+          };
+        }
+
+        seen.set(key, line);
+        payloads.push(formatElectionDateForForm(parsed));
+        return { lineIndex, original: line, value, status: "new" };
+      },
+    );
+
+    return { bulkRows: rows, newDatePayloads: payloads };
+  }, [debouncedBulkText, electionDates]);
 
   // API mutation hooks
   const addDateMutation = useApiMutation<ElectionDate, { date: string }>(
@@ -74,10 +155,51 @@ export const ElectionDates = ({
     },
   });
 
+  const bulkAddMutation = useApiMutation<
+    { created: ElectionDate[]; skipped: string[] },
+    { dates: string[] }
+  >("/api/admin/electionDates/bulk", "POST", {
+    onSuccess: (data) => {
+      const summary = summarizePreviewRows(bulkRows);
+      // Re-sort: the list is served date-ascending, so appending a pasted 2024-2028
+      // range would stack it below 2030 in arrival order until the next reload.
+      setElectionDates((prev) => sortElectionDates([...prev, ...data.created]));
+      // Clearing the text clears the preview — the text is the only source of truth.
+      setBulkText("");
+      toast({ title: "Success", description: summary });
+    },
+    onError: (error) => {
+      console.error("Failed to bulk add election dates", error);
+      // Nothing else changes: the textarea and preview stay intact so Confirm can be
+      // retried.
+      toast({
+        title: "Error",
+        description:
+          error.message || "Failed to add election dates. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBulkConfirm = async () => {
+    if (newDatePayloads.length === 0) return;
+    try {
+      await bulkAddMutation.mutate({ dates: newDatePayloads });
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+      console.error("Bulk add dates mutation failed:", error);
+    }
+  };
+
   const handleAddDate = async () => {
     if (!newDate) return;
     try {
-      await addDateMutation.mutate({ date: newDate.toISOString() });
+      // The picker gives a LOCAL-midnight Date; its local components are the day the
+      // admin clicked at every UTC offset. `formatElectionDateForForm` would read UTC
+      // components, which is right only for dates read back from the DB.
+      await addDateMutation.mutate({
+        date: calendarDateFromLocalDate(newDate),
+      });
     } catch (error) {
       // Error handling is done in the mutation's onError callback
       console.error("Add date mutation failed:", error);
@@ -121,15 +243,40 @@ export const ElectionDates = ({
         ))}
       </ul>
 
-      <div className="space-y-2">
-        <DatePicker onChange={(date) => setNewDate(date)} />
+      <div className="mb-2 flex justify-end">
         <Button
-          onClick={handleAddDate}
-          disabled={newDate === null || addDateMutation.loading}
+          type="button"
+          size="sm"
+          variant={bulkMode ? "default" : "outline"}
+          aria-pressed={bulkMode}
+          onClick={() => setBulkMode((prev) => !prev)}
         >
-          {addDateMutation.loading ? "Adding..." : "Add Election Date"}
+          Bulk add
         </Button>
       </div>
+
+      {bulkMode ? (
+        <BulkAddSection
+          rows={bulkRows}
+          text={bulkText}
+          onTextChange={setBulkText}
+          onConfirm={handleBulkConfirm}
+          confirmLabel={`Add ${newDatePayloads.length} election date${
+            newDatePayloads.length === 1 ? "" : "s"
+          }`}
+        />
+      ) : (
+        <div className="space-y-2">
+          <DatePicker onChange={(date) => setNewDate(date)} />
+          <Button
+            onClick={handleAddDate}
+            disabled={newDate === null || addDateMutation.loading}
+            aria-busy={addDateMutation.loading}
+          >
+            {addDateMutation.loading ? "Adding..." : "Add Election Date"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
