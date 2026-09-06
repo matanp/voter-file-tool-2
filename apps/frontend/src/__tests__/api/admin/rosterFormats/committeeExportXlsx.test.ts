@@ -1,6 +1,7 @@
 /**
  * The archived `Committee` / `Serve LT` / `Serve ED` workbook parser, proven against
- * genuine excerpts of both real workbooks it has to read.
+ * fixtures reproducing the shape of both real workbooks it has to read, with invented
+ * people in them.
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -74,17 +75,17 @@ describe("committee-export-xlsx roster format", () => {
   });
 
   it("maps a town row to its committee identity, VRCNUM and claimed voter fields", () => {
-    const entry = byVrcnum(parse2026().entries, "100089814");
+    const entry = byVrcnum(parse2026().entries, "900110005");
 
     expect(entry).toEqual({
-      vrcnum: "100089814",
+      vrcnum: "900110005",
       committee: {
         cityTown: "PITTSFORD",
         legDistrict: 59,
         electionDistrict: 12,
       },
       claimed: {
-        name: "MAXIMILLIAN J GORDON",
+        name: "MAXIMILLIAN J GORLAND",
         address1: "3 E JEFFERSON CIR",
         city: "PITTSFORD",
         state: "NY",
@@ -96,7 +97,7 @@ describe("committee-export-xlsx roster format", () => {
   });
 
   it("resolves the Rochester heuristic: a Committee value containing 'LD ' is ROCHESTER", () => {
-    const entry = byVrcnum(parse2026().entries, "100387573");
+    const entry = byVrcnum(parse2026().entries, "900110001");
 
     expect(entry?.committee).toEqual({
       cityTown: "ROCHESTER",
@@ -106,7 +107,7 @@ describe("committee-export-xlsx roster format", () => {
   });
 
   it("uppercases city/town names that arrive in mixed case", () => {
-    const entry = byVrcnum(parse2026().entries, "100044299");
+    const entry = byVrcnum(parse2026().entries, "900110007");
 
     expect(entry?.committee.cityTown).toBe("EAST ROCHESTER");
   });
@@ -114,10 +115,10 @@ describe("committee-export-xlsx roster format", () => {
   it("derives membershipType from each election type value the format uses", () => {
     const { entries } = parse2026();
 
-    expect(byVrcnum(entries, "008671694")).toMatchObject({
+    expect(byVrcnum(entries, "008910020")).toMatchObject({
       membershipType: "PETITIONED",
     });
-    expect(byVrcnum(entries, "100387573")).toMatchObject({
+    expect(byVrcnum(entries, "900110001")).toMatchObject({
       membershipType: "APPOINTED",
     });
   });
@@ -199,9 +200,9 @@ describe("committee-export-xlsx roster format", () => {
             "LT Description": "City LD 07",
             LT: "07",
             ED: "002",
-            "voter id": "008846966",
-            name: "DONNA J BOUR-PURDY",
-            Add1: "675 BEACH AVE",
+            "voter id": "400846966",
+            name: "MORGAN J HALLORAN",
+            Add1: "675 BAYSIDE AVE",
             City: "ROCHESTER",
             "res state": "NY",
             Zip: "14612",

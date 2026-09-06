@@ -68,10 +68,10 @@ names over the wrong data — the failure mode that motivates the spec.
   pattern and the `-CC-<party>` strip are case-agnostic, so both parse identically; a
   literal `-CC-Democratic` match would have rejected real rows.
 - The regression test computes the header-keyed reading inline and asserts it yields
-  `"1 BRIMFIELD CIR"` for `name` and `""` for `res city`, then asserts the parser yields
-  `"BASIL C BARRETT"` / `"FAIRPORT"` — so a future reader sees why reading by position is
+  `"1 BRIARWOOD CIR"` for `name` and `""` for `res city`, then asserts the parser yields
+  `"AVERY C LINDHOLM"` / `"FAIRPORT"` — so a future reader sees why reading by position is
   mandatory rather than stylistic.
-- A test proves the header row alone is not evidence: the genuine header over another
+- A test proves the header row alone is not evidence: the delivered header over another
   format's data row padded to 52 fields passes the uniform-count check and is caught only
   by the office-name assertion.
 - The parser strips a BOM, accepts CRLF and drops trailing blank lines, though the

@@ -1,6 +1,6 @@
 /**
- * The Board of Elections "Elected County Committee List" parser, proven against a genuine
- * excerpt of the delivered file.
+ * The Board of Elections "Elected County Committee List" parser, proven against a fixture
+ * that reproduces the delivered file's shape with invented people in it.
  *
  * This file's header row does not describe its data rows, so every assertion here is about
  * reading by column position and refusing files whose shape does not match.
@@ -77,18 +77,18 @@ describe("boe-elected-list roster format", () => {
   });
 
   it("maps a row to its VRCNUM, committee identity, claimed voter fields and membership type", () => {
-    const entry = byVrcnum(parseFixture().entries, "8046793");
+    const entry = byVrcnum(parseFixture().entries, "4100011");
 
     expect(entry).toEqual({
-      vrcnum: "8046793",
+      vrcnum: "4100011",
       committee: {
         cityTown: "PERINTON",
         legDistrict: 58,
         electionDistrict: 14,
       },
       claimed: {
-        name: "BASIL C BARRETT",
-        address1: "1 BRIMFIELD CIR",
+        name: "AVERY C LINDHOLM",
+        address1: "1 BRIARWOOD CIR",
         city: "FAIRPORT",
         state: "NY",
         zip: "14450",
@@ -99,7 +99,7 @@ describe("boe-elected-list roster format", () => {
   });
 
   it("parses zero-padded district segments of the office name as base-10 integers", () => {
-    const entry = byVrcnum(parseFixture().entries, "18811244");
+    const entry = byVrcnum(parseFixture().entries, "41811244");
 
     // MENDON/054/001-CC-Democratic — "054" and "001" are decimal, never octal.
     expect(entry?.committee).toEqual({
@@ -110,7 +110,7 @@ describe("boe-elected-list roster format", () => {
   });
 
   it("reads a ROCHESTER committee through the ordinary path, with no special case", () => {
-    const entry = byVrcnum(parseFixture().entries, "100196666");
+    const entry = byVrcnum(parseFixture().entries, "900012345");
 
     expect(entry?.committee).toEqual({
       cityTown: "ROCHESTER",
@@ -197,9 +197,9 @@ describe("boe-elected-list roster format", () => {
     // uniform, so only reading position 26 catches it. Header names are never evidence.
     const otherFormatRow = new Array<string>(52).fill("");
     [
-      "008846966",
-      "DONNA J BOUR-PURDY",
-      "675 BEACH AVE",
+      "400846966",
+      "MORGAN J HALLORAN",
+      "675 BAYSIDE AVE",
       "ROCHESTER",
       "NY",
       "14612",
@@ -226,13 +226,13 @@ describe("boe-elected-list roster format", () => {
     const firstDataRow = fixtureLines()[1]!;
 
     // What the importer would have read from this row before this parser existed:
-    expect(readByHeaderName(firstDataRow, "name")).toBe("1 BRIMFIELD CIR");
+    expect(readByHeaderName(firstDataRow, "name")).toBe("1 BRIARWOOD CIR");
     expect(readByHeaderName(firstDataRow, "res city")).toBe("");
 
     const entry = parseFixture().entries[0];
 
     // What position-reading actually yields — a person, and the town they live in.
-    expect(entry?.claimed.name).toBe("BASIL C BARRETT");
+    expect(entry?.claimed.name).toBe("AVERY C LINDHOLM");
     expect(entry?.claimed.city).toBe("FAIRPORT");
     expect(entry?.claimed.name).not.toBe(readByHeaderName(firstDataRow, "name"));
     expect(entry?.claimed.city).not.toBe(
