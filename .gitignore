@@ -30,3 +30,6 @@ docs/AUDIT_TRAIL_PREVIOUS_SEAT_OCCUPANT.md
 .test-results/
 
 .agents/
+
+# Diff report output: contains real voter names, addresses and IDs
+committee-diff.json
