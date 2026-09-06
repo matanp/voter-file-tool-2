@@ -1,13 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import prisma from "~/lib/prisma";
-import * as xlsx from "xlsx";
-import * as fs from "fs";
-import { PrivilegeLevel, type Prisma } from "@prisma/client";
+import { PrivilegeLevel, type MembershipType, type Prisma } from "@prisma/client";
 
 import {
   type DiscrepanciesAndCommittee,
   findDiscrepancies,
+  getName,
 } from "../../lib/utils";
+import type {
+  RejectedRosterRow,
+  RosterEntry,
+  RosterParseResult,
+} from "./rosterFormats/types";
 import {
   ACTIVE_MEMBERSHIP_STATUS,
   getActiveTerm,
@@ -74,8 +77,80 @@ type BulkLoadActor = {
   activeTermId?: string;
 };
 
+/** One committee's share of an import, as planning worked it out. */
+export type PlannedCommittee = {
+  committee: CommitteeIdentity;
+  /** The existing CommitteeList row, or null when the import would create it. */
+  committeeListId: number | null;
+  /** Every VRCNUM the file places here, including any the import will not activate. */
+  members: string[];
+  /** The VRCNUMs the import would activate here. */
+  importedMembers: string[];
+};
+
+export type PlannedRemoval = {
+  membershipId: string;
+  voterRecordId: string;
+  name: string;
+  committee: CommitteeIdentity;
+};
+
+export type PlannedCapacityFailure = {
+  committee: string;
+  memberCount: number;
+  maxSeats: number;
+};
+
+/**
+ * What an import would do, computed without writing. Every field is data an Admin can read
+ * before deciding to apply; nothing here is persisted.
+ */
+export type ImportPlan = {
+  term: { id: string; label: string };
+  maxSeatsPerLted: number;
+  committees: PlannedCommittee[];
+  /** The memberships the import would activate, and how each member won their seat. */
+  activations: {
+    voterRecordId: string;
+    committee: CommitteeIdentity;
+    membershipType: MembershipType;
+  }[];
+  removals: PlannedRemoval[];
+  discrepancies: Map<string, DiscrepanciesAndCommittee>;
+  rejectedRows: RejectedRosterRow[];
+  /** Non-empty means the import fails rather than overfilling a committee. */
+  capacityFailures: PlannedCapacityFailure[];
+  counts: {
+    entries: number;
+    matchedVoters: number;
+    activations: number;
+    removals: number;
+    discrepancies: number;
+    rejectedRows: number;
+  };
+};
+
 function formatCommitteeIdentity(committee: CommitteeIdentity): string {
   return `${committee.cityTown}-${committee.legDistrict}-${committee.electionDistrict}`;
+}
+
+/**
+ * The row as the discrepancy record describes it, for an Admin resolving a VRCNUM that is
+ * not in the voter file. Keys are the discrepancy record's own vocabulary, not any source
+ * file's column names.
+ */
+function describeRosterEntry(entry: RosterEntry): Record<string, string> {
+  return {
+    name: entry.claimed.name,
+    Add1: entry.claimed.address1,
+    City: entry.claimed.city,
+    State: entry.claimed.state,
+    Zip: entry.claimed.zip,
+    CityTown: entry.committee.cityTown,
+    LT: String(entry.committee.legDistrict),
+    ED: String(entry.committee.electionDistrict),
+    sourceRow: String(entry.sourceRow),
+  };
 }
 
 function ensureImportDiscrepancy(
@@ -110,32 +185,27 @@ function ensureImportDiscrepancy(
   });
 }
 
-export async function loadCommitteeLists(
-  actor: BulkLoadActor = {
-    userId: SYSTEM_USER_ID,
-    userRole: PrivilegeLevel.Admin,
-  },
+const ALREADY_ACTIVE_ELSEWHERE =
+  "Voter is already active in another committee for this term";
+
+function flagActiveElsewhere(
+  discrepanciesMap: Map<string, DiscrepanciesAndCommittee>,
+  voterRecordId: string,
+  committee: CommitteeIdentity,
 ) {
-  const committeeData = new Map<string, CommitteeAccumulationEntry>();
+  ensureImportDiscrepancy(
+    discrepanciesMap,
+    voterRecordId,
+    committee,
+    "alreadyActiveInAnotherCommittee",
+    formatCommitteeIdentity(committee),
+    ALREADY_ACTIVE_ELSEWHERE,
+  );
+}
 
-  const filePath = "data/Committee File 2026-04-16(1).xlsx";
-
-  const fileBuffer = fs.readFileSync(filePath);
-  const workbook: xlsx.WorkBook = xlsx.read(fileBuffer);
-
-  const committeeExportSheet: xlsx.WorkSheet | undefined =
-    workbook.Sheets[workbook.SheetNames[0]!];
-
-  if (!committeeExportSheet) {
-    throw new Error("Committee export sheet not found");
-  }
-
-  const unknownCommitteeData: unknown[] =
-    xlsx.utils.sheet_to_json(committeeExportSheet);
-
-  const committeeExportData = unknownCommitteeData as Record<string, string>[];
-
-  let activeTerm: { id: string; label: string };
+async function resolveActiveTerm(
+  actor: BulkLoadActor,
+): Promise<{ id: string; label: string }> {
   if (actor.activeTermId != null) {
     const term = await prisma.committeeTerm.findUnique({
       where: { id: actor.activeTermId },
@@ -144,39 +214,41 @@ export async function loadCommitteeLists(
     if (!term) {
       throw new Error("Active term not found");
     }
-    activeTerm = term;
-  } else {
-    const term = await getActiveTerm();
-    activeTerm = { id: term.id, label: term.label };
+    return term;
   }
+  const term = await getActiveTerm();
+  return { id: term.id, label: term.label };
+}
+
+const DEFAULT_ACTOR: BulkLoadActor = {
+  userId: SYSTEM_USER_ID,
+  userRole: PrivilegeLevel.Admin,
+};
+
+/**
+ * Works out what importing these entries would do, reading the database but writing
+ * nothing. Applying an import recomputes this rather than trusting a plan handed back to
+ * it, because the database can change between the two.
+ */
+export async function planRosterImport(
+  parseResult: RosterParseResult,
+  actor: BulkLoadActor = DEFAULT_ACTOR,
+): Promise<ImportPlan> {
+  const { entries, rejected } = parseResult;
+  const activeTerm = await resolveActiveTerm(actor);
   const activeTermId = activeTerm.id;
   const config = await getGovernanceConfig();
 
-  let count = 0;
-  let found = 0;
-  let foundDiscrepancy = 0;
+  const committeeData = new Map<string, CommitteeAccumulationEntry>();
   const discrepanciesMap = new Map<string, DiscrepanciesAndCommittee>();
+  // How the file says each voter won their seat, for the memberships the import creates.
+  const membershipTypeByVoter = new Map<string, MembershipType>();
+  let matchedVoters = 0;
 
-  for (const row of committeeExportData) {
-    let city = row.Committee?.includes("LD ") ? "Rochester" : row.Committee;
-
-    city = city?.toUpperCase();
-
-    const legDistrict = Number(row["Serve LT"]);
-    const electionDistrict = Number(row["Serve ED"]);
-    const rawVrcNum = row["voter id"];
-    const VRCNUM =
-      rawVrcNum === undefined || rawVrcNum === null
-        ? ""
-        : String(rawVrcNum).trim();
-
-    if (!VRCNUM) {
-      throw new Error("VRCNUM is undefined");
-    }
-
-    if (!city || !legDistrict || !electionDistrict) {
-      throw new Error("Invalid committee data");
-    }
+  for (const entry of entries) {
+    const { cityTown, legDistrict, electionDistrict } = entry.committee;
+    const VRCNUM = entry.vrcnum;
+    membershipTypeByVoter.set(VRCNUM, entry.membershipType);
 
     const existingRecord = await prisma.voterRecord.findUnique({
       where: {
@@ -184,35 +256,37 @@ export async function loadCommitteeLists(
       },
     });
 
-    count++;
     let recordHasDiscrepancies = false;
     if (existingRecord) {
-      found++;
-      const discrepancies = findDiscrepancies(row, existingRecord);
+      matchedVoters++;
+      const discrepancies = findDiscrepancies(entry.claimed, existingRecord);
 
       if (discrepancies && Object.keys(discrepancies).length > 0) {
         discrepanciesMap.set(VRCNUM, {
           discrepancies,
           committee: {
             id: 0,
-            cityTown: city,
+            cityTown,
             legDistrict,
             electionDistrict,
             termId: activeTermId,
             ltedWeight: null,
           },
         });
-        foundDiscrepancy++;
         recordHasDiscrepancies = true;
       }
     } else {
       discrepanciesMap.set(VRCNUM, {
         discrepancies: {
-          VRCNUM: { incoming: VRCNUM, existing: "", fullRow: row },
+          VRCNUM: {
+            incoming: VRCNUM,
+            existing: "",
+            fullRow: describeRosterEntry(entry),
+          },
         },
         committee: {
           id: 0,
-          cityTown: city,
+          cityTown,
           legDistrict,
           electionDistrict,
           termId: activeTermId,
@@ -223,17 +297,11 @@ export async function loadCommitteeLists(
       recordHasDiscrepancies = true;
     }
 
-    const mapKey = `${city}-${legDistrict}-${electionDistrict}`;
-
-    if (!city || !legDistrict || !electionDistrict) {
-      throw new Error("Invalid committee data");
-    }
-
     accumulateCommitteeMember(
       committeeData,
-      mapKey,
+      `${cityTown}-${legDistrict}-${electionDistrict}`,
       {
-        cityTown: city,
+        cityTown,
         legDistrict,
         electionDistrict,
         termId: activeTermId,
@@ -252,8 +320,7 @@ export async function loadCommitteeLists(
       electionDistrict: value.data.electionDistrict,
       termId: activeTermId,
     };
-    const importedMembers = Array.from(new Set(value.committeeMembers));
-    for (const voterRecordId of importedMembers) {
+    for (const voterRecordId of new Set(value.committeeMembers)) {
       const existingAssignments = voterAssignments.get(voterRecordId) ?? [];
       existingAssignments.push(committeeIdentity);
       voterAssignments.set(voterRecordId, existingAssignments);
@@ -305,12 +372,171 @@ export async function loadCommitteeLists(
     );
   }
 
+  const committees: PlannedCommittee[] = [];
+  const activations: ImportPlan["activations"] = [];
+  const capacityFailures: PlannedCapacityFailure[] = [];
+  const removalsWithoutNames: Omit<PlannedRemoval, "name">[] = [];
+
   for (const [, value] of committeeData.entries()) {
-    const committeeList = value.data;
-    const uniqueImportedMembers = Array.from(new Set(value.committeeMembers));
-    const importedMembers = uniqueImportedMembers.filter(
+    const committee: CommitteeIdentity = {
+      cityTown: value.data.cityTown,
+      legDistrict: value.data.legDistrict,
+      electionDistrict: value.data.electionDistrict,
+      termId: activeTermId,
+    };
+    const members = Array.from(new Set(value.committeeMembers));
+    const importedMembers = members.filter(
       (voterRecordId) => !duplicateAssignments.has(voterRecordId),
     );
+
+    const existingCommittee = await prisma.committeeList.findUnique({
+      where: {
+        cityTown_legDistrict_electionDistrict_termId: {
+          cityTown: committee.cityTown,
+          legDistrict: committee.legDistrict,
+          electionDistrict: committee.electionDistrict,
+          termId: activeTermId,
+        },
+      },
+      select: { id: true },
+    });
+    const committeeListId = existingCommittee?.id ?? null;
+
+    committees.push({ committee, committeeListId, members, importedMembers });
+
+    if (importedMembers.length === 0) {
+      continue;
+    }
+
+    if (importedMembers.length > config.maxSeatsPerLted) {
+      capacityFailures.push({
+        committee: formatCommitteeIdentity(committee),
+        memberCount: importedMembers.length,
+        maxSeats: config.maxSeatsPerLted,
+      });
+      continue;
+    }
+
+    // Anyone currently active here whom the file does not list would be removed.
+    if (committeeListId !== null) {
+      const memberSet = new Set(members);
+      const existingActiveMemberships =
+        await prisma.committeeMembership.findMany({
+          where: {
+            committeeListId,
+            termId: activeTermId,
+            status: ACTIVE_MEMBERSHIP_STATUS,
+          },
+          select: { id: true, voterRecordId: true },
+        });
+
+      for (const membership of existingActiveMemberships) {
+        if (memberSet.has(membership.voterRecordId)) continue;
+        removalsWithoutNames.push({
+          membershipId: membership.id,
+          voterRecordId: membership.voterRecordId,
+          committee,
+        });
+      }
+    }
+
+    for (const voterRecordId of importedMembers) {
+      const activeElsewhere = Array.from(
+        initiallyActiveCommittees.get(voterRecordId) ?? [],
+      ).some((otherCommitteeId) => otherCommitteeId !== committeeListId);
+
+      if (activeElsewhere) {
+        flagActiveElsewhere(discrepanciesMap, voterRecordId, committee);
+        continue;
+      }
+
+      activations.push({
+        voterRecordId,
+        committee,
+        membershipType: membershipTypeByVoter.get(voterRecordId) ?? "APPOINTED",
+      });
+    }
+  }
+
+  const removals = await attachRemovalNames(removalsWithoutNames);
+
+  return {
+    term: activeTerm,
+    maxSeatsPerLted: config.maxSeatsPerLted,
+    committees,
+    activations,
+    removals,
+    discrepancies: discrepanciesMap,
+    rejectedRows: rejected,
+    capacityFailures,
+    counts: {
+      entries: entries.length,
+      matchedVoters,
+      activations: activations.length,
+      removals: removals.length,
+      discrepancies: discrepanciesMap.size,
+      rejectedRows: rejected.length,
+    },
+  };
+}
+
+/** Names the people an import would remove, so a mass removal announces who it is. */
+async function attachRemovalNames(
+  removals: Omit<PlannedRemoval, "name">[],
+): Promise<PlannedRemoval[]> {
+  if (removals.length === 0) return [];
+
+  const voters = await prisma.voterRecord.findMany({
+    where: {
+      VRCNUM: { in: Array.from(new Set(removals.map((r) => r.voterRecordId))) },
+    },
+    select: {
+      VRCNUM: true,
+      firstName: true,
+      middleInitial: true,
+      lastName: true,
+    },
+  });
+  const nameById = new Map(voters.map((voter) => [voter.VRCNUM, getName(voter)]));
+
+  return removals.map((removal) => ({
+    ...removal,
+    name: nameById.get(removal.voterRecordId) ?? "",
+  }));
+}
+
+function assertWithinCapacity(plan: ImportPlan): void {
+  const failure = plan.capacityFailures[0];
+  if (!failure) return;
+  throw new Error(
+    `Committee ${failure.committee} has ${failure.memberCount} members, exceeding maxSeatsPerLted=${failure.maxSeats}`,
+  );
+}
+
+/**
+ * Performs the writes an import plan describes. The plan is recomputed here rather than
+ * accepted as an input, because the database can change between planning and applying.
+ */
+export async function applyRosterImport(
+  parseResult: RosterParseResult,
+  actor: BulkLoadActor = DEFAULT_ACTOR,
+): Promise<ImportPlan> {
+  const plan = await planRosterImport(parseResult, actor);
+  assertWithinCapacity(plan);
+
+  const activeTerm = plan.term;
+  const activeTermId = activeTerm.id;
+  const discrepanciesMap = plan.discrepancies;
+
+  for (const planned of plan.committees) {
+    const committeeList: Prisma.CommitteeListCreateManyInput = {
+      cityTown: planned.committee.cityTown,
+      legDistrict: planned.committee.legDistrict,
+      electionDistrict: planned.committee.electionDistrict,
+      termId: activeTermId,
+    };
+    const uniqueImportedMembers = planned.members;
+    const importedMembers = planned.importedMembers;
 
     if (importedMembers.length === 0) {
       await prisma.committeeList.upsert({
@@ -328,11 +554,15 @@ export async function loadCommitteeLists(
       continue;
     }
 
-    if (importedMembers.length > config.maxSeatsPerLted) {
-      throw new Error(
-        `Committee ${committeeList.cityTown}-${committeeList.legDistrict}-${committeeList.electionDistrict} has ${importedMembers.length} members, exceeding maxSeatsPerLted=${config.maxSeatsPerLted}`,
-      );
-    }
+    const plannedActivations = new Map(
+      plan.activations
+        .filter(
+          (activation) =>
+            formatCommitteeIdentity(activation.committee) ===
+            formatCommitteeIdentity(planned.committee),
+        )
+        .map((activation) => [activation.voterRecordId, activation.membershipType]),
+    );
 
     await prisma.$transaction(async (tx) => {
       const committee = await tx.committeeList.upsert({
@@ -358,7 +588,7 @@ export async function loadCommitteeLists(
 
       await ensureSeatsExist(committee.id, activeTermId, {
         tx,
-        maxSeats: config.maxSeatsPerLted,
+        maxSeats: plan.maxSeatsPerLted,
       });
 
       const importedSet = new Set(uniqueImportedMembers);
@@ -368,7 +598,6 @@ export async function loadCommitteeLists(
         electionDistrict: committee.electionDistrict,
         termId: activeTermId,
       };
-      const formattedCommittee = formatCommitteeIdentity(committeeIdentity);
 
       // Reconcile removals first so new activations can safely claim seats.
       const existingActiveMemberships = await tx.committeeMembership.findMany({
@@ -454,19 +683,9 @@ export async function loadCommitteeLists(
       }
 
       for (const voterRecordId of importedMembers) {
-        const initiallyActiveElsewhere = Array.from(
-          initiallyActiveCommittees.get(voterRecordId) ?? [],
-        ).some((committeeListId) => committeeListId !== committee.id);
-
-        if (initiallyActiveElsewhere) {
-          ensureImportDiscrepancy(
-            discrepanciesMap,
-            voterRecordId,
-            committeeIdentity,
-            "alreadyActiveInAnotherCommittee",
-            formattedCommittee,
-            "Voter is already active in another committee for this term",
-          );
+        const plannedMembershipType = plannedActivations.get(voterRecordId);
+        if (plannedMembershipType === undefined) {
+          // Planning already recorded why this one is not activated.
           continue;
         }
 
@@ -478,14 +697,7 @@ export async function loadCommitteeLists(
             tx,
           )
         ) {
-          ensureImportDiscrepancy(
-            discrepanciesMap,
-            voterRecordId,
-            committeeIdentity,
-            "alreadyActiveInAnotherCommittee",
-            formattedCommittee,
-            "Voter is already active in another committee for this term",
-          );
+          flagActiveElsewhere(discrepanciesMap, voterRecordId, committeeIdentity);
           continue;
         }
 
@@ -503,18 +715,22 @@ export async function loadCommitteeLists(
         if (!(existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS && seatNumber !== null)) {
           seatNumber = await assignNextAvailableSeat(committee.id, activeTermId, {
             tx,
-            maxSeats: config.maxSeatsPerLted,
+            maxSeats: plan.maxSeatsPerLted,
           });
         }
 
         if (existingMembership) {
+          // Existing memberships are not rewritten: a membership that already records how
+          // its member won the seat keeps that, and only an untyped one takes the file's.
+          const membershipType: MembershipType =
+            existingMembership.membershipType ?? plannedMembershipType;
           try {
             await tx.committeeMembership.update({
               where: { id: existingMembership.id },
               data: {
                 status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: existingMembership.activatedAt ?? new Date(),
-                membershipType: existingMembership.membershipType ?? "APPOINTED",
+                membershipType,
                 seatNumber,
                 confirmedAt: null,
                 resignedAt: null,
@@ -531,13 +747,10 @@ export async function loadCommitteeLists(
             });
           } catch (error) {
             if (isActiveMembershipPerTermConflict(error)) {
-              ensureImportDiscrepancy(
+              flagActiveElsewhere(
                 discrepanciesMap,
                 voterRecordId,
                 committeeIdentity,
-                "alreadyActiveInAnotherCommittee",
-                formattedCommittee,
-                "Voter is already active in another committee for this term",
               );
               continue;
             }
@@ -552,7 +765,7 @@ export async function loadCommitteeLists(
             { status: existingMembership.status },
             {
               status: ACTIVE_MEMBERSHIP_STATUS,
-              membershipType: existingMembership.membershipType ?? "APPOINTED",
+              membershipType,
               seatNumber,
             },
             mergeAuditMetadata(
@@ -565,6 +778,7 @@ export async function loadCommitteeLists(
             tx,
           );
         } else {
+          const membershipType: MembershipType = plannedMembershipType;
           let createdMembership;
           try {
             createdMembership = await tx.committeeMembership.create({
@@ -574,19 +788,16 @@ export async function loadCommitteeLists(
                 termId: activeTermId,
                 status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: new Date(),
-                membershipType: "APPOINTED",
+                membershipType,
                 seatNumber,
               },
             });
           } catch (error) {
             if (isActiveMembershipPerTermConflict(error)) {
-              ensureImportDiscrepancy(
+              flagActiveElsewhere(
                 discrepanciesMap,
                 voterRecordId,
                 committeeIdentity,
-                "alreadyActiveInAnotherCommittee",
-                formattedCommittee,
-                "Voter is already active in another committee for this term",
               );
               continue;
             }
@@ -599,7 +810,7 @@ export async function loadCommitteeLists(
             "CommitteeMembership",
             createdMembership.id,
             null,
-            { status: ACTIVE_MEMBERSHIP_STATUS, membershipType: "APPOINTED", seatNumber },
+            { status: ACTIVE_MEMBERSHIP_STATUS, membershipType, seatNumber },
             mergeAuditMetadata(
               {
                 source: "bulk_import_sync",
@@ -614,16 +825,5 @@ export async function loadCommitteeLists(
     });
   }
 
-  console.log(
-    "Loaded",
-    count,
-    "records and found",
-    found,
-    "alread saved. Found discrepancies:",
-    foundDiscrepancy,
-    "discrepancies:",
-    discrepanciesMap.size,
-  );
-
-  return discrepanciesMap;
+  return plan;
 }

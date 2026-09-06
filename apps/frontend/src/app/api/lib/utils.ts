@@ -5,6 +5,7 @@ import type {
   VoterRecordArchive,
 } from "@prisma/client";
 import { searchQueryFieldSchema } from "@voter-file-tool/shared-validators";
+import type { RosterClaimedVoter } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 import { z } from "zod";
 import {
   dropdownItems,
@@ -77,21 +78,23 @@ export async function voterHasDiscrepancy(VRCNUM: string): Promise<boolean> {
   return false;
 }
 
-// const DISCREPENCY_FIELDS = [
-//   { incomingField: "firstname", existingField: "firstName" },
-//   { incomingField: "lastname", existingField: "lastName" },
-//   { incomingField: "Add1", existingField: getAddress },
-//   { incomingField: "City", existingField: "city" },
-//   { incomingField: "res state", existingField: "state" },
-//   { incomingField: "Zip", existingField: "zipCode" },
-// ] as const;
-
+/**
+ * The voter attributes an import compares against the voter file. `claimedField` names the
+ * canonical roster entry's field; `discrepancyKey` is the key stored on the discrepancy
+ * record, kept as it is so discrepancy resolution and its audit metadata are unaffected.
+ *
+ * Source-file column names do not appear here: a parser has already mapped them.
+ */
 const DISCREPENCY_FIELDS = [
-  { incomingField: "name", existingField: getName },
-  { incomingField: "res address1", existingField: getAddress },
-  { incomingField: "res city", existingField: "city" },
-  { incomingField: "res state", existingField: "state" },
-  { incomingField: "res zip", existingField: "zipCode" },
+  { claimedField: "name", discrepancyKey: "name", existingField: getName },
+  {
+    claimedField: "address1",
+    discrepancyKey: "res address1",
+    existingField: getAddress,
+  },
+  { claimedField: "city", discrepancyKey: "res city", existingField: "city" },
+  { claimedField: "state", discrepancyKey: "res state", existingField: "state" },
+  { claimedField: "zip", discrepancyKey: "res zip", existingField: "zipCode" },
 ] as const;
 
 export type Discrepancy = Record<
@@ -104,13 +107,17 @@ export type DiscrepanciesAndCommittee = {
   committee: CommitteeList;
 };
 
+/**
+ * Compares what the source file claims about a person against the voter file, field by
+ * named field. Runs of whitespace are collapsed on the claimed value before comparing.
+ */
 export function findDiscrepancies(
-  incomingRecord: Record<string, string>,
+  claimed: RosterClaimedVoter,
   existingRecord: VoterRecord,
 ): Discrepancy {
   const discrepancies: Discrepancy = {};
   for (const field of DISCREPENCY_FIELDS) {
-    const incomingValue = incomingRecord[field.incomingField]
+    const claimedValue = claimed[field.claimedField]
       ?.split(" ")
       .filter((part) => part !== "")
       .join(" ");
@@ -118,9 +125,9 @@ export function findDiscrepancies(
       typeof field.existingField === "string"
         ? existingRecord[field.existingField]
         : field.existingField(existingRecord);
-    if (incomingValue !== existingValue) {
-      discrepancies[field.incomingField] = {
-        incoming: incomingValue ?? "",
+    if (claimedValue !== existingValue) {
+      discrepancies[field.discrepancyKey] = {
+        incoming: claimedValue ?? "",
         existing: existingValue ?? "",
       };
     }

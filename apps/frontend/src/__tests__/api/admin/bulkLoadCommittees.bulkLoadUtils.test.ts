@@ -1,4 +1,5 @@
-import { loadCommitteeLists } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
+import { applyRosterImport, planRosterImport } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
+import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 import { prismaMock } from "../../utils/mocks";
 import type { Prisma } from "@prisma/client";
 import {
@@ -12,20 +13,7 @@ import {
   getMembershipMock,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
-import * as fs from "fs";
 import * as seatUtils from "~/app/api/lib/seatUtils";
-import * as xlsx from "xlsx";
-
-jest.mock("fs", () => ({
-  readFileSync: jest.fn(),
-}));
-
-jest.mock("xlsx", () => ({
-  read: jest.fn(),
-  utils: {
-    sheet_to_json: jest.fn(),
-  },
-}));
 
 jest.mock("~/app/api/lib/committeeValidation", () => {
   const actual = jest.requireActual<
@@ -43,23 +31,56 @@ jest.mock("~/app/api/lib/seatUtils", () => ({
   assignNextAvailableSeat: jest.fn(),
 }));
 
-const readFileSyncMock = fs.readFileSync as jest.Mock;
-const readWorkbookMock = xlsx.read as jest.Mock;
-const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
 const getActiveTermMock = committeeValidation.getActiveTerm as jest.Mock;
-const getGovernanceConfigMock = committeeValidation.getGovernanceConfig as jest.Mock;
+const getGovernanceConfigMock =
+  committeeValidation.getGovernanceConfig as jest.Mock;
 const ensureSeatsExistMock = seatUtils.ensureSeatsExist as jest.Mock;
-const assignNextAvailableSeatMock = seatUtils.assignNextAvailableSeat as jest.Mock;
+const assignNextAvailableSeatMock =
+  seatUtils.assignNextAvailableSeat as jest.Mock;
 
-describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
+/**
+ * A canonical roster entry, as a parser would produce it. The importer sees only these —
+ * never a source file's column names.
+ */
+type RosterEntryOverrides = {
+  vrcnum: string;
+  cityTown: string;
+  legDistrict?: number;
+  electionDistrict?: number;
+  name?: string;
+  address1?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  membershipType?: RosterEntry["membershipType"];
+};
+
+let nextSourceRow = 2;
+
+const rosterEntry = ({
+  vrcnum,
+  cityTown,
+  legDistrict = 1,
+  electionDistrict = 1,
+  name = "John Doe",
+  address1 = "123 Main St",
+  city = "Testville",
+  state = "NY",
+  zip = "14604",
+  membershipType = "PETITIONED",
+}: RosterEntryOverrides): RosterEntry => ({
+  vrcnum,
+  committee: { cityTown, legDistrict, electionDistrict },
+  claimed: { name, address1, city, state, zip },
+  membershipType,
+  sourceRow: nextSourceRow++,
+});
+
+describe("bulkLoadCommittees import from canonical roster entries", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    nextSourceRow = 2;
 
-    readFileSyncMock.mockReturnValue(Buffer.from("fake-xlsx"));
-    readWorkbookMock.mockReturnValue({
-      SheetNames: ["Sheet1"],
-      Sheets: { Sheet1: {} },
-    });
     getActiveTermMock.mockResolvedValue({
       id: DEFAULT_ACTIVE_TERM_ID,
       label: "2024–2026",
@@ -80,19 +101,12 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
   });
 
   it("creates CommitteeMembership records and does not write legacy voterRecord.committeeId", async () => {
-    sheetToJsonMock.mockReturnValue([
-      {
-        Committee: "Test City",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC001",
-        name: "John Doe",
-        "res address1": "123 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-    ]);
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC001",
+        cityTown: "TEST CITY",
+      }),
+    ];
 
     prismaMock.voterRecord.findUnique.mockResolvedValue(
       createMockVoterRecord({
@@ -130,7 +144,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       }),
     );
 
-    const discrepancies = await loadCommitteeLists();
+    const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
 
     expect(discrepancies.size).toBe(0);
     expect(prismaMock.committeeList.upsert).toHaveBeenCalled();
@@ -148,7 +162,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
         committeeListId: 101,
         termId: DEFAULT_ACTIVE_TERM_ID,
         status: "ACTIVE",
-        membershipType: "APPOINTED",
+        membershipType: "PETITIONED",
         seatNumber: 1,
       }),
     );
@@ -166,19 +180,13 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
   });
 
   it("re-activates existing membership instead of writing legacy fields", async () => {
-    sheetToJsonMock.mockReturnValue([
-      {
-        Committee: "Test City",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC002",
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC002",
+        cityTown: "TEST CITY",
         name: "Jane Doe",
-        "res address1": "123 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-    ]);
+      }),
+    ];
 
     prismaMock.voterRecord.findUnique.mockResolvedValue(
       createMockVoterRecord({
@@ -219,13 +227,13 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     );
     assignNextAvailableSeatMock.mockResolvedValue(2);
 
-    await loadCommitteeLists();
+    await applyRosterImport({ entries, rejected: [] });
 
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
       expectMembershipUpdate(
         {
           status: "ACTIVE",
-          membershipType: "APPOINTED",
+          membershipType: "PETITIONED",
           seatNumber: 2,
         },
         { id: "m-existing" },
@@ -245,30 +253,19 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
   });
 
   it("flags duplicate voter assignments across committees and avoids activation", async () => {
-    sheetToJsonMock.mockReturnValue([
-      {
-        Committee: "City One",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC_DUP",
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC_DUP",
+        cityTown: "CITY ONE",
         name: "Casey Doe",
-        "res address1": "123 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-      {
-        Committee: "City Two",
-        "Serve LT": "1",
-        "Serve ED": "2",
-        "voter id": "VRC_DUP",
+      }),
+      rosterEntry({
+        vrcnum: "VRC_DUP",
+        cityTown: "CITY TWO",
+        electionDistrict: 2,
         name: "Casey Doe",
-        "res address1": "123 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-    ]);
+      }),
+    ];
 
     prismaMock.voterRecord.findUnique.mockResolvedValue(
       createMockVoterRecord({
@@ -303,7 +300,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
         ltedWeight: null,
       } as never);
 
-    const discrepancies = await loadCommitteeLists();
+    const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
 
     expect(prismaMock.committeeList.upsert).toHaveBeenCalledTimes(2);
     expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
@@ -313,36 +310,28 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       discrepancies.get("VRC_DUP")?.discrepancies.committeeAssignmentConflict,
     ).toEqual(
       expect.objectContaining({
-        existing: "Voter appears in multiple committees in the same bulk import",
+        existing:
+          "Voter appears in multiple committees in the same bulk import",
       }),
     );
   });
 
   it("preserves single-active-membership invariant: duplicate assignments in same term create discrepancies only and never a second ACTIVE membership", async () => {
-    sheetToJsonMock.mockReturnValue([
-      {
-        Committee: "City A",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC_SAME",
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC_SAME",
+        cityTown: "CITY A",
         name: "Same Voter",
-        "res address1": "1 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-      {
-        Committee: "City B",
-        "Serve LT": "1",
-        "Serve ED": "2",
-        "voter id": "VRC_SAME",
+        address1: "1 Main St",
+      }),
+      rosterEntry({
+        vrcnum: "VRC_SAME",
+        cityTown: "CITY B",
+        electionDistrict: 2,
         name: "Same Voter",
-        "res address1": "1 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-    ]);
+        address1: "1 Main St",
+      }),
+    ];
 
     prismaMock.voterRecord.findUnique.mockResolvedValue(
       createMockVoterRecord({
@@ -377,7 +366,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
         ltedWeight: null,
       } as never);
 
-    const discrepancies = await loadCommitteeLists();
+    const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
 
     expect(discrepancies.has("VRC_SAME")).toBe(true);
     expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
@@ -388,19 +377,14 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
   });
 
   it("flags missing voter records as discrepancies and skips CommitteeMembership creation", async () => {
-    sheetToJsonMock.mockReturnValue([
-      {
-        Committee: "Test City",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC_MISSING",
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC_MISSING",
+        cityTown: "TEST CITY",
         name: "Ghost Voter",
-        "res address1": "999 Nowhere St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-    ]);
+        address1: "999 Nowhere St",
+      }),
+    ];
 
     prismaMock.voterRecord.findUnique.mockResolvedValue(null);
     prismaMock.committeeList.upsert.mockResolvedValue({
@@ -412,7 +396,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       ltedWeight: null,
     } as never);
 
-    const discrepancies = await loadCommitteeLists();
+    const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
 
     expect(discrepancies.has("VRC_MISSING")).toBe(true);
     expect(discrepancies.get("VRC_MISSING")?.discrepancies.VRCNUM).toEqual(
@@ -427,19 +411,14 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
   });
 
   it("logs MEMBER_REMOVED when sync removes an active member not present in import", async () => {
-    sheetToJsonMock.mockReturnValue([
-      {
-        Committee: "Test City",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC_NEW",
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC_NEW",
+        cityTown: "TEST CITY",
         name: "New Member",
-        "res address1": "10 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-    ]);
+        address1: "10 Main St",
+      }),
+    ];
 
     prismaMock.voterRecord.findUnique.mockResolvedValue(
       createMockVoterRecord({
@@ -466,8 +445,8 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     } as never);
     prismaMock.$queryRaw.mockResolvedValue([] as never);
 
-    getMembershipMock(prismaMock).findMany
-      .mockResolvedValueOnce([]) // initial cross-committee snapshot
+    getMembershipMock(prismaMock)
+      .findMany.mockResolvedValueOnce([]) // initial cross-committee snapshot
       .mockResolvedValueOnce([
         { id: "m-to-remove", voterRecordId: "VRC_OLD" },
       ] as never); // existing active memberships in committee
@@ -483,7 +462,7 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       }),
     );
 
-    await loadCommitteeLists();
+    await applyRosterImport({ entries, rejected: [] });
 
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
       expectMembershipUpdate(
@@ -507,19 +486,14 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
   });
 
   it("rolls back committee sync when audit write fails", async () => {
-    sheetToJsonMock.mockReturnValue([
-      {
-        Committee: "Test City",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC_NEW",
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC_NEW",
+        cityTown: "TEST CITY",
         name: "New Member",
-        "res address1": "10 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-    ]);
+        address1: "10 Main St",
+      }),
+    ];
 
     prismaMock.voterRecord.findUnique.mockResolvedValue(
       createMockVoterRecord({
@@ -546,8 +520,8 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     } as never);
     prismaMock.$queryRaw.mockResolvedValue([] as never);
 
-    getMembershipMock(prismaMock).findMany
-      .mockResolvedValueOnce([])
+    getMembershipMock(prismaMock)
+      .findMany.mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { id: "m-to-remove", voterRecordId: "VRC_OLD" },
       ] as never);
@@ -566,7 +540,9 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
       new Error("Audit write failed"),
     );
 
-    await expect(loadCommitteeLists()).rejects.toThrow("Audit write failed");
+    await expect(applyRosterImport({ entries, rejected: [] })).rejects.toThrow(
+      "Audit write failed",
+    );
     expect(prismaMock.$transaction).toHaveBeenCalled();
   });
 
@@ -575,30 +551,20 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     // The first committee's audit succeeds (committed); the second's audit
     // fails, so its transaction rolls back and the batch aborts — proving the
     // rollback scope is per-committee, not the whole import.
-    sheetToJsonMock.mockReturnValue([
-      {
-        Committee: "Alpha City",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC_A",
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC_A",
+        cityTown: "ALPHA CITY",
         name: "Alpha Member",
-        "res address1": "10 Main St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-      {
-        Committee: "Beta City",
-        "Serve LT": "1",
-        "Serve ED": "1",
-        "voter id": "VRC_B",
+        address1: "10 Main St",
+      }),
+      rosterEntry({
+        vrcnum: "VRC_B",
+        cityTown: "BETA CITY",
         name: "Beta Member",
-        "res address1": "20 Oak St",
-        "res city": "Testville",
-        "res state": "NY",
-        "res zip": "14604",
-      },
-    ]);
+        address1: "20 Oak St",
+      }),
+    ];
 
     prismaMock.voterRecord.findUnique.mockImplementation((args) => {
       const vrcnum = (args?.where as { VRCNUM?: string })?.VRCNUM;
@@ -662,11 +628,13 @@ describe("bulkLoadCommittees/loadCommitteeLists utility", () => {
     );
 
     // First committee's activation audit succeeds; the second one fails.
-    getAuditLogMock(prismaMock).create
-      .mockResolvedValueOnce({} as never)
+    getAuditLogMock(prismaMock)
+      .create.mockResolvedValueOnce({} as never)
       .mockRejectedValue(new Error("Audit write failed"));
 
-    await expect(loadCommitteeLists()).rejects.toThrow("Audit write failed");
+    await expect(applyRosterImport({ entries, rejected: [] })).rejects.toThrow(
+      "Audit write failed",
+    );
 
     // Both committees entered a transaction and attempted their membership
     // write: the first committed, the second aborted on the audit failure.

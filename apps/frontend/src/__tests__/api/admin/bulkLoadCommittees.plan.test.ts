@@ -1,0 +1,360 @@
+/**
+ * An Admin can find out what an import would do before it changes anything. These are the
+ * importer's long-standing scenarios, asserted as plan outcomes rather than as writes.
+ */
+import {
+  applyRosterImport,
+  planRosterImport,
+} from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
+import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
+import { prismaMock } from "../../utils/mocks";
+import {
+  createMockVoterRecord,
+  DEFAULT_ACTIVE_TERM_ID,
+  getAuditLogMock,
+  getMembershipMock,
+} from "../../utils/testUtils";
+import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import * as seatUtils from "~/app/api/lib/seatUtils";
+
+jest.mock("~/app/api/lib/committeeValidation", () => {
+  const actual = jest.requireActual<
+    typeof import("~/app/api/lib/committeeValidation")
+  >("~/app/api/lib/committeeValidation");
+  return {
+    ...actual,
+    getActiveTerm: jest.fn(),
+    getGovernanceConfig: jest.fn(),
+  };
+});
+
+jest.mock("~/app/api/lib/seatUtils", () => ({
+  ensureSeatsExist: jest.fn(),
+  assignNextAvailableSeat: jest.fn(),
+}));
+
+const getActiveTermMock = committeeValidation.getActiveTerm as jest.Mock;
+const getGovernanceConfigMock =
+  committeeValidation.getGovernanceConfig as jest.Mock;
+const ensureSeatsExistMock = seatUtils.ensureSeatsExist as jest.Mock;
+const assignNextAvailableSeatMock = seatUtils.assignNextAvailableSeat as jest.Mock;
+
+let nextSourceRow = 2;
+
+const rosterEntry = (
+  vrcnum: string,
+  cityTown: string,
+  electionDistrict = 1,
+): RosterEntry => ({
+  vrcnum,
+  committee: { cityTown, legDistrict: 1, electionDistrict },
+  claimed: {
+    name: "JOHN DOE",
+    address1: "123 Main St",
+    city: "Testville",
+    state: "NY",
+    zip: "14604",
+  },
+  membershipType: "PETITIONED",
+  sourceRow: nextSourceRow++,
+});
+
+/** A voter whose voter-file record matches what every fixture entry claims. */
+const matchingVoter = (VRCNUM: string) =>
+  createMockVoterRecord({
+    VRCNUM,
+    firstName: "JOHN",
+    middleInitial: null,
+    lastName: "DOE",
+    houseNum: 123,
+    street: "Main St",
+    apartment: null,
+    city: "Testville",
+    state: "NY",
+    zipCode: "14604",
+  });
+
+/** No CommitteeList row exists for any committee unless a test says otherwise. */
+const committeeExists = (
+  rows: { cityTown: string; electionDistrict: number; id: number }[],
+) => {
+  prismaMock.committeeList.findUnique.mockImplementation((args) => {
+    const key = (
+      args.where as {
+        cityTown_legDistrict_electionDistrict_termId: {
+          cityTown: string;
+          electionDistrict: number;
+        };
+      }
+    ).cityTown_legDistrict_electionDistrict_termId;
+    const match = rows.find(
+      (row) =>
+        row.cityTown === key.cityTown &&
+        row.electionDistrict === key.electionDistrict,
+    );
+    return Promise.resolve(match ? { id: match.id } : null) as never;
+  });
+};
+
+const expectNoWrites = () => {
+  expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
+  expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+  expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+  expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+};
+
+describe("planRosterImport", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    nextSourceRow = 2;
+
+    getActiveTermMock.mockResolvedValue({
+      id: DEFAULT_ACTIVE_TERM_ID,
+      label: "2024–2026",
+    });
+    getGovernanceConfigMock.mockResolvedValue({
+      id: "mcdc-default",
+      maxSeatsPerLted: 4,
+    });
+    prismaMock.voterRecord.findUnique.mockImplementation((args) =>
+      Promise.resolve(
+        matchingVoter((args.where as { VRCNUM: string }).VRCNUM),
+      ) as never,
+    );
+    prismaMock.voterRecord.findMany.mockImplementation((args) => {
+      const ids = (args?.where?.VRCNUM as { in?: string[] })?.in ?? [];
+      return Promise.resolve(ids.map((VRCNUM) => matchingVoter(VRCNUM))) as never;
+    });
+    getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+    getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+    committeeExists([]);
+    assignNextAvailableSeatMock.mockResolvedValue(1);
+    ensureSeatsExistMock.mockResolvedValue(undefined);
+  });
+
+  it("plans an activation for every row of a clean roster, and writes nothing", async () => {
+    const plan = await planRosterImport({
+      entries: [rosterEntry("VRC001", "TEST CITY"), rosterEntry("VRC002", "TEST CITY")],
+      rejected: [],
+    });
+
+    expect(plan.activations).toEqual([
+      {
+        voterRecordId: "VRC001",
+        committee: {
+          cityTown: "TEST CITY",
+          legDistrict: 1,
+          electionDistrict: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+        },
+        membershipType: "PETITIONED",
+      },
+      {
+        voterRecordId: "VRC002",
+        committee: {
+          cityTown: "TEST CITY",
+          legDistrict: 1,
+          electionDistrict: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+        },
+        membershipType: "PETITIONED",
+      },
+    ]);
+    expect(plan.removals).toEqual([]);
+    expect(plan.discrepancies.size).toBe(0);
+    expect(plan.capacityFailures).toEqual([]);
+    expect(plan.counts).toEqual({
+      entries: 2,
+      matchedVoters: 2,
+      activations: 2,
+      removals: 0,
+      discrepancies: 0,
+      rejectedRows: 0,
+    });
+    expectNoWrites();
+  });
+
+  it("carries the parser's rejected rows onto the plan", async () => {
+    const plan = await planRosterImport({
+      entries: [rosterEntry("VRC001", "TEST CITY")],
+      rejected: [{ sourceRow: 7, reason: "Missing voter id" }],
+    });
+
+    expect(plan.rejectedRows).toEqual([
+      { sourceRow: 7, reason: "Missing voter id" },
+    ]);
+    expect(plan.counts.rejectedRows).toBe(1);
+    expect(plan.counts.activations).toBe(1);
+  });
+
+  it("plans a discrepancy, not a membership, for a voter missing from the voter file", async () => {
+    prismaMock.voterRecord.findUnique.mockResolvedValue(null);
+
+    const plan = await planRosterImport({
+      entries: [rosterEntry("VRC_MISSING", "TEST CITY")],
+      rejected: [],
+    });
+
+    expect(plan.activations).toEqual([]);
+    expect(plan.discrepancies.get("VRC_MISSING")?.discrepancies.VRCNUM).toEqual(
+      expect.objectContaining({ incoming: "VRC_MISSING", existing: "" }),
+    );
+    expect(plan.counts.matchedVoters).toBe(0);
+    expectNoWrites();
+  });
+
+  it("plans a discrepancy for a voter already active in another committee this term", async () => {
+    committeeExists([
+      { cityTown: "TEST CITY", electionDistrict: 1, id: 101 },
+      { cityTown: "OTHER CITY", electionDistrict: 2, id: 202 },
+    ]);
+    getMembershipMock(prismaMock).findMany.mockImplementation((args) => {
+      const where = args.where as {
+        voterRecordId?: { in?: string[] };
+        committeeListId?: number;
+      };
+      if (where.voterRecordId?.in) {
+        return Promise.resolve([
+          { voterRecordId: "VRC_ELSEWHERE", committeeListId: 202 },
+        ]) as never;
+      }
+      return Promise.resolve([]) as never;
+    });
+
+    const plan = await planRosterImport({
+      entries: [rosterEntry("VRC_ELSEWHERE", "TEST CITY")],
+      rejected: [],
+    });
+
+    expect(plan.activations).toEqual([]);
+    expect(
+      plan.discrepancies.get("VRC_ELSEWHERE")?.discrepancies
+        .alreadyActiveInAnotherCommittee,
+    ).toEqual(
+      expect.objectContaining({
+        existing: "Voter is already active in another committee for this term",
+      }),
+    );
+    expectNoWrites();
+  });
+
+  it("plans a discrepancy for a voter the file places in two committees", async () => {
+    const plan = await planRosterImport({
+      entries: [
+        rosterEntry("VRC_DUP", "CITY ONE", 1),
+        rosterEntry("VRC_DUP", "CITY TWO", 2),
+      ],
+      rejected: [],
+    });
+
+    expect(plan.activations).toEqual([]);
+    expect(
+      plan.discrepancies.get("VRC_DUP")?.discrepancies.committeeAssignmentConflict,
+    ).toEqual(
+      expect.objectContaining({
+        incoming: "CITY ONE-1-1 | CITY TWO-1-2",
+        existing: "Voter appears in multiple committees in the same bulk import",
+      }),
+    );
+    expectNoWrites();
+  });
+
+  it("plans a removal, naming who it is, for an active member the file omits", async () => {
+    committeeExists([{ cityTown: "TEST CITY", electionDistrict: 1, id: 301 }]);
+    getMembershipMock(prismaMock).findMany.mockImplementation((args) => {
+      const where = args.where as {
+        voterRecordId?: { in?: string[] };
+        committeeListId?: number;
+      };
+      if (where.committeeListId === 301) {
+        return Promise.resolve([
+          { id: "m-to-remove", voterRecordId: "VRC_OLD" },
+        ]) as never;
+      }
+      return Promise.resolve([]) as never;
+    });
+
+    const plan = await planRosterImport({
+      entries: [rosterEntry("VRC_NEW", "TEST CITY")],
+      rejected: [],
+    });
+
+    expect(plan.removals).toEqual([
+      {
+        membershipId: "m-to-remove",
+        voterRecordId: "VRC_OLD",
+        name: "JOHN DOE",
+        committee: {
+          cityTown: "TEST CITY",
+          legDistrict: 1,
+          electionDistrict: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+        },
+      },
+    ]);
+    expect(plan.counts.removals).toBe(1);
+    expectNoWrites();
+  });
+
+  it("records a committee over the seat maximum as a capacity failure", async () => {
+    getGovernanceConfigMock.mockResolvedValue({
+      id: "mcdc-default",
+      maxSeatsPerLted: 2,
+    });
+
+    const plan = await planRosterImport({
+      entries: [
+        rosterEntry("VRC001", "TEST CITY"),
+        rosterEntry("VRC002", "TEST CITY"),
+        rosterEntry("VRC003", "TEST CITY"),
+      ],
+      rejected: [],
+    });
+
+    expect(plan.capacityFailures).toEqual([
+      { committee: "TEST CITY-1-1", memberCount: 3, maxSeats: 2 },
+    ]);
+    expectNoWrites();
+  });
+});
+
+describe("applyRosterImport", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    nextSourceRow = 2;
+    getActiveTermMock.mockResolvedValue({
+      id: DEFAULT_ACTIVE_TERM_ID,
+      label: "2024–2026",
+    });
+    getGovernanceConfigMock.mockResolvedValue({
+      id: "mcdc-default",
+      maxSeatsPerLted: 2,
+    });
+    prismaMock.voterRecord.findUnique.mockImplementation((args) =>
+      Promise.resolve(
+        matchingVoter((args.where as { VRCNUM: string }).VRCNUM),
+      ) as never,
+    );
+    getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+    committeeExists([]);
+  });
+
+  it("fails the whole import, naming the committee, when one is over the seat maximum", async () => {
+    await expect(
+      applyRosterImport({
+        entries: [
+          rosterEntry("VRC001", "TEST CITY"),
+          rosterEntry("VRC002", "TEST CITY"),
+          rosterEntry("VRC003", "TEST CITY"),
+        ],
+        rejected: [],
+      }),
+    ).rejects.toThrow(
+      "Committee TEST CITY-1-1 has 3 members, exceeding maxSeatsPerLted=2",
+    );
+
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+  });
+});
