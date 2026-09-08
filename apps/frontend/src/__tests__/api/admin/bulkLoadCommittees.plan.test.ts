@@ -9,10 +9,13 @@ import {
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 import { prismaMock } from "../../utils/mocks";
 import {
+  createMockCommitteeTerm,
+  createMockGovernanceConfig,
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   getAuditLogMock,
   getMembershipMock,
+  resolvesTo,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
 import * as seatUtils from "~/app/api/lib/seatUtils";
@@ -33,11 +36,14 @@ jest.mock("~/app/api/lib/seatUtils", () => ({
   assignNextAvailableSeat: jest.fn(),
 }));
 
-const getActiveTermMock = committeeValidation.getActiveTerm as jest.Mock;
-const getGovernanceConfigMock =
-  committeeValidation.getGovernanceConfig as jest.Mock;
-const ensureSeatsExistMock = seatUtils.ensureSeatsExist as jest.Mock;
-const assignNextAvailableSeatMock = seatUtils.assignNextAvailableSeat as jest.Mock;
+const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
+const getGovernanceConfigMock = jest.mocked(
+  committeeValidation.getGovernanceConfig,
+);
+const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
+const assignNextAvailableSeatMock = jest.mocked(
+  seatUtils.assignNextAvailableSeat,
+);
 
 let nextSourceRow = 2;
 
@@ -74,6 +80,13 @@ const matchingVoter = (VRCNUM: string) =>
     zipCode: "14604",
   });
 
+/** What the importer selects when it looks a committee up. */
+type CommitteeIdRow = { id: number };
+
+/** What the importer selects from the memberships it reconciles. */
+type ActiveMembershipRow = { voterRecordId: string; committeeListId: number };
+type CommitteeMemberRow = { id: string; voterRecordId: string };
+
 /** No CommitteeList row exists for any committee unless a test says otherwise. */
 const committeeExists = (
   rows: { cityTown: string; electionDistrict: number; id: number }[],
@@ -92,7 +105,9 @@ const committeeExists = (
         row.cityTown === key.cityTown &&
         row.electionDistrict === key.electionDistrict,
     );
-    return Promise.resolve(match ? { id: match.id } : null) as never;
+    return resolvesTo<CommitteeIdRow | null>(
+      match ? { id: match.id } : null,
+    );
   });
 };
 
@@ -109,22 +124,16 @@ describe("planRosterImport", () => {
     jest.clearAllMocks();
     nextSourceRow = 2;
 
-    getActiveTermMock.mockResolvedValue({
-      id: DEFAULT_ACTIVE_TERM_ID,
-      label: "2024–2026",
-    });
-    getGovernanceConfigMock.mockResolvedValue({
-      id: "mcdc-default",
-      maxSeatsPerLted: 4,
-    });
+    getActiveTermMock.mockResolvedValue(createMockCommitteeTerm());
+    getGovernanceConfigMock.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+    );
     prismaMock.voterRecord.findUnique.mockImplementation((args) =>
-      Promise.resolve(
-        matchingVoter((args.where as { VRCNUM: string }).VRCNUM),
-      ) as never,
+      resolvesTo(matchingVoter((args.where as { VRCNUM: string }).VRCNUM)),
     );
     prismaMock.voterRecord.findMany.mockImplementation((args) => {
       const ids = (args?.where?.VRCNUM as { in?: string[] })?.in ?? [];
-      return Promise.resolve(ids.map((VRCNUM) => matchingVoter(VRCNUM))) as never;
+      return resolvesTo(ids.map((VRCNUM) => matchingVoter(VRCNUM)));
     });
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
@@ -217,9 +226,9 @@ describe("planRosterImport", () => {
       if (where.voterRecordId?.in) {
         return Promise.resolve([
           { voterRecordId: "VRC_ELSEWHERE", committeeListId: 202 },
-        ]) as never;
+        ] satisfies ActiveMembershipRow[]);
       }
-      return Promise.resolve([]) as never;
+      return Promise.resolve([]);
     });
 
     const plan = await planRosterImport({
@@ -270,9 +279,9 @@ describe("planRosterImport", () => {
       if (where.committeeListId === 301) {
         return Promise.resolve([
           { id: "m-to-remove", voterRecordId: "VRC_OLD" },
-        ]) as never;
+        ] satisfies CommitteeMemberRow[]);
       }
-      return Promise.resolve([]) as never;
+      return Promise.resolve([]);
     });
 
     const plan = await planRosterImport({
@@ -298,10 +307,9 @@ describe("planRosterImport", () => {
   });
 
   it("records a committee over the seat maximum as a capacity failure", async () => {
-    getGovernanceConfigMock.mockResolvedValue({
-      id: "mcdc-default",
-      maxSeatsPerLted: 2,
-    });
+    getGovernanceConfigMock.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
+    );
 
     const plan = await planRosterImport({
       entries: [
@@ -323,18 +331,12 @@ describe("applyRosterImport", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     nextSourceRow = 2;
-    getActiveTermMock.mockResolvedValue({
-      id: DEFAULT_ACTIVE_TERM_ID,
-      label: "2024–2026",
-    });
-    getGovernanceConfigMock.mockResolvedValue({
-      id: "mcdc-default",
-      maxSeatsPerLted: 2,
-    });
+    getActiveTermMock.mockResolvedValue(createMockCommitteeTerm());
+    getGovernanceConfigMock.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
+    );
     prismaMock.voterRecord.findUnique.mockImplementation((args) =>
-      Promise.resolve(
-        matchingVoter((args.where as { VRCNUM: string }).VRCNUM),
-      ) as never,
+      resolvesTo(matchingVoter((args.where as { VRCNUM: string }).VRCNUM)),
     );
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
     committeeExists([]);

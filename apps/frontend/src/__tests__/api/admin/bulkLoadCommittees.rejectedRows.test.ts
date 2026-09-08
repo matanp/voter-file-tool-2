@@ -7,7 +7,9 @@ import { applyRosterImport } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUt
 import { parseWithFormat } from "~/app/api/admin/bulkLoadCommittees/rosterFormats";
 import { prismaMock } from "../../utils/mocks";
 import {
-  DEFAULT_ACTIVE_TERM_ID,
+  createMockCommitteeListRow,
+  createMockCommitteeTerm,
+  createMockGovernanceConfig,
   getMembershipMock,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
@@ -23,9 +25,10 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
   };
 });
 
-const getActiveTermMock = committeeValidation.getActiveTerm as jest.Mock;
-const getGovernanceConfigMock =
-  committeeValidation.getGovernanceConfig as jest.Mock;
+const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
+const getGovernanceConfigMock = jest.mocked(
+  committeeValidation.getGovernanceConfig,
+);
 
 const workbookRow = (overrides: Record<string, string>) => ({
   Committee: "Test City",
@@ -55,26 +58,19 @@ const workbookBuffer = (rows: Record<string, string>[]): Buffer => {
 describe("the import reporting rows the parser rejected", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getActiveTermMock.mockResolvedValue({
-      id: DEFAULT_ACTIVE_TERM_ID,
-      label: "2024–2026",
-    });
-    getGovernanceConfigMock.mockResolvedValue({
-      id: "mcdc-default",
-      maxSeatsPerLted: 4,
-    });
+    getActiveTermMock.mockResolvedValue(createMockCommitteeTerm());
+    getGovernanceConfigMock.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+    );
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
     // Every voter is absent from the voter file, so each readable row becomes a
     // discrepancy and no membership write is attempted.
     prismaMock.voterRecord.findUnique.mockResolvedValue(null);
-    prismaMock.committeeList.upsert.mockResolvedValue({
+    prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
       id: 701,
       cityTown: "TEST CITY",
-      legDistrict: 1,
       electionDistrict: 1,
-      termId: DEFAULT_ACTIVE_TERM_ID,
-      ltedWeight: null,
-    } as never);
+    }));
   });
 
   it("reports the rejected row and still imports the rest of the file", async () => {

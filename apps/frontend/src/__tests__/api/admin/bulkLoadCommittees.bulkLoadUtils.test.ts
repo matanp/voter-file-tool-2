@@ -3,6 +3,9 @@ import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterForma
 import { prismaMock } from "../../utils/mocks";
 import type { Prisma } from "@prisma/client";
 import {
+  createMockCommitteeListRow,
+  createMockCommitteeTerm,
+  createMockGovernanceConfig,
   createMockMembership,
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
@@ -11,6 +14,7 @@ import {
   expectMembershipUpdate,
   getAuditLogMock,
   getMembershipMock,
+  resolvesTo,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
 import * as seatUtils from "~/app/api/lib/seatUtils";
@@ -31,12 +35,14 @@ jest.mock("~/app/api/lib/seatUtils", () => ({
   assignNextAvailableSeat: jest.fn(),
 }));
 
-const getActiveTermMock = committeeValidation.getActiveTerm as jest.Mock;
-const getGovernanceConfigMock =
-  committeeValidation.getGovernanceConfig as jest.Mock;
-const ensureSeatsExistMock = seatUtils.ensureSeatsExist as jest.Mock;
-const assignNextAvailableSeatMock =
-  seatUtils.assignNextAvailableSeat as jest.Mock;
+const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
+const getGovernanceConfigMock = jest.mocked(
+  committeeValidation.getGovernanceConfig,
+);
+const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
+const assignNextAvailableSeatMock = jest.mocked(
+  seatUtils.assignNextAvailableSeat,
+);
 
 /**
  * A canonical roster entry, as a parser would produce it. The importer sees only these —
@@ -54,6 +60,9 @@ type RosterEntryOverrides = {
   zip?: string;
   membershipType?: RosterEntry["membershipType"];
 };
+
+/** What the importer selects from the memberships it reconciles. */
+type CommitteeMemberRow = { id: string; voterRecordId: string };
 
 let nextSourceRow = 2;
 
@@ -81,20 +90,14 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     jest.clearAllMocks();
     nextSourceRow = 2;
 
-    getActiveTermMock.mockResolvedValue({
-      id: DEFAULT_ACTIVE_TERM_ID,
-      label: "2024–2026",
-    });
-    getGovernanceConfigMock.mockResolvedValue({
-      id: "mcdc-default",
-      maxSeatsPerLted: 4,
-    });
+    getActiveTermMock.mockResolvedValue(createMockCommitteeTerm());
+    getGovernanceConfigMock.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
+    );
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
     prismaMock.voterRecord.findMany.mockImplementation((args) => {
       const ids = (args?.where?.VRCNUM as { in?: string[] })?.in ?? [];
-      return Promise.resolve(
-        ids.map((VRCNUM) => createMockVoterRecord({ VRCNUM })),
-      ) as never;
+      return resolvesTo(ids.map((VRCNUM) => createMockVoterRecord({ VRCNUM })));
     });
     assignNextAvailableSeatMock.mockResolvedValue(1);
     ensureSeatsExistMock.mockResolvedValue(undefined);
@@ -123,15 +126,12 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       }),
     );
 
-    prismaMock.committeeList.upsert.mockResolvedValue({
+    prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
       id: 101,
       cityTown: "TEST CITY",
-      legDistrict: 1,
       electionDistrict: 1,
-      termId: DEFAULT_ACTIVE_TERM_ID,
-      ltedWeight: null,
-    } as never);
-    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    }));
+    prismaMock.$queryRaw.mockResolvedValue([]);
 
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
     getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
@@ -203,15 +203,12 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       }),
     );
 
-    prismaMock.committeeList.upsert.mockResolvedValue({
+    prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
       id: 102,
       cityTown: "TEST CITY",
-      legDistrict: 1,
       electionDistrict: 1,
-      termId: DEFAULT_ACTIVE_TERM_ID,
-      ltedWeight: null,
-    } as never);
-    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    }));
+    prismaMock.$queryRaw.mockResolvedValue([]);
 
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
     getMembershipMock(prismaMock).findUnique.mockResolvedValue(
@@ -283,22 +280,16 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     );
 
     prismaMock.committeeList.upsert
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce(createMockCommitteeListRow({
         id: 201,
         cityTown: "CITY ONE",
-        legDistrict: 1,
         electionDistrict: 1,
-        termId: DEFAULT_ACTIVE_TERM_ID,
-        ltedWeight: null,
-      } as never)
-      .mockResolvedValueOnce({
+      }))
+      .mockResolvedValueOnce(createMockCommitteeListRow({
         id: 202,
         cityTown: "CITY TWO",
-        legDistrict: 1,
         electionDistrict: 2,
-        termId: DEFAULT_ACTIVE_TERM_ID,
-        ltedWeight: null,
-      } as never);
+      }));
 
     const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
 
@@ -349,22 +340,16 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     );
 
     prismaMock.committeeList.upsert
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce(createMockCommitteeListRow({
         id: 401,
         cityTown: "CITY A",
-        legDistrict: 1,
         electionDistrict: 1,
-        termId: DEFAULT_ACTIVE_TERM_ID,
-        ltedWeight: null,
-      } as never)
-      .mockResolvedValueOnce({
+      }))
+      .mockResolvedValueOnce(createMockCommitteeListRow({
         id: 402,
         cityTown: "CITY B",
-        legDistrict: 1,
         electionDistrict: 2,
-        termId: DEFAULT_ACTIVE_TERM_ID,
-        ltedWeight: null,
-      } as never);
+      }));
 
     const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
 
@@ -387,14 +372,11 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     ];
 
     prismaMock.voterRecord.findUnique.mockResolvedValue(null);
-    prismaMock.committeeList.upsert.mockResolvedValue({
+    prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
       id: 501,
       cityTown: "TEST CITY",
-      legDistrict: 1,
       electionDistrict: 1,
-      termId: DEFAULT_ACTIVE_TERM_ID,
-      ltedWeight: null,
-    } as never);
+    }));
 
     const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
 
@@ -435,21 +417,18 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       }),
     );
 
-    prismaMock.committeeList.upsert.mockResolvedValue({
+    prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
       id: 301,
       cityTown: "TEST CITY",
-      legDistrict: 1,
       electionDistrict: 1,
-      termId: DEFAULT_ACTIVE_TERM_ID,
-      ltedWeight: null,
-    } as never);
-    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    }));
+    prismaMock.$queryRaw.mockResolvedValue([]);
 
     getMembershipMock(prismaMock)
       .findMany.mockResolvedValueOnce([]) // initial cross-committee snapshot
       .mockResolvedValueOnce([
         { id: "m-to-remove", voterRecordId: "VRC_OLD" },
-      ] as never); // existing active memberships in committee
+      ] satisfies CommitteeMemberRow[]); // existing active memberships in committee
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
     getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
     getMembershipMock(prismaMock).create.mockResolvedValue(
@@ -510,21 +489,18 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       }),
     );
 
-    prismaMock.committeeList.upsert.mockResolvedValue({
+    prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
       id: 301,
       cityTown: "TEST CITY",
-      legDistrict: 1,
       electionDistrict: 1,
-      termId: DEFAULT_ACTIVE_TERM_ID,
-      ltedWeight: null,
-    } as never);
-    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    }));
+    prismaMock.$queryRaw.mockResolvedValue([]);
 
     getMembershipMock(prismaMock)
       .findMany.mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { id: "m-to-remove", voterRecordId: "VRC_OLD" },
-      ] as never);
+      ] satisfies CommitteeMemberRow[]);
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
     getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
     getMembershipMock(prismaMock).create.mockResolvedValue(
@@ -569,7 +545,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     prismaMock.voterRecord.findUnique.mockImplementation((args) => {
       const vrcnum = (args?.where as { VRCNUM?: string })?.VRCNUM;
       if (vrcnum === "VRC_A") {
-        return Promise.resolve(
+        return resolvesTo(
           createMockVoterRecord({
             VRCNUM: "VRC_A",
             firstName: "Alpha",
@@ -582,9 +558,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
             state: "NY",
             zipCode: "14604",
           }),
-        ) as never;
+        );
       }
-      return Promise.resolve(
+      return resolvesTo(
         createMockVoterRecord({
           VRCNUM: "VRC_B",
           firstName: "Beta",
@@ -597,7 +573,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
           state: "NY",
           zipCode: "14604",
         }),
-      ) as never;
+      );
     });
 
     prismaMock.committeeList.upsert.mockImplementation((args) => {
@@ -606,16 +582,14 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
           cityTown_legDistrict_electionDistrict_termId: { cityTown: string };
         }
       ).cityTown_legDistrict_electionDistrict_termId.cityTown;
-      return Promise.resolve({
-        id: cityTown === "ALPHA CITY" ? 401 : 402,
-        cityTown,
-        legDistrict: 1,
-        electionDistrict: 1,
-        termId: DEFAULT_ACTIVE_TERM_ID,
-        ltedWeight: null,
-      }) as never;
+      return resolvesTo(
+        createMockCommitteeListRow({
+          id: cityTown === "ALPHA CITY" ? 401 : 402,
+          cityTown,
+        }),
+      );
     });
-    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    prismaMock.$queryRaw.mockResolvedValue([]);
 
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
     getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
@@ -629,7 +603,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
 
     // First committee's activation audit succeeds; the second one fails.
     getAuditLogMock(prismaMock)
-      .create.mockResolvedValueOnce({} as never)
+      .create.mockResolvedValueOnce({})
       .mockRejectedValue(new Error("Audit write failed"));
 
     await expect(applyRosterImport({ entries, rejected: [] })).rejects.toThrow(

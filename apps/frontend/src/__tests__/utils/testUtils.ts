@@ -5,6 +5,7 @@ import {
   PrivilegeLevel,
   type CommitteeList,
   type CommitteeMembership,
+  type CommitteeTerm,
   type VoterRecord,
   type CommitteeRequest,
   type CommitteeGovernanceConfig,
@@ -466,6 +467,47 @@ export const createMockGovernanceConfig = (
     updatedAt: new Date("2024-01-01"),
     ...overrides,
   }) as CommitteeGovernanceConfig;
+
+/** Full CommitteeTerm row, as `getActiveTerm` resolves it. */
+export const createMockCommitteeTerm = (
+  overrides: Partial<CommitteeTerm> = {},
+): CommitteeTerm => ({
+  id: DEFAULT_ACTIVE_TERM_ID,
+  label: "2024–2026",
+  startDate: new Date("2024-01-01"),
+  endDate: new Date("2026-12-31"),
+  isActive: true,
+  createdAt: new Date("2024-01-01"),
+  ...overrides,
+});
+
+/** Full CommitteeList row, as `committeeList.upsert`/`findUnique` resolve it. */
+export const createMockCommitteeListRow = (
+  overrides: Partial<CommitteeList> = {},
+): CommitteeList => ({
+  id: 1,
+  cityTown: "TEST CITY",
+  legDistrict: 1,
+  electionDistrict: 1,
+  termId: DEFAULT_ACTIVE_TERM_ID,
+  ltedWeight: null,
+  ...overrides,
+});
+
+/**
+ * Prisma delegate mocks are typed against whole model rows, while production
+ * code reads narrow `select`ed shapes. This is the one place that gap is cast:
+ * name the shape so the fixture is still checked, e.g.
+ * `selectedRow<{ id: number }>({ id: 101 })`.
+ */
+export const selectedRow = <Shape>(row: Shape): never => row as never;
+
+/**
+ * Same gap, for `mockImplementation`: a delegate's implementation is typed to
+ * return the fluent client (`Prisma__XClient`), which a plain promise is not.
+ */
+export const resolvesTo = <Shape>(row: Shape): never =>
+  Promise.resolve(row) as never;
 
 /**
  * Mocks voterRecord + committeeList for membership audit subject snapshots.

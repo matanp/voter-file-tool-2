@@ -10,7 +10,10 @@ import { POST } from "~/app/api/admin/bulkLoadCommittees/route";
 import { PrivilegeLevel, type MembershipType } from "@prisma/client";
 import {
   createMockRequest,
+  createMockSession,
+  createMockVoterRecord,
   createAuthTestSuite,
+  selectedRow,
   parseJsonResponse,
   expectErrorResponse,
   type AuthTestConfig,
@@ -57,9 +60,9 @@ jest.mock("~/app/api/admin/bulkLoadCommittees/bulkLoadUtils", () => ({
     applyRosterImportMock(...args),
 }));
 
-const existsSyncMock = fs.existsSync as jest.Mock;
-const readFileSyncMock = fs.readFileSync as jest.Mock;
-const getActiveTermIdMock = committeeValidation.getActiveTermId as jest.Mock;
+const existsSyncMock = jest.mocked(fs.existsSync);
+const readFileSyncMock = jest.mocked(fs.readFileSync);
+const getActiveTermIdMock = jest.mocked(committeeValidation.getActiveTermId);
 
 type PlannedRemoval = {
   membershipId: string;
@@ -184,10 +187,23 @@ const createDiscrepancyEntry = (
   },
 });
 
+/**
+ * The route ignores the row an upsert returns; only that it was called matters,
+ * so the fixture carries just the columns a reader would look for.
+ */
+const upsertedDiscrepancy = (VRCNUM: string) =>
+  selectedRow<{ id: string; VRCNUM: string; committeeId: number }>({
+    id: "cuid-1",
+    VRCNUM,
+    committeeId: 1,
+  });
+
 const authenticateAdmin = () => {
-  mockAuthSession({
-    user: { id: "1", privilegeLevel: PrivilegeLevel.Admin },
-  } as never);
+  mockAuthSession(
+    createMockSession({
+      user: { id: "1", privilegeLevel: PrivilegeLevel.Admin },
+    }),
+  );
   mockHasPermission(true);
 };
 
@@ -205,9 +221,9 @@ describe("/api/admin/bulkLoadCommittees", () => {
     parseWithFormatMock.mockReturnValue({ entries: [], rejected: [] });
     planRosterImportMock.mockResolvedValue(importPlan());
     applyRosterImportMock.mockResolvedValue(importPlan());
-    prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue(
-      {} as never,
-    );
+    prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue({
+      count: 0,
+    });
     prismaMock.voterRecord.findMany.mockResolvedValue([]);
   });
 
@@ -224,9 +240,9 @@ describe("/api/admin/bulkLoadCommittees", () => {
       };
 
       const setupMocks = () => {
-        prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue(
-          {} as never,
-        );
+        prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue({
+          count: 0,
+        });
         prismaMock.voterRecord.findMany.mockResolvedValue([]);
       };
 
@@ -327,16 +343,13 @@ describe("/api/admin/bulkLoadCommittees", () => {
       ]);
       applyRosterImportMock.mockResolvedValue(importPlan({ discrepancies }));
       authenticateAdmin();
-      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue({
-        id: "cuid-1",
-        VRCNUM: "VRCNUM1",
-        committeeId: 1,
-        discrepancy: {},
-      } as never);
+      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
+        upsertedDiscrepancy("VRCNUM1"),
+      );
       prismaMock.voterRecord.findMany.mockResolvedValue([
-        { VRCNUM: "VRCNUM1" },
-        { VRCNUM: "VRCNUM2" },
-      ] as never);
+        createMockVoterRecord({ VRCNUM: "VRCNUM1" }),
+        createMockVoterRecord({ VRCNUM: "VRCNUM2" }),
+      ]);
 
       const response = await POST(importRequest({ dryRun: false }));
 
@@ -371,12 +384,9 @@ describe("/api/admin/bulkLoadCommittees", () => {
       ]);
       applyRosterImportMock.mockResolvedValue(importPlan({ discrepancies }));
       authenticateAdmin();
-      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue({
-        id: "cuid-1",
-        VRCNUM: "VRCNUM_NOT_IN_DB",
-        committeeId: 1,
-        discrepancy: {},
-      } as never);
+      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
+        upsertedDiscrepancy("VRCNUM_NOT_IN_DB"),
+      );
       prismaMock.voterRecord.findMany.mockResolvedValue([]);
 
       const response = await POST(importRequest({ dryRun: false }));
@@ -421,7 +431,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
         );
         authenticateAdmin();
         prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
-          {} as never,
+          upsertedDiscrepancy("VRCNUM_GONE"),
         );
 
         const response = await POST(importRequest({ dryRun }));
