@@ -1,4 +1,5 @@
 import * as xlsx from "xlsx";
+import { parseDistrict } from "./fields";
 import type {
   RejectedRosterRow,
   RosterEntry,
@@ -38,13 +39,6 @@ const cell = (row: Record<string, unknown>, column: string): string => {
   const value = row[column];
   if (value === undefined || value === null) return "";
   return String(value).trim();
-};
-
-/** Zero-padded district strings ("006") are base-10 integers, never octal. */
-const parseDistrict = (value: string): number | null => {
-  if (!/^\d+$/.test(value)) return null;
-  const parsed = Number.parseInt(value, 10);
-  return parsed > 0 ? parsed : null;
 };
 
 function readHeader(sheet: xlsx.WorkSheet): string[] {

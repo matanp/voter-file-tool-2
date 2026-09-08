@@ -1,4 +1,5 @@
 import type { MembershipType } from "@prisma/client";
+import { parseDistrict } from "./fields";
 import type {
   RejectedRosterRow,
   RosterCommitteeIdentity,
@@ -44,13 +45,6 @@ const splitRow = (line: string): string[] => line.split(",");
 
 const at = (fields: string[], position: number): string =>
   (fields[position - 1] ?? "").trim();
-
-/** Zero-padded district strings ("006") are base-10 integers, never octal. */
-const parseDistrict = (value: string): number | null => {
-  if (!/^\d+$/.test(value)) return null;
-  const parsed = Number.parseInt(value, 10);
-  return parsed > 0 ? parsed : null;
-};
 
 /**
  * Town names arrive uppercase and spelled out for every town including Rochester, so this
