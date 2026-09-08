@@ -121,7 +121,6 @@ export function InviteManagement({
   const hasCommitteeData =
     jurisdictionMeta != null && jurisdictionMeta.cityTowns.length > 0;
   const canInviteLeader = hasActiveTerm && hasCommitteeData;
-  const canBuildJurisdictions = canInviteLeader;
 
   const resetForm = useCallback(() => {
     setFormData(EMPTY_FORM());
@@ -350,8 +349,28 @@ export function InviteManagement({
   }));
 
   const leaderDisabledForCreate =
-    isLeaderInvite &&
-    (!canInviteLeader || formData.jurisdictions.length === 0);
+    isLeaderInvite && (!canInviteLeader || formData.jurisdictions.length === 0);
+
+  // First blocking reason for the Create button, shown beside it so a disabled
+  // button always says why. null means the button is enabled (or merely busy).
+  const createDisabledReason = ((): string | null => {
+    if (!formData.email.trim()) {
+      return "Enter an email address to create an invite.";
+    }
+    if (emailError) {
+      return "Fix the email address above to create an invite.";
+    }
+    if (!leaderDisabledForCreate) {
+      return null;
+    }
+    if (!hasActiveTerm) {
+      return "Leader invites require an active committee term. Activate one in Admin → Terms.";
+    }
+    if (!hasCommitteeData) {
+      return `The active term (${activeTermLabel}) has no committee cities or districts loaded, so there are no jurisdictions to assign.`;
+    }
+    return "Add at least one jurisdiction above for this Leader invite.";
+  })();
 
   return (
     <div className="space-y-6">
@@ -392,9 +411,10 @@ export function InviteManagement({
                 <SelectContent>
                   <SelectItem value="ReadAccess">Read Access</SelectItem>
                   <SelectItem value="RequestAccess">Request Access</SelectItem>
-                  <SelectItem value="Leader" disabled={!canInviteLeader}>
-                    Leader
-                  </SelectItem>
+                  {/* Deliberately selectable even when canInviteLeader is false:
+                      the jurisdiction panel below explains what's missing, and
+                      that explanation is unreachable if the option is disabled. */}
+                  <SelectItem value="Leader">Leader</SelectItem>
                   <SelectItem value="Admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
@@ -576,17 +596,32 @@ export function InviteManagement({
               </SelectContent>
             </Select>
           </div>
-          <Button
-            onClick={createInvite}
-            disabled={
-              createInviteMutation.loading ||
-              !!emailError ||
-              !formData.email.trim() ||
-              leaderDisabledForCreate
-            }
-          >
-            {createInviteMutation.loading ? "Creating..." : "Create Invite"}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              onClick={createInvite}
+              disabled={
+                createInviteMutation.loading ||
+                !!emailError ||
+                !formData.email.trim() ||
+                leaderDisabledForCreate
+              }
+              aria-describedby={
+                createDisabledReason
+                  ? "create-invite-disabled-reason"
+                  : undefined
+              }
+            >
+              {createInviteMutation.loading ? "Creating..." : "Create Invite"}
+            </Button>
+            {createDisabledReason && (
+              <p
+                id="create-invite-disabled-reason"
+                className="text-sm text-muted-foreground"
+              >
+                {createDisabledReason}
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -679,7 +714,10 @@ export function InviteManagement({
                     </div>
                     <div className="flex items-center space-x-1">
                       <User className="h-4 w-4" />
-                      <span>Created: {formatInviteDate(invite.createdAt, { month: "short" })}</span>
+                      <span>
+                        Created:{" "}
+                        {formatInviteDate(invite.createdAt, { month: "short" })}
+                      </span>
                     </div>
                   </div>
                 </div>
