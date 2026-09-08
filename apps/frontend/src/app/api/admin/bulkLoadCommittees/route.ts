@@ -8,14 +8,46 @@ import {
   withPrivilege,
   type SessionWithUser,
 } from "~/app/api/lib/withPrivilege";
-import { PrivilegeLevel, Prisma } from "@prisma/client";
-import { bulkLoadCommitteesSchema } from "@voter-file-tool/shared-validators";
+import {
+  PrivilegeLevel,
+  Prisma,
+  type CommitteeList,
+  type VoterRecord,
+} from "@prisma/client";
+import {
+  bulkLoadCommitteesSchema,
+  type BulkLoadCommitteesResponse,
+} from "@voter-file-tool/shared-validators";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import type { NextRequest } from "next/server";
 
 /** The local data directory the endpoint has always read from. */
 const DATA_DIRECTORY = "data";
+
+type WireCommitteeList =
+  BulkLoadCommitteesResponse["discrepanciesMap"][number][1]["committee"];
+type WireVoterRecord =
+  BulkLoadCommitteesResponse["recordsWithDiscrepancies"][number];
+
+/**
+ * `Decimal` and `Date` do not survive `JSON.stringify` as themselves — they leave as
+ * strings — so the two Prisma-shaped pieces of the response are converted here rather
+ * than left to the serializer. Saying it out loud is what lets the response type describe
+ * what an Admin actually receives.
+ */
+function toWireCommittee(committee: CommitteeList): WireCommitteeList {
+  return { ...committee, ltedWeight: committee.ltedWeight?.toString() ?? null };
+}
+
+function toWireVoterRecord(record: VoterRecord): WireVoterRecord {
+  return {
+    ...record,
+    DOB: record.DOB?.toISOString() ?? null,
+    lastUpdate: record.lastUpdate?.toISOString() ?? null,
+    originalRegDate: record.originalRegDate?.toISOString() ?? null,
+  };
+}
 
 function invalidRequest(error: string): NextResponse {
   return NextResponse.json({ success: false, error }, { status: 422 });
@@ -173,10 +205,19 @@ async function bulkLoadCommitteesHandler(
         counts: plan.counts,
         removals: plan.removals,
         capacityFailures: plan.capacityFailures,
-        discrepanciesMap: Array.from(discrepanciesMap.entries()),
-        recordsWithDiscrepancies,
+        discrepanciesMap: Array.from(discrepanciesMap.entries()).map<
+          BulkLoadCommitteesResponse["discrepanciesMap"][number]
+        >(([voterId, entry]) => [
+          voterId,
+          {
+            discrepancies: entry.discrepancies,
+            committee: toWireCommittee(entry.committee),
+          },
+        ]),
+        recordsWithDiscrepancies:
+          recordsWithDiscrepancies.map(toWireVoterRecord),
         rejectedRows: plan.rejectedRows,
-      },
+      } satisfies BulkLoadCommitteesResponse,
       { status: 200 },
     );
   } catch (error) {

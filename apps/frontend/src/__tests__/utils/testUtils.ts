@@ -11,6 +11,7 @@ import {
   type CommitteeGovernanceConfig,
 } from "@prisma/client";
 import type { Session } from "next-auth";
+import type { z } from "zod";
 import {
   committeeDataSchema,
   type CommitteeData,
@@ -79,6 +80,29 @@ export function mock204Response(): Pick<
 export async function parseJsonResponse<T>(response: Response): Promise<T> {
   const raw = (await response.json()) as unknown;
   return raw as T;
+}
+
+/**
+ * Reads a response body and checks it against the schema the endpoint promises, rather
+ * than asserting it into shape. A cast cannot fail on contract drift; this fails the test
+ * with the Zod issues the moment the body stops matching what the schema says.
+ */
+export async function parseJsonResponseWith<Output>(
+  response: Pick<Response, "json">,
+  schema: z.ZodType<Output, z.ZodTypeDef, unknown>,
+): Promise<Output> {
+  const raw = (await response.json()) as unknown;
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    throw new Error(
+      `Response body does not match the schema:\n${JSON.stringify(
+        result.error.issues,
+        null,
+        2,
+      )}\n\nReceived:\n${JSON.stringify(raw, null, 2)}`,
+    );
+  }
+  return result.data;
 }
 
 /** Common error response body shape for typed assertions. */

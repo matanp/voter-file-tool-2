@@ -7,15 +7,19 @@
  */
 import * as fs from "fs";
 import { POST } from "~/app/api/admin/bulkLoadCommittees/route";
-import { PrivilegeLevel, type MembershipType } from "@prisma/client";
+import { Prisma, PrivilegeLevel, type VoterRecord } from "@prisma/client";
+import {
+  bulkLoadCommitteesErrorSchema,
+  bulkLoadCommitteesResponseSchema,
+  voterRecordSchema,
+} from "@voter-file-tool/shared-validators";
 import {
   createMockRequest,
   createMockSession,
   createMockVoterRecord,
   createAuthTestSuite,
   selectedRow,
-  parseJsonResponse,
-  expectErrorResponse,
+  parseJsonResponseWith,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import {
@@ -25,6 +29,11 @@ import {
 } from "../../utils/mocks";
 import { DEFAULT_ACTIVE_TERM_ID } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import type {
+  ImportPlan,
+  PlannedRemoval,
+} from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
+import type { DiscrepanciesAndCommittee } from "~/app/api/lib/utils";
 
 jest.mock("fs", () => ({
   ...jest.requireActual<typeof import("fs")>("fs"),
@@ -64,57 +73,19 @@ const existsSyncMock = jest.mocked(fs.existsSync);
 const readFileSyncMock = jest.mocked(fs.readFileSync);
 const getActiveTermIdMock = jest.mocked(committeeValidation.getActiveTermId);
 
-type PlannedRemoval = {
-  membershipId: string;
-  voterRecordId: string;
-  name: string;
-  committee: unknown;
-};
-
-type BulkLoadCommitteesResponse = {
-  success: boolean;
-  message: string;
-  dryRun: boolean;
-  applied: boolean;
-  format: string;
-  fileName: string;
-  counts: {
-    entries: number;
-    matchedVoters: number;
-    activations: number;
-    removals: number;
-    discrepancies: number;
-    rejectedRows: number;
-  };
-  removals: PlannedRemoval[];
-  capacityFailures: {
-    committee: string;
-    memberCount: number;
-    maxSeats: number;
-  }[];
-  discrepanciesMap: [string, { discrepancies: unknown; committee: unknown }][];
-  recordsWithDiscrepancies: unknown[];
-  rejectedRows: { sourceRow: number; reason: string }[];
-};
-
-type MockPlan = {
-  term: { id: string; label: string };
-  maxSeatsPerLted: number;
-  committees: unknown[];
-  activations: {
-    voterRecordId: string;
-    committee: unknown;
-    membershipType: MembershipType;
-  }[];
-  removals: PlannedRemoval[];
-  discrepancies: Map<string, { discrepancies: unknown; committee: unknown }>;
-  rejectedRows: { sourceRow: number; reason: string }[];
-  capacityFailures: {
-    committee: string;
-    memberCount: number;
-    maxSeats: number;
-  }[];
-  counts: BulkLoadCommitteesResponse["counts"];
+/**
+ * `prisma.voterRecord.findMany` hands back whole rows — every column present, absent
+ * values null — and the response schema names them all, so a fixture that fills only the
+ * interesting columns would not parse. The rest are spelled out from the schema itself.
+ */
+const voterRecordRow = (overrides: Partial<VoterRecord> = {}): VoterRecord => {
+  const allColumnsNull = Object.fromEntries(
+    Object.keys(voterRecordSchema.shape).map((column) => [column, null]),
+  );
+  return {
+    ...allColumnsNull,
+    ...createMockVoterRecord(overrides),
+  } as VoterRecord;
 };
 
 const CURRENT_FORMAT = "boe-elected-list";
@@ -129,10 +100,9 @@ const importRequest = (overrides: Record<string, unknown> = {}) =>
   });
 
 /** What planning or applying reports back: the plan, as data. */
-const importPlan = (overrides: Partial<MockPlan> = {}): MockPlan => {
-  const discrepancies: MockPlan["discrepancies"] =
-    overrides.discrepancies ??
-    new Map<string, { discrepancies: unknown; committee: unknown }>();
+const importPlan = (overrides: Partial<ImportPlan> = {}): ImportPlan => {
+  const discrepancies: ImportPlan["discrepancies"] =
+    overrides.discrepancies ?? new Map<string, DiscrepanciesAndCommittee>();
   const removals = overrides.removals ?? [];
   const rejectedRows = overrides.rejectedRows ?? [];
   return {
@@ -175,7 +145,7 @@ const createDiscrepancyEntry = (
     legDistrict: number;
     electionDistrict: number;
   },
-) => ({
+): DiscrepanciesAndCommittee => ({
   discrepancies: { name: { incoming: "New Name", existing: "Old Name" } },
   committee: {
     id: 0,
@@ -266,7 +236,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
       const response = await POST(importRequest());
 
       expect(response.status).toBe(200); // route returns 200 with error body
-      const json = (await response.json()) as { error: string };
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
+      );
       expect(json.error).toBe("Not available in this environment");
       expect(planRosterImportMock).not.toHaveBeenCalled();
       expect(applyRosterImportMock).not.toHaveBeenCalled();
@@ -278,8 +251,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
       const response = await POST(importRequest({ dryRun: true }));
 
       expect(response.status).toBe(200);
-      const json =
-        await parseJsonResponse<BulkLoadCommitteesResponse>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesResponseSchema,
+      );
       expect(json.dryRun).toBe(true);
       expect(json.applied).toBe(false);
       expect(planRosterImportMock).toHaveBeenCalledTimes(1);
@@ -297,14 +272,51 @@ describe("/api/admin/bulkLoadCommittees", () => {
 
       const response = await POST(importRequest());
 
-      const json =
-        await parseJsonResponse<BulkLoadCommitteesResponse>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesResponseSchema,
+      );
       expect(json.dryRun).toBe(true);
       expect(planRosterImportMock).toHaveBeenCalledTimes(1);
       expect(applyRosterImportMock).not.toHaveBeenCalled();
       expect(
         prismaMock.committeeUploadDiscrepancy.deleteMany,
       ).not.toHaveBeenCalled();
+    });
+
+    it("serializes Prisma Decimal and Date values to their wire strings", async () => {
+      const discrepancy = createDiscrepancyEntry("VRCNUM1", {
+        cityTown: "ROCHESTER",
+        legDistrict: 1,
+        electionDistrict: 1,
+      });
+      discrepancy.committee.ltedWeight = new Prisma.Decimal("12.5");
+      planRosterImportMock.mockResolvedValue(
+        importPlan({ discrepancies: new Map([["VRCNUM1", discrepancy]]) }),
+      );
+      prismaMock.voterRecord.findMany.mockResolvedValue([
+        voterRecordRow({
+          VRCNUM: "VRCNUM1",
+          DOB: new Date("1980-02-03T00:00:00.000Z"),
+          lastUpdate: new Date("2026-08-09T10:11:12.000Z"),
+          originalRegDate: new Date("2001-04-05T00:00:00.000Z"),
+        }),
+      ]);
+      authenticateAdmin();
+
+      const response = await POST(importRequest());
+
+      expect(response.status).toBe(200);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesResponseSchema,
+      );
+      expect(json.discrepanciesMap[0]?.[1].committee.ltedWeight).toBe("12.5");
+      expect(json.recordsWithDiscrepancies[0]).toMatchObject({
+        DOB: "1980-02-03T00:00:00.000Z",
+        lastUpdate: "2026-08-09T10:11:12.000Z",
+        originalRegDate: "2001-04-05T00:00:00.000Z",
+      });
     });
 
     it("reads the named file from the data directory with the named format", async () => {
@@ -347,15 +359,17 @@ describe("/api/admin/bulkLoadCommittees", () => {
         upsertedDiscrepancy("VRCNUM1"),
       );
       prismaMock.voterRecord.findMany.mockResolvedValue([
-        createMockVoterRecord({ VRCNUM: "VRCNUM1" }),
-        createMockVoterRecord({ VRCNUM: "VRCNUM2" }),
+        voterRecordRow({ VRCNUM: "VRCNUM1" }),
+        voterRecordRow({ VRCNUM: "VRCNUM2" }),
       ]);
 
       const response = await POST(importRequest({ dryRun: false }));
 
       expect(response.status).toBe(200);
-      const json =
-        await parseJsonResponse<BulkLoadCommitteesResponse>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesResponseSchema,
+      );
       expect(json.applied).toBe(true);
       expect(json.dryRun).toBe(false);
       expect(json.message).toBe("Committee lists loaded successfully");
@@ -392,8 +406,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
       const response = await POST(importRequest({ dryRun: false }));
 
       expect(response.status).toBe(200);
-      const json =
-        await parseJsonResponse<BulkLoadCommitteesResponse>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesResponseSchema,
+      );
       expect(json.discrepanciesMap).toHaveLength(1);
       expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -436,8 +452,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
 
         const response = await POST(importRequest({ dryRun }));
 
-        const json =
-          await parseJsonResponse<BulkLoadCommitteesResponse>(response);
+        const json = await parseJsonResponseWith(
+          response,
+          bulkLoadCommitteesResponseSchema,
+        );
         expect(json.counts).toEqual({
           entries: 3,
           matchedVoters: 3,
@@ -466,8 +484,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
 
       const response = await POST(importRequest());
 
-      const json =
-        await parseJsonResponse<BulkLoadCommitteesResponse>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesResponseSchema,
+      );
       expect(json.capacityFailures).toEqual([
         { committee: "ROCHESTER-1-1", memberCount: 6, maxSeats: 4 },
       ]);
@@ -481,10 +501,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
       );
 
       expect(response.status).toBe(422);
-      const json = await parseJsonResponse<{
-        success: boolean;
-        error: string;
-      }>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
+      );
       expect(json.success).toBe(false);
       expect(json.error).toBe("Invalid request data");
       expect(readFileSyncMock).not.toHaveBeenCalled();
@@ -497,10 +517,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
       const response = await POST(importRequest({ format: ARCHIVED_FORMAT }));
 
       expect(response.status).toBe(422);
-      const json = await parseJsonResponse<{
-        success: boolean;
-        error: string;
-      }>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
+      );
       expect(json.success).toBe(false);
       expect(json.error).toContain(ARCHIVED_FORMAT);
       expect(json.error).toContain("archived");
@@ -519,10 +539,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
       const response = await POST(importRequest({ fileName }));
 
       expect(response.status).toBe(422);
-      const json = await parseJsonResponse<{
-        success: boolean;
-        error: string;
-      }>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
+      );
       expect(json.success).toBe(false);
       expect(json.error).toContain("data");
       expect(existsSyncMock).not.toHaveBeenCalled();
@@ -537,10 +557,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
       const response = await POST(importRequest());
 
       expect(response.status).toBe(404);
-      const json = await parseJsonResponse<{
-        success: boolean;
-        error: string;
-      }>(response);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
+      );
       expect(json.success).toBe(false);
       expect(json.error).toContain(FILE_NAME);
       expect(readFileSyncMock).not.toHaveBeenCalled();
@@ -551,9 +571,14 @@ describe("/api/admin/bulkLoadCommittees", () => {
       getActiveTermIdMock.mockRejectedValue(new Error("No active term"));
       authenticateAdmin();
 
-      await expectErrorResponse(
-        await POST(importRequest()),
-        503,
+      const response = await POST(importRequest());
+
+      expect(response.status).toBe(503);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
+      );
+      expect(json.error).toBe(
         "No active committee term. Create one in Admin > Terms first.",
       );
       expect(planRosterImportMock).not.toHaveBeenCalled();
@@ -563,11 +588,14 @@ describe("/api/admin/bulkLoadCommittees", () => {
       applyRosterImportMock.mockRejectedValue(new Error("Unreadable file"));
       authenticateAdmin();
 
-      await expectErrorResponse(
-        await POST(importRequest({ dryRun: false })),
-        500,
-        "Error loading committee lists",
+      const response = await POST(importRequest({ dryRun: false }));
+
+      expect(response.status).toBe(500);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
       );
+      expect(json.error).toBe("Error loading committee lists");
       expect(
         prismaMock.committeeUploadDiscrepancy.deleteMany,
       ).not.toHaveBeenCalled();
