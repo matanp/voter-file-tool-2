@@ -1,5 +1,6 @@
 import type {
   CommitteeList,
+  MembershipType,
   Prisma,
   VoterRecord,
   VoterRecordArchive,
@@ -105,6 +106,12 @@ export type Discrepancy = Record<
 export type DiscrepanciesAndCommittee = {
   discrepancies: Discrepancy;
   committee: CommitteeList;
+  /**
+   * How the source roster says this person won the seat, carried alongside the
+   * disagreement so that resolving it can record the way the seat was actually won.
+   * Null only where no roster entry stands behind the row.
+   */
+  incomingMembershipType: MembershipType | null;
 };
 
 /**

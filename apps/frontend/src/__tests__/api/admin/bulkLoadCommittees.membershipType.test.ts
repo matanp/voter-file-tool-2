@@ -20,6 +20,7 @@ import {
   getAuditLogMock,
   getMembershipMock,
   resolvesTo,
+  setupRosterImportPrismaMocks,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
 import * as seatUtils from "~/app/api/lib/seatUtils";
@@ -90,20 +91,13 @@ describe("membership type written by an import", () => {
         }),
       ),
     );
-    prismaMock.voterRecord.findMany.mockImplementation((args) => {
-      const ids = (args?.where?.VRCNUM as { in?: string[] })?.in ?? [];
-      return resolvesTo(ids.map((VRCNUM) => createMockVoterRecord({ VRCNUM })));
-    });
+    setupRosterImportPrismaMocks(prismaMock);
     prismaMock.committeeList.findUnique.mockResolvedValue(null);
     prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
       id: 101,
       cityTown: "TEST CITY",
       electionDistrict: 1,
     }));
-    prismaMock.$queryRaw.mockResolvedValue([]);
-    getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
-    getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
     getMembershipMock(prismaMock).create.mockResolvedValue(
       createMockMembership({ id: "m-new", status: "ACTIVE", seatNumber: 1 }),
     );

@@ -1,5 +1,6 @@
 import type {
   CommitteeList,
+  CommitteeMembership,
   CommitteeTerm,
   Prisma,
   VoterRecord,
@@ -18,6 +19,8 @@ export type AuditMembershipSubject = {
   legDistrict: number | null;
   electionDistrict: number;
   seatNumber?: number | null;
+  /** How the member won the seat, on events that write it. */
+  membershipType?: CommitteeMembership["membershipType"];
 };
 
 type VoterNameFields = Pick<
@@ -38,8 +41,9 @@ export function buildMembershipAuditSubject(params: {
   committee: CommitteeLocationFields;
   term: TermLabelFields;
   seatNumber?: number | null;
+  membershipType?: CommitteeMembership["membershipType"];
 }): AuditMembershipSubject {
-  const { voterRecord, committee, term, seatNumber } = params;
+  const { voterRecord, committee, term, seatNumber, membershipType } = params;
   const memberName = getName(voterRecord);
 
   return {
@@ -52,6 +56,7 @@ export function buildMembershipAuditSubject(params: {
     legDistrict: committee.legDistrict,
     electionDistrict: committee.electionDistrict,
     ...(seatNumber !== undefined ? { seatNumber } : {}),
+    ...(membershipType !== undefined ? { membershipType } : {}),
   };
 }
 

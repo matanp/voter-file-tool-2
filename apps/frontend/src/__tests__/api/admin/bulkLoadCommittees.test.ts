@@ -7,17 +7,23 @@
  */
 import * as fs from "fs";
 import { POST } from "~/app/api/admin/bulkLoadCommittees/route";
-import { Prisma, PrivilegeLevel, type VoterRecord } from "@prisma/client";
+import {
+  Prisma,
+  PrivilegeLevel,
+  type MembershipType,
+  type VoterRecord,
+} from "@prisma/client";
 import {
   bulkLoadCommitteesErrorSchema,
   bulkLoadCommitteesResponseSchema,
   voterRecordSchema,
 } from "@voter-file-tool/shared-validators";
 import {
+  authenticateAsAdmin,
   createMockRequest,
-  createMockSession,
   createMockVoterRecord,
   createAuthTestSuite,
+  objectContainingMatcher,
   selectedRow,
   parseJsonResponseWith,
   type AuthTestConfig,
@@ -145,8 +151,10 @@ const createDiscrepancyEntry = (
     legDistrict: number;
     electionDistrict: number;
   },
+  incomingMembershipType: MembershipType | null = "PETITIONED",
 ): DiscrepanciesAndCommittee => ({
   discrepancies: { name: { incoming: "New Name", existing: "Old Name" } },
+  incomingMembershipType,
   committee: {
     id: 0,
     cityTown: committee.cityTown,
@@ -168,14 +176,7 @@ const upsertedDiscrepancy = (VRCNUM: string) =>
     committeeId: 1,
   });
 
-const authenticateAdmin = () => {
-  mockAuthSession(
-    createMockSession({
-      user: { id: "1", privilegeLevel: PrivilegeLevel.Admin },
-    }),
-  );
-  mockHasPermission(true);
-};
+const authenticateAdmin = () => authenticateAsAdmin("1");
 
 describe("/api/admin/bulkLoadCommittees", () => {
   const originalEnv = process.env;
@@ -324,9 +325,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
 
       await POST(importRequest());
 
-      const readPath = (
-        readFileSyncMock.mock.calls as unknown[][]
-      )[0]?.[0] as string;
+      const readPath = String(readFileSyncMock.mock.calls[0]?.[0]);
       expect(readPath.endsWith(`data/${FILE_NAME}`)).toBe(true);
       expect(parseWithFormatMock).toHaveBeenCalledWith(
         CURRENT_FORMAT,
@@ -383,6 +382,17 @@ describe("/api/admin/bulkLoadCommittees", () => {
       expect(
         prismaMock.committeeUploadDiscrepancy.upsert,
       ).toHaveBeenCalledTimes(2);
+      expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { VRCNUM: "VRCNUM1" },
+          create: objectContainingMatcher({
+            incomingMembershipType: "PETITIONED",
+          }),
+          update: objectContainingMatcher({
+            incomingMembershipType: "PETITIONED",
+          }),
+        }),
+      );
     });
 
     it("VRCNUM not found in DB: discrepancy still upserted (planning flags it)", async () => {
@@ -414,10 +424,10 @@ describe("/api/admin/bulkLoadCommittees", () => {
       expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { VRCNUM: "VRCNUM_NOT_IN_DB" },
-          update: expect.objectContaining({
+          update: objectContainingMatcher({
             resolvedAt: null,
             resolution: null,
-          }) as unknown,
+          }),
         }),
       );
     });

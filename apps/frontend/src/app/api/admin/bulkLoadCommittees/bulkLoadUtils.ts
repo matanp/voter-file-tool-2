@@ -1,5 +1,9 @@
 import prisma from "~/lib/prisma";
-import { PrivilegeLevel, type MembershipType, type Prisma } from "@prisma/client";
+import {
+  PrivilegeLevel,
+  type MembershipType,
+  type Prisma,
+} from "@prisma/client";
 
 import {
   type DiscrepanciesAndCommittee,
@@ -157,6 +161,7 @@ function ensureImportDiscrepancy(
   discrepanciesMap: Map<string, DiscrepanciesAndCommittee>,
   voterRecordId: string,
   committee: CommitteeIdentity,
+  incomingMembershipType: MembershipType | null,
   key: string,
   incoming: string,
   existing: string,
@@ -172,31 +177,81 @@ function ensureImportDiscrepancy(
 
   discrepanciesMap.set(voterRecordId, {
     discrepancies: nextDiscrepancies,
-    committee:
-      existingEntry?.committee ??
-      {
-        id: 0,
-        cityTown: committee.cityTown,
-        legDistrict: committee.legDistrict,
-        electionDistrict: committee.electionDistrict,
-        termId: committee.termId,
-        ltedWeight: null,
-      },
+    committee: existingEntry?.committee ?? {
+      id: 0,
+      cityTown: committee.cityTown,
+      legDistrict: committee.legDistrict,
+      electionDistrict: committee.electionDistrict,
+      termId: committee.termId,
+      ltedWeight: null,
+    },
+    incomingMembershipType:
+      existingEntry?.incomingMembershipType ?? incomingMembershipType,
   });
 }
 
 const ALREADY_ACTIVE_ELSEWHERE =
   "Voter is already active in another committee for this term";
 
+/**
+ * Signals that one voter's activation hit the one-active-per-term unique index.
+ * Thrown out of the committee transaction so Prisma rolls it back; catching
+ * P2002 and continuing would leave PostgreSQL in an aborted-transaction state.
+ */
+class RosterActivationConflict extends Error {
+  readonly voterRecordId: string;
+  readonly membershipType: MembershipType;
+
+  constructor(voterRecordId: string, membershipType: MembershipType) {
+    super(ALREADY_ACTIVE_ELSEWHERE);
+    this.name = "RosterActivationConflict";
+    this.voterRecordId = voterRecordId;
+    this.membershipType = membershipType;
+  }
+}
+
+/** Unwraps a roster activation conflict, including when Prisma nests it as `cause`. */
+function asRosterActivationConflict(
+  error: unknown,
+): RosterActivationConflict | null {
+  if (error instanceof RosterActivationConflict) {
+    return error;
+  }
+  if (
+    error instanceof Error &&
+    error.cause instanceof RosterActivationConflict
+  ) {
+    return error.cause;
+  }
+  return null;
+}
+
+/**
+ * Converts a one-active-per-term unique-constraint failure into a typed conflict.
+ * Always throws: the transaction is already aborted and must not be reused.
+ */
+function throwActivationConflict(
+  error: unknown,
+  voterRecordId: string,
+  membershipType: MembershipType,
+): never {
+  if (isActiveMembershipPerTermConflict(error)) {
+    throw new RosterActivationConflict(voterRecordId, membershipType);
+  }
+  throw error;
+}
+
 function flagActiveElsewhere(
   discrepanciesMap: Map<string, DiscrepanciesAndCommittee>,
   voterRecordId: string,
   committee: CommitteeIdentity,
+  incomingMembershipType: MembershipType | null,
 ) {
   ensureImportDiscrepancy(
     discrepanciesMap,
     voterRecordId,
     committee,
+    incomingMembershipType,
     "alreadyActiveInAnotherCommittee",
     formatCommitteeIdentity(committee),
     ALREADY_ACTIVE_ELSEWHERE,
@@ -272,6 +327,7 @@ export async function planRosterImport(
             termId: activeTermId,
             ltedWeight: null,
           },
+          incomingMembershipType: entry.membershipType,
         });
         recordHasDiscrepancies = true;
       }
@@ -292,6 +348,7 @@ export async function planRosterImport(
           termId: activeTermId,
           ltedWeight: null,
         },
+        incomingMembershipType: entry.membershipType,
       });
       // Missing voter rows are discrepancies only — never create CommitteeMembership.
       recordHasDiscrepancies = true;
@@ -335,8 +392,11 @@ export async function planRosterImport(
       discrepanciesMap,
       voterRecordId,
       assignments[0]!,
+      membershipTypeByVoter.get(voterRecordId) ?? null,
       "committeeAssignmentConflict",
-      assignments.map((assignment) => formatCommitteeIdentity(assignment)).join(" | "),
+      assignments
+        .map((assignment) => formatCommitteeIdentity(assignment))
+        .join(" | "),
       "Voter appears in multiple committees in the same bulk import",
     );
   }
@@ -446,7 +506,12 @@ export async function planRosterImport(
       ).some((otherCommitteeId) => otherCommitteeId !== committeeListId);
 
       if (activeElsewhere) {
-        flagActiveElsewhere(discrepanciesMap, voterRecordId, committee);
+        flagActiveElsewhere(
+          discrepanciesMap,
+          voterRecordId,
+          committee,
+          membershipTypeByVoter.get(voterRecordId) ?? null,
+        );
         continue;
       }
 
@@ -497,7 +562,9 @@ async function attachRemovalNames(
       lastName: true,
     },
   });
-  const nameById = new Map(voters.map((voter) => [voter.VRCNUM, getName(voter)]));
+  const nameById = new Map(
+    voters.map((voter) => [voter.VRCNUM, getName(voter)]),
+  );
 
   return removals.map((removal) => ({
     ...removal,
@@ -554,275 +621,314 @@ export async function applyRosterImport(
       continue;
     }
 
-    const plannedActivations = new Map(
+    const pendingActivations = new Map(
       plan.activations
         .filter(
           (activation) =>
             formatCommitteeIdentity(activation.committee) ===
             formatCommitteeIdentity(planned.committee),
         )
-        .map((activation) => [activation.voterRecordId, activation.membershipType]),
+        .map((activation) => [
+          activation.voterRecordId,
+          activation.membershipType,
+        ]),
     );
+    const plannedCommitteeIdentity: CommitteeIdentity = {
+      cityTown: planned.committee.cityTown,
+      legDistrict: planned.committee.legDistrict,
+      electionDistrict: planned.committee.electionDistrict,
+      termId: activeTermId,
+    };
 
-    await prisma.$transaction(async (tx) => {
-      const committee = await tx.committeeList.upsert({
-        where: {
-          cityTown_legDistrict_electionDistrict_termId: {
-            cityTown: committeeList.cityTown,
-            legDistrict: committeeList.legDistrict,
-            electionDistrict: committeeList.electionDistrict,
-            termId: activeTermId,
-          },
-        },
-        create: { ...committeeList, termId: activeTermId },
-        update: committeeList,
-      });
+    for (;;) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          const committee = await tx.committeeList.upsert({
+            where: {
+              cityTown_legDistrict_electionDistrict_termId: {
+                cityTown: committeeList.cityTown,
+                legDistrict: committeeList.legDistrict,
+                electionDistrict: committeeList.electionDistrict,
+                termId: activeTermId,
+              },
+            },
+            create: { ...committeeList, termId: activeTermId },
+            update: committeeList,
+          });
 
-      // Lock committee row while reconciling capacity + seat assignments.
-      await tx.$queryRaw`
+          // Lock committee row while reconciling capacity + seat assignments.
+          await tx.$queryRaw`
         SELECT id
         FROM "CommitteeList"
         WHERE id = ${committee.id}
         FOR UPDATE
       `;
 
-      await ensureSeatsExist(committee.id, activeTermId, {
-        tx,
-        maxSeats: plan.maxSeatsPerLted,
-      });
-
-      const importedSet = new Set(uniqueImportedMembers);
-      const committeeIdentity: CommitteeIdentity = {
-        cityTown: committee.cityTown,
-        legDistrict: committee.legDistrict,
-        electionDistrict: committee.electionDistrict,
-        termId: activeTermId,
-      };
-
-      // Reconcile removals first so new activations can safely claim seats.
-      const existingActiveMemberships = await tx.committeeMembership.findMany({
-        where: {
-          committeeListId: committee.id,
-          termId: activeTermId,
-          status: ACTIVE_MEMBERSHIP_STATUS,
-        },
-        select: {
-          id: true,
-          voterRecordId: true,
-        },
-      });
-
-      const voterIdsForCommittee = Array.from(
-        new Set([
-          ...existingActiveMemberships.map(
-            (membership) => membership.voterRecordId,
-          ),
-          ...importedMembers,
-        ]),
-      );
-      const voters = voterIdsForCommittee.length
-        ? await tx.voterRecord.findMany({
-            where: { VRCNUM: { in: voterIdsForCommittee } },
-            select: {
-              VRCNUM: true,
-              firstName: true,
-              middleInitial: true,
-              lastName: true,
-            },
-          })
-        : [];
-      const voterById = new Map(voters.map((voter) => [voter.VRCNUM, voter]));
-
-      const subjectForVoter = (
-        voterRecordId: string,
-        seatNumber?: number | null,
-      ): AuditMembershipSubject => {
-        const voter = voterById.get(voterRecordId);
-        if (!voter) {
-          throw new Error(`Voter not found for bulk import audit: ${voterRecordId}`);
-        }
-        return buildMembershipAuditSubject({
-          voterRecord: voter,
-          committee,
-          term: activeTerm,
-          seatNumber,
-        });
-      };
-
-      for (const membership of existingActiveMemberships) {
-        if (!importedSet.has(membership.voterRecordId)) {
-          await tx.committeeMembership.update({
-            where: { id: membership.id },
-            data: {
-              status: "REMOVED",
-              removedAt: new Date(),
-              removalReason: "OTHER",
-              removalNotes: "Removed by bulk import synchronization",
-              seatNumber: null,
-            },
-          });
-          await logAuditEventOrThrow(
-            actor.userId,
-            actor.userRole,
-            "MEMBER_REMOVED",
-            "CommitteeMembership",
-            membership.id,
-            { status: ACTIVE_MEMBERSHIP_STATUS },
-            { status: "REMOVED", removalReason: "OTHER" },
-            mergeAuditMetadata(
-              {
-                source: "bulk_import_sync",
-                reason: "not_in_import_file",
-                committeeId: committee.id,
-              },
-              subjectForVoter(membership.voterRecordId, null),
-            ),
-            tx,
-          );
-        }
-      }
-
-      for (const voterRecordId of importedMembers) {
-        const plannedMembershipType = plannedActivations.get(voterRecordId);
-        if (plannedMembershipType === undefined) {
-          // Planning already recorded why this one is not activated.
-          continue;
-        }
-
-        if (
-          await isVoterActiveInAnotherCommittee(
-            voterRecordId,
-            committee.id,
-            activeTermId,
-            tx,
-          )
-        ) {
-          flagActiveElsewhere(discrepanciesMap, voterRecordId, committeeIdentity);
-          continue;
-        }
-
-        const existingMembership = await tx.committeeMembership.findUnique({
-          where: {
-            voterRecordId_committeeListId_termId: {
-              voterRecordId,
-              committeeListId: committee.id,
-              termId: activeTermId,
-            },
-          },
-        });
-
-        let seatNumber = existingMembership?.seatNumber ?? null;
-        if (!(existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS && seatNumber !== null)) {
-          seatNumber = await assignNextAvailableSeat(committee.id, activeTermId, {
+          await ensureSeatsExist(committee.id, activeTermId, {
             tx,
             maxSeats: plan.maxSeatsPerLted,
           });
-        }
 
-        if (existingMembership) {
-          // Existing memberships are not rewritten: a membership that already records how
-          // its member won the seat keeps that, and only an untyped one takes the file's.
-          const membershipType: MembershipType =
-            existingMembership.membershipType ?? plannedMembershipType;
-          try {
-            await tx.committeeMembership.update({
-              where: { id: existingMembership.id },
-              data: {
-                status: ACTIVE_MEMBERSHIP_STATUS,
-                activatedAt: existingMembership.activatedAt ?? new Date(),
-                membershipType,
-                seatNumber,
-                confirmedAt: null,
-                resignedAt: null,
-                removedAt: null,
-                rejectedAt: null,
-                rejectionNote: null,
-                resignationDateReceived: null,
-                resignationMethod: null,
-                removalReason: null,
-                removalNotes: null,
-                petitionVoteCount: null,
-                petitionPrimaryDate: null,
-              },
-            });
-          } catch (error) {
-            if (isActiveMembershipPerTermConflict(error)) {
-              flagActiveElsewhere(
-                discrepanciesMap,
-                voterRecordId,
-                committeeIdentity,
-              );
-              continue;
-            }
-            throw error;
-          }
-          await logAuditEventOrThrow(
-            actor.userId,
-            actor.userRole,
-            "MEMBER_ACTIVATED",
-            "CommitteeMembership",
-            existingMembership.id,
-            { status: existingMembership.status },
-            {
-              status: ACTIVE_MEMBERSHIP_STATUS,
-              membershipType,
-              seatNumber,
-            },
-            mergeAuditMetadata(
-              {
-                source: "bulk_import_sync",
-                committeeId: committee.id,
-              },
-              subjectForVoter(voterRecordId, seatNumber),
-            ),
-            tx,
-          );
-        } else {
-          const membershipType: MembershipType = plannedMembershipType;
-          let createdMembership;
-          try {
-            createdMembership = await tx.committeeMembership.create({
-              data: {
-                voterRecordId,
+          const importedSet = new Set(uniqueImportedMembers);
+          const committeeIdentity: CommitteeIdentity = {
+            cityTown: committee.cityTown,
+            legDistrict: committee.legDistrict,
+            electionDistrict: committee.electionDistrict,
+            termId: activeTermId,
+          };
+
+          // Reconcile removals first so new activations can safely claim seats.
+          const existingActiveMemberships =
+            await tx.committeeMembership.findMany({
+              where: {
                 committeeListId: committee.id,
                 termId: activeTermId,
                 status: ACTIVE_MEMBERSHIP_STATUS,
-                activatedAt: new Date(),
-                membershipType,
-                seatNumber,
+              },
+              select: {
+                id: true,
+                voterRecordId: true,
               },
             });
-          } catch (error) {
-            if (isActiveMembershipPerTermConflict(error)) {
+
+          const voterIdsForCommittee = Array.from(
+            new Set([
+              ...existingActiveMemberships.map(
+                (membership) => membership.voterRecordId,
+              ),
+              ...importedMembers,
+            ]),
+          );
+          const voters = voterIdsForCommittee.length
+            ? await tx.voterRecord.findMany({
+                where: { VRCNUM: { in: voterIdsForCommittee } },
+                select: {
+                  VRCNUM: true,
+                  firstName: true,
+                  middleInitial: true,
+                  lastName: true,
+                },
+              })
+            : [];
+          const voterById = new Map(
+            voters.map((voter) => [voter.VRCNUM, voter]),
+          );
+
+          const subjectForVoter = (
+            voterRecordId: string,
+            seatNumber?: number | null,
+          ): AuditMembershipSubject => {
+            const voter = voterById.get(voterRecordId);
+            if (!voter) {
+              throw new Error(
+                `Voter not found for bulk import audit: ${voterRecordId}`,
+              );
+            }
+            return buildMembershipAuditSubject({
+              voterRecord: voter,
+              committee,
+              term: activeTerm,
+              seatNumber,
+            });
+          };
+
+          for (const membership of existingActiveMemberships) {
+            if (!importedSet.has(membership.voterRecordId)) {
+              await tx.committeeMembership.update({
+                where: { id: membership.id },
+                data: {
+                  status: "REMOVED",
+                  removedAt: new Date(),
+                  removalReason: "OTHER",
+                  removalNotes: "Removed by bulk import synchronization",
+                  seatNumber: null,
+                },
+              });
+              await logAuditEventOrThrow(
+                actor.userId,
+                actor.userRole,
+                "MEMBER_REMOVED",
+                "CommitteeMembership",
+                membership.id,
+                { status: ACTIVE_MEMBERSHIP_STATUS },
+                { status: "REMOVED", removalReason: "OTHER" },
+                mergeAuditMetadata(
+                  {
+                    source: "bulk_import_sync",
+                    reason: "not_in_import_file",
+                    committeeId: committee.id,
+                  },
+                  subjectForVoter(membership.voterRecordId, null),
+                ),
+                tx,
+              );
+            }
+          }
+
+          for (const voterRecordId of importedMembers) {
+            const plannedMembershipType = pendingActivations.get(voterRecordId);
+            if (plannedMembershipType === undefined) {
+              // Planning already recorded why this one is not activated.
+              continue;
+            }
+
+            if (
+              await isVoterActiveInAnotherCommittee(
+                voterRecordId,
+                committee.id,
+                activeTermId,
+                tx,
+              )
+            ) {
               flagActiveElsewhere(
                 discrepanciesMap,
                 voterRecordId,
                 committeeIdentity,
+                plannedMembershipType,
               );
               continue;
             }
-            throw error;
-          }
-          await logAuditEventOrThrow(
-            actor.userId,
-            actor.userRole,
-            "MEMBER_ACTIVATED",
-            "CommitteeMembership",
-            createdMembership.id,
-            null,
-            { status: ACTIVE_MEMBERSHIP_STATUS, membershipType, seatNumber },
-            mergeAuditMetadata(
-              {
-                source: "bulk_import_sync",
-                committeeId: committee.id,
+
+            const existingMembership = await tx.committeeMembership.findUnique({
+              where: {
+                voterRecordId_committeeListId_termId: {
+                  voterRecordId,
+                  committeeListId: committee.id,
+                  termId: activeTermId,
+                },
               },
-              subjectForVoter(voterRecordId, seatNumber),
-            ),
-            tx,
-          );
-        }
+            });
+
+            let seatNumber = existingMembership?.seatNumber ?? null;
+            if (
+              !(
+                existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS &&
+                seatNumber !== null
+              )
+            ) {
+              seatNumber = await assignNextAvailableSeat(
+                committee.id,
+                activeTermId,
+                {
+                  tx,
+                  maxSeats: plan.maxSeatsPerLted,
+                },
+              );
+            }
+
+            if (existingMembership) {
+              // Existing memberships are not rewritten: a membership that already records how
+              // its member won the seat keeps that, and only an untyped one takes the file's.
+              const membershipType: MembershipType =
+                existingMembership.membershipType ?? plannedMembershipType;
+              try {
+                await tx.committeeMembership.update({
+                  where: { id: existingMembership.id },
+                  data: {
+                    status: ACTIVE_MEMBERSHIP_STATUS,
+                    activatedAt: existingMembership.activatedAt ?? new Date(),
+                    membershipType,
+                    seatNumber,
+                    confirmedAt: null,
+                    resignedAt: null,
+                    removedAt: null,
+                    rejectedAt: null,
+                    rejectionNote: null,
+                    resignationDateReceived: null,
+                    resignationMethod: null,
+                    removalReason: null,
+                    removalNotes: null,
+                    petitionVoteCount: null,
+                    petitionPrimaryDate: null,
+                  },
+                });
+              } catch (error) {
+                throwActivationConflict(
+                  error,
+                  voterRecordId,
+                  plannedMembershipType,
+                );
+              }
+              await logAuditEventOrThrow(
+                actor.userId,
+                actor.userRole,
+                "MEMBER_ACTIVATED",
+                "CommitteeMembership",
+                existingMembership.id,
+                { status: existingMembership.status },
+                {
+                  status: ACTIVE_MEMBERSHIP_STATUS,
+                  membershipType,
+                  seatNumber,
+                },
+                mergeAuditMetadata(
+                  {
+                    source: "bulk_import_sync",
+                    committeeId: committee.id,
+                  },
+                  subjectForVoter(voterRecordId, seatNumber),
+                ),
+                tx,
+              );
+            } else {
+              const membershipType: MembershipType = plannedMembershipType;
+              let createdMembership;
+              try {
+                createdMembership = await tx.committeeMembership.create({
+                  data: {
+                    voterRecordId,
+                    committeeListId: committee.id,
+                    termId: activeTermId,
+                    status: ACTIVE_MEMBERSHIP_STATUS,
+                    activatedAt: new Date(),
+                    membershipType,
+                    seatNumber,
+                  },
+                });
+              } catch (error) {
+                throwActivationConflict(
+                  error,
+                  voterRecordId,
+                  plannedMembershipType,
+                );
+              }
+              await logAuditEventOrThrow(
+                actor.userId,
+                actor.userRole,
+                "MEMBER_ACTIVATED",
+                "CommitteeMembership",
+                createdMembership.id,
+                null,
+                {
+                  status: ACTIVE_MEMBERSHIP_STATUS,
+                  membershipType,
+                  seatNumber,
+                },
+                mergeAuditMetadata(
+                  {
+                    source: "bulk_import_sync",
+                    committeeId: committee.id,
+                  },
+                  subjectForVoter(voterRecordId, seatNumber),
+                ),
+                tx,
+              );
+            }
+          }
+        });
+        break;
+      } catch (error) {
+        const conflict = asRosterActivationConflict(error);
+        if (!conflict) throw error;
+        flagActiveElsewhere(
+          discrepanciesMap,
+          conflict.voterRecordId,
+          plannedCommitteeIdentity,
+          conflict.membershipType,
+        );
+        pendingActivations.delete(conflict.voterRecordId);
       }
-    });
+    }
   }
 
   return plan;

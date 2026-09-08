@@ -12,6 +12,7 @@ import {
 } from "@prisma/client";
 import type { Session } from "next-auth";
 import type { z } from "zod";
+import { mockAuthSession, mockHasPermission } from "./mocks";
 import {
   committeeDataSchema,
   type CommitteeData,
@@ -282,6 +283,29 @@ export const getEligibilityFlagMock = (
 ): MockEligibilityFlagModel =>
   (mock as { eligibilityFlag: MockEligibilityFlagModel }).eligibilityFlag;
 
+/** Typed mock model accessor for committeeUploadDiscrepancy. */
+type MockDiscrepancyModel = {
+  findUnique: jest.Mock;
+  findMany: jest.Mock;
+  upsert: jest.Mock;
+  update: jest.Mock;
+  deleteMany: jest.Mock;
+};
+
+export const getDiscrepancyMock = (mock: unknown): MockDiscrepancyModel =>
+  (mock as { committeeUploadDiscrepancy: MockDiscrepancyModel })
+    .committeeUploadDiscrepancy;
+
+/** Signs the current test in as an Admin whose permission checks all pass. */
+export const authenticateAsAdmin = (userId = "test-user-id"): void => {
+  mockAuthSession(
+    createMockSession({
+      user: { id: userId, privilegeLevel: PrivilegeLevel.Admin },
+    }),
+  );
+  mockHasPermission(true);
+};
+
 /** Wraps expect.objectContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
 export function objectContainingMatcher<T extends object>(obj: T): unknown {
   return expect.objectContaining(obj) as unknown;
@@ -327,6 +351,15 @@ export function getMockCallArgs(
     );
   }
   return call;
+}
+
+/**
+ * The first argument of a mock's Nth call, named as the shape the caller passes.
+ * Prisma delegate mocks type their calls too loosely to read fields off, so this
+ * is the one place that gap is cast: `firstCallArg<{ where: { VRCNUM: string } }>(mock)`.
+ */
+export function firstCallArg<Args>(mockFn: jest.Mock, callIndex = 0): Args {
+  return getMockCallArgs(mockFn, callIndex)[0] as Args;
 }
 
 /**
@@ -570,6 +603,33 @@ export function setupEligibilityPass(prismaMock: unknown): void {
   });
   getMembershipMock(prismaMock).count.mockResolvedValue(0);
   getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+}
+
+/**
+ * The Prisma reads a roster import makes before it decides anything: nobody
+ * seated anywhere, and every VRCNUM the roster names resolvable in the voter
+ * file. Suites layer their own fixtures on top by re-mocking individual
+ * delegates after calling this.
+ */
+export function setupRosterImportPrismaMocks(prismaMock: unknown): void {
+  const mock = prismaMock as {
+    $queryRaw: jest.Mock;
+    voterRecord: { findMany: jest.Mock };
+  };
+  mock.$queryRaw.mockResolvedValue([]);
+  mock.voterRecord.findMany.mockImplementation(
+    (args?: { where?: { VRCNUM?: { in?: string[] } } }) =>
+      resolvesTo(
+        (args?.where?.VRCNUM?.in ?? []).map((VRCNUM) =>
+          createMockVoterRecord({ VRCNUM }),
+        ),
+      ),
+  );
+  getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+  getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+  getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+  getMembershipMock(prismaMock).count.mockResolvedValue(0);
+  getAuditLogMock(prismaMock).create.mockResolvedValue({});
 }
 
 // Test request factory

@@ -169,10 +169,14 @@ async function bulkLoadCommitteesHandler(
             create: {
               VRCNUM: voterId,
               discrepancy: discrepancyAndCommittee.discrepancies,
+              incomingMembershipType:
+                discrepancyAndCommittee.incomingMembershipType,
               committee: { connect: committeeConnect },
             },
             update: {
               discrepancy: discrepancyAndCommittee.discrepancies,
+              incomingMembershipType:
+                discrepancyAndCommittee.incomingMembershipType,
               committee: { connect: committeeConnect },
               resolvedAt: null,
               resolvedBy: null,
