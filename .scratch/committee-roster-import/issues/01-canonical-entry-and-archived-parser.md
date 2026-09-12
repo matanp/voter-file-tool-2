@@ -39,8 +39,9 @@ same term as this one, less completely, so it has no consumer.
       and `archived` as the two statuses
 - [x] `committee-export-xlsx` is registered as `archived` and parses both the 2025-05-15 and
       2026-04-16 workbooks (the latter is a strict superset of the former)
-- [x] A committed fixture holds a genuine excerpt of the real workbook, roughly twenty rows,
-      preserving the original header row and quirks verbatim
+- [x] A committed fixture holds a structurally faithful pseudonymized excerpt of the real
+      workbook, roughly twenty rows, preserving the original header row, column order, cell
+      types and layout quirks while every person and VRCNUM is invented
 - [x] Tests assert, from that fixture: correct committee identity including the Rochester
       case, correct VRCNUM, correct `claimed` fields, and correct `membershipType` for each
       `election type` value the format uses
@@ -73,7 +74,7 @@ Decisions worth knowing:
   (`scripts/makeRosterFixtures.ts`), which builds each file from data held in the
   script itself: the delivered header row, column order, cell types and layout quirks,
   with 20 rows of invented people — no real name, address, phone, email, date of birth
-  or VRCNUM. The script also emits the Board of Elections fixture used by
-  [[05-boe-elected-list-parser]].
+  or VRCNUM. The script also emits the two Board of Elections fixtures (tab- and
+  comma-delimited) used by [[05-boe-elected-list-parser]].
 - The 2026-04-16 excerpt is deliberately spread across committees so it carries both the
   Rochester `LD ` case and a mixed-case town, and both `election type` values.

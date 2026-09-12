@@ -29,6 +29,17 @@ const COLUMN = {
 
 const HIGHEST_COLUMN_READ = Math.max(...Object.values(COLUMN));
 
+/** The delivered layout has 52 positional fields, whichever separator the export used. */
+const BOE_FIELD_COUNT = 52;
+
+/**
+ * The Board of Elections delivers this export either tab-delimited (`.txt`) or, after a
+ * local conversion, comma-delimited (`.csv`). Both carry the same 52-field layout, so
+ * choosing between them is lexical decoding of one known format, not format detection.
+ */
+const DELIMITERS = ["\t", ","] as const;
+type Delimiter = (typeof DELIMITERS)[number];
+
 /** `TOWN/LT/ED-CC-Party`, e.g. `PERINTON/058/014-CC-Democratic`. */
 const OFFICE_NAME_PATTERN = /^[^/]+\/\d+\/\d+-CC-.+$/;
 
@@ -40,8 +51,30 @@ const OFFICIAL_TYPES: Record<string, MembershipType> = {
 const notThisFormat = (reason: string): Error =>
   new Error(`File is not the ${BOE_ELECTED_LIST_FORMAT_ID} format: ${reason}`);
 
-/** Fields are unquoted throughout this format, so a comma is always a separator. */
-const splitRow = (line: string): string[] => line.split(",");
+/** Fields are unquoted throughout this format, so a delimiter is always a separator. */
+const splitRow = (line: string, delimiter: Delimiter): string[] =>
+  line.split(delimiter);
+
+/**
+ * Picks the delimiter that decodes the header into the expected layout. Tab is tried
+ * first: a tab-delimited header never contains tabs elsewhere, whereas a tab-delimited
+ * file can legitimately contain commas inside a name.
+ */
+const chooseDelimiter = (headerLine: string): Delimiter => {
+  const chosen = DELIMITERS.find(
+    (delimiter) => splitRow(headerLine, delimiter).length === BOE_FIELD_COUNT,
+  );
+  if (chosen === undefined) {
+    const counts = DELIMITERS.map(
+      (delimiter) =>
+        `${splitRow(headerLine, delimiter).length} ${delimiter === "\t" ? "tab" : "comma"}-separated`,
+    ).join(", ");
+    throw notThisFormat(
+      `the header row has ${counts} fields, not the ${BOE_FIELD_COUNT} this format expects`,
+    );
+  }
+  return chosen;
+};
 
 const at = (fields: string[], position: number): string =>
   (fields[position - 1] ?? "").trim();
@@ -73,13 +106,15 @@ const parseCommitteeIdentity = (
   return { cityTown, legDistrict, electionDistrict };
 };
 
+type PhysicalRow = { sourceRow: number; fields: string[] };
+
 /**
- * The shape assertion. A wrong-format read of this file satisfies every structural check a
- * header-keyed reader makes while producing garbage, and the consequence downstream is mass
- * membership removal rather than an error — so the file as a whole must prove it is this
- * format before any position is trusted.
+ * The shape assertion. Positional reading is only safe when every row has the layout the
+ * header has, so a ragged file is refused as a whole rather than read row by row. What
+ * each row *says* at those positions is validated per row, so one malformed row becomes
+ * a rejection while the rest of the roster survives.
  */
-const assertShape = (header: string[], dataRows: string[][]): void => {
+const assertShape = (header: string[], dataRows: PhysicalRow[]): void => {
   if (dataRows.length === 0) {
     throw notThisFormat("it has no data rows");
   }
@@ -91,19 +126,10 @@ const assertShape = (header: string[], dataRows: string[][]): void => {
     );
   }
 
-  const ragged = dataRows.findIndex((fields) => fields.length !== fieldCount);
-  if (ragged !== -1) {
+  const ragged = dataRows.find(({ fields }) => fields.length !== fieldCount);
+  if (ragged) {
     throw notThisFormat(
-      `row ${ragged + 2} has ${dataRows[ragged]!.length} fields where the header row has ${fieldCount}`,
-    );
-  }
-
-  const misplaced = dataRows.findIndex(
-    (fields) => !OFFICE_NAME_PATTERN.test(at(fields, COLUMN.officeName)),
-  );
-  if (misplaced !== -1) {
-    throw notThisFormat(
-      `row ${misplaced + 2} column ${COLUMN.officeName} is "${at(dataRows[misplaced]!, COLUMN.officeName)}", not a committee identity of the form TOWN/LT/ED-CC-Party`,
+      `row ${ragged.sourceRow} has ${ragged.fields.length} fields where the header row has ${fieldCount}`,
     );
   }
 };
@@ -113,10 +139,7 @@ const assertShape = (header: string[], dataRows: string[][]): void => {
  * for the 2026–2028 term.
  */
 export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
-  const lines = fileContents
-    .toString("utf8")
-    .replace(/^﻿/, "")
-    .split(/\r?\n/);
+  const lines = fileContents.toString("utf8").replace(/^﻿/, "").split(/\r?\n/);
   while (lines.length > 0 && lines[lines.length - 1] === "") {
     lines.pop();
   }
@@ -126,31 +149,45 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
     throw notThisFormat("it is empty");
   }
 
-  const header = splitRow(headerLine);
-  const dataRows = lines.slice(1).map(splitRow);
+  const delimiter = chooseDelimiter(headerLine);
+  const header = splitRow(headerLine, delimiter);
+  // Row 1 of the file is the header, so the first data row is row 2. Blank physical
+  // lines are skipped without renumbering what follows them.
+  const dataRows = lines
+    .slice(1)
+    .map((line, index) => ({ sourceRow: index + 2, line }))
+    .filter(({ line }) => line.trim() !== "")
+    .map(({ sourceRow, line }) => ({
+      sourceRow,
+      fields: splitRow(line, delimiter),
+    }));
   assertShape(header, dataRows);
 
   const entries: RosterEntry[] = [];
   const rejected: RejectedRosterRow[] = [];
+  let committeeIdentitiesFound = 0;
 
-  dataRows.forEach((fields, index) => {
-    // Row 1 of the file is the header, so the first data row is row 2.
-    const sourceRow = index + 2;
+  for (const { sourceRow, fields } of dataRows) {
+    const officeName = at(fields, COLUMN.officeName);
+    const committee = OFFICE_NAME_PATTERN.test(officeName)
+      ? parseCommitteeIdentity(officeName)
+      : null;
+    if (committee) {
+      committeeIdentitiesFound += 1;
+    }
 
     const vrcnum = at(fields, COLUMN.vrcnum);
     if (!vrcnum) {
       rejected.push({ sourceRow, reason: "Missing VRCNUM" });
-      return;
+      continue;
     }
 
-    const officeName = at(fields, COLUMN.officeName);
-    const committee = parseCommitteeIdentity(officeName);
     if (!committee) {
       rejected.push({
         sourceRow,
         reason: `Missing or invalid committee identity: office name "${officeName}"`,
       });
-      return;
+      continue;
     }
 
     const officialType = at(fields, COLUMN.officialType).toUpperCase();
@@ -160,7 +197,7 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
         sourceRow,
         reason: `Unrecognized official type: "${at(fields, COLUMN.officialType)}"`,
       });
-      return;
+      continue;
     }
 
     entries.push({
@@ -176,7 +213,17 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
       membershipType,
       sourceRow,
     });
-  });
+  }
+
+  // A wrong-format read satisfies every structural check above while producing garbage,
+  // and the consequence downstream is mass membership removal rather than an error — so a
+  // file in which no row carries a committee identity is refused as a whole, not returned
+  // as an all-rejected result.
+  if (committeeIdentitiesFound === 0) {
+    throw notThisFormat(
+      `no data row has a committee identity of the form TOWN/LT/ED-CC-Party in column ${COLUMN.officeName}`,
+    );
+  }
 
   return { entries, rejected };
 }

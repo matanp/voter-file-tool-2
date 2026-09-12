@@ -80,7 +80,7 @@ const BOE_ROWS: BoeRow[] = [
  * Lays one row out at the 1-based positions the delivered file uses, which are not the
  * ones its header row names.
  */
-function boeLine(row: BoeRow): string {
+function boeLine(row: BoeRow, delimiter: string): string {
   const fields = new Array<string>(BOE_FIELD_COUNT).fill("");
   const put = (position: number, value: string) => {
     fields[position - 1] = value;
@@ -112,7 +112,7 @@ function boeLine(row: BoeRow): string {
   nameParts.forEach((part, index) => put(28 + index, part));
   put(row.middle ? 41 : 40, "2");
 
-  return fields.join(",");
+  return fields.join(delimiter);
 }
 
 /* ------------------------------------------------------------------ *
@@ -191,15 +191,25 @@ function writeWorkbook(
 
 fs.mkdirSync(FIXTURE_DIR, { recursive: true });
 
-const boeOutput = path.join(
-  FIXTURE_DIR,
-  "boe-elected-list-2026-2028.excerpt.csv",
-);
-fs.writeFileSync(
-  boeOutput,
-  [BOE_HEADER, ...BOE_ROWS.map(boeLine)].join("\n") + "\n",
-);
-console.log(`${boeOutput}: ${BOE_ROWS.length} rows`);
+// The Board of Elections delivers the list tab-delimited; the comma-delimited twin is the
+// shape of a local spreadsheet conversion. Same layout, same rows, different separator.
+for (const [extension, delimiter] of [
+  ["txt", "\t"],
+  ["csv", ","],
+] as const) {
+  const boeOutput = path.join(
+    FIXTURE_DIR,
+    `boe-elected-list-2026-2028.excerpt.${extension}`,
+  );
+  fs.writeFileSync(
+    boeOutput,
+    [
+      BOE_HEADER.split(",").join(delimiter),
+      ...BOE_ROWS.map((row) => boeLine(row, delimiter)),
+    ].join("\n") + "\n",
+  );
+  console.log(`${boeOutput}: ${BOE_ROWS.length} rows`);
+}
 
 writeWorkbook(
   path.join(FIXTURE_DIR, "committee-export-2026-04-16.excerpt.xlsx"),

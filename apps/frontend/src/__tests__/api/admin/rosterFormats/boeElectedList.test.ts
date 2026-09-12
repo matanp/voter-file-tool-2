@@ -15,6 +15,7 @@ import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterForma
 
 const FIXTURE_DIR = path.join(__dirname, "../../../fixtures/rosterFormats");
 const BOE_FIXTURE = "boe-elected-list-2026-2028.excerpt.csv";
+const BOE_TAB_FIXTURE = "boe-elected-list-2026-2028.excerpt.txt";
 
 const readFixture = (name: string) =>
   fs.readFileSync(path.join(FIXTURE_DIR, name));
@@ -25,7 +26,8 @@ const fixtureLines = (): string[] =>
     .split("\n")
     .filter((line) => line !== "");
 
-const parseFixture = () => parseWithFormat("boe-elected-list", readFixture(BOE_FIXTURE));
+const parseFixture = () =>
+  parseWithFormat("boe-elected-list", readFixture(BOE_FIXTURE));
 
 const byVrcnum = (entries: RosterEntry[], vrcnum: string) =>
   entries.find((entry) => entry.vrcnum === vrcnum);
@@ -63,6 +65,10 @@ const dataRow = (fields: Partial<Record<number, string>>): string => {
 /** A file built from the real header row plus the given data rows. */
 const csvOf = (rows: string[]): Buffer =>
   Buffer.from([fixtureLines()[0]!, ...rows].join("\n") + "\n", "utf8");
+
+/** The same file, tab-delimited — the encoding the Board of Elections actually delivers. */
+const tsvOf = (rows: string[]): Buffer =>
+  Buffer.from(csvOf(rows).toString("utf8").replace(/,/g, "\t"), "utf8");
 
 describe("boe-elected-list roster format", () => {
   it("is registered as a current format", () => {
@@ -213,13 +219,123 @@ describe("boe-elected-list roster format", () => {
     ).toThrow(/boe-elected-list/);
   });
 
-  it("throws when a data row's office name is not a committee identity, even under the expected header", () => {
+  it("throws when no data row carries a committee identity, even under the expected header", () => {
     expect(() =>
       parseWithFormat(
         "boe-elected-list",
-        csvOf([dataRow({ 26: "COUNTY LEGISLATOR" })]),
+        csvOf([
+          dataRow({ 26: "COUNTY LEGISLATOR" }),
+          dataRow({ 1: "000000002", 26: "TOWN JUSTICE" }),
+        ]),
       ),
     ).toThrow(/boe-elected-list/);
+  });
+
+  it("rejects one row whose office name is not a committee identity and keeps the valid rows", () => {
+    const { entries, rejected } = parseWithFormat(
+      "boe-elected-list",
+      csvOf([
+        dataRow({ 1: "000000001" }),
+        dataRow({ 1: "000000002", 26: "COUNTY LEGISLATOR" }),
+        dataRow({ 1: "000000003" }),
+      ]),
+    );
+
+    expect(entries.map((entry) => entry.vrcnum)).toEqual([
+      "000000001",
+      "000000003",
+    ]);
+    expect(rejected).toEqual([
+      {
+        sourceRow: 3,
+        reason:
+          'Missing or invalid committee identity: office name "COUNTY LEGISLATOR"',
+      },
+    ]);
+  });
+
+  describe("delimiters", () => {
+    it("reads the tab-delimited delivery exactly as it reads the comma-delimited conversion", () => {
+      const fromTabs = parseWithFormat(
+        "boe-elected-list",
+        readFixture(BOE_TAB_FIXTURE),
+      );
+
+      expect(fromTabs).toEqual(parseFixture());
+      expect(fromTabs.entries).toHaveLength(fixtureLines().length - 1);
+      expect(fromTabs.rejected).toEqual([]);
+    });
+
+    it("reads a synthetic tab-delimited file identically to its comma-delimited twin", () => {
+      const rows = [dataRow({ 1: "000000001" }), dataRow({ 1: "000000002" })];
+
+      expect(parseWithFormat("boe-elected-list", tsvOf(rows))).toEqual(
+        parseWithFormat("boe-elected-list", csvOf(rows)),
+      );
+    });
+
+    it("refuses a header that neither tab nor comma decodes into the 52-field layout", () => {
+      const semicolons = csvOf([dataRow({})])
+        .toString("utf8")
+        .replace(/,/g, ";");
+
+      expect(() =>
+        parseWithFormat("boe-elected-list", Buffer.from(semicolons, "utf8")),
+      ).toThrow(/52/);
+    });
+
+    it("refuses a comma-delimited file with the wrong number of header fields", () => {
+      const header = fixtureLines()[0]!.split(",").slice(0, 51).join(",");
+      const row = dataRow({}).split(",").slice(0, 51).join(",");
+
+      expect(() =>
+        parseWithFormat(
+          "boe-elected-list",
+          Buffer.from(`${header}\n${row}\n`, "utf8"),
+        ),
+      ).toThrow(/boe-elected-list/);
+    });
+  });
+
+  describe("line endings and whitespace", () => {
+    const rows = [dataRow({ 1: "000000001" }), dataRow({ 1: "000000002" })];
+    const expected = () => parseWithFormat("boe-elected-list", csvOf(rows));
+
+    it("reads CRLF line endings", () => {
+      const crlf = csvOf(rows).toString("utf8").replace(/\n/g, "\r\n");
+
+      expect(
+        parseWithFormat("boe-elected-list", Buffer.from(crlf, "utf8")),
+      ).toEqual(expected());
+    });
+
+    it("reads a file with a UTF-8 byte order mark", () => {
+      const withBom = Buffer.concat([
+        Buffer.from([0xef, 0xbb, 0xbf]),
+        csvOf(rows),
+      ]);
+
+      expect(parseWithFormat("boe-elected-list", withBom)).toEqual(expected());
+    });
+
+    it("ignores trailing blank lines", () => {
+      const trailing = csvOf(rows).toString("utf8") + "\n\n   \n";
+
+      expect(
+        parseWithFormat("boe-elected-list", Buffer.from(trailing, "utf8")),
+      ).toEqual(expected());
+    });
+
+    it("skips an interior blank line without renumbering the rows after it", () => {
+      const withGap = Buffer.from(
+        [fixtureLines()[0]!, rows[0]!, "", rows[1]!].join("\n") + "\n",
+        "utf8",
+      );
+
+      const { entries } = parseWithFormat("boe-elected-list", withGap);
+
+      expect(entries.map((entry) => entry.sourceRow)).toEqual([2, 4]);
+    });
   });
 
   it("reads name and city by position, where a header-keyed read yields an address and an empty city", () => {
@@ -234,7 +350,9 @@ describe("boe-elected-list roster format", () => {
     // What position-reading actually yields — a person, and the town they live in.
     expect(entry?.claimed.name).toBe("AVERY C LINDHOLM");
     expect(entry?.claimed.city).toBe("FAIRPORT");
-    expect(entry?.claimed.name).not.toBe(readByHeaderName(firstDataRow, "name"));
+    expect(entry?.claimed.name).not.toBe(
+      readByHeaderName(firstDataRow, "name"),
+    );
     expect(entry?.claimed.city).not.toBe(
       readByHeaderName(firstDataRow, "res city"),
     );

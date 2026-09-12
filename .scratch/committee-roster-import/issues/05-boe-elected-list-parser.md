@@ -44,8 +44,10 @@ Registers as `boe-elected-list` with status `current`.
       their zero-padded form, with no Rochester special case
 - [x] `ELECTED` maps to `PETITIONED`; an unrecognized official type rejects the row with its row
       number rather than throwing
-- [x] A committed fixture holds a genuine excerpt of the real file, roughly twenty rows,
-      preserving the original header row, delimiter, padding and quirks verbatim
+- [x] Committed fixtures hold structurally faithful pseudonymized excerpts of the real file
+      (one tab-delimited as delivered, one comma-delimited), roughly twenty rows, preserving
+      the original header row, delimiter, padding, cell types and layout quirks while every
+      person and VRCNUM is invented
 - [x] A regression test asserts that for a row where a header-keyed read would have yielded an
       address for `claimed.name` and an empty `claimed.city`, the parser yields a person's name
       and a city
