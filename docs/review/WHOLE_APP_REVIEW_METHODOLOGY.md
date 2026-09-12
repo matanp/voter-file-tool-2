@@ -24,6 +24,7 @@ to the tooling — no env vars to export beyond `MODEL_SLUG`. Vector deltas and 
 | Frontend state & interaction correctness | [WHOLE_APP_FRONTEND_STATE_INTERACTION_REVIEW_METHODOLOGY.md](./WHOLE_APP_FRONTEND_STATE_INTERACTION_REVIEW_METHODOLOGY.md) | `skills/whole-app-frontend-state-review/SKILL.md` |
 | Accessibility & mobile operability | [WHOLE_APP_ACCESSIBILITY_MOBILE_REVIEW_METHODOLOGY.md](./WHOLE_APP_ACCESSIBILITY_MOBILE_REVIEW_METHODOLOGY.md) | `skills/whole-app-accessibility-review/SKILL.md` |
 | Dev experience & local reproducibility | [WHOLE_APP_DEV_EXPERIENCE_REPRODUCIBILITY_REVIEW_METHODOLOGY.md](./WHOLE_APP_DEV_EXPERIENCE_REPRODUCIBILITY_REVIEW_METHODOLOGY.md) | `skills/whole-app-dev-experience-review/SKILL.md` |
+| Design & UI consistency | [WHOLE_APP_DESIGN_UI_REVIEW_METHODOLOGY.md](./WHOLE_APP_DESIGN_UI_REVIEW_METHODOLOGY.md) | `skills/whole-app-design-ui-review/SKILL.md` |
 
 Base workflow skill: `skills/whole-app-review/SKILL.md`.
 

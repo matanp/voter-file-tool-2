@@ -22,6 +22,7 @@ All vectors share this workflow. Pick an **axis overlay** skill for rubric, lane
 | Frontend state & interaction correctness | [whole-app-frontend-state-review](../whole-app-frontend-state-review/SKILL.md) | [FRONTEND_STATE_INTERACTION](../../docs/review/WHOLE_APP_FRONTEND_STATE_INTERACTION_REVIEW_METHODOLOGY.md) |
 | Accessibility & mobile operability | [whole-app-accessibility-review](../whole-app-accessibility-review/SKILL.md) | [ACCESSIBILITY_MOBILE](../../docs/review/WHOLE_APP_ACCESSIBILITY_MOBILE_REVIEW_METHODOLOGY.md) |
 | Dev experience & local reproducibility | [whole-app-dev-experience-review](../whole-app-dev-experience-review/SKILL.md) | [DEV_EXPERIENCE_REPRODUCIBILITY](../../docs/review/WHOLE_APP_DEV_EXPERIENCE_REPRODUCIBILITY_REVIEW_METHODOLOGY.md) |
+| Design & UI consistency | [whole-app-design-ui-review](../whole-app-design-ui-review/SKILL.md) | [DESIGN_UI](../../docs/review/WHOLE_APP_DESIGN_UI_REVIEW_METHODOLOGY.md) |
 
 ## Quick start
 
