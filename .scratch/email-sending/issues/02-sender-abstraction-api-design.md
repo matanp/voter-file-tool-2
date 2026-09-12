@@ -1,5 +1,5 @@
 Type: grilling
-Status: in-progress
+Status: resolved
 
 ## Question
 
@@ -14,7 +14,7 @@ Resolve:
 
 ## Decisions so far
 
-Reached by grilling; rounds 1-4 are settled, round 5 (Q16-Q18) was posed but not answered.
+Reached by grilling over five rounds (2026-09-12); all settled.
 
 ### Settled
 
@@ -57,35 +57,81 @@ Reached by grilling; rounds 1-4 are settled, round 5 (Q16-Q18) was posed but not
 
 15. **Callers always `await`; the package exposes only the one async function** (Q15a). Ticket 01's decision 9 already keeps the send out of the caller's transaction, which removes the reason to fear the latency; this is an admin action, not a hot path; and fire-and-forget in a Next.js route handler is genuinely unsafe (the function can be frozen after the response). Concretely: the invite route awaits `send()` and includes the resulting status in its JSON, so `InviteManagement.tsx` can render "invited, email failed — retry" immediately rather than waiting for a refetch.
 
-### Resulting shape (indicative)
+### Settled in round 5 (2026-09-12)
+
+16. **Suppression is an ordered list of guards with a tri-state verdict** (Q16). `createMailer({ guards?: SendGuard[] })`, defaulting to `[bouncedOrComplainedGuard]`.
+
+    ```ts
+    type GuardVerdict = "allow" | { reason: string } | null;  // null = no opinion
+    type SendGuard = (ctx: {
+      to: string;                       // post-canonicalization
+      template: TemplateId;
+      target: { type: string; id: string };
+      prisma: PrismaClient;
+    }) => Promise<GuardVerdict>;
+    ```
+
+    Guards run in order; the **first non-`null` verdict is final**, so ordering is semantically load-bearing (an `"allow"` guard placed after a deny guard is dead code) — document this on the type. `"allow"` exists so a later allow-list can short-circuit the derived bounce check, and so a per-template rule ("this address may receive admin mail but nothing else") is just a guard that reads `ctx.template`. Neither is built now. The default guard is **derived from `EmailLog`** — any row with `toAddress = to AND status IN (BOUNCED, COMPLAINED)` — so it needs no schema and is inert until ticket 06 writes those statuses. An explicit `EmailSuppression` table (allow/deny rows, `source: WEBHOOK | MANUAL`) is the anticipated shape for un-suppression when it is actually needed; it slots in as a guard ahead of the default, not as a change to `send()`. Rejected: separate `allowGuards`/`denyGuards` arrays, because that pre-decides a precedence (does `COMPLAINED` beat an allow-row?) better left to list order.
+
+17. **One `SUPPRESSED` skip reason, detail in `errorMessage`** (Q16c). `SkipReason = "DISABLED" | "NOT_CONFIGURED" | "SUPPRESSED"`; the guard's `reason` string lands in `errorMessage` (e.g. `"SUPPRESSED: prior BOUNCED on 2026-09-10 (emailLog …)"`). The `SendResult` union and retry UI do not grow a case per guard — the UI action is the same for all of them. Same pattern as item 7.
+
+18. **No bypass flag on `send()`** (Q16d). Consequence accepted: under the derived default there is no way to send to a suppressed address short of DB surgery. The trigger for adding the suppression table (item 16) is precisely the first time un-suppression is needed — a reviewable allow-row beats a per-call checkbox that can fire hard bounces at a zero-reputation subdomain.
+
+19. **Pipeline order** (Q16e): canonicalize `to` → env gate (`DISABLED`/`NOT_CONFIGURED`, no DB hit) → guards (DB hit) → insert `QUEUED` → Resend → update. A skip at either gate inserts the row **directly as `SKIPPED`** (no `QUEUED`→`SKIPPED` transition). A guard that **throws** (DB unreachable) throws out of `send()`, like the pre-send insert failing (item 2) — never fall through to sending. Consequence: local dev with `enabled: false` never produces `SUPPRESSED` rows, which is fine since a local DB has no bounces.
+
+20. **No `replyTo` for now** (Q17). There is no monitored mailbox; an unmonitored `replyTo` is worse than none. When one exists it is added to `createMailer` config (not to `send()`), preserving item 3. Inbound mail is already noted in the map's Not yet specified.
+
+21. **`From` is a package constant: `"Open Source Politics <no-reply@notifications.opensourcepolitics.online>"`** (Q17b), exported from `shared-mailer` so `apps/frontend` and `apps/report-server` cannot drift. `no-reply@` states honestly that replies are unread (see item 20).
+
+22. **Registry entries reserve `displayName?: string`; the address is never overridable** (Q17c). Same move as item 14's `text?` — one line now so a second friendly name ("Report Server <no-reply@…>") is a template change later. Precedence: template `displayName` if set, else the constant's. A full per-template `from` was rejected because it reopens the unverified-sender risk item 3 closed.
+
+23. **Remaining deliverability work** (Q18): DMARC (`p=none`, `rua=`) is already live per ticket 03's resolution, so that half collapses. A new research ticket [07](07-research-deliverability-warmup.md) covers subdomain warm-up, bounce/complaint rates to watch, pre-launch seed testing, and whether Gmail/Yahoo bulk-sender rules bind at this volume — motivated by ticket 03's test send landing in Gmail spam.
+
+24. **`getLatestStatuses` is a standalone export, not a mailer method** (Q4b): `getLatestStatuses({ prisma, targetType, targetIds })`, mirroring `auditLog.ts`'s take-a-client idiom. `Mailer` is just `{ send }`, which is honest about what actually needs the API key; a read-only site (server component / GET route) never constructs a mailer. Rejected: exposing both, as two ways to do one thing.
+
+### Resulting shape
 
 ```ts
 // packages/shared-mailer
-export function createMailer(config: MailerConfig): Mailer;
+export const DEFAULT_FROM =
+  "Open Source Politics <no-reply@notifications.opensourcepolitics.online>";
+
+export function createMailer(config: {
+  prisma: PrismaClient;
+  apiKey?: string;
+  from?: string;                        // defaults to DEFAULT_FROM (21)
+  enabled: boolean;                     // env gate (7)
+  guards?: SendGuard[];                 // defaults to [bouncedOrComplainedGuard] (16)
+  sendEmail?: typeof Resend.prototype.emails.send;  // test seam (12)
+}): Mailer;
 
 type Mailer = {
   send<T extends TemplateId>(args: {
-    to: string;                            // canonicalized + validated in-package (3)
+    to: string;                          // canonicalized + validated in-package (3)
     template: T;
-    props: PropsOf<T>;                     // inferred from the registry (11)
-    target: { type: string; id: string };  // required (8)
-  }): Promise<SendResult>;                 // throws only if the pre-send insert fails (2)
+    props: PropsOf<T>;                   // inferred from the registry (11)
+    target: { type: string; id: string }; // required (8)
+  }): Promise<SendResult>;               // throws only if a guard or the pre-send insert throws (2, 19)
+};
 
-  getLatestStatuses(args: {
-    targetType: string;
-    targetIds: string[];
-  }): Promise<Map<string, EmailLogSummary>>;  // batch (9)
+export function getLatestStatuses(args: {
+  prisma: PrismaClient;
+  targetType: string;
+  targetIds: string[];
+}): Promise<Map<string, EmailLogSummary>>;   // standalone, batch (9, 24)
+
+export const bouncedOrComplainedGuard: SendGuard;
+
+// registry entry
+type TemplateEntry<P> = {
+  Component: (props: P) => JSX.Element;
+  subject: (props: P) => string;
+  text?: (props: P) => string;          // reserved (14)
+  displayName?: string;                 // reserved (22)
 };
 ```
 
-`subject` never appears in the signature — it comes from `registry[template].subject(props)`.
-
-### Still open
-
-- **Q16 — suppression guard.** Should `send()` refuse to send to an address with a prior `BOUNCED`/`COMPLAINED` `EmailLog` row, writing a `SKIPPED` row with reason `SUPPRESSED`? Recommendation was **yes, build it now**: one indexed query on the already-indexed `toAddress`; it is the direct counterweight to retry-as-call-site-resend (item 10), since an admin who typos an address and retries four times produces four hard bounces from a subdomain with no reputation; and building it now means ticket 06 turns protection on automatically rather than requiring a coordinated second change. Inert until ticket 06 writes those statuses. Relying on Resend's own suppression list alone was judged insufficient — you would still be attempting, with no local record of why nothing arrived.
-- **Q17 — `replyTo` and `From` display name.** Recommendation: keep `replyTo` out of `send()`'s arguments (preserving item 3's constraint) but add it to `createMailer` config so every message carries one, and bake a display name into the `from` config value (`"Open Source Politics <notifications@notifications.opensourcepolitics.online>"`). **Blocked on a question for the user:** is there an address that will actually be monitored for replies? An unmonitored `replyTo` is worse than none.
-- **Q18 — where the remaining deliverability work lives.** Proposed split: DMARC moves into ticket 03 and should be treated as **required, not optional** (`p=none` with `rua=`) — ticket 05 called it optional, but it is the only way to see whether mail is authenticating before it starts failing; ticket 06 unchanged but now load-bearing for Q16; and a **new research ticket** (in the mold of 04/05) covering bounce/complaint rates to watch in the Resend dashboard, pre-launch seed testing before the first real invite, whether Gmail/Yahoo bulk-sender rules bind at this volume, and subdomain warm-up. Not yet created — awaiting the go-ahead.
-- **Bookkeeping:** whether `getLatestStatuses` hangs off the mailer instance or is a standalone export, since it needs only `prisma` and not the API key.
+`subject`, `from`, `replyTo`, and any bypass never appear on `send()`.
 
 ### Context established while grilling
 
@@ -93,3 +139,7 @@ type Mailer = {
 - `apps/report-server` already depends on `react`/`react-dom` 18.3.1; `apps/frontend` is on 19.1.1. React Email supports `^18 || ^19`, so co-location is viable via a **peer** dependency.
 - `shared-prisma` is a compiled `tsc` package emitting to `dist/`; co-locating templates adds JSX compilation to a package build that has none today.
 - `createInviteSchema` (`apps/frontend/src/app/api/admin/invites/route.ts`) already carries `customMessage`, which is the precedent for the admin-authored subject in item 5.
+
+## Answer
+
+Interface settled; see the 24 numbered decisions above and the **Resulting shape**. Nothing in this ticket remains open. Anticipated-but-unbuilt (recorded so implementation does not accidentally foreclose them): an `EmailSuppression` allow/deny table as a guard ahead of the default; per-template allow guards; `replyTo` in config once a monitored mailbox exists; per-template `displayName` use.
