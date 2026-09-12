@@ -90,6 +90,7 @@ profile_scans() {
     frontend-state-interaction) echo "frontend-state client-api-ui messages-envelopes domain-enums api-routes" ;;
     accessibility-mobile)   echo "accessibility client-api-ui labels upload" ;;
     dev-experience-reproducibility) echo "dev-experience operations migration-data shared-helpers" ;;
+    design-ui)                    echo "frontend-state client-api-ui messages-envelopes labels accessibility" ;;
     *) return 1 ;;
   esac
 }

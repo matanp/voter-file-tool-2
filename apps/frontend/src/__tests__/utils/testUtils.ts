@@ -5,11 +5,14 @@ import {
   PrivilegeLevel,
   type CommitteeList,
   type CommitteeMembership,
+  type CommitteeTerm,
   type VoterRecord,
   type CommitteeRequest,
   type CommitteeGovernanceConfig,
 } from "@prisma/client";
 import type { Session } from "next-auth";
+import type { z } from "zod";
+import { mockAuthSession, mockHasPermission } from "./mocks";
 import {
   committeeDataSchema,
   type CommitteeData,
@@ -78,6 +81,29 @@ export function mock204Response(): Pick<
 export async function parseJsonResponse<T>(response: Response): Promise<T> {
   const raw = (await response.json()) as unknown;
   return raw as T;
+}
+
+/**
+ * Reads a response body and checks it against the schema the endpoint promises, rather
+ * than asserting it into shape. A cast cannot fail on contract drift; this fails the test
+ * with the Zod issues the moment the body stops matching what the schema says.
+ */
+export async function parseJsonResponseWith<Output>(
+  response: Pick<Response, "json">,
+  schema: z.ZodType<Output, z.ZodTypeDef, unknown>,
+): Promise<Output> {
+  const raw = (await response.json()) as unknown;
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    throw new Error(
+      `Response body does not match the schema:\n${JSON.stringify(
+        result.error.issues,
+        null,
+        2,
+      )}\n\nReceived:\n${JSON.stringify(raw, null, 2)}`,
+    );
+  }
+  return result.data;
 }
 
 /** Common error response body shape for typed assertions. */
@@ -257,6 +283,29 @@ export const getEligibilityFlagMock = (
 ): MockEligibilityFlagModel =>
   (mock as { eligibilityFlag: MockEligibilityFlagModel }).eligibilityFlag;
 
+/** Typed mock model accessor for committeeUploadDiscrepancy. */
+type MockDiscrepancyModel = {
+  findUnique: jest.Mock;
+  findMany: jest.Mock;
+  upsert: jest.Mock;
+  update: jest.Mock;
+  deleteMany: jest.Mock;
+};
+
+export const getDiscrepancyMock = (mock: unknown): MockDiscrepancyModel =>
+  (mock as { committeeUploadDiscrepancy: MockDiscrepancyModel })
+    .committeeUploadDiscrepancy;
+
+/** Signs the current test in as an Admin whose permission checks all pass. */
+export const authenticateAsAdmin = (userId = "test-user-id"): void => {
+  mockAuthSession(
+    createMockSession({
+      user: { id: userId, privilegeLevel: PrivilegeLevel.Admin },
+    }),
+  );
+  mockHasPermission(true);
+};
+
 /** Wraps expect.objectContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
 export function objectContainingMatcher<T extends object>(obj: T): unknown {
   return expect.objectContaining(obj) as unknown;
@@ -302,6 +351,15 @@ export function getMockCallArgs(
     );
   }
   return call;
+}
+
+/**
+ * The first argument of a mock's Nth call, named as the shape the caller passes.
+ * Prisma delegate mocks type their calls too loosely to read fields off, so this
+ * is the one place that gap is cast: `firstCallArg<{ where: { VRCNUM: string } }>(mock)`.
+ */
+export function firstCallArg<Args>(mockFn: jest.Mock, callIndex = 0): Args {
+  return getMockCallArgs(mockFn, callIndex)[0] as Args;
 }
 
 /**
@@ -467,6 +525,47 @@ export const createMockGovernanceConfig = (
     ...overrides,
   }) as CommitteeGovernanceConfig;
 
+/** Full CommitteeTerm row, as `getActiveTerm` resolves it. */
+export const createMockCommitteeTerm = (
+  overrides: Partial<CommitteeTerm> = {},
+): CommitteeTerm => ({
+  id: DEFAULT_ACTIVE_TERM_ID,
+  label: "2024–2026",
+  startDate: new Date("2024-01-01"),
+  endDate: new Date("2026-12-31"),
+  isActive: true,
+  createdAt: new Date("2024-01-01"),
+  ...overrides,
+});
+
+/** Full CommitteeList row, as `committeeList.upsert`/`findUnique` resolve it. */
+export const createMockCommitteeListRow = (
+  overrides: Partial<CommitteeList> = {},
+): CommitteeList => ({
+  id: 1,
+  cityTown: "TEST CITY",
+  legDistrict: 1,
+  electionDistrict: 1,
+  termId: DEFAULT_ACTIVE_TERM_ID,
+  ltedWeight: null,
+  ...overrides,
+});
+
+/**
+ * Prisma delegate mocks are typed against whole model rows, while production
+ * code reads narrow `select`ed shapes. This is the one place that gap is cast:
+ * name the shape so the fixture is still checked, e.g.
+ * `selectedRow<{ id: number }>({ id: 101 })`.
+ */
+export const selectedRow = <Shape>(row: Shape): never => row as never;
+
+/**
+ * Same gap, for `mockImplementation`: a delegate's implementation is typed to
+ * return the fluent client (`Prisma__XClient`), which a plain promise is not.
+ */
+export const resolvesTo = <Shape>(row: Shape): never =>
+  Promise.resolve(row) as never;
+
 /**
  * Mocks voterRecord + committeeList for membership audit subject snapshots.
  * Matches createMockMembership defaults (committeeListId 1, DEFAULT_ACTIVE_TERM_ID).
@@ -504,6 +603,33 @@ export function setupEligibilityPass(prismaMock: unknown): void {
   });
   getMembershipMock(prismaMock).count.mockResolvedValue(0);
   getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+}
+
+/**
+ * The Prisma reads a roster import makes before it decides anything: nobody
+ * seated anywhere, and every VRCNUM the roster names resolvable in the voter
+ * file. Suites layer their own fixtures on top by re-mocking individual
+ * delegates after calling this.
+ */
+export function setupRosterImportPrismaMocks(prismaMock: unknown): void {
+  const mock = prismaMock as {
+    $queryRaw: jest.Mock;
+    voterRecord: { findMany: jest.Mock };
+  };
+  mock.$queryRaw.mockResolvedValue([]);
+  mock.voterRecord.findMany.mockImplementation(
+    (args?: { where?: { VRCNUM?: { in?: string[] } } }) =>
+      resolvesTo(
+        (args?.where?.VRCNUM?.in ?? []).map((VRCNUM) =>
+          createMockVoterRecord({ VRCNUM }),
+        ),
+      ),
+  );
+  getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+  getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+  getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+  getMembershipMock(prismaMock).count.mockResolvedValue(0);
+  getAuditLogMock(prismaMock).create.mockResolvedValue({});
 }
 
 // Test request factory

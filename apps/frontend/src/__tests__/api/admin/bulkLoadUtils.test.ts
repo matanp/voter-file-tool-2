@@ -2,6 +2,7 @@ import {
   accumulateCommitteeMember,
   type CommitteeAccumulationEntry,
 } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
+import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 
 const BRIGHTON_45_35 = {
   cityTown: "BRIGHTON",
@@ -14,8 +15,26 @@ function createCommitteeData(): Map<string, CommitteeAccumulationEntry> {
   return new Map();
 }
 
+const sourceEntry = (vrcnum: string, sourceRow: number): RosterEntry => ({
+  vrcnum,
+  committee: {
+    cityTown: BRIGHTON_45_35.cityTown,
+    legDistrict: BRIGHTON_45_35.legDistrict,
+    electionDistrict: BRIGHTON_45_35.electionDistrict,
+  },
+  claimed: {
+    name: "TEST VOTER",
+    address1: "1 MAIN ST",
+    city: "BRIGHTON",
+    state: "NY",
+    zip: "14610",
+  },
+  membershipType: "PETITIONED",
+  sourceRow,
+});
+
 describe("accumulateCommitteeMember", () => {
-  it("appends multiple clean members to the same LT/ED", () => {
+  it("indexes every intended VRCNUM in the committee", () => {
     const committeeData = createCommitteeData();
     const mapKey = "BRIGHTON-45-35";
 
@@ -23,24 +42,21 @@ describe("accumulateCommitteeMember", () => {
       committeeData,
       mapKey,
       BRIGHTON_45_35,
-      "VOTER_A",
-      false,
+      sourceEntry("VOTER_A", 2),
     );
     accumulateCommitteeMember(
       committeeData,
       mapKey,
       BRIGHTON_45_35,
-      "VOTER_B",
-      false,
+      sourceEntry("VOTER_B", 3),
     );
 
-    expect(committeeData.get(mapKey)?.committeeMembers).toEqual([
-      "VOTER_A",
-      "VOTER_B",
-    ]);
+    expect(
+      Array.from(committeeData.get(mapKey)?.sourceEntriesByVoter.keys() ?? []),
+    ).toEqual(["VOTER_A", "VOTER_B"]);
   });
 
-  it("preserves clean members when a later discrepancy row shares the LT/ED", () => {
+  it("retains every source row for an identical duplicate assignment", () => {
     const committeeData = createCommitteeData();
     const mapKey = "BRIGHTON-45-35";
 
@@ -48,77 +64,19 @@ describe("accumulateCommitteeMember", () => {
       committeeData,
       mapKey,
       BRIGHTON_45_35,
-      "VOTER_A",
-      false,
+      sourceEntry("VOTER_A", 2),
     );
     accumulateCommitteeMember(
       committeeData,
       mapKey,
       BRIGHTON_45_35,
-      "VOTER_B",
-      false,
-    );
-    accumulateCommitteeMember(
-      committeeData,
-      mapKey,
-      BRIGHTON_45_35,
-      "VOTER_C",
-      true,
+      sourceEntry("VOTER_A", 8),
     );
 
-    expect(committeeData.get(mapKey)?.committeeMembers).toEqual([
-      "VOTER_A",
-      "VOTER_B",
-    ]);
-  });
-
-  it("allows clean members to be added after an initial discrepancy row", () => {
-    const committeeData = createCommitteeData();
-    const mapKey = "BRIGHTON-45-35";
-
-    accumulateCommitteeMember(
-      committeeData,
-      mapKey,
-      BRIGHTON_45_35,
-      "VOTER_C",
-      true,
-    );
-    accumulateCommitteeMember(
-      committeeData,
-      mapKey,
-      BRIGHTON_45_35,
-      "VOTER_A",
-      false,
-    );
-    accumulateCommitteeMember(
-      committeeData,
-      mapKey,
-      BRIGHTON_45_35,
-      "VOTER_B",
-      false,
-    );
-
-    expect(committeeData.get(mapKey)?.committeeMembers).toEqual([
-      "VOTER_A",
-      "VOTER_B",
-    ]);
-  });
-
-  it("creates an empty LT/ED entry for a discrepancy-only committee slot", () => {
-    const committeeData = createCommitteeData();
-    const mapKey = "BRIGHTON-45-35";
-
-    accumulateCommitteeMember(
-      committeeData,
-      mapKey,
-      BRIGHTON_45_35,
-      "VOTER_C",
-      true,
-    );
-
-    expect(committeeData.get(mapKey)).toEqual({
-      data: BRIGHTON_45_35,
-      committeeMembers: [],
-    });
+    const assignments = committeeData.get(mapKey)?.sourceEntriesByVoter;
+    expect(Array.from(assignments?.keys() ?? [])).toEqual(["VOTER_A"]);
+    expect(
+      assignments?.get("VOTER_A")?.map((entry) => entry.sourceRow),
+    ).toEqual([2, 8]);
   });
 });
