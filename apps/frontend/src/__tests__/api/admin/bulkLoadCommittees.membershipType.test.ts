@@ -6,7 +6,6 @@
 import { applyRosterImport } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 import { prismaMock } from "../../utils/mocks";
-import type { Prisma } from "@prisma/client";
 import {
   createMockCommitteeListRow,
   createMockCommitteeTerm,
@@ -19,6 +18,7 @@ import {
   expectMembershipUpdate,
   getAuditLogMock,
   getMembershipMock,
+  jsonContaining,
   resolvesTo,
   setupRosterImportPrismaMocks,
 } from "../../utils/testUtils";
@@ -126,9 +126,9 @@ describe("membership type written by an import", () => {
         expectAuditLogCreate({
           action: "MEMBER_ACTIVATED",
           entityType: "CommitteeMembership",
-          afterValue: expect.objectContaining({
+          afterValue: jsonContaining({
             membershipType,
-          }) as Prisma.InputJsonValue,
+          }),
         }),
       );
     },
@@ -187,9 +187,9 @@ describe("membership type written by an import", () => {
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "MEMBER_ACTIVATED",
-        afterValue: expect.objectContaining({
+        afterValue: jsonContaining({
           membershipType: "PETITIONED",
-        }) as Prisma.InputJsonValue,
+        }),
       }),
     );
   });

@@ -1,7 +1,6 @@
 import { applyRosterImport } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 import { prismaMock } from "../../utils/mocks";
-import type { Prisma } from "@prisma/client";
 import {
   createMockCommitteeListRow,
   createMockCommitteeTerm,
@@ -14,6 +13,7 @@ import {
   expectMembershipUpdate,
   getAuditLogMock,
   getMembershipMock,
+  jsonContaining,
   resolvesTo,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
@@ -172,9 +172,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       expectAuditLogCreate({
         action: "MEMBER_ACTIVATED",
         entityType: "CommitteeMembership",
-        metadata: expect.objectContaining({
+        metadata: jsonContaining({
           source: "bulk_import_sync",
-        }) as Prisma.InputJsonValue,
+        }),
       }),
     );
     expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
@@ -342,9 +342,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       expectAuditLogCreate({
         action: "MEMBER_ACTIVATED",
         entityType: "CommitteeMembership",
-        metadata: expect.objectContaining({
+        metadata: jsonContaining({
           source: "bulk_import_sync",
-        }) as Prisma.InputJsonValue,
+        }),
       }),
     );
     expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
@@ -588,10 +588,10 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       expectAuditLogCreate({
         action: "MEMBER_REMOVED",
         entityType: "CommitteeMembership",
-        metadata: expect.objectContaining({
+        metadata: jsonContaining({
           source: "bulk_import_sync",
           reason: "not_in_import_file",
-        }) as Prisma.InputJsonValue,
+        }),
       }),
     );
   });
@@ -660,10 +660,10 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       expectAuditLogCreate({
         action: "MEMBER_REMOVED",
         entityType: "CommitteeMembership",
-        metadata: expect.objectContaining({
+        metadata: jsonContaining({
           source: "bulk_import_sync",
           reason: "not_in_import_file",
-        }) as Prisma.InputJsonValue,
+        }),
       }),
     );
   });
