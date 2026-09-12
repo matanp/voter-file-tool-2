@@ -1,6 +1,6 @@
 # UI Architecture Review — Current UI Analysis
 
-**February 2026**
+**February 2026** — _re-verified 2026-07-29; superseded findings struck through below._
 
 This document adds **codebase-derived findings** about the actual frontend UI: layout patterns, responsive behavior, design consistency, and UX friction points. It complements the SRS-gap-driven work in earlier documents with observations from the live implementation.
 
@@ -90,7 +90,7 @@ This document adds **codebase-derived findings** about the actual frontend UI: l
 - **Primary pattern:** Toast notifications for mutations (`useApiMutation` + `toast`)
 - **ReportsList:** Inline error with "Try Again" button — good recovery pattern
 - **RecordsList:** Toast for search/load errors; no inline retry
-- **No confirmation dialogs** for destructive actions (Remove member, Delete report, Reject request)
+- **No confirmation dialogs** for destructive actions — ~~Remove member~~, Delete report, Reject request. Remove member is **no longer accurate**: it now opens a modal capturing a structured `RemovalReason` plus notes (`CommitteeSelector.tsx:118,547`, per SRS 2.5). Delete report still fires immediately on click (`ReportsList.tsx:184`). The `AlertDialog` primitive already exists (`components/ui/alert-dialog.tsx`) and is used in exactly one place. See [06 §2b](06_UI_POLISH_TECHNICAL_PLAN_2026-07-29.md).
 - **Error page** (`/error`) exists but styling/experience not audited
 
 ---
@@ -101,10 +101,11 @@ This document adds **codebase-derived findings** about the actual frontend UI: l
 
 ~~`<Link href="admin/data">`~~ → Now `href="/admin/data"`. Previously, when user was on `/committees`, the relative URL resolved to `/committees/admin/data` (404).
 
-### 6.2 Tab Highlighting (already documented)
+### 6.2 Tab Highlighting — FIXED
 
-- Reports: inactive on `/committee-reports`, `/voter-list-reports`
-- Committee: inactive on `/committees/requests`
+~~Reports: inactive on `/committee-reports`, `/voter-list-reports`. Committee: inactive on `/committees/requests`.~~
+
+Both resolved. `header.tsx:49` now matches all ten report routes, and the Committee tab uses `pathname?.startsWith("/committees")` (`header.tsx:42`), so `/committees/requests` highlights correctly.
 
 ### 6.3 QuickActions Omissions
 
@@ -162,6 +163,8 @@ QuickActions on homepage links to: Record Search, Committees, Petitions, Reports
 ---
 
 ## 11. Recommended Quick Fixes (Current UI Only)
+
+**Scheduled:** U2–U5 are [06 §0.4](06_UI_POLISH_TECHNICAL_PLAN_2026-07-29.md), to be landed in Phase 0 as one small PR before any shared-component work.
 
 | ID     | Fix                                                                   | Effort |
 | ------ | --------------------------------------------------------------------- | ------ |
