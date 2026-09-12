@@ -37,6 +37,8 @@ import { DEFAULT_ACTIVE_TERM_ID } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
 import { RosterCapacityError } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type {
+  AppliedSummary,
+  ApplyRosterImportResult,
   ImportPlan,
   PlannedRemoval,
 } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
@@ -137,6 +139,36 @@ const importPlan = (overrides: Partial<ImportPlan> = {}): ImportPlan => {
   };
 };
 
+/**
+ * What applying reports back: the plan it computed, plus a summary of the writes that
+ * completed. By default every planned activation happened and nothing else did.
+ */
+const appliedImport = (
+  planOverrides: Partial<ImportPlan> = {},
+  appliedOverrides: Partial<AppliedSummary> = {},
+): ApplyRosterImportResult => {
+  const plan = importPlan(planOverrides);
+  const activations = appliedOverrides.activations ?? [];
+  const removals = appliedOverrides.removals ?? [];
+  const skippedActivations = appliedOverrides.skippedActivations ?? [];
+  const discrepancies = appliedOverrides.discrepancies ?? plan.discrepancies;
+  return {
+    plan,
+    applied: {
+      activations,
+      removals,
+      skippedActivations,
+      discrepancies,
+      counts: {
+        activations: activations.length,
+        removals: removals.length,
+        discrepancies: discrepancies.size,
+        skippedActivations: skippedActivations.length,
+      },
+    },
+  };
+};
+
 const plannedRemoval = (voterRecordId: string): PlannedRemoval => ({
   membershipId: `membership-${voterRecordId}`,
   voterRecordId,
@@ -196,7 +228,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
     readFileSyncMock.mockReturnValue(Buffer.from("roster bytes"));
     parseWithFormatMock.mockReturnValue({ entries: [], rejected: [] });
     planRosterImportMock.mockResolvedValue(importPlan());
-    applyRosterImportMock.mockResolvedValue(importPlan());
+    applyRosterImportMock.mockResolvedValue(appliedImport());
     prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue({
       count: 0,
     });
@@ -262,7 +294,8 @@ describe("/api/admin/bulkLoadCommittees", () => {
         bulkLoadCommitteesResponseSchema,
       );
       expect(json.dryRun).toBe(true);
-      expect(json.applied).toBe(false);
+      expect(json.applied).toBeNull();
+      expect(json.message).toBe("Import plan computed; nothing was written");
       expect(planRosterImportMock).toHaveBeenCalledTimes(1);
       expect(applyRosterImportMock).not.toHaveBeenCalled();
       expect(
@@ -357,7 +390,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
           }),
         ],
       ]);
-      applyRosterImportMock.mockResolvedValue(importPlan({ discrepancies }));
+      applyRosterImportMock.mockResolvedValue(appliedImport({ discrepancies }));
       authenticateAdmin();
       prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
         upsertedDiscrepancy("VRCNUM1"),
@@ -374,9 +407,21 @@ describe("/api/admin/bulkLoadCommittees", () => {
         response,
         bulkLoadCommitteesResponseSchema,
       );
-      expect(json.applied).toBe(true);
+      expect(json.applied).toEqual({
+        counts: {
+          activations: 0,
+          removals: 0,
+          discrepancies: 2,
+          skippedActivations: 0,
+        },
+        activations: [],
+        removals: [],
+        skippedActivations: [],
+      });
       expect(json.dryRun).toBe(false);
-      expect(json.message).toBe("Committee lists loaded successfully");
+      expect(json.message).toBe(
+        "Applied: 0 of 2 planned activations written, 0 removed",
+      );
       expect(json.discrepanciesMap).toHaveLength(2);
       expect(json.recordsWithDiscrepancies).toHaveLength(2);
       expect(applyRosterImportMock).toHaveBeenCalledTimes(1);
@@ -411,7 +456,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
           }),
         ],
       ]);
-      applyRosterImportMock.mockResolvedValue(importPlan({ discrepancies }));
+      applyRosterImportMock.mockResolvedValue(appliedImport({ discrepancies }));
       authenticateAdmin();
       prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
         upsertedDiscrepancy("VRCNUM_NOT_IN_DB"),
@@ -458,7 +503,9 @@ describe("/api/admin/bulkLoadCommittees", () => {
           { sourceRow: 42, reason: 'Unrecognized election type: "Appointed"' },
         ];
         importMock.mockResolvedValue(
-          importPlan({ discrepancies, removals, rejectedRows }),
+          dryRun
+            ? importPlan({ discrepancies, removals, rejectedRows })
+            : appliedImport({ discrepancies, removals, rejectedRows }),
         );
         authenticateAdmin();
         prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
@@ -486,6 +533,88 @@ describe("/api/admin/bulkLoadCommittees", () => {
         expect(json.rejectedRows).toEqual(rejectedRows);
       },
     );
+
+    it("reports applied outcomes apart from the plan when a live guard skips an activation", async () => {
+      const committee = {
+        cityTown: "ROCHESTER",
+        legDistrict: 1,
+        electionDistrict: 1,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+      };
+      const activation = (voterRecordId: string) => ({
+        voterRecordId,
+        committee,
+        membershipType: "PETITIONED" as const,
+      });
+      const plan = importPlan({
+        activations: [activation("VRCNUM_OK"), activation("VRCNUM_RACED")],
+      });
+      // Planning saw no discrepancies; the apply found VRCNUM_RACED active elsewhere.
+      const appliedDiscrepancies = new Map([
+        ["VRCNUM_RACED", createDiscrepancyEntry("VRCNUM_RACED", committee)],
+      ]);
+      applyRosterImportMock.mockResolvedValue({
+        plan,
+        applied: {
+          activations: [{ ...activation("VRCNUM_OK"), seatNumber: 1 }],
+          removals: [],
+          skippedActivations: [
+            { ...activation("VRCNUM_RACED"), reason: "active-elsewhere" },
+          ],
+          discrepancies: appliedDiscrepancies,
+          counts: {
+            activations: 1,
+            removals: 0,
+            discrepancies: 1,
+            skippedActivations: 1,
+          },
+        },
+      } satisfies ApplyRosterImportResult);
+      authenticateAdmin();
+      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
+        upsertedDiscrepancy("VRCNUM_RACED"),
+      );
+      prismaMock.voterRecord.findMany.mockResolvedValue([
+        voterRecordRow({ VRCNUM: "VRCNUM_RACED" }),
+      ]);
+
+      const response = await POST(importRequest({ dryRun: false }));
+
+      expect(response.status).toBe(200);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesResponseSchema,
+      );
+      // The plan is reported as planned; what happened is reported separately.
+      expect(json.counts.activations).toBe(2);
+      expect(json.counts.discrepancies).toBe(0);
+      expect(json.applied?.counts).toEqual({
+        activations: 1,
+        removals: 0,
+        discrepancies: 1,
+        skippedActivations: 1,
+      });
+      expect(json.applied?.activations.map((a) => a.voterRecordId)).toEqual([
+        "VRCNUM_OK",
+      ]);
+      expect(json.applied?.skippedActivations).toEqual([
+        expect.objectContaining({
+          voterRecordId: "VRCNUM_RACED",
+          reason: "active-elsewhere",
+        }),
+      ]);
+      // The persisted and serialized discrepancies are the applied ones.
+      expect(json.discrepanciesMap).toHaveLength(
+        json.applied?.counts.discrepancies ?? -1,
+      );
+      expect(json.discrepanciesMap[0]?.[0]).toBe("VRCNUM_RACED");
+      expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { VRCNUM: "VRCNUM_RACED" } }),
+      );
+      expect(json.message).toBe(
+        "Applied: 1 of 2 planned activations written, 1 skipped as live conflicts, 0 removed",
+      );
+    });
 
     it("reports the capacity failures that would stop the import", async () => {
       planRosterImportMock.mockResolvedValue(

@@ -130,6 +130,66 @@ export const discrepancyEntrySchema = z.tuple([
     .strict(),
 ]);
 
+/** Mirrors the Prisma `MembershipType` enum: how a member won the seat. */
+const membershipTypeSchema = z.enum(['PETITIONED', 'APPOINTED']);
+
+/** A membership an apply actually activated, with the seat it now holds. */
+export const appliedActivationSchema = z
+  .object({
+    voterRecordId: z.string(),
+    committee: committeeIdentitySchema,
+    membershipType: membershipTypeSchema,
+    seatNumber: z.number().int().nullable(),
+  })
+  .strict();
+
+/** A membership an apply actually removed. */
+export const appliedRemovalSchema = z
+  .object({
+    membershipId: z.string(),
+    voterRecordId: z.string(),
+    committee: committeeIdentitySchema,
+  })
+  .strict();
+
+/**
+ * A planned activation the apply refused because a live guard found the voter already
+ * active in another committee. It is also recorded as a discrepancy.
+ */
+export const skippedActivationSchema = z
+  .object({
+    voterRecordId: z.string(),
+    committee: committeeIdentitySchema,
+    membershipType: membershipTypeSchema,
+    reason: z.literal('active-elsewhere'),
+  })
+  .strict();
+
+export const appliedCountsSchema = z
+  .object({
+    activations: nonNegativeInt,
+    removals: nonNegativeInt,
+    discrepancies: nonNegativeInt,
+    skippedActivations: nonNegativeInt,
+  })
+  .strict();
+
+/**
+ * What an apply actually did, accumulated from writes that committed. The plan's `counts`
+ * stay what was planned so the two can be compared; when they differ, `skippedActivations`
+ * says why.
+ */
+export const appliedSummarySchema = z
+  .object({
+    counts: appliedCountsSchema,
+    activations: z.array(appliedActivationSchema),
+    removals: z.array(appliedRemovalSchema),
+    skippedActivations: z.array(skippedActivationSchema),
+  })
+  .strict();
+
+export type AppliedSummary = z.infer<typeof appliedSummarySchema>;
+
 /**
  * The success body of `POST /api/admin/bulkLoadCommittees`. This endpoint has no user
  * interface: the plan it returns *is* the feature, so nothing else would break loudly if
@@ -141,10 +201,11 @@ export const bulkLoadCommitteesResponseSchema = z
     success: z.literal(true),
     message: z.string(),
     dryRun: z.boolean(),
-    /** The complement of `dryRun`: whether the writes actually happened. */
-    applied: z.boolean(),
+    /** `null` on a dry run; otherwise what the writes actually did. */
+    applied: appliedSummarySchema.nullable(),
     format: rosterFormatIdSchema,
     fileName: z.string(),
+    /** Planned counts, on a dry run and an apply alike; `applied.counts` is what happened. */
     counts: importCountsSchema,
     removals: z.array(plannedRemovalSchema),
     capacityFailures: z.array(plannedCapacityFailureSchema),

@@ -1,4 +1,5 @@
 import {
+  appliedSummarySchema,
   bulkLoadCommitteesSchema,
   ROSTER_FORMAT_IDS,
 } from '../../schemas/committeeRosterImport';
@@ -45,5 +46,60 @@ describe('bulkLoadCommitteesSchema', () => {
         bulkLoadCommitteesSchema.safeParse({ ...validPayload, format }).success,
       ).toBe(true);
     }
+  });
+});
+
+describe('appliedSummarySchema', () => {
+  const committee = {
+    cityTown: 'ROCHESTER',
+    legDistrict: 1,
+    electionDistrict: 1,
+    termId: 'term-1',
+  };
+  const summary = {
+    counts: {
+      activations: 1,
+      removals: 0,
+      discrepancies: 1,
+      skippedActivations: 1,
+    },
+    activations: [
+      {
+        voterRecordId: 'V1',
+        committee,
+        membershipType: 'PETITIONED',
+        seatNumber: 1,
+      },
+    ],
+    removals: [],
+    skippedActivations: [
+      {
+        voterRecordId: 'V2',
+        committee,
+        membershipType: 'PETITIONED',
+        reason: 'active-elsewhere',
+      },
+    ],
+  };
+
+  it('accepts a summary of completed writes and skipped activations', () => {
+    expect(appliedSummarySchema.parse(summary)).toEqual(summary);
+  });
+
+  it('is strict: an unnamed field fails the parse', () => {
+    expect(
+      appliedSummarySchema.safeParse({ ...summary, wasApplied: true }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a skip reason it does not know', () => {
+    expect(
+      appliedSummarySchema.safeParse({
+        ...summary,
+        skippedActivations: [
+          { ...summary.skippedActivations[0], reason: 'capacity' },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });

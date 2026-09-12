@@ -144,7 +144,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       }),
     );
 
-    const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
+    const {
+      applied: { discrepancies },
+    } = await applyRosterImport({ entries, rejected: [] });
 
     expect(discrepancies.size).toBe(0);
     expect(prismaMock.committeeList.upsert).toHaveBeenCalled();
@@ -177,6 +179,106 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     );
     expect(prismaMock.voterRecord.updateMany).not.toHaveBeenCalled();
     expect(prismaMock.committeeList.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("reports a live active-elsewhere conflict as skipped rather than as an activation", async () => {
+    const entries = [
+      rosterEntry({ vrcnum: "VRC_OK", cityTown: "TEST CITY" }),
+      rosterEntry({ vrcnum: "VRC_RACED", cityTown: "TEST CITY" }),
+    ];
+
+    prismaMock.voterRecord.findUnique.mockImplementation(
+      ((args: { where: { VRCNUM: string } }) =>
+        resolvesTo(
+          createMockVoterRecord({
+            VRCNUM: args.where.VRCNUM,
+            firstName: "John",
+            middleInitial: null,
+            lastName: "Doe",
+            houseNum: 123,
+            street: "Main St",
+            apartment: null,
+            city: "Testville",
+            state: "NY",
+            zipCode: "14604",
+          }),
+        )) as never,
+    );
+    prismaMock.committeeList.upsert.mockResolvedValue(
+      createMockCommitteeListRow({
+        id: 101,
+        cityTown: "TEST CITY",
+        electionDistrict: 1,
+      }),
+    );
+    prismaMock.$queryRaw.mockResolvedValue([]);
+
+    // Planning reads the active memberships in bulk and sees none; by the time the
+    // committee transaction checks each voter, VRC_RACED has become active elsewhere.
+    getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+    getMembershipMock(prismaMock).findFirst.mockImplementation(
+      ((args: { where: { voterRecordId: string } }) =>
+        resolvesTo(
+          args.where.voterRecordId === "VRC_RACED"
+            ? createMockMembership({
+                id: "m-elsewhere",
+                voterRecordId: "VRC_RACED",
+                committeeListId: 999,
+                status: "ACTIVE",
+              })
+            : null,
+        )) as never,
+    );
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+    getMembershipMock(prismaMock).create.mockResolvedValue(
+      createMockMembership({
+        voterRecordId: "VRC_OK",
+        committeeListId: 101,
+        status: "ACTIVE",
+        seatNumber: 1,
+      }),
+    );
+
+    const { plan, applied } = await applyRosterImport({
+      entries,
+      rejected: [],
+    });
+
+    // The plan still says what was planned.
+    expect(plan.counts.activations).toBe(2);
+    expect(plan.counts.discrepancies).toBe(0);
+    expect(plan.discrepancies.has("VRC_RACED")).toBe(false);
+
+    // The applied summary says what happened.
+    expect(applied.counts).toEqual({
+      activations: 1,
+      removals: 0,
+      discrepancies: 1,
+      skippedActivations: 1,
+    });
+    expect(applied.activations).toEqual([
+      expect.objectContaining({ voterRecordId: "VRC_OK", seatNumber: 1 }),
+    ]);
+    expect(applied.skippedActivations).toEqual([
+      expect.objectContaining({
+        voterRecordId: "VRC_RACED",
+        membershipType: "PETITIONED",
+        reason: "active-elsewhere",
+      }),
+    ]);
+    expect(applied.discrepancies.size).toBe(plan.discrepancies.size + 1);
+    expect(
+      applied.discrepancies.get("VRC_RACED")?.discrepancies
+        .alreadyActiveInAnotherCommittee,
+    ).toBeDefined();
+
+    expect(getMembershipMock(prismaMock).create).toHaveBeenCalledTimes(1);
+    expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ voterRecordId: "VRC_RACED" }),
+      }),
+    );
+    expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
   });
 
   it("re-activates existing membership instead of writing legacy fields", async () => {
@@ -291,7 +393,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         electionDistrict: 2,
       }));
 
-    const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
+    const {
+      applied: { discrepancies },
+    } = await applyRosterImport({ entries, rejected: [] });
 
     expect(prismaMock.committeeList.upsert).toHaveBeenCalledTimes(2);
     expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
@@ -354,7 +458,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         electionDistrict: 2,
       }));
 
-    const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
+    const {
+      applied: { discrepancies },
+    } = await applyRosterImport({ entries, rejected: [] });
 
     expect(discrepancies.has("VRC_SAME")).toBe(true);
     expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
@@ -381,7 +487,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       electionDistrict: 1,
     }));
 
-    const { discrepancies } = await applyRosterImport({ entries, rejected: [] });
+    const {
+      applied: { discrepancies },
+    } = await applyRosterImport({ entries, rejected: [] });
 
     expect(discrepancies.has("VRC_MISSING")).toBe(true);
     expect(discrepancies.get("VRC_MISSING")?.discrepancies.VRCNUM).toEqual(
@@ -442,9 +550,26 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       },
     );
 
-    const plan = await applyRosterImport({ entries, rejected: [] });
+    const { plan, applied } = await applyRosterImport({
+      entries,
+      rejected: [],
+    });
 
     expect(plan.activations).toEqual([]);
+    expect(applied.activations).toEqual([]);
+    expect(applied.removals).toEqual([
+      {
+        membershipId: "m-absent",
+        voterRecordId: "VRC_ABSENT",
+        committee: expect.any(Object) as unknown,
+      },
+    ]);
+    expect(applied.counts).toEqual({
+      activations: 0,
+      removals: 1,
+      discrepancies: applied.discrepancies.size,
+      skippedActivations: 0,
+    });
     expect(plan.removals).toEqual([
       expect.objectContaining({
         membershipId: "m-absent",

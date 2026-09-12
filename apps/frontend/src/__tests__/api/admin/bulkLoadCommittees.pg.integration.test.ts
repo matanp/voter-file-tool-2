@@ -211,7 +211,7 @@ describePg("applyRosterImport unique-constraint race (PostgreSQL)", () => {
   });
 
   it("records the raced voter as already-active-elsewhere and still activates the rest of the committee", async () => {
-    const plan = await applyRosterImport({
+    const { plan, applied } = await applyRosterImport({
       entries: [
         matchingEntry(
           RACE_VRCNUM,
@@ -238,12 +238,27 @@ describePg("applyRosterImport unique-constraint race (PostgreSQL)", () => {
     });
 
     expect(
-      plan.discrepancies.get(RACE_VRCNUM)?.discrepancies
+      applied.discrepancies.get(RACE_VRCNUM)?.discrepancies
         .alreadyActiveInAnotherCommittee,
     ).toEqual({
       incoming: `${IMPORT_CITY}-1-1`,
       existing: "Voter is already active in another committee for this term",
     });
+    // The plan said both would be activated; the applied summary says what happened.
+    expect(plan.discrepancies.has(RACE_VRCNUM)).toBe(false);
+    expect(plan.counts.activations).toBe(2);
+    expect(applied.counts.activations).toBe(1);
+    expect(applied.counts.skippedActivations).toBe(1);
+    expect(applied.counts.discrepancies).toBe(plan.counts.discrepancies + 1);
+    expect(applied.skippedActivations).toEqual([
+      expect.objectContaining({
+        voterRecordId: RACE_VRCNUM,
+        reason: "active-elsewhere",
+      }),
+    ]);
+    expect(applied.activations.map((a) => a.voterRecordId)).toEqual([
+      OK_VRCNUM,
+    ]);
 
     const memberships = await prisma.committeeMembership.findMany({
       where: { termId: TERM_ID },

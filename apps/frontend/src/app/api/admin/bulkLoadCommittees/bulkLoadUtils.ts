@@ -133,6 +133,46 @@ export type ImportPlan = {
   };
 };
 
+/**
+ * What an apply actually did, accumulated from writes that committed. Kept apart from the
+ * plan: the live guards inside each committee transaction can turn a planned activation
+ * into a discrepancy, and the plan must go on saying what was planned so the two can be
+ * compared rather than one silently rewritten to match the other.
+ */
+export type AppliedSummary = {
+  activations: {
+    voterRecordId: string;
+    committee: CommitteeIdentity;
+    membershipType: MembershipType;
+    seatNumber: number | null;
+  }[];
+  removals: {
+    membershipId: string;
+    voterRecordId: string;
+    committee: CommitteeIdentity;
+  }[];
+  /** Planned activations a live guard refused; each is also a discrepancy. */
+  skippedActivations: {
+    voterRecordId: string;
+    committee: CommitteeIdentity;
+    membershipType: MembershipType;
+    reason: "active-elsewhere";
+  }[];
+  /** The plan's discrepancies plus any the live guards added. */
+  discrepancies: Map<string, DiscrepanciesAndCommittee>;
+  counts: {
+    activations: number;
+    removals: number;
+    discrepancies: number;
+    skippedActivations: number;
+  };
+};
+
+export type ApplyRosterImportResult = {
+  plan: ImportPlan;
+  applied: AppliedSummary;
+};
+
 function formatCommitteeIdentity(committee: CommitteeIdentity): string {
   return `${committee.cityTown}-${committee.legDistrict}-${committee.electionDistrict}`;
 }
@@ -630,13 +670,26 @@ function assertWithinCapacity(plan: ImportPlan): void {
 export async function applyRosterImport(
   parseResult: RosterParseResult,
   actor: BulkLoadActor = DEFAULT_ACTOR,
-): Promise<ImportPlan> {
+): Promise<ApplyRosterImportResult> {
   const plan = await planRosterImport(parseResult, actor);
   assertWithinCapacity(plan);
 
   const activeTerm = plan.term;
   const activeTermId = activeTerm.id;
-  const discrepanciesMap = plan.discrepancies;
+  // A copy, so a live guard adding a discrepancy does not rewrite the plan.
+  const discrepanciesMap = new Map(plan.discrepancies);
+  const applied: AppliedSummary = {
+    activations: [],
+    removals: [],
+    skippedActivations: [],
+    discrepancies: discrepanciesMap,
+    counts: {
+      activations: 0,
+      removals: 0,
+      discrepancies: 0,
+      skippedActivations: 0,
+    },
+  };
 
   for (const planned of plan.committees) {
     const committeeList: Prisma.CommitteeListCreateManyInput = {
@@ -687,6 +740,12 @@ export async function applyRosterImport(
     };
 
     for (;;) {
+      // Outcomes of this attempt; appended to `applied` only once the transaction commits,
+      // so a rolled-back attempt never counts.
+      const attempt: Pick<
+        AppliedSummary,
+        "activations" | "removals" | "skippedActivations"
+      > = { activations: [], removals: [], skippedActivations: [] };
       try {
         await prisma.$transaction(async (tx) => {
           const committee = await tx.committeeList.upsert({
@@ -808,6 +867,11 @@ export async function applyRosterImport(
                 ),
                 tx,
               );
+              attempt.removals.push({
+                membershipId: membership.id,
+                voterRecordId: membership.voterRecordId,
+                committee: committeeIdentity,
+              });
             }
           }
 
@@ -832,6 +896,12 @@ export async function applyRosterImport(
                 committeeIdentity,
                 plannedMembershipType,
               );
+              attempt.skippedActivations.push({
+                voterRecordId,
+                committee: committeeIdentity,
+                membershipType: plannedMembershipType,
+                reason: "active-elsewhere",
+              });
               continue;
             }
 
@@ -916,6 +986,12 @@ export async function applyRosterImport(
                 ),
                 tx,
               );
+              attempt.activations.push({
+                voterRecordId,
+                committee: committeeIdentity,
+                membershipType,
+                seatNumber,
+              });
             } else {
               const membershipType: MembershipType = plannedMembershipType;
               let createdMembership;
@@ -959,9 +1035,18 @@ export async function applyRosterImport(
                 ),
                 tx,
               );
+              attempt.activations.push({
+                voterRecordId,
+                committee: committeeIdentity,
+                membershipType,
+                seatNumber,
+              });
             }
           }
         });
+        applied.activations.push(...attempt.activations);
+        applied.removals.push(...attempt.removals);
+        applied.skippedActivations.push(...attempt.skippedActivations);
         break;
       } catch (error) {
         const conflict = asRosterActivationConflict(error);
@@ -972,10 +1057,22 @@ export async function applyRosterImport(
           plannedCommitteeIdentity,
           conflict.membershipType,
         );
+        applied.skippedActivations.push({
+          voterRecordId: conflict.voterRecordId,
+          committee: plannedCommitteeIdentity,
+          membershipType: conflict.membershipType,
+          reason: "active-elsewhere",
+        });
         pendingActivations.delete(conflict.voterRecordId);
       }
     }
   }
 
-  return plan;
+  applied.counts = {
+    activations: applied.activations.length,
+    removals: applied.removals.length,
+    discrepancies: discrepanciesMap.size,
+    skippedActivations: applied.skippedActivations.length,
+  };
+  return { plan, applied };
 }

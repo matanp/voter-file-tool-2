@@ -6,6 +6,8 @@ import {
   RosterCapacityError,
   applyRosterImport,
   planRosterImport,
+  type AppliedSummary,
+  type ImportPlan,
 } from "./bulkLoadUtils";
 import { ROSTER_FORMATS, parseWithFormat } from "./rosterFormats";
 import {
@@ -52,6 +54,32 @@ function toWireVoterRecord(record: VoterRecord): WireVoterRecord {
     lastUpdate: record.lastUpdate?.toISOString() ?? null,
     originalRegDate: record.originalRegDate?.toISOString() ?? null,
   };
+}
+
+/** The applied summary without its discrepancy map, which the response carries separately. */
+function toWireApplied(
+  applied: AppliedSummary,
+): NonNullable<BulkLoadCommitteesResponse["applied"]> {
+  return {
+    counts: applied.counts,
+    activations: applied.activations,
+    removals: applied.removals,
+    skippedActivations: applied.skippedActivations,
+  };
+}
+
+/** Says what happened against what was planned, so a shortfall is announced not inferred. */
+function describeApplied(applied: AppliedSummary, plan: ImportPlan): string {
+  const parts = [
+    `Applied: ${applied.counts.activations} of ${plan.counts.activations} planned activations written`,
+  ];
+  if (applied.counts.skippedActivations > 0) {
+    parts.push(
+      `${applied.counts.skippedActivations} skipped as live conflicts`,
+    );
+  }
+  parts.push(`${applied.counts.removals} removed`);
+  return parts.join(", ");
 }
 
 function invalidRequest(error: string): NextResponse {
@@ -142,12 +170,14 @@ async function bulkLoadCommitteesHandler(
     };
 
     // A dry run answers what the import would do and writes nothing; applying recomputes
-    // the plan and performs the writes.
-    const plan = dryRun
-      ? await planRosterImport(parseResult, actor)
+    // the plan and performs the writes, reporting what they did apart from the plan.
+    const { plan, applied } = dryRun
+      ? { plan: await planRosterImport(parseResult, actor), applied: null }
       : await applyRosterImport(parseResult, actor);
 
-    const discrepanciesMap = plan.discrepancies;
+    // On an apply, the discrepancies persisted and reported are the ones the writes
+    // actually produced, which may exceed the plan's if a live guard refused an activation.
+    const discrepanciesMap = applied?.discrepancies ?? plan.discrepancies;
 
     if (!dryRun) {
       await prisma.$transaction(async (tx) => {
@@ -204,11 +234,11 @@ async function bulkLoadCommitteesHandler(
     return NextResponse.json(
       {
         success: true,
-        message: dryRun
-          ? "Import plan computed; nothing was written"
-          : "Committee lists loaded successfully",
+        message: applied
+          ? describeApplied(applied, plan)
+          : "Import plan computed; nothing was written",
         dryRun,
-        applied: !dryRun,
+        applied: applied ? toWireApplied(applied) : null,
         format,
         fileName,
         counts: plan.counts,

@@ -86,8 +86,10 @@ describe("the import reporting rows the parser rejected", () => {
       ]),
     );
 
-    const { discrepancies: discrepanciesMap, rejectedRows } =
-      await applyRosterImport(parseResult);
+    const {
+      plan: { rejectedRows },
+      applied: { discrepancies: discrepanciesMap },
+    } = await applyRosterImport(parseResult);
 
     expect(rejectedRows).toEqual([
       {
@@ -105,7 +107,9 @@ describe("the import reporting rows the parser rejected", () => {
       workbookBuffer([workbookRow({ "voter id": "VRC_ONE" })]),
     );
 
-    const { rejectedRows } = await applyRosterImport(parseResult);
+    const {
+      plan: { rejectedRows },
+    } = await applyRosterImport(parseResult);
 
     expect(rejectedRows).toEqual([]);
   });
@@ -116,8 +120,9 @@ describe("the import reporting rows the parser rejected", () => {
       workbookBuffer([workbookRow({ "voter id": "VRC_ONE" })]),
     );
 
-    const { discrepancies: discrepanciesMap } =
-      await applyRosterImport(parseResult);
+    const {
+      applied: { discrepancies: discrepanciesMap },
+    } = await applyRosterImport(parseResult);
 
     expect(discrepanciesMap.get("VRC_ONE")?.discrepancies.VRCNUM).toEqual({
       incoming: "VRC_ONE",
