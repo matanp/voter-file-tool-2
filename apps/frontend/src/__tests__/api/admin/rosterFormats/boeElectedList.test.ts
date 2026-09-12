@@ -83,10 +83,10 @@ describe("boe-elected-list roster format", () => {
   });
 
   it("maps a row to its VRCNUM, committee identity, claimed voter fields and membership type", () => {
-    const entry = byVrcnum(parseFixture().entries, "4100011");
+    const entry = byVrcnum(parseFixture().entries, "004100011");
 
     expect(entry).toEqual({
-      vrcnum: "4100011",
+      vrcnum: "004100011",
       committee: {
         cityTown: "PERINTON",
         legDistrict: 58,
@@ -105,7 +105,7 @@ describe("boe-elected-list roster format", () => {
   });
 
   it("parses zero-padded district segments of the office name as base-10 integers", () => {
-    const entry = byVrcnum(parseFixture().entries, "41811244");
+    const entry = byVrcnum(parseFixture().entries, "041811244");
 
     // MENDON/054/001-CC-Democratic — "054" and "001" are decimal, never octal.
     expect(entry?.committee).toEqual({
@@ -177,6 +177,50 @@ describe("boe-elected-list roster format", () => {
 
     expect(entries).toEqual([]);
     expect(rejected).toEqual([{ sourceRow: 2, reason: "Missing VRCNUM" }]);
+  });
+
+  it("left-pads a short numeric VRCNUM to nine digits", () => {
+    const { entries, rejected } = parseWithFormat(
+      "boe-elected-list",
+      csvOf([dataRow({ 1: "12345" })]),
+    );
+
+    expect(rejected).toEqual([]);
+    expect(entries[0]?.vrcnum).toBe("000012345");
+  });
+
+  it("leaves an already nine-digit VRCNUM unchanged", () => {
+    const { entries, rejected } = parseWithFormat(
+      "boe-elected-list",
+      csvOf([dataRow({ 1: "123456789" })]),
+    );
+
+    expect(rejected).toEqual([]);
+    expect(entries[0]?.vrcnum).toBe("123456789");
+  });
+
+  it("rejects a non-numeric VRCNUM rather than throwing", () => {
+    const { entries, rejected } = parseWithFormat(
+      "boe-elected-list",
+      csvOf([dataRow({ 1: "ABC123" })]),
+    );
+
+    expect(entries).toEqual([]);
+    expect(rejected).toEqual([
+      { sourceRow: 2, reason: 'Invalid VRCNUM: "ABC123"' },
+    ]);
+  });
+
+  it("rejects a VRCNUM longer than nine digits rather than throwing", () => {
+    const { entries, rejected } = parseWithFormat(
+      "boe-elected-list",
+      csvOf([dataRow({ 1: "1234567890" })]),
+    );
+
+    expect(entries).toEqual([]);
+    expect(rejected).toEqual([
+      { sourceRow: 2, reason: 'Invalid VRCNUM: "1234567890"' },
+    ]);
   });
 
   it("throws on a file of the archived workbook format submitted under this identifier", () => {

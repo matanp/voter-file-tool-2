@@ -79,6 +79,23 @@ const chooseDelimiter = (headerLine: string): Delimiter => {
 const at = (fields: string[], position: number): string =>
   (fields[position - 1] ?? "").trim();
 
+const BOE_VRCNUM_DIGITS = /^\d{1,9}$/;
+
+/**
+ * The voter file stores a nine-digit VRCNUM; this format omits leading zeroes.
+ */
+const parseBoeVrcnum = (
+  raw: string,
+): { ok: true; vrcnum: string } | { ok: false; reason: string } => {
+  if (!raw) {
+    return { ok: false, reason: "Missing VRCNUM" };
+  }
+  if (!BOE_VRCNUM_DIGITS.test(raw)) {
+    return { ok: false, reason: `Invalid VRCNUM: "${raw}"` };
+  }
+  return { ok: true, vrcnum: raw.padStart(9, "0") };
+};
+
 /**
  * Town names arrive uppercase and spelled out for every town including Rochester, so this
  * format needs no equivalent of the workbook format's `LD ` heuristic.
@@ -176,11 +193,12 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
       committeeIdentitiesFound += 1;
     }
 
-    const vrcnum = at(fields, COLUMN.vrcnum);
-    if (!vrcnum) {
-      rejected.push({ sourceRow, reason: "Missing VRCNUM" });
+    const parsedVrcnum = parseBoeVrcnum(at(fields, COLUMN.vrcnum));
+    if (!parsedVrcnum.ok) {
+      rejected.push({ sourceRow, reason: parsedVrcnum.reason });
       continue;
     }
+    const vrcnum = parsedVrcnum.vrcnum;
 
     if (!committee) {
       rejected.push({
