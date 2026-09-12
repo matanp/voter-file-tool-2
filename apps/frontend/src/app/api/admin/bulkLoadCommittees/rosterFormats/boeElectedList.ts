@@ -76,7 +76,8 @@ const chooseDelimiter = (headerLine: string): Delimiter => {
   return chosen;
 };
 
-const at = (fields: string[], position: number): string =>
+/** Returns the trimmed field at a 1-based column position. */
+const fieldAtPosition = (fields: string[], position: number): string =>
   (fields[position - 1] ?? "").trim();
 
 const BOE_VRCNUM_DIGITS = /^\d{1,9}$/;
@@ -185,7 +186,7 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
   let committeeIdentitiesFound = 0;
 
   for (const { sourceRow, fields } of dataRows) {
-    const officeName = at(fields, COLUMN.officeName);
+    const officeName = fieldAtPosition(fields, COLUMN.officeName);
     const committee = OFFICE_NAME_PATTERN.test(officeName)
       ? parseCommitteeIdentity(officeName)
       : null;
@@ -193,7 +194,7 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
       committeeIdentitiesFound += 1;
     }
 
-    const parsedVrcnum = parseBoeVrcnum(at(fields, COLUMN.vrcnum));
+    const parsedVrcnum = parseBoeVrcnum(fieldAtPosition(fields, COLUMN.vrcnum));
     if (!parsedVrcnum.ok) {
       rejected.push({ sourceRow, reason: parsedVrcnum.reason });
       continue;
@@ -208,12 +209,12 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
       continue;
     }
 
-    const officialType = at(fields, COLUMN.officialType).toUpperCase();
+    const officialType = fieldAtPosition(fields, COLUMN.officialType).toUpperCase();
     const membershipType = OFFICIAL_TYPES[officialType];
     if (!membershipType) {
       rejected.push({
         sourceRow,
-        reason: `Unrecognized official type: "${at(fields, COLUMN.officialType)}"`,
+        reason: `Unrecognized official type: "${fieldAtPosition(fields, COLUMN.officialType)}"`,
       });
       continue;
     }
@@ -222,11 +223,11 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
       vrcnum,
       committee,
       claimed: {
-        name: at(fields, COLUMN.name),
-        address1: at(fields, COLUMN.address1),
-        city: at(fields, COLUMN.city),
-        state: at(fields, COLUMN.state),
-        zip: at(fields, COLUMN.zip),
+        name: fieldAtPosition(fields, COLUMN.name),
+        address1: fieldAtPosition(fields, COLUMN.address1),
+        city: fieldAtPosition(fields, COLUMN.city),
+        state: fieldAtPosition(fields, COLUMN.state),
+        zip: fieldAtPosition(fields, COLUMN.zip),
       },
       membershipType,
       sourceRow,
