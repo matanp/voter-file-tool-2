@@ -35,6 +35,7 @@ import {
 } from "../../utils/mocks";
 import { DEFAULT_ACTIVE_TERM_ID } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import { RosterCapacityError } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type {
   ImportPlan,
   PlannedRemoval,
@@ -69,6 +70,10 @@ jest.mock("~/app/api/admin/bulkLoadCommittees/rosterFormats", () => {
 const planRosterImportMock = jest.fn();
 const applyRosterImportMock = jest.fn();
 jest.mock("~/app/api/admin/bulkLoadCommittees/bulkLoadUtils", () => ({
+  // The real class, so the route's `instanceof` check sees what the importer throws.
+  RosterCapacityError: jest.requireActual<
+    typeof import("~/app/api/admin/bulkLoadCommittees/bulkLoadUtils")
+  >("~/app/api/admin/bulkLoadCommittees/bulkLoadUtils").RosterCapacityError,
   planRosterImport: (...args: unknown[]): unknown =>
     planRosterImportMock(...args),
   applyRosterImport: (...args: unknown[]): unknown =>
@@ -592,6 +597,32 @@ describe("/api/admin/bulkLoadCommittees", () => {
         "No active committee term. Create one in Admin > Terms first.",
       );
       expect(planRosterImportMock).not.toHaveBeenCalled();
+    });
+
+    it("refuses to apply an over-capacity plan with a structured 422", async () => {
+      const capacityFailures = [
+        { committee: "ROCHESTER-1-1", memberCount: 6, maxSeats: 4 },
+        { committee: "BRIGHTON-2-3", memberCount: 5, maxSeats: 4 },
+      ];
+      applyRosterImportMock.mockRejectedValue(
+        new RosterCapacityError(capacityFailures),
+      );
+      authenticateAdmin();
+
+      const response = await POST(importRequest({ dryRun: false }));
+
+      expect(response.status).toBe(422);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
+      );
+      expect(json.success).toBe(false);
+      expect(json.error).toContain("ROCHESTER-1-1");
+      expect(json.capacityFailures).toEqual(capacityFailures);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(
+        prismaMock.committeeUploadDiscrepancy.deleteMany,
+      ).not.toHaveBeenCalled();
     });
 
     it("failed load leaves unresolved discrepancies intact", async () => {

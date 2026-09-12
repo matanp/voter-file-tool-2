@@ -2,7 +2,11 @@ import prisma from "~/lib/prisma";
 import * as fs from "fs";
 import * as path from "path";
 import { NextResponse } from "next/server";
-import { applyRosterImport, planRosterImport } from "./bulkLoadUtils";
+import {
+  RosterCapacityError,
+  applyRosterImport,
+  planRosterImport,
+} from "./bulkLoadUtils";
 import { ROSTER_FORMATS, parseWithFormat } from "./rosterFormats";
 import {
   withPrivilege,
@@ -16,6 +20,7 @@ import {
 } from "@prisma/client";
 import {
   bulkLoadCommitteesSchema,
+  type BulkLoadCommitteesError,
   type BulkLoadCommitteesResponse,
 } from "@voter-file-tool/shared-validators";
 import { validateRequest } from "~/app/api/lib/validateRequest";
@@ -225,6 +230,18 @@ async function bulkLoadCommitteesHandler(
       { status: 200 },
     );
   } catch (error) {
+    // An expected refusal: the plan would overfill a committee, so nothing was written.
+    if (error instanceof RosterCapacityError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          capacityFailures: error.capacityFailures,
+        } satisfies BulkLoadCommitteesError,
+        { status: 422 },
+      );
+    }
+
     console.error("Error loading committee lists:", error);
 
     return NextResponse.json(

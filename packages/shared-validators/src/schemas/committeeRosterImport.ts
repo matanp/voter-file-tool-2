@@ -168,6 +168,8 @@ export const bulkLoadCommitteesErrorSchema = z
   .object({
     error: z.string(),
     success: z.literal(false).optional(),
+    /** Present only on the 422 an apply request gets when the plan would overfill a committee. */
+    capacityFailures: plannedCapacityFailureSchema.array().optional(),
   })
   .strict();
 

@@ -600,12 +600,27 @@ async function attachRemovalNames(
   }));
 }
 
+/**
+ * An apply request refused because the plan would overfill at least one committee. Thrown
+ * before any write, and carrying every failure so the route can answer with all of them
+ * rather than only the committee the message names.
+ */
+export class RosterCapacityError extends Error {
+  readonly capacityFailures: PlannedCapacityFailure[];
+
+  constructor(capacityFailures: PlannedCapacityFailure[]) {
+    const failure = capacityFailures[0]!;
+    super(
+      `Committee ${failure.committee} has ${failure.memberCount} members, exceeding maxSeatsPerLted=${failure.maxSeats}`,
+    );
+    this.name = "RosterCapacityError";
+    this.capacityFailures = capacityFailures;
+  }
+}
+
 function assertWithinCapacity(plan: ImportPlan): void {
-  const failure = plan.capacityFailures[0];
-  if (!failure) return;
-  throw new Error(
-    `Committee ${failure.committee} has ${failure.memberCount} members, exceeding maxSeatsPerLted=${failure.maxSeats}`,
-  );
+  if (plan.capacityFailures.length === 0) return;
+  throw new RosterCapacityError(plan.capacityFailures);
 }
 
 /**

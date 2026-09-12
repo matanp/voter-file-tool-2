@@ -474,9 +474,14 @@ describe("applyRosterImport", () => {
         ],
         rejected: [],
       }),
-    ).rejects.toThrow(
-      "Committee TEST CITY-1-1 has 3 members, exceeding maxSeatsPerLted=2",
-    );
+    ).rejects.toMatchObject({
+      name: "RosterCapacityError",
+      message:
+        "Committee TEST CITY-1-1 has 3 members, exceeding maxSeatsPerLted=2",
+      capacityFailures: [
+        { committee: "TEST CITY-1-1", memberCount: 3, maxSeats: 2 },
+      ],
+    });
 
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
     expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
