@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 
 import {
+  type Discrepancy,
   type DiscrepanciesAndCommittee,
   findDiscrepancies,
   getName,
@@ -35,36 +36,34 @@ import {
 
 export type CommitteeAccumulationEntry = {
   data: Prisma.CommitteeListCreateManyInput;
-  committeeMembers: string[];
+  /**
+   * Every canonical source row for each intended voter assignment. Keeping the rows here
+   * makes identical duplicates one intended seat without throwing away where they came from.
+   */
+  sourceEntriesByVoter: Map<string, RosterEntry[]>;
 };
 
-/** Add a committee row to the in-memory LT/ED map without clobbering existing members. */
+/** Add a canonical source row to the in-memory LT/ED assignment index. */
 export function accumulateCommitteeMember(
   committeeData: Map<string, CommitteeAccumulationEntry>,
   mapKey: string,
   committeeListInput: Prisma.CommitteeListCreateManyInput,
-  voterId: string,
-  recordHasDiscrepancies: boolean,
+  entry: RosterEntry,
 ): void {
-  if (recordHasDiscrepancies) {
-    if (!committeeData.has(mapKey)) {
-      committeeData.set(mapKey, {
-        data: committeeListInput,
-        committeeMembers: [],
-      });
-    }
-    return;
-  }
-
   const existingEntry = committeeData.get(mapKey);
   if (existingEntry) {
-    existingEntry.committeeMembers.push(voterId);
+    const sourceEntries = existingEntry.sourceEntriesByVoter.get(entry.vrcnum);
+    if (sourceEntries) {
+      sourceEntries.push(entry);
+    } else {
+      existingEntry.sourceEntriesByVoter.set(entry.vrcnum, [entry]);
+    }
     return;
   }
 
   committeeData.set(mapKey, {
     data: committeeListInput,
-    committeeMembers: [voterId],
+    sourceEntriesByVoter: new Map([[entry.vrcnum, [entry]]]),
   });
 }
 
@@ -166,13 +165,32 @@ function ensureImportDiscrepancy(
   incoming: string,
   existing: string,
 ) {
+  mergeImportDiscrepancies(
+    discrepanciesMap,
+    voterRecordId,
+    committee,
+    incomingMembershipType,
+    {
+      [key]: {
+        incoming,
+        existing,
+      },
+    },
+  );
+}
+
+/** Add reasons to a voter's discrepancy without losing reasons found in another pass. */
+function mergeImportDiscrepancies(
+  discrepanciesMap: Map<string, DiscrepanciesAndCommittee>,
+  voterRecordId: string,
+  committee: CommitteeIdentity,
+  incomingMembershipType: MembershipType | null,
+  discrepancies: Discrepancy,
+): void {
   const existingEntry = discrepanciesMap.get(voterRecordId);
   const nextDiscrepancies = {
     ...(existingEntry?.discrepancies ?? {}),
-    [key]: {
-      incoming,
-      existing,
-    },
+    ...discrepancies,
   };
 
   discrepanciesMap.set(voterRecordId, {
@@ -300,59 +318,12 @@ export async function planRosterImport(
   const membershipTypeByVoter = new Map<string, MembershipType>();
   let matchedVoters = 0;
 
+  // Build source presence first. Voter-file comparison must not erase the fact that a
+  // structurally valid row assigns this VRCNUM to this committee.
   for (const entry of entries) {
     const { cityTown, legDistrict, electionDistrict } = entry.committee;
     const VRCNUM = entry.vrcnum;
     membershipTypeByVoter.set(VRCNUM, entry.membershipType);
-
-    const existingRecord = await prisma.voterRecord.findUnique({
-      where: {
-        VRCNUM,
-      },
-    });
-
-    let recordHasDiscrepancies = false;
-    if (existingRecord) {
-      matchedVoters++;
-      const discrepancies = findDiscrepancies(entry.claimed, existingRecord);
-
-      if (discrepancies && Object.keys(discrepancies).length > 0) {
-        discrepanciesMap.set(VRCNUM, {
-          discrepancies,
-          committee: {
-            id: 0,
-            cityTown,
-            legDistrict,
-            electionDistrict,
-            termId: activeTermId,
-            ltedWeight: null,
-          },
-          incomingMembershipType: entry.membershipType,
-        });
-        recordHasDiscrepancies = true;
-      }
-    } else {
-      discrepanciesMap.set(VRCNUM, {
-        discrepancies: {
-          VRCNUM: {
-            incoming: VRCNUM,
-            existing: "",
-            fullRow: describeRosterEntry(entry),
-          },
-        },
-        committee: {
-          id: 0,
-          cityTown,
-          legDistrict,
-          electionDistrict,
-          termId: activeTermId,
-          ltedWeight: null,
-        },
-        incomingMembershipType: entry.membershipType,
-      });
-      // Missing voter rows are discrepancies only — never create CommitteeMembership.
-      recordHasDiscrepancies = true;
-    }
 
     accumulateCommitteeMember(
       committeeData,
@@ -363,31 +334,30 @@ export async function planRosterImport(
         electionDistrict,
         termId: activeTermId,
       },
-      VRCNUM,
-      recordHasDiscrepancies,
+      entry,
     );
   }
 
   const voterAssignments = new Map<string, CommitteeIdentity[]>();
 
-  for (const [, value] of committeeData.entries()) {
+  for (const value of committeeData.values()) {
     const committeeIdentity: CommitteeIdentity = {
       cityTown: value.data.cityTown,
       legDistrict: value.data.legDistrict,
       electionDistrict: value.data.electionDistrict,
       termId: activeTermId,
     };
-    for (const voterRecordId of new Set(value.committeeMembers)) {
+    for (const voterRecordId of value.sourceEntriesByVoter.keys()) {
       const existingAssignments = voterAssignments.get(voterRecordId) ?? [];
       existingAssignments.push(committeeIdentity);
       voterAssignments.set(voterRecordId, existingAssignments);
     }
   }
 
-  const duplicateAssignments = new Set<string>();
+  const activationIneligibleVoters = new Set<string>();
   for (const [voterRecordId, assignments] of voterAssignments.entries()) {
     if (assignments.length <= 1) continue;
-    duplicateAssignments.add(voterRecordId);
+    activationIneligibleVoters.add(voterRecordId);
     ensureImportDiscrepancy(
       discrepanciesMap,
       voterRecordId,
@@ -401,8 +371,60 @@ export async function planRosterImport(
     );
   }
 
+  // Compare claims only after the complete source-assignment index exists. Ordinary
+  // discrepancies add another reason and make the voter ineligible for activation, but
+  // they do not change intended presence or capacity.
+  for (const entry of entries) {
+    const { cityTown, legDistrict, electionDistrict } = entry.committee;
+    const VRCNUM = entry.vrcnum;
+    const committee: CommitteeIdentity = {
+      cityTown,
+      legDistrict,
+      electionDistrict,
+      termId: activeTermId,
+    };
+
+    const existingRecord = await prisma.voterRecord.findUnique({
+      where: {
+        VRCNUM,
+      },
+    });
+
+    if (existingRecord) {
+      matchedVoters++;
+      const discrepancies = findDiscrepancies(entry.claimed, existingRecord);
+
+      if (discrepancies && Object.keys(discrepancies).length > 0) {
+        mergeImportDiscrepancies(
+          discrepanciesMap,
+          VRCNUM,
+          committee,
+          entry.membershipType,
+          discrepancies,
+        );
+        activationIneligibleVoters.add(VRCNUM);
+      }
+    } else {
+      mergeImportDiscrepancies(
+        discrepanciesMap,
+        VRCNUM,
+        committee,
+        entry.membershipType,
+        {
+          VRCNUM: {
+            incoming: VRCNUM,
+            existing: "",
+            fullRow: describeRosterEntry(entry),
+          },
+        },
+      );
+      // Missing voter rows are discrepancies only — never create CommitteeMembership.
+      activationIneligibleVoters.add(VRCNUM);
+    }
+  }
+
   const importedVoterIds = Array.from(voterAssignments.keys()).filter(
-    (voterRecordId) => !duplicateAssignments.has(voterRecordId),
+    (voterRecordId) => !activationIneligibleVoters.has(voterRecordId),
   );
 
   const activeMemberships = importedVoterIds.length
@@ -437,16 +459,16 @@ export async function planRosterImport(
   const capacityFailures: PlannedCapacityFailure[] = [];
   const removalsWithoutNames: Omit<PlannedRemoval, "name">[] = [];
 
-  for (const [, value] of committeeData.entries()) {
+  for (const value of committeeData.values()) {
     const committee: CommitteeIdentity = {
       cityTown: value.data.cityTown,
       legDistrict: value.data.legDistrict,
       electionDistrict: value.data.electionDistrict,
       termId: activeTermId,
     };
-    const members = Array.from(new Set(value.committeeMembers));
-    const importedMembers = members.filter(
-      (voterRecordId) => !duplicateAssignments.has(voterRecordId),
+    const members = Array.from(value.sourceEntriesByVoter.keys());
+    const activationCandidates = members.filter(
+      (voterRecordId) => !activationIneligibleVoters.has(voterRecordId),
     );
 
     const existingCommittee = await prisma.committeeList.findUnique({
@@ -462,17 +484,19 @@ export async function planRosterImport(
     });
     const committeeListId = existingCommittee?.id ?? null;
 
-    committees.push({ committee, committeeListId, members, importedMembers });
-
-    if (importedMembers.length === 0) {
-      continue;
-    }
-
-    if (importedMembers.length > config.maxSeatsPerLted) {
+    // Over capacity stops the import before any writes, so the active-elsewhere check below
+    // is skipped here and importedMembers may be slightly optimistic on the dry-run plan.
+    if (members.length > config.maxSeatsPerLted) {
       capacityFailures.push({
         committee: formatCommitteeIdentity(committee),
-        memberCount: importedMembers.length,
+        memberCount: members.length,
         maxSeats: config.maxSeatsPerLted,
+      });
+      committees.push({
+        committee,
+        committeeListId,
+        members,
+        importedMembers: activationCandidates,
       });
       continue;
     }
@@ -500,7 +524,8 @@ export async function planRosterImport(
       }
     }
 
-    for (const voterRecordId of importedMembers) {
+    const importedMembers: string[] = [];
+    for (const voterRecordId of activationCandidates) {
       const activeElsewhere = Array.from(
         initiallyActiveCommittees.get(voterRecordId) ?? [],
       ).some((otherCommitteeId) => otherCommitteeId !== committeeListId);
@@ -515,12 +540,15 @@ export async function planRosterImport(
         continue;
       }
 
+      importedMembers.push(voterRecordId);
       activations.push({
         voterRecordId,
         committee,
         membershipType: membershipTypeByVoter.get(voterRecordId) ?? "APPOINTED",
       });
     }
+
+    committees.push({ committee, committeeListId, members, importedMembers });
   }
 
   const removals = await attachRemovalNames(removalsWithoutNames);
@@ -602,10 +630,13 @@ export async function applyRosterImport(
       electionDistrict: planned.committee.electionDistrict,
       termId: activeTermId,
     };
-    const uniqueImportedMembers = planned.members;
+    const intendedMembers = planned.members;
     const importedMembers = planned.importedMembers;
 
-    if (importedMembers.length === 0) {
+    // A brand-new committee with no activation candidates has no membership state to
+    // reconcile. Preserve the existing lightweight create path; existing committees still
+    // enter the transaction below so genuinely absent active members can be removed.
+    if (importedMembers.length === 0 && planned.committeeListId === null) {
       await prisma.committeeList.upsert({
         where: {
           cityTown_legDistrict_electionDistrict_termId: {
@@ -669,7 +700,7 @@ export async function applyRosterImport(
             maxSeats: plan.maxSeatsPerLted,
           });
 
-          const importedSet = new Set(uniqueImportedMembers);
+          const importedSet = new Set(intendedMembers);
           const committeeIdentity: CommitteeIdentity = {
             cityTown: committee.cityTown,
             legDistrict: committee.legDistrict,

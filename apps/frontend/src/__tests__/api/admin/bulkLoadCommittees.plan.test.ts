@@ -269,6 +269,77 @@ describe("planRosterImport", () => {
     expectNoWrites();
   });
 
+  it("keeps both claimed-field and cross-committee reasons and activates the voter nowhere", async () => {
+    const mismatchedEntry = rosterEntry("VRC_DUP", "CITY ONE", 1);
+    mismatchedEntry.claimed.name = "JANE DOE";
+
+    const plan = await planRosterImport({
+      entries: [mismatchedEntry, rosterEntry("VRC_DUP", "CITY TWO", 2)],
+      rejected: [],
+    });
+
+    expect(plan.activations).toEqual([]);
+    const discrepancies = plan.discrepancies.get("VRC_DUP")?.discrepancies;
+    expect(discrepancies?.name).toEqual(
+      expect.objectContaining({
+        incoming: "JANE DOE",
+        existing: "JOHN DOE",
+      }),
+    );
+    expect(discrepancies?.committeeAssignmentConflict).toEqual(
+      expect.objectContaining({
+        incoming: "CITY ONE-1-1 | CITY TWO-1-2",
+      }),
+    );
+    expectNoWrites();
+  });
+
+  it("keeps missing-voter and cross-committee reasons and activates the voter nowhere", async () => {
+    prismaMock.voterRecord.findUnique.mockResolvedValue(null);
+
+    const plan = await planRosterImport({
+      entries: [
+        rosterEntry("VRC_MISSING_DUP", "CITY ONE", 1),
+        rosterEntry("VRC_MISSING_DUP", "CITY TWO", 2),
+      ],
+      rejected: [],
+    });
+
+    expect(plan.activations).toEqual([]);
+    const discrepancies =
+      plan.discrepancies.get("VRC_MISSING_DUP")?.discrepancies;
+    expect(discrepancies?.VRCNUM).toEqual(
+      expect.objectContaining({ incoming: "VRC_MISSING_DUP", existing: "" }),
+    );
+    expect(discrepancies?.committeeAssignmentConflict).toBeDefined();
+    expectNoWrites();
+  });
+
+  it("treats identical duplicate rows in one committee as one intended seat", async () => {
+    getGovernanceConfigMock.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 1 }),
+    );
+
+    const plan = await planRosterImport({
+      entries: [
+        rosterEntry("VRC_DUP", "TEST CITY"),
+        rosterEntry("VRC_DUP", "TEST CITY"),
+      ],
+      rejected: [],
+    });
+
+    expect(plan.committees).toEqual([
+      expect.objectContaining({
+        members: ["VRC_DUP"],
+        importedMembers: ["VRC_DUP"],
+      }),
+    ]);
+    expect(plan.activations).toHaveLength(1);
+    expect(plan.capacityFailures).toEqual([]);
+    expect(plan.discrepancies.size).toBe(0);
+    expectNoWrites();
+  });
+
   it("plans a removal, naming who it is, for an active member the file omits", async () => {
     committeeExists([{ cityTown: "TEST CITY", electionDistrict: 1, id: 301 }]);
     getMembershipMock(prismaMock).findMany.mockImplementation((args) => {
@@ -306,16 +377,63 @@ describe("planRosterImport", () => {
     expectNoWrites();
   });
 
+  it("uses intended presence for removals even when the present voter has a field discrepancy", async () => {
+    committeeExists([{ cityTown: "TEST CITY", electionDistrict: 1, id: 301 }]);
+    getMembershipMock(prismaMock).findMany.mockImplementation(
+      (args: {
+        where: {
+          committeeListId?: number;
+        };
+      }) => {
+        const { where } = args;
+        if (where.committeeListId === 301) {
+          return Promise.resolve([
+            { id: "m-present", voterRecordId: "VRC_PRESENT" },
+            { id: "m-absent", voterRecordId: "VRC_ABSENT" },
+          ] satisfies CommitteeMemberRow[]);
+        }
+        return Promise.resolve([]);
+      },
+    );
+    const presentEntry = rosterEntry("VRC_PRESENT", "TEST CITY");
+    presentEntry.claimed.name = "JANE DOE";
+
+    const plan = await planRosterImport({
+      entries: [presentEntry],
+      rejected: [],
+    });
+
+    expect(plan.activations).toEqual([]);
+    expect(plan.removals).toEqual([
+      expect.objectContaining({
+        membershipId: "m-absent",
+        voterRecordId: "VRC_ABSENT",
+      }),
+    ]);
+    expect(plan.removals).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ voterRecordId: "VRC_PRESENT" }),
+      ]),
+    );
+    expect(
+      plan.discrepancies.get("VRC_PRESENT")?.discrepancies.name,
+    ).toBeDefined();
+    expectNoWrites();
+  });
+
   it("records a committee over the seat maximum as a capacity failure", async () => {
     getGovernanceConfigMock.mockResolvedValue(
       createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
     );
 
+    const discrepantEntry = rosterEntry("VRC003", "TEST CITY");
+    discrepantEntry.claimed.name = "JANE DOE";
+
     const plan = await planRosterImport({
       entries: [
         rosterEntry("VRC001", "TEST CITY"),
         rosterEntry("VRC002", "TEST CITY"),
-        rosterEntry("VRC003", "TEST CITY"),
+        discrepantEntry,
       ],
       rejected: [],
     });
@@ -323,6 +441,7 @@ describe("planRosterImport", () => {
     expect(plan.capacityFailures).toEqual([
       { committee: "TEST CITY-1-1", memberCount: 3, maxSeats: 2 },
     ]);
+    expect(plan.discrepancies.get("VRC003")?.discrepancies.name).toBeDefined();
     expectNoWrites();
   });
 });
@@ -343,12 +462,15 @@ describe("applyRosterImport", () => {
   });
 
   it("fails the whole import, naming the committee, when one is over the seat maximum", async () => {
+    const discrepantEntry = rosterEntry("VRC003", "TEST CITY");
+    discrepantEntry.claimed.name = "JANE DOE";
+
     await expect(
       applyRosterImport({
         entries: [
           rosterEntry("VRC001", "TEST CITY"),
           rosterEntry("VRC002", "TEST CITY"),
-          rosterEntry("VRC003", "TEST CITY"),
+          discrepantEntry,
         ],
         rejected: [],
       }),

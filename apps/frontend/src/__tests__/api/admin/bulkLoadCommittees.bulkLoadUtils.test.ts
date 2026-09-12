@@ -1,4 +1,4 @@
-import { applyRosterImport, planRosterImport } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
+import { applyRosterImport } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 import { prismaMock } from "../../utils/mocks";
 import type { Prisma } from "@prisma/client";
@@ -254,7 +254,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       rosterEntry({
         vrcnum: "VRC_DUP",
         cityTown: "CITY ONE",
-        name: "Casey Doe",
+        name: "Wrong Name",
       }),
       rosterEntry({
         vrcnum: "VRC_DUP",
@@ -304,6 +304,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         existing:
           "Voter appears in multiple committees in the same bulk import",
       }),
+    );
+    expect(discrepancies.get("VRC_DUP")?.discrepancies.name).toEqual(
+      expect.objectContaining({ incoming: "Wrong Name", existing: "Casey Doe" }),
     );
   });
 
@@ -390,6 +393,82 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("keeps a discrepant present member active while removing a genuinely absent member", async () => {
+    const entries = [
+      rosterEntry({
+        vrcnum: "VRC_PRESENT",
+        cityTown: "TEST CITY",
+        name: "Wrong Name",
+      }),
+    ];
+
+    prismaMock.voterRecord.findUnique.mockResolvedValue(
+      createMockVoterRecord({
+        VRCNUM: "VRC_PRESENT",
+        firstName: "Actual",
+        middleInitial: null,
+        lastName: "Name",
+        houseNum: 123,
+        street: "Main St",
+        apartment: null,
+        city: "Testville",
+        state: "NY",
+        zipCode: "14604",
+      }),
+    );
+    prismaMock.committeeList.findUnique.mockImplementation(() =>
+      resolvesTo<{ id: number }>({ id: 601 }),
+    );
+    prismaMock.committeeList.upsert.mockResolvedValue(
+      createMockCommitteeListRow({
+        id: 601,
+        cityTown: "TEST CITY",
+        electionDistrict: 1,
+      }),
+    );
+    prismaMock.$queryRaw.mockResolvedValue([]);
+    getMembershipMock(prismaMock).findMany.mockImplementation(
+      (args: { where: { committeeListId?: number } }) => {
+        const { where } = args;
+        if (where.committeeListId === 601) {
+          return Promise.resolve([
+            { id: "m-present", voterRecordId: "VRC_PRESENT" },
+            { id: "m-absent", voterRecordId: "VRC_ABSENT" },
+          ] satisfies CommitteeMemberRow[]);
+        }
+        return Promise.resolve([]);
+      },
+    );
+
+    const plan = await applyRosterImport({ entries, rejected: [] });
+
+    expect(plan.activations).toEqual([]);
+    expect(plan.removals).toEqual([
+      expect.objectContaining({
+        membershipId: "m-absent",
+        voterRecordId: "VRC_ABSENT",
+      }),
+    ]);
+    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledTimes(1);
+    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expectMembershipUpdate(
+        { status: "REMOVED", removalReason: "OTHER" },
+        { id: "m-absent" },
+      ),
+    );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledTimes(1);
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_REMOVED",
+        entityType: "CommitteeMembership",
+        metadata: expect.objectContaining({
+          source: "bulk_import_sync",
+          reason: "not_in_import_file",
+        }) as Prisma.InputJsonValue,
+      }),
+    );
   });
 
   it("logs MEMBER_REMOVED when sync removes an active member not present in import", async () => {
