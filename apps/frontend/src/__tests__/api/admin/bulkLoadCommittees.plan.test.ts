@@ -7,6 +7,7 @@ import {
   planRosterImport,
 } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
+import { Prisma } from "@prisma/client";
 import { prismaMock } from "../../utils/mocks";
 import {
   createMockCommitteeTerm,
@@ -87,11 +88,22 @@ type CommitteeIdRow = { id: number };
 /** What the importer selects from the memberships it reconciles. */
 type ActiveMembershipRow = { voterRecordId: string; committeeListId: number };
 type CommitteeMemberRow = { id: string; voterRecordId: string };
-type MembershipFindManyArgs = {
-  where: {
-    voterRecordId?: { in?: string[] };
-    committeeListId?: number;
-  };
+
+const voterRecordIdInFilter = (
+  where: Prisma.CommitteeMembershipFindManyArgs["where"],
+): string[] => {
+  const voterRecordId = where?.voterRecordId;
+  if (
+    typeof voterRecordId === "object" &&
+    voterRecordId !== null &&
+    "in" in voterRecordId &&
+    Array.isArray(voterRecordId.in)
+  ) {
+    return voterRecordId.in.filter(
+      (id): id is string => typeof id === "string",
+    );
+  }
+  return [];
 };
 
 /** No CommitteeList row exists for any committee unless a test says otherwise. */
@@ -227,9 +239,8 @@ describe("planRosterImport", () => {
       { cityTown: "OTHER CITY", electionDistrict: 2, id: 202 },
     ]);
     getMembershipMock(prismaMock).findMany.mockImplementation(
-      (args: MembershipFindManyArgs) => {
-        const { where } = args;
-        if (where.voterRecordId?.in) {
+      (args: Prisma.CommitteeMembershipFindManyArgs) => {
+        if (voterRecordIdInFilter(args.where).length > 0) {
           return Promise.resolve([
             { voterRecordId: "VRC_ELSEWHERE", committeeListId: 202 },
           ] satisfies ActiveMembershipRow[]);
@@ -385,9 +396,8 @@ describe("planRosterImport", () => {
   it("plans a removal, naming who it is, for an active member the file omits", async () => {
     committeeExists([{ cityTown: "TEST CITY", electionDistrict: 1, id: 301 }]);
     getMembershipMock(prismaMock).findMany.mockImplementation(
-      (args: MembershipFindManyArgs) => {
-        const { where } = args;
-        if (where.committeeListId === 301) {
+      (args: Prisma.CommitteeMembershipFindManyArgs) => {
+        if (args.where?.committeeListId === 301) {
           return Promise.resolve([
             { id: "m-to-remove", voterRecordId: "VRC_OLD" },
           ] satisfies CommitteeMemberRow[]);
@@ -421,13 +431,8 @@ describe("planRosterImport", () => {
   it("uses intended presence for removals even when the present voter has a field discrepancy", async () => {
     committeeExists([{ cityTown: "TEST CITY", electionDistrict: 1, id: 301 }]);
     getMembershipMock(prismaMock).findMany.mockImplementation(
-      (args: {
-        where: {
-          committeeListId?: number;
-        };
-      }) => {
-        const { where } = args;
-        if (where.committeeListId === 301) {
+      (args: Prisma.CommitteeMembershipFindManyArgs) => {
+        if (args.where?.committeeListId === 301) {
           return Promise.resolve([
             { id: "m-present", voterRecordId: "VRC_PRESENT" },
             { id: "m-absent", voterRecordId: "VRC_ABSENT" },

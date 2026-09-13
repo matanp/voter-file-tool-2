@@ -31,10 +31,10 @@ import {
   expectMembershipUpdate,
   firstCallArg,
   getAuditLogMock,
-  getDiscrepancyMock,
   getMembershipMock,
   jsonContaining,
   objectContainingMatcher,
+  resolvesTo,
   setupRosterImportPrismaMocks,
   type MockMembership,
 } from "../../utils/testUtils";
@@ -171,20 +171,6 @@ const storedDiscrepancy = (
   ...overrides,
 });
 
-/** The discrepancy row the import route upserts, as the store and assertions read it. */
-type DiscrepancyUpsertArgs = {
-  where: { VRCNUM: string };
-  create: {
-    VRCNUM: string;
-    discrepancy: Prisma.JsonValue;
-    incomingMembershipType: MembershipType | null;
-  };
-  update: {
-    discrepancy: Prisma.JsonValue;
-    incomingMembershipType: MembershipType | null;
-  };
-};
-
 /**
  * In-memory CommitteeUploadDiscrepancy rows. `setupCommonMocks` reinstalls the
  * Prisma implementations against this map without clearing it, so an import that
@@ -192,42 +178,82 @@ type DiscrepancyUpsertArgs = {
  */
 const discrepancyRows = new Map<string, DiscrepancyRowShape>();
 
-/** Reads upsert args at the Prisma mock boundary. */
-const discrepancyUpsertArgs = (args: unknown): DiscrepancyUpsertArgs =>
-  args as DiscrepancyUpsertArgs;
-
 /** Reads the VRCNUM a findUnique uses to look up a stored discrepancy. */
-const discrepancyFindUniqueVrcnum = (args: unknown): string =>
-  (args as { where: { VRCNUM: string } }).where.VRCNUM;
+const discrepancyFindUniqueVrcnum = (
+  args: Prisma.CommitteeUploadDiscrepancyFindUniqueArgs,
+): string => requiredVrcnum(args.where.VRCNUM, "where.VRCNUM");
+
+const requiredVrcnum = (value: unknown, label: string): string => {
+  if (typeof value !== "string") {
+    throw new Error(`Expected discrepancy ${label} to be a string`);
+  }
+  return value;
+};
+
+const discrepancyWriteData = (
+  data:
+    | Prisma.CommitteeUploadDiscrepancyUpsertArgs["create"]
+    | Prisma.CommitteeUploadDiscrepancyUpsertArgs["update"],
+): {
+  discrepancy: Prisma.JsonValue;
+  incomingMembershipType: MembershipType | null;
+} => {
+  const candidate = data as {
+    discrepancy?: unknown;
+    incomingMembershipType?: unknown;
+  };
+  if (candidate.discrepancy === undefined) {
+    throw new Error("Expected discrepancy write data to include discrepancy");
+  }
+  if (
+    candidate.incomingMembershipType !== null &&
+    candidate.incomingMembershipType !== "APPOINTED" &&
+    candidate.incomingMembershipType !== "PETITIONED"
+  ) {
+    throw new Error(
+      "Expected discrepancy write data to include a direct incomingMembershipType",
+    );
+  }
+  return {
+    discrepancy: candidate.discrepancy as Prisma.JsonValue,
+    incomingMembershipType: candidate.incomingMembershipType,
+  };
+};
 
 /** Retains upserted discrepancy rows and serves them back from findUnique. */
 const wireStatefulDiscrepancyMock = () => {
-  const mock = getDiscrepancyMock(prismaMock);
-  mock.upsert.mockImplementation((args: unknown) => {
-    const upsertArgs = discrepancyUpsertArgs(args);
-    const existing = discrepancyRows.get(upsertArgs.where.VRCNUM);
-    const row = existing
-      ? {
-          ...existing,
-          discrepancy: upsertArgs.update.discrepancy,
-          incomingMembershipType: upsertArgs.update.incomingMembershipType,
-          resolvedAt: null,
-          resolvedBy: null,
-          resolution: null,
-          resolutionMetadata: null,
-        }
-      : storedDiscrepancy({
-          VRCNUM: upsertArgs.create.VRCNUM,
-          discrepancy: upsertArgs.create.discrepancy,
-          incomingMembershipType: upsertArgs.create.incomingMembershipType,
-        });
-    discrepancyRows.set(row.VRCNUM, row);
-    return Promise.resolve({ id: row.id });
-  });
-  mock.findUnique.mockImplementation((args: unknown) =>
-    Promise.resolve(
-      discrepancyRows.get(discrepancyFindUniqueVrcnum(args)) ?? null,
-    ),
+  const mock = prismaMock.committeeUploadDiscrepancy;
+  mock.upsert.mockImplementation(
+    (upsertArgs: Prisma.CommitteeUploadDiscrepancyUpsertArgs) => {
+      const vrcnum = requiredVrcnum(upsertArgs.where.VRCNUM, "where.VRCNUM");
+      const existing = discrepancyRows.get(vrcnum);
+      const writeData = discrepancyWriteData(
+        existing ? upsertArgs.update : upsertArgs.create,
+      );
+      const row = existing
+        ? {
+            ...existing,
+            discrepancy: writeData.discrepancy,
+            incomingMembershipType: writeData.incomingMembershipType,
+            resolvedAt: null,
+            resolvedBy: null,
+            resolution: null,
+            resolutionMetadata: null,
+          }
+        : storedDiscrepancy({
+            VRCNUM: requiredVrcnum(upsertArgs.create.VRCNUM, "create.VRCNUM"),
+            discrepancy: writeData.discrepancy,
+            incomingMembershipType: writeData.incomingMembershipType,
+          });
+      discrepancyRows.set(row.VRCNUM, row);
+      return resolvesTo<{ id: string }>({ id: row.id });
+    },
+  );
+  mock.findUnique.mockImplementation(
+    (args: Prisma.CommitteeUploadDiscrepancyFindUniqueArgs) =>
+      resolvesTo<DiscrepancyRowShape | null>(
+        discrepancyRows.get(discrepancyFindUniqueVrcnum(args)) ?? null,
+      ),
   );
 };
 
@@ -265,9 +291,13 @@ const setupCommonMocks = () => {
   prismaMock.committeeList.upsert.mockResolvedValue(
     createMockCommitteeListRow({ id: COMMITTEE_ID }),
   );
-  getDiscrepancyMock(prismaMock).deleteMany.mockResolvedValue({ count: 0 });
+  prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue({
+    count: 0,
+  });
   wireStatefulDiscrepancyMock();
-  getDiscrepancyMock(prismaMock).update.mockResolvedValue({});
+  prismaMock.committeeUploadDiscrepancy.update.mockResolvedValue(
+    storedDiscrepancy(),
+  );
 };
 
 /** Runs the import route for one roster row and reports the discrepancy it wrote. */
@@ -286,8 +316,8 @@ const importRosterEntry = async (membershipType: MembershipType) => {
   );
   expect(response.status).toBe(200);
 
-  return firstCallArg<DiscrepancyUpsertArgs>(
-    getDiscrepancyMock(prismaMock).upsert,
+  return firstCallArg<Prisma.CommitteeUploadDiscrepancyUpsertArgs>(
+    prismaMock.committeeUploadDiscrepancy.upsert,
   );
 };
 
@@ -305,7 +335,7 @@ const importMatchingRosterEntry = async (membershipType: MembershipType) => {
 /** Accepts a discrepancy, injecting a row only when the caller supplies one. */
 const acceptDiscrepancy = async (row?: DiscrepancyRowShape) => {
   if (row) {
-    getDiscrepancyMock(prismaMock).findUnique.mockResolvedValue(row);
+    prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(row);
   }
   return resolvePOST(createMockRequest({ VRCNUM, accept: true }));
 };
@@ -605,7 +635,7 @@ describe("membership type through discrepancy resolution", () => {
   });
 
   it("rejecting writes no membership and leaves the incoming type on the row", async () => {
-    getDiscrepancyMock(prismaMock).findUnique.mockResolvedValue(
+    prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
       storedDiscrepancy({ incomingMembershipType: "PETITIONED" }),
     );
 
@@ -617,9 +647,10 @@ describe("membership type through discrepancy resolution", () => {
     expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
 
-    const updateArgs = firstCallArg<{ data: Record<string, unknown> }>(
-      getDiscrepancyMock(prismaMock).update,
-    );
+    const updateArgs =
+      firstCallArg<Prisma.CommitteeUploadDiscrepancyUpdateArgs>(
+        prismaMock.committeeUploadDiscrepancy.update,
+      );
     expect(updateArgs.data.resolution).toBe("REJECTED");
     // The resolution never rewrites what the import stated.
     expect(updateArgs.data).not.toHaveProperty("incomingMembershipType");
@@ -633,13 +664,13 @@ describe("membership type through discrepancy resolution", () => {
     ) => {
       const { data } = firstCallArg<{
         data: { resolutionMetadata: Prisma.JsonValue };
-      }>(getDiscrepancyMock(prismaMock).update);
+      }>(prismaMock.committeeUploadDiscrepancy.update);
       const resolutionMetadata = data.resolutionMetadata;
 
       jest.clearAllMocks();
       setupCommonMocks();
       authenticateAdmin();
-      getDiscrepancyMock(prismaMock).findUnique.mockResolvedValue(
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         storedDiscrepancy({
           resolvedAt: new Date("2026-01-02T00:00:00.000Z"),
           resolvedBy: ADMIN_USER_ID,
