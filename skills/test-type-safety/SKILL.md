@@ -55,21 +55,39 @@ over:
 prismaMock.report.findFirst.mockResolvedValue({ id: "report-1" } as never);
 ```
 
+When a factory pads a full model row with `null` for every column, guard the object with `satisfies Record<keyof Model, unknown>` before the final cast so a schema/model key change is a compile error:
+
+```ts
+const row = { id, VRCNUM, ...nulls } satisfies Record<keyof VoterRecord, unknown>;
+return row as VoterRecord;
+```
+
 For schema/request validation tests, keep invalid values typed as `unknown` or `Record<string, unknown>` and pass them through the public boundary. Do not force invalid values into valid domain types unless the test is explicitly exercising defensive runtime behavior.
 
 ## Mocks
 
 Use `jest.mocked(fn)` or shared typed wrappers for mocked functions.
 
+`prismaMock` is a `DeepMockProxy<PrismaClient>`: call `prismaMock.<model>.<method>` directly so `mockResolvedValue` / `mockImplementation` are checked against the generated types. `getXxxMock(prismaMock)` accessors return untyped `jest.Mock` and hide every drift below; the only one that exists (`committeeMembership` in `jest.setup.ts`) is a pre-migration shim to remove, not a pattern to extend.
+
+Type `mockImplementation` parameters from Prisma, narrowing with `Pick` if needed, rather than a hand-written local arg type:
+
+```ts
+prismaMock.voterRecord.findUnique.mockImplementation(
+  (args: Prisma.VoterRecordFindUniqueArgs) => resolvesTo<VoterRecordRow>(rowFor(args)),
+);
+```
+
+Shape-erasing helpers (`selectedRow`, `resolvesTo`, `firstCallArg`) are only type-safe with an explicit type argument or a `satisfies`-typed row: `resolvesTo(x)` with an inferred generic is `as never` with extra steps. Prefer `satisfies Row` + `mockResolvedValue` on the typed delegate; reserve `resolvesTo` for `mockImplementation`. Assert on typed call inspection (`firstCallArg<T>`) or exact values instead of adding helpers that wrap `expect.any`.
+
 Centralize unavoidable casts for:
 
 - global `fetch`
 - `NextRequest` with custom `json()` or `formData()`
 - `xlsx.read` and `xlsx.utils.sheet_to_json`
-- Prisma delegate gaps in generated mocks
 - Jest asymmetric matchers used inside Prisma JSON inputs
 
-If a test file repeats the same cast three or more times, create or extend a helper.
+If the same cast, or the same `jest.mock(path, () => ({ ...requireActual, fn: jest.fn() }))` + `jest.mocked` preamble, appears three or more times across test files, move it into `mocks.ts`.
 
 ## Responses and schemas
 
@@ -123,4 +141,6 @@ Run the smallest relevant command:
 - report-server type contracts: `pnpm --filter node-pdf-generation exec tsc --noEmit --pretty false`
 - full tests when behavior changed: `pnpm test`
 
-If a command is already blocked by unrelated current-branch errors, record the exact blocker in the final response.
+A green `tsc` only proves what is typed: delegates reached through an untyped `jest.Mock` are unchecked, so confirm the mocks under test are the typed `prismaMock` delegates.
+
+Opt-in suites (`*.pg.integration.test.ts`) are excluded from `pnpm test`; run them explicitly and report each as passed, skipped, or unavailable. If a command is already blocked by unrelated current-branch errors, record the exact blocker in the final response.
