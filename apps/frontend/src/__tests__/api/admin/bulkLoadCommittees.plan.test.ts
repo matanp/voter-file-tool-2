@@ -18,12 +18,13 @@ import {
   resolvesTo,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import type * as CommitteeValidationModule from "~/app/api/lib/committeeValidation";
 import * as seatUtils from "~/app/api/lib/seatUtils";
 
 jest.mock("~/app/api/lib/committeeValidation", () => {
-  const actual = jest.requireActual<
-    typeof import("~/app/api/lib/committeeValidation")
-  >("~/app/api/lib/committeeValidation");
+  const actual = jest.requireActual<typeof CommitteeValidationModule>(
+    "~/app/api/lib/committeeValidation",
+  );
   return {
     ...actual,
     getActiveTerm: jest.fn(),
@@ -86,6 +87,12 @@ type CommitteeIdRow = { id: number };
 /** What the importer selects from the memberships it reconciles. */
 type ActiveMembershipRow = { voterRecordId: string; committeeListId: number };
 type CommitteeMemberRow = { id: string; voterRecordId: string };
+type MembershipFindManyArgs = {
+  where: {
+    voterRecordId?: { in?: string[] };
+    committeeListId?: number;
+  };
+};
 
 /** No CommitteeList row exists for any committee unless a test says otherwise. */
 const committeeExists = (
@@ -105,9 +112,7 @@ const committeeExists = (
         row.cityTown === key.cityTown &&
         row.electionDistrict === key.electionDistrict,
     );
-    return resolvesTo<CommitteeIdRow | null>(
-      match ? { id: match.id } : null,
-    );
+    return resolvesTo<CommitteeIdRow | null>(match ? { id: match.id } : null);
   });
 };
 
@@ -144,7 +149,10 @@ describe("planRosterImport", () => {
 
   it("plans an activation for every row of a clean roster, and writes nothing", async () => {
     const plan = await planRosterImport({
-      entries: [rosterEntry("VRC001", "TEST CITY"), rosterEntry("VRC002", "TEST CITY")],
+      entries: [
+        rosterEntry("VRC001", "TEST CITY"),
+        rosterEntry("VRC002", "TEST CITY"),
+      ],
       rejected: [],
     });
 
@@ -218,18 +226,17 @@ describe("planRosterImport", () => {
       { cityTown: "TEST CITY", electionDistrict: 1, id: 101 },
       { cityTown: "OTHER CITY", electionDistrict: 2, id: 202 },
     ]);
-    getMembershipMock(prismaMock).findMany.mockImplementation((args) => {
-      const where = args.where as {
-        voterRecordId?: { in?: string[] };
-        committeeListId?: number;
-      };
-      if (where.voterRecordId?.in) {
-        return Promise.resolve([
-          { voterRecordId: "VRC_ELSEWHERE", committeeListId: 202 },
-        ] satisfies ActiveMembershipRow[]);
-      }
-      return Promise.resolve([]);
-    });
+    getMembershipMock(prismaMock).findMany.mockImplementation(
+      (args: MembershipFindManyArgs) => {
+        const { where } = args;
+        if (where.voterRecordId?.in) {
+          return Promise.resolve([
+            { voterRecordId: "VRC_ELSEWHERE", committeeListId: 202 },
+          ] satisfies ActiveMembershipRow[]);
+        }
+        return Promise.resolve([]);
+      },
+    );
 
     const plan = await planRosterImport({
       entries: [rosterEntry("VRC_ELSEWHERE", "TEST CITY")],
@@ -259,11 +266,13 @@ describe("planRosterImport", () => {
 
     expect(plan.activations).toEqual([]);
     expect(
-      plan.discrepancies.get("VRC_DUP")?.discrepancies.committeeAssignmentConflict,
+      plan.discrepancies.get("VRC_DUP")?.discrepancies
+        .committeeAssignmentConflict,
     ).toEqual(
       expect.objectContaining({
         incoming: "CITY ONE-1-1 | CITY TWO-1-2",
-        existing: "Voter appears in multiple committees in the same bulk import",
+        existing:
+          "Voter appears in multiple committees in the same bulk import",
       }),
     );
     expectNoWrites();
@@ -340,20 +349,52 @@ describe("planRosterImport", () => {
     expectNoWrites();
   });
 
+  it.each(["first", "last"] as const)(
+    "keeps clean activations when the committee's discrepant row is %s",
+    async (discrepantPosition) => {
+      const discrepantEntry = rosterEntry("VRC_BAD", "TEST CITY");
+      discrepantEntry.claimed.name = "JANE DOE";
+      const cleanEntries = [
+        rosterEntry("VRC_CLEAN_ONE", "TEST CITY"),
+        rosterEntry("VRC_CLEAN_TWO", "TEST CITY"),
+      ];
+      const entries =
+        discrepantPosition === "first"
+          ? [discrepantEntry, ...cleanEntries]
+          : [...cleanEntries, discrepantEntry];
+
+      const plan = await planRosterImport({ entries, rejected: [] });
+
+      expect(plan.committees).toEqual([
+        expect.objectContaining({
+          members: entries.map(({ vrcnum }) => vrcnum),
+          importedMembers: ["VRC_CLEAN_ONE", "VRC_CLEAN_TWO"],
+        }),
+      ]);
+      expect(
+        plan.activations.map(({ voterRecordId }) => voterRecordId),
+      ).toEqual(["VRC_CLEAN_ONE", "VRC_CLEAN_TWO"]);
+      expect(plan.discrepancies.get("VRC_BAD")?.discrepancies.name).toEqual({
+        incoming: "JANE DOE",
+        existing: "JOHN DOE",
+      });
+      expectNoWrites();
+    },
+  );
+
   it("plans a removal, naming who it is, for an active member the file omits", async () => {
     committeeExists([{ cityTown: "TEST CITY", electionDistrict: 1, id: 301 }]);
-    getMembershipMock(prismaMock).findMany.mockImplementation((args) => {
-      const where = args.where as {
-        voterRecordId?: { in?: string[] };
-        committeeListId?: number;
-      };
-      if (where.committeeListId === 301) {
-        return Promise.resolve([
-          { id: "m-to-remove", voterRecordId: "VRC_OLD" },
-        ] satisfies CommitteeMemberRow[]);
-      }
-      return Promise.resolve([]);
-    });
+    getMembershipMock(prismaMock).findMany.mockImplementation(
+      (args: MembershipFindManyArgs) => {
+        const { where } = args;
+        if (where.committeeListId === 301) {
+          return Promise.resolve([
+            { id: "m-to-remove", voterRecordId: "VRC_OLD" },
+          ] satisfies CommitteeMemberRow[]);
+        }
+        return Promise.resolve([]);
+      },
+    );
 
     const plan = await planRosterImport({
       entries: [rosterEntry("VRC_NEW", "TEST CITY")],

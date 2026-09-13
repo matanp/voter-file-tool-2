@@ -23,12 +23,13 @@ import {
   setupRosterImportPrismaMocks,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import type * as CommitteeValidationModule from "~/app/api/lib/committeeValidation";
 import * as seatUtils from "~/app/api/lib/seatUtils";
 
 jest.mock("~/app/api/lib/committeeValidation", () => {
-  const actual = jest.requireActual<
-    typeof import("~/app/api/lib/committeeValidation")
-  >("~/app/api/lib/committeeValidation");
+  const actual = jest.requireActual<typeof CommitteeValidationModule>(
+    "~/app/api/lib/committeeValidation",
+  );
   return {
     ...actual,
     getActiveTerm: jest.fn(),
@@ -93,11 +94,13 @@ describe("membership type written by an import", () => {
     );
     setupRosterImportPrismaMocks(prismaMock);
     prismaMock.committeeList.findUnique.mockResolvedValue(null);
-    prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
-      id: 101,
-      cityTown: "TEST CITY",
-      electionDistrict: 1,
-    }));
+    prismaMock.committeeList.upsert.mockResolvedValue(
+      createMockCommitteeListRow({
+        id: 101,
+        cityTown: "TEST CITY",
+        electionDistrict: 1,
+      }),
+    );
     getMembershipMock(prismaMock).create.mockResolvedValue(
       createMockMembership({ id: "m-new", status: "ACTIVE", seatNumber: 1 }),
     );

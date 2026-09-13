@@ -40,18 +40,20 @@ import {
 } from "../../utils/testUtils";
 import { prismaMock } from "../../utils/mocks";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import type * as CommitteeValidationModule from "~/app/api/lib/committeeValidation";
+import type * as RosterFormatsModule from "~/app/api/admin/bulkLoadCommittees/rosterFormats";
 import * as seatUtils from "~/app/api/lib/seatUtils";
 
 jest.mock("fs", () => ({
-  ...jest.requireActual<typeof import("fs")>("fs"),
+  ...jest.requireActual<typeof fs>("fs"),
   existsSync: jest.fn(),
   readFileSync: jest.fn(),
 }));
 
 jest.mock("~/app/api/lib/committeeValidation", () => {
-  const actual = jest.requireActual<
-    typeof import("~/app/api/lib/committeeValidation")
-  >("~/app/api/lib/committeeValidation");
+  const actual = jest.requireActual<typeof CommitteeValidationModule>(
+    "~/app/api/lib/committeeValidation",
+  );
   return {
     ...actual,
     getActiveTermId: jest.fn(),
@@ -67,9 +69,9 @@ jest.mock("~/app/api/lib/seatUtils", () => ({
 
 const parseWithFormatMock = jest.fn();
 jest.mock("~/app/api/admin/bulkLoadCommittees/rosterFormats", () => {
-  const actual = jest.requireActual<
-    typeof import("~/app/api/admin/bulkLoadCommittees/rosterFormats")
-  >("~/app/api/admin/bulkLoadCommittees/rosterFormats");
+  const actual = jest.requireActual<typeof RosterFormatsModule>(
+    "~/app/api/admin/bulkLoadCommittees/rosterFormats",
+  );
   return {
     ...actual,
     parseWithFormat: (...args: unknown[]): unknown =>

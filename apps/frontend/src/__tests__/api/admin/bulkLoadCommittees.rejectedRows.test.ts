@@ -13,11 +13,12 @@ import {
   getMembershipMock,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import type * as CommitteeValidationModule from "~/app/api/lib/committeeValidation";
 
 jest.mock("~/app/api/lib/committeeValidation", () => {
-  const actual = jest.requireActual<
-    typeof import("~/app/api/lib/committeeValidation")
-  >("~/app/api/lib/committeeValidation");
+  const actual = jest.requireActual<typeof CommitteeValidationModule>(
+    "~/app/api/lib/committeeValidation",
+  );
   return {
     ...actual,
     getActiveTerm: jest.fn(),
@@ -66,11 +67,13 @@ describe("the import reporting rows the parser rejected", () => {
     // Every voter is absent from the voter file, so each readable row becomes a
     // discrepancy and no membership write is attempted.
     prismaMock.voterRecord.findUnique.mockResolvedValue(null);
-    prismaMock.committeeList.upsert.mockResolvedValue(createMockCommitteeListRow({
-      id: 701,
-      cityTown: "TEST CITY",
-      electionDistrict: 1,
-    }));
+    prismaMock.committeeList.upsert.mockResolvedValue(
+      createMockCommitteeListRow({
+        id: 701,
+        cityTown: "TEST CITY",
+        electionDistrict: 1,
+      }),
+    );
   });
 
   it("reports the rejected row and still imports the rest of the file", async () => {

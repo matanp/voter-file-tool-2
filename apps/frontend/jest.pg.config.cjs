@@ -10,6 +10,7 @@ const config = {
   setupFiles: ["<rootDir>/jest.pg.env.cjs"],
   setupFilesAfterEnv: [],
   testMatch: ["<rootDir>/src/__tests__/**/*.pg.integration.test.ts"],
+  modulePathIgnorePatterns: ["<rootDir>/.next/"],
   maxWorkers: 1,
   moduleNameMapper: {
     "^~/(.*)$": "<rootDir>/src/$1",

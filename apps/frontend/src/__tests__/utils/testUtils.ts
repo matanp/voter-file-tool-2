@@ -54,7 +54,15 @@ export function mockJsonResponse<T>(
     status,
     statusText:
       init.statusText ??
-      (ok ? "OK" : status === 400 ? "Bad Request" : status === 500 ? "Internal Server Error" : status === 503 ? "Service Unavailable" : "Error"),
+      (ok
+        ? "OK"
+        : status === 400
+          ? "Bad Request"
+          : status === 500
+            ? "Internal Server Error"
+            : status === 503
+              ? "Service Unavailable"
+              : "Error"),
     headers: new Headers({
       "content-type": init.contentType ?? "application/json",
     }),
@@ -332,7 +340,9 @@ export function expectAnyDateForUpdate(): Date {
 }
 
 /** Wraps expect.objectContaining for Prisma JSON value fields (avoids no-unsafe-assignment on InputJsonValue). */
-export function jsonContaining(obj: Record<string, unknown>): Prisma.InputJsonValue {
+export function jsonContaining(
+  obj: Record<string, unknown>,
+): Prisma.InputJsonValue {
   return expect.objectContaining(obj) as unknown as Prisma.InputJsonValue;
 }
 
@@ -340,10 +350,7 @@ export function jsonContaining(obj: Record<string, unknown>): Prisma.InputJsonVa
  * Extract arguments from the Nth call to a Jest mock function.
  * Throws if the mock was not called enough times — use after asserting toHaveBeenCalled.
  */
-export function getMockCallArgs(
-  mockFn: jest.Mock,
-  callIndex = 0,
-): unknown[] {
+export function getMockCallArgs(mockFn: jest.Mock, callIndex = 0): unknown[] {
   const call = mockFn.mock.calls[callIndex] as unknown[] | undefined;
   if (!call) {
     throw new Error(
@@ -367,7 +374,8 @@ export function firstCallArg<Args>(mockFn: jest.Mock, callIndex = 0): Args {
  * Uses Prisma-generated CommitteeMembershipUpdateInput (schema is source of truth).
  */
 export function expectMembershipUpdate(
-  data: Partial<Prisma.CommitteeMembershipUpdateInput> & Record<string, unknown>,
+  data: Partial<Prisma.CommitteeMembershipUpdateInput> &
+    Record<string, unknown>,
   where?: { id: string },
 ): unknown {
   if (where) {
@@ -400,7 +408,8 @@ export function expectMembershipUpdateMany(
  * Accepts partial create input (voterRecordId, committeeListId, etc.).
  */
 export function expectMembershipCreate(
-  data: Partial<Prisma.CommitteeMembershipCreateInput> & Record<string, unknown>,
+  data: Partial<Prisma.CommitteeMembershipCreateInput> &
+    Record<string, unknown>,
 ): unknown {
   return objectContainingMatcher({
     data: objectContainingMatcher(data),

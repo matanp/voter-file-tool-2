@@ -35,33 +35,36 @@ import {
 } from "../../utils/mocks";
 import { DEFAULT_ACTIVE_TERM_ID } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
+import type * as CommitteeValidationModule from "~/app/api/lib/committeeValidation";
 import { RosterCapacityError } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
+import type * as BulkLoadUtilsModule from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type {
   AppliedSummary,
   ApplyRosterImportResult,
   ImportPlan,
   PlannedRemoval,
 } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
+import type * as RosterFormatsModule from "~/app/api/admin/bulkLoadCommittees/rosterFormats";
 import type { DiscrepanciesAndCommittee } from "~/app/api/lib/utils";
 
 jest.mock("fs", () => ({
-  ...jest.requireActual<typeof import("fs")>("fs"),
+  ...jest.requireActual<typeof fs>("fs"),
   existsSync: jest.fn(),
   readFileSync: jest.fn(),
 }));
 
 jest.mock("~/app/api/lib/committeeValidation", () => {
-  const actual = jest.requireActual<
-    typeof import("~/app/api/lib/committeeValidation")
-  >("~/app/api/lib/committeeValidation");
+  const actual = jest.requireActual<typeof CommitteeValidationModule>(
+    "~/app/api/lib/committeeValidation",
+  );
   return { ...actual, getActiveTermId: jest.fn() };
 });
 
 const parseWithFormatMock = jest.fn();
 jest.mock("~/app/api/admin/bulkLoadCommittees/rosterFormats", () => {
-  const actual = jest.requireActual<
-    typeof import("~/app/api/admin/bulkLoadCommittees/rosterFormats")
-  >("~/app/api/admin/bulkLoadCommittees/rosterFormats");
+  const actual = jest.requireActual<typeof RosterFormatsModule>(
+    "~/app/api/admin/bulkLoadCommittees/rosterFormats",
+  );
   return {
     ...actual,
     parseWithFormat: (...args: unknown[]): unknown =>
@@ -73,9 +76,9 @@ const planRosterImportMock = jest.fn();
 const applyRosterImportMock = jest.fn();
 jest.mock("~/app/api/admin/bulkLoadCommittees/bulkLoadUtils", () => ({
   // The real class, so the route's `instanceof` check sees what the importer throws.
-  RosterCapacityError: jest.requireActual<
-    typeof import("~/app/api/admin/bulkLoadCommittees/bulkLoadUtils")
-  >("~/app/api/admin/bulkLoadCommittees/bulkLoadUtils").RosterCapacityError,
+  RosterCapacityError: jest.requireActual<typeof BulkLoadUtilsModule>(
+    "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils",
+  ).RosterCapacityError,
   planRosterImport: (...args: unknown[]): unknown =>
     planRosterImportMock(...args),
   applyRosterImport: (...args: unknown[]): unknown =>
