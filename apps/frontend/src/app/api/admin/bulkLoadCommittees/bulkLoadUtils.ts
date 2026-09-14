@@ -494,12 +494,36 @@ export async function planRosterImport(
     );
   }
 
+  // Which CommitteeList rows the file's committees already have, resolved up front so the
+  // active-elsewhere check can tell a committee this file reconciles from one it never
+  // mentions.
+  const committeeListIdByKey = new Map<string, number | null>();
+  for (const [mapKey, value] of committeeData.entries()) {
+    const existingCommittee = await prisma.committeeList.findUnique({
+      where: {
+        cityTown_legDistrict_electionDistrict_termId: {
+          cityTown: value.data.cityTown,
+          legDistrict: value.data.legDistrict,
+          electionDistrict: value.data.electionDistrict,
+          termId: activeTermId,
+        },
+      },
+      select: { id: true },
+    });
+    committeeListIdByKey.set(mapKey, existingCommittee?.id ?? null);
+  }
+  const committeeListIdsInFile = new Set(
+    Array.from(committeeListIdByKey.values()).filter(
+      (id): id is number => id !== null,
+    ),
+  );
+
   const committees: PlannedCommittee[] = [];
   const activations: ImportPlan["activations"] = [];
   const capacityFailures: PlannedCapacityFailure[] = [];
   const removalsWithoutNames: Omit<PlannedRemoval, "name">[] = [];
 
-  for (const value of committeeData.values()) {
+  for (const [mapKey, value] of committeeData.entries()) {
     const committee: CommitteeIdentity = {
       cityTown: value.data.cityTown,
       legDistrict: value.data.legDistrict,
@@ -511,18 +535,7 @@ export async function planRosterImport(
       (voterRecordId) => !activationIneligibleVoters.has(voterRecordId),
     );
 
-    const existingCommittee = await prisma.committeeList.findUnique({
-      where: {
-        cityTown_legDistrict_electionDistrict_termId: {
-          cityTown: committee.cityTown,
-          legDistrict: committee.legDistrict,
-          electionDistrict: committee.electionDistrict,
-          termId: activeTermId,
-        },
-      },
-      select: { id: true },
-    });
-    const committeeListId = existingCommittee?.id ?? null;
+    const committeeListId = committeeListIdByKey.get(mapKey) ?? null;
 
     // Over capacity stops the import before any writes, so the active-elsewhere check below
     // is skipped here and importedMembers may be slightly optimistic on the dry-run plan.
@@ -566,9 +579,17 @@ export async function planRosterImport(
 
     const importedMembers: string[] = [];
     for (const voterRecordId of activationCandidates) {
+      // A committee the file also names is one this plan reconciles: an activation
+      // candidate cannot be listed there too (that would be an assignment conflict
+      // above), so the plan removes them from it and they are moving, not blocked.
+      // Only a committee the file never mentions holds a seat the import will not free.
       const activeElsewhere = Array.from(
         initiallyActiveCommittees.get(voterRecordId) ?? [],
-      ).some((otherCommitteeId) => otherCommitteeId !== committeeListId);
+      ).some(
+        (otherCommitteeId) =>
+          otherCommitteeId !== committeeListId &&
+          !committeeListIdsInFile.has(otherCommitteeId),
+      );
 
       if (activeElsewhere) {
         flagActiveElsewhere(
@@ -663,6 +684,93 @@ function assertWithinCapacity(plan: ImportPlan): void {
   throw new RosterCapacityError(plan.capacityFailures);
 }
 
+/** Marks an active membership removed because the file no longer lists it, and audits that. */
+async function removeMembershipForSync(
+  tx: Prisma.TransactionClient,
+  actor: BulkLoadActor,
+  membership: { id: string; voterRecordId: string },
+  context: { committeeId: number; subject: AuditMembershipSubject },
+): Promise<void> {
+  await tx.committeeMembership.update({
+    where: { id: membership.id },
+    data: {
+      status: "REMOVED",
+      removedAt: new Date(),
+      removalReason: "OTHER",
+      removalNotes: "Removed by bulk import synchronization",
+      seatNumber: null,
+    },
+  });
+  await logAuditEventOrThrow(
+    actor.userId,
+    actor.userRole,
+    "MEMBER_REMOVED",
+    "CommitteeMembership",
+    membership.id,
+    { status: ACTIVE_MEMBERSHIP_STATUS },
+    { status: "REMOVED", removalReason: "OTHER" },
+    mergeAuditMetadata(
+      {
+        source: "bulk_import_sync",
+        reason: "not_in_import_file",
+        committeeId: context.committeeId,
+      },
+      context.subject,
+    ),
+    tx,
+  );
+}
+
+type PlannedMoveRemoval = PlannedRemoval & { committeeListId: number };
+
+/**
+ * Planned source removals grouped by the destination committee and voter. Keeping the
+ * source removal with its destination activation lets both state transitions share one
+ * transaction: either the voter moves and both audit events commit, or neither does.
+ */
+function movedAwayRemovalsByDestination(
+  plan: ImportPlan,
+): Map<string, Map<string, PlannedMoveRemoval[]>> {
+  const committeeListIdByKey = new Map(
+    plan.committees.flatMap((planned) =>
+      planned.committeeListId === null
+        ? []
+        : [
+            [
+              formatCommitteeIdentity(planned.committee),
+              planned.committeeListId,
+            ] as const,
+          ],
+    ),
+  );
+  const removalsByVoter = new Map<string, PlannedMoveRemoval[]>();
+  for (const removal of plan.removals) {
+    const committeeListId = committeeListIdByKey.get(
+      formatCommitteeIdentity(removal.committee),
+    );
+    if (committeeListId === undefined) continue;
+    const removals = removalsByVoter.get(removal.voterRecordId) ?? [];
+    removals.push({ ...removal, committeeListId });
+    removalsByVoter.set(removal.voterRecordId, removals);
+  }
+
+  const byDestination = new Map<
+    string,
+    Map<string, PlannedMoveRemoval[]>
+  >();
+  for (const activation of plan.activations) {
+    const removals = removalsByVoter.get(activation.voterRecordId);
+    if (!removals) continue;
+    const destinationKey = formatCommitteeIdentity(activation.committee);
+    const byVoter =
+      byDestination.get(destinationKey) ??
+      new Map<string, PlannedMoveRemoval[]>();
+    byVoter.set(activation.voterRecordId, removals);
+    byDestination.set(destinationKey, byVoter);
+  }
+  return byDestination;
+}
+
 /**
  * Performs the writes an import plan describes. The plan is recomputed here rather than
  * accepted as an input, because the database can change between planning and applying.
@@ -690,6 +798,15 @@ export async function applyRosterImport(
       skippedActivations: 0,
     },
   };
+
+  const movedAway = movedAwayRemovalsByDestination(plan);
+  const movedMembershipIds = new Set(
+    Array.from(movedAway.values()).flatMap((byVoter) =>
+      Array.from(byVoter.values()).flatMap((removals) =>
+        removals.map((removal) => removal.membershipId),
+      ),
+    ),
+  );
 
   for (const planned of plan.committees) {
     const committeeList: Prisma.CommitteeListCreateManyInput = {
@@ -738,6 +855,9 @@ export async function applyRosterImport(
       electionDistrict: planned.committee.electionDistrict,
       termId: activeTermId,
     };
+    const movedRemovalsByVoter =
+      movedAway.get(formatCommitteeIdentity(planned.committee)) ??
+      new Map<string, PlannedMoveRemoval[]>();
 
     for (;;) {
       // Outcomes of this attempt; appended to `applied` only once the transaction commits,
@@ -748,6 +868,35 @@ export async function applyRosterImport(
       > = { activations: [], removals: [], skippedActivations: [] };
       try {
         await prisma.$transaction(async (tx) => {
+          const movedRemovalsForAttempt = Array.from(
+            pendingActivations.keys(),
+          ).flatMap(
+            (voterRecordId) =>
+              movedRemovalsByVoter.get(voterRecordId) ?? [],
+          );
+          const knownCommitteeIdsToLock = Array.from(
+            new Set([
+              ...(planned.committeeListId === null
+                ? []
+                : [planned.committeeListId]),
+              ...movedRemovalsForAttempt.map(
+                (removal) => removal.committeeListId,
+              ),
+            ]),
+          ).sort((left, right) => left - right);
+
+          // Lock every existing committee participating in the reconciliation before any
+          // writes, and always in numeric order. A destination created after planning has
+          // no row to contend over yet; its upsert below owns the new row until commit.
+          for (const committeeId of knownCommitteeIdsToLock) {
+            await tx.$queryRaw`
+              SELECT id
+              FROM "CommitteeList"
+              WHERE id = ${committeeId}
+              FOR UPDATE
+            `;
+          }
+
           const committee = await tx.committeeList.upsert({
             where: {
               cityTown_legDistrict_electionDistrict_termId: {
@@ -760,14 +909,6 @@ export async function applyRosterImport(
             create: { ...committeeList, termId: activeTermId },
             update: committeeList,
           });
-
-          // Lock committee row while reconciling capacity + seat assignments.
-          await tx.$queryRaw`
-        SELECT id
-        FROM "CommitteeList"
-        WHERE id = ${committee.id}
-        FOR UPDATE
-      `;
 
           await ensureSeatsExist(committee.id, activeTermId, {
             tx,
@@ -818,6 +959,25 @@ export async function applyRosterImport(
           const voterById = new Map(
             voters.map((voter) => [voter.VRCNUM, voter]),
           );
+          const activeMovedMemberships = movedRemovalsForAttempt.length
+            ? await tx.committeeMembership.findMany({
+                where: {
+                  id: {
+                    in: movedRemovalsForAttempt.map(
+                      (removal) => removal.membershipId,
+                    ),
+                  },
+                  status: ACTIVE_MEMBERSHIP_STATUS,
+                },
+                select: { id: true, voterRecordId: true },
+              })
+            : [];
+          const activeMovedMembershipById = new Map(
+            activeMovedMemberships.map((membership) => [
+              membership.id,
+              membership,
+            ]),
+          );
 
           const subjectForVoter = (
             voterRecordId: string,
@@ -838,35 +998,14 @@ export async function applyRosterImport(
           };
 
           for (const membership of existingActiveMemberships) {
-            if (!importedSet.has(membership.voterRecordId)) {
-              await tx.committeeMembership.update({
-                where: { id: membership.id },
-                data: {
-                  status: "REMOVED",
-                  removedAt: new Date(),
-                  removalReason: "OTHER",
-                  removalNotes: "Removed by bulk import synchronization",
-                  seatNumber: null,
-                },
+            if (
+              !importedSet.has(membership.voterRecordId) &&
+              !movedMembershipIds.has(membership.id)
+            ) {
+              await removeMembershipForSync(tx, actor, membership, {
+                committeeId: committee.id,
+                subject: subjectForVoter(membership.voterRecordId, null),
               });
-              await logAuditEventOrThrow(
-                actor.userId,
-                actor.userRole,
-                "MEMBER_REMOVED",
-                "CommitteeMembership",
-                membership.id,
-                { status: ACTIVE_MEMBERSHIP_STATUS },
-                { status: "REMOVED", removalReason: "OTHER" },
-                mergeAuditMetadata(
-                  {
-                    source: "bulk_import_sync",
-                    reason: "not_in_import_file",
-                    committeeId: committee.id,
-                  },
-                  subjectForVoter(membership.voterRecordId, null),
-                ),
-                tx,
-              );
               attempt.removals.push({
                 membershipId: membership.id,
                 voterRecordId: membership.voterRecordId,
@@ -882,7 +1021,42 @@ export async function applyRosterImport(
               continue;
             }
 
+            const movedRemovals =
+              movedRemovalsByVoter.get(voterRecordId) ?? [];
+            for (const removal of movedRemovals) {
+              const membership = activeMovedMembershipById.get(
+                removal.membershipId,
+              );
+              if (!membership) continue;
+              const voterRecord = voterById.get(voterRecordId);
+              if (!voterRecord) {
+                throw new Error(
+                  `Voter not found for bulk import audit: ${voterRecordId}`,
+                );
+              }
+              await removeMembershipForSync(tx, actor, membership, {
+                committeeId: removal.committeeListId,
+                subject: buildMembershipAuditSubject({
+                  voterRecord,
+                  committee: {
+                    id: removal.committeeListId,
+                    cityTown: removal.committee.cityTown,
+                    legDistrict: removal.committee.legDistrict,
+                    electionDistrict: removal.committee.electionDistrict,
+                  },
+                  term: activeTerm,
+                  seatNumber: null,
+                }),
+              });
+              attempt.removals.push({
+                membershipId: membership.id,
+                voterRecordId,
+                committee: removal.committee,
+              });
+            }
+
             if (
+              movedRemovals.length === 0 &&
               await isVoterActiveInAnotherCommittee(
                 voterRecordId,
                 committee.id,

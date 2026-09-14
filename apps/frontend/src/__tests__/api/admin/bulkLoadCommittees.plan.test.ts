@@ -7,7 +7,7 @@ import {
   planRosterImport,
 } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prismaMock } from "../../utils/mocks";
 import {
   createMockCommitteeTerm,
@@ -263,6 +263,92 @@ describe("planRosterImport", () => {
         existing: "Voter is already active in another committee for this term",
       }),
     );
+    expectNoWrites();
+  });
+
+  it("plans a move, not a discrepancy, for a voter the file takes from one committee to another", async () => {
+    committeeExists([
+      { cityTown: "OLD CITY", electionDistrict: 1, id: 101 },
+      { cityTown: "NEW CITY", electionDistrict: 2, id: 202 },
+    ]);
+    prismaMock.committeeMembership.findMany.mockImplementation(
+      (args?: Prisma.CommitteeMembershipFindManyArgs) => {
+        if (voterRecordIdInFilter(args?.where).length > 0) {
+          return resolvesTo<ActiveMembershipRow[]>([
+            { voterRecordId: "VRC_MOVER", committeeListId: 101 },
+          ]);
+        }
+        if (args?.where?.committeeListId === 101) {
+          return resolvesTo<CommitteeMemberRow[]>([
+            { id: "m-mover-old", voterRecordId: "VRC_MOVER" },
+          ]);
+        }
+        return resolvesTo<CommitteeMemberRow[]>([]);
+      },
+    );
+
+    const plan = await planRosterImport({
+      entries: [
+        rosterEntry("VRC_STAYS", "OLD CITY", 1),
+        rosterEntry("VRC_MOVER", "NEW CITY", 2),
+      ],
+      rejected: [],
+    });
+
+    expect(
+      plan.removals.map(({ membershipId, voterRecordId, committee }) => [
+        membershipId,
+        voterRecordId,
+        committee.cityTown,
+      ]),
+    ).toEqual([["m-mover-old", "VRC_MOVER", "OLD CITY"]]);
+    expect(
+      plan.activations.map(({ voterRecordId, committee }) => [
+        voterRecordId,
+        committee.cityTown,
+      ]),
+    ).toEqual([
+      ["VRC_STAYS", "OLD CITY"],
+      ["VRC_MOVER", "NEW CITY"],
+    ]);
+    expect(plan.discrepancies.has("VRC_MOVER")).toBe(false);
+    expect(plan.counts).toEqual(
+      expect.objectContaining({
+        activations: 2,
+        removals: 1,
+        discrepancies: 0,
+      }),
+    );
+    expectNoWrites();
+  });
+
+  it("still flags a voter whose current committee the file never mentions", async () => {
+    committeeExists([
+      { cityTown: "NEW CITY", electionDistrict: 2, id: 202 },
+      // 101 exists in the database but no row of the file names it.
+    ]);
+    prismaMock.committeeMembership.findMany.mockImplementation(
+      (args?: Prisma.CommitteeMembershipFindManyArgs) => {
+        if (voterRecordIdInFilter(args?.where).length > 0) {
+          return resolvesTo<ActiveMembershipRow[]>([
+            { voterRecordId: "VRC_MOVER", committeeListId: 101 },
+          ]);
+        }
+        return resolvesTo<CommitteeMemberRow[]>([]);
+      },
+    );
+
+    const plan = await planRosterImport({
+      entries: [rosterEntry("VRC_MOVER", "NEW CITY", 2)],
+      rejected: [],
+    });
+
+    expect(plan.activations).toEqual([]);
+    expect(plan.removals).toEqual([]);
+    expect(
+      plan.discrepancies.get("VRC_MOVER")?.discrepancies
+        .alreadyActiveInAnotherCommittee,
+    ).toBeDefined();
     expectNoWrites();
   });
 
