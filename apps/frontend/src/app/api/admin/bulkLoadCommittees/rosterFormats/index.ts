@@ -9,6 +9,7 @@ import {
 import type { RosterFormatId as ContractRosterFormatId } from "@voter-file-tool/shared-validators";
 import type { RosterFormat, RosterParseResult } from "./types";
 
+export * from "./errors";
 export * from "./types";
 
 /**

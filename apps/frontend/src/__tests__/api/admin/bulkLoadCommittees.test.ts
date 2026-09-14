@@ -45,6 +45,7 @@ import type {
   PlannedRemoval,
 } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type * as RosterFormatsModule from "~/app/api/admin/bulkLoadCommittees/rosterFormats";
+import { RosterFormatError } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/errors";
 import type { DiscrepanciesAndCommittee } from "~/app/api/lib/utils";
 
 jest.mock("fs", () => ({
@@ -751,6 +752,34 @@ describe("/api/admin/bulkLoadCommittees", () => {
       expect(json.success).toBe(false);
       expect(json.error).toContain("ROCHESTER-1-1");
       expect(json.capacityFailures).toEqual(capacityFailures);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(
+        prismaMock.committeeUploadDiscrepancy.deleteMany,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("answers a file that is not the declared format with the parser's reason, writing nothing", async () => {
+      parseWithFormatMock.mockImplementation(() => {
+        throw new RosterFormatError(
+          "boe-elected-list",
+          "the header row has 1 tab-separated, 12 comma-separated fields, not the 52 this format expects",
+        );
+      });
+      authenticateAdmin();
+
+      const response = await POST(importRequest({ dryRun: false }));
+
+      expect(response.status).toBe(422);
+      const json = await parseJsonResponseWith(
+        response,
+        bulkLoadCommitteesErrorSchema,
+      );
+      expect(json.success).toBe(false);
+      expect(json.error).toBe(
+        "File is not the boe-elected-list format: the header row has 1 tab-separated, 12 comma-separated fields, not the 52 this format expects",
+      );
+      expect(planRosterImportMock).not.toHaveBeenCalled();
+      expect(applyRosterImportMock).not.toHaveBeenCalled();
       expect(prismaMock.$transaction).not.toHaveBeenCalled();
       expect(
         prismaMock.committeeUploadDiscrepancy.deleteMany,

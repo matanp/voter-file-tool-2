@@ -1,4 +1,5 @@
 import type { MembershipType } from "@prisma/client";
+import { RosterFormatError } from "./errors";
 import { parseDistrict } from "./fields";
 import type {
   RejectedRosterRow,
@@ -48,8 +49,8 @@ const OFFICIAL_TYPES: Record<string, MembershipType> = {
   APPOINTED: "APPOINTED",
 };
 
-const notThisFormat = (reason: string): Error =>
-  new Error(`File is not the ${BOE_ELECTED_LIST_FORMAT_ID} format: ${reason}`);
+const notThisFormat = (reason: string): RosterFormatError =>
+  new RosterFormatError(BOE_ELECTED_LIST_FORMAT_ID, reason);
 
 /** Fields are unquoted throughout this format, so a delimiter is always a separator. */
 const splitRow = (line: string, delimiter: Delimiter): string[] =>
@@ -209,7 +210,10 @@ export function parseBoeElectedList(fileContents: Buffer): RosterParseResult {
       continue;
     }
 
-    const officialType = fieldAtPosition(fields, COLUMN.officialType).toUpperCase();
+    const officialType = fieldAtPosition(
+      fields,
+      COLUMN.officialType,
+    ).toUpperCase();
     const membershipType = OFFICIAL_TYPES[officialType];
     if (!membershipType) {
       rejected.push({

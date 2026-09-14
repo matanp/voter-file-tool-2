@@ -1,4 +1,5 @@
 import * as xlsx from "xlsx";
+import { RosterFormatError } from "./errors";
 import { parseDistrict } from "./fields";
 import type {
   RejectedRosterRow,
@@ -62,16 +63,18 @@ export function parseCommitteeExportXlsx(
   try {
     workbook = xlsx.read(fileContents);
   } catch (error) {
-    throw new Error(
-      `File is not the ${COMMITTEE_EXPORT_XLSX_FORMAT_ID} format: it could not be read as a workbook (${String(error)})`,
+    throw new RosterFormatError(
+      COMMITTEE_EXPORT_XLSX_FORMAT_ID,
+      `it could not be read as a workbook (${String(error)})`,
     );
   }
 
   const sheetName = workbook.SheetNames[0];
   const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
   if (!sheet) {
-    throw new Error(
-      `File is not the ${COMMITTEE_EXPORT_XLSX_FORMAT_ID} format: it has no sheets`,
+    throw new RosterFormatError(
+      COMMITTEE_EXPORT_XLSX_FORMAT_ID,
+      "it has no sheets",
     );
   }
 
@@ -80,8 +83,9 @@ export function parseCommitteeExportXlsx(
     (column) => !header.includes(column),
   );
   if (missingColumns.length > 0) {
-    throw new Error(
-      `File is not the ${COMMITTEE_EXPORT_XLSX_FORMAT_ID} format: missing columns ${missingColumns.join(", ")}`,
+    throw new RosterFormatError(
+      COMMITTEE_EXPORT_XLSX_FORMAT_ID,
+      `missing columns ${missingColumns.join(", ")}`,
     );
   }
 

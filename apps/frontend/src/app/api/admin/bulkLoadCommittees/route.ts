@@ -9,7 +9,11 @@ import {
   type AppliedSummary,
   type ImportPlan,
 } from "./bulkLoadUtils";
-import { ROSTER_FORMATS, parseWithFormat } from "./rosterFormats";
+import {
+  ROSTER_FORMATS,
+  RosterFormatError,
+  parseWithFormat,
+} from "./rosterFormats";
 import {
   withPrivilege,
   type SessionWithUser,
@@ -260,6 +264,12 @@ async function bulkLoadCommitteesHandler(
       { status: 200 },
     );
   } catch (error) {
+    // An expected refusal: the file is not the declared format, so nothing was read as
+    // data and the parser's reason is the answer.
+    if (error instanceof RosterFormatError) {
+      return invalidRequest(error.message);
+    }
+
     // An expected refusal: the plan would overfill a committee, so nothing was written.
     if (error instanceof RosterCapacityError) {
       return NextResponse.json(

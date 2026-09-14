@@ -11,6 +11,7 @@ import {
   ROSTER_FORMATS,
   parseWithFormat,
 } from "~/app/api/admin/bulkLoadCommittees/rosterFormats";
+import { RosterFormatError } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/errors";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 
 const FIXTURE_DIR = path.join(__dirname, "../../../fixtures/rosterFormats");
@@ -230,6 +231,15 @@ describe("boe-elected-list roster format", () => {
         readFixture("committee-export-2026-04-16.excerpt.xlsx"),
       ),
     ).toThrow(/boe-elected-list/);
+  });
+
+  it("refuses a file that is not this format with a RosterFormatError", () => {
+    expect(() =>
+      parseWithFormat(
+        "boe-elected-list",
+        readFixture("committee-export-2026-04-16.excerpt.xlsx"),
+      ),
+    ).toThrow(RosterFormatError);
   });
 
   it("throws on a ragged file whose rows do not share a uniform field count", () => {

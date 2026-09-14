@@ -10,11 +10,13 @@ import {
   ROSTER_FORMATS,
   parseWithFormat,
 } from "~/app/api/admin/bulkLoadCommittees/rosterFormats";
+import { RosterFormatError } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/errors";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 
 const FIXTURE_DIR = path.join(__dirname, "../../../fixtures/rosterFormats");
 
-const readFixture = (name: string) => fs.readFileSync(path.join(FIXTURE_DIR, name));
+const readFixture = (name: string) =>
+  fs.readFileSync(path.join(FIXTURE_DIR, name));
 
 const parse2026 = () =>
   parseWithFormat(
@@ -189,6 +191,15 @@ describe("committee-export-xlsx roster format", () => {
         readFixture("boe-elected-list-2026-2028.excerpt.csv"),
       ),
     ).toThrow(/committee-export-xlsx/);
+  });
+
+  it("refuses a file that is not this format with a RosterFormatError", () => {
+    expect(() =>
+      parseWithFormat(
+        "committee-export-xlsx",
+        readFixture("boe-elected-list-2026-2028.excerpt.csv"),
+      ),
+    ).toThrow(RosterFormatError);
   });
 
   it("throws on a workbook whose columns belong to another format", () => {
