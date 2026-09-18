@@ -82,7 +82,9 @@ function describeApplied(applied: AppliedSummary, plan: ImportPlan): string {
       `${applied.counts.skippedActivations} skipped as live conflicts`,
     );
   }
-  parts.push(`${applied.counts.removals} removed`);
+  parts.push(
+    `${applied.counts.removals} of ${plan.counts.removals} planned removals written`,
+  );
   return parts.join(", ");
 }
 

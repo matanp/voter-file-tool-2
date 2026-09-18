@@ -685,7 +685,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       (args?: Prisma.CommitteeMembershipFindManyArgs) => {
         const where = args?.where ?? {};
         if (typeof where.voterRecordId === "object") {
-          return resolvesTo<{ voterRecordId: string; committeeListId: number }[]>(
+          return resolvesTo<
+            { voterRecordId: string; committeeListId: number }[]
+          >(
             moverRemoved
               ? []
               : [{ voterRecordId: "VRC_MOVER", committeeListId: 101 }],
@@ -736,7 +738,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       (args: Prisma.CommitteeMembershipFindUniqueArgs) =>
         resolvesTo(
           args.where.voterRecordId_committeeListId_termId?.voterRecordId ===
-          "VRC_STAYS"
+            "VRC_STAYS"
             ? createMockMembership({
                 id: "m-stays",
                 voterRecordId: "VRC_STAYS",
@@ -803,6 +805,434 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         committeeListId: 202,
       }),
     );
+  });
+
+  it("frees a mover's seat so a full committee can seat a newcomer when the source is processed first", async () => {
+    // OLD CITY is full (2 of 2 seats). The file keeps VRC_STAYS, adds VRC_NEW, and moves
+    // VRC_MOVER to NEW CITY. OLD CITY is planned first, so its transaction must not still
+    // count the mover's seat when it seats the newcomer.
+    getGovernanceConfigMock.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
+    );
+    // The real seat allocator, so an occupied-seat table actually blocks the newcomer.
+    assignNextAvailableSeatMock.mockImplementation(
+      jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils")
+        .assignNextAvailableSeat,
+    );
+
+    const entries = [
+      rosterEntry({ vrcnum: "VRC_STAYS", cityTown: "OLD CITY" }),
+      rosterEntry({ vrcnum: "VRC_NEW", cityTown: "OLD CITY" }),
+      rosterEntry({
+        vrcnum: "VRC_MOVER",
+        cityTown: "NEW CITY",
+        electionDistrict: 2,
+      }),
+    ];
+    const oldCommittee = createMockCommitteeListRow({
+      id: 101,
+      cityTown: "OLD CITY",
+      electionDistrict: 1,
+    });
+    const newCommittee = createMockCommitteeListRow({
+      id: 202,
+      cityTown: "NEW CITY",
+      electionDistrict: 2,
+    });
+
+    prismaMock.voterRecord.findUnique.mockImplementation(
+      (args: Prisma.VoterRecordFindUniqueArgs) =>
+        resolvesTo(
+          createMockVoterRecord({
+            VRCNUM: args.where.VRCNUM,
+            firstName: "John",
+            middleInitial: null,
+            lastName: "Doe",
+            houseNum: 123,
+            street: "Main St",
+            apartment: null,
+            city: "Testville",
+            state: "NY",
+            zipCode: "14604",
+          }),
+        ),
+    );
+    prismaMock.committeeList.findUnique.mockImplementation((args) => {
+      const key = (
+        args.where as {
+          cityTown_legDistrict_electionDistrict_termId: { cityTown: string };
+        }
+      ).cityTown_legDistrict_electionDistrict_termId;
+      return resolvesTo<{ id: number } | null>(
+        key.cityTown === "OLD CITY" ? { id: 101 } : { id: 202 },
+      );
+    });
+    prismaMock.committeeList.findUniqueOrThrow.mockResolvedValue(oldCommittee);
+    prismaMock.committeeList.upsert.mockImplementation((args) =>
+      resolvesTo(
+        args.where.cityTown_legDistrict_electionDistrict_termId?.cityTown ===
+          "OLD CITY"
+          ? oldCommittee
+          : newCommittee,
+      ),
+    );
+    prismaMock.$queryRaw.mockResolvedValue([]);
+
+    // VRC_MOVER occupies seat 2 in OLD CITY until their membership is marked REMOVED.
+    let moverRemoved = false;
+    prismaMock.committeeMembership.findMany.mockImplementation(
+      (args?: Prisma.CommitteeMembershipFindManyArgs) => {
+        const where = args?.where ?? {};
+        if (typeof where.voterRecordId === "object") {
+          return resolvesTo<
+            { voterRecordId: string; committeeListId: number }[]
+          >(
+            moverRemoved
+              ? []
+              : [{ voterRecordId: "VRC_MOVER", committeeListId: 101 }],
+          );
+        }
+        if (typeof where.id === "object") {
+          return resolvesTo<CommitteeMemberRow[]>(
+            moverRemoved
+              ? []
+              : [{ id: "m-mover-old", voterRecordId: "VRC_MOVER" }],
+          );
+        }
+        if (where.committeeListId === 101 && where.seatNumber !== undefined) {
+          // The seat allocator's occupied-seat query.
+          return resolvesTo<{ seatNumber: number }[]>(
+            moverRemoved
+              ? [{ seatNumber: 1 }]
+              : [{ seatNumber: 1 }, { seatNumber: 2 }],
+          );
+        }
+        if (where.committeeListId === 101) {
+          return resolvesTo<CommitteeMemberRow[]>(
+            moverRemoved
+              ? [{ id: "m-stays", voterRecordId: "VRC_STAYS" }]
+              : [
+                  { id: "m-stays", voterRecordId: "VRC_STAYS" },
+                  { id: "m-mover-old", voterRecordId: "VRC_MOVER" },
+                ],
+          );
+        }
+        if (where.committeeListId === 202 && where.seatNumber !== undefined) {
+          return resolvesTo<{ seatNumber: number }[]>([]);
+        }
+        return resolvesTo<CommitteeMemberRow[]>([]);
+      },
+    );
+    prismaMock.committeeMembership.update.mockImplementation(
+      (args: Prisma.CommitteeMembershipUpdateArgs) => {
+        if (args.where.id === "m-mover-old" && args.data.status === "REMOVED") {
+          moverRemoved = true;
+        }
+        return resolvesTo(
+          createMockMembership({ id: String(args.where.id ?? "") }),
+        );
+      },
+    );
+    prismaMock.committeeMembership.findFirst.mockImplementation(
+      (args?: Prisma.CommitteeMembershipFindFirstArgs) =>
+        resolvesTo(
+          args?.where?.voterRecordId === "VRC_MOVER" && !moverRemoved
+            ? createMockMembership({
+                id: "m-mover-old",
+                voterRecordId: "VRC_MOVER",
+                committeeListId: 101,
+                status: "ACTIVE",
+                seatNumber: 2,
+              })
+            : null,
+        ),
+    );
+    prismaMock.committeeMembership.findUnique.mockImplementation(
+      (args: Prisma.CommitteeMembershipFindUniqueArgs) =>
+        resolvesTo(
+          args.where.voterRecordId_committeeListId_termId?.voterRecordId ===
+            "VRC_STAYS"
+            ? createMockMembership({
+                id: "m-stays",
+                voterRecordId: "VRC_STAYS",
+                committeeListId: 101,
+                status: "ACTIVE",
+                seatNumber: 1,
+              })
+            : null,
+        ),
+    );
+    prismaMock.committeeMembership.create.mockImplementation(
+      (args: Prisma.CommitteeMembershipCreateArgs) =>
+        resolvesTo({
+          ...createMockMembership({
+            id: `m-${args.data.voterRecordId}-new`,
+            voterRecordId: args.data.voterRecordId,
+            committeeListId: args.data.committeeListId,
+            seatNumber: args.data.seatNumber ?? null,
+          }),
+          status: "ACTIVE",
+          membershipType: "PETITIONED",
+          submissionMetadata: null,
+          resignationMethod: null,
+          removalReason: null,
+        } satisfies CommitteeMembership),
+    );
+
+    const result = applyRosterImport({ entries, rejected: [] });
+    await expect(result).resolves.toBeDefined();
+    const { applied } = await result;
+
+    expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
+      expectMembershipCreate({
+        voterRecordId: "VRC_NEW",
+        committeeListId: 101,
+      }),
+    );
+    expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
+      expectMembershipCreate({
+        voterRecordId: "VRC_MOVER",
+        committeeListId: 202,
+      }),
+    );
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+      expectMembershipUpdate({ status: "REMOVED" }, { id: "m-mover-old" }),
+    );
+    expect(applied.skippedActivations).toEqual([]);
+    // VRC_STAYS is re-activated in place and counted too; the import does not yet
+    // distinguish an unchanged active member from a new activation.
+    expect(applied.counts.activations).toBe(3);
+    expect(applied.counts.removals).toBe(1);
+  });
+
+  it("frees a stale seat in a full destination so a mover can be seated when the source is processed first", async () => {
+    // NEW CITY is full (2 of 2 seats: VRC_X and VRC_STALE). The file keeps VRC_X, drops
+    // VRC_STALE, and moves VRC_MOVER in from OLD CITY. OLD CITY is planned first, so its
+    // transaction performs the whole move and must not seat the mover in NEW CITY while
+    // the stale member still holds a seat there.
+    getGovernanceConfigMock.mockResolvedValue(
+      createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
+    );
+    // The real seat allocator, so an occupied-seat table actually blocks the mover.
+    assignNextAvailableSeatMock.mockImplementation(
+      jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils")
+        .assignNextAvailableSeat,
+    );
+
+    const entries = [
+      rosterEntry({ vrcnum: "VRC_STAYS_OLD", cityTown: "OLD CITY" }),
+      rosterEntry({
+        vrcnum: "VRC_X",
+        cityTown: "NEW CITY",
+        electionDistrict: 2,
+      }),
+      rosterEntry({
+        vrcnum: "VRC_MOVER",
+        cityTown: "NEW CITY",
+        electionDistrict: 2,
+      }),
+    ];
+    const oldCommittee = createMockCommitteeListRow({
+      id: 101,
+      cityTown: "OLD CITY",
+      electionDistrict: 1,
+    });
+    const newCommittee = createMockCommitteeListRow({
+      id: 202,
+      cityTown: "NEW CITY",
+      electionDistrict: 2,
+    });
+
+    prismaMock.voterRecord.findUnique.mockImplementation(
+      (args: Prisma.VoterRecordFindUniqueArgs) =>
+        resolvesTo(
+          createMockVoterRecord({
+            VRCNUM: args.where.VRCNUM,
+            firstName: "John",
+            middleInitial: null,
+            lastName: "Doe",
+            houseNum: 123,
+            street: "Main St",
+            apartment: null,
+            city: "Testville",
+            state: "NY",
+            zipCode: "14604",
+          }),
+        ),
+    );
+    prismaMock.committeeList.findUnique.mockImplementation((args) => {
+      const key = (
+        args.where as {
+          cityTown_legDistrict_electionDistrict_termId: { cityTown: string };
+        }
+      ).cityTown_legDistrict_electionDistrict_termId;
+      return resolvesTo<{ id: number } | null>(
+        key.cityTown === "OLD CITY" ? { id: 101 } : { id: 202 },
+      );
+    });
+    prismaMock.committeeList.findUniqueOrThrow.mockResolvedValue(oldCommittee);
+    prismaMock.committeeList.upsert.mockImplementation((args) =>
+      resolvesTo(
+        args.where.cityTown_legDistrict_electionDistrict_termId?.cityTown ===
+          "OLD CITY"
+          ? oldCommittee
+          : newCommittee,
+      ),
+    );
+    prismaMock.$queryRaw.mockResolvedValue([]);
+
+    // VRC_MOVER occupies seat 1 in OLD CITY and VRC_STALE seat 2 in NEW CITY until each
+    // membership is marked REMOVED.
+    let moverRemoved = false;
+    let staleRemoved = false;
+    prismaMock.committeeMembership.findMany.mockImplementation(
+      (args?: Prisma.CommitteeMembershipFindManyArgs) => {
+        const where = args?.where ?? {};
+        if (typeof where.voterRecordId === "object") {
+          // The planner's active-membership lookup for every voter in the file.
+          return resolvesTo<
+            { voterRecordId: string; committeeListId: number }[]
+          >([
+            { voterRecordId: "VRC_STAYS_OLD", committeeListId: 101 },
+            { voterRecordId: "VRC_X", committeeListId: 202 },
+            ...(moverRemoved
+              ? []
+              : [{ voterRecordId: "VRC_MOVER", committeeListId: 101 }]),
+          ]);
+        }
+        if (typeof where.id === "object") {
+          return resolvesTo<CommitteeMemberRow[]>(
+            moverRemoved
+              ? []
+              : [{ id: "m-mover-old", voterRecordId: "VRC_MOVER" }],
+          );
+        }
+        if (where.committeeListId === 101 && where.seatNumber !== undefined) {
+          // The seat allocator's occupied-seat query.
+          return resolvesTo<{ seatNumber: number }[]>(
+            moverRemoved
+              ? [{ seatNumber: 2 }]
+              : [{ seatNumber: 1 }, { seatNumber: 2 }],
+          );
+        }
+        if (where.committeeListId === 101) {
+          return resolvesTo<CommitteeMemberRow[]>(
+            moverRemoved
+              ? [{ id: "m-stays-old", voterRecordId: "VRC_STAYS_OLD" }]
+              : [
+                  { id: "m-mover-old", voterRecordId: "VRC_MOVER" },
+                  { id: "m-stays-old", voterRecordId: "VRC_STAYS_OLD" },
+                ],
+          );
+        }
+        if (where.committeeListId === 202 && where.seatNumber !== undefined) {
+          return resolvesTo<{ seatNumber: number }[]>(
+            staleRemoved
+              ? [{ seatNumber: 1 }]
+              : [{ seatNumber: 1 }, { seatNumber: 2 }],
+          );
+        }
+        if (where.committeeListId === 202) {
+          return resolvesTo<CommitteeMemberRow[]>(
+            staleRemoved
+              ? [{ id: "m-x", voterRecordId: "VRC_X" }]
+              : [
+                  { id: "m-x", voterRecordId: "VRC_X" },
+                  { id: "m-stale", voterRecordId: "VRC_STALE" },
+                ],
+          );
+        }
+        return resolvesTo<CommitteeMemberRow[]>([]);
+      },
+    );
+    prismaMock.committeeMembership.update.mockImplementation(
+      (args: Prisma.CommitteeMembershipUpdateArgs) => {
+        if (args.data.status === "REMOVED") {
+          if (args.where.id === "m-mover-old") moverRemoved = true;
+          if (args.where.id === "m-stale") staleRemoved = true;
+        }
+        return resolvesTo(
+          createMockMembership({ id: String(args.where.id ?? "") }),
+        );
+      },
+    );
+    prismaMock.committeeMembership.findFirst.mockImplementation(
+      (args?: Prisma.CommitteeMembershipFindFirstArgs) =>
+        resolvesTo(
+          args?.where?.voterRecordId === "VRC_MOVER" && !moverRemoved
+            ? createMockMembership({
+                id: "m-mover-old",
+                voterRecordId: "VRC_MOVER",
+                committeeListId: 101,
+                status: "ACTIVE",
+                seatNumber: 1,
+              })
+            : null,
+        ),
+    );
+    prismaMock.committeeMembership.findUnique.mockImplementation(
+      (args: Prisma.CommitteeMembershipFindUniqueArgs) => {
+        const key = args.where.voterRecordId_committeeListId_termId;
+        if (key?.voterRecordId === "VRC_STAYS_OLD") {
+          return resolvesTo(
+            createMockMembership({
+              id: "m-stays-old",
+              voterRecordId: "VRC_STAYS_OLD",
+              committeeListId: 101,
+              status: "ACTIVE",
+              seatNumber: 2,
+            }),
+          );
+        }
+        if (key?.voterRecordId === "VRC_X") {
+          return resolvesTo(
+            createMockMembership({
+              id: "m-x",
+              voterRecordId: "VRC_X",
+              committeeListId: 202,
+              status: "ACTIVE",
+              seatNumber: 1,
+            }),
+          );
+        }
+        return resolvesTo(null);
+      },
+    );
+    prismaMock.committeeMembership.create.mockImplementation(
+      (args: Prisma.CommitteeMembershipCreateArgs) =>
+        resolvesTo({
+          ...createMockMembership({
+            id: `m-${args.data.voterRecordId}-new`,
+            voterRecordId: args.data.voterRecordId,
+            committeeListId: args.data.committeeListId,
+            seatNumber: args.data.seatNumber ?? null,
+          }),
+          status: "ACTIVE",
+          membershipType: "PETITIONED",
+          submissionMetadata: null,
+          resignationMethod: null,
+          removalReason: null,
+        } satisfies CommitteeMembership),
+    );
+
+    const result = applyRosterImport({ entries, rejected: [] });
+    await expect(result).resolves.toBeDefined();
+    const { applied } = await result;
+
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+      expectMembershipUpdate({ status: "REMOVED" }, { id: "m-stale" }),
+    );
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+      expectMembershipUpdate({ status: "REMOVED" }, { id: "m-mover-old" }),
+    );
+    expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
+      expectMembershipCreate({
+        voterRecordId: "VRC_MOVER",
+        committeeListId: 202,
+      }),
+    );
+    expect(applied.skippedActivations).toEqual([]);
+    expect(applied.counts.removals).toBe(2);
   });
 
   it("logs MEMBER_REMOVED when sync removes an active member not present in import", async () => {

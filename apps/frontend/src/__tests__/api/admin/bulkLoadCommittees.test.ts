@@ -424,7 +424,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
       });
       expect(json.dryRun).toBe(false);
       expect(json.message).toBe(
-        "Applied: 0 of 2 planned activations written, 0 removed",
+        "Applied: 0 of 2 planned activations written, 0 of 0 planned removals written",
       );
       expect(json.discrepanciesMap).toHaveLength(2);
       expect(json.recordsWithDiscrepancies).toHaveLength(2);
@@ -616,7 +616,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
         expect.objectContaining({ where: { VRCNUM: "VRCNUM_RACED" } }),
       );
       expect(json.message).toBe(
-        "Applied: 1 of 2 planned activations written, 1 skipped as live conflicts, 0 removed",
+        "Applied: 1 of 2 planned activations written, 1 skipped as live conflicts, 0 of 0 planned removals written",
       );
     });
 

@@ -1,8 +1,10 @@
 import prisma from "~/lib/prisma";
 import {
   PrivilegeLevel,
+  type CommitteeList,
   type MembershipType,
   type Prisma,
+  type VoterRecord,
 } from "@prisma/client";
 
 import {
@@ -258,12 +260,19 @@ const ALREADY_ACTIVE_ELSEWHERE =
  */
 class RosterActivationConflict extends Error {
   readonly voterRecordId: string;
+  /** Where the activation was; a move activates outside the committee whose transaction runs. */
+  readonly committee: CommitteeIdentity;
   readonly membershipType: MembershipType;
 
-  constructor(voterRecordId: string, membershipType: MembershipType) {
+  constructor(
+    voterRecordId: string,
+    committee: CommitteeIdentity,
+    membershipType: MembershipType,
+  ) {
     super(ALREADY_ACTIVE_ELSEWHERE);
     this.name = "RosterActivationConflict";
     this.voterRecordId = voterRecordId;
+    this.committee = committee;
     this.membershipType = membershipType;
   }
 }
@@ -291,10 +300,15 @@ function asRosterActivationConflict(
 function throwActivationConflict(
   error: unknown,
   voterRecordId: string,
+  committee: CommitteeIdentity,
   membershipType: MembershipType,
 ): never {
   if (isActiveMembershipPerTermConflict(error)) {
-    throw new RosterActivationConflict(voterRecordId, membershipType);
+    throw new RosterActivationConflict(
+      voterRecordId,
+      committee,
+      membershipType,
+    );
   }
   throw error;
 }
@@ -724,51 +738,327 @@ async function removeMembershipForSync(
 type PlannedMoveRemoval = PlannedRemoval & { committeeListId: number };
 
 /**
- * Planned source removals grouped by the destination committee and voter. Keeping the
- * source removal with its destination activation lets both state transitions share one
- * transaction: either the voter moves and both audit events commit, or neither does.
+ * One voter's planned move: the source membership(s) the file no longer lists and the
+ * committee in the file that now claims them. Keeping both halves together lets whichever
+ * committee's transaction reaches the move first perform it whole: either the voter moves
+ * and both audit events commit, or neither does.
  */
-function movedAwayRemovalsByDestination(
-  plan: ImportPlan,
-): Map<string, Map<string, PlannedMoveRemoval[]>> {
-  const committeeListIdByKey = new Map(
-    plan.committees.flatMap((planned) =>
-      planned.committeeListId === null
-        ? []
-        : [
-            [
-              formatCommitteeIdentity(planned.committee),
-              planned.committeeListId,
-            ] as const,
-          ],
+type PlannedMove = {
+  voterRecordId: string;
+  membershipType: MembershipType;
+  destination: PlannedCommittee;
+  removals: PlannedMoveRemoval[];
+};
+
+/** Every planned move, keyed by the moving voter. */
+function plannedMovesByVoter(plan: ImportPlan): Map<string, PlannedMove> {
+  const plannedByKey = new Map(
+    plan.committees.map(
+      (planned) =>
+        [formatCommitteeIdentity(planned.committee), planned] as const,
     ),
   );
   const removalsByVoter = new Map<string, PlannedMoveRemoval[]>();
   for (const removal of plan.removals) {
-    const committeeListId = committeeListIdByKey.get(
+    const committeeListId = plannedByKey.get(
       formatCommitteeIdentity(removal.committee),
-    );
-    if (committeeListId === undefined) continue;
+    )?.committeeListId;
+    if (committeeListId === undefined || committeeListId === null) continue;
     const removals = removalsByVoter.get(removal.voterRecordId) ?? [];
     removals.push({ ...removal, committeeListId });
     removalsByVoter.set(removal.voterRecordId, removals);
   }
 
-  const byDestination = new Map<
-    string,
-    Map<string, PlannedMoveRemoval[]>
-  >();
+  const moves = new Map<string, PlannedMove>();
   for (const activation of plan.activations) {
     const removals = removalsByVoter.get(activation.voterRecordId);
-    if (!removals) continue;
-    const destinationKey = formatCommitteeIdentity(activation.committee);
-    const byVoter =
-      byDestination.get(destinationKey) ??
-      new Map<string, PlannedMoveRemoval[]>();
-    byVoter.set(activation.voterRecordId, removals);
-    byDestination.set(destinationKey, byVoter);
+    const destination = plannedByKey.get(
+      formatCommitteeIdentity(activation.committee),
+    );
+    if (!removals || !destination) continue;
+    moves.set(activation.voterRecordId, {
+      voterRecordId: activation.voterRecordId,
+      membershipType: activation.membershipType,
+      destination,
+      removals,
+    });
   }
-  return byDestination;
+  return moves;
+}
+
+/**
+ * Locks the given committee rows, always in numeric order so that transactions sharing
+ * committees cannot deadlock. Re-locking a row this transaction already holds is a no-op.
+ */
+async function lockCommittees(
+  tx: Prisma.TransactionClient,
+  committeeIds: Iterable<number>,
+): Promise<void> {
+  const ids = Array.from(new Set(committeeIds)).sort(
+    (left, right) => left - right,
+  );
+  for (const committeeId of ids) {
+    await tx.$queryRaw`
+      SELECT id
+      FROM "CommitteeList"
+      WHERE id = ${committeeId}
+      FOR UPDATE
+    `;
+  }
+}
+
+type CommitteeRow = Pick<
+  CommitteeList,
+  "id" | "cityTown" | "legDistrict" | "electionDistrict"
+>;
+type VoterNameRow = Pick<
+  VoterRecord,
+  "VRCNUM" | "firstName" | "middleInitial" | "lastName"
+>;
+
+type ActivationContext = {
+  tx: Prisma.TransactionClient;
+  actor: BulkLoadActor;
+  term: ImportPlan["term"];
+  maxSeats: number;
+};
+
+/**
+ * Seats one voter in a committee and audits it. A membership row that already exists for
+ * this voter and committee is reactivated in place; otherwise one is created. Throws
+ * RosterActivationConflict when the one-active-per-term index refuses the write.
+ */
+async function activateMember(
+  { tx, actor, term, maxSeats }: ActivationContext,
+  committee: CommitteeRow,
+  voterRecord: VoterNameRow,
+  plannedMembershipType: MembershipType,
+): Promise<AppliedSummary["activations"][number]> {
+  const voterRecordId = voterRecord.VRCNUM;
+  const committeeIdentity: CommitteeIdentity = {
+    cityTown: committee.cityTown,
+    legDistrict: committee.legDistrict,
+    electionDistrict: committee.electionDistrict,
+    termId: term.id,
+  };
+  const subject = (seatNumber: number | null): AuditMembershipSubject =>
+    buildMembershipAuditSubject({
+      voterRecord,
+      committee,
+      term,
+      seatNumber,
+    });
+
+  const existingMembership = await tx.committeeMembership.findUnique({
+    where: {
+      voterRecordId_committeeListId_termId: {
+        voterRecordId,
+        committeeListId: committee.id,
+        termId: term.id,
+      },
+    },
+  });
+
+  let seatNumber = existingMembership?.seatNumber ?? null;
+  if (
+    !(
+      existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS &&
+      seatNumber !== null
+    )
+  ) {
+    seatNumber = await assignNextAvailableSeat(committee.id, term.id, {
+      tx,
+      maxSeats,
+    });
+  }
+
+  if (existingMembership) {
+    // Existing memberships are not rewritten: a membership that already records how
+    // its member won the seat keeps that, and only an untyped one takes the file's.
+    const membershipType: MembershipType =
+      existingMembership.membershipType ?? plannedMembershipType;
+    try {
+      await tx.committeeMembership.update({
+        where: { id: existingMembership.id },
+        data: {
+          status: ACTIVE_MEMBERSHIP_STATUS,
+          activatedAt: existingMembership.activatedAt ?? new Date(),
+          membershipType,
+          seatNumber,
+          confirmedAt: null,
+          resignedAt: null,
+          removedAt: null,
+          rejectedAt: null,
+          rejectionNote: null,
+          resignationDateReceived: null,
+          resignationMethod: null,
+          removalReason: null,
+          removalNotes: null,
+          petitionVoteCount: null,
+          petitionPrimaryDate: null,
+        },
+      });
+    } catch (error) {
+      throwActivationConflict(
+        error,
+        voterRecordId,
+        committeeIdentity,
+        plannedMembershipType,
+      );
+    }
+    await logAuditEventOrThrow(
+      actor.userId,
+      actor.userRole,
+      "MEMBER_ACTIVATED",
+      "CommitteeMembership",
+      existingMembership.id,
+      { status: existingMembership.status },
+      {
+        status: ACTIVE_MEMBERSHIP_STATUS,
+        membershipType,
+        seatNumber,
+      },
+      mergeAuditMetadata(
+        {
+          source: "bulk_import_sync",
+          committeeId: committee.id,
+        },
+        subject(seatNumber),
+      ),
+      tx,
+    );
+    return {
+      voterRecordId,
+      committee: committeeIdentity,
+      membershipType,
+      seatNumber,
+    };
+  }
+
+  const membershipType: MembershipType = plannedMembershipType;
+  let createdMembership;
+  try {
+    createdMembership = await tx.committeeMembership.create({
+      data: {
+        voterRecordId,
+        committeeListId: committee.id,
+        termId: term.id,
+        status: ACTIVE_MEMBERSHIP_STATUS,
+        activatedAt: new Date(),
+        membershipType,
+        seatNumber,
+      },
+    });
+  } catch (error) {
+    throwActivationConflict(
+      error,
+      voterRecordId,
+      committeeIdentity,
+      plannedMembershipType,
+    );
+  }
+  await logAuditEventOrThrow(
+    actor.userId,
+    actor.userRole,
+    "MEMBER_ACTIVATED",
+    "CommitteeMembership",
+    createdMembership.id,
+    null,
+    {
+      status: ACTIVE_MEMBERSHIP_STATUS,
+      membershipType,
+      seatNumber,
+    },
+    mergeAuditMetadata(
+      {
+        source: "bulk_import_sync",
+        committeeId: committee.id,
+      },
+      subject(seatNumber),
+    ),
+    tx,
+  );
+  return {
+    voterRecordId,
+    committee: committeeIdentity,
+    membershipType,
+    seatNumber,
+  };
+}
+
+/**
+ * Removes the destination's active members the file no longer lists, so a mover seated
+ * from the source committee's transaction finds the same free seats the destination's
+ * own transaction would have made. Members that are themselves planned moves are left
+ * for their own move to clear.
+ */
+async function removeStaleMembers(
+  { tx, actor, term }: ActivationContext,
+  committee: CommitteeRow,
+  intendedMembers: Iterable<string>,
+  isPlannedMoveSource: (membershipId: string) => boolean,
+): Promise<AppliedSummary["removals"]> {
+  const intendedSet = new Set(intendedMembers);
+  const activeMemberships = await tx.committeeMembership.findMany({
+    where: {
+      committeeListId: committee.id,
+      termId: term.id,
+      status: ACTIVE_MEMBERSHIP_STATUS,
+    },
+    select: { id: true, voterRecordId: true },
+  });
+  const stale = activeMemberships.filter(
+    (membership) =>
+      !intendedSet.has(membership.voterRecordId) &&
+      !isPlannedMoveSource(membership.id),
+  );
+  // Known limitation: an outgoing mover still occupies a full destination's seat.
+  // An A→B→C chain can fail before B→C runs; see .scratch/committee-roster-import/issues/19-chained-roster-moves.md.
+  if (stale.length === 0) return [];
+
+  const voters = await tx.voterRecord.findMany({
+    where: {
+      VRCNUM: { in: stale.map((membership) => membership.voterRecordId) },
+    },
+    select: {
+      VRCNUM: true,
+      firstName: true,
+      middleInitial: true,
+      lastName: true,
+    },
+  });
+  const voterById = new Map(voters.map((voter) => [voter.VRCNUM, voter]));
+  const committeeIdentity: CommitteeIdentity = {
+    cityTown: committee.cityTown,
+    legDistrict: committee.legDistrict,
+    electionDistrict: committee.electionDistrict,
+    termId: term.id,
+  };
+
+  const removals: AppliedSummary["removals"] = [];
+  for (const membership of stale) {
+    const voterRecord = voterById.get(membership.voterRecordId);
+    if (!voterRecord) {
+      throw new Error(
+        `Voter not found for bulk import audit: ${membership.voterRecordId}`,
+      );
+    }
+    await removeMembershipForSync(tx, actor, membership, {
+      committeeId: committee.id,
+      subject: buildMembershipAuditSubject({
+        voterRecord,
+        committee,
+        term,
+        seatNumber: null,
+      }),
+    });
+    removals.push({
+      membershipId: membership.id,
+      voterRecordId: membership.voterRecordId,
+      committee: committeeIdentity,
+    });
+  }
+  return removals;
 }
 
 /**
@@ -799,14 +1089,16 @@ export async function applyRosterImport(
     },
   };
 
-  const movedAway = movedAwayRemovalsByDestination(plan);
-  const movedMembershipIds = new Set(
-    Array.from(movedAway.values()).flatMap((byVoter) =>
-      Array.from(byVoter.values()).flatMap((removals) =>
-        removals.map((removal) => removal.membershipId),
-      ),
+  const movesByVoter = plannedMovesByVoter(plan);
+  const moveByMembershipId = new Map(
+    Array.from(movesByVoter.values()).flatMap((move) =>
+      move.removals.map((removal) => [removal.membershipId, move] as const),
     ),
   );
+  // Moves no later transaction may touch again: performed whole by whichever committee's
+  // transaction reached them first (source or destination), or abandoned after a live
+  // conflict. Only updated once that transaction has committed or rolled back.
+  const settledMoves = new Set<string>();
 
   for (const planned of plan.committees) {
     const committeeList: Prisma.CommitteeListCreateManyInput = {
@@ -815,6 +1107,7 @@ export async function applyRosterImport(
       electionDistrict: planned.committee.electionDistrict,
       termId: activeTermId,
     };
+    const plannedKey = formatCommitteeIdentity(planned.committee);
     const intendedMembers = planned.members;
     const importedMembers = planned.importedMembers;
 
@@ -837,65 +1130,74 @@ export async function applyRosterImport(
       continue;
     }
 
+    // A mover whose source committee ran first is already seated here (or was abandoned).
     const pendingActivations = new Map(
       plan.activations
         .filter(
           (activation) =>
-            formatCommitteeIdentity(activation.committee) ===
-            formatCommitteeIdentity(planned.committee),
+            formatCommitteeIdentity(activation.committee) === plannedKey &&
+            !settledMoves.has(activation.voterRecordId),
         )
         .map((activation) => [
           activation.voterRecordId,
           activation.membershipType,
         ]),
     );
-    const plannedCommitteeIdentity: CommitteeIdentity = {
-      cityTown: planned.committee.cityTown,
-      legDistrict: planned.committee.legDistrict,
-      electionDistrict: planned.committee.electionDistrict,
-      termId: activeTermId,
-    };
-    const movedRemovalsByVoter =
-      movedAway.get(formatCommitteeIdentity(planned.committee)) ??
-      new Map<string, PlannedMoveRemoval[]>();
 
     for (;;) {
-      // Outcomes of this attempt; appended to `applied` only once the transaction commits,
-      // so a rolled-back attempt never counts.
+      // Outcomes of this attempt, plus the voters whose move it performed; appended to
+      // `applied` and `settledMoves` only once the transaction commits, so a rolled-back
+      // attempt never counts.
       const attempt: Pick<
         AppliedSummary,
         "activations" | "removals" | "skippedActivations"
-      > = { activations: [], removals: [], skippedActivations: [] };
+      > & { moves: string[] } = {
+        activations: [],
+        removals: [],
+        skippedActivations: [],
+        moves: [],
+      };
       try {
         await prisma.$transaction(async (tx) => {
-          const movedRemovalsForAttempt = Array.from(
-            pendingActivations.keys(),
-          ).flatMap(
-            (voterRecordId) =>
-              movedRemovalsByVoter.get(voterRecordId) ?? [],
+          const activationContext: ActivationContext = {
+            tx,
+            actor,
+            term: activeTerm,
+            maxSeats: plan.maxSeatsPerLted,
+          };
+
+          // Moves this attempt may perform: those arriving here, and those leaving here
+          // whose destination has not run yet. Whichever committee runs first does the move.
+          const inboundMoves = Array.from(pendingActivations.keys()).flatMap(
+            (voterRecordId) => {
+              const move = movesByVoter.get(voterRecordId);
+              return move ? [move] : [];
+            },
           );
-          const knownCommitteeIdsToLock = Array.from(
-            new Set([
-              ...(planned.committeeListId === null
-                ? []
-                : [planned.committeeListId]),
-              ...movedRemovalsForAttempt.map(
-                (removal) => removal.committeeListId,
+          const outboundMoves = Array.from(movesByVoter.values()).filter(
+            (move) =>
+              !settledMoves.has(move.voterRecordId) &&
+              move.removals.some(
+                (removal) =>
+                  formatCommitteeIdentity(removal.committee) === plannedKey,
               ),
-            ]),
-          ).sort((left, right) => left - right);
+          );
+          const movesForAttempt = [...inboundMoves, ...outboundMoves];
 
           // Lock every existing committee participating in the reconciliation before any
-          // writes, and always in numeric order. A destination created after planning has
-          // no row to contend over yet; its upsert below owns the new row until commit.
-          for (const committeeId of knownCommitteeIdsToLock) {
-            await tx.$queryRaw`
-              SELECT id
-              FROM "CommitteeList"
-              WHERE id = ${committeeId}
-              FOR UPDATE
-            `;
-          }
+          // writes. A destination created after planning has no row to contend over yet;
+          // its upsert below owns the new row until commit.
+          await lockCommittees(tx, [
+            ...(planned.committeeListId === null
+              ? []
+              : [planned.committeeListId]),
+            ...movesForAttempt.flatMap((move) => [
+              ...(move.destination.committeeListId === null
+                ? []
+                : [move.destination.committeeListId]),
+              ...move.removals.map((removal) => removal.committeeListId),
+            ]),
+          ]);
 
           const committee = await tx.committeeList.upsert({
             where: {
@@ -959,6 +1261,29 @@ export async function applyRosterImport(
           const voterById = new Map(
             voters.map((voter) => [voter.VRCNUM, voter]),
           );
+          const voterRecordFor = (voterRecordId: string): VoterNameRow => {
+            const voter = voterById.get(voterRecordId);
+            if (!voter) {
+              throw new Error(
+                `Voter not found for bulk import audit: ${voterRecordId}`,
+              );
+            }
+            return voter;
+          };
+          const subjectForVoter = (
+            voterRecordId: string,
+            seatNumber?: number | null,
+          ): AuditMembershipSubject =>
+            buildMembershipAuditSubject({
+              voterRecord: voterRecordFor(voterRecordId),
+              committee,
+              term: activeTerm,
+              seatNumber,
+            });
+
+          const movedRemovalsForAttempt = movesForAttempt.flatMap(
+            (move) => move.removals,
+          );
           const activeMovedMemberships = movedRemovalsForAttempt.length
             ? await tx.committeeMembership.findMany({
                 where: {
@@ -979,65 +1304,19 @@ export async function applyRosterImport(
             ]),
           );
 
-          const subjectForVoter = (
-            voterRecordId: string,
-            seatNumber?: number | null,
-          ): AuditMembershipSubject => {
-            const voter = voterById.get(voterRecordId);
-            if (!voter) {
-              throw new Error(
-                `Voter not found for bulk import audit: ${voterRecordId}`,
-              );
-            }
-            return buildMembershipAuditSubject({
-              voterRecord: voter,
-              committee,
-              term: activeTerm,
-              seatNumber,
-            });
-          };
-
-          for (const membership of existingActiveMemberships) {
-            if (
-              !importedSet.has(membership.voterRecordId) &&
-              !movedMembershipIds.has(membership.id)
-            ) {
-              await removeMembershipForSync(tx, actor, membership, {
-                committeeId: committee.id,
-                subject: subjectForVoter(membership.voterRecordId, null),
-              });
-              attempt.removals.push({
-                membershipId: membership.id,
-                voterRecordId: membership.voterRecordId,
-                committee: committeeIdentity,
-              });
-            }
-          }
-
-          for (const voterRecordId of importedMembers) {
-            const plannedMembershipType = pendingActivations.get(voterRecordId);
-            if (plannedMembershipType === undefined) {
-              // Planning already recorded why this one is not activated.
-              continue;
-            }
-
-            const movedRemovals =
-              movedRemovalsByVoter.get(voterRecordId) ?? [];
-            for (const removal of movedRemovals) {
+          /** Removes the mover from every source committee where they still hold a seat. */
+          const removeMovedSources = async (
+            move: PlannedMove,
+          ): Promise<void> => {
+            for (const removal of move.removals) {
               const membership = activeMovedMembershipById.get(
                 removal.membershipId,
               );
               if (!membership) continue;
-              const voterRecord = voterById.get(voterRecordId);
-              if (!voterRecord) {
-                throw new Error(
-                  `Voter not found for bulk import audit: ${voterRecordId}`,
-                );
-              }
               await removeMembershipForSync(tx, actor, membership, {
                 committeeId: removal.committeeListId,
                 subject: buildMembershipAuditSubject({
-                  voterRecord,
+                  voterRecord: voterRecordFor(move.voterRecordId),
                   committee: {
                     id: removal.committeeListId,
                     cityTown: removal.committee.cityTown,
@@ -1050,13 +1329,92 @@ export async function applyRosterImport(
               });
               attempt.removals.push({
                 membershipId: membership.id,
-                voterRecordId,
+                voterRecordId: move.voterRecordId,
                 committee: removal.committee,
               });
             }
+          };
 
-            if (
-              movedRemovals.length === 0 &&
+          for (const membership of existingActiveMemberships) {
+            if (importedSet.has(membership.voterRecordId)) continue;
+            const move = moveByMembershipId.get(membership.id);
+            if (!move) {
+              await removeMembershipForSync(tx, actor, membership, {
+                committeeId: committee.id,
+                subject: subjectForVoter(membership.voterRecordId, null),
+              });
+              attempt.removals.push({
+                membershipId: membership.id,
+                voterRecordId: membership.voterRecordId,
+                committee: committeeIdentity,
+              });
+              continue;
+            }
+            // A move abandoned after a live conflict leaves the member where they are.
+            if (settledMoves.has(move.voterRecordId)) continue;
+
+            // This committee runs before the destination, so the whole move happens here:
+            // free the seat, then take one in the destination, which may not exist yet.
+            // The destination's own transaction has not run, so its stale members are
+            // removed here too; otherwise a full destination could refuse the mover a seat
+            // it would have freed anyway.
+            await removeMovedSources(move);
+            const destination = await tx.committeeList.upsert({
+              where: {
+                cityTown_legDistrict_electionDistrict_termId: {
+                  cityTown: move.destination.committee.cityTown,
+                  legDistrict: move.destination.committee.legDistrict,
+                  electionDistrict: move.destination.committee.electionDistrict,
+                  termId: activeTermId,
+                },
+              },
+              create: {
+                cityTown: move.destination.committee.cityTown,
+                legDistrict: move.destination.committee.legDistrict,
+                electionDistrict: move.destination.committee.electionDistrict,
+                termId: activeTermId,
+              },
+              update: {},
+            });
+            await lockCommittees(tx, [destination.id]);
+            await ensureSeatsExist(destination.id, activeTermId, {
+              tx,
+              maxSeats: plan.maxSeatsPerLted,
+            });
+            // Known atomicity gap: destination changes commit with this source transaction.
+            // A later destination failure cannot roll them back; see
+            // .scratch/committee-roster-import/issues/18-destination-reconciliation-atomicity.md.
+            attempt.removals.push(
+              ...(await removeStaleMembers(
+                activationContext,
+                destination,
+                move.destination.members,
+                (membershipId) => moveByMembershipId.has(membershipId),
+              )),
+            );
+            attempt.activations.push(
+              await activateMember(
+                activationContext,
+                destination,
+                voterRecordFor(move.voterRecordId),
+                move.membershipType,
+              ),
+            );
+            attempt.moves.push(move.voterRecordId);
+          }
+
+          for (const voterRecordId of importedMembers) {
+            const plannedMembershipType = pendingActivations.get(voterRecordId);
+            if (plannedMembershipType === undefined) {
+              // Planning already recorded why this one is not activated, or an earlier
+              // committee's transaction already moved them here.
+              continue;
+            }
+
+            const move = movesByVoter.get(voterRecordId);
+            if (move) {
+              await removeMovedSources(move);
+            } else if (
               await isVoterActiveInAnotherCommittee(
                 voterRecordId,
                 committee.id,
@@ -1079,148 +1437,23 @@ export async function applyRosterImport(
               continue;
             }
 
-            const existingMembership = await tx.committeeMembership.findUnique({
-              where: {
-                voterRecordId_committeeListId_termId: {
-                  voterRecordId,
-                  committeeListId: committee.id,
-                  termId: activeTermId,
-                },
-              },
-            });
-
-            let seatNumber = existingMembership?.seatNumber ?? null;
-            if (
-              !(
-                existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS &&
-                seatNumber !== null
-              )
-            ) {
-              seatNumber = await assignNextAvailableSeat(
-                committee.id,
-                activeTermId,
-                {
-                  tx,
-                  maxSeats: plan.maxSeatsPerLted,
-                },
-              );
-            }
-
-            if (existingMembership) {
-              // Existing memberships are not rewritten: a membership that already records how
-              // its member won the seat keeps that, and only an untyped one takes the file's.
-              const membershipType: MembershipType =
-                existingMembership.membershipType ?? plannedMembershipType;
-              try {
-                await tx.committeeMembership.update({
-                  where: { id: existingMembership.id },
-                  data: {
-                    status: ACTIVE_MEMBERSHIP_STATUS,
-                    activatedAt: existingMembership.activatedAt ?? new Date(),
-                    membershipType,
-                    seatNumber,
-                    confirmedAt: null,
-                    resignedAt: null,
-                    removedAt: null,
-                    rejectedAt: null,
-                    rejectionNote: null,
-                    resignationDateReceived: null,
-                    resignationMethod: null,
-                    removalReason: null,
-                    removalNotes: null,
-                    petitionVoteCount: null,
-                    petitionPrimaryDate: null,
-                  },
-                });
-              } catch (error) {
-                throwActivationConflict(
-                  error,
-                  voterRecordId,
-                  plannedMembershipType,
-                );
-              }
-              await logAuditEventOrThrow(
-                actor.userId,
-                actor.userRole,
-                "MEMBER_ACTIVATED",
-                "CommitteeMembership",
-                existingMembership.id,
-                { status: existingMembership.status },
-                {
-                  status: ACTIVE_MEMBERSHIP_STATUS,
-                  membershipType,
-                  seatNumber,
-                },
-                mergeAuditMetadata(
-                  {
-                    source: "bulk_import_sync",
-                    committeeId: committee.id,
-                  },
-                  subjectForVoter(voterRecordId, seatNumber),
-                ),
-                tx,
-              );
-              attempt.activations.push({
-                voterRecordId,
-                committee: committeeIdentity,
-                membershipType,
-                seatNumber,
-              });
-            } else {
-              const membershipType: MembershipType = plannedMembershipType;
-              let createdMembership;
-              try {
-                createdMembership = await tx.committeeMembership.create({
-                  data: {
-                    voterRecordId,
-                    committeeListId: committee.id,
-                    termId: activeTermId,
-                    status: ACTIVE_MEMBERSHIP_STATUS,
-                    activatedAt: new Date(),
-                    membershipType,
-                    seatNumber,
-                  },
-                });
-              } catch (error) {
-                throwActivationConflict(
-                  error,
-                  voterRecordId,
-                  plannedMembershipType,
-                );
-              }
-              await logAuditEventOrThrow(
-                actor.userId,
-                actor.userRole,
-                "MEMBER_ACTIVATED",
-                "CommitteeMembership",
-                createdMembership.id,
-                null,
-                {
-                  status: ACTIVE_MEMBERSHIP_STATUS,
-                  membershipType,
-                  seatNumber,
-                },
-                mergeAuditMetadata(
-                  {
-                    source: "bulk_import_sync",
-                    committeeId: committee.id,
-                  },
-                  subjectForVoter(voterRecordId, seatNumber),
-                ),
-                tx,
-              );
-              attempt.activations.push({
-                voterRecordId,
-                committee: committeeIdentity,
-                membershipType,
-                seatNumber,
-              });
-            }
+            attempt.activations.push(
+              await activateMember(
+                activationContext,
+                committee,
+                voterRecordFor(voterRecordId),
+                plannedMembershipType,
+              ),
+            );
+            if (move) attempt.moves.push(voterRecordId);
           }
         });
         applied.activations.push(...attempt.activations);
         applied.removals.push(...attempt.removals);
         applied.skippedActivations.push(...attempt.skippedActivations);
+        for (const voterRecordId of attempt.moves) {
+          settledMoves.add(voterRecordId);
+        }
         break;
       } catch (error) {
         const conflict = asRosterActivationConflict(error);
@@ -1228,16 +1461,21 @@ export async function applyRosterImport(
         flagActiveElsewhere(
           discrepanciesMap,
           conflict.voterRecordId,
-          plannedCommitteeIdentity,
+          conflict.committee,
           conflict.membershipType,
         );
         applied.skippedActivations.push({
           voterRecordId: conflict.voterRecordId,
-          committee: plannedCommitteeIdentity,
+          committee: conflict.committee,
           membershipType: conflict.membershipType,
           reason: "active-elsewhere",
         });
+        // Drop the voter from this committee's pending work, and if they were moving,
+        // leave them seated where they are rather than retry the move elsewhere.
         pendingActivations.delete(conflict.voterRecordId);
+        if (movesByVoter.has(conflict.voterRecordId)) {
+          settledMoves.add(conflict.voterRecordId);
+        }
       }
     }
   }
