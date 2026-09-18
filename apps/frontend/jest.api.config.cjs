@@ -15,6 +15,7 @@ const config = {
     "<rootDir>/.next/",
     "<rootDir>/node_modules/",
     "<rootDir>/dist/",
+    "\\.pg\\.integration\\.test\\.ts$",
   ],
   moduleNameMapper: {
     // TypeScript path aliases

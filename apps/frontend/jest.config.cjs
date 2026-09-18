@@ -18,6 +18,7 @@ const config = {
     "<rootDir>/src/__tests__/utils/",
     "<rootDir>/src/__tests__/types/",
     "<rootDir>/src/__tests__/__mocks__/",
+    "\\.pg\\.integration\\.test\\.ts$",
   ],
   moduleNameMapper: {
     // TypeScript path aliases

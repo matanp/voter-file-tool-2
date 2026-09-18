@@ -1,11 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   type DiscrepancyResolution,
+  type MembershipType,
   PrivilegeLevel,
 } from "@prisma/client";
 import { handleCommitteeDiscrepancySchema } from "@voter-file-tool/shared-validators";
 import prisma from "~/lib/prisma";
-import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
+import {
+  withPrivilege,
+  type SessionWithUser,
+} from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import {
   ACTIVE_MEMBERSHIP_STATUS,
@@ -32,8 +36,18 @@ import {
   type ResolutionMetadata,
 } from "~/app/api/lib/committeeDiscrepancyResolution";
 
+const DEFAULT_INCOMING_MEMBERSHIP_TYPE: MembershipType = "APPOINTED";
+
 type ResolveTxResult =
-  | { kind: "success"; committee: { id: number; cityTown: string; legDistrict: number; electionDistrict: number } }
+  | {
+      kind: "success";
+      committee: {
+        id: number;
+        cityTown: string;
+        legDistrict: number;
+        electionDistrict: number;
+      };
+    }
   | { kind: "already_resolved" }
   | { kind: "reject_with_address" }
   | { kind: "atCapacity" }
@@ -54,14 +68,15 @@ async function handleCommitteeDiscrepancyHandler(
     const { VRCNUM, accept, takeAddress } = validation.data;
     const takeAddressValue = takeAddress ?? "";
 
-    const initialDiscrepancy = await prisma.committeeUploadDiscrepancy.findUnique({
-      where: { VRCNUM },
-      include: {
-        committee: {
-          include: { term: { select: { id: true, label: true } } },
+    const initialDiscrepancy =
+      await prisma.committeeUploadDiscrepancy.findUnique({
+        where: { VRCNUM },
+        include: {
+          committee: {
+            include: { term: { select: { id: true, label: true } } },
+          },
         },
-      },
-    });
+      });
 
     if (!initialDiscrepancy) {
       return NextResponse.json(
@@ -168,10 +183,14 @@ async function handleCommitteeDiscrepancyHandler(
             return { kind: "atCapacity" as const };
           }
 
-          await ensureSeatsExist(discrepancy.committee.id, discrepancy.committee.termId, {
-            tx,
-            maxSeats: config!.maxSeatsPerLted,
-          });
+          await ensureSeatsExist(
+            discrepancy.committee.id,
+            discrepancy.committee.termId,
+            {
+              tx,
+              maxSeats: config!.maxSeatsPerLted,
+            },
+          );
 
           const seatNumber = await assignNextAvailableSeat(
             discrepancy.committee.id,
@@ -182,18 +201,26 @@ async function handleCommitteeDiscrepancyHandler(
             },
           );
 
+          const incomingMembershipType: MembershipType =
+            discrepancy.incomingMembershipType ??
+            DEFAULT_INCOMING_MEMBERSHIP_TYPE;
+
           if (existingMembership) {
-            resolutionMetadata.membershipBefore = snapshotMembershipBefore(
-              existingMembership,
-            );
+            resolutionMetadata.membershipBefore =
+              snapshotMembershipBefore(existingMembership);
             resolutionMetadata.membershipOutcome = "reactivated";
+
+            // A membership that already records how its member won the seat keeps that;
+            // only an untyped one takes the type the import carried.
+            const membershipType: MembershipType =
+              existingMembership.membershipType ?? incomingMembershipType;
 
             const updatedMembership = await tx.committeeMembership.update({
               where: { id: existingMembership.id },
               data: {
                 status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: new Date(),
-                membershipType: existingMembership.membershipType ?? "APPOINTED",
+                membershipType,
                 seatNumber,
                 confirmedAt: null,
                 resignedAt: null,
@@ -220,7 +247,7 @@ async function handleCommitteeDiscrepancyHandler(
               "CommitteeMembership",
               updatedMembership.id,
               { status: existingMembership.status },
-              { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
+              { status: ACTIVE_MEMBERSHIP_STATUS, membershipType, seatNumber },
               mergeAuditMetadata(
                 {
                   source: "discrepancy_accept",
@@ -231,6 +258,7 @@ async function handleCommitteeDiscrepancyHandler(
                   committee: discrepancy.committee,
                   term: committeeTerm,
                   seatNumber,
+                  membershipType,
                 }),
               ),
               tx,
@@ -245,7 +273,7 @@ async function handleCommitteeDiscrepancyHandler(
                 termId: discrepancy.committee.termId,
                 status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: new Date(),
-                membershipType: "APPOINTED",
+                membershipType: incomingMembershipType,
                 seatNumber,
               },
             });
@@ -261,7 +289,11 @@ async function handleCommitteeDiscrepancyHandler(
               "CommitteeMembership",
               createdMembership.id,
               null,
-              { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
+              {
+                status: ACTIVE_MEMBERSHIP_STATUS,
+                membershipType: incomingMembershipType,
+                seatNumber,
+              },
               mergeAuditMetadata(
                 {
                   source: "discrepancy_accept",
@@ -272,6 +304,7 @@ async function handleCommitteeDiscrepancyHandler(
                   committee: discrepancy.committee,
                   term: committeeTerm,
                   seatNumber,
+                  membershipType: incomingMembershipType,
                 }),
               ),
               tx,

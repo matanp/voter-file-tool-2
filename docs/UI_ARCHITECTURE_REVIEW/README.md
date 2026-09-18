@@ -58,11 +58,13 @@ Comprehensive review of the voter-file-tool frontend UI: current state, informat
 
 ### UI Polish Technical Plan (06_UI_POLISH_TECHNICAL_PLAN_2026-07-29.md)
 
-- Add shared page shell, header, section, and state components
-- Add responsive form-row primitives for Record Search and related workflows
-- Extract committee detail panels and shared compact table patterns
-- Add warning-only UI design linting for common polish regressions
-- Defer Playwright visual smoke checks and Storybook/component previews until primitives stabilize
+- **Phase 0:** drift baseline + U2–U5 quick fixes; see [Decisions](06_UI_POLISH_TECHNICAL_PLAN_2026-07-29.md#decisions) for settled implementation calls
+- **Dark mode deferred.** `ThemeProvider` stays commented out; semantic tokens on new/touched code only (ratchet, not sweep)
+- `PageShell` / `PageHeader` (from `ScopedReportPageShell`) + one `StatusState` with variants
+- Responsive form rows for Record Search; `lib/constants/sizing.ts` width constants become responsive pairs
+- Committee panel extraction (structure only) + extend `ui/table.tsx`
+- Design lint via ESLint `no-restricted-syntax`, not a separate script
+- Phase 2: manual 375px overflow pass; Playwright and Storybook deferred
 
 ---
 

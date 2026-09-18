@@ -553,6 +553,8 @@ model CommitteeUploadDiscrepancy {
   committeeId Int
   discrepancy Json
 
+  incomingMembershipType MembershipType?
+
   resolvedAt         DateTime?
   resolvedBy         String?
   resolution         DiscrepancyResolution?

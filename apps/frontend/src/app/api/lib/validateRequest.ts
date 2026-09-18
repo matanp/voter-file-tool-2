@@ -7,10 +7,12 @@ import { type z } from "zod";
  * @param schema - The Zod schema to validate against
  * @returns Object with success flag and either parsed data or error response
  */
-export function validateRequest<T>(
+export function validateRequest<Output>(
   body: unknown,
-  schema: z.ZodSchema<T>,
-): { success: true; data: T } | { success: false; response: NextResponse } {
+  schema: z.ZodType<Output, z.ZodTypeDef, unknown>,
+):
+  | { success: true; data: Output }
+  | { success: false; response: NextResponse } {
   const result = schema.safeParse(body);
 
   if (result.success) {
