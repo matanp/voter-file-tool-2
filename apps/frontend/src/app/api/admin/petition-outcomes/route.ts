@@ -8,6 +8,12 @@ import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { getPetitionOutcomesQuerySchema } from "~/lib/validations/committee";
+import {
+  PETITION_OUTCOME_ORDER,
+  PETITION_OUTCOME_VOTER_SELECT,
+  petitionOutcomeWhere,
+  toPetitionOutcomeContext,
+} from "~/app/api/lib/petitionOutcomes";
 import type { Session } from "next-auth";
 
 async function getPetitionOutcomesHandler(req: NextRequest, _session: Session) {
@@ -23,21 +29,9 @@ async function getPetitionOutcomesHandler(req: NextRequest, _session: Session) {
 
   try {
     const memberships = await prisma.committeeMembership.findMany({
-      where: {
-        membershipType: "PETITIONED",
-        petitionSeatNumber: { not: null },
-        ...(termId ? { termId } : {}),
-        ...(committeeListId ? { committeeListId } : {}),
-        ...(status ? { status } : {}),
-      },
+      where: petitionOutcomeWhere({ termId, committeeListId, status }),
       include: {
-        voterRecord: {
-          select: {
-            VRCNUM: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
+        voterRecord: PETITION_OUTCOME_VOTER_SELECT,
         committeeList: {
           select: {
             id: true,
@@ -51,33 +45,15 @@ async function getPetitionOutcomesHandler(req: NextRequest, _session: Session) {
           select: { id: true, label: true },
         },
       },
-      orderBy: [
-        { committeeListId: "asc" },
-        { termId: "asc" },
-        { petitionSeatNumber: "asc" },
-        { petitionPrimaryDate: "desc" },
-      ],
+      orderBy: PETITION_OUTCOME_ORDER,
     });
 
     const payload = memberships.map((m) => ({
-      id: m.id,
-      voterRecordId: m.voterRecordId,
-      voter: m.voterRecord
-        ? {
-            VRCNUM: m.voterRecord.VRCNUM,
-            firstName: m.voterRecord.firstName,
-            lastName: m.voterRecord.lastName,
-          }
-        : null,
+      ...toPetitionOutcomeContext(m),
       committeeListId: m.committeeListId,
       committee: m.committeeList,
       termId: m.termId,
       term: m.term,
-      seatNumber: m.seatNumber,
-      petitionSeatNumber: m.petitionSeatNumber,
-      status: m.status,
-      petitionPrimaryDate: m.petitionPrimaryDate,
-      petitionVoteCount: m.petitionVoteCount,
     }));
 
     return NextResponse.json(payload, { status: 200 });
@@ -90,4 +66,7 @@ async function getPetitionOutcomesHandler(req: NextRequest, _session: Session) {
   }
 }
 
-export const GET = withPrivilege(PrivilegeLevel.Admin, getPetitionOutcomesHandler);
+export const GET = withPrivilege(
+  PrivilegeLevel.Admin,
+  getPetitionOutcomesHandler,
+);

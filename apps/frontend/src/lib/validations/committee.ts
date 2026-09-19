@@ -5,7 +5,9 @@ import {
   type IneligibilityReason,
   type VoterRecord,
   MeetingType,
+  MembershipStatus,
   MembershipType,
+  PrivilegeLevel,
   RemovalReason,
   ResignationMethod,
 } from "@prisma/client";
@@ -799,3 +801,264 @@ export const rosterResponseSchema = z.object({
 });
 
 export type RosterResponse = z.infer<typeof rosterResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Committee detail — GET /api/committee/[committeeListId]/detail
+// See docs/SRS/COMMITTEES_WORKSPACE_UI_IMPLEMENTATION_PLAN.md §5 "Detail" and
+// .scratch/committees-workspace/history-inventory.md §4 (history shape).
+// ---------------------------------------------------------------------------
+
+/** Route params: the `[committeeListId]` path segment arrives as a string. */
+export const committeeDetailParamsSchema = z
+  .object({
+    committeeListId: z
+      .string()
+      .trim()
+      .regex(/^\d+$/, "committeeListId must be a positive integer")
+      .transform(Number)
+      .pipe(z.number().int().positive("committeeListId must be a positive integer")),
+  })
+  .strict();
+
+export type CommitteeDetailParams = z.infer<typeof committeeDetailParamsSchema>;
+
+/** How many history events the detail response carries; `hasMore` flags overflow. */
+export const COMMITTEE_DETAIL_HISTORY_LIMIT = 50;
+
+/** SRS 2.7 — per-seat designation-weight breakdown (shared-prisma `DesignationWeightResult`). */
+export const designationWeightSummarySchema = z.object({
+  totalWeight: z.number(),
+  totalContributingSeats: z.number().int(),
+  seats: z.array(
+    z.object({
+      seatNumber: z.number().int(),
+      isPetitioned: z.boolean(),
+      isOccupied: z.boolean(),
+      occupantMembershipType: z.nativeEnum(MembershipType).nullable(),
+      seatWeight: z.number().nullable(),
+      contributes: z.boolean(),
+      contributionWeight: z.number(),
+    }),
+  ),
+  missingWeightSeatNumbers: z.array(z.number().int()),
+});
+
+export type DesignationWeightSummary = z.infer<
+  typeof designationWeightSummarySchema
+>;
+
+/** A voter named in a detail response: VRCNUM + name (Leader-visible, like roster occupants). */
+const detailVoterSchema = z.object({
+  voterRecordId: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+});
+
+/**
+ * A SUBMITTED membership awaiting review. Leaders in jurisdiction see who was
+ * submitted, when, and whom they would replace; the submitter's identity,
+ * request notes, eligibility warnings and contact are Admin-only.
+ */
+export const pendingMembershipSchema = detailVoterSchema.extend({
+  membershipId: z.string(),
+  submittedAt: z.string(),
+  /** true when the caller is the submitter (Leaders can recognise their own requests). */
+  isOwnSubmission: z.boolean(),
+  /** From `submissionMetadata.removeMemberId`; null when the request is a plain add. */
+  replacementFor: detailVoterSchema.nullable(),
+  /** Admin only. */
+  submittedBy: z.object({ id: z.string(), name: z.string().nullable() }).optional(),
+  /** Admin only — free text entered by the requester. */
+  requestNotes: z.string().optional(),
+  /** Admin only — SRS §2.2 warning snapshot at submission time. */
+  eligibilityWarnings: z.array(z.unknown()).optional(),
+  /** Admin only — `submissionMetadata` contact, falling back to the voter record. */
+  contact: rosterContactSchema.optional(),
+});
+
+export type PendingMembership = z.infer<typeof pendingMembershipSchema>;
+
+/** SRS 2.6 — one petition candidate as `/api/admin/petition-outcomes` lists it (Admin-only). */
+export const petitionOutcomeContextSchema = z.object({
+  id: z.string(),
+  voterRecordId: z.string(),
+  voter: z
+    .object({
+      VRCNUM: z.string(),
+      firstName: z.string().nullable(),
+      lastName: z.string().nullable(),
+    })
+    .nullable(),
+  seatNumber: z.number().int().nullable(),
+  petitionSeatNumber: z.number().int().nullable(),
+  /** Outcome (ACTIVE / PETITIONED_LOST / PETITIONED_TIE), or the current status if the member since left. */
+  status: z.nativeEnum(MembershipStatus),
+  petitionPrimaryDate: z.string().nullable(),
+  petitionVoteCount: z.number().int().nullable(),
+});
+
+export type PetitionOutcomeContext = z.infer<typeof petitionOutcomeContextSchema>;
+
+// --- History (inventory §4) --------------------------------------------------
+
+/** Who acted. Role for every reader; the staff member's name is Admin-only. */
+export const historyActorSchema = z.object({
+  role: z.nativeEnum(PrivilegeLevel),
+  name: z.string().nullable().optional(),
+});
+
+/** Whom the event is about. Name at jurisdiction scope (roster policy); id Admin-only. */
+export const historyMemberSchema = z.object({
+  name: z.string(),
+  seatNumber: z.number().int().nullable(),
+  voterRecordId: z.string().optional(),
+});
+
+/** Present only when the event's `meetingRecordId` resolved; `notes` Admin-only. */
+export const historyMeetingSchema = z.object({
+  id: z.string(),
+  meetingDate: z.string(),
+  meetingType: z.nativeEnum(MeetingType),
+  notes: z.string().nullable().optional(),
+});
+
+/**
+ * Provenance, from `AuditLog.metadata.source`; "meeting" when the event carries
+ * a meeting; "manual" when absent; "other" for a source value this build does
+ * not know.
+ */
+export const historySourceSchema = z.enum([
+  "manual",
+  "meeting",
+  "petition_outcome",
+  "bulk_import_sync",
+  "boe_flagging",
+  "discrepancy_accept",
+  "discrepancy_undo",
+  "other",
+]);
+
+export type HistorySource = z.infer<typeof historySourceSchema>;
+
+const historyEventBase = {
+  /** AuditLog.id */
+  id: z.string(),
+  /** AuditLog.timestamp, ISO */
+  at: z.string(),
+  actor: historyActorSchema,
+  member: historyMemberSchema,
+  source: historySourceSchema,
+};
+
+/**
+ * One membership-history event. Fields marked Admin-only are omitted (not
+ * nulled) for Leaders; see the privilege matrix in the history inventory §4.
+ */
+export const historyEventSchema = z.discriminatedUnion("kind", [
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("submitted"),
+    /** Admin only. */
+    requestNotes: z.string().optional(),
+    /** Admin only — the member this submission intends to replace. */
+    replacementFor: historyMemberSchema.optional(),
+  }),
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("rejected"),
+    meeting: historyMeetingSchema.optional(),
+    /** Admin only. */
+    rejectionNote: z.string().nullable().optional(),
+    /** Admin only — set when the system rejected for capacity, not a person. */
+    systemReason: z.literal("capacity").optional(),
+  }),
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("confirmed"),
+    /** Always written on accept; optional only because a MeetingRecord could be missing. */
+    meeting: historyMeetingSchema.optional(),
+    membershipType: z.nativeEnum(MembershipType).nullable(),
+  }),
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("activated"),
+    membershipType: z.nativeEnum(MembershipType).nullable().optional(),
+    /** Admin only. */
+    overrideReason: z.string().optional(),
+    /** Admin only. */
+    eligibilityWarnings: z.array(z.unknown()).optional(),
+  }),
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("resigned"),
+    /** `resignationDateReceived`, ISO. */
+    effectiveDate: z.string().optional(),
+    /** Admin only. */
+    method: z.nativeEnum(ResignationMethod).optional(),
+    /** Admin only. */
+    reason: z.nativeEnum(RemovalReason).optional(),
+    /** Admin only. */
+    notes: z.string().optional(),
+  }),
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("removed"),
+    /** Admin only. */
+    reason: z.nativeEnum(RemovalReason).optional(),
+    /** Admin only. */
+    notes: z.string().optional(),
+    /** Admin only — the incoming member of an accepted replacement request. */
+    replacedBy: historyMemberSchema.optional(),
+  }),
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("petition_outcome"),
+    outcome: z.enum(["won", "lost", "tie"]),
+    seatNumber: z.number().int().nullable(),
+    primaryDate: z.string().nullable(),
+    voteCount: z.number().int().nullable(),
+    /** Set when a discrepancy undo restored this outcome; not a fresh result. */
+    reversed: z.literal(true).optional(),
+  }),
+]);
+
+export type HistoryEvent = z.infer<typeof historyEventSchema>;
+export type HistoryEventKind = HistoryEvent["kind"];
+
+export const committeeDetailResponseSchema = z.object({
+  /** Identity: `committeeListId` for URLs/actions plus the composite key for adapters (plan §3.11). */
+  committee: z.object({
+    committeeListId: z.number().int(),
+    cityTown: z.string(),
+    legDistrict: z.number().int(),
+    electionDistrict: z.number().int(),
+    termId: z.string(),
+    /** SRS §8.1 — Decimal serialized; null until known. */
+    ltedWeight: z.string().nullable(),
+  }),
+  term: z.object({
+    id: z.string(),
+    label: z.string(),
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+  maxSeatsPerLted: z.number().int(),
+  /** Same rollup the grid shows for this committee (ticket 05's builder). */
+  rollup: edRollupSchema,
+  /** One row per seat plus unassigned rows; `contact` present iff Admin. */
+  rows: z.array(seatRosterRowSchema),
+  designationWeightSummary: designationWeightSummarySchema,
+  /** SUBMITTED memberships in the active term, oldest first. */
+  pending: z.array(pendingMembershipSchema),
+  /** Admin only — omitted for Leaders. */
+  petitionContext: z.array(petitionOutcomeContextSchema).optional(),
+  history: z.object({
+    /** Newest first, capped at COMMITTEE_DETAIL_HISTORY_LIMIT. */
+    events: z.array(historyEventSchema),
+    hasMore: z.boolean(),
+  }),
+});
+
+export type CommitteeDetailResponse = z.infer<
+  typeof committeeDetailResponseSchema
+>;

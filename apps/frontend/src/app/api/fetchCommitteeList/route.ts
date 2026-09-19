@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
-import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
+import {
+  withPrivilege,
+  type SessionWithUser,
+} from "~/app/api/lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import * as Sentry from "@sentry/nextjs";
 import { validateRequest } from "~/app/api/lib/validateRequest";
@@ -13,10 +16,12 @@ import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
   getActiveTermId,
   getGovernanceConfig,
-  getUserJurisdictions,
-  committeeMatchesJurisdictions,
 } from "~/app/api/lib/committeeValidation";
-import { computeDesignationWeightFromData } from "~/lib/designationWeight";
+import {
+  activeCommitteeInclude,
+  buildDesignationWeightSummary,
+  canAccessCommittee,
+} from "~/app/api/lib/committeeRead";
 
 async function getCommitteeList(req: NextRequest, session: SessionWithUser) {
   // Extract query parameters
@@ -85,15 +90,8 @@ async function getCommitteeList(req: NextRequest, session: SessionWithUser) {
           termId: activeTermId,
         },
       },
-      include: {
-        // SRS 1.2 — Return active memberships with voter data
-        memberships: {
-          where: { status: "ACTIVE", termId: activeTermId },
-          include: { voterRecord: true },
-        },
-        // SRS 1.4 — Seat roster with weight
-        seats: { orderBy: { seatNumber: "asc" } },
-      },
+      // SRS 1.2 / 1.4 — active memberships with voter data + seat roster
+      include: activeCommitteeInclude(activeTermId),
     });
 
     if (!committee) {
@@ -104,48 +102,31 @@ async function getCommitteeList(req: NextRequest, session: SessionWithUser) {
     }
 
     // SRS 3.1 — Leader may only fetch committees in their jurisdictions
-    const privilegeLevel = session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
-    const jurisdictions = await getUserJurisdictions(
-      session.user.id,
-      activeTermId,
+    const privilegeLevel =
+      session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess;
+    const allowed = await canAccessCommittee({
+      userId: session.user.id,
       privilegeLevel,
-    );
-    if (jurisdictions !== null) {
-      if (
-        !committeeMatchesJurisdictions(
-          committee.cityTown,
-          committee.legDistrict,
-          jurisdictions,
-        )
-      ) {
-        return NextResponse.json(
-          { error: "You do not have access to this committee" },
-          { status: 403 },
-        );
-      }
+      termId: activeTermId,
+      committee,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "You do not have access to this committee" },
+        { status: 403 },
+      );
     }
 
     const config = await getGovernanceConfig();
     const designationWeightSummary = includeDesignationWeightSummary
-      ? computeDesignationWeightFromData({
-          committeeListId: committee.id,
-          termId: activeTermId,
-          seats: committee.seats,
-          activeMemberships: committee.memberships.map((m) => ({
-            seatNumber: m.seatNumber,
-            membershipType: m.membershipType,
-            voterRecordId: m.voterRecordId,
-          })),
-        })
+      ? buildDesignationWeightSummary(committee, activeTermId)
       : undefined;
 
     return NextResponse.json(
       {
         ...committee,
         maxSeatsPerLted: config.maxSeatsPerLted,
-        ...(designationWeightSummary
-          ? { designationWeightSummary }
-          : {}),
+        ...(designationWeightSummary ? { designationWeightSummary } : {}),
       },
       { status: 200 },
     );
