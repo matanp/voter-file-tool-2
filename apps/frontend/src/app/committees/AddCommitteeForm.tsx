@@ -294,12 +294,11 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
             extraSearchQuery={extraSearchQuery}
             optionalExtraSearch="Only Eligible Candidates"
             submitButtonText="Find Members to Add"
-            headerText="Add Committee Member"
           />
         )}
         {records.length > 0 && validCommittee && (
           <>
-            <h1 className="primary-header">Search Results</h1>
+            <h3 className="text-base font-medium">Search results</h3>
             {isAdmin && selectedRecord != null && (
               <>
                 <EligibilitySnapshotPanel
@@ -449,7 +448,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         )}
         {records.length === 0 && hasSearched && (
           <>
-            <h1 className="primary-header">Search Results</h1>
+            <h3 className="text-base font-medium">Search results</h3>
             <p>No results found.</p>
           </>
         )}

@@ -7,6 +7,7 @@ import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
+import { singleCommitteeScope } from "./committeeScope";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
 import {
   getActiveTermId,
@@ -48,6 +49,14 @@ const CommitteeLists = async () => {
     }
   }
 
+  // Leaders assigned a single city/LD scope skip the selector and land on that
+  // roster directly. Derived from the filtered lists (not the jurisdiction rows)
+  // so a null-LD jurisdiction over a multi-LD city still shows the picker.
+  const initialScope =
+    privilegeLevel === PrivilegeLevel.Leader
+      ? singleCommitteeScope(committeeLists)
+      : null;
+
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
   // SRS 1.2 — Count SUBMITTED CommitteeMemberships instead of CommitteeRequests
@@ -79,7 +88,10 @@ const CommitteeLists = async () => {
           <GenerateCommitteeReportButton />
         </div>
       )}
-      <CommitteeSelector committeeLists={committeeLists} />
+      <CommitteeSelector
+        committeeLists={committeeLists}
+        initialScope={initialScope}
+      />
     </div>
   );
 };

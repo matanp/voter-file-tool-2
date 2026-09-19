@@ -1,7 +1,7 @@
 "use client";
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Plus } from "lucide-react";
 
 import {
   type MembershipType,
@@ -24,13 +24,20 @@ import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { CommitteeSummaryBlock } from "./CommitteeSummaryBlock";
 import { CommitteeRosterTable } from "./CommitteeRosterTable";
-import { Card, CardContent, CardFooter } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useApiQuery } from "~/hooks/useApiQuery";
 import { useToast } from "~/components/ui/use-toast";
+import type { CommitteeScope } from "./committeeScope";
 import {
   Dialog,
   DialogContent,
@@ -58,7 +65,25 @@ const REMOVAL_REASON_LABELS: Record<RemovalReason, string> = {
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeList[];
+  /**
+   * When set, the selector opens on this scope's roster with the city/LD
+   * pickers replaced by a label — used for leaders who own exactly one
+   * committee and would otherwise re-pick it on every visit.
+   */
+  initialScope?: CommitteeScope | null;
 }
+
+const isRochester = (city: string) => city.toUpperCase() === "ROCHESTER";
+
+/** Distinct LDs for a city, ascending, as dropdown values. */
+const legDistrictsForCity = (lists: CommitteeList[], city: string) =>
+  Array.from(
+    new Set(
+      lists
+        .filter((list) => list.cityTown === city)
+        .map((list) => String(list.legDistrict)),
+    ),
+  ).sort((a, b) => Number(a) - Number(b));
 
 type DesignationWeightSummary = NonNullable<
   FetchCommitteeListResponse["designationWeightSummary"]
@@ -79,12 +104,21 @@ type PetitionOutcomeContextRow = {
 
 const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
+  initialScope = null,
 }) => {
   const { actingPermissions } = useContext(GlobalContext);
   const { toast } = useToast();
-  const [selectedCity, setSelectedCity] = useState<string>("");
-  const [selectedLegDistrict, setSelectedLegDistrict] = useState<string>("");
-  const [useLegDistrict, setUseLegDistrict] = useState<boolean>(false);
+  const [selectedCity, setSelectedCity] = useState<string>(
+    initialScope?.cityTown ?? "",
+  );
+  const [selectedLegDistrict, setSelectedLegDistrict] = useState<string>(
+    initialScope && isRochester(initialScope.cityTown)
+      ? String(initialScope.legDistrict)
+      : "",
+  );
+  const [useLegDistrict, setUseLegDistrict] = useState<boolean>(
+    initialScope ? isRochester(initialScope.cityTown) : false,
+  );
   const [selectedDistrict, setSelectedDistrict] = useState<number>(-1);
   const [memberships, setMemberships] = useState<
     Array<{
@@ -107,7 +141,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [showConfirmForm, setShowConfirmForm] = useState<boolean>(false);
   const [requestRemoveRecord, setRequestRemoveRecord] =
     useState<VoterRecord | null>(null);
-  const [legDistricts, setLegDistricts] = useState<string[]>([]);
+  const [legDistricts, setLegDistricts] = useState<string[]>(() =>
+    initialScope ? legDistrictsForCity(committeeLists, initialScope.cityTown) : [],
+  );
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [resignModalMember, setResignModalMember] =
     useState<VoterRecord | null>(null);
@@ -121,6 +157,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const [removeNotes, setRemoveNotes] = useState<string>("");
 
   const [listLoading, setListLoading] = useState<boolean>(false);
+  // Add-member workflow lives behind a disclosure so the detail page leads
+  // with status and members; closed by default and after a successful add.
+  const [showAddMember, setShowAddMember] = useState<boolean>(false);
 
   // Roster-first navigation: roster auto-loads at scope; detail loads on explicit action.
   const [contentLayer, setContentLayer] = useState<"roster" | "detail">("roster");
@@ -180,6 +219,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     setLtedWeightInput("");
     setSeats([]);
     setDesignationWeightSummary(null);
+    setShowAddMember(false);
   }, []);
 
   /** Resolves legDistrict query param for detail APIs (towns store actual LD, not sentinel). */
@@ -486,20 +526,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       setSelectedDistrict(-1);
       setSelectedLegDistrict("");
     }
-    if (city.toUpperCase() === "ROCHESTER") {
-      setUseLegDistrict(true);
-    } else {
-      setUseLegDistrict(false);
-    }
+    setUseLegDistrict(isRochester(city));
 
-    const legDistricts = Array.from(
-      new Set(
-        committeeLists
-          .filter((list) => list.cityTown === city)
-          .map((list) => String(list.legDistrict)),
-      ),
-    ).sort((a, b) => Number(a) - Number(b));
-
+    const legDistricts = legDistrictsForCity(committeeLists, city);
     setLegDistricts(legDistricts);
 
     if (legDistricts[0] && legDistricts.length === 1) {
@@ -728,9 +757,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       return "Committee detail";
     }
     if (useLegDistrict && selectedLegDistrict) {
-      return `Committee detail — ${selectedCity} · LD ${selectedLegDistrict} · ED ${selectedDistrict}`;
+      return `${selectedCity} · LD ${selectedLegDistrict} · ED ${selectedDistrict}`;
     }
-    return `Committee detail — ${selectedCity} · ED ${selectedDistrict}`;
+    return `${selectedCity} · ED ${selectedDistrict}`;
   };
 
   // SRS 3.1 — Empty state: Leader with no jurisdictions assigned
@@ -786,18 +815,29 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         }
       >
         <Card className="bg-primary-foreground p-2 flex flex-wrap items-end gap-4">
-        <div className="flex flex-col">
-          <label className="font-extralight text-sm pl-1">City</label>
-          <ComboboxDropdown
-            items={Array.from(cities).map((city) => ({
-              label: city,
-              value: city,
-            }))}
-            displayLabel={"Select City"}
-            onSelect={handleCityChange}
-          />
-        </div>
-        {useLegDistrict && (
+        {initialScope ? (
+          <div className="flex flex-col">
+            <label className="font-extralight text-sm pl-1">Committee</label>
+            <p className="px-1 py-2 font-medium" data-testid="committee-scope">
+              {useLegDistrict
+                ? `${selectedCity} · LD ${selectedLegDistrict}`
+                : selectedCity}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            <label className="font-extralight text-sm pl-1">City</label>
+            <ComboboxDropdown
+              items={Array.from(cities).map((city) => ({
+                label: city,
+                value: city,
+              }))}
+              displayLabel={"Select City"}
+              onSelect={handleCityChange}
+            />
+          </div>
+        )}
+        {useLegDistrict && !initialScope && (
           <div className="flex flex-col">
             <Label
               htmlFor="district-select"
@@ -917,50 +957,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           </CardContent>
         </Card>
       ) : (
-        <div>
-          <AddCommitteeForm
-            electionDistrict={selectedDistrict}
-            city={selectedCity}
-            legDistrict={selectedLegDistrict}
-            committeeListId={selectedCommitteeId}
-            committeeList={memberships.map((m) => m.voterRecord)}
-            maxSeatsPerLted={maxSeatsPerLted}
-            onAdd={(city, district, legDistrict) => {
-              fetchCommitteeList(city, district, legDistrict).catch(
-                console.error,
-              );
-              refreshRosterIfScoped();
-            }}
-          />
-          {selectedCommitteeId != null &&
-            isAdmin && (
-              <div className="pt-2 pb-4 flex flex-wrap gap-4 items-end">
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="lted-weight">LTED Total Weight</Label>
-                  <Input
-                    id="lted-weight"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="Enter weight"
-                    value={ltedWeightInput}
-                    onChange={(e) => setLtedWeightInput(e.target.value)}
-                    className="w-32"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleSaveLtedWeight}
-                  disabled={updateLtedWeightMutation.loading}
-                >
-                  {updateLtedWeightMutation.loading ? "Saving..." : "Save"}
-                </Button>
-              </div>
-            )}
+        <div className="space-y-8 pt-4">
           {selectedCommitteeId != null &&
             designationWeightSummary &&
             vacancyCount != null && (
-            <div className="pt-2 pb-4">
               <CommitteeSummaryBlock
                 vacancyCount={vacancyCount}
                 totalSeats={seats.length}
@@ -969,13 +969,197 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                   designationWeightSummary.missingWeightSeatNumbers ?? []
                 }
               />
+            )}
+          {selectedCommitteeId != null &&
+            actingPermissions !== PrivilegeLevel.ReadAccess && (
+              <section className="space-y-4">
+                <Button
+                  type="button"
+                  variant={showAddMember ? "secondary" : "outline"}
+                  className="gap-2"
+                  aria-expanded={showAddMember}
+                  aria-controls="add-committee-member-panel"
+                  onClick={() => setShowAddMember((open) => !open)}
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  Add committee member
+                </Button>
+                {/* Stays mounted while closed so search results, eligibility
+                    checks, and post-add warnings survive toggling. */}
+                <div
+                  id="add-committee-member-panel"
+                  className="rounded-lg border p-4"
+                  hidden={!showAddMember}
+                >
+                  <AddCommitteeForm
+                    electionDistrict={selectedDistrict}
+                    city={selectedCity}
+                    legDistrict={selectedLegDistrict}
+                    committeeListId={selectedCommitteeId}
+                    committeeList={memberships.map((m) => m.voterRecord)}
+                    maxSeatsPerLted={maxSeatsPerLted}
+                    onAdd={(city, district, legDistrict) => {
+                      setShowAddMember(false);
+                      fetchCommitteeList(city, district, legDistrict).catch(
+                        console.error,
+                      );
+                      refreshRosterIfScoped();
+                    }}
+                  />
+                </div>
+              </section>
+            )}
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold">Members</h2>
+            {selectedCommitteeId != null && seats.length > 0 && (
+              <div>
+                <h3 className="text-base font-medium pb-2">Seat roster</h3>
+                <div className="overflow-x-auto max-w-[800px]">
+                  <table className="w-full text-sm border border-primary-200">
+                    <thead className="bg-primary-100">
+                      <tr>
+                        <th className="text-left px-2 py-1">Seat</th>
+                        <th className="text-left px-2 py-1">Occupant</th>
+                        <th className="text-left px-2 py-1">Type</th>
+                        <th className="text-right px-2 py-1">Weight</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {seats.map((seat) => {
+                        const occupant = memberships.find(
+                          (m) => m.seatNumber === seat.seatNumber,
+                        );
+                        const weightStr =
+                          seat.weight != null ? String(seat.weight) : "—";
+                        const occupantName = occupant
+                          ? [occupant.voterRecord.lastName, occupant.voterRecord.firstName]
+                              .filter(Boolean)
+                              .join(", ") || occupant.voterRecord.VRCNUM
+                          : "—";
+                        return (
+                          <tr
+                            key={seat.seatNumber}
+                            className="border-t border-primary-200"
+                          >
+                            <td className="px-2 py-1">{seat.seatNumber}</td>
+                            <td className="px-2 py-1">{occupantName}</td>
+                            <td className="px-2 py-1 text-muted-foreground">
+                              {seat.isPetitioned ? "Petitioned" : "Appointed"}
+                            </td>
+                            <td className="px-2 py-1 text-right">{weightStr}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <div>
+              {memberships.length > 0 ? (
+                <div className="flex gap-4 w-full flex-wrap min-h-66 h-max overflow-x-auto">
+                  {memberships.map(
+                    ({ voterRecord, membershipType, submissionMetadata }) => (
+                    <div key={voterRecord.VRCNUM}>
+                      <Card className="w-full min-w-[600px] h-full flex flex-col">
+                        <CardContent className="flex-1">
+                          <VoterCard
+                            record={voterRecord}
+                            committee={true}
+                            membershipType={membershipType}
+                            submissionMetadata={submissionMetadata}
+                          />
+                        </CardContent>
+                        <CardFooter className="h-full">
+                          {hasPermissionFor(
+                            actingPermissions,
+                            PrivilegeLevel.Admin,
+                          ) && (
+                            <div className="h-full flex flex-wrap gap-2">
+                              <Button
+                                className="mt-auto"
+                                type="button"
+                                variant="outline"
+                                onClick={() => handleOpenResignModal(voterRecord)}
+                                disabled={
+                                  removingId === voterRecord.VRCNUM ||
+                                  removeCommitteeMemberMutation.loading
+                                }
+                              >
+                                Record Resignation
+                              </Button>
+                              <Button
+                                className="mt-auto"
+                                type="button"
+                                variant="outline"
+                                aria-busy={removingId === voterRecord.VRCNUM}
+                                onClick={() => handleOpenRemoveModal(voterRecord)}
+                                disabled={removingId === voterRecord.VRCNUM}
+                              >
+                                Remove Member
+                              </Button>
+                            </div>
+                          )}
+                          {actingPermissions === PrivilegeLevel.RequestAccess && (
+                            <Button
+                              onClick={(e) =>
+                                handleRequestRemove(e, voterRecord)
+                              }
+                            >
+                              Remove or Replace Member
+                            </Button>
+                          )}
+                        </CardFooter>
+                      </Card>
+                    </div>
+                    ),
+                  )}
+                </div>
+              ) : (
+                <p>{noContentMessage()}</p>
+              )}
             </div>
+          </section>
+          {selectedCommitteeId != null && isAdmin && (
+            <section>
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-semibold">
+                    Committee settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor="lted-weight">LTED total weight</Label>
+                      <Input
+                        id="lted-weight"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="Enter weight"
+                        value={ltedWeightInput}
+                        onChange={(e) => setLtedWeightInput(e.target.value)}
+                        className="w-32"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleSaveLtedWeight}
+                      disabled={updateLtedWeightMutation.loading}
+                    >
+                      {updateLtedWeightMutation.loading ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
           )}
           {selectedCommitteeId != null &&
             isAdmin && (
-              <div className="pt-2 pb-4">
+              <section className="space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h2 className="font-semibold">Petition Outcome Context</h2>
+                  <h2 className="text-lg font-semibold">Petition outcomes</h2>
                   {petitionContextHref && (
                     <Button asChild type="button" variant="outline" size="sm">
                       <Link href={petitionContextHref}>
@@ -1041,14 +1225,14 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                     </table>
                   </div>
                 )}
-              </div>
+              </section>
             )}
           {selectedCommitteeId != null &&
             designationWeightSummary &&
             isAdmin && (
-              <div className="pt-2 pb-4">
-                <h2 className="font-semibold pb-2">
-                  Designation Weight Verification
+              <section className="space-y-2">
+                <h2 className="text-lg font-semibold">
+                  Designation weight verification
                 </h2>
                 <div className="overflow-x-auto max-w-[800px]">
                   <table className="w-full text-sm border border-primary-200">
@@ -1085,116 +1269,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </section>
             )}
-          {selectedCommitteeId != null && seats.length > 0 && (
-            <div className="pt-2 pb-4">
-              <h2 className="font-semibold pb-2">Seat Roster</h2>
-              <div className="overflow-x-auto max-w-[800px]">
-                <table className="w-full text-sm border border-primary-200">
-                  <thead className="bg-primary-100">
-                    <tr>
-                      <th className="text-left px-2 py-1">Seat</th>
-                      <th className="text-left px-2 py-1">Occupant</th>
-                      <th className="text-left px-2 py-1">Type</th>
-                      <th className="text-right px-2 py-1">Weight</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seats.map((seat) => {
-                      const occupant = memberships.find(
-                        (m) => m.seatNumber === seat.seatNumber,
-                      );
-                      const weightStr =
-                        seat.weight != null ? String(seat.weight) : "—";
-                      const occupantName = occupant
-                        ? [occupant.voterRecord.lastName, occupant.voterRecord.firstName]
-                            .filter(Boolean)
-                            .join(", ") || occupant.voterRecord.VRCNUM
-                        : "—";
-                      return (
-                        <tr
-                          key={seat.seatNumber}
-                          className="border-t border-primary-200"
-                        >
-                          <td className="px-2 py-1">{seat.seatNumber}</td>
-                          <td className="px-2 py-1">{occupantName}</td>
-                          <td className="px-2 py-1 text-muted-foreground">
-                            {seat.isPetitioned ? "Petitioned" : "Appointed"}
-                          </td>
-                          <td className="px-2 py-1 text-right">{weightStr}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          <div className="pt-2 pb-4">
-            {memberships.length > 0 ? (
-              <div className="flex gap-4 w-full flex-wrap min-h-66 h-max">
-                {memberships.map(
-                  ({ voterRecord, membershipType, submissionMetadata }) => (
-                  <div key={voterRecord.VRCNUM}>
-                    <Card className="w-full min-w-[600px] h-full flex flex-col">
-                      <CardContent className="flex-1">
-                        <VoterCard
-                          record={voterRecord}
-                          committee={true}
-                          membershipType={membershipType}
-                          submissionMetadata={submissionMetadata}
-                        />
-                      </CardContent>
-                      <CardFooter className="h-full">
-                        {hasPermissionFor(
-                          actingPermissions,
-                          PrivilegeLevel.Admin,
-                        ) && (
-                          <div className="h-full flex flex-wrap gap-2">
-                            <Button
-                              className="mt-auto"
-                              type="button"
-                              variant="outline"
-                              onClick={() => handleOpenResignModal(voterRecord)}
-                              disabled={
-                                removingId === voterRecord.VRCNUM ||
-                                removeCommitteeMemberMutation.loading
-                              }
-                            >
-                              Record Resignation
-                            </Button>
-                            <Button
-                              className="mt-auto"
-                              type="button"
-                              variant="outline"
-                              aria-busy={removingId === voterRecord.VRCNUM}
-                              onClick={() => handleOpenRemoveModal(voterRecord)}
-                              disabled={removingId === voterRecord.VRCNUM}
-                            >
-                              Remove Member
-                            </Button>
-                          </div>
-                        )}
-                        {actingPermissions === PrivilegeLevel.RequestAccess && (
-                          <Button
-                            onClick={(e) =>
-                              handleRequestRemove(e, voterRecord)
-                            }
-                          >
-                            Remove or Replace Member
-                          </Button>
-                        )}
-                      </CardFooter>
-                    </Card>
-                  </div>
-                  ),
-                )}
-              </div>
-            ) : (
-              <p>{noContentMessage()}</p>
-            )}
-          </div>
         </div>
           )}
         </>
