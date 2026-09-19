@@ -86,8 +86,6 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const validCommittee =
     city !== "" && legDistrict !== "" && electionDistrict > 0;
-  const buildBlockedSubmissionToastDescription = (messages: string[]): string =>
-    `${messages.join(" ")} ${ELIGIBILITY_ESCALATION_MESSAGE}`;
 
   // API mutation hook
   const addCommitteeMemberMutation = useApiMutation<
@@ -124,14 +122,10 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         }
       ).apiErrorBody;
       if (apiBody?.error === "INELIGIBLE") {
+        // Preflight passed but the server disagreed; the persistent alert
+        // below is the only place this is surfaced (no toast).
         const reasons = Array.isArray(apiBody.reasons) ? apiBody.reasons : [];
-        const failureMessages = getIneligibilityMessages(reasons);
         setIneligibilityReasons(reasons);
-        toast({
-          title: "Submission blocked",
-          description: buildBlockedSubmissionToastDescription(failureMessages),
-          variant: "destructive",
-        });
       } else {
         setIneligibilityReasons(null);
         toast({
@@ -182,8 +176,6 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       })
       .then((data) => {
         setPreflight(data);
-        setIneligibilityReasons(data.hardStops.length > 0 ? data.hardStops : null);
-        setWarnings(data.warnings.length > 0 ? data.warnings : null);
       })
       .catch((error) => {
         if (error instanceof Error && error.name === "AbortError") {
@@ -192,8 +184,6 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         const message =
           error instanceof Error ? error.message : "Failed to check eligibility";
         setPreflightError(message);
-        setIneligibilityReasons(null);
-        setWarnings(null);
       })
       .finally(() => {
         setPreflightLoading(false);
@@ -216,7 +206,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
 
   useEffect(() => {
     setIneligibilityReasons(null);
-  }, [selectedRecord?.VRCNUM, membershipType, contactEmail, contactPhone]);
+    setWarnings(null);
+  }, [selectedRecord?.VRCNUM]);
 
   const handleAddCommitteeMember = async (record: VoterRecord) => {
     setIneligibilityReasons(null);
@@ -246,7 +237,6 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       }
 
       if (preflight.hardStops.length > 0) {
-        setIneligibilityReasons(preflight.hardStops);
         return;
       }
 
@@ -403,9 +393,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                 );
                 const isSelected = selectedRecord?.VRCNUM === record.VRCNUM;
                 const hasHardStops =
-                  isSelected &&
-                  (preflight?.hardStops.length ?? ineligibilityReasons?.length ?? 0) >
-                    0;
+                  isSelected && (preflight?.hardStops.length ?? 0) > 0;
                 const checkingEligibility = isSelected && preflightLoading;
                 const canSelectCandidate =
                   !member &&
