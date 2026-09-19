@@ -918,6 +918,20 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         </Card>
       ) : (
         <div>
+          <AddCommitteeForm
+            electionDistrict={selectedDistrict}
+            city={selectedCity}
+            legDistrict={selectedLegDistrict}
+            committeeListId={selectedCommitteeId}
+            committeeList={memberships.map((m) => m.voterRecord)}
+            maxSeatsPerLted={maxSeatsPerLted}
+            onAdd={(city, district, legDistrict) => {
+              fetchCommitteeList(city, district, legDistrict).catch(
+                console.error,
+              );
+              refreshRosterIfScoped();
+            }}
+          />
           {selectedCommitteeId != null &&
             isAdmin && (
               <div className="pt-2 pb-4 flex flex-wrap gap-4 items-end">
@@ -1181,20 +1195,6 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               <p>{noContentMessage()}</p>
             )}
           </div>
-          <AddCommitteeForm
-            electionDistrict={selectedDistrict}
-            city={selectedCity}
-            legDistrict={selectedLegDistrict}
-            committeeListId={selectedCommitteeId}
-            committeeList={memberships.map((m) => m.voterRecord)}
-            maxSeatsPerLted={maxSeatsPerLted}
-            onAdd={(city, district, legDistrict) => {
-              fetchCommitteeList(city, district, legDistrict).catch(
-                console.error,
-              );
-              refreshRosterIfScoped();
-            }}
-          />
         </div>
           )}
         </>

@@ -7,11 +7,18 @@ import { Label } from "~/components/ui/label";
  * submitter — stored on CommitteeMembership.submissionMetadata, never on
  * VoterRecord (see docs/SRS/SRS_GAPS_AND_CONSIDERATIONS.md §2.1a).
  */
-export default function ContactInfoLabel() {
+export default function ContactInfoLabel({
+  memberName,
+}: {
+  /** When known, names the member so the fields read as theirs. */
+  memberName?: string;
+}) {
   return (
     <div className="flex items-center gap-1.5">
       <Label className="text-sm font-medium">
-        Member&apos;s contact info (optional)
+        {memberName
+          ? `Contact info for ${memberName} (optional)`
+          : "Member's contact info (optional)"}
       </Label>
       <span className="group relative inline-flex">
         <button

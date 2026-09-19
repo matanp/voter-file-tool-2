@@ -74,9 +74,8 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   );
   const [preflightLoading, setPreflightLoading] = useState<boolean>(false);
   const [preflightError, setPreflightError] = useState<string | null>(null);
-  const [preflight, setPreflight] = useState<EligibilityPreflightResponse | null>(
-    null,
-  );
+  const [preflight, setPreflight] =
+    useState<EligibilityPreflightResponse | null>(null);
   const [submissionFailureMessages, setSubmissionFailureMessages] = useState<
     string[] | null
   >(null);
@@ -156,9 +155,9 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     })
       .then(async (response) => {
         if (!response.ok) {
-          const body = (await response.json().catch(() => null)) as
-            | { error?: string }
-            | null;
+          const body = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           throw new Error(body?.error ?? "Failed to check eligibility");
         }
         return (await response.json()) as EligibilityPreflightResponse;
@@ -171,7 +170,9 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           return;
         }
         const message =
-          error instanceof Error ? error.message : "Failed to check eligibility";
+          error instanceof Error
+            ? error.message
+            : "Failed to check eligibility";
         setPreflightError(message);
       })
       .finally(() => {
@@ -425,7 +426,13 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
               <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2 max-w-sm">
-              <ContactInfoLabel />
+              <ContactInfoLabel
+                memberName={
+                  requestAddMember
+                    ? `${requestAddMember.firstName ?? ""} ${requestAddMember.lastName ?? ""}`.trim()
+                    : undefined
+                }
+              />
               <Input
                 type="email"
                 placeholder="Email"
@@ -444,7 +451,8 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
           </div>
           {requestRemoveMember && !requestAddMember && (
             <p className="text-sm text-muted-foreground py-2">
-              To remove a member without replacement, contact your administrator.
+              To remove a member without replacement, contact your
+              administrator.
             </p>
           )}
           <Button
