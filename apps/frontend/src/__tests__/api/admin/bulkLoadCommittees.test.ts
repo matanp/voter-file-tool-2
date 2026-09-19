@@ -9,6 +9,7 @@ import * as fs from "fs";
 import { POST } from "~/app/api/admin/bulkLoadCommittees/route";
 import {
   Prisma,
+  type CommitteeList,
   PrivilegeLevel,
   type MembershipType,
   type VoterRecord,
@@ -24,8 +25,8 @@ import {
   createMockVoterRecord,
   createAuthTestSuite,
   objectContainingMatcher,
-  selectedRow,
   parseJsonResponseWith,
+  selectedRow,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import {
@@ -206,16 +207,31 @@ const createDiscrepancyEntry = (
   },
 });
 
+/** The route ignores what createMany returns beyond that it ran. */
+const createdDiscrepancies = { count: 1 };
+
 /**
- * The route ignores the row an upsert returns; only that it was called matters,
- * so the fixture carries just the columns a reader would look for.
+ * Plan discrepancies name a committee only by its compound identity; the route
+ * resolves the real ids from this term-wide lookup before writing.
  */
-const upsertedDiscrepancy = (VRCNUM: string) =>
-  selectedRow<{ id: string; VRCNUM: string; committeeId: number }>({
-    id: "cuid-1",
-    VRCNUM,
-    committeeId: 1,
-  });
+const termCommittees = [
+  selectedRow<
+    Pick<CommitteeList, "id" | "cityTown" | "legDistrict" | "electionDistrict">
+  >({
+    id: 11,
+    cityTown: "ROCHESTER",
+    legDistrict: 1,
+    electionDistrict: 1,
+  }),
+  selectedRow<
+    Pick<CommitteeList, "id" | "cityTown" | "legDistrict" | "electionDistrict">
+  >({
+    id: 12,
+    cityTown: "ROCHESTER",
+    legDistrict: 1,
+    electionDistrict: 2,
+  }),
+];
 
 const authenticateAdmin = () => authenticateAsAdmin("1");
 
@@ -236,6 +252,8 @@ describe("/api/admin/bulkLoadCommittees", () => {
     prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue({
       count: 0,
     });
+    prismaMock.committeeList.findMany.mockResolvedValue(termCommittees);
+    prismaMock.committeeUploadDiscrepancy.findMany.mockResolvedValue([]);
     prismaMock.voterRecord.findMany.mockResolvedValue([]);
   });
 
@@ -306,7 +324,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
         prismaMock.committeeUploadDiscrepancy.deleteMany,
       ).not.toHaveBeenCalled();
       expect(
-        prismaMock.committeeUploadDiscrepancy.upsert,
+        prismaMock.committeeUploadDiscrepancy.createMany,
       ).not.toHaveBeenCalled();
     });
 
@@ -396,8 +414,8 @@ describe("/api/admin/bulkLoadCommittees", () => {
       ]);
       applyRosterImportMock.mockResolvedValue(appliedImport({ discrepancies }));
       authenticateAdmin();
-      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
-        upsertedDiscrepancy("VRCNUM1"),
+      prismaMock.committeeUploadDiscrepancy.createMany.mockResolvedValue(
+        createdDiscrepancies,
       );
       prismaMock.voterRecord.findMany.mockResolvedValue([
         voterRecordRow({ VRCNUM: "VRCNUM1" }),
@@ -434,22 +452,29 @@ describe("/api/admin/bulkLoadCommittees", () => {
         prismaMock.committeeUploadDiscrepancy.deleteMany,
       ).toHaveBeenCalledWith({ where: { resolvedAt: null } });
       expect(
-        prismaMock.committeeUploadDiscrepancy.upsert,
-      ).toHaveBeenCalledTimes(2);
-      expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { VRCNUM: "VRCNUM1" },
-          create: objectContainingMatcher({
+        prismaMock.committeeUploadDiscrepancy.update,
+      ).not.toHaveBeenCalled();
+      // Only the advisory lock: nothing was reopened.
+      expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(
+        prismaMock.committeeUploadDiscrepancy.createMany,
+      ).toHaveBeenCalledTimes(1);
+      // Ids come from the term lookup, never the plan's placeholder committee id.
+      expect(
+        prismaMock.committeeUploadDiscrepancy.createMany,
+      ).toHaveBeenCalledWith({
+        data: [
+          objectContainingMatcher({
+            VRCNUM: "VRCNUM1",
+            committeeId: 11,
             incomingMembershipType: "PETITIONED",
           }),
-          update: objectContainingMatcher({
-            incomingMembershipType: "PETITIONED",
-          }),
-        }),
-      );
+          objectContainingMatcher({ VRCNUM: "VRCNUM2", committeeId: 12 }),
+        ],
+      });
     });
 
-    it("VRCNUM not found in DB: discrepancy still upserted (planning flags it)", async () => {
+    it("VRCNUM not found in DB: discrepancy still written (planning flags it)", async () => {
       const discrepancies = new Map([
         [
           "VRCNUM_NOT_IN_DB",
@@ -462,8 +487,8 @@ describe("/api/admin/bulkLoadCommittees", () => {
       ]);
       applyRosterImportMock.mockResolvedValue(appliedImport({ discrepancies }));
       authenticateAdmin();
-      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
-        upsertedDiscrepancy("VRCNUM_NOT_IN_DB"),
+      prismaMock.committeeUploadDiscrepancy.createMany.mockResolvedValue(
+        createdDiscrepancies,
       );
       prismaMock.voterRecord.findMany.mockResolvedValue([]);
 
@@ -475,15 +500,100 @@ describe("/api/admin/bulkLoadCommittees", () => {
         bulkLoadCommitteesResponseSchema,
       );
       expect(json.discrepanciesMap).toHaveLength(1);
-      expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { VRCNUM: "VRCNUM_NOT_IN_DB" },
-          update: objectContainingMatcher({
-            resolvedAt: null,
-            resolution: null,
+      expect(
+        prismaMock.committeeUploadDiscrepancy.createMany,
+      ).toHaveBeenCalledWith({
+        data: [
+          objectContainingMatcher({
+            VRCNUM: "VRCNUM_NOT_IN_DB",
+            committeeId: 11,
           }),
-        }),
+        ],
+      });
+    });
+
+    it("reopens a previously resolved discrepancy in place so its id survives", async () => {
+      const discrepancies = new Map([
+        [
+          "VRCNUM_AGAIN",
+          createDiscrepancyEntry("VRCNUM_AGAIN", {
+            cityTown: "ROCHESTER",
+            legDistrict: 1,
+            electionDistrict: 2,
+          }),
+        ],
+        [
+          "VRCNUM_NEW",
+          createDiscrepancyEntry("VRCNUM_NEW", {
+            cityTown: "ROCHESTER",
+            legDistrict: 1,
+            electionDistrict: 1,
+          }),
+        ],
+      ]);
+      applyRosterImportMock.mockResolvedValue(appliedImport({ discrepancies }));
+      authenticateAdmin();
+      prismaMock.committeeUploadDiscrepancy.findMany.mockResolvedValue([
+        selectedRow<{ VRCNUM: string }>({ VRCNUM: "VRCNUM_AGAIN" }),
+      ]);
+      prismaMock.committeeUploadDiscrepancy.createMany.mockResolvedValue(
+        createdDiscrepancies,
       );
+
+      const response = await POST(importRequest({ dryRun: false }));
+
+      expect(response.status).toBe(200);
+      expect(
+        prismaMock.committeeUploadDiscrepancy.findMany,
+      ).toHaveBeenCalledWith({
+        where: { VRCNUM: { in: ["VRCNUM_AGAIN", "VRCNUM_NEW"] } },
+        select: { VRCNUM: true },
+      });
+      // The lock plus one bulk UPDATE; the reopen never goes through per-row update.
+      expect(
+        prismaMock.committeeUploadDiscrepancy.update,
+      ).not.toHaveBeenCalled();
+      expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(2);
+      const [reopenSql, ...reopenParams] = prismaMock.$executeRaw.mock.calls[1]!;
+      // Tagged-template call: the first argument is the strings array.
+      expect(Array.from(reopenSql as TemplateStringsArray).join("?")).toMatch(
+        /UPDATE "CommitteeUploadDiscrepancy"[\s\S]*FROM unnest\(/,
+      );
+      expect(reopenParams).toEqual([
+        ["VRCNUM_AGAIN"],
+        [12],
+        [JSON.stringify(discrepancies.get("VRCNUM_AGAIN")!.discrepancies)],
+        ["PETITIONED"],
+      ]);
+      expect(
+        prismaMock.committeeUploadDiscrepancy.createMany,
+      ).toHaveBeenCalledWith({
+        data: [
+          objectContainingMatcher({ VRCNUM: "VRCNUM_NEW", committeeId: 11 }),
+        ],
+      });
+    });
+
+    it("fails the apply when a discrepancy names a committee missing from the term", async () => {
+      const discrepancies = new Map([
+        [
+          "VRCNUM1",
+          createDiscrepancyEntry("VRCNUM1", {
+            cityTown: "ROCHESTER",
+            legDistrict: 9,
+            electionDistrict: 9,
+          }),
+        ],
+      ]);
+      applyRosterImportMock.mockResolvedValue(appliedImport({ discrepancies }));
+      authenticateAdmin();
+
+      const response = await POST(importRequest({ dryRun: false }));
+
+      expect(response.status).toBe(500);
+      expect(
+        prismaMock.committeeUploadDiscrepancy.createMany,
+      ).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -512,8 +622,8 @@ describe("/api/admin/bulkLoadCommittees", () => {
             : appliedImport({ discrepancies, removals, rejectedRows }),
         );
         authenticateAdmin();
-        prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
-          upsertedDiscrepancy("VRCNUM_GONE"),
+        prismaMock.committeeUploadDiscrepancy.createMany.mockResolvedValue(
+          createdDiscrepancies,
         );
 
         const response = await POST(importRequest({ dryRun }));
@@ -575,8 +685,8 @@ describe("/api/admin/bulkLoadCommittees", () => {
         },
       } satisfies ApplyRosterImportResult);
       authenticateAdmin();
-      prismaMock.committeeUploadDiscrepancy.upsert.mockResolvedValue(
-        upsertedDiscrepancy("VRCNUM_RACED"),
+      prismaMock.committeeUploadDiscrepancy.createMany.mockResolvedValue(
+        createdDiscrepancies,
       );
       prismaMock.voterRecord.findMany.mockResolvedValue([
         voterRecordRow({ VRCNUM: "VRCNUM_RACED" }),
@@ -612,9 +722,13 @@ describe("/api/admin/bulkLoadCommittees", () => {
         json.applied?.counts.discrepancies ?? -1,
       );
       expect(json.discrepanciesMap[0]?.[0]).toBe("VRCNUM_RACED");
-      expect(prismaMock.committeeUploadDiscrepancy.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { VRCNUM: "VRCNUM_RACED" } }),
-      );
+      expect(
+        prismaMock.committeeUploadDiscrepancy.createMany,
+      ).toHaveBeenCalledWith({
+        data: [
+          objectContainingMatcher({ VRCNUM: "VRCNUM_RACED", committeeId: 11 }),
+        ],
+      });
       expect(json.message).toBe(
         "Applied: 1 of 2 planned activations written, 1 skipped as live conflicts, 0 of 0 planned removals written",
       );

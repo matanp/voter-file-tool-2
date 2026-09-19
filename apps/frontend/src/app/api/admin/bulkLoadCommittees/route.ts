@@ -20,7 +20,6 @@ import {
 } from "~/app/api/lib/withPrivilege";
 import {
   PrivilegeLevel,
-  Prisma,
   type CommitteeList,
   type VoterRecord,
 } from "@prisma/client";
@@ -31,6 +30,7 @@ import {
 } from "@voter-file-tool/shared-validators";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import type { DiscrepanciesAndCommittee } from "~/app/api/lib/utils";
 import type { NextRequest } from "next/server";
 
 /** The local data directory the endpoint has always read from. */
@@ -113,6 +113,115 @@ function resolveRosterFilePath(fileName: string): string | null {
   return filePath.startsWith(directory + path.sep) ? filePath : null;
 }
 
+/** Arbitrary but fixed: every roster apply takes the same lock. */
+const DISCREPANCY_IMPORT_LOCK_KEY = 0x4c4f4144; // "LOAD"
+
+type CommitteeIdentity = Pick<
+  CommitteeList,
+  "cityTown" | "legDistrict" | "electionDistrict"
+>;
+
+const committeeKey = (committee: CommitteeIdentity): string =>
+  `${committee.cityTown}-${committee.legDistrict}-${committee.electionDistrict}`;
+
+/**
+ * Replaces the unresolved discrepancy set with the one an apply produced.
+ *
+ * Plan rows carry only a committee's compound identity (their `committee.id` is a
+ * placeholder), so real ids are looked up once for the term. A voter whose earlier
+ * discrepancy was resolved but who is flagged again is reopened in place: audit events
+ * reference that row's id, so it must survive. Everything is written in bulk — a
+ * per-row loop overran Prisma's interactive-transaction timeout on large rosters,
+ * and a re-import after a resolution pass can reopen most of the roster at once.
+ * The advisory lock serializes concurrent discrepancy writes, which would otherwise
+ * race each other on the unique VRCNUM between the delete and the insert.
+ */
+async function persistDiscrepancies(
+  discrepanciesMap: Map<string, DiscrepanciesAndCommittee>,
+  activeTermId: string,
+): Promise<void> {
+  const voterIds = [...discrepanciesMap.keys()];
+
+  await prisma.$transaction(async (tx) => {
+    // $executeRaw, not $queryRaw: the lock function returns void, which Prisma cannot
+    // deserialize as a result column.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${DISCREPANCY_IMPORT_LOCK_KEY})`;
+
+    const committees = await tx.committeeList.findMany({
+      where: { termId: activeTermId },
+      select: {
+        id: true,
+        cityTown: true,
+        legDistrict: true,
+        electionDistrict: true,
+      },
+    });
+    const committeeIdByKey = new Map(
+      committees.map((committee) => [committeeKey(committee), committee.id]),
+    );
+    const resolveCommitteeId = (committee: CommitteeIdentity): number => {
+      const id = committeeIdByKey.get(committeeKey(committee));
+      if (id === undefined) {
+        throw new Error(
+          `Committee ${committeeKey(committee)} does not exist for the active term`,
+        );
+      }
+      return id;
+    };
+
+    await tx.committeeUploadDiscrepancy.deleteMany({
+      where: { resolvedAt: null },
+    });
+
+    // Only resolved rows survive the delete, so anything left for these voters is one
+    // being flagged again.
+    const reopened = await tx.committeeUploadDiscrepancy.findMany({
+      where: { VRCNUM: { in: voterIds } },
+      select: { VRCNUM: true },
+    });
+    const reopenedVoterIds = new Set(reopened.map((row) => row.VRCNUM));
+
+    if (reopenedVoterIds.size > 0) {
+      const rows = [...reopenedVoterIds].flatMap((voterId) => {
+        const entry = discrepanciesMap.get(voterId);
+        return entry ? [[voterId, entry] as const] : [];
+      });
+      // Prisma has no per-row-values bulk update, so the reopen is one raw statement
+      // joined against unnest'd column arrays. Column names match the schema exactly
+      // (no @map), and the enum is passed as text and cast on the database side.
+      // resolutionMetadata is set to JSON null, matching Prisma.JsonNull.
+      await tx.$executeRaw`
+        UPDATE "CommitteeUploadDiscrepancy" AS d
+        SET "committeeId" = r.committee_id,
+            "discrepancy" = r.discrepancy,
+            "incomingMembershipType" = r.membership_type::"MembershipType",
+            "resolvedAt" = NULL,
+            "resolvedBy" = NULL,
+            "resolution" = NULL,
+            "resolutionMetadata" = 'null'::jsonb
+        FROM unnest(
+          ${rows.map(([voterId]) => voterId)}::text[],
+          ${rows.map(([, entry]) => resolveCommitteeId(entry.committee))}::int[],
+          ${rows.map(([, entry]) => JSON.stringify(entry.discrepancies))}::jsonb[],
+          ${rows.map(([, entry]) => entry.incomingMembershipType)}::text[]
+        ) AS r(vrcnum, committee_id, discrepancy, membership_type)
+        WHERE d."VRCNUM" = r.vrcnum
+      `;
+    }
+
+    await tx.committeeUploadDiscrepancy.createMany({
+      data: [...discrepanciesMap.entries()]
+        .filter(([voterId]) => !reopenedVoterIds.has(voterId))
+        .map(([voterId, entry]) => ({
+          VRCNUM: voterId,
+          committeeId: resolveCommitteeId(entry.committee),
+          discrepancy: entry.discrepancies,
+          incomingMembershipType: entry.incomingMembershipType,
+        })),
+    });
+  });
+}
+
 async function bulkLoadCommitteesHandler(
   req: NextRequest,
   session: SessionWithUser,
@@ -186,47 +295,7 @@ async function bulkLoadCommitteesHandler(
     const discrepanciesMap = applied?.discrepancies ?? plan.discrepancies;
 
     if (!dryRun) {
-      await prisma.$transaction(async (tx) => {
-        await tx.committeeUploadDiscrepancy.deleteMany({
-          where: { resolvedAt: null },
-        });
-
-        for (const [
-          voterId,
-          discrepancyAndCommittee,
-        ] of discrepanciesMap.entries()) {
-          const committeeConnect = {
-            cityTown_legDistrict_electionDistrict_termId: {
-              cityTown: discrepancyAndCommittee.committee.cityTown,
-              legDistrict: discrepancyAndCommittee.committee.legDistrict,
-              electionDistrict:
-                discrepancyAndCommittee.committee.electionDistrict,
-              termId: activeTermId,
-            },
-          };
-
-          await tx.committeeUploadDiscrepancy.upsert({
-            where: { VRCNUM: voterId },
-            create: {
-              VRCNUM: voterId,
-              discrepancy: discrepancyAndCommittee.discrepancies,
-              incomingMembershipType:
-                discrepancyAndCommittee.incomingMembershipType,
-              committee: { connect: committeeConnect },
-            },
-            update: {
-              discrepancy: discrepancyAndCommittee.discrepancies,
-              incomingMembershipType:
-                discrepancyAndCommittee.incomingMembershipType,
-              committee: { connect: committeeConnect },
-              resolvedAt: null,
-              resolvedBy: null,
-              resolution: null,
-              resolutionMetadata: Prisma.JsonNull,
-            },
-          });
-        }
-      });
+      await persistDiscrepancies(discrepanciesMap, activeTermId);
     }
 
     const recordsWithDiscrepancies = await prisma.voterRecord.findMany({
