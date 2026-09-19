@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import ContactInfoLabel from "./ContactInfoLabel";
 import { Textarea } from "~/components/ui/textarea";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { Switch } from "~/components/ui/switch";
@@ -425,22 +425,20 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
               <Textarea onChange={(e) => setRequestNotes(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2 max-w-sm">
-              <Label className="text-sm font-medium">
-                Contact info for this submission (optional)
-              </Label>
+              <ContactInfoLabel />
               <Input
                 type="email"
                 placeholder="Email"
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
-                aria-label="Contact email for submission"
+                aria-label="Member contact email"
               />
               <Input
                 type="tel"
                 placeholder="Phone"
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
-                aria-label="Contact phone for submission"
+                aria-label="Member contact phone"
               />
             </div>
           </div>
