@@ -353,31 +353,45 @@ Final Leader PII policy must be confirmed by product/policy before rollout.
 
 ## 14. Rollout and Migration Plan
 
+> **Rollout order (per implementation plan §3.9):** the UI ships first. Phase A is deferred; Phases B, C, D, and F proceed on thin adapters over the existing `add`/`requestAdd`/`remove` mutation endpoints, and Phase E is out of scope for the UI migration. Phase letters are kept so cross-references in the implementation plan remain valid; the executed sequence is the PR list in plan §14.
+
 ### Phase A: Transition Engine Consolidation
+
+**Deferred (plan §3.9, §3.7).** Not a prerequisite for the workspace UI; scheduled as its own effort after cutover. Until then, Admin replacement remains remove-then-add (plan §8 "Replacement in v1").
 
 - Centralize eligibility and command handling.
 - Close current gaps (replacement acceptance behavior, atomic confirmation path, strict removal contract).
 
 ### Phase B: Read Model Introduction
 
+*Now first (plan §5, PR 2).*
+
 - Ship workspace query endpoints.
 - Keep current UI while validating payload correctness and permissions.
 
 ### Phase C: New Workspace UI Behind Flag
+
+*Second (plan §6–§7, PRs 3–4).*
 
 - Introduce split-pane grid/detail architecture.
 - Preserve legacy endpoints and `/committees/requests` during transition.
 
 ### Phase D: Unified Action Drawer
 
+*Third (plan §8–§9, PRs 5–6). The drawer calls existing mutation endpoints through narrow adapters (plan §3.7); moving to canonical command contracts happens with Phase A.*
+
 - Move add/request/remove/resign/review into canonical command contracts.
 - Introduce override UX and warning surfaces.
 
 ### Phase E: Meeting-Centric Integration
 
+*Not part of the UI migration; `/committees/requests` remains the review path throughout and the Pending tab links to it (see §16 item 2).*
+
 - Harden `/admin/meetings` linkage and promote as primary bulk path.
 
 ### Phase F: Legacy Contraction
+
+*Fourth (plan §11, PR 7).*
 
 - Reduce old selector/request surfaces to compatibility wrappers.
 - Retire duplicate state mutation logic paths.
@@ -399,10 +413,10 @@ Final Leader PII policy must be confirmed by product/policy before rollout.
 
 ## 16. Open Decisions
 
-1. Leader PII visibility scope on roster detail.
-2. Exact timeline for moving from one-off request review to meeting-primary review.
-3. Whether term switching is user-controlled on `/committees` in v1 of redesign or fixed to active term.
-4. Whether `RequestAccess` remains a submission role or is fully replaced by `Leader`.
+1. Leader PII visibility scope on roster detail. **Resolved (plan §3.10):** roster contact info (email/phone) stays Admin-only, matching the existing `includeContact` policy in `api/committee/roster/route.ts`.
+2. Exact timeline for moving from one-off request review to meeting-primary review. *Open; out of scope for the UI migration (see §14 Phase E).*
+3. Whether term switching is user-controlled on `/committees` in v1 of redesign or fixed to active term. **Resolved (plan §3.10):** fixed to the active term in v1; no term switcher.
+4. Whether `RequestAccess` remains a submission role or is fully replaced by `Leader`. *Open; being decided on the committees-workspace map (`.scratch/committees-workspace/issues/03-requestaccess-submission-role.md`).*
 
 ---
 
