@@ -23,6 +23,8 @@ The split-pane Committee Operations Workspace shipped as the unconditional `/com
 - Charting, Q5: spec §16 item 4 (`RequestAccess` as a submission role) is a `grilling` ticket blocking the drawer; item 2 (meeting-primary review timeline) is out of scope.
 - Charting, Q6: shell splits into two tickets (flag + grid + URL state; detail loading + responsive nav + tests); detail tabs are one ticket each.
 - Charting: membership history has in-repo sources (`CommitteeMembership.resignedAt/removedAt`, `AuditLog.action/metadata`, `MeetingRecord`), so the History inventory is an AFK `task`, not external `research`.
+- Ticket 02 (resolved): spec §14 annotates Phase A as deferred (UI ships on adapters over `add`/`requestAdd`/`remove`); §16 items 1 and 3 resolved. Letters kept, not renumbered. See [issues/02](issues/02-update-spec-rollout-and-open-decisions.md).
+- Ticket 04 (resolved): `AuditLog` is the only complete history source — `CommitteeMembership` is one row per (voter, committee, term) and re-adds null prior lifecycle columns. Query audit rows by `entityType`+`entityId` over the committee's membership/seat ids (not `metadata.subject.committeeListId`, which only exists since 2026-06-20). Meeting context exists only for accept/reject of submissions. Plan §5 is wrong that `fetchCommitteeList` returns petition context — that is the Admin-only `/api/admin/petition-outcomes`. Unrecoverable: Admin replace as one event, reason for plain Admin adds, actor on row-derived events. Free-text notes/reasons are Admin-only if history is shown to Leaders. See [history-inventory.md](history-inventory.md).
 
 ## Not yet specified
 
