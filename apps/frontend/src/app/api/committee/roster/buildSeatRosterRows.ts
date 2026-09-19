@@ -4,6 +4,13 @@
  * Extracted from route.ts so the route module only exports route handlers
  * (Next.js route files may only export handlers + allowed configs).
  * See docs/COMMITTEE_ROSTER_VIEW.md.
+ *
+ * Two layers, so the grid can price the whole scope without seat rows:
+ * - `buildEdRollup` / `buildEdRollups` / `summarizeEdRollups` need only the
+ *   lean committee shape (seats + active-membership seat numbers) and hold the
+ *   single copy of the vacancy / weight math.
+ * - `buildSeatRosterRows` layers per-seat rows (names, optional contact) on
+ *   top of the same rollups for the committees that carry voter records.
  */
 
 import type { Prisma, MembershipType } from "@prisma/client";
@@ -13,6 +20,7 @@ import type {
   CommitteeMembershipSubmissionMetadata,
   EdRollup,
   RosterResponse,
+  RosterSummary,
   SeatRosterRow,
 } from "~/lib/validations/committee";
 
@@ -24,10 +32,15 @@ export type RosterSeat = {
   weight: Prisma.Decimal | number | string | null;
 };
 
-export type RosterMembership = {
+/** What the rollup math needs from an ACTIVE membership. */
+export type RosterMembershipCore = {
   seatNumber: number | null;
   membershipType: MembershipType | null;
   voterRecordId: string;
+};
+
+/** What seat rows additionally need (name + contact source). */
+export type RosterMembership = RosterMembershipCore & {
   submissionMetadata: Prisma.JsonValue | null;
   voterRecord: {
     VRCNUM: string;
@@ -38,18 +51,31 @@ export type RosterMembership = {
   };
 };
 
-export type RosterCommittee = {
+/**
+ * Committee input for rollups. `memberships` must be the ACTIVE memberships
+ * for the term; `pendingCount` is the number of SUBMITTED memberships for the
+ * term (defaults to 0 for callers that do not fetch it).
+ */
+export type RosterCommitteeCore<
+  M extends RosterMembershipCore = RosterMembershipCore,
+> = {
   id: number;
   cityTown: string;
   legDistrict: number;
   electionDistrict: number;
   seats: RosterSeat[];
-  memberships: RosterMembership[];
+  memberships: M[];
+  pendingCount?: number;
 };
 
-export type BuildOptions = {
+export type RosterCommittee = RosterCommitteeCore<RosterMembership>;
+
+export type RollupOptions = {
   termId: string;
   maxSeatsPerLted: number;
+};
+
+export type BuildOptions = RollupOptions & {
   includeContact: boolean;
 };
 
@@ -59,58 +85,132 @@ function serializeWeight(
   return weight == null ? null : weight.toString();
 }
 
+type EdRollupBuild<M extends RosterMembershipCore> = {
+  rollup: EdRollup;
+  /** Persisted seats, or synthesized vacant seats when none are persisted. */
+  seats: RosterSeat[];
+  occupantBySeat: Map<number, M>;
+  unassignedMembers: M[];
+};
+
 /**
- * Flattens committees into seat rows + per-ED rollups + a town-wide summary.
+ * Rollup for one committee: seat count (synthesizing `maxSeatsPerLted` virtual
+ * vacant seats in memory, read-only, when no Seat records exist), occupied /
+ * unassigned counts, pending count, and designation weight.
  *
- * Read-only: synthesizes virtual vacant seats in memory when a committee has no
- * Seat records (never writes via ensureSeatsExist). Throws a "Data integrity
- * error" (surfaced as 409 by the route) when two active memberships claim the
- * same seat — via indexActiveMembershipsBySeat / computeDesignationWeightFromData.
+ * Throws a "Data integrity error" (surfaced as 409 by the route) when two
+ * active memberships claim the same seat — via indexActiveMembershipsBySeat /
+ * computeDesignationWeightFromData.
+ */
+export function buildEdRollup<M extends RosterMembershipCore>(
+  committee: RosterCommitteeCore<M>,
+  options: RollupOptions,
+): EdRollupBuild<M> {
+  const { termId, maxSeatsPerLted } = options;
+
+  const seats: RosterSeat[] =
+    committee.seats.length > 0
+      ? committee.seats
+      : Array.from({ length: maxSeatsPerLted }, (_, i) => ({
+          seatNumber: i + 1,
+          isPetitioned: false,
+          weight: null,
+        }));
+
+  // Index occupants once; shared with the weight engine to avoid duplicate work.
+  const occupantBySeat = indexActiveMembershipsBySeat(committee.memberships, {
+    committeeListId: committee.id,
+    termId,
+  });
+  const unassignedMembers = committee.memberships.filter(
+    (m) => m.seatNumber == null,
+  );
+
+  const designation = computeDesignationWeightFromData({
+    committeeListId: committee.id,
+    termId,
+    seats,
+    activeMemberships: committee.memberships.map((m) => ({
+      seatNumber: m.seatNumber,
+      membershipType: m.membershipType,
+      voterRecordId: m.voterRecordId,
+    })),
+    seatOccupants: occupantBySeat,
+  });
+
+  let filled = 0;
+  for (const seat of seats) {
+    if (occupantBySeat.has(seat.seatNumber)) filled += 1;
+  }
+
+  return {
+    rollup: {
+      committeeListId: committee.id,
+      cityTown: committee.cityTown,
+      legDistrict: committee.legDistrict,
+      electionDistrict: committee.electionDistrict,
+      filled,
+      totalSeats: seats.length,
+      unassignedCount: unassignedMembers.length,
+      pendingCount: committee.pendingCount ?? 0,
+      designationWeight: designation.totalWeight,
+      missingWeightSeatNumbers: designation.missingWeightSeatNumbers,
+    },
+    seats,
+    occupantBySeat,
+    unassignedMembers,
+  };
+}
+
+/** Rollups for every committee, in input order. */
+export function buildEdRollups(
+  committees: RosterCommitteeCore[],
+  options: RollupOptions,
+): EdRollup[] {
+  return committees.map((c) => buildEdRollup(c, options).rollup);
+}
+
+/** Folds rollups into the scope-wide summary. */
+export function summarizeEdRollups(rollups: EdRollup[]): RosterSummary {
+  let totalSeats = 0;
+  let filled = 0;
+  let unassignedCount = 0;
+  let pendingCount = 0;
+  for (const r of rollups) {
+    totalSeats += r.totalSeats;
+    filled += r.filled;
+    unassignedCount += r.unassignedCount;
+    pendingCount += r.pendingCount;
+  }
+  return {
+    totalSeats,
+    filled,
+    vacant: totalSeats - filled,
+    edCount: rollups.length,
+    unassignedCount,
+    pendingCount,
+    activeMemberCount: filled + unassignedCount,
+  };
+}
+
+/**
+ * Flattens committees into seat rows + per-ED rollups + a summary over the
+ * committees given. Read-only; never writes via ensureSeatsExist.
  */
 export function buildSeatRosterRows(
   committees: RosterCommittee[],
   options: BuildOptions,
-): Pick<RosterResponse, "rows" | "edRollups" | "summary"> {
-  const { termId, maxSeatsPerLted, includeContact } = options;
+): Required<Pick<RosterResponse, "rows" | "edRollups" | "summary">> {
+  const { includeContact } = options;
 
   const rows: SeatRosterRow[] = [];
   const edRollups: EdRollup[] = [];
 
-  let summaryTotalSeats = 0;
-  let summaryFilled = 0;
-  let summaryUnassigned = 0;
-
   for (const committee of committees) {
-    // Seat synthesis (in-memory, read-only) when no Seat records exist.
-    const seats: RosterSeat[] =
-      committee.seats.length > 0
-        ? committee.seats
-        : Array.from({ length: maxSeatsPerLted }, (_, i) => ({
-            seatNumber: i + 1,
-            isPetitioned: false,
-            weight: null,
-          }));
-
-    // Index occupants once; shared with the weight engine to avoid duplicate work.
-    const occupantBySeat = indexActiveMembershipsBySeat(committee.memberships, {
-      committeeListId: committee.id,
-      termId,
-    });
-    const unassignedMembers = committee.memberships.filter(
-      (m) => m.seatNumber == null,
+    const { rollup, seats, occupantBySeat, unassignedMembers } = buildEdRollup(
+      committee,
+      options,
     );
-
-    const designation = computeDesignationWeightFromData({
-      committeeListId: committee.id,
-      termId,
-      seats,
-      activeMemberships: committee.memberships.map((m) => ({
-        seatNumber: m.seatNumber,
-        membershipType: m.membershipType,
-        voterRecordId: m.voterRecordId,
-      })),
-      seatOccupants: occupantBySeat,
-    });
 
     const buildContact = (m: RosterMembership) => {
       const meta = m.submissionMetadata as
@@ -131,11 +231,9 @@ export function buildSeatRosterRows(
       seatNumber,
     });
 
-    let filled = 0;
     for (const seat of seats) {
       const occupant = occupantBySeat.get(seat.seatNumber) ?? null;
       const isVacant = occupant === null;
-      if (!isVacant) filled += 1;
 
       const row: SeatRosterRow = {
         ...baseRow(seat.seatNumber),
@@ -173,30 +271,8 @@ export function buildSeatRosterRows(
       rows.push(row);
     }
 
-    edRollups.push({
-      electionDistrict: committee.electionDistrict,
-      legDistrict: committee.legDistrict,
-      filled,
-      totalSeats: seats.length,
-      unassignedCount: unassignedMembers.length,
-      designationWeight: designation.totalWeight,
-      missingWeightSeatNumbers: designation.missingWeightSeatNumbers,
-    });
-
-    summaryTotalSeats += seats.length;
-    summaryFilled += filled;
-    summaryUnassigned += unassignedMembers.length;
+    edRollups.push(rollup);
   }
 
-  return {
-    rows,
-    edRollups,
-    summary: {
-      totalSeats: summaryTotalSeats,
-      filled: summaryFilled,
-      vacant: summaryTotalSeats - summaryFilled,
-      edCount: committees.length,
-      unassignedCount: summaryUnassigned,
-    },
-  };
+  return { rows, edRollups, summary: summarizeEdRollups(edRollups) };
 }

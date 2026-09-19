@@ -72,7 +72,9 @@ export function CommitteeRosterTable({
   isAdmin,
   onViewEdDetails,
 }: CommitteeRosterTableProps) {
-  const { rows, edRollups, summary } = data;
+  const { edRollups, summary } = data;
+  // `rows` is omitted when the caller asked for `includeRows=false`.
+  const rows = data.rows ?? [];
 
   // Contact column appears only for Admins, and only when the response actually
   // carries contact on some row (spec §2: gate on `row.contact !== undefined`).

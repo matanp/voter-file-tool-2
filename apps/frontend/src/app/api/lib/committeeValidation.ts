@@ -76,6 +76,8 @@ export async function getActiveTermId(): Promise<string> {
 }
 
 export const ACTIVE_MEMBERSHIP_STATUS = MembershipStatus.ACTIVE;
+/** A submission awaiting Executive Committee review (what /committees/requests lists). */
+export const PENDING_MEMBERSHIP_STATUS = MembershipStatus.SUBMITTED;
 
 export type CommitteeMembershipClient = Pick<typeof prisma, "committeeMembership">;
 

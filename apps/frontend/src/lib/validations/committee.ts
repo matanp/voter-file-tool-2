@@ -611,44 +611,79 @@ export const listJurisdictionsQuerySchema = z
 export type ListJurisdictionsQuery = z.infer<
   typeof listJurisdictionsQuerySchema
 >;
-
 // ---------------------------------------------------------------------------
-// Committee Roster View — town-level seat roster (GET /api/committee/roster)
-// See docs/COMMITTEE_ROSTER_VIEW.md.
+// Committee Roster View — seat roster + grid read model (GET /api/committee/roster)
+// See docs/COMMITTEE_ROSTER_VIEW.md and
+// docs/SRS/COMMITTEES_WORKSPACE_UI_IMPLEMENTATION_PLAN.md §5 "Grid".
 // ---------------------------------------------------------------------------
 
 /** City whose committees span multiple legislative districts; legDistrict is required. */
 export const ROCHESTER_CITY = "ROCHESTER";
 
-// Roster query params. `cursor`/`limit` are reserved for phase-2 county-wide
-// pagination and ignored in v1. legDistrict is required only for Rochester.
+/** Page size when `limit` is omitted. Sized so a single town fits in one page. */
+export const ROSTER_DEFAULT_LIMIT = 200;
+/** Hard ceiling on `limit`; larger values are rejected with 400. */
+export const ROSTER_MAX_LIMIT = 500;
+
+/** Empty string → undefined so `?legDistrict=` behaves like an omitted param. */
+const emptyToUndefined = (v: string) => (v === "" ? undefined : v);
+
+/** Optional positive-integer query param (arrives as a string). */
+function positiveIntQueryParam(message: string) {
+  return z
+    .string()
+    .trim()
+    .transform(emptyToUndefined)
+    .optional()
+    .refine(
+      (val) => {
+        if (val === undefined) return true;
+        const parsed = Number(val);
+        return Number.isInteger(parsed) && parsed > 0;
+      },
+      { message },
+    )
+    .transform((val) => (val === undefined ? undefined : Number(val)));
+}
+
+/**
+ * Roster query params.
+ *
+ * - `cityTown` optional: omitted → every committee in the caller's scope
+ *   (all towns for Admin; the caller's jurisdictions for Leader).
+ * - `legDistrict` required only when `cityTown` is Rochester.
+ * - `cursor` is the `committeeListId` of the last rollup on the previous page
+ *   (echoed back as `nextCursor`); `limit` is the page size.
+ * - `includeRows=false` omits per-seat `rows` (grid mode).
+ */
 export const rosterQuerySchema = z
   .object({
-    cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z
+    cityTown: z.string().trim().transform(emptyToUndefined).optional(),
+    legDistrict: positiveIntQueryParam(
+      "Legislative District must be a positive integer when provided",
+    ),
+    cursor: positiveIntQueryParam(
+      "cursor must be a positive integer when provided",
+    ),
+    limit: positiveIntQueryParam("limit must be a positive integer when provided")
+      .refine((val) => val === undefined || val <= ROSTER_MAX_LIMIT, {
+        message: `limit must be at most ${String(ROSTER_MAX_LIMIT)}`,
+      })
+      .transform((val) => val ?? ROSTER_DEFAULT_LIMIT),
+    includeRows: z
       .string()
       .trim()
-      .transform((v) => (v === "" ? undefined : v))
+      .transform(emptyToUndefined)
       .optional()
-      .refine(
-        (val) => {
-          if (val === undefined) return true;
-          const parsed = Number(val);
-          return Number.isInteger(parsed) && parsed > 0;
-        },
-        {
-          message:
-            "Legislative District must be a positive integer when provided",
-        },
-      )
-      .transform((val) => (val === undefined ? undefined : Number(val))),
-    // Reserved for phase-2 county-wide pagination; ignored in v1.
-    cursor: z.string().trim().optional(),
-    limit: z.string().trim().optional(),
+      .refine((val) => val === undefined || val === "true" || val === "false", {
+        message: "includeRows must be true or false when provided",
+      })
+      .transform((val) => val !== "false"),
   })
   .strict()
   .superRefine((data, ctx) => {
     if (
+      data.cityTown !== undefined &&
       data.cityTown.toUpperCase() === ROCHESTER_CITY &&
       data.legDistrict === undefined
     ) {
@@ -662,46 +697,105 @@ export const rosterQuerySchema = z
 
 export type RosterQuery = z.infer<typeof rosterQuerySchema>;
 
+/** Present iff Admin (see the `includeContact` policy in the roster route). */
+export const rosterContactSchema = z.object({
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+});
+
 /** One row per seat (occupied or vacant) plus extra rows for unassigned members. */
-export type SeatRosterRow = {
-  committeeListId: number;
-  cityTown: string;
-  legDistrict: number;
-  electionDistrict: number;
-  seatNumber: number | null; // null only for unassigned rows
-  isPetitioned: boolean;
-  weight: string | null; // Decimal serialized
-  unassigned?: boolean;
-  petitionedVacant?: boolean; // vacant AND isPetitioned
-  occupant: {
-    VRCNUM: string;
-    firstName: string;
-    lastName: string;
-    membershipType: MembershipType | null;
-  } | null;
-  contact?: { email: string | null; phone: string | null }; // present iff Admin
-};
+export const seatRosterRowSchema = z.object({
+  committeeListId: z.number().int(),
+  cityTown: z.string(),
+  legDistrict: z.number().int(),
+  electionDistrict: z.number().int(),
+  /** null only for unassigned rows */
+  seatNumber: z.number().int().nullable(),
+  isPetitioned: z.boolean(),
+  /** Decimal serialized */
+  weight: z.string().nullable(),
+  unassigned: z.boolean().optional(),
+  /** vacant AND isPetitioned */
+  petitionedVacant: z.boolean().optional(),
+  occupant: z
+    .object({
+      VRCNUM: z.string(),
+      firstName: z.string(),
+      lastName: z.string(),
+      membershipType: z.nativeEnum(MembershipType).nullable(),
+    })
+    .nullable(),
+  contact: rosterContactSchema.optional(),
+});
 
-/** Per-ED subheader summary. */
-export type EdRollup = {
-  electionDistrict: number;
-  legDistrict: number;
-  filled: number; // seats OCCUPIED (distinct seatNumbers with an active occupant)
-  totalSeats: number;
-  unassignedCount: number; // active members with no seatNumber (not counted in `filled`)
-  designationWeight: number | null;
-  missingWeightSeatNumbers: number[]; // petitioned seats lacking weight — render "—"
-};
+export type SeatRosterRow = z.infer<typeof seatRosterRowSchema>;
 
-export type RosterResponse = {
-  scope: { cityTown: string; legDistrict?: number };
-  rows: SeatRosterRow[];
-  edRollups: EdRollup[];
-  summary: {
-    totalSeats: number;
-    filled: number; // seats OCCUPIED, not active-member count
-    vacant: number;
-    edCount: number;
-    unassignedCount: number; // town-wide active members with no seat
-  };
-};
+/**
+ * Per-committee (ED) rollup — one grid row. Carries both `committeeListId`
+ * and the composite key `(cityTown, legDistrict, electionDistrict)` so action
+ * adapters can call the composite-keyed mutation endpoints without a lookup
+ * (plan §3.11).
+ */
+export const edRollupSchema = z.object({
+  committeeListId: z.number().int(),
+  cityTown: z.string(),
+  legDistrict: z.number().int(),
+  electionDistrict: z.number().int(),
+  /** seats OCCUPIED (distinct seatNumbers with an active occupant) */
+  filled: z.number().int(),
+  totalSeats: z.number().int(),
+  /** active members with no seatNumber (not counted in `filled`) */
+  unassignedCount: z.number().int(),
+  /** SUBMITTED memberships awaiting review in the active term */
+  pendingCount: z.number().int(),
+  designationWeight: z.number().nullable(),
+  /** petitioned seats lacking weight — render "—" */
+  missingWeightSeatNumbers: z.array(z.number().int()),
+});
+
+export type EdRollup = z.infer<typeof edRollupSchema>;
+
+/** Scope-wide totals: every committee matching the request, not just the page. */
+export const rosterSummarySchema = z.object({
+  totalSeats: z.number().int(),
+  /** seats OCCUPIED, not active-member count */
+  filled: z.number().int(),
+  /** open seats */
+  vacant: z.number().int(),
+  edCount: z.number().int(),
+  /** active members with no seat */
+  unassignedCount: z.number().int(),
+  /** SUBMITTED memberships awaiting review */
+  pendingCount: z.number().int(),
+  /** ACTIVE memberships (seated + unassigned) */
+  activeMemberCount: z.number().int(),
+});
+
+export type RosterSummary = z.infer<typeof rosterSummarySchema>;
+
+/** Filter values available in the caller's base scope (before `cityTown`/`legDistrict` narrowing). */
+export const rosterFiltersSchema = z.object({
+  towns: z.array(z.string()),
+  legDistricts: z.array(
+    z.object({ cityTown: z.string(), legDistrict: z.number().int() }),
+  ),
+});
+
+export type RosterFilters = z.infer<typeof rosterFiltersSchema>;
+
+export const rosterResponseSchema = z.object({
+  scope: z.object({
+    cityTown: z.string().optional(),
+    legDistrict: z.number().int().optional(),
+  }),
+  filters: rosterFiltersSchema,
+  /** Omitted when `includeRows=false`. */
+  rows: z.array(seatRosterRowSchema).optional(),
+  /** One page of rollups, ordered by (cityTown, legDistrict, electionDistrict). */
+  edRollups: z.array(edRollupSchema),
+  summary: rosterSummarySchema,
+  /** `committeeListId` to pass as `cursor` for the next page; null on the last page. */
+  nextCursor: z.number().int().nullable(),
+});
+
+export type RosterResponse = z.infer<typeof rosterResponseSchema>;
