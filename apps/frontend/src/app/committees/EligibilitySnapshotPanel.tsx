@@ -99,7 +99,7 @@ export default function EligibilitySnapshotPanel({
 
       {hasHardStops && (
         <Alert variant="destructive" className="mt-3">
-          <AlertTitle>Submission blocked</AlertTitle>
+          <AlertTitle>Ineligible for this committee</AlertTitle>
           <AlertDescription>
             <ul className="list-inside list-disc space-y-1">
               {hardStops.map((reason) => (

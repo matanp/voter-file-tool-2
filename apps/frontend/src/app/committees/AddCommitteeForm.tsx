@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import ContactInfoLabel from "./ContactInfoLabel";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 
 interface AddCommitteeFormProps {
@@ -68,26 +68,25 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   const [loadingVRCNUM, setLoadingVRCNUM] = useState<string | null>(null);
   const [membershipType, setMembershipType] =
     useState<MembershipType>("APPOINTED");
-  const [ineligibilityReasons, setIneligibilityReasons] = useState<string[] | null>(
-    null,
-  );
+  const [ineligibilityReasons, setIneligibilityReasons] = useState<
+    string[] | null
+  >(null);
   /** SRS §2.2 — Server-returned warnings only; frontend does not duplicate checks. */
   const [warnings, setWarnings] = useState<EligibilityWarning[] | null>(null);
   const [contactEmail, setContactEmail] = useState<string>("");
   const [contactPhone, setContactPhone] = useState<string>("");
-  const [selectedRecord, setSelectedRecord] = useState<VoterRecord | null>(null);
-  const [preflightLoading, setPreflightLoading] = useState<boolean>(false);
-  const [preflightError, setPreflightError] = useState<string | null>(null);
-  const [preflight, setPreflight] = useState<EligibilityPreflightResponse | null>(
+  const [selectedRecord, setSelectedRecord] = useState<VoterRecord | null>(
     null,
   );
+  const [preflightLoading, setPreflightLoading] = useState<boolean>(false);
+  const [preflightError, setPreflightError] = useState<string | null>(null);
+  const [preflight, setPreflight] =
+    useState<EligibilityPreflightResponse | null>(null);
   const [preflightRefreshKey, setPreflightRefreshKey] = useState<number>(0);
 
   const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const validCommittee =
     city !== "" && legDistrict !== "" && electionDistrict > 0;
-  const buildBlockedSubmissionToastDescription = (messages: string[]): string =>
-    `${messages.join(" ")} ${ELIGIBILITY_ESCALATION_MESSAGE}`;
 
   // API mutation hook
   const addCommitteeMemberMutation = useApiMutation<
@@ -124,14 +123,10 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         }
       ).apiErrorBody;
       if (apiBody?.error === "INELIGIBLE") {
+        // Preflight passed but the server disagreed; the persistent alert
+        // below is the only place this is surfaced (no toast).
         const reasons = Array.isArray(apiBody.reasons) ? apiBody.reasons : [];
-        const failureMessages = getIneligibilityMessages(reasons);
         setIneligibilityReasons(reasons);
-        toast({
-          title: "Submission blocked",
-          description: buildBlockedSubmissionToastDescription(failureMessages),
-          variant: "destructive",
-        });
       } else {
         setIneligibilityReasons(null);
         toast({
@@ -173,27 +168,25 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     })
       .then(async (response) => {
         if (!response.ok) {
-          const body = (await response.json().catch(() => null)) as
-            | { error?: string }
-            | null;
+          const body = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           throw new Error(body?.error ?? "Failed to check eligibility");
         }
         return (await response.json()) as EligibilityPreflightResponse;
       })
       .then((data) => {
         setPreflight(data);
-        setIneligibilityReasons(data.hardStops.length > 0 ? data.hardStops : null);
-        setWarnings(data.warnings.length > 0 ? data.warnings : null);
       })
       .catch((error) => {
         if (error instanceof Error && error.name === "AbortError") {
           return;
         }
         const message =
-          error instanceof Error ? error.message : "Failed to check eligibility";
+          error instanceof Error
+            ? error.message
+            : "Failed to check eligibility";
         setPreflightError(message);
-        setIneligibilityReasons(null);
-        setWarnings(null);
       })
       .finally(() => {
         setPreflightLoading(false);
@@ -216,7 +209,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
 
   useEffect(() => {
     setIneligibilityReasons(null);
-  }, [selectedRecord?.VRCNUM, membershipType, contactEmail, contactPhone]);
+    setWarnings(null);
+  }, [selectedRecord?.VRCNUM]);
 
   const handleAddCommitteeMember = async (record: VoterRecord) => {
     setIneligibilityReasons(null);
@@ -246,7 +240,6 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
       }
 
       if (preflight.hardStops.length > 0) {
-        setIneligibilityReasons(preflight.hardStops);
         return;
       }
 
@@ -284,55 +277,14 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   return (
     <>
       <div className="flex flex-col gap-4">
-        {validCommittee && isAdmin && (
-          <div className="flex flex-col gap-2 max-w-xs">
-            <label
-              htmlFor="membership-type-select"
-              className="text-sm font-medium"
-            >
-              Membership Type
-            </label>
-            <Select
-              value={membershipType}
-              onValueChange={(val) => setMembershipType(val as MembershipType)}
-            >
-              <SelectTrigger id="membership-type-select">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="APPOINTED">Appointed</SelectItem>
-                <SelectItem value="PETITIONED">Petitioned</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        {validCommittee && (
-          <div className="flex flex-col gap-2 max-w-sm">
-            <Label className="text-sm font-medium">
-              Contact info for this submission (optional)
-            </Label>
-            <Input
-              type="email"
-              placeholder="Email"
-              value={contactEmail}
-              onChange={(e) => setContactEmail(e.target.value)}
-              aria-label="Contact email for submission"
-            />
-            <Input
-              type="tel"
-              placeholder="Phone"
-              value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
-              aria-label="Contact phone for submission"
-            />
-          </div>
-        )}
         {validCommittee && (
           <RecordSearchForm
             handleResults={(results) => {
               setRecords(results);
               setHasSearched(true);
               setSelectedRecord(null);
+              setContactEmail("");
+              setContactPhone("");
               setPreflight(null);
               setPreflightError(null);
               setPreflightLoading(false);
@@ -342,18 +294,60 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
             extraSearchQuery={extraSearchQuery}
             optionalExtraSearch="Only Eligible Candidates"
             submitButtonText="Find Members to Add"
-            headerText="Add Committee Member"
           />
         )}
         {records.length > 0 && validCommittee && (
           <>
-            <h1 className="primary-header">Search Results</h1>
+            <h3 className="text-base font-medium">Search results</h3>
             {isAdmin && selectedRecord != null && (
-              <EligibilitySnapshotPanel
-                preflight={preflight}
-                loading={preflightLoading}
-                error={preflightError}
-              />
+              <>
+                <EligibilitySnapshotPanel
+                  preflight={preflight}
+                  loading={preflightLoading}
+                  error={preflightError}
+                />
+                <div className="flex flex-col gap-2 max-w-xs">
+                  <label
+                    htmlFor="membership-type-select"
+                    className="text-sm font-medium"
+                  >
+                    Membership Type
+                  </label>
+                  <Select
+                    value={membershipType}
+                    onValueChange={(val) =>
+                      setMembershipType(val as MembershipType)
+                    }
+                  >
+                    <SelectTrigger id="membership-type-select">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="APPOINTED">Appointed</SelectItem>
+                      <SelectItem value="PETITIONED">Petitioned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2 max-w-sm">
+                  <ContactInfoLabel
+                    memberName={`${selectedRecord.firstName ?? ""} ${selectedRecord.lastName ?? ""}`.trim()}
+                  />
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    aria-label="Member contact email"
+                  />
+                  <Input
+                    type="tel"
+                    placeholder="Phone"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    aria-label="Member contact phone"
+                  />
+                </div>
+              </>
             )}
             {ineligibilityReasons != null && (
               <Alert variant="destructive">
@@ -405,9 +399,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
                 );
                 const isSelected = selectedRecord?.VRCNUM === record.VRCNUM;
                 const hasHardStops =
-                  isSelected &&
-                  (preflight?.hardStops.length ?? ineligibilityReasons?.length ?? 0) >
-                    0;
+                  isSelected && (preflight?.hardStops.length ?? 0) > 0;
                 const checkingEligibility = isSelected && preflightLoading;
                 const canSelectCandidate =
                   !member &&
@@ -456,7 +448,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
         )}
         {records.length === 0 && hasSearched && (
           <>
-            <h1 className="primary-header">Search Results</h1>
+            <h3 className="text-base font-medium">Search results</h3>
             <p>No results found.</p>
           </>
         )}

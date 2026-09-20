@@ -92,12 +92,16 @@ describe("CommitteeRequestForm preflight", () => {
       expect(submitButton).toBeDisabled();
     });
 
-    expect(screen.getByText("Submission blocked")).toBeInTheDocument();
+    expect(
+      screen.getByText("Ineligible for this committee"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Committee is at capacity (no open seats)."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("If you believe this is an exception, contact MCDC staff."),
+      screen.getByText(
+        "If you believe this is an exception, contact MCDC staff.",
+      ),
     ).toBeInTheDocument();
   });
 

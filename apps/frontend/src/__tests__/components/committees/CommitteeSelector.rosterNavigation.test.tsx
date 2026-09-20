@@ -281,7 +281,7 @@ describe("CommitteeSelector roster-first navigation", () => {
 
     expect(await screen.findByTestId("voter-card")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Committee detail — GREECE · ED 5" }),
+      screen.getByRole("heading", { name: "GREECE · ED 5" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Back to full roster" }),
