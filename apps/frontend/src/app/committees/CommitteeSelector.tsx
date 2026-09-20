@@ -1,7 +1,7 @@
 "use client";
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Plus } from "lucide-react";
+import { ChevronLeft, Minus, Plus } from "lucide-react";
 
 import {
   type MembershipType,
@@ -981,7 +981,11 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                   aria-controls="add-committee-member-panel"
                   onClick={() => setShowAddMember((open) => !open)}
                 >
-                  <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {showAddMember ? (
+                    <Minus className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  )}
                   Add committee member
                 </Button>
                 {/* Stays mounted while closed so search results, eligibility
