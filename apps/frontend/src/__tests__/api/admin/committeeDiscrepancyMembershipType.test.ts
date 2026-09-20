@@ -12,6 +12,7 @@ import { POST as bulkLoadPOST } from "~/app/api/admin/bulkLoadCommittees/route";
 import { POST as resolvePOST } from "~/app/api/admin/handleCommitteeDiscrepancy/route";
 import { POST as undoPOST } from "~/app/api/admin/handleCommitteeDiscrepancy/undo/route";
 import {
+  type CommitteeMembership,
   type DiscrepancyResolution,
   type MembershipType,
   Prisma,
@@ -26,6 +27,7 @@ import {
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   authenticateAsAdmin,
+  expectAnything,
   expectAuditLogCreate,
   expectMembershipCreate,
   expectMembershipUpdate,
@@ -174,7 +176,7 @@ const storedDiscrepancy = (
 /**
  * In-memory CommitteeUploadDiscrepancy rows. `setupCommonMocks` reinstalls the
  * Prisma implementations against this map without clearing it, so an import that
- * upserts a row can be followed by a resolution that findUnique's the same row.
+ * createMany's a row can be followed by a resolution that findUnique's the same row.
  */
 const discrepancyRows = new Map<string, DiscrepancyRowShape>();
 
@@ -190,63 +192,217 @@ const requiredVrcnum = (value: unknown, label: string): string => {
   return value;
 };
 
-const discrepancyWriteData = (
-  data:
-    | Prisma.CommitteeUploadDiscrepancyUpsertArgs["create"]
-    | Prisma.CommitteeUploadDiscrepancyUpsertArgs["update"],
-): {
+type DiscrepancyCreateRow = {
+  VRCNUM: string;
+  committeeId: number;
   discrepancy: Prisma.JsonValue;
   incomingMembershipType: MembershipType | null;
-} => {
-  const candidate = data as {
-    discrepancy?: unknown;
-    incomingMembershipType?: unknown;
-  };
-  if (candidate.discrepancy === undefined) {
-    throw new Error("Expected discrepancy write data to include discrepancy");
-  }
-  if (
-    candidate.incomingMembershipType !== null &&
-    candidate.incomingMembershipType !== "APPOINTED" &&
-    candidate.incomingMembershipType !== "PETITIONED"
-  ) {
-    throw new Error(
-      "Expected discrepancy write data to include a direct incomingMembershipType",
-    );
-  }
-  return {
-    discrepancy: candidate.discrepancy as Prisma.JsonValue,
-    incomingMembershipType: candidate.incomingMembershipType,
-  };
 };
 
-/** Retains upserted discrepancy rows and serves them back from findUnique. */
+const isJsonValue = (value: unknown): value is Prisma.JsonValue => {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+  return typeof value === "object" && Object.values(value).every(isJsonValue);
+};
+
+const parseJsonValue = (serialized: string): Prisma.JsonValue => {
+  const parsed: unknown = JSON.parse(serialized);
+  if (!isJsonValue(parsed)) {
+    throw new Error("Expected serialized discrepancy data to be valid JSON");
+  }
+  return parsed;
+};
+
+const persistedJsonValue = (
+  value: Prisma.CommitteeUploadDiscrepancyCreateManyInput["discrepancy"],
+): Prisma.JsonValue => {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new Error("Expected discrepancy write data to be JSON serializable");
+  }
+  return parseJsonValue(serialized);
+};
+
+const discrepancyCreateRows = (
+  data: Prisma.CommitteeUploadDiscrepancyCreateManyArgs["data"],
+): DiscrepancyCreateRow[] => {
+  const rows = Array.isArray(data) ? data : [data];
+  return rows.map((candidate) => {
+    const { VRCNUM, committeeId, discrepancy, incomingMembershipType } =
+      candidate;
+    if (
+      incomingMembershipType === undefined ||
+      (incomingMembershipType !== null &&
+        incomingMembershipType !== "APPOINTED" &&
+        incomingMembershipType !== "PETITIONED")
+    ) {
+      throw new Error(
+        "Expected discrepancy write data to include a direct incomingMembershipType",
+      );
+    }
+    return {
+      VRCNUM,
+      committeeId,
+      discrepancy: persistedJsonValue(discrepancy),
+      incomingMembershipType,
+    };
+  });
+};
+
+type ReopenUpdateRow = {
+  VRCNUM: string;
+  committeeId: number;
+  discrepancy: Prisma.JsonValue;
+  discrepancySerialized: string;
+  incomingMembershipType: MembershipType | null;
+};
+
+const membershipTypeOrNull = (
+  value: unknown,
+  label: string,
+): MembershipType | null => {
+  if (value === null || value === "APPOINTED" || value === "PETITIONED") {
+    return value;
+  }
+  throw new Error(`Expected ${label} to be a membership type or null`);
+};
+
+const normalizedRawSql = (value: unknown): string => {
+  if (
+    !Array.isArray(value) ||
+    !value.every((part: unknown) => typeof part === "string")
+  ) {
+    throw new Error("Expected Prisma raw SQL to use a tagged template");
+  }
+  return value.join("?").replace(/\s+/g, " ").trim();
+};
+
+/**
+ * The reopen UPDATE's tagged-template values, in the column order the route's
+ * `unnest(...)` names them. Anything else on `$executeRaw` (the advisory lock) is
+ * not a reopen and returns null.
+ */
+const reopenUpdateRows = (values: unknown[]): ReopenUpdateRow[] | null => {
+  if (values.length !== 4) {
+    return null;
+  }
+  const [vrcnums, committeeIds, discrepancies, membershipTypes] = values;
+  if (
+    !Array.isArray(vrcnums) ||
+    !Array.isArray(committeeIds) ||
+    !Array.isArray(discrepancies) ||
+    !Array.isArray(membershipTypes)
+  ) {
+    return null;
+  }
+  if (
+    committeeIds.length !== vrcnums.length ||
+    discrepancies.length !== vrcnums.length ||
+    membershipTypes.length !== vrcnums.length
+  ) {
+    throw new Error("Expected reopen UPDATE arrays to have matching lengths");
+  }
+
+  return vrcnums.map((vrcnum, index) => {
+    const committeeId: unknown = committeeIds[index];
+    const discrepancySerialized: unknown = discrepancies[index];
+    if (typeof committeeId !== "number") {
+      throw new Error(`Expected reopen committee id ${index} to be a number`);
+    }
+    if (typeof discrepancySerialized !== "string") {
+      throw new Error(
+        `Expected reopen discrepancy ${index} to be serialized JSON`,
+      );
+    }
+    return {
+      VRCNUM: requiredVrcnum(vrcnum, `reopen.VRCNUM[${index}]`),
+      committeeId,
+      discrepancy: parseJsonValue(discrepancySerialized),
+      discrepancySerialized,
+      incomingMembershipType: membershipTypeOrNull(
+        membershipTypes[index],
+        `reopen.membershipType[${index}]`,
+      ),
+    };
+  });
+};
+
+/**
+ * Retains discrepancy rows across the import's bulk write and serves them back from
+ * findUnique. Mirrors the route's contract: deleteMany drops unresolved rows, findMany
+ * finds the resolved survivors, the raw UPDATE reopens them in place, and createMany
+ * adds the rest.
+ */
 const wireStatefulDiscrepancyMock = () => {
   const mock = prismaMock.committeeUploadDiscrepancy;
-  mock.upsert.mockImplementation(
-    (upsertArgs: Prisma.CommitteeUploadDiscrepancyUpsertArgs) => {
-      const vrcnum = requiredVrcnum(upsertArgs.where.VRCNUM, "where.VRCNUM");
-      const existing = discrepancyRows.get(vrcnum);
-      const writeData = discrepancyWriteData(
-        existing ? upsertArgs.update : upsertArgs.create,
+  mock.deleteMany.mockImplementation(() => {
+    let count = 0;
+    for (const [vrcnum, row] of discrepancyRows) {
+      if (row.resolvedAt === null) {
+        discrepancyRows.delete(vrcnum);
+        count += 1;
+      }
+    }
+    return resolvesTo<Prisma.BatchPayload>({ count });
+  });
+  mock.findMany.mockImplementation(
+    (args?: Prisma.CommitteeUploadDiscrepancyFindManyArgs) => {
+      const vrcnumFilter = args?.where?.VRCNUM;
+      const wanted =
+        typeof vrcnumFilter === "object" &&
+        vrcnumFilter !== null &&
+        Array.isArray(vrcnumFilter.in)
+          ? vrcnumFilter.in
+          : [];
+      return resolvesTo<{ VRCNUM: string }[]>(
+        wanted
+          .filter((vrcnum) => discrepancyRows.has(vrcnum))
+          .map((vrcnum) => ({ VRCNUM: vrcnum })),
       );
-      const row = existing
-        ? {
+    },
+  );
+  prismaMock.$executeRaw.mockImplementation(
+    (_sql: TemplateStringsArray, ...values: unknown[]) => {
+      const reopenedRows = reopenUpdateRows(values);
+      if (reopenedRows) {
+        for (const reopened of reopenedRows) {
+          const existing = discrepancyRows.get(reopened.VRCNUM);
+          if (!existing) {
+            throw new Error(
+              `Reopen UPDATE targeted unknown row ${reopened.VRCNUM}`,
+            );
+          }
+          discrepancyRows.set(reopened.VRCNUM, {
             ...existing,
-            discrepancy: writeData.discrepancy,
-            incomingMembershipType: writeData.incomingMembershipType,
+            committeeId: reopened.committeeId,
+            discrepancy: reopened.discrepancy,
+            incomingMembershipType: reopened.incomingMembershipType,
             resolvedAt: null,
             resolvedBy: null,
             resolution: null,
             resolutionMetadata: null,
-          }
-        : storedDiscrepancy({
-            VRCNUM: requiredVrcnum(upsertArgs.create.VRCNUM, "create.VRCNUM"),
-            discrepancy: writeData.discrepancy,
-            incomingMembershipType: writeData.incomingMembershipType,
           });
-      discrepancyRows.set(row.VRCNUM, row);
-      return resolvesTo<{ id: string }>({ id: row.id });
+        }
+      }
+      return resolvesTo<number>(reopenedRows?.length ?? 0);
+    },
+  );
+  mock.createMany.mockImplementation(
+    (args?: Prisma.CommitteeUploadDiscrepancyCreateManyArgs) => {
+      const rows = discrepancyCreateRows(args?.data ?? []);
+      for (const created of rows) {
+        discrepancyRows.set(created.VRCNUM, storedDiscrepancy(created));
+      }
+      return resolvesTo<Prisma.BatchPayload>({ count: rows.length });
     },
   );
   mock.findUnique.mockImplementation(
@@ -291,17 +447,23 @@ const setupCommonMocks = () => {
   prismaMock.committeeList.upsert.mockResolvedValue(
     createMockCommitteeListRow({ id: COMMITTEE_ID }),
   );
-  prismaMock.committeeUploadDiscrepancy.deleteMany.mockResolvedValue({
-    count: 0,
-  });
+  // The bulk discrepancy write resolves committee ids from the term's committees.
+  prismaMock.committeeList.findMany.mockResolvedValue([
+    createMockCommitteeListRow({
+      id: COMMITTEE_ID,
+      cityTown: "TEST CITY",
+      legDistrict: 1,
+      electionDistrict: 1,
+    }),
+  ]);
   wireStatefulDiscrepancyMock();
   prismaMock.committeeUploadDiscrepancy.update.mockResolvedValue(
     storedDiscrepancy(),
   );
 };
 
-/** Runs the import route for one roster row and reports the discrepancy it wrote. */
-const importRosterEntry = async (membershipType: MembershipType) => {
+/** Runs the import route for one roster row. */
+const runRosterImport = async (membershipType: MembershipType) => {
   parseWithFormatMock.mockReturnValue({
     entries: [rosterEntry(membershipType)],
     rejected: [],
@@ -315,11 +477,45 @@ const importRosterEntry = async (membershipType: MembershipType) => {
     }),
   );
   expect(response.status).toBe(200);
+};
 
-  return firstCallArg<Prisma.CommitteeUploadDiscrepancyUpsertArgs>(
-    prismaMock.committeeUploadDiscrepancy.upsert,
+/** Runs the import and reports the discrepancy it created. */
+const importRosterEntry = async (membershipType: MembershipType) => {
+  await runRosterImport(membershipType);
+
+  const written = discrepancyCreateRows(
+    firstCallArg<Prisma.CommitteeUploadDiscrepancyCreateManyArgs>(
+      prismaMock.committeeUploadDiscrepancy.createMany,
+    ).data,
+  ).find((row) => row.VRCNUM === VRCNUM);
+  if (!written) {
+    throw new Error(`Expected the import to write a discrepancy for ${VRCNUM}`);
+  }
+  return written;
+};
+
+/**
+ * Import the fixture roster row when its discrepancy is already stored and resolved,
+ * so the import reopens it rather than creating it.
+ */
+const importRosterEntryExpectingReopen = async (
+  membershipType: MembershipType,
+) => {
+  await runRosterImport(membershipType);
+  expect(prismaMock.committeeUploadDiscrepancy.createMany).toHaveBeenCalledWith(
+    { data: [] },
   );
 };
+
+/** A previously rejected APPOINTED discrepancy for the fixture voter. */
+const resolvedRejectedAppointedDiscrepancy = (): DiscrepancyRowShape =>
+  storedDiscrepancy({
+    incomingMembershipType: "APPOINTED",
+    resolvedAt: new Date("2024-01-15T00:00:00Z"),
+    resolvedBy: ADMIN_USER_ID,
+    resolution: "REJECTED",
+    resolutionMetadata: { membershipOutcome: "none" },
+  });
 
 /**
  * Import a roster row that matches the voter file, so planning queues an
@@ -340,6 +536,39 @@ const acceptDiscrepancy = async (row?: DiscrepancyRowShape) => {
   return resolvePOST(createMockRequest({ VRCNUM, accept: true }));
 };
 
+const acceptStoredDiscrepancyExpectingPetitionedMembership = async () => {
+  jest.clearAllMocks();
+  setupCommonMocks();
+  authenticateAdmin();
+  const createdMembership = {
+    ...createMockMembership({
+      id: "m-new",
+      voterRecordId: VRCNUM,
+      committeeListId: COMMITTEE_ID,
+      seatNumber: 1,
+    }),
+    status: "ACTIVE",
+    membershipType: "PETITIONED",
+    submissionMetadata: null,
+    resignationMethod: null,
+    removalReason: null,
+  } satisfies CommitteeMembership;
+  prismaMock.committeeMembership.create.mockResolvedValue(createdMembership);
+
+  const response = await acceptDiscrepancy();
+
+  expect(response.status).toBe(200);
+  expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
+    expectMembershipCreate({
+      voterRecordId: VRCNUM,
+      committeeListId: COMMITTEE_ID,
+      status: "ACTIVE",
+      membershipType: "PETITIONED",
+      seatNumber: 1,
+    }),
+  );
+};
+
 describe("membership type through discrepancy resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -352,23 +581,60 @@ describe("membership type through discrepancy resolution", () => {
     it.each(["PETITIONED", "APPOINTED"] as const)(
       "writes %s for a row the voter file disagrees with",
       async (membershipType) => {
-        const upsertArgs = await importRosterEntry(membershipType);
+        const written = await importRosterEntry(membershipType);
 
-        expect(upsertArgs.where).toEqual({ VRCNUM });
-        expect(upsertArgs.create.incomingMembershipType).toBe(membershipType);
-        // The reset path an already-present row takes has to say it too.
-        expect(upsertArgs.update.incomingMembershipType).toBe(membershipType);
+        expect(written.committeeId).toBe(COMMITTEE_ID);
+        expect(written.incomingMembershipType).toBe(membershipType);
         // The roster row alone never seats anybody.
         expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
       },
     );
 
+    it("reopens an already-resolved row with the roster's current type", async () => {
+      discrepancyRows.set(VRCNUM, resolvedRejectedAppointedDiscrepancy());
+
+      await importRosterEntryExpectingReopen("PETITIONED");
+
+      // The lock, then one bulk UPDATE carrying the roster's type per row.
+      expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(2);
+      const [reopenSql, ...reopenValues] =
+        prismaMock.$executeRaw.mock.calls[1]!;
+      const query = normalizedRawSql(reopenSql);
+      expect(query).toContain('SET "committeeId" = r.committee_id,');
+      expect(query).toContain('"discrepancy" = r.discrepancy,');
+      expect(query).toContain(
+        '"incomingMembershipType" = r.membership_type::"MembershipType",',
+      );
+      expect(query).toContain('"resolvedAt" = NULL,');
+      expect(query).toContain('"resolvedBy" = NULL,');
+      expect(query).toContain('"resolution" = NULL,');
+      expect(query).toContain("\"resolutionMetadata\" = 'null'::jsonb");
+      expect(reopenUpdateRows(reopenValues)).toEqual([
+        {
+          VRCNUM,
+          committeeId: COMMITTEE_ID,
+          discrepancy: objectContainingMatcher({}),
+          discrepancySerialized: expectAnything(),
+          incomingMembershipType: "PETITIONED",
+        },
+      ]);
+      expect(discrepancyRows.get(VRCNUM)).toEqual(
+        objectContainingMatcher({
+          incomingMembershipType: "PETITIONED",
+          resolvedAt: null,
+          resolvedBy: null,
+          resolution: null,
+          resolutionMetadata: null,
+        }),
+      );
+    });
+
     it("writes the type for a VRCNUM that is not in the voter file", async () => {
       prismaMock.voterRecord.findUnique.mockResolvedValue(null);
 
-      const upsertArgs = await importRosterEntry("PETITIONED");
+      const written = await importRosterEntry("PETITIONED");
 
-      expect(upsertArgs.create.incomingMembershipType).toBe("PETITIONED");
+      expect(written.incomingMembershipType).toBe("PETITIONED");
     });
 
     it("writes the type when the voter is already active in another committee", async () => {
@@ -381,9 +647,9 @@ describe("membership type through discrepancy resolution", () => {
         }),
       ]);
 
-      const upsertArgs = await importMatchingRosterEntry("PETITIONED");
+      const written = await importMatchingRosterEntry("PETITIONED");
 
-      expect(upsertArgs.create.incomingMembershipType).toBe("PETITIONED");
+      expect(written.incomingMembershipType).toBe("PETITIONED");
     });
   });
 
@@ -398,10 +664,9 @@ describe("membership type through discrepancy resolution", () => {
         }),
       );
 
-      const upsertArgs = await importMatchingRosterEntry("PETITIONED");
+      const written = await importMatchingRosterEntry("PETITIONED");
 
-      expect(upsertArgs.create.incomingMembershipType).toBe("PETITIONED");
-      expect(upsertArgs.update.incomingMembershipType).toBe("PETITIONED");
+      expect(written.incomingMembershipType).toBe("PETITIONED");
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
       expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
     });
@@ -411,10 +676,9 @@ describe("membership type through discrepancy resolution", () => {
         activeMembershipPerTermConflict(),
       );
 
-      const upsertArgs = await importMatchingRosterEntry("PETITIONED");
+      const written = await importMatchingRosterEntry("PETITIONED");
 
-      expect(upsertArgs.create.incomingMembershipType).toBe("PETITIONED");
-      expect(upsertArgs.update.incomingMembershipType).toBe("PETITIONED");
+      expect(written.incomingMembershipType).toBe("PETITIONED");
     });
 
     it("writes the type when membership reactivation hits a unique-conflict error", async () => {
@@ -432,10 +696,9 @@ describe("membership type through discrepancy resolution", () => {
         activeMembershipPerTermConflict(),
       );
 
-      const upsertArgs = await importMatchingRosterEntry("PETITIONED");
+      const written = await importMatchingRosterEntry("PETITIONED");
 
-      expect(upsertArgs.create.incomingMembershipType).toBe("PETITIONED");
-      expect(upsertArgs.update.incomingMembershipType).toBe("PETITIONED");
+      expect(written.incomingMembershipType).toBe("PETITIONED");
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });
   });
@@ -443,32 +706,7 @@ describe("membership type through discrepancy resolution", () => {
   describe("accepting the discrepancy writes that type", () => {
     it("creates a PETITIONED membership from an imported PETITIONED row", async () => {
       await importRosterEntry("PETITIONED");
-      jest.clearAllMocks();
-      setupCommonMocks();
-      authenticateAdmin();
-      getMembershipMock(prismaMock).create.mockResolvedValue(
-        createMockMembership({
-          id: "m-new",
-          voterRecordId: VRCNUM,
-          committeeListId: COMMITTEE_ID,
-          status: "ACTIVE",
-          membershipType: "PETITIONED",
-          seatNumber: 1,
-        }),
-      );
-
-      const response = await acceptDiscrepancy();
-
-      expect(response.status).toBe(200);
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
-        expectMembershipCreate({
-          voterRecordId: VRCNUM,
-          committeeListId: COMMITTEE_ID,
-          status: "ACTIVE",
-          membershipType: "PETITIONED",
-          seatNumber: 1,
-        }),
-      );
+      await acceptStoredDiscrepancyExpectingPetitionedMembership();
       expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
         expectAuditLogCreate({
           action: "MEMBER_ACTIVATED",
@@ -481,6 +719,12 @@ describe("membership type through discrepancy resolution", () => {
           }),
         }),
       );
+    });
+
+    it("creates a PETITIONED membership from a reopened APPOINTED rejection", async () => {
+      discrepancyRows.set(VRCNUM, resolvedRejectedAppointedDiscrepancy());
+      await importRosterEntryExpectingReopen("PETITIONED");
+      await acceptStoredDiscrepancyExpectingPetitionedMembership();
     });
 
     it("creates an APPOINTED membership from an APPOINTED row", async () => {
