@@ -14,11 +14,23 @@ import {
   getUserJurisdictions,
   committeeMatchesJurisdictions,
 } from "~/app/api/lib/committeeValidation";
+import { CommitteesPrototype } from "./_prototype/CommitteesPrototype";
 
 export const dynamic = "force-dynamic";
 
-const CommitteeLists = async () => {
+interface CommitteeListsProps {
+  searchParams?: Promise<{ variant?: string }>;
+}
+
+const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
   const permissions = await auth();
+
+  // PROTOTYPE (ticket 01): development-only layout variants on this route,
+  // rendered from mock data. Removed once the layout decision is captured.
+  const { variant } = (await Promise.resolve(searchParams)) ?? {};
+  if (process.env.NODE_ENV !== "production" && variant && permissions?.user) {
+    return <CommitteesPrototype variant={variant} />;
+  }
 
   const isAdminUser = hasPermissionFor(
     permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
