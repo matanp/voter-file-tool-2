@@ -11,6 +11,10 @@
  * Privilege: the caller says whether the reader is Admin. Admin-only fields
  * (actor name, voter id, free-text notes/reasons, override rationale,
  * replacement links, meeting notes) are omitted — never nulled — otherwise.
+ * Petition results (won/lost/tie, vote counts, primary dates) are Admin-only
+ * too: non-Admins get no `petition_outcome` events, and a petition win shows
+ * as a plain `activated` event with `source: "other"` (see
+ * .scratch/leader-petition-visibility/issues/01-…md).
  */
 
 import type {
@@ -213,7 +217,10 @@ function toOutcome(
  * - `MEMBER_CONFIRMED` + `MEMBER_ACTIVATED` from one accept collapse into one
  *   `confirmed` event keyed on the CONFIRMED row; the ACTIVATED sibling is
  *   recognised by its `meetingRecordId` (only accept writes it).
- * - `MEMBER_ACTIVATED` from a petition win is folded into `petition_outcome`.
+ * - `MEMBER_ACTIVATED` from a petition win is folded into `petition_outcome`
+ *   for Admins. Non-Admins never see petition results: `PETITION_RECORDED`
+ *   rows are dropped, and that ACTIVATED row becomes a plain `activated`
+ *   event with `source: "other"` and no petition fields.
  * - Seat-entity `PETITION_RECORDED` rows are not queried; one event per
  *   candidate comes from the membership-entity rows.
  */
@@ -310,7 +317,18 @@ export function buildHistoryEvents(
       case "MEMBER_ACTIVATED":
         // Sibling of a CONFIRMED row (accept) or of a PETITION_RECORDED row.
         if (meetingRecordId != null) break;
-        if (metadata.source === "petition_outcome") break;
+        if (metadata.source === "petition_outcome") {
+          if (isAdmin) break; // Admins see the petition_outcome event instead.
+          // POLICY: petition results are Admin-only. A Leader sees that the
+          // member was activated, with nothing that names the petition.
+          events.push({
+            ...base,
+            kind: "activated",
+            source: "other",
+            membershipType: undefined,
+          });
+          break;
+        }
         events.push({
           ...base,
           kind: "activated",
@@ -349,6 +367,8 @@ export function buildHistoryEvents(
         break;
       }
       case "PETITION_RECORDED": {
+        // POLICY: petition outcomes are Admin-only (see the activated case).
+        if (!isAdmin) break;
         const outcome = toOutcome(metadata, after);
         if (outcome === undefined) break; // nothing recoverable; do not fake it
         events.push({

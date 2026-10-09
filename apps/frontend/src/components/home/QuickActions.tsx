@@ -1,11 +1,24 @@
+"use client";
+
+import { useContext } from "react";
+import { PrivilegeLevel } from "@prisma/client";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import { Search, Users, FileText, BarChart3 } from "lucide-react";
+import { GlobalContext } from "~/components/providers/GlobalContext";
+import { hasPermissionFor } from "~/lib/utils";
 
 /**
- * Quick action buttons data structure
+ * Quick action buttons data structure. `minPrivilege` is display-only (acting
+ * privilege); the target page and API enforce the real gate.
  */
-const quickActions = [
+const quickActions: Array<{
+  icon: typeof Search;
+  title: string;
+  description: string;
+  href: string;
+  minPrivilege?: PrivilegeLevel;
+}> = [
   {
     icon: Search,
     title: "Search Voters",
@@ -23,6 +36,8 @@ const quickActions = [
     title: "Petitions",
     description: "Generate petitions",
     href: "/petitions",
+    // Petition generation is Admin-only (leader-petition-visibility/01).
+    minPrivilege: PrivilegeLevel.Admin,
   },
   {
     icon: BarChart3,
@@ -36,11 +51,18 @@ const quickActions = [
  * Quick actions section component
  */
 export function QuickActions() {
+  const { actingPermissions } = useContext(GlobalContext);
+  const visibleActions = quickActions.filter(
+    (action) =>
+      !action.minPrivilege ||
+      hasPermissionFor(actingPermissions, action.minPrivilege),
+  );
+
   return (
     <div className="text-center">
       <h2 className="text-3xl font-bold mb-8 text-foreground">Get Started</h2>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
-        {quickActions.map((action) => {
+        {visibleActions.map((action) => {
           const IconComponent = action.icon;
           return (
             <Button

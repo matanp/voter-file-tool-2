@@ -739,6 +739,118 @@ describe('fetchChangesData', () => {
 
     expect(rows).toHaveLength(0);
   });
+
+  describe('petition outcomes (Admin-only, leader-petition-visibility/01)', () => {
+    const primaryDate = new Date(Date.UTC(2026, 6, 6, 0, 0, 0, 0));
+
+    function petitionMemberships() {
+      const base = buildRemovedMembership(primaryDate);
+      return [
+        {
+          ...base,
+          id: 'm-won',
+          status: 'ACTIVE',
+          membershipType: 'PETITIONED',
+          removedAt: null,
+          removalReason: null,
+          activatedAt: new Date(Date.UTC(2026, 6, 6, 15, 0, 0, 0)),
+          petitionVoteCount: 120,
+          petitionPrimaryDate: primaryDate,
+          voterRecord: { VRCNUM: 'VRC-W', firstName: 'Win', lastName: 'Ner' },
+        },
+        {
+          ...base,
+          id: 'm-lost',
+          status: 'PETITIONED_LOST',
+          membershipType: 'PETITIONED',
+          seatNumber: null,
+          removedAt: null,
+          removalReason: null,
+          petitionVoteCount: 47,
+          petitionPrimaryDate: primaryDate,
+          voterRecord: { VRCNUM: 'VRC-L', firstName: 'Lou', lastName: 'Lost' },
+        },
+        {
+          ...base,
+          id: 'm-tie',
+          status: 'PETITIONED_TIE',
+          membershipType: 'PETITIONED',
+          seatNumber: null,
+          removedAt: null,
+          removalReason: null,
+          petitionVoteCount: null,
+          petitionPrimaryDate: primaryDate,
+          voterRecord: { VRCNUM: 'VRC-T', firstName: 'Tia', lastName: 'Tie' },
+        },
+        {
+          ...base,
+          id: 'm-appointed',
+          status: 'ACTIVE',
+          membershipType: 'APPOINTED',
+          removedAt: null,
+          removalReason: null,
+          activatedAt: new Date(Date.UTC(2026, 6, 6, 9, 0, 0, 0)),
+          voterRecord: { VRCNUM: 'VRC-A', firstName: 'Ann', lastName: 'Appointed' },
+        },
+      ];
+    }
+
+    function summarize(rows: Awaited<ReturnType<typeof fetchChangesData>>) {
+      return rows
+        .map((r) => [r.memberName, r.changeType, r.details])
+        .sort((a, b) => a[0].localeCompare(b[0]));
+    }
+
+    it('reports Petition Won/Lost rows with vote counts when included (Admin)', async () => {
+      prismaMock.committeeMembership.findMany.mockResolvedValue(
+        petitionMemberships(),
+      );
+
+      const rows = await fetchChangesData(
+        'countywide',
+        dateFrom,
+        dateTo,
+        undefined,
+        undefined,
+        { includePetitionOutcomes: true },
+      );
+
+      expect(summarize(rows)).toEqual([
+        ['Ann Appointed', 'Added', ''],
+        ['Lou Lost', 'Petition Lost', '47 votes'],
+        ['Tia Tie', 'Petition Lost', 'Tie'],
+        ['Win Ner', 'Petition Won', '120 votes'],
+      ]);
+    });
+
+    it.each([
+      ['explicitly false (Leader job)', { includePetitionOutcomes: false }],
+      ['absent (fail closed)', undefined],
+    ])(
+      'reports a win as plain Added and drops losses when %s',
+      async (_label, options) => {
+        prismaMock.committeeMembership.findMany.mockResolvedValue(
+          petitionMemberships(),
+        );
+
+        const rows = await fetchChangesData(
+          'countywide',
+          dateFrom,
+          dateTo,
+          undefined,
+          undefined,
+          options,
+        );
+
+        expect(summarize(rows)).toEqual([
+          ['Ann Appointed', 'Added', ''],
+          ['Win Ner', 'Added', ''],
+        ]);
+        const serialized = JSON.stringify(rows);
+        expect(serialized).not.toMatch(/Petition|votes|Tie/);
+      },
+    );
+  });
 });
 
 describe('fetchPetitionOutcomesData', () => {

@@ -61,7 +61,7 @@ export const SCOPE_REPORT_UI: Record<ScopeReportType, ScopeReportUiDefinition> =
     gridTitle: "Changes Report",
     href: "/changes-reports",
     pageDescription:
-      "Membership changes over a date range — additions, resignations, removals, and petition outcomes.",
+      "Membership changes over a date range — additions, confirmations, resignations, and removals.",
     gridDescription: "Membership changes over a date range",
     minPrivilege: PrivilegeLevel.Leader,
     defaultNamePrefix: "Changes Report",
@@ -73,7 +73,10 @@ export const SCOPE_REPORT_UI: Record<ScopeReportType, ScopeReportUiDefinition> =
     pageDescription:
       "Petition results by committee and seat — winners, unopposed, and outcomes.",
     gridDescription: "Petition results by committee and seat",
-    minPrivilege: PrivilegeLevel.Leader,
+    // Admin-only (leader-petition-visibility/01). The page gate is set
+    // separately in petition-outcomes-reports/page.tsx; generateReport
+    // enforces it server-side.
+    minPrivilege: PrivilegeLevel.Admin,
     defaultNamePrefix: "Petition Outcomes",
   },
 };

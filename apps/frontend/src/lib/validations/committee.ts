@@ -925,7 +925,8 @@ export const historyMeetingSchema = z.object({
 /**
  * Provenance, from `AuditLog.metadata.source`; "meeting" when the event carries
  * a meeting; "manual" when absent; "other" for a source value this build does
- * not know.
+ * not know, or one withheld from the reader ("petition_outcome" is Admin-only;
+ * a Leader sees a petition-win activation with source "other").
  */
 export const historySourceSchema = z.enum([
   "manual",
@@ -1010,6 +1011,7 @@ export const historyEventSchema = z.discriminatedUnion("kind", [
     /** Admin only — the incoming member of an accepted replacement request. */
     replacedBy: historyMemberSchema.optional(),
   }),
+  /** Admin only — the whole event is omitted for non-Admins. */
   z.object({
     ...historyEventBase,
     kind: z.literal("petition_outcome"),
