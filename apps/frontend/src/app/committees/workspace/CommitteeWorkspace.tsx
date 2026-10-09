@@ -39,6 +39,7 @@ import {
 } from "./gridModel";
 import { useCommitteeDetail } from "./useCommitteeDetail";
 import { useCommitteeGridData } from "./useCommitteeGridData";
+import { useGridRefresh } from "./useGridRefresh";
 import { useHeightBelowNav } from "./useHeightBelowNav";
 import { useIsDesktop } from "./useIsDesktop";
 import {
@@ -75,7 +76,7 @@ export function CommitteeWorkspace({
   const searchParams = useSearchParams();
   const isDesktop = useIsDesktop();
   const height = useHeightBelowNav();
-  const grid = useCommitteeGridData();
+  const rawGrid = useCommitteeGridData();
 
   const url = parseWorkspaceUrlState(searchParams);
 
@@ -112,6 +113,11 @@ export function CommitteeWorkspace({
 
   // --- Filters -------------------------------------------------------------
   const [localFilters, setLocalFilters] = useState<LocalFilters>(EMPTY_GRID_FILTERS);
+  // Cross-pane refresh after a detail mutation (see useGridRefresh).
+  const { grid, refresh: refreshGrid, keepSelectedVisible } = useGridRefresh(
+    rawGrid,
+    JSON.stringify([url.committeeId, url.town, url.ld, localFilters]),
+  );
   const scope = grid.scopeFilters;
 
   // URL filters outside the caller's scope are ignored now and cleared below.
@@ -127,8 +133,11 @@ export function CommitteeWorkspace({
     scope && url.ld !== null && !ldOptions.includes(url.ld) ? null : url.ld;
 
   const visible = useMemo(
-    () => filterRollups(grid.rollups, { ...localFilters, town, ld }),
-    [grid.rollups, localFilters, town, ld],
+    () =>
+      keepSelectedVisible(
+        filterRollups(grid.rollups, { ...localFilters, town, ld }),
+      ),
+    [grid.rollups, localFilters, town, ld, keepSelectedVisible],
   );
   const groups = useMemo(() => groupRollupsByTown(visible), [visible]);
 
@@ -175,7 +184,14 @@ export function CommitteeWorkspace({
   );
 
   // --- Detail ----------------------------------------------------------------
-  const detail = useCommitteeDetail(selectedCommitteeId);
+  const loadedDetail = useCommitteeDetail(selectedCommitteeId);
+  // A tab's `onRefresh` (and Retry) refreshes the detail and the grid row.
+  const { reload: reloadDetail } = loadedDetail;
+  const refreshDetailAndGrid = useCallback(() => {
+    reloadDetail();
+    refreshGrid(selectedCommitteeId);
+  }, [reloadDetail, refreshGrid, selectedCommitteeId]);
+  const detail = { ...loadedDetail, reload: refreshDetailAndGrid };
 
   // Mobile Back: return to the list and put focus back on the row it came from.
   const returnFocusTo = useRef<number | null>(null);
