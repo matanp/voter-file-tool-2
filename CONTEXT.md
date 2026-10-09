@@ -77,3 +77,13 @@ The title of a public office a candidate runs for, e.g. "Council Member, Distric
 Reference List and chosen per candidate when generating a petition. Distinct from a Seat, which
 is a position on the committee that a member holds.
 _Avoid_: office, position, title, seat
+
+### Committee records
+
+**Committee History**:
+The record of how a committee's membership changed during a Committee Term: who was submitted, accepted, rejected, added, resigned, or removed, when, and by whom. It holds only what was actually recorded at the time; anything not recorded is left out, never reconstructed.
+_Avoid_: audit log (for this view), activity feed, changelog
+
+**Election Outcome**:
+A petition candidate's result in the primary for a committee seat: won, lost, or tied. Visible to Admins only.
+_Avoid_: petition outcome context, petition result
