@@ -1,13 +1,15 @@
 /**
- * Committees workspace shell (ticket 07, plan §6 / §12.2): URL-driven selection
- * and tabs, filtering, invalid-selection recovery, cursor pagination, the
- * Leader single-scope shortcut, and role-gated header controls.
+ * Committees workspace shell (tickets 07 and 08, plan §6 / §10 / §12.2):
+ * URL-driven selection and tabs, filtering, invalid-selection recovery, cursor
+ * pagination, the Leader single-scope shortcut, role-gated controls, detail
+ * loading and failure, stale detail requests, empty scopes, the list collapse
+ * toggle, mobile list ↔ detail navigation, and keyboard access.
  *
  * `next/navigation` is backed by a tiny in-memory URL store: router writes
  * update it and `useSearchParams` re-renders from it, like the real router.
  */
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel } from "@prisma/client";
 
@@ -17,6 +19,7 @@ import { hasPermissionFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import { summarizeEdRollups } from "~/lib/summarizeEdRollups";
 import type {
+  CommitteeDetailResponse,
   EdRollup,
   RosterFilters,
   RosterResponse,
@@ -137,24 +140,103 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
-/** Serves `pages` keyed by cursor (`null` = first page). */
-function serveRoster(pages: RosterResponse[]) {
+/** A detail response for a grid row; `ltedWeight` doubles as a visible marker. */
+function detailFor(
+  r: EdRollup,
+  overrides: Partial<CommitteeDetailResponse> = {},
+): CommitteeDetailResponse {
+  return {
+    committee: {
+      committeeListId: r.committeeListId,
+      cityTown: r.cityTown,
+      legDistrict: r.legDistrict,
+      electionDistrict: r.electionDistrict,
+      termId: "term-1",
+      ltedWeight: `${r.committeeListId}.5`,
+    },
+    term: {
+      id: "term-1",
+      label: "2024–2026",
+      startDate: "2024-01-01T00:00:00.000Z",
+      endDate: "2026-12-31T00:00:00.000Z",
+    },
+    maxSeatsPerLted: 4,
+    rollup: r,
+    rows: [],
+    designationWeightSummary: {
+      totalWeight: 0,
+      totalContributingSeats: 0,
+      seats: [],
+      missingWeightSeatNumbers: [],
+    },
+    pending: [],
+    history: { events: [], hasMore: false },
+    ...overrides,
+  };
+}
+
+type DetailHandler = (
+  committeeListId: number,
+  init: RequestInit | undefined,
+) => Promise<Response>;
+
+const DETAIL_PATH = /^\/api\/committee\/(\d+)\/detail$/;
+
+/** Serves the scope's detail from `rollups`; unknown ids get the endpoint's 404. */
+function detailsFrom(rollups: EdRollup[]): DetailHandler {
+  return async (id) => {
+    const r = rollups.find((x) => x.committeeListId === id);
+    return r
+      ? jsonResponse(detailFor(r))
+      : jsonResponse({ error: "Committee not found" }, 404);
+  };
+}
+
+/**
+ * Serves roster `pages` keyed by cursor (`null` = first page), and the detail
+ * endpoint through `detail` (default: built from the pages' rollups).
+ */
+function serveRoster(pages: RosterResponse[], detail?: DetailHandler) {
   const byCursor = new Map<string, RosterResponse>();
   let cursor: number | null = null;
   for (const page of pages) {
     byCursor.set(String(cursor), page);
     cursor = page.nextCursor;
   }
-  const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), "http://localhost");
-    if (url.pathname !== "/api/committee/roster") {
-      throw new Error(`unexpected fetch ${url.toString()}`);
-    }
-    const page = byCursor.get(String(url.searchParams.get("cursor")));
-    return page ? jsonResponse(page) : jsonResponse({ error: "bad cursor" }, 400);
-  });
+  const serveDetail = detail ?? detailsFrom(pages.flatMap((p) => p.edRollups));
+  const fetchMock = jest.fn(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), "http://localhost");
+      const detailMatch = DETAIL_PATH.exec(url.pathname);
+      if (detailMatch) return serveDetail(Number(detailMatch[1]), init);
+      if (url.pathname !== "/api/committee/roster") {
+        throw new Error(`unexpected fetch ${url.toString()}`);
+      }
+      const page = byCursor.get(String(url.searchParams.get("cursor")));
+      return page ? jsonResponse(page) : jsonResponse({ error: "bad cursor" }, 400);
+    },
+  );
   global.fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;
+}
+
+/** Detail requests made so far, as `[committeeListId, init]`. */
+function detailRequests(fetchMock: jest.Mock) {
+  return fetchMock.mock.calls.flatMap(
+    ([input, init]: [RequestInfo | URL, RequestInit | undefined]) => {
+      const match = DETAIL_PATH.exec(new URL(String(input), "http://localhost").pathname);
+      return match ? [[Number(match[1]), init] as const] : [];
+    },
+  );
+}
+
+/** A promise the test resolves by hand. */
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
 }
 
 function renderWorkspace({
@@ -177,6 +259,12 @@ function renderWorkspace({
 }
 
 const committeeList = () => screen.getByRole("complementary", { name: "Committee list" });
+const detailPane = () => screen.getByRole("region", { name: "Committee detail" });
+const fixture = (committeeListId: number) => {
+  const r = ALL.find((x) => x.committeeListId === committeeListId);
+  if (!r) throw new Error(`no fixture ${committeeListId}`);
+  return r;
+};
 const rowFor = (r: EdRollup) => {
   const row = committeeList().querySelector<HTMLButtonElement>(
     `[data-committee-id="${r.committeeListId}"]`,
@@ -488,8 +576,10 @@ describe("CommitteeWorkspace pagination", () => {
     renderWorkspace();
     await waitForGrid();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const urls = fetchMock.mock.calls.map(([u]) => new URL(String(u), "http://localhost"));
+    const urls = fetchMock.mock.calls
+      .map(([u]) => new URL(String(u), "http://localhost"))
+      .filter((u) => u.pathname === "/api/committee/roster");
+    expect(urls).toHaveLength(2);
     expect(urls[0]?.searchParams.get("includeRows")).toBe("false");
     expect(urls[0]?.searchParams.has("cursor")).toBe(false);
     expect(urls[1]?.searchParams.get("cursor")).toBe("3");
@@ -504,8 +594,14 @@ describe("CommitteeWorkspace pagination", () => {
     const secondGate = new Promise<void>((resolve) => {
       releaseSecond = resolve;
     });
+    const detailGate = deferred<void>();
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
-      const cursor = new URL(String(input), "http://localhost").searchParams.get("cursor");
+      const url = new URL(String(input), "http://localhost");
+      if (DETAIL_PATH.test(url.pathname)) {
+        await detailGate.promise;
+        return jsonResponse(detailFor(ROCHESTER_29));
+      }
+      const cursor = url.searchParams.get("cursor");
       if (cursor === null) return jsonResponse(first);
       await secondGate;
       return jsonResponse(second);
@@ -518,6 +614,13 @@ describe("CommitteeWorkspace pagination", () => {
     expect(screen.getByText("Loading committee…")).toBeInTheDocument();
     expect(selectedRowIds()).toEqual([]);
     expect(mockReplace).not.toHaveBeenCalled();
+
+    // The detail endpoint identifies the committee before its grid page arrives.
+    detailGate.resolve();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Rochester · ED 7" }),
+    ).toBeInTheDocument();
+    expect(selectedRowIds()).toEqual([]);
 
     releaseSecond();
     await waitForGrid();
@@ -538,9 +641,13 @@ describe("CommitteeWorkspace pagination", () => {
   it("shows an error with a working retry when the grid fails to load", async () => {
     const pages = pagesOf(ALL, 500);
     let fail = true;
-    const fetchMock = jest.fn(async () =>
-      fail ? jsonResponse({ error: "boom" }, 500) : jsonResponse(pages[0]),
-    );
+    const serveDetail = detailsFrom(ALL);
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      const detailMatch = DETAIL_PATH.exec(url.pathname);
+      if (detailMatch) return serveDetail(Number(detailMatch[1]), undefined);
+      return fail ? jsonResponse({ error: "boom" }, 500) : jsonResponse(pages[0]);
+    });
     global.fetch = fetchMock as unknown as typeof fetch;
     renderWorkspace();
 
@@ -601,5 +708,311 @@ describe("CommitteeWorkspace roles", () => {
     expect(screen.queryByRole("link", { name: "Review pending" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Generate report" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Committees" })).toBeInTheDocument();
+  });
+
+  it("follows actingPermissions in the UI but never sends it with the detail request", async () => {
+    const fetchMock = serveRoster(pagesOf(ALL, 500));
+    // e.g. a Developer acting as a Leader.
+    const { unmount } = renderWorkspace({ query: "committee=1", role: PrivilegeLevel.Leader });
+    await within(detailPane()).findByText("LTED weight 1.5");
+    expect(screen.queryByRole("link", { name: "Review pending" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Roster",
+      "Pending",
+      "Seats & Weight",
+      "History",
+    ]);
+    const leaderInit = detailRequests(fetchMock)[0]?.[1];
+    unmount();
+
+    renderWorkspace({ query: "committee=1", role: PrivilegeLevel.Developer });
+    await within(detailPane()).findByText("LTED weight 1.5");
+    expect(screen.getByRole("link", { name: "Review pending" })).toBeInTheDocument();
+    const developerInit = detailRequests(fetchMock)[1]?.[1];
+
+    // Authorization is the server's: the request is the same for every acting role.
+    expect(developerInit?.headers).toEqual(leaderInit?.headers);
+    expect(developerInit?.method).toBe(leaderInit?.method);
+    expect(JSON.stringify(leaderInit?.headers ?? {})).not.toMatch(/Leader|Admin|Developer/i);
+  });
+});
+
+// --- Detail loading (ticket 08) ----------------------------------------------
+
+describe("CommitteeWorkspace detail loading", () => {
+  it("loads the selected committee's detail and renders the summary and the default Roster tab", async () => {
+    const fetchMock = serveRoster(pagesOf(ALL, 500));
+    renderWorkspace({ query: "committee=2" });
+    await waitForGrid();
+
+    expect(await within(detailPane()).findByText("LTED weight 2.5")).toBeInTheDocument();
+    expect(detailRequests(fetchMock).map(([id]) => id)).toEqual([2]);
+    const summary = within(detailPane()).getByRole("list", { name: "Committee summary" });
+    expect(summary).toHaveTextContent("2 of 4 seats filled · 2 open");
+    expect(summary).toHaveTextContent("2 pending");
+    expect(screen.getByRole("tab", { name: "Roster" })).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(screen.getByRole("tabpanel")).getByRole("heading", { level: 3, name: "Roster" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the committee heading from the grid row while the detail is loading", async () => {
+    const gate = deferred<void>();
+    serveRoster(pagesOf(ALL, 500), async (id) => {
+      await gate.promise;
+      return jsonResponse(detailFor(fixture(id)));
+    });
+    renderWorkspace({ query: "committee=3" });
+    await waitForGrid();
+
+    expect(screen.getByRole("heading", { level: 2, name: "Penfield · ED 1" })).toBeInTheDocument();
+    expect(within(detailPane()).getByRole("status")).toHaveTextContent("Loading committee details…");
+    expect(screen.getByRole("tab", { name: "Roster" })).toBeInTheDocument();
+
+    gate.resolve();
+    expect(await within(detailPane()).findByText("LTED weight 3.5")).toBeInTheDocument();
+    expect(within(detailPane()).queryByText("Loading committee details…")).not.toBeInTheDocument();
+  });
+
+  it("shows a failed detail with the server's message and retries it", async () => {
+    let fail = true;
+    const fetchMock = serveRoster(pagesOf(ALL, 500), async (id) =>
+      fail
+        ? jsonResponse({ error: "You do not have access to this committee" }, 403)
+        : jsonResponse(detailFor(fixture(id))),
+    );
+    renderWorkspace({ query: "committee=1" });
+    await waitForGrid();
+
+    const alert = await within(detailPane()).findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Could not load this committee: You do not have access to this committee",
+    );
+    // The header still identifies the committee from the grid row.
+    expect(screen.getByRole("heading", { level: 2, name: "Greece · ED 1" })).toBeInTheDocument();
+
+    fail = false;
+    await userEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+
+    expect(await within(detailPane()).findByText("LTED weight 1.5")).toBeInTheDocument();
+    expect(within(detailPane()).queryByRole("alert")).not.toBeInTheDocument();
+    expect(detailRequests(fetchMock).map(([id]) => id)).toEqual([1, 1]);
+  });
+
+  it("treats a malformed detail response as a failure", async () => {
+    serveRoster(pagesOf(ALL, 500), async () => jsonResponse({ committee: null }));
+    renderWorkspace({ query: "committee=1" });
+    await waitForGrid();
+
+    expect(await within(detailPane()).findByRole("alert")).toHaveTextContent(
+      "Could not load this committee",
+    );
+  });
+
+  it("aborts a pending request and ignores its late response when the selection changes", async () => {
+    const gates = new Map([
+      [1, deferred<void>()],
+      [2, deferred<void>()],
+    ]);
+    // Resolves even after abort, as a response already in flight can.
+    const fetchMock = serveRoster(pagesOf(ALL, 500), async (id) => {
+      await gates.get(id)?.promise;
+      return jsonResponse(detailFor(fixture(id)));
+    });
+    renderWorkspace({ query: "committee=1" });
+    await waitForGrid();
+    await waitFor(() => expect(detailRequests(fetchMock)).toHaveLength(1));
+
+    await userEvent.click(rowFor(GREECE_2));
+    await waitFor(() => expect(detailRequests(fetchMock)).toHaveLength(2));
+    const [first, second] = detailRequests(fetchMock);
+    expect(first?.[1]?.signal?.aborted).toBe(true);
+    expect(second?.[0]).toBe(2);
+    expect(second?.[1]?.signal?.aborted).toBe(false);
+
+    // Committee 1 answers first: it must not appear under committee 2.
+    await act(async () => {
+      gates.get(1)?.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("heading", { level: 2, name: "Greece · ED 2" })).toBeInTheDocument();
+    expect(within(detailPane()).getByRole("status")).toHaveTextContent(
+      "Loading committee details…",
+    );
+    expect(within(detailPane()).queryByText("LTED weight 1.5")).not.toBeInTheDocument();
+
+    gates.get(2)?.resolve();
+    expect(await within(detailPane()).findByText("LTED weight 2.5")).toBeInTheDocument();
+    expect(within(detailPane()).queryByText("LTED weight 1.5")).not.toBeInTheDocument();
+  });
+
+  it("keeps the newer committee when the older response arrives last", async () => {
+    const gates = new Map([
+      [1, deferred<void>()],
+      [2, deferred<void>()],
+    ]);
+    const fetchMock = serveRoster(pagesOf(ALL, 500), async (id) => {
+      await gates.get(id)?.promise;
+      return jsonResponse(detailFor(fixture(id)));
+    });
+    renderWorkspace({ query: "committee=1" });
+    await waitForGrid();
+
+    await userEvent.click(rowFor(GREECE_2));
+    await waitFor(() => expect(detailRequests(fetchMock)).toHaveLength(2));
+    gates.get(2)?.resolve();
+    expect(await within(detailPane()).findByText("LTED weight 2.5")).toBeInTheDocument();
+
+    await act(async () => {
+      gates.get(1)?.resolve();
+      await Promise.resolve();
+    });
+    expect(within(detailPane()).getByText("LTED weight 2.5")).toBeInTheDocument();
+    expect(within(detailPane()).queryByText("LTED weight 1.5")).not.toBeInTheDocument();
+  });
+
+  it("renders each tab's registered component in a labelled tabpanel", async () => {
+    serveRoster(pagesOf(ALL, 500));
+    renderWorkspace({ query: "committee=1" });
+    await waitForGrid();
+    await within(detailPane()).findByText("LTED weight 1.5");
+
+    for (const name of ["Pending", "Seats & Weight", "History", "Roster"]) {
+      await userEvent.click(screen.getByRole("tab", { name }));
+      const panel = screen.getByRole("tabpanel");
+      expect(within(panel).getByRole("heading", { level: 3, name })).toBeInTheDocument();
+      expect(panel).toHaveAttribute("aria-labelledby", screen.getByRole("tab", { name }).id);
+    }
+  });
+});
+
+// --- Empty scopes ----------------------------------------------------------------
+
+describe("CommitteeWorkspace empty scopes", () => {
+  it("tells an Admin the term has no committees and requests no detail", async () => {
+    const fetchMock = serveRoster(pagesOf([], 500));
+    renderWorkspace({ role: PrivilegeLevel.Admin });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "No committees to show" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("The 2024–2026 term has no committees yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Committee list" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(detailRequests(fetchMock)).toEqual([]);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("tells a Leader with no jurisdiction in the term that nothing is assigned", async () => {
+    serveRoster(pagesOf([], 500));
+    renderWorkspace({ role: PrivilegeLevel.Leader });
+
+    expect(
+      await screen.findByText(
+        "You have no committees assigned for the 2024–2026 term. An Admin can assign you a jurisdiction.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("clears a URL committee when the scope is empty", async () => {
+    serveRoster(pagesOf([], 500));
+    renderWorkspace({ query: "committee=4", role: PrivilegeLevel.Leader });
+
+    expect(await screen.findByText(/no committees assigned/)).toBeInTheDocument();
+    await waitFor(() => expect(lastWrite(mockReplace)?.has("committee")).toBe(false));
+  });
+});
+
+// --- Layout, navigation, and keyboard access -------------------------------------
+
+describe("CommitteeWorkspace layout and keyboard access", () => {
+  it("has one h1 and one h2 for the selected committee", async () => {
+    serveRoster(pagesOf(ALL, 500));
+    renderWorkspace({ query: "committee=4" });
+    await waitForGrid();
+
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual([
+      "Committees",
+    ]);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "Penfield · ED 2",
+    ]);
+  });
+
+  it("moves between tabs with the arrow keys and writes the tab with replace", async () => {
+    serveRoster(pagesOf(ALL, 500));
+    renderWorkspace({ query: "committee=1" });
+    await waitForGrid();
+    await within(detailPane()).findByText("LTED weight 1.5");
+
+    act(() => screen.getByRole("tab", { name: "Roster" }).focus());
+    await userEvent.keyboard("{ArrowRight}");
+
+    expect(screen.getByRole("tab", { name: "Pending" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Pending" })).toHaveAttribute("aria-selected", "true");
+    expect(lastWrite(mockReplace)?.get("tab")).toBe("pending");
+
+    await userEvent.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(screen.getByRole("tab", { name: "History" })).toHaveFocus();
+    expect(lastWrite(mockReplace)?.get("tab")).toBe("history");
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("selects a committee row from the keyboard", async () => {
+    serveRoster(pagesOf(ALL, 500));
+    renderWorkspace();
+    await waitForGrid();
+
+    act(() => rowFor(PENFIELD_1).focus());
+    await userEvent.keyboard("{Enter}");
+
+    expect(lastWrite(mockPush)?.get("committee")).toBe("3");
+    expect(await within(detailPane()).findByText("LTED weight 3.5")).toBeInTheDocument();
+  });
+
+  it("collapses and restores the committee list with a toggle, keeping focus on it", async () => {
+    serveRoster(pagesOf(ALL, 500));
+    renderWorkspace({ query: "committee=1" });
+    await waitForGrid();
+
+    await userEvent.click(screen.getByRole("button", { name: "Hide committee list" }));
+    expect(committeeList()).toHaveClass("md:hidden");
+    const show = screen.getByRole("button", { name: "Show committee list" });
+    expect(show).toHaveAttribute("aria-expanded", "false");
+    expect(show).toHaveAttribute("aria-controls", committeeList().id);
+    expect(show).toHaveFocus();
+    // The selection and URL are untouched.
+    expect(screen.getByRole("heading", { level: 2, name: "Greece · ED 1" })).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    await userEvent.click(show);
+    expect(committeeList()).toHaveClass("md:flex");
+    expect(committeeList()).not.toHaveClass("md:hidden");
+    expect(screen.queryByRole("button", { name: "Show committee list" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide committee list" })).toHaveFocus();
+  });
+
+  it("on mobile, opens the detail with focus on its heading, and Back returns focus to the row", async () => {
+    setViewport(false);
+    serveRoster(pagesOf(ALL, 500));
+    renderWorkspace();
+    await waitForGrid();
+    expect(detailPane()).toHaveClass("hidden");
+
+    await userEvent.click(rowFor(PENFIELD_2));
+
+    expect(lastWrite(mockPush)?.get("committee")).toBe("4");
+    expect(committeeList()).toHaveClass("hidden");
+    expect(detailPane()).not.toHaveClass("hidden");
+    expect(screen.getByRole("heading", { level: 2, name: "Penfield · ED 2" })).toHaveFocus();
+    await within(detailPane()).findByText("LTED weight 4.5");
+
+    await userEvent.click(within(detailPane()).getByRole("button", { name: "Back to committees" }));
+
+    expect(lastWrite(mockReplace)?.has("committee")).toBe(false);
+    expect(committeeList()).not.toHaveClass("hidden");
+    expect(selectedRowIds()).toEqual([]);
+    expect(rowFor(PENFIELD_2)).toHaveFocus();
   });
 });
