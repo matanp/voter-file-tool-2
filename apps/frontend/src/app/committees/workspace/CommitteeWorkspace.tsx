@@ -14,12 +14,19 @@
  *   the list.
  * - a town/LD outside the caller's scope is cleared once scope is known.
  * - a Leader whose scope is a single (town, LD) starts with it applied.
+ *
+ * Detail: the selected committee loads from the detail endpoint
+ * (`useCommitteeDetail`, which aborts and ignores stale requests). Desktop
+ * shows list and detail side by side, with a toggle that collapses the list;
+ * below `md` the `committee` param alone switches list ↔ detail.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { PanelLeftOpen } from "lucide-react";
 
 import type { CommitteeScope } from "../committeeScope";
-import { CommitteeDetailPlaceholder } from "./CommitteeDetailPlaceholder";
+import { CommitteeDetailPane } from "./CommitteeDetailPane";
+import { CommitteeEmptyScope } from "./CommitteeEmptyScope";
 import { CommitteeGridPane } from "./CommitteeGridPane";
 import { CommitteeWorkspaceHeader } from "./CommitteeWorkspaceHeader";
 import {
@@ -30,6 +37,7 @@ import {
   reconcileUrlState,
   type CommitteeGridFilters,
 } from "./gridModel";
+import { useCommitteeDetail } from "./useCommitteeDetail";
 import { useCommitteeGridData } from "./useCommitteeGridData";
 import { useHeightBelowNav } from "./useHeightBelowNav";
 import { useIsDesktop } from "./useIsDesktop";
@@ -49,6 +57,9 @@ export type CommitteeWorkspaceProps = {
    */
   initialScope: CommitteeScope | null;
 };
+
+const COLLAPSE_LIST_ID = "committee-list-collapse";
+const EXPAND_LIST_ID = "committee-list-expand";
 
 type LocalFilters = Pick<
   CommitteeGridFilters,
@@ -163,18 +174,80 @@ export function CommitteeWorkspace({
     [writeUrl],
   );
 
+  // --- Detail ----------------------------------------------------------------
+  const detail = useCommitteeDetail(selectedCommitteeId);
+
+  // Mobile Back: return to the list and put focus back on the row it came from.
+  const returnFocusTo = useRef<number | null>(null);
+  const backToList = useCallback(() => {
+    returnFocusTo.current = url.committeeId;
+    writeUrl({ committee: null }, "replace");
+  }, [url.committeeId, writeUrl]);
+  useEffect(() => {
+    if (showingDetailOnMobile || returnFocusTo.current === null) return;
+    const id = returnFocusTo.current;
+    returnFocusTo.current = null;
+    document
+      .querySelector<HTMLElement>(`[data-committee-id="${id}"]`)
+      ?.focus();
+  }, [showingDetailOnMobile]);
+
+  // Desktop list collapse (a toggle, not a drag handle). Focus follows the
+  // toggle so keyboard users are not dropped on <body>.
+  const [listCollapsed, setListCollapsed] = useState(false);
+  const toggledList = useRef(false);
+  const toggleList = useCallback(() => {
+    toggledList.current = true;
+    setListCollapsed((c) => !c);
+  }, []);
+  useEffect(() => {
+    if (!toggledList.current) return;
+    toggledList.current = false;
+    document
+      .getElementById(listCollapsed ? EXPAND_LIST_ID : COLLAPSE_LIST_ID)
+      ?.focus();
+  }, [listCollapsed]);
+
+  if (gridComplete && grid.rollups.length === 0) {
+    return (
+      <div className="flex w-full flex-col overflow-hidden" style={{ height }}>
+        <CommitteeWorkspaceHeader termLabel={termLabel} summary={grid.summary} />
+        <CommitteeEmptyScope termLabel={termLabel} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex w-full flex-col overflow-hidden" style={{ height }}>
       <CommitteeWorkspaceHeader termLabel={termLabel} summary={grid.summary} />
       <div className="flex min-h-0 flex-1">
+        {listCollapsed && (
+          <div className="hidden shrink-0 border-r md:flex">
+            <button
+              id={EXPAND_LIST_ID}
+              type="button"
+              onClick={toggleList}
+              aria-label="Show committee list"
+              aria-expanded={false}
+              aria-controls="committee-list-pane"
+              title="Show committee list"
+              className="flex h-full w-12 items-start justify-center pt-3 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 dark:hover:bg-slate-900"
+            >
+              <PanelLeftOpen className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
+        )}
         <aside
+          id="committee-list-pane"
           aria-label="Committee list"
-          className={`${
-            showingDetailOnMobile ? "hidden md:flex" : "flex"
-          } min-h-0 w-full flex-col border-r md:w-[38%] md:min-w-[320px] md:max-w-[460px]`}
+          className={`${showingDetailOnMobile ? "hidden" : "flex"} ${
+            listCollapsed ? "md:hidden" : "md:flex"
+          } min-h-0 w-full min-w-0 flex-col border-r md:w-[38%] md:min-w-[320px] md:max-w-[460px]`}
         >
           <CommitteeGridPane
             filters={{
+              onCollapse: toggleList,
+              collapseButtonId: COLLAPSE_LIST_ID,
               towns: scope?.towns ?? [],
               legDistricts: ldOptions,
               value: { ...localFilters, town, ld },
@@ -191,19 +264,21 @@ export function CommitteeWorkspace({
             onRetry={grid.reload}
           />
         </aside>
-        {/* Detail pane seam: ticket 08 replaces the placeholder with CommitteeDetailPane. */}
         <section
           aria-label="Committee detail"
           className={`${
             showingDetailOnMobile ? "flex" : "hidden md:flex"
           } min-h-0 min-w-0 flex-1 flex-col`}
         >
-          <CommitteeDetailPlaceholder
+          <CommitteeDetailPane
+            key={selectedCommitteeId ?? "none"}
+            committeeId={selectedCommitteeId}
             committee={selectedCommittee}
-            loading={selectedCommitteeId !== null && selectedCommittee === null}
+            detail={detail}
             tab={url.tab}
             onTabChange={setTab}
-            onBack={() => writeUrl({ committee: null }, "replace")}
+            onBack={backToList}
+            focusHeadingOnMount={!isDesktop}
           />
         </section>
       </div>

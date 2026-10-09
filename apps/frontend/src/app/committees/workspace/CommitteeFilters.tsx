@@ -1,6 +1,6 @@
 "use client";
 import React, { useId } from "react";
-import { Search } from "lucide-react";
+import { PanelLeftClose, Search } from "lucide-react";
 
 import { Input } from "~/components/ui/input";
 import {
@@ -25,6 +25,10 @@ export type CommitteeFiltersProps = {
       >
     >,
   ) => void;
+  /** Desktop only: hide the committee list (the toggle renders when given). */
+  onCollapse?: () => void;
+  /** DOM id for the collapse toggle, so focus can return to it on expand. */
+  collapseButtonId?: string;
 };
 
 const QUICK_FILTERS = [
@@ -40,6 +44,8 @@ export function CommitteeFilters({
   onTownChange,
   onLegDistrictChange,
   onLocalChange,
+  onCollapse,
+  collapseButtonId,
 }: CommitteeFiltersProps) {
   const id = useId();
   const selectClass =
@@ -82,6 +88,20 @@ export function CommitteeFilters({
             </option>
           ))}
         </select>
+        {onCollapse && (
+          <button
+            id={collapseButtonId}
+            type="button"
+            onClick={onCollapse}
+            aria-label="Hide committee list"
+            aria-expanded
+            aria-controls="committee-list-pane"
+            title="Hide committee list"
+            className="hidden shrink-0 rounded-md border px-2 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 md:block dark:hover:bg-slate-900"
+          >
+            <PanelLeftClose className="h-4 w-4" aria-hidden />
+          </button>
+        )}
       </div>
       <div className="relative">
         <Search
