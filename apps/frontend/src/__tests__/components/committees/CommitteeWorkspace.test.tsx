@@ -877,10 +877,14 @@ describe("CommitteeWorkspace detail loading", () => {
     await waitForGrid();
     await within(detailPane()).findByText("LTED weight 1.5");
 
+    // A tab's h3 is its name unless the tab names its section otherwise.
+    const sectionHeading: Record<string, string> = { History: "Committee history" };
     for (const name of ["Pending", "Seats & Weight", "History", "Roster"]) {
       await userEvent.click(screen.getByRole("tab", { name }));
       const panel = screen.getByRole("tabpanel");
-      expect(within(panel).getByRole("heading", { level: 3, name })).toBeInTheDocument();
+      expect(
+        within(panel).getByRole("heading", { level: 3, name: sectionHeading[name] ?? name }),
+      ).toBeInTheDocument();
       expect(panel).toHaveAttribute("aria-labelledby", screen.getByRole("tab", { name }).id);
     }
   });
