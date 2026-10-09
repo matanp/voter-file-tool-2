@@ -32,9 +32,9 @@ The split-pane Committee Operations Workspace shipped as the unconditional `/com
 
 ## Not yet specified
 
-- What the grid looks like at Admin scale once real county-wide ED counts and the roster endpoint's page size are known: how town grouping interacts with cursor pagination, whether "load more" or auto-fetch on scroll, and what the header's scope-wide counts show while pages are still loading. Sharpens after the read-model and first shell tickets.
+- What the grid looks like at Admin scale once real county-wide ED counts and the roster endpoint's page size are known: how town grouping interacts with cursor pagination, whether "load more" or auto-fetch on scroll, and what the header's scope-wide counts show while pages are still loading. Sharpens after the read-model and first shell tickets. **Settled in ticket 07:** eager auto-fetch of the whole scope, client-side filtering; limits in 07's Comments.
 - Whether the drawer offers **Add another member** after success (plan §8 marks it optional). Decide once the drawer exists and someone has used it for repetitive entry.
-- Whether the History tab is one merged timeline or sectioned (**Committee history** vs **Election outcomes**), and which user-facing labels enter the glossary. Depends on what the history inventory (ticket 04) finds is actually recoverable with actor/reason/meeting context.
+- Whether the History tab is one merged timeline or sectioned (**Committee history** vs **Election outcomes**), and which user-facing labels enter the glossary. Depends on what the history inventory (ticket 04) finds is actually recoverable with actor/reason/meeting context. **Settled in ticket 12:** sectioned (Admin-only **Election outcomes** from `petitionContext`, plus a **Committee history** timeline); terms added to `CONTEXT.md`.
 - How the `?variant=` prototype code is removed: whether it ever merges to `main` or lives only on a branch that is deleted after the decision is captured.
 
 ## Out of scope
