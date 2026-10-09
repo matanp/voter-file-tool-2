@@ -68,3 +68,28 @@ describe("GenerateReportGrid — Designated Petition card visibility", () => {
     expect(screen.getByText("Designated Petition")).toBeInTheDocument();
   });
 });
+
+describe("GenerateReportGrid — Petition Outcomes card visibility", () => {
+  beforeEach(() => {
+    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+      const userIdx = PRIVILEGE_ORDER.indexOf(user);
+      const requiredIdx = PRIVILEGE_ORDER.indexOf(required);
+      if (userIdx === -1 || requiredIdx === -1) return false;
+      return userIdx <= requiredIdx;
+    });
+  });
+
+  it("hides Petition Outcomes from a Leader but keeps the other Leader reports", () => {
+    renderWithPermissions(PrivilegeLevel.Leader);
+
+    expect(screen.queryByText("Petition Outcomes")).not.toBeInTheDocument();
+    expect(screen.getByText("Changes Report")).toBeInTheDocument();
+    expect(screen.getByText("Committee Roster")).toBeInTheDocument();
+  });
+
+  it("shows Petition Outcomes to an Admin", () => {
+    renderWithPermissions(PrivilegeLevel.Admin);
+
+    expect(screen.getByText("Petition Outcomes")).toBeInTheDocument();
+  });
+});

@@ -101,7 +101,7 @@ Append the key to `SCOPE_REPORT_UI_ORDER`.
 
 **Copy/messaging** — [scopeReportFormSpecs.ts](../../apps/frontend/src/components/reports/scopeReportFormSpecs.ts): toast strings, loading message, submit label.
 
-Page auth gate stays `hasPermissionFor(..., PrivilegeLevel.Leader)` in [loadScopedReportPageData.ts](../../apps/frontend/src/lib/loadScopedReportPageData.ts) — do not derive page access from `minPrivilege`.
+Page auth gate stays `hasPermissionFor(..., PrivilegeLevel.Leader)` in [loadScopedReportPageData.ts](../../apps/frontend/src/lib/loadScopedReportPageData.ts) — do not derive page access from `minPrivilege`. An Admin-only scoped report (e.g. `petitionOutcomesReport`) passes `loadScopedReportPageData({ minPagePrivilege: PrivilegeLevel.Admin })` in its page and adds a type-specific Admin check in `generateReport` (`ADMIN_ONLY_PETITION_REPORT_TYPES`).
 
 ### 5. `ScopedReportForm` extras
 

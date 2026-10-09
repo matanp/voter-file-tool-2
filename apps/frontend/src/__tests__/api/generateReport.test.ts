@@ -24,6 +24,7 @@ import {
   prismaMock,
 } from "../utils/mocks";
 import { hasPermissionFor } from "~/lib/utils";
+import { gunzipSync } from "node:zlib";
 
 const MOCK_REPORT_ID = "cltestreportid123456789";
 
@@ -289,6 +290,161 @@ describe("/api/generateReport", () => {
           PrivilegeLevel.Admin,
           PrivilegeLevel.Admin,
         );
+      });
+    });
+
+    describe("petitionOutcomesReport is Admin-only", () => {
+      it("returns 403 for a Leader even within their jurisdiction", async () => {
+        mockAuthSession(
+          createMockSession({
+            user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
+          }),
+        );
+        jest.mocked(hasPermissionFor).mockImplementation(
+          (_principal, required) => required !== PrivilegeLevel.Admin,
+        );
+        (
+          prismaMock.userJurisdiction as unknown as { findMany: jest.Mock }
+        ).findMany.mockResolvedValue([
+          { cityTown: "ROCHESTER", legDistrict: 1 },
+        ]);
+
+        const response = await POST(
+          createMockRequest({
+            type: "petitionOutcomesReport",
+            name: "Petition Outcomes",
+            format: "xlsx",
+            scope: "jurisdiction",
+            cityTown: "ROCHESTER",
+            legDistrict: 1,
+          }),
+        );
+
+        expect(response.status).toBe(403);
+        const json = await parseJsonResponse<ErrorResponseBody>(response);
+        expect(json.error).toContain("petitionOutcomesReport");
+        expect(prismaMock.report.create).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+      });
+
+      it("succeeds for Admin", async () => {
+        mockAuthSession(
+          createMockSession({
+            user: { id: "admin-1", privilegeLevel: PrivilegeLevel.Admin },
+          }),
+        );
+        mockHasPermission(true);
+        prismaMock.report.create.mockResolvedValue({
+          id: MOCK_REPORT_ID,
+        } as never);
+        prismaMock.report.update.mockResolvedValue({} as never);
+
+        const response = await POST(
+          createMockRequest({
+            type: "petitionOutcomesReport",
+            name: "Petition Outcomes",
+            format: "xlsx",
+            scope: "countywide",
+          }),
+        );
+
+        await expectSuccessResponse(response, {
+          reportId: MOCK_REPORT_ID,
+          jobsAhead: 0,
+        });
+      });
+    });
+
+    describe("changesReport job payload carries includePetitionOutcomes from actual privilege", () => {
+      function sentPayload(): Record<string, unknown> {
+        const fetchArgs = getMockCallArgs(globalThis.fetch as jest.Mock);
+        const body = (fetchArgs[1] as RequestInit).body as Uint8Array;
+        return JSON.parse(gunzipSync(body).toString("utf-8")) as Record<
+          string,
+          unknown
+        >;
+      }
+
+      const changesRequest = () =>
+        createMockRequest({
+          type: "changesReport",
+          name: "Changes",
+          format: "xlsx",
+          scope: "jurisdiction",
+          cityTown: "ROCHESTER",
+          legDistrict: 1,
+          dateFrom: "2026-01-01",
+          dateTo: "2026-06-30",
+          // A client cannot opt itself in; the schema strips this.
+          includePetitionOutcomes: true,
+        });
+
+      beforeEach(() => {
+        prismaMock.report.create.mockResolvedValue({
+          id: MOCK_REPORT_ID,
+        } as never);
+        prismaMock.report.update.mockResolvedValue({} as never);
+        (
+          prismaMock.userJurisdiction as unknown as { findMany: jest.Mock }
+        ).findMany.mockResolvedValue([
+          { cityTown: "ROCHESTER", legDistrict: 1 },
+        ]);
+      });
+
+      it("sends false for a Leader", async () => {
+        mockAuthSession(
+          createMockSession({
+            user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
+          }),
+        );
+        jest.mocked(hasPermissionFor).mockImplementation(
+          (_principal, required) => required !== PrivilegeLevel.Admin,
+        );
+
+        const response = await POST(changesRequest());
+
+        expect(response.status).toBe(200);
+        expect(sentPayload()).toMatchObject({
+          type: "changesReport",
+          includePetitionOutcomes: false,
+        });
+      });
+
+      it("sends true for an Admin", async () => {
+        mockAuthSession(
+          createMockSession({
+            user: { id: "admin-1", privilegeLevel: PrivilegeLevel.Admin },
+          }),
+        );
+        mockHasPermission(true);
+
+        const response = await POST(changesRequest());
+
+        expect(response.status).toBe(200);
+        expect(sentPayload()).toMatchObject({
+          type: "changesReport",
+          includePetitionOutcomes: true,
+        });
+      });
+
+      it("does not add the flag to other report types", async () => {
+        mockAuthSession(
+          createMockSession({
+            user: { id: "admin-1", privilegeLevel: PrivilegeLevel.Admin },
+          }),
+        );
+        mockHasPermission(true);
+
+        await POST(
+          createMockRequest({
+            type: "vacancyReport",
+            name: "Vacancy",
+            format: "xlsx",
+            scope: "countywide",
+          }),
+        );
+
+        expect(sentPayload()).not.toHaveProperty("includePetitionOutcomes");
       });
     });
 

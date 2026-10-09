@@ -480,6 +480,16 @@ function parseInclusiveDateOnlyRange(
   return { fromInclusive, toExclusive };
 }
 
+export type FetchChangesOptions = {
+  /**
+   * Petition results are Admin-only (leader-petition-visibility/01). Unless
+   * this is `true`, a petition win is reported as a plain "Added" with no vote
+   * count, and petition losses/ties are omitted. The frontend sets it from the
+   * requester's actual privilege; absent means hidden (fail closed).
+   */
+  includePetitionOutcomes?: boolean;
+};
+
 /**
  * Fetches committee membership changes within a date range.
  */
@@ -489,7 +499,9 @@ export async function fetchChangesData(
   dateTo: string,
   cityTown?: string,
   legDistrict?: number,
+  options: FetchChangesOptions = {},
 ): Promise<ChangesReportRow[]> {
+  const includePetitionOutcomes = options.includePetitionOutcomes === true;
   const activeTermId = await getActiveTermId();
   const { fromInclusive, toExclusive } = parseInclusiveDateOnlyRange(dateFrom, dateTo);
 
@@ -541,7 +553,9 @@ export async function fetchChangesData(
 
     if (m.activatedAt && m.activatedAt >= fromInclusive && m.activatedAt < toExclusive) {
       const changeType: ChangesReportRow['changeType'] =
-        m.membershipType === 'PETITIONED' ? 'Petition Won' : 'Added';
+        includePetitionOutcomes && m.membershipType === 'PETITIONED'
+          ? 'Petition Won'
+          : 'Added';
       candidates.push({
         changeType,
         changeDate: m.activatedAt,
@@ -562,6 +576,7 @@ export async function fetchChangesData(
       candidates.push({ changeType: 'Confirmed', changeDate: m.confirmedAt, details: '' });
     }
     if (
+      includePetitionOutcomes &&
       (m.status === 'PETITIONED_LOST' || m.status === 'PETITIONED_TIE') &&
       m.petitionPrimaryDate &&
       m.petitionPrimaryDate >= fromInclusive &&

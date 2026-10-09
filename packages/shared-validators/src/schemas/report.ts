@@ -293,7 +293,14 @@ const enrichedReportVariants = [
   signInSheetReportSchema.merge(enrichedFieldsSchema),
   designationWeightSummaryReportSchema.merge(enrichedFieldsSchema),
   vacancyReportSchema.merge(enrichedFieldsSchema),
-  changesReportSchema.merge(enrichedFieldsSchema),
+  changesReportSchema.merge(enrichedFieldsSchema).extend({
+    // Worker-only, set by /api/generateReport from the requester's actual
+    // privilege (never from the client body, which `generateReportSchema`
+    // strips it from). Petition results are Admin-only
+    // (leader-petition-visibility/01): unless this is `true`, the worker emits
+    // no "Petition Won"/"Petition Lost" rows or vote counts.
+    includePetitionOutcomes: z.boolean().optional(),
+  }),
   petitionOutcomesReportSchema.merge(enrichedFieldsSchema),
   boeEligibilityFlaggingReportSchema.merge(enrichedFieldsSchema),
 ] as const;

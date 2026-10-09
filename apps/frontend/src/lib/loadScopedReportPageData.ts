@@ -10,26 +10,37 @@ import {
 
 export interface ScopedReportPageData {
   privilegeLevel: PrivilegeLevel;
-  isLeaderOrAbove: boolean;
+  canAccessPage: boolean;
   committeeLists: CommitteeList[];
 }
 
+export interface LoadScopedReportPageOptions {
+  /**
+   * Minimum actual privilege for the page. Defaults to Leader; never lower.
+   * Set explicitly per page (e.g. Admin for Petition Outcomes) rather than
+   * derived from the UI registry's display-only `minPrivilege`.
+   */
+  minPagePrivilege?: typeof PrivilegeLevel.Leader | typeof PrivilegeLevel.Admin;
+}
+
 /** Load auth, gate, and jurisdiction-scoped committee lists for scoped report pages. */
-export async function loadScopedReportPageData(): Promise<ScopedReportPageData> {
+export async function loadScopedReportPageData(
+  options: LoadScopedReportPageOptions = {},
+): Promise<ScopedReportPageData> {
   const permissions = await auth();
 
   const privilegeLevel =
     permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess;
 
-  const isLeaderOrAbove = hasPermissionFor(
+  const canAccessPage = hasPermissionFor(
     privilegeLevel,
-    PrivilegeLevel.Leader,
+    options.minPagePrivilege ?? PrivilegeLevel.Leader,
   );
 
-  if (!isLeaderOrAbove) {
+  if (!canAccessPage) {
     return {
       privilegeLevel,
-      isLeaderOrAbove: false,
+      canAccessPage: false,
       committeeLists: [],
     };
   }
@@ -41,7 +52,7 @@ export async function loadScopedReportPageData(): Promise<ScopedReportPageData> 
     if (userId == null) {
       return {
         privilegeLevel,
-        isLeaderOrAbove: true,
+        canAccessPage: true,
         committeeLists: [],
       };
     }
@@ -55,7 +66,7 @@ export async function loadScopedReportPageData(): Promise<ScopedReportPageData> 
     if (!Array.isArray(jurisdictions) || jurisdictions.length === 0) {
       return {
         privilegeLevel,
-        isLeaderOrAbove: true,
+        canAccessPage: true,
         committeeLists: [],
       };
     }
@@ -69,7 +80,7 @@ export async function loadScopedReportPageData(): Promise<ScopedReportPageData> 
 
     return {
       privilegeLevel,
-      isLeaderOrAbove: true,
+      canAccessPage: true,
       committeeLists,
     };
   }
@@ -80,7 +91,7 @@ export async function loadScopedReportPageData(): Promise<ScopedReportPageData> 
 
   return {
     privilegeLevel,
-    isLeaderOrAbove: true,
+    canAccessPage: true,
     committeeLists,
   };
 }

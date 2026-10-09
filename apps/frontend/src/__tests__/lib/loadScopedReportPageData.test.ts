@@ -32,7 +32,7 @@ describe("loadScopedReportPageData", () => {
 
     const result = await loadScopedReportPageData();
 
-    expect(result.isLeaderOrAbove).toBe(false);
+    expect(result.canAccessPage).toBe(false);
     expect(result.committeeLists).toEqual([]);
     expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
   });
@@ -47,7 +47,7 @@ describe("loadScopedReportPageData", () => {
 
     const result = await loadScopedReportPageData();
 
-    expect(result.isLeaderOrAbove).toBe(true);
+    expect(result.canAccessPage).toBe(true);
     expect(result.committeeLists).toEqual([]);
     expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
   });
@@ -134,5 +134,40 @@ describe("loadScopedReportPageData", () => {
 
     expect(result.committeeLists).toHaveLength(2);
     expect(getUserJurisdictionMock().findMany).not.toHaveBeenCalled();
+  });
+
+  describe("minPagePrivilege: Admin (e.g. Petition Outcomes)", () => {
+    it("denies a Leader without reading jurisdictions or committees", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
+        }),
+      );
+
+      const result = await loadScopedReportPageData({
+        minPagePrivilege: PrivilegeLevel.Admin,
+      });
+
+      expect(result.canAccessPage).toBe(false);
+      expect(result.committeeLists).toEqual([]);
+      expect(getUserJurisdictionMock().findMany).not.toHaveBeenCalled();
+      expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
+    });
+
+    it("allows an Admin", async () => {
+      mockAuthSession(
+        createMockSession({
+          user: { id: "admin-1", privilegeLevel: PrivilegeLevel.Admin },
+        }),
+      );
+      prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+      const result = await loadScopedReportPageData({
+        minPagePrivilege: PrivilegeLevel.Admin,
+      });
+
+      expect(result.canAccessPage).toBe(true);
+      expect(prismaMock.committeeList.findMany).toHaveBeenCalled();
+    });
   });
 });
