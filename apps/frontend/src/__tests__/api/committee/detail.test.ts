@@ -810,6 +810,135 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
       ).toBe(false);
     });
 
+    it("serializes no petition outcome, vote, or primary-date data for a Leader; a win shows as a plain activation", async () => {
+      leaderSession();
+      leaderJurisdictions([{ cityTown: "Test City", legDistrict: 1 }]);
+      const winner = mockMembership({
+        id: "m-won",
+        VRCNUM: "V-WON",
+        seatNumber: 2,
+        membershipType: "PETITIONED",
+        petitionSeatNumber: 2,
+        petitionPrimaryDate: new Date("2024-06-25T00:00:00.000Z"),
+        petitionVoteCount: 120,
+        firstName: "Win",
+        lastName: "Ner",
+      });
+      const loser = mockMembership({
+        id: "m-lost",
+        VRCNUM: "V-LOST",
+        status: "PETITIONED_LOST",
+        membershipType: "PETITIONED",
+        petitionSeatNumber: 2,
+        petitionPrimaryDate: new Date("2024-06-25T00:00:00.000Z"),
+        petitionVoteCount: 47,
+        firstName: "Lou",
+        lastName: "Lost",
+      });
+      const tied = mockMembership({
+        id: "m-tie",
+        VRCNUM: "V-TIE",
+        status: "PETITIONED_TIE",
+        membershipType: "PETITIONED",
+        firstName: "Tia",
+        lastName: "Tie",
+      });
+      const all = [winner, loser, tied];
+      mockCommitteeWithMemberships(
+        mockCommittee({
+          seats: [mockSeat({ seatNumber: 1 }), mockSeat({ seatNumber: 2 })],
+          memberships: all,
+        }),
+        all,
+      );
+      const recorded = (
+        id: string,
+        entityId: string,
+        outcome: string,
+        status: string,
+        voteCount: number,
+        seatNumber: number | null,
+      ) =>
+        mockAuditRow({
+          id,
+          action: "PETITION_RECORDED",
+          entityId,
+          afterValue: { status, seatNumber },
+          metadata: {
+            source: "petition_outcome",
+            outcome,
+            seatNumber: 2,
+            voteCount,
+            resultingStatus: status,
+          },
+        });
+      getAuditLogMock(prismaMock).findMany.mockResolvedValue([
+        recorded("a-5", tied.id, "TIE", "PETITIONED_TIE", 33, null),
+        recorded("a-4", loser.id, "LOST", "PETITIONED_LOST", 47, null),
+        mockAuditRow({
+          id: "a-3",
+          action: "MEMBER_ACTIVATED",
+          entityId: winner.id,
+          afterValue: { status: "ACTIVE", seatNumber: 2 },
+          metadata: {
+            source: "petition_outcome",
+            petitionSeatNumber: 2,
+            petitionOutcome: "WON",
+            petitionVoteCount: 120,
+            subject: { memberName: "Win Ner", voterRecordId: "V-WON" },
+          },
+        }),
+        recorded("a-2", winner.id, "WON", "ACTIVE", 120, 2),
+        // Undo-compensated outcome: also petition data, also hidden.
+        mockAuditRow({
+          id: "a-1",
+          action: "PETITION_RECORDED",
+          entityId: loser.id,
+          afterValue: { status: "PETITIONED_LOST", seatNumber: null },
+          metadata: { source: "discrepancy_undo" },
+        }),
+      ]);
+
+      const body = await getDetail();
+
+      expect(body.history.events).toEqual([
+        {
+          id: "a-3",
+          kind: "activated",
+          at: "2025-06-01T12:00:00.000Z",
+          actor: { role: PrivilegeLevel.Admin },
+          member: { name: "Win Ner", seatNumber: 2 },
+          source: "other",
+        },
+      ]);
+      expect(body.petitionContext).toBeUndefined();
+
+      const serialized = JSON.stringify(body);
+      for (const forbidden of [
+        "petition_outcome",
+        "outcome",
+        "voteCount",
+        "VoteCount",
+        "primaryDate",
+        "PrimaryDate",
+        "petitionContext",
+        "reversed",
+        // Outcome values as JSON strings (not substrings of names/ids).
+        '"WON"',
+        '"LOST"',
+        '"TIE"',
+        '"won"',
+        '"lost"',
+        '"tie"',
+        "120",
+        "47",
+        "33",
+        "2024-06-25",
+      ]) {
+        expect(serialized).not.toContain(forbidden);
+      }
+    });
+
     it("includes contact (submissionMetadata first), petition context and Admin-only history fields for Admin", async () => {
       adminSession();
       const { active, removed } = seedRichCommittee();
