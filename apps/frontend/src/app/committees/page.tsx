@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
@@ -10,11 +10,12 @@ import CommitteeSelector from "./CommitteeSelector";
 import { singleCommitteeScope } from "./committeeScope";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
 import {
-  getActiveTermId,
+  getActiveTerm,
   getUserJurisdictions,
   committeeMatchesJurisdictions,
 } from "~/app/api/lib/committeeValidation";
 import { CommitteesPrototype } from "./_prototype/CommitteesPrototype";
+import { CommitteeWorkspace } from "./workspace/CommitteeWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,8 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
     PrivilegeLevel.Admin,
   );
 
-  const activeTermId = await getActiveTermId();
+  const activeTerm = await getActiveTerm();
+  const activeTermId = activeTerm.id;
 
   // Only include PII data for admin users; filter by active term (SRS §5.1)
   let committeeLists: CommitteeList[] = await prisma.committeeList.findMany({
@@ -68,6 +70,20 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
     privilegeLevel === PrivilegeLevel.Leader
       ? singleCommitteeScope(committeeLists)
       : null;
+
+  // Committees workspace (plan §6): a server-side switch, never derived from
+  // actingPermissions. A top-level branch — the workspace does not wrap
+  // CommitteeSelector. Ticket 16 makes it unconditional and deletes the flag.
+  if (process.env.COMMITTEES_WORKSPACE === "1") {
+    return (
+      <Suspense fallback={null}>
+        <CommitteeWorkspace
+          termLabel={activeTerm.label}
+          initialScope={initialScope}
+        />
+      </Suspense>
+    );
+  }
 
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 

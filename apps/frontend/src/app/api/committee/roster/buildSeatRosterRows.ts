@@ -16,13 +16,17 @@
 import type { Prisma, MembershipType } from "@prisma/client";
 import { indexActiveMembershipsBySeat } from "@voter-file-tool/shared-prisma";
 import { computeDesignationWeightFromData } from "~/lib/designationWeight";
+// Client-safe fold (the workspace grid uses it for per-town counts); re-exported
+// so the route keeps importing it from here.
+import { summarizeEdRollups } from "~/lib/summarizeEdRollups";
 import type {
   CommitteeMembershipSubmissionMetadata,
   EdRollup,
   RosterResponse,
-  RosterSummary,
   SeatRosterRow,
 } from "~/lib/validations/committee";
+
+export { summarizeEdRollups };
 
 // --- Local row-construction types --------------------------------------------
 
@@ -168,29 +172,6 @@ export function buildEdRollups(
   options: RollupOptions,
 ): EdRollup[] {
   return committees.map((c) => buildEdRollup(c, options).rollup);
-}
-
-/** Folds rollups into the scope-wide summary. */
-export function summarizeEdRollups(rollups: EdRollup[]): RosterSummary {
-  let totalSeats = 0;
-  let filled = 0;
-  let unassignedCount = 0;
-  let pendingCount = 0;
-  for (const r of rollups) {
-    totalSeats += r.totalSeats;
-    filled += r.filled;
-    unassignedCount += r.unassignedCount;
-    pendingCount += r.pendingCount;
-  }
-  return {
-    totalSeats,
-    filled,
-    vacant: totalSeats - filled,
-    edCount: rollups.length,
-    unassignedCount,
-    pendingCount,
-    activeMemberCount: filled + unassignedCount,
-  };
 }
 
 /**
