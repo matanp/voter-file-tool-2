@@ -51,8 +51,19 @@ describe("GenerateReportGrid — Designated Petition card visibility", () => {
     expect(screen.queryByText("Designated Petition")).not.toBeInTheDocument();
   });
 
-  it("shows the Designated Petition card to a RequestAccess user", () => {
-    renderWithPermissions(PrivilegeLevel.RequestAccess);
+  it.each([PrivilegeLevel.RequestAccess, PrivilegeLevel.Leader])(
+    "hides the Designated Petition card from a %s user",
+    (privilegeLevel) => {
+      renderWithPermissions(privilegeLevel);
+
+      expect(
+        screen.queryByText("Designated Petition"),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("shows the Designated Petition card to an Admin", () => {
+    renderWithPermissions(PrivilegeLevel.Admin);
 
     expect(screen.getByText("Designated Petition")).toBeInTheDocument();
   });

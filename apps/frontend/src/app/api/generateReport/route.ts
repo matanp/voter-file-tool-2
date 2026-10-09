@@ -26,6 +26,10 @@ const PDF_API_BASE = process.env.PDF_SERVER_URL
 
 const PDF_API_URL = PDF_API_BASE + "/start-job";
 
+/** Report types that generate or expose petition data; Admin-only. */
+const ADMIN_ONLY_PETITION_REPORT_TYPES: ReadonlySet<GenerateReportData["type"]> =
+  new Set<GenerateReportData["type"]>(["designatedPetition"]);
+
 export const POST = withPrivilege(
   PrivilegeLevel.RequestAccess,
   async (
@@ -65,6 +69,19 @@ export const POST = withPrivilege(
           {
             error:
               "Only admins can generate countywide ldCommittees reports. Use committeeRoster for leader-scoped rosters.",
+          },
+          { status: 403 },
+        );
+      }
+
+      // Petition reports are Admin-only (leader-petition-visibility/01).
+      if (
+        ADMIN_ONLY_PETITION_REPORT_TYPES.has(reportData.type) &&
+        !hasPermissionFor(userPrivilege, PrivilegeLevel.Admin)
+      ) {
+        return NextResponse.json(
+          {
+            error: `Only admins can generate ${reportData.type} reports.`,
           },
           { status: 403 },
         );

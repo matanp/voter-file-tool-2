@@ -40,7 +40,8 @@ const NON_SCOPE_REPORT_TYPES: ReportType[] = [
     description: "Generate designated petition forms (PDF)",
     href: "/petitions",
     enabled: true,
-    minPrivilege: PrivilegeLevel.RequestAccess,
+    // Petition generation is Admin-only (leader-petition-visibility/01).
+    minPrivilege: PrivilegeLevel.Admin,
   },
 ];
 

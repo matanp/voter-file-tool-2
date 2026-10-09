@@ -230,6 +230,68 @@ describe("/api/generateReport", () => {
       expect(prismaMock.report.create).not.toHaveBeenCalled();
     });
 
+    describe("designatedPetition is Admin-only", () => {
+      const petitionBody = () =>
+        createMockRequest({
+          type: "designatedPetition",
+          name: "Petition",
+          format: "pdf",
+          payload: {
+            candidates: [
+              { name: "Cand One", office: "County Committee", address: "1 Main St" },
+            ],
+            vacancyAppointments: [{ name: "Vac One", address: "2 Main St" }],
+            party: "DEM",
+            electionDate: "06/23/2026",
+            numPages: 1,
+          },
+        });
+
+      it.each([PrivilegeLevel.Leader, PrivilegeLevel.RequestAccess])(
+        "returns 403 for %s and creates no report",
+        async (privilegeLevel) => {
+          mockAuthSession(
+            createMockSession({ user: { id: "user-1", privilegeLevel } }),
+          );
+          jest.mocked(hasPermissionFor).mockImplementation(
+            (_principal, required) => required !== PrivilegeLevel.Admin,
+          );
+
+          const response = await POST(petitionBody());
+
+          expect(response.status).toBe(403);
+          const json = await parseJsonResponse<ErrorResponseBody>(response);
+          expect(json.error).toContain("designatedPetition");
+          expect(prismaMock.report.create).not.toHaveBeenCalled();
+          expect(globalThis.fetch).not.toHaveBeenCalled();
+        },
+      );
+
+      it("succeeds for Admin", async () => {
+        mockAuthSession(
+          createMockSession({
+            user: { id: "admin-1", privilegeLevel: PrivilegeLevel.Admin },
+          }),
+        );
+        mockHasPermission(true);
+        prismaMock.report.create.mockResolvedValue({
+          id: MOCK_REPORT_ID,
+        } as never);
+        prismaMock.report.update.mockResolvedValue({} as never);
+
+        const response = await POST(petitionBody());
+
+        await expectSuccessResponse(response, {
+          reportId: MOCK_REPORT_ID,
+          jobsAhead: 0,
+        });
+        expect(jest.mocked(hasPermissionFor)).toHaveBeenCalledWith(
+          PrivilegeLevel.Admin,
+          PrivilegeLevel.Admin,
+        );
+      });
+    });
+
     it("should return 403 when Leader requests committeeRoster with countywide scope", async () => {
       mockAuthSession(
         createMockSession({
