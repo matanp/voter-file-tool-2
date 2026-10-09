@@ -1,16 +1,79 @@
 "use client";
-/** Roster tab (plan §7.1). Stub: ticket 09 replaces this file's contents. */
-import React from "react";
+/** Roster tab (plan §7.1): the selected committee's seat table. */
+import React, { useContext, useMemo } from "react";
+import { PrivilegeLevel } from "@prisma/client";
 
+import { GlobalContext } from "~/components/providers/GlobalContext";
+import { hasPermissionFor } from "~/lib/utils";
+import type { SeatRosterRow } from "~/lib/validations/committee";
+import { CommitteeSeatTable } from "../../CommitteeRosterTable";
+import { RosterRowActionMenu } from "./roster/RosterRowActionMenu";
+import {
+  committeeRefFrom,
+  rosterRowActions,
+  type RosterRowAction,
+} from "./roster/rowActions";
 import type { CommitteeTabProps } from "./types";
 
-export function RosterTab({ detail }: CommitteeTabProps) {
+export type RosterTabProps = CommitteeTabProps & {
+  /**
+   * Receives a row action. Until the action drawer lands (ticket 13), nothing
+   * passes this and actions go to a no-op; 13 adds the callback to
+   * `CommitteeTabProps` and wires it in `CommitteeTabs`.
+   */
+  onAction?: (action: RosterRowAction) => void;
+};
+
+const noop = () => undefined;
+
+function rowActionLabel(row: SeatRosterRow): string {
+  if (row.seatNumber !== null) return `Actions for seat ${row.seatNumber}`;
+  const name = row.occupant
+    ? `${row.occupant.firstName} ${row.occupant.lastName}`.trim()
+    : "unassigned member";
+  return `Actions for ${name}`;
+}
+
+export function RosterTab({ detail, onAction = noop }: RosterTabProps) {
+  // Client visibility only (skills/auth-check-patterns). Contact is already
+  // absent from `detail` below Admin; the acting privilege additionally hides
+  // it from a Developer simulating a lower role.
+  const { actingPermissions } = useContext(GlobalContext);
+  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const committee = useMemo(
+    () => committeeRefFrom(detail.committee),
+    [detail.committee],
+  );
+
+  const renderRowActions = (row: SeatRosterRow) => {
+    const items = rosterRowActions(row, committee, actingPermissions);
+    if (items.length === 0) return null;
+    return (
+      <RosterRowActionMenu
+        label={rowActionLabel(row)}
+        items={items}
+        onAction={onAction}
+      />
+    );
+  };
+
   return (
-    <div className="space-y-1 p-4 text-sm">
-      <h3 className="font-semibold">Roster</h3>
-      <p className="text-slate-500">
-        {detail.rows.length} roster rows. The seat table is not available yet.
-      </p>
-    </div>
+    <section aria-labelledby="roster-tab-heading" className="space-y-3 p-4">
+      <h3 id="roster-tab-heading" className="text-base font-semibold">
+        Roster
+      </h3>
+      {detail.rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          This committee has no seats or members yet.
+        </p>
+      ) : (
+        <CommitteeSeatTable
+          rows={detail.rows}
+          isAdmin={isAdmin}
+          label={`Seats for ${detail.committee.cityTown} LD ${detail.committee.legDistrict} ED ${detail.committee.electionDistrict}`}
+          renderRowActions={renderRowActions}
+        />
+      )}
+    </section>
   );
 }
