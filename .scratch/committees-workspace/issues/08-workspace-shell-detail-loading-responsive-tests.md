@@ -15,3 +15,9 @@ Finish plan §6 and the shell-level parts of §10:
 - Accessibility baseline: one `h1` **Committees**, `h2` for selected-committee context, semantic keyboard-navigable tabs, keyboard-selectable rows.
 
 Tests (plan §12.2): loading/failed detail, switching committees during a pending request, role-specific controls via `actingPermissions`. Tab *contents* are tickets 09–12.
+
+## Acceptance addendum (from plan.md)
+
+- `CommitteeTabs` renders a registered stub component per tab (Roster, Pending, Seats & Weight, History), each in its own file under `committees/workspace/tabs/`, taking the detail response as a prop. Tickets 09–12 then replace only their own file and must not edit the tab registry, so they can run in parallel without conflicts.
+- Port Variant B's below-`md` list↔detail navigation from `_prototype/VariantB.tsx` (the `committee` URL param toggles the view); do not import from `_prototype/`, which is deleted in ticket 16.
+- Leave the `CommitteeAction` union and the drawer mount point to ticket 13; do not stub them here.

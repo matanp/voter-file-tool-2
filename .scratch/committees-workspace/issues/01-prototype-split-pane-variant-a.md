@@ -1,7 +1,7 @@
 # 01 - Prototype the split-pane layout (Variant A)
 
 Type: prototype
-Status: open
+Status: done
 Parent: ../map.md
 
 ## Question
@@ -37,3 +37,10 @@ Expected answer: promote Variant A with Variant B's list-to-detail navigation on
 - Code: `VariantB.tsx` (full-width sortable table → full-page detail with breadcrumb, prev/next, preserved filters + scroll on back) and `VariantC.tsx` (metric-card filters, collapsible town/LD groups, inline accordion detail with action bar). Same mock data, tabs, PII gating, URL state (`variant=B` / `variant=C`) and toast-stubbed mutations as A.
 - Run: `/committees?variant=A|B|C`; the amber pill and ←/→ keys cycle all three.
 - Verified: `tsc --noEmit` and eslint clean on `_prototype/`; each route compiles and serves in dev. Not yet eyeballed in a browser.
+
+## Decision
+
+2026-10-09 — Promote Variant A (split-pane: grid left, tabbed detail right, contextual action drawer) with Variant B's list-to-detail navigation on mobile (below `md`, the `committee` URL param toggles list ↔ detail). B judged better optimized for mobile; A preferred at laptop widths. Variant C not pursued.
+
+- Decided by Matan after a live evaluation of `/committees?variant=A|B|C`.
+- Prototype code (`apps/frontend/src/app/committees/_prototype/` and the dev-only branch in `committees/page.tsx`) stays until ticket 16 (cutover and cleanup) removes it; `VariantB.tsx` is a reference for the mobile navigation until ticket 08 ports it.

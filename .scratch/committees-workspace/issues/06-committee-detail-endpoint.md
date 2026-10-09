@@ -97,3 +97,7 @@ Deviations / not implemented:
 - `pnpm --filter voter-file-tool build`: passes (only the pre-existing `keyv` critical-dependency warning); `/api/committee/[committeeListId]/detail` appears in the route table.
 - `pnpm check:api-routes`: passes.
 - `tsc --noEmit`: clean.
+
+## Comments
+
+- 2026-10-09: Follow-up required by [leader-petition-visibility/01](../../leader-petition-visibility/issues/01-hide-petition-generation-and-outcomes-from-leaders.md) (group B). Leaders must not receive `petition_outcome` history events. Omit them for non-Admins, as `petitionContext` already is, and decide whether a petition-win activation turns into a plain event for Leaders or is dropped. This changes the Leader-visible list at line 66 above. `isPetitioned`/`petitionedVacant` stay for now, pending group C.
