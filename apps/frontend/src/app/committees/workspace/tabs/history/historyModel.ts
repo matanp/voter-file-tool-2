@@ -35,7 +35,8 @@ export type HistoryEventView = {
 };
 
 const ROLE_LABELS: Record<PrivilegeLevel, string> = {
-  Developer: "Developer",
+  // Developers are shown as Admins; the role is internal.
+  Developer: "Admin",
   Admin: "Admin",
   Leader: "Leader",
   RequestAccess: "Request Access user",
