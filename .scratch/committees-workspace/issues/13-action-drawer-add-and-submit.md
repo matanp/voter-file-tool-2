@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 03, 09
+Blocked by: 09 (resolved), 03 (resolved)
 Parent: ../map.md
 
 ## Question

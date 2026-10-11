@@ -1,7 +1,7 @@
 # 03 - Does RequestAccess remain a submission role?
 
 Type: grilling
-Status: claimed
+Status: resolved
 Parent: ../map.md
 
 ## Question
@@ -35,3 +35,16 @@ Rank: `Developer > Admin > Leader > RequestAccess > ReadAccess` (`apps/frontend/
 1. Is there anyone in production holding `RequestAccess` who is *not* a leader-in-waiting?
 2. If it stays: should it be jurisdiction-scoped like Leader (today it's unscoped on `requestAdd`), and does the workspace show it a read-only committee list it can't actually load?
 3. If it goes: retire to `Leader` (needs jurisdictions) or to `ReadAccess` (loses petitions/report access)? Which of the three RequestAccess-gated routes moves where?
+
+## Answer (2026-10-10, decided by the human)
+
+**RequestAccess stays, unchanged.** It remains a distinct role between Leader and ReadAccess and keeps every gate it has today, including unscoped `requestAdd` submission. Nobody in production holds the role, but it is not being removed.
+
+1. Production holders: none. Nobody is affected by keeping it or by its rough edges.
+2. Scoping: not changed. `docs/SRS/fix-plans/01-requestadd-leader-jurisdiction-scope.md` **stays open**. This decision neither closes nor implements it.
+3. Retirement: not happening, so there is no remap migration and no route moves.
+
+**Consequences for the workspace:**
+- **Ticket 13:** keep the plan's assumption. `add-member` / `replace-member` route Leader and RequestAccess through `requestAdd`, and the primary label is **Submit candidate** for both (already mirrored in `workspace/tabs/roster/rowActions.ts`). Do **not** add RequestAccess-specific UI or tests beyond what the shared `hasPermissionFor(..., RequestAccess)` checks already cover.
+- **Known gap, accepted:** `GET /api/committee/roster` and the detail endpoint are Leader-gated, so a RequestAccess user can't load the workspace grid or reach the drawer. That matches today's `/committees` ("Access denied" toasts). No notice, no endpoint changes.
+- `CONTEXT.md` is not updated, because the role's meaning hasn't changed.

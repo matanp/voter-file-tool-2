@@ -5,7 +5,7 @@ Written 2026-10-09. Ticket statuses and `Blocked by:` lines were re-checked agai
 ## State
 
 - Done: 01 (Variant A promoted, with B's mobile list↔detail navigation), 02, 04, 05, 06.
-- Open: 03 (human grilling, `claimed`), 07–16.
+- Open: 03 (human grilling, `claimed`), 07–16. **Update 2026-10-10:** 03 resolved (RequestAccess kept as-is; see ticket). 07–10 and 12 resolved; 11, 13–16 open.
 - New cross-project dependency: [leader-petition-visibility/01](../leader-petition-visibility/issues/01-hide-petition-generation-and-outcomes-from-leaders.md) group B requires ticket 06's detail endpoint to omit `petition_outcome` history events for non-Admins (see ticket 06 Comments). Ticket 12 must not start before that lands.
 
 Critical path: **07 → 08 → 09 → 13 → 14 → 15 → 16**.
