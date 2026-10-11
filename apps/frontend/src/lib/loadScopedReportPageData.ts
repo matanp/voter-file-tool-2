@@ -8,10 +8,21 @@ import {
   buildJurisdictionWhere,
 } from "~/app/api/lib/committeeValidation";
 
+/**
+ * Only the fields the client form needs. Full rows carry `ltedWeight`
+ * (a Prisma Decimal), which can't cross the Server → Client boundary.
+ */
+export type ScopedReportCommitteeList = Pick<
+  CommitteeList,
+  "cityTown" | "legDistrict"
+>;
+
+const committeeListSelect = { cityTown: true, legDistrict: true } as const;
+
 export interface ScopedReportPageData {
   privilegeLevel: PrivilegeLevel;
   canAccessPage: boolean;
-  committeeLists: CommitteeList[];
+  committeeLists: ScopedReportCommitteeList[];
 }
 
 export interface LoadScopedReportPageOptions {
@@ -76,6 +87,7 @@ export async function loadScopedReportPageData(
         termId: activeTermId,
         ...buildJurisdictionWhere(jurisdictions),
       },
+      select: committeeListSelect,
     });
 
     return {
@@ -87,6 +99,7 @@ export async function loadScopedReportPageData(
 
   const committeeLists = await prisma.committeeList.findMany({
     where: { termId: activeTermId },
+    select: committeeListSelect,
   });
 
   return {

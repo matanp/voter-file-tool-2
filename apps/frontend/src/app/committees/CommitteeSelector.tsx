@@ -6,7 +6,6 @@ import { ChevronLeft, Plus } from "lucide-react";
 import {
   type MembershipType,
   PrivilegeLevel,
-  type CommitteeList,
   type RemovalReason,
   type VoterRecord,
 } from "@prisma/client";
@@ -37,7 +36,7 @@ import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useApiQuery } from "~/hooks/useApiQuery";
 import { useToast } from "~/components/ui/use-toast";
-import type { CommitteeScope } from "./committeeScope";
+import type { CommitteeScope, CommitteeSelectorList } from "./committeeScope";
 import {
   Dialog,
   DialogContent,
@@ -64,7 +63,7 @@ const REMOVAL_REASON_LABELS: Record<RemovalReason, string> = {
 };
 
 interface CommitteeSelectorProps {
-  committeeLists: CommitteeList[];
+  committeeLists: CommitteeSelectorList[];
   /**
    * When set, the selector opens on this scope's roster with the city/LD
    * pickers replaced by a label — used for leaders who own exactly one
@@ -76,7 +75,7 @@ interface CommitteeSelectorProps {
 const isRochester = (city: string) => city.toUpperCase() === "ROCHESTER";
 
 /** Distinct LDs for a city, ascending, as dropdown values. */
-const legDistrictsForCity = (lists: CommitteeList[], city: string) =>
+const legDistrictsForCity = (lists: CommitteeSelectorList[], city: string) =>
   Array.from(
     new Set(
       lists

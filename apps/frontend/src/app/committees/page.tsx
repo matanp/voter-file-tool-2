@@ -2,12 +2,16 @@ import React, { Suspense } from "react";
 
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
-import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
-import { singleCommitteeScope } from "./committeeScope";
+import {
+  committeeSelectorListSelect,
+  singleCommitteeScope,
+  type CommitteeSelectorList,
+} from "./committeeScope";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
 import {
   getActiveTerm,
@@ -42,9 +46,11 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
   const activeTermId = activeTerm.id;
 
   // Only include PII data for admin users; filter by active term (SRS §5.1)
-  let committeeLists: CommitteeList[] = await prisma.committeeList.findMany({
-    where: { termId: activeTermId },
-  });
+  let committeeLists: CommitteeSelectorList[] =
+    await prisma.committeeList.findMany({
+      where: { termId: activeTermId },
+      select: committeeSelectorListSelect,
+    });
 
   // SRS 3.1 — Leaders only see committees in their assigned jurisdictions
   const privilegeLevel = permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess;

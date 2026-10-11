@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useContext, useMemo, useState } from "react";
 import Link from "next/link";
-import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
+import type { ScopedReportCommitteeList } from "~/lib/loadScopedReportPageData";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -28,7 +29,7 @@ import { SCOPE_REPORT_UI } from "./scopeReportUiRegistry";
 
 interface ScopedReportFormProps {
   type: ScopeReportType;
-  committeeLists: CommitteeList[];
+  committeeLists: ScopedReportCommitteeList[];
   userPrivilegeLevel: PrivilegeLevel;
 }
 
