@@ -31,7 +31,7 @@ export interface CommitteeRosterTableProps {
  * "weight incomplete ≠ zero weight" rule: any missing-weight seat (or a null
  * weight) renders an em dash rather than a misleading number.
  */
-function formatRollupWeight(rollup: EdRollup): string {
+export function formatRollupWeight(rollup: EdRollup): string {
   if (
     rollup.designationWeight === null ||
     rollup.missingWeightSeatNumbers.length > 0

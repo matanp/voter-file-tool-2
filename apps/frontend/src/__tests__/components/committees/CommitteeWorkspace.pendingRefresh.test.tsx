@@ -132,6 +132,8 @@ type Server = {
   pending: Map<number, PendingMembership[]>;
   /** While set, roster requests after the first page wait on it (to observe the grid mid-drain). */
   rosterGate: Promise<void> | null;
+  /** While set, roster requests after the first page fail with a 500. */
+  failLaterPages?: boolean;
 };
 
 function detailFor(server: Server, r: EdRollup): CommitteeDetailResponse {
@@ -197,6 +199,9 @@ function serve(server: Server, pageSize = 500) {
     if (url.pathname === "/api/committee/roster") {
       const cursor = url.searchParams.get("cursor");
       if (cursor !== null && server.rosterGate) await server.rosterGate;
+      if (cursor !== null && server.failLaterPages) {
+        return jsonResponse({ error: "Gateway timeout" }, 500);
+      }
       return jsonResponse(rosterPage(server, cursor === null ? null : Number(cursor), pageSize));
     }
     if (url.pathname === "/api/committee/handleRequest") {
@@ -370,6 +375,46 @@ describe("Pending tab cross-pane refresh", () => {
     await userEvent.click(screen.getByRole("button", { name: "Pending" }));
     await userEvent.click(screen.getByRole("button", { name: "Pending" }));
     await waitFor(() => expect(queryRow(4)).not.toBeInTheDocument());
+  });
+
+  it("keeps every row of the last complete grid when a refresh fails after page 1", async () => {
+    const server: Server = {
+      rollups: [
+        rollup(1, "GREECE", 1, 1),
+        rollup(2, "GREECE", 1, 2),
+        rollup(3, "PENFIELD", 2, 1, { pendingCount: 1 }),
+        rollup(4, "ROCHESTER", 28, 7),
+      ],
+      pending: new Map([[3, [submission("m-3", "Jane")]]]),
+      rosterGate: null,
+    };
+    const fetchMock = serve(server, 2);
+    renderWorkspace("committee=3&tab=pending");
+    await waitForGrid();
+    await within(detailPane()).findByRole("listitem", { name: /Jane Doe/ });
+    expect([1, 2, 3, 4].map((id) => queryRow(id) !== null)).toEqual([true, true, true, true]);
+
+    server.failLaterPages = true;
+    const rosterBefore = rosterCalls(fetchMock);
+    await userEvent.click(screen.getByRole("button", { name: "Reject Jane Doe" }));
+
+    // Page 1 of the refresh loaded, page 2 failed.
+    await waitFor(() => expect(rosterCalls(fetchMock)).toBe(rosterBefore + 2));
+    const alert = await within(committeeList()).findByRole("alert");
+    expect(alert).toHaveTextContent("Could not load committees: Gateway timeout");
+    expect(within(alert).getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect([1, 2, 3, 4].map((id) => queryRow(id) !== null)).toEqual([true, true, true, true]);
+    expect(selectedRowIds()).toEqual([3]);
+
+    // Retry drains every page and swaps in the fresh grid.
+    server.failLaterPages = false;
+    await userEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(within(committeeList()).queryByRole("alert")).not.toBeInTheDocument(),
+    );
+    await waitForGrid();
+    expect([1, 2, 3, 4].map((id) => queryRow(id) !== null)).toEqual([true, true, true, true]);
+    expect(queryRow(3)).not.toHaveTextContent("pending");
   });
 });
 
