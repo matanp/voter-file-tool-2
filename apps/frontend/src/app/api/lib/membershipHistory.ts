@@ -86,6 +86,7 @@ const auditMetadataSchema = z
     /** PETITION_RECORDED (per candidate) */
     outcome: optionalString,
     seatNumber: optionalNullableInt,
+    primaryDate: optionalString,
     voteCount: optionalNullableInt,
     subject: auditSubjectSchema,
   })
@@ -126,13 +127,15 @@ export type HistoryAuditRow = {
   user: { name: string | null } | null;
 };
 
-/** The current membership row, used to fill what the audit row lacks. */
+/**
+ * The current membership row, used to fill what the audit row lacks (names,
+ * linked members). Its petition columns are deliberately absent: they hold
+ * only the latest cycle, so an older `petition_outcome` must not read them.
+ */
 export type HistoryMembershipRow = {
   id: string;
   voterRecordId: string;
   seatNumber: number | null;
-  petitionPrimaryDate: Date | null;
-  petitionSeatNumber: number | null;
   submissionMetadata: Prisma.JsonValue | null;
   voterRecord: {
     firstName: string | null;
@@ -206,6 +209,13 @@ function toOutcome(
       return "tie";
   }
   return undefined;
+}
+
+/** ISO form of a recorded date, or null when it is missing or unparseable. */
+function toIsoDate(value: string | undefined): string | null {
+  if (value === undefined) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 // Admin-only fields are left `undefined` for other readers; JSON serialization
@@ -371,13 +381,14 @@ export function buildHistoryEvents(
         if (!isAdmin) break;
         const outcome = toOutcome(metadata, after);
         if (outcome === undefined) break; // nothing recoverable; do not fake it
+        // Seat and primary date come only from this row: the membership row's
+        // petition columns belong to its latest cycle, not necessarily this one.
         events.push({
           ...base,
           kind: "petition_outcome",
           outcome,
-          seatNumber:
-            metadata.seatNumber ?? membership?.petitionSeatNumber ?? null,
-          primaryDate: membership?.petitionPrimaryDate?.toISOString() ?? null,
+          seatNumber: metadata.seatNumber ?? null,
+          primaryDate: toIsoDate(metadata.primaryDate),
           voteCount: metadata.voteCount ?? null,
           reversed:
             metadata.source === "discrepancy_undo"
@@ -401,10 +412,38 @@ export type LoadHistoryParams = {
   memberships: readonly HistoryMembershipRow[];
 };
 
+const ADMIN_HISTORY_ACTIONS: AuditAction[] = [...MEMBERSHIP_HISTORY_ACTIONS];
+/** A non-Admin's query skips petition rows: they never become that reader's events. */
+const NON_ADMIN_HISTORY_ACTIONS: AuditAction[] = ADMIN_HISTORY_ACTIONS.filter(
+  (action) => action !== "PETITION_RECORDED",
+);
+
+async function loadMeetings(
+  rows: readonly HistoryAuditRow[],
+): Promise<HistoryMeetingRow[]> {
+  const meetingIds = new Set<string>();
+  for (const row of rows) {
+    const after = afterValueSchema.parse(row.afterValue ?? {});
+    const metadata = auditMetadataSchema.parse(row.metadata ?? {});
+    const id = after.meetingRecordId ?? metadata.meetingRecordId;
+    if (id) meetingIds.add(id);
+  }
+  if (meetingIds.size === 0) return [];
+  return prisma.meetingRecord.findMany({
+    where: { id: { in: [...meetingIds] } },
+    select: { id: true, meetingDate: true, meetingType: true, notes: true },
+  });
+}
+
 /**
  * Loads the newest `limit` history events for the given memberships (one
- * committee + term). Fetches
- * `limit + 1` audit rows to set `hasMore` without a count query.
+ * committee + term).
+ *
+ * Audit rows and events are not one-to-one (accept pairs collapse, Admin
+ * petition wins fold into their outcome, non-Admins get no petition rows), so
+ * rows are read in batches of `limit + 1`, newest first with an `id` tiebreak,
+ * until more than `limit` events exist or the rows run out. `hasMore` counts
+ * events, never rows.
  */
 export async function loadMembershipHistory(
   params: LoadHistoryParams,
@@ -416,56 +455,48 @@ export async function loadMembershipHistory(
   const membershipsByVoterRecordId = new Map(
     memberships.map((m) => [m.voterRecordId, m]),
   );
+  const batchSize = limit + 1;
+  const events: HistoryEvent[] = [];
+  let cursorId: string | undefined;
 
-  const rows = await prisma.auditLog.findMany({
-    where: {
-      entityType: MEMBERSHIP_ENTITY_TYPE,
-      entityId: { in: [...membershipsById.keys()] },
-      action: { in: [...MEMBERSHIP_HISTORY_ACTIONS] },
-    },
-    orderBy: { timestamp: "desc" },
-    take: limit + 1,
-    select: {
-      id: true,
-      action: true,
-      entityId: true,
-      timestamp: true,
-      userRole: true,
-      afterValue: true,
-      metadata: true,
-      user: { select: { name: true } },
-    },
-  });
-  const hasMore = rows.length > limit;
-  const page = rows.slice(0, limit);
+  for (;;) {
+    const rows = await prisma.auditLog.findMany({
+      where: {
+        entityType: MEMBERSHIP_ENTITY_TYPE,
+        entityId: { in: [...membershipsById.keys()] },
+        action: {
+          in: isAdmin ? ADMIN_HISTORY_ACTIONS : NON_ADMIN_HISTORY_ACTIONS,
+        },
+      },
+      orderBy: [{ timestamp: "desc" }, { id: "desc" }],
+      take: batchSize,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      select: {
+        id: true,
+        action: true,
+        entityId: true,
+        timestamp: true,
+        userRole: true,
+        afterValue: true,
+        metadata: true,
+        user: { select: { name: true } },
+      },
+    });
 
-  const meetingIds = new Set<string>();
-  for (const row of page) {
-    const after = afterValueSchema.parse(row.afterValue ?? {});
-    const metadata = auditMetadataSchema.parse(row.metadata ?? {});
-    const id = after.meetingRecordId ?? metadata.meetingRecordId;
-    if (id) meetingIds.add(id);
+    const meetings = await loadMeetings(rows);
+    events.push(
+      ...buildHistoryEvents(rows, {
+        isAdmin,
+        membershipsById,
+        membershipsByVoterRecordId,
+        meetingsById: new Map(meetings.map((m) => [m.id, m])),
+      }),
+    );
+
+    const lastRow = rows.at(-1);
+    if (events.length > limit || rows.length < batchSize || !lastRow) break;
+    cursorId = lastRow.id;
   }
-  const meetings =
-    meetingIds.size > 0
-      ? await prisma.meetingRecord.findMany({
-          where: { id: { in: [...meetingIds] } },
-          select: {
-            id: true,
-            meetingDate: true,
-            meetingType: true,
-            notes: true,
-          },
-        })
-      : [];
 
-  return {
-    events: buildHistoryEvents(page, {
-      isAdmin,
-      membershipsById,
-      membershipsByVoterRecordId,
-      meetingsById: new Map(meetings.map((m) => [m.id, m])),
-    }),
-    hasMore,
-  };
+  return { events: events.slice(0, limit), hasMore: events.length > limit };
 }

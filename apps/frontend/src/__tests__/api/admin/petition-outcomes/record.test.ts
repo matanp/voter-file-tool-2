@@ -268,6 +268,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
         expect.objectContaining({
           candidateVoterRecordId: "V1",
           seatNumber: 1,
+          primaryDate: "2024-09-15T00:00:00.000Z",
           outcome: "WON",
           voteCount: 10,
           resultingStatus: "ACTIVE",
@@ -277,6 +278,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
         expect.objectContaining({
           candidateVoterRecordId: "V2",
           seatNumber: 1,
+          primaryDate: "2024-09-15T00:00:00.000Z",
           outcome: "LOST",
           voteCount: 5,
           resultingStatus: "PETITIONED_LOST",
