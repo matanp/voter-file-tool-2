@@ -9,14 +9,16 @@
  * the server's value whenever the refreshed detail brings a new one.
  */
 import React, { useId, useState } from "react";
+import type { z } from "zod";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import type { updateLtedWeightSchema } from "~/lib/validations/committee";
 import { parseLtedWeightInput } from "./seatsWeightDisplay";
 
-type UpdateLtedWeightPayload = { committeeListId: number; ltedWeight: number | null };
+type UpdateLtedWeightPayload = z.infer<typeof updateLtedWeightSchema>;
 
 export type LtedWeightEditorProps = {
   committeeListId: number;

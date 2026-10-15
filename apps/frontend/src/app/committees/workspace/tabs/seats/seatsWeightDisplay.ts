@@ -1,7 +1,10 @@
 import { PrivilegeLevel } from "@prisma/client";
 
 import { hasPermissionFor } from "~/lib/utils";
-import type { DesignationWeightSummary, EdRollup } from "~/lib/validations/committee";
+import {
+  updateLtedWeightSchema,
+  type DesignationWeightSummary,
+} from "~/lib/validations/committee";
 
 /**
  * Display rules for the Seats & Weight tab. No weight math happens here: the
@@ -12,17 +15,23 @@ import type { DesignationWeightSummary, EdRollup } from "~/lib/validations/commi
  */
 
 export type SeatsWeightVisibility = {
-  /** The LTED total-weight editor (`updateLtedWeight` is Admin-only on the server). */
+  /**
+   * The LTED total-weight editor, which also shows the current LTED weight
+   * (`updateLtedWeight` is Admin-only on the server).
+   */
   canEditLtedWeight: boolean;
   /**
-   * The per-seat breakdown, including whether each seat is petitioned.
+   * Petition detail: the per-seat breakdown (whether each seat is petitioned)
+   * and the word "petitioned" in the missing-weight warning.
    *
    * Whether the petitioned-seat distinction counts as a "petition reference"
    * that Leaders must not see is still open (leader-petition-visibility/01,
-   * group C). Until it is answered, Leaders get what they get today (the
-   * summary, not the breakdown), and this is the one place to change it.
+   * group C). Until it is answered, Leaders get what the old detail showed
+   * them (vacancy, designation weight, seats filled, and which seat numbers
+   * lack a weight, with no "petitioned" label), and this is the one place to
+   * change it.
    */
-  showSeatBreakdown: boolean;
+  showPetitionDetail: boolean;
 };
 
 /** Client visibility only (skills/auth-check-patterns): pass `actingPermissions`. */
@@ -30,27 +39,23 @@ export function seatsWeightVisibility(
   actingPermissions: PrivilegeLevel,
 ): SeatsWeightVisibility {
   const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
-  return { canEditLtedWeight: isAdmin, showSeatBreakdown: isAdmin };
+  return { canEditLtedWeight: isAdmin, showPetitionDetail: isAdmin };
 }
 
 /**
- * "Weight incomplete ≠ zero weight": any petitioned seat without a weight (or
- * a null total) renders an em dash, as on the town roster table.
+ * The warning text for seats missing a weight, or null when there are none.
+ * `petitioned` names them as petitioned seats (see `showPetitionDetail`).
  */
-export function formatDesignationWeight(rollup: EdRollup): string {
-  if (rollup.designationWeight === null || rollup.missingWeightSeatNumbers.length > 0) {
-    return "—";
-  }
-  return rollup.designationWeight.toFixed(2);
-}
-
-/** The warning text for petitioned seats without a weight, or null when none. */
-export function missingWeightWarning(seatNumbers: number[]): string | null {
+export function missingWeightWarning(
+  seatNumbers: number[],
+  { petitioned }: { petitioned: boolean },
+): string | null {
   if (seatNumbers.length === 0) return null;
+  const kind = petitioned ? "petitioned seat" : "seat";
   const seats =
     seatNumbers.length === 1
-      ? `petitioned seat ${seatNumbers[0]} has`
-      : `petitioned seats ${seatNumbers.join(", ")} have`;
+      ? `${kind} ${seatNumbers[0]} has`
+      : `${kind}s ${seatNumbers.join(", ")} have`;
   return `Weight incomplete: ${seats} no weight, so the designation weight is not shown.`;
 }
 
@@ -85,15 +90,15 @@ export type LtedWeightParse =
   | { ok: false; error: string };
 
 /**
- * Parses the LTED total-weight field: blank clears the weight; otherwise a
- * finite, non-negative number (the server's `updateLtedWeightSchema` rule).
+ * Parses the LTED total-weight field: blank clears the weight; otherwise the
+ * number must pass the server's own `updateLtedWeightSchema` field rule.
  */
 export function parseLtedWeightInput(text: string): LtedWeightParse {
   const trimmed = text.trim();
   if (trimmed === "") return { ok: true, value: null };
-  const value = Number(trimmed);
-  if (!Number.isFinite(value) || value < 0) {
+  const parsed = updateLtedWeightSchema.shape.ltedWeight.safeParse(Number(trimmed));
+  if (!parsed.success || parsed.data === null) {
     return { ok: false, error: "LTED weight must be a non-negative number." };
   }
-  return { ok: true, value };
+  return { ok: true, value: parsed.data };
 }

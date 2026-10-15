@@ -3,9 +3,9 @@
  * Seats & Weight tab (plan §7.3): every seat and weight concern for the
  * selected committee in one place.
  *
- * - Everyone in scope: the seat summary (filled, open, unassigned), the LTED
- *   weight, the designation-weight total, and missing-weight warnings, all
- *   spelled out in text (plan §10).
+ * - Everyone in scope: the seat summary (filled, open, unassigned), the
+ *   designation-weight total, and missing-weight warnings, all spelled out in
+ *   text (plan §10).
  * - Acting Admin (`actingPermissions`, client visibility only): the LTED
  *   total-weight editor and the per-seat breakdown. What a Leader sees is
  *   decided in `seats/seatsWeightDisplay.ts` (`seatsWeightVisibility`).
@@ -18,11 +18,11 @@ import React, { useCallback, useContext, useId, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 
 import { GlobalContext } from "~/components/providers/GlobalContext";
+import { formatRollupWeight } from "../../CommitteeRosterTable";
 import { openSeats } from "../gridModel";
 import { LtedWeightEditor } from "./seats/LtedWeightEditor";
 import { SeatWeightBreakdown } from "./seats/SeatWeightBreakdown";
 import {
-  formatDesignationWeight,
   missingWeightWarning,
   seatsWeightVisibility,
 } from "./seats/seatsWeightDisplay";
@@ -30,7 +30,7 @@ import type { CommitteeTabProps } from "./types";
 
 export function SeatsWeightTab({ detail, onRefresh }: CommitteeTabProps) {
   const { actingPermissions } = useContext(GlobalContext);
-  const { canEditLtedWeight, showSeatBreakdown } = seatsWeightVisibility(actingPermissions);
+  const { canEditLtedWeight, showPetitionDetail } = seatsWeightVisibility(actingPermissions);
   const [announcement, setAnnouncement] = useState("");
   const breakdownHeadingId = useId();
 
@@ -44,7 +44,9 @@ export function SeatsWeightTab({ detail, onRefresh }: CommitteeTabProps) {
 
   const { committee, rollup } = detail;
   const open = openSeats(rollup);
-  const warning = missingWeightWarning(rollup.missingWeightSeatNumbers);
+  const warning = missingWeightWarning(rollup.missingWeightSeatNumbers, {
+    petitioned: showPetitionDetail,
+  });
 
   return (
     <div className="space-y-4 p-4 text-sm">
@@ -62,12 +64,8 @@ export function SeatsWeightTab({ detail, onRefresh }: CommitteeTabProps) {
           </li>
         )}
         <li>
-          <span className="text-slate-600 dark:text-slate-400">LTED weight</span>{" "}
-          <span className="font-medium">{committee.ltedWeight ?? "Not set"}</span>
-        </li>
-        <li>
           <span className="text-slate-600 dark:text-slate-400">Designation weight</span>{" "}
-          <span className="font-medium">{formatDesignationWeight(rollup)}</span>
+          <span className="font-medium">{formatRollupWeight(rollup)}</span>
         </li>
       </ul>
 
@@ -92,7 +90,7 @@ export function SeatsWeightTab({ detail, onRefresh }: CommitteeTabProps) {
         />
       )}
 
-      {showSeatBreakdown && (
+      {showPetitionDetail && (
         <section aria-labelledby={breakdownHeadingId} className="space-y-2">
           <h4 id={breakdownHeadingId} className="font-medium">
             Designation weight by seat

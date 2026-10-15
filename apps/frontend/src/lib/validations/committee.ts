@@ -335,6 +335,7 @@ export const updateLtedWeightSchema = z
     committeeListId: z.coerce.number().int().positive(),
     ltedWeight: z
       .number()
+      .finite("LTED weight must be a finite number")
       .nonnegative("LTED weight must be non-negative")
       .nullable(),
   })

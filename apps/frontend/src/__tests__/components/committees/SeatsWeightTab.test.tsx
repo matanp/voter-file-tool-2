@@ -15,6 +15,7 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
+import { mockJsonResponse } from "../../utils/testUtils";
 
 jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
@@ -120,15 +121,7 @@ function detailWith(overrides: DetailOverrides = {}): CommitteeDetailResponse {
   };
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: "",
-    headers: { get: () => "application/json" },
-    json: async () => body,
-  } as unknown as Response;
-}
+type FetchResponse = ReturnType<typeof mockJsonResponse>;
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
@@ -161,7 +154,7 @@ const weightInput = () => screen.getByRole("textbox", { name: "LTED total weight
 const saveButton = () => screen.getByRole("button", { name: /Save LTED weight|Saving/ });
 const summary = () => screen.getByRole("list", { name: "Seat and weight summary" });
 
-let fetchMock: jest.Mock;
+let fetchMock: jest.Mock<Promise<FetchResponse>, [string, RequestInit]>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -170,12 +163,14 @@ beforeEach(() => {
     .mockImplementation(
       jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
     );
-  fetchMock = jest.fn(async () => jsonResponse({ success: true }));
+  fetchMock = jest.fn(async (_input: string, _init: RequestInit) =>
+    mockJsonResponse({ success: true }),
+  );
   global.fetch = fetchMock as unknown as typeof fetch;
 });
 
-const patchCalls = (): Array<[string, RequestInit]> =>
-  (fetchMock.mock.calls as Array<[string, RequestInit]>).filter(([input]) =>
+const patchCalls = () =>
+  fetchMock.mock.calls.filter(([input]) =>
     input.startsWith("/api/committee/updateLtedWeight"),
   );
 
@@ -264,7 +259,7 @@ describe("SeatsWeightTab for Admins", () => {
   });
 
   it("disables Save while saving and shows the server error without refreshing", async () => {
-    const response = deferred<Response>();
+    const response = deferred<FetchResponse>();
     fetchMock.mockImplementationOnce(() => response.promise);
     const { onRefresh } = renderTab(detailWith());
     await userEvent.clear(weightInput());
@@ -274,7 +269,7 @@ describe("SeatsWeightTab for Admins", () => {
     expect(saveButton()).toBeDisabled();
     expect(saveButton()).toHaveTextContent("Saving…");
 
-    response.resolve(jsonResponse({ error: "Committee not found" }, 404));
+    response.resolve(mockJsonResponse({ error: "Committee not found" }, { status: 404 }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not save LTED weight: Committee not found",
     );
@@ -301,9 +296,11 @@ describe("SeatsWeightTab for Leaders", () => {
   it("shows the summary read-only, with no editor or per-seat breakdown", () => {
     // `actingPermissions` decides, so this also covers a Developer acting as a Leader.
     renderTab(detailWith(), PrivilegeLevel.Leader);
-    expect(summary()).toHaveTextContent("LTED weight 100");
     expect(summary()).toHaveTextContent("Designation weight —");
-    expect(screen.getByText(/Weight incomplete: petitioned seat 4 has no weight/)).toBeInTheDocument();
+    expect(summary()).not.toHaveTextContent("LTED weight");
+    // Same seat numbers as the old summary, without the "petitioned" label (group C).
+    expect(screen.getByText(/Weight incomplete: seat 4 has no weight/)).toBeInTheDocument();
+    expect(screen.queryByText(/petitioned/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
