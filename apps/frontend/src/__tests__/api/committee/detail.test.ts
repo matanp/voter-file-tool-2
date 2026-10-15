@@ -234,6 +234,39 @@ function mockAuditRow(overrides: {
   };
 }
 
+type AuditFindManyArgs = {
+  where?: { action?: { in?: string[] } };
+  take?: number;
+  skip?: number;
+  cursor?: { id: string };
+};
+
+/**
+ * Serves `rows` like the database would: filtered by `where.action.in`,
+ * ordered `timestamp desc, id desc`, then paged by `cursor` / `skip` / `take`.
+ */
+function serveAuditRows(rows: Array<ReturnType<typeof mockAuditRow>>) {
+  const sorted = [...rows].sort(
+    (a, b) =>
+      b.timestamp.getTime() - a.timestamp.getTime() ||
+      (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+  );
+  getAuditLogMock(prismaMock).findMany.mockImplementation(
+    (args: AuditFindManyArgs) => {
+      const actions = args.where?.action?.in;
+      const matching = actions
+        ? sorted.filter((r) => actions.includes(r.action))
+        : sorted;
+      const start = args.cursor
+        ? matching.findIndex((r) => r.id === args.cursor?.id) + (args.skip ?? 0)
+        : (args.skip ?? 0);
+      return Promise.resolve(
+        matching.slice(start, start + (args.take ?? matching.length)),
+      );
+    },
+  );
+}
+
 function adminSession() {
   mockAuthSession(
     createMockSession({
@@ -1071,10 +1104,25 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
               ],
             },
           },
-          orderBy: { timestamp: "desc" },
+          orderBy: [{ timestamp: "desc" }, { id: "desc" }],
           take: COMMITTEE_DETAIL_HISTORY_LIMIT + 1,
         }),
       );
+    });
+
+    it("leaves PETITION_RECORDED out of a Leader's audit query", async () => {
+      leaderSession();
+      leaderJurisdictions([{ cityTown: "Test City", legDistrict: null }]);
+      const a = member("m-a", "V-A");
+      mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
+
+      await getDetail();
+
+      const [args] = getAuditLogMock(prismaMock).findMany.mock.calls[0] as [
+        AuditFindManyArgs,
+      ];
+      expect(args.where?.action?.in).not.toContain("PETITION_RECORDED");
+      expect(args.where?.action?.in).toContain("MEMBER_ACTIVATED");
     });
 
     it("skips the audit query and returns an empty history when the committee has no memberships", async () => {
@@ -1387,6 +1435,150 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
 
       expect(body.history.hasMore).toBe(true);
       expect(body.history.events).toHaveLength(COMMITTEE_DETAIL_HISTORY_LIMIT);
+    });
+
+    describe("limit counts events, not audit rows", () => {
+      const at = (minutesAgo: number) =>
+        new Date(Date.UTC(2025, 6, 1, 12, 0) - minutesAgo * 60_000);
+      const pad = (n: number) => String(n).padStart(3, "0");
+
+      /** A plain Admin add: one ACTIVATED row, one event. */
+      const activation = (n: number, entityId: string) =>
+        mockAuditRow({
+          id: `act-${pad(n)}`,
+          action: "MEMBER_ACTIVATED",
+          entityId,
+          timestamp: at(n),
+          afterValue: { status: "ACTIVE", seatNumber: 1 },
+        });
+
+      /** An accept: CONFIRMED + ACTIVATED at one timestamp, one event. */
+      const accept = (n: number, entityId: string) => {
+        const meeting = { meetingRecordId: "meeting-1" };
+        return [
+          mockAuditRow({
+            id: `acc-${pad(n)}-a`,
+            action: "MEMBER_CONFIRMED",
+            entityId,
+            timestamp: at(n),
+            afterValue: { status: "CONFIRMED", seatNumber: 1, ...meeting },
+            metadata: meeting,
+          }),
+          mockAuditRow({
+            id: `acc-${pad(n)}-b`,
+            action: "MEMBER_ACTIVATED",
+            entityId,
+            timestamp: at(n),
+            afterValue: { status: "ACTIVE", seatNumber: 1, ...meeting },
+            metadata: meeting,
+          }),
+        ];
+      };
+
+      const petition = (n: number, entityId: string) =>
+        mockAuditRow({
+          id: `pet-${pad(n)}`,
+          action: "PETITION_RECORDED",
+          entityId,
+          timestamp: at(n),
+          afterValue: { status: "PETITIONED_LOST", seatNumber: null },
+          metadata: { source: "petition_outcome", outcome: "LOST" },
+        });
+
+      it("gives a Leader every non-petition event when petition rows fill the newest rows", async () => {
+        leaderSession();
+        leaderJurisdictions([{ cityTown: "Test City", legDistrict: null }]);
+        const a = member("m-a", "V-A", 1);
+        mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
+        serveAuditRows([
+          ...Array.from({ length: 55 }, (_, i) => petition(i, a.id)),
+          ...Array.from({ length: 5 }, (_, i) => activation(100 + i, a.id)),
+        ]);
+
+        const body = await getDetail();
+
+        expect(body.history.events.map((e) => e.kind)).toEqual(
+          Array(5).fill("activated"),
+        );
+        expect(body.history.hasMore).toBe(false);
+      });
+
+      it("fills a Leader's page to the limit past petition rows and reports more", async () => {
+        leaderSession();
+        leaderJurisdictions([{ cityTown: "Test City", legDistrict: null }]);
+        const a = member("m-a", "V-A", 1);
+        mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
+        serveAuditRows([
+          ...Array.from({ length: 55 }, (_, i) => petition(i, a.id)),
+          ...Array.from({ length: 60 }, (_, i) => activation(100 + i, a.id)),
+        ]);
+
+        const body = await getDetail();
+
+        expect(body.history.events).toHaveLength(
+          COMMITTEE_DETAIL_HISTORY_LIMIT,
+        );
+        expect(body.history.events[0]?.id).toBe("act-100");
+        expect(body.history.hasMore).toBe(true);
+      });
+
+      it("counts an Admin accept pair as one event toward the limit", async () => {
+        adminSession();
+        const a = member("m-a", "V-A", 1);
+        mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
+        serveAuditRows(
+          Array.from({ length: 30 }, (_, i) => accept(i, a.id)).flat(),
+        );
+
+        const body = await getDetail();
+
+        expect(body.history.events).toHaveLength(30);
+        expect(new Set(body.history.events.map((e) => e.kind))).toEqual(
+          new Set(["confirmed"]),
+        );
+        expect(body.history.hasMore).toBe(false);
+      });
+
+      it("returns exactly the limit of accept events and reports more when they continue", async () => {
+        adminSession();
+        const a = member("m-a", "V-A", 1);
+        mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
+        serveAuditRows(
+          Array.from({ length: 60 }, (_, i) => accept(i, a.id)).flat(),
+        );
+
+        const body = await getDetail();
+
+        const ids = body.history.events.map((e) => e.id);
+        expect(ids).toHaveLength(COMMITTEE_DETAIL_HISTORY_LIMIT);
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(ids[0]).toBe("acc-000-a");
+        expect(ids.at(-1)).toBe(
+          `acc-${pad(COMMITTEE_DETAIL_HISTORY_LIMIT - 1)}-a`,
+        );
+        expect(body.history.hasMore).toBe(true);
+      });
+
+      it("reports no more when only event-less rows remain past the limit", async () => {
+        adminSession();
+        const a = member("m-a", "V-A", 1);
+        mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
+        // 50 events, then one accept's ACTIVATED half alone (no event of its own).
+        const [, orphanActivated] = accept(999, a.id);
+        serveAuditRows([
+          ...Array.from({ length: COMMITTEE_DETAIL_HISTORY_LIMIT }, (_, i) =>
+            activation(i, a.id),
+          ),
+          ...(orphanActivated ? [orphanActivated] : []),
+        ]);
+
+        const body = await getDetail();
+
+        expect(body.history.events).toHaveLength(
+          COMMITTEE_DETAIL_HISTORY_LIMIT,
+        );
+        expect(body.history.hasMore).toBe(false);
+      });
     });
   });
 });

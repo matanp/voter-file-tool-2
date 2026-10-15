@@ -401,10 +401,36 @@ export type LoadHistoryParams = {
   memberships: readonly HistoryMembershipRow[];
 };
 
+/** A non-Admin's query skips petition rows: they never become that reader's events. */
+const NON_ADMIN_HISTORY_ACTIONS: AuditAction[] =
+  MEMBERSHIP_HISTORY_ACTIONS.filter((action) => action !== "PETITION_RECORDED");
+
+async function loadMeetings(
+  rows: readonly HistoryAuditRow[],
+): Promise<HistoryMeetingRow[]> {
+  const meetingIds = new Set<string>();
+  for (const row of rows) {
+    const after = afterValueSchema.parse(row.afterValue ?? {});
+    const metadata = auditMetadataSchema.parse(row.metadata ?? {});
+    const id = after.meetingRecordId ?? metadata.meetingRecordId;
+    if (id) meetingIds.add(id);
+  }
+  if (meetingIds.size === 0) return [];
+  return prisma.meetingRecord.findMany({
+    where: { id: { in: [...meetingIds] } },
+    select: { id: true, meetingDate: true, meetingType: true, notes: true },
+  });
+}
+
 /**
  * Loads the newest `limit` history events for the given memberships (one
- * committee + term). Fetches
- * `limit + 1` audit rows to set `hasMore` without a count query.
+ * committee + term).
+ *
+ * Audit rows and events are not one-to-one (accept pairs collapse, Admin
+ * petition wins fold into their outcome, non-Admins get no petition rows), so
+ * rows are read in batches of `limit + 1`, newest first with an `id` tiebreak,
+ * until more than `limit` events exist or the rows run out. `hasMore` counts
+ * events, never rows.
  */
 export async function loadMembershipHistory(
   params: LoadHistoryParams,
@@ -416,56 +442,50 @@ export async function loadMembershipHistory(
   const membershipsByVoterRecordId = new Map(
     memberships.map((m) => [m.voterRecordId, m]),
   );
+  const batchSize = limit + 1;
+  const events: HistoryEvent[] = [];
+  let cursorId: string | undefined;
 
-  const rows = await prisma.auditLog.findMany({
-    where: {
-      entityType: MEMBERSHIP_ENTITY_TYPE,
-      entityId: { in: [...membershipsById.keys()] },
-      action: { in: [...MEMBERSHIP_HISTORY_ACTIONS] },
-    },
-    orderBy: { timestamp: "desc" },
-    take: limit + 1,
-    select: {
-      id: true,
-      action: true,
-      entityId: true,
-      timestamp: true,
-      userRole: true,
-      afterValue: true,
-      metadata: true,
-      user: { select: { name: true } },
-    },
-  });
-  const hasMore = rows.length > limit;
-  const page = rows.slice(0, limit);
+  for (;;) {
+    const rows = await prisma.auditLog.findMany({
+      where: {
+        entityType: MEMBERSHIP_ENTITY_TYPE,
+        entityId: { in: [...membershipsById.keys()] },
+        action: {
+          in: isAdmin
+            ? [...MEMBERSHIP_HISTORY_ACTIONS]
+            : NON_ADMIN_HISTORY_ACTIONS,
+        },
+      },
+      orderBy: [{ timestamp: "desc" }, { id: "desc" }],
+      take: batchSize,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      select: {
+        id: true,
+        action: true,
+        entityId: true,
+        timestamp: true,
+        userRole: true,
+        afterValue: true,
+        metadata: true,
+        user: { select: { name: true } },
+      },
+    });
 
-  const meetingIds = new Set<string>();
-  for (const row of page) {
-    const after = afterValueSchema.parse(row.afterValue ?? {});
-    const metadata = auditMetadataSchema.parse(row.metadata ?? {});
-    const id = after.meetingRecordId ?? metadata.meetingRecordId;
-    if (id) meetingIds.add(id);
+    const meetings = await loadMeetings(rows);
+    events.push(
+      ...buildHistoryEvents(rows, {
+        isAdmin,
+        membershipsById,
+        membershipsByVoterRecordId,
+        meetingsById: new Map(meetings.map((m) => [m.id, m])),
+      }),
+    );
+
+    const lastRow = rows.at(-1);
+    if (events.length > limit || rows.length < batchSize || !lastRow) break;
+    cursorId = lastRow.id;
   }
-  const meetings =
-    meetingIds.size > 0
-      ? await prisma.meetingRecord.findMany({
-          where: { id: { in: [...meetingIds] } },
-          select: {
-            id: true,
-            meetingDate: true,
-            meetingType: true,
-            notes: true,
-          },
-        })
-      : [];
 
-  return {
-    events: buildHistoryEvents(page, {
-      isAdmin,
-      membershipsById,
-      membershipsByVoterRecordId,
-      meetingsById: new Map(meetings.map((m) => [m.id, m])),
-    }),
-    hasMore,
-  };
+  return { events: events.slice(0, limit), hasMore: events.length > limit };
 }
