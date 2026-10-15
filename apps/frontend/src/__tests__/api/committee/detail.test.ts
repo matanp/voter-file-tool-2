@@ -23,6 +23,8 @@ import {
   getAuditLogMock,
   getMembershipMock,
   getMeetingRecordMock,
+  firstCallArg,
+  resolvesTo,
   DEFAULT_ACTIVE_TERM_ID,
 } from "../../utils/testUtils";
 import {
@@ -234,12 +236,14 @@ function mockAuditRow(overrides: {
   };
 }
 
-type AuditFindManyArgs = {
-  where?: { action?: { in?: string[] } };
-  take?: number;
-  skip?: number;
-  cursor?: { id: string };
-};
+/** The `action: { in: [...] }` list a history query asks for, if any. */
+function requestedActions(
+  args: Prisma.AuditLogFindManyArgs,
+): string[] | undefined {
+  const filter = args.where?.action;
+  if (typeof filter !== "object" || filter === null) return undefined;
+  return "in" in filter && Array.isArray(filter.in) ? filter.in : undefined;
+}
 
 /**
  * Serves `rows` like the database would: filtered by `where.action.in`,
@@ -251,16 +255,23 @@ function serveAuditRows(rows: Array<ReturnType<typeof mockAuditRow>>) {
       b.timestamp.getTime() - a.timestamp.getTime() ||
       (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
   );
-  getAuditLogMock(prismaMock).findMany.mockImplementation(
-    (args: AuditFindManyArgs) => {
-      const actions = args.where?.action?.in;
+  prismaMock.auditLog.findMany.mockImplementation(
+    (args: Prisma.AuditLogFindManyArgs = {}) => {
+      const actions = requestedActions(args);
       const matching = actions
         ? sorted.filter((r) => actions.includes(r.action))
         : sorted;
-      const start = args.cursor
-        ? matching.findIndex((r) => r.id === args.cursor?.id) + (args.skip ?? 0)
-        : (args.skip ?? 0);
-      return Promise.resolve(
+      let start = args.skip ?? 0;
+      if (args.cursor) {
+        const cursorIndex = matching.findIndex((r) => r.id === args.cursor?.id);
+        if (cursorIndex < 0) {
+          throw new Error(
+            `cursor ${String(args.cursor.id)} is not a served row`,
+          );
+        }
+        start += cursorIndex;
+      }
+      return resolvesTo(
         matching.slice(start, start + (args.take ?? matching.length)),
       );
     },
@@ -1118,11 +1129,13 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
 
       await getDetail();
 
-      const [args] = getAuditLogMock(prismaMock).findMany.mock.calls[0] as [
-        AuditFindManyArgs,
-      ];
-      expect(args.where?.action?.in).not.toContain("PETITION_RECORDED");
-      expect(args.where?.action?.in).toContain("MEMBER_ACTIVATED");
+      const actions = requestedActions(
+        firstCallArg<Prisma.AuditLogFindManyArgs>(
+          getAuditLogMock(prismaMock).findMany,
+        ),
+      );
+      expect(actions).not.toContain("PETITION_RECORDED");
+      expect(actions).toContain("MEMBER_ACTIVATED");
     });
 
     it("skips the audit query and returns an empty history when the committee has no memberships", async () => {

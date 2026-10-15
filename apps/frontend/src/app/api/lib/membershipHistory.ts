@@ -412,9 +412,11 @@ export type LoadHistoryParams = {
   memberships: readonly HistoryMembershipRow[];
 };
 
+const ADMIN_HISTORY_ACTIONS: AuditAction[] = [...MEMBERSHIP_HISTORY_ACTIONS];
 /** A non-Admin's query skips petition rows: they never become that reader's events. */
-const NON_ADMIN_HISTORY_ACTIONS: AuditAction[] =
-  MEMBERSHIP_HISTORY_ACTIONS.filter((action) => action !== "PETITION_RECORDED");
+const NON_ADMIN_HISTORY_ACTIONS: AuditAction[] = ADMIN_HISTORY_ACTIONS.filter(
+  (action) => action !== "PETITION_RECORDED",
+);
 
 async function loadMeetings(
   rows: readonly HistoryAuditRow[],
@@ -463,9 +465,7 @@ export async function loadMembershipHistory(
         entityType: MEMBERSHIP_ENTITY_TYPE,
         entityId: { in: [...membershipsById.keys()] },
         action: {
-          in: isAdmin
-            ? [...MEMBERSHIP_HISTORY_ACTIONS]
-            : NON_ADMIN_HISTORY_ACTIONS,
+          in: isAdmin ? ADMIN_HISTORY_ACTIONS : NON_ADMIN_HISTORY_ACTIONS,
         },
       },
       orderBy: [{ timestamp: "desc" }, { id: "desc" }],
