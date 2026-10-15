@@ -1185,6 +1185,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
             source: "petition_outcome",
             outcome: "LOST",
             seatNumber: 3,
+            primaryDate: "2024-06-25T00:00:00.000Z",
             voteCount: 40,
             subject: { memberName: "Lou Lost", voterRecordId: "V-LOST" },
           },
@@ -1413,6 +1414,102 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
         outcome: "tie",
         reversed: true,
         source: "discrepancy_undo",
+      });
+    });
+
+    describe("petition outcome reads only its own audit row", () => {
+      /** Re-added after an earlier cycle: the row now holds the 2026 petition. */
+      const readded = () =>
+        mockMembership({
+          id: "m-re",
+          VRCNUM: "V-RE",
+          status: "ACTIVE",
+          membershipType: "PETITIONED",
+          seatNumber: 4,
+          petitionSeatNumber: 4,
+          petitionPrimaryDate: new Date("2026-06-23T00:00:00.000Z"),
+          firstName: "Rhea",
+          lastName: "Added",
+        });
+
+      it("shows the earlier cycle's primary date and seat from the event's metadata", async () => {
+        adminSession();
+        const m = readded();
+        mockCommitteeWithMemberships(mockCommittee({ memberships: [m] }), [m]);
+        getAuditLogMock(prismaMock).findMany.mockResolvedValue([
+          mockAuditRow({
+            id: "a-old",
+            action: "PETITION_RECORDED",
+            entityId: m.id,
+            timestamp: new Date("2024-06-30T00:00:00.000Z"),
+            afterValue: { status: "PETITIONED_LOST", seatNumber: null },
+            metadata: {
+              source: "petition_outcome",
+              outcome: "LOST",
+              seatNumber: 2,
+              primaryDate: "2024-06-25T00:00:00.000Z",
+              voteCount: 12,
+            },
+          }),
+        ]);
+
+        const body = await getDetail();
+
+        const [petition] = eventsOfKind(body, "petition_outcome");
+        expect(petition).toMatchObject({
+          outcome: "lost",
+          seatNumber: 2,
+          primaryDate: "2024-06-25T00:00:00.000Z",
+        });
+      });
+
+      it("omits primary date and seat the audit row did not record, never using the membership row", async () => {
+        adminSession();
+        const m = readded();
+        mockCommitteeWithMemberships(mockCommittee({ memberships: [m] }), [m]);
+        getAuditLogMock(prismaMock).findMany.mockResolvedValue([
+          mockAuditRow({
+            id: "a-old",
+            action: "PETITION_RECORDED",
+            entityId: m.id,
+            timestamp: new Date("2024-06-30T00:00:00.000Z"),
+            afterValue: { status: "PETITIONED_LOST", seatNumber: null },
+            metadata: { source: "petition_outcome", outcome: "LOST" },
+          }),
+        ]);
+
+        const body = await getDetail();
+
+        const [petition] = eventsOfKind(body, "petition_outcome");
+        expect(petition).toMatchObject({
+          outcome: "lost",
+          seatNumber: null,
+          primaryDate: null,
+        });
+      });
+
+      it("drops a primary date that is not a valid date rather than guessing", async () => {
+        adminSession();
+        const m = readded();
+        mockCommitteeWithMemberships(mockCommittee({ memberships: [m] }), [m]);
+        getAuditLogMock(prismaMock).findMany.mockResolvedValue([
+          mockAuditRow({
+            id: "a-old",
+            action: "PETITION_RECORDED",
+            entityId: m.id,
+            afterValue: { status: "PETITIONED_LOST", seatNumber: null },
+            metadata: {
+              source: "petition_outcome",
+              outcome: "LOST",
+              primaryDate: "not a date",
+            },
+          }),
+        ]);
+
+        const body = await getDetail();
+
+        const [petition] = eventsOfKind(body, "petition_outcome");
+        expect(petition?.primaryDate).toBeNull();
       });
     });
 

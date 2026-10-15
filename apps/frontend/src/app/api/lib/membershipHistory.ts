@@ -86,6 +86,7 @@ const auditMetadataSchema = z
     /** PETITION_RECORDED (per candidate) */
     outcome: optionalString,
     seatNumber: optionalNullableInt,
+    primaryDate: optionalString,
     voteCount: optionalNullableInt,
     subject: auditSubjectSchema,
   })
@@ -126,13 +127,15 @@ export type HistoryAuditRow = {
   user: { name: string | null } | null;
 };
 
-/** The current membership row, used to fill what the audit row lacks. */
+/**
+ * The current membership row, used to fill what the audit row lacks (names,
+ * linked members). Its petition columns are deliberately absent: they hold
+ * only the latest cycle, so an older `petition_outcome` must not read them.
+ */
 export type HistoryMembershipRow = {
   id: string;
   voterRecordId: string;
   seatNumber: number | null;
-  petitionPrimaryDate: Date | null;
-  petitionSeatNumber: number | null;
   submissionMetadata: Prisma.JsonValue | null;
   voterRecord: {
     firstName: string | null;
@@ -206,6 +209,13 @@ function toOutcome(
       return "tie";
   }
   return undefined;
+}
+
+/** ISO form of a recorded date, or null when it is missing or unparseable. */
+function toIsoDate(value: string | undefined): string | null {
+  if (value === undefined) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 // Admin-only fields are left `undefined` for other readers; JSON serialization
@@ -371,13 +381,14 @@ export function buildHistoryEvents(
         if (!isAdmin) break;
         const outcome = toOutcome(metadata, after);
         if (outcome === undefined) break; // nothing recoverable; do not fake it
+        // Seat and primary date come only from this row: the membership row's
+        // petition columns belong to its latest cycle, not necessarily this one.
         events.push({
           ...base,
           kind: "petition_outcome",
           outcome,
-          seatNumber:
-            metadata.seatNumber ?? membership?.petitionSeatNumber ?? null,
-          primaryDate: membership?.petitionPrimaryDate?.toISOString() ?? null,
+          seatNumber: metadata.seatNumber ?? null,
+          primaryDate: toIsoDate(metadata.primaryDate),
           voteCount: metadata.voteCount ?? null,
           reversed:
             metadata.source === "discrepancy_undo"

@@ -250,6 +250,9 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
                 termId,
                 candidateVoterRecordId: c.voterRecordId,
                 seatNumber,
+                // Per-row cycle context: the membership's petition columns are
+                // overwritten by a later cycle, so History reads it from here.
+                primaryDate: primaryDateObj.toISOString(),
                 outcome,
                 voteCount: c.voteCount ?? null,
                 resultingStatus: status,
@@ -316,6 +319,9 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
                 termId,
                 candidateVoterRecordId: c.voterRecordId,
                 seatNumber,
+                // Per-row cycle context: the membership's petition columns are
+                // overwritten by a later cycle, so History reads it from here.
+                primaryDate: primaryDateObj.toISOString(),
                 outcome,
                 voteCount: c.voteCount ?? null,
                 resultingStatus: status,
