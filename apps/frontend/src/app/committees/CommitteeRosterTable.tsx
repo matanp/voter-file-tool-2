@@ -212,6 +212,13 @@ export interface CommitteeSeatTableProps {
 }
 
 /**
+ * The row-action column stays pinned to the table's right edge, so on narrow
+ * screens (the detail pane at 768px, the full-width detail at 375px) a row's
+ * action menu is visible without scrolling the table sideways (plan §10).
+ */
+const ACTIONS_STICKY_CLASS = "sticky right-0 z-[1]";
+
+/**
  * Single-committee seat table (the workspace Roster tab, plan §7.1): seat,
  * member or vacancy, membership type, contact when authorized, and an optional
  * per-row action column. Shares its row rendering with the town roster above;
@@ -254,7 +261,7 @@ export function CommitteeSeatTable({
           <TableHead>Type</TableHead>
           {showContact ? <TableHead>Contact</TableHead> : null}
           {showActions ? (
-            <TableHead className="w-12">
+            <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white dark:bg-slate-950`}>
               <span className="sr-only">Actions</span>
             </TableHead>
           ) : null}
@@ -338,7 +345,15 @@ function SeatRow({
         </TableCell>
       ) : null}
       {actions !== undefined ? (
-        <TableCell className="text-right">{actions}</TableCell>
+        <TableCell
+          className={`text-right ${ACTIONS_STICKY_CLASS} ${
+            petition.petitionedVacant
+              ? "bg-amber-50 dark:bg-amber-950"
+              : "bg-white dark:bg-slate-950"
+          }`}
+        >
+          {actions}
+        </TableCell>
       ) : null}
     </TableRow>
   );
