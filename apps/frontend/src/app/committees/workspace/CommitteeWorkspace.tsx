@@ -2,8 +2,8 @@
 /**
  * Committee Operations Workspace (plan §6), rendered by `committees/page.tsx`
  * when `COMMITTEES_WORKSPACE=1`. Owns only: filters, the selected committee
- * id, the selected tab, and loading/error coordination. (The open action
- * arrives with the action drawer, ticket 13.)
+ * id, the selected tab, the open action (the action drawer, plan §8), and
+ * loading/error coordination.
  *
  * URL is the source of truth for `committee`, `tab`, `town`, and `ld`:
  * - committee selection is `router.push` (back/forward moves between
@@ -25,7 +25,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PanelLeftOpen } from "lucide-react";
 
 import type { CommitteeScope } from "../committeeScope";
+import type { CommitteeAction, CommitteeActionHandler } from "./committeeAction";
 import { CommitteeDetailPane } from "./CommitteeDetailPane";
+import { CommitteeActionDrawer } from "./drawer/CommitteeActionDrawer";
 import { CommitteeEmptyScope } from "./CommitteeEmptyScope";
 import { CommitteeGridPane } from "./CommitteeGridPane";
 import { CommitteeWorkspaceHeader } from "./CommitteeWorkspaceHeader";
@@ -193,6 +195,32 @@ export function CommitteeWorkspace({
   }, [reloadDetail, refreshGrid, selectedCommitteeId]);
   const detail = { ...loadedDetail, reload: refreshDetailAndGrid };
 
+  // --- Action drawer -----------------------------------------------------------
+  // Opened by a roster row action; on success it refreshes the detail and the
+  // grid row (the same cross-pane refresh as a tab's `onRefresh`), and never
+  // writes the URL, so selection, tab and filters stay put.
+  const [openAction, setOpenAction] = useState<{
+    action: CommitteeAction;
+    returnFocusTo: HTMLElement | null;
+  } | null>(null);
+  const handleAction = useCallback<CommitteeActionHandler>(
+    (action, returnFocusTo) =>
+      setOpenAction({ action, returnFocusTo: returnFocusTo ?? null }),
+    [],
+  );
+  const closeAction = useCallback(() => setOpenAction(null), []);
+  // The drawer acts on the loaded detail; it closes if the selection moves
+  // away underneath it (e.g. browser Back).
+  const drawerDetail =
+    loadedDetail.status === "ready" ? loadedDetail.detail : null;
+  const actionMatchesSelection =
+    openAction !== null &&
+    openAction.action.committee.committeeListId === selectedCommitteeId &&
+    drawerDetail?.committee.committeeListId === selectedCommitteeId;
+  useEffect(() => {
+    if (openAction !== null && !actionMatchesSelection) setOpenAction(null);
+  }, [openAction, actionMatchesSelection]);
+
   // Mobile Back: return to the list and put focus back on the row it came from.
   const returnFocusTo = useRef<number | null>(null);
   const backToList = useCallback(() => {
@@ -294,10 +322,20 @@ export function CommitteeWorkspace({
             tab={url.tab}
             onTabChange={setTab}
             onBack={backToList}
+            onAction={handleAction}
             focusHeadingOnMount={!isDesktop}
           />
         </section>
       </div>
+      {drawerDetail && (
+        <CommitteeActionDrawer
+          action={actionMatchesSelection ? openAction.action : null}
+          detail={drawerDetail}
+          onClose={closeAction}
+          onComplete={refreshDetailAndGrid}
+          returnFocusTo={openAction?.returnFocusTo}
+        />
+      )}
     </div>
   );
 }

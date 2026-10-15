@@ -1,57 +1,28 @@
 import { PrivilegeLevel } from "@prisma/client";
 
 import { hasPermissionFor } from "~/lib/utils";
-import type {
-  CommitteeDetailResponse,
-  SeatRosterRow,
-} from "~/lib/validations/committee";
+import type { SeatRosterRow } from "~/lib/validations/committee";
+import {
+  committeeRefFrom,
+  type CommitteeAction,
+  type CommitteeRef,
+} from "../../committeeAction";
+
+/** Plan §8's `CommitteeRef` (kept as an alias for existing callers). */
+export type RosterCommitteeRef = CommitteeRef;
 
 /**
- * The committee identity a row action carries: `committeeListId` plus the
- * composite key the mutation endpoints use (plan §3.11). Same shape as plan
- * §8's `CommitteeRef`.
- */
-export type RosterCommitteeRef = {
-  committeeListId: number;
-  cityTown: string;
-  legDistrict: number;
-  electionDistrict: number;
-};
-
-/**
- * What a roster row asks the workspace to do. Deliberately identical to plan
- * §8's `CommitteeAction` union, which ticket 13 owns (with the drawer): 13 can
- * replace this alias with `CommitteeAction` without touching any producer.
- * `memberId` is the occupant's VRCNUM, which is what `/api/committee/remove`
- * and `requestAdd`'s replacement target key on today.
- *
+ * What a roster row asks the workspace to do: plan §8's `CommitteeAction`.
  * The Roster tab only *dispatches* these; it never opens anything itself.
  */
-export type RosterRowAction =
-  | { kind: "add-member"; committee: RosterCommitteeRef; seatNumber?: number }
-  | { kind: "replace-member"; committee: RosterCommitteeRef; memberId: string }
-  | { kind: "remove-member"; committee: RosterCommitteeRef; memberId: string }
-  | {
-      kind: "record-resignation";
-      committee: RosterCommitteeRef;
-      memberId: string;
-    };
+export type RosterRowAction = CommitteeAction;
 
 export type RosterRowActionItem = {
   label: string;
   action: RosterRowAction;
 };
 
-export function committeeRefFrom(
-  committee: CommitteeDetailResponse["committee"],
-): RosterCommitteeRef {
-  return {
-    committeeListId: committee.committeeListId,
-    cityTown: committee.cityTown,
-    legDistrict: committee.legDistrict,
-    electionDistrict: committee.electionDistrict,
-  };
-}
+export { committeeRefFrom };
 
 /**
  * The row actions offered for `row` at the given *acting* privilege. This is

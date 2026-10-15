@@ -87,3 +87,15 @@ _Avoid_: audit log (for this view), activity feed, changelog
 **Election Outcome**:
 A petition candidate's result in the primary for a committee seat: won, lost, or tied. Visible to Admins only.
 _Avoid_: petition outcome context, petition result
+
+**Submission**:
+A candidate a Leader proposes for a committee, waiting for an Admin to accept or reject it. The candidate is not a member until accepted. A replacement submission also names the member the candidate would replace.
+_Avoid_: request, committee change request
+
+**Hard Stop**:
+An eligibility rule a candidate fails that blocks adding or submitting them, such as a party or district mismatch or a full committee. A warning is the nonblocking counterpart.
+_Avoid_: error, validation failure
+
+**Eligibility Override**:
+An Admin adding a candidate despite hard stops, with a recorded reason. Some hard stops cannot be overridden.
+_Avoid_: force add

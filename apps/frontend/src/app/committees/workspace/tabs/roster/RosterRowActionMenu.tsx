@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useRef } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
@@ -9,29 +9,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import type { RosterRowAction, RosterRowActionItem } from "./rowActions";
+import type { CommitteeActionHandler } from "../../committeeAction";
+import type { RosterRowActionItem } from "./rowActions";
 
 export type RosterRowActionMenuProps = {
   /** Accessible name for the trigger, e.g. "Actions for seat 2". */
   label: string;
   items: RosterRowActionItem[];
-  onAction: (action: RosterRowAction) => void;
+  onAction: CommitteeActionHandler;
 };
 
 /**
- * A row's action menu. Choosing an item only dispatches its action; the menu
- * never opens a dialog or drawer itself (that is the workspace's job, ticket
- * 13).
+ * A row's action menu. Choosing an item only dispatches its action, with the
+ * trigger as the place to return focus to (the menu item is gone by the time
+ * the drawer closes). The menu never opens a dialog or drawer itself; the
+ * workspace does.
  */
 export function RosterRowActionMenu({
   label,
   items,
   onAction,
 }: RosterRowActionMenuProps) {
+  const trigger = useRef<HTMLButtonElement>(null);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={label}>
+        <Button ref={trigger} variant="ghost" size="icon" aria-label={label}>
           <MoreHorizontal className="h-4 w-4" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
@@ -39,7 +42,7 @@ export function RosterRowActionMenu({
         {items.map((item) => (
           <DropdownMenuItem
             key={item.action.kind}
-            onSelect={() => onAction(item.action)}
+            onSelect={() => onAction(item.action, trigger.current)}
           >
             {item.label}
           </DropdownMenuItem>
