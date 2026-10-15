@@ -1,7 +1,7 @@
 # 20 - A failed background grid refresh drops rows from later pages
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Parent: ../map.md
 
 Found in branch review of `committees-workspace` against `main` (2026-10-14, at `fdddbda`).
@@ -21,5 +21,14 @@ When a refresh fails, keep showing the snapshot's `rollups` / `summary` / `scope
 ## Acceptance
 
 - Test in `CommitteeWorkspace.pendingRefresh.test.tsx`: the initial load has two pages; the refresh's page 2 rejects; every row from the first load is still listed and the error alert with Retry shows.
+
+## Answer
+
+Built in Lane B (worktree off `committees-workspace` at `8413196`).
+
+- `useGridRefresh.ts`: the snapshot is now kept while the reload drains **or after it fails** (`keepSnapshot`), and dropped only once the raw grid is `ready` with new rollups. On failure the hook returns the snapshot's `rollups` / `summary` / `scopeFilters` with `status: "error"` and the raw error, so the grid pane shows the last complete grid plus the error alert and Retry instead of the partial pages.
+- Retry stays `rawGrid.reload` (in `CommitteeWorkspace.tsx`, untouched). Because the snapshot survives, a Retry after a failed refresh also drains in the background and swaps in at once; a Retry after a failed *initial* load (no snapshot) behaves as before.
+- Test (`CommitteeWorkspace.pendingRefresh.test.tsx`): two-page initial load, a decision triggers a refresh whose page 2 returns 500; all four rows stay listed with the selection, the alert reads "Could not load committees: Gateway timeout" with Retry, and Retry drains and shows the updated row.
+- Not changed: `refresh()` still only takes a new snapshot and pin when the raw grid is `ready`, so a mutation made while the grid shows a failed refresh keeps the earlier snapshot and sets no pin.
 
 ## Comments

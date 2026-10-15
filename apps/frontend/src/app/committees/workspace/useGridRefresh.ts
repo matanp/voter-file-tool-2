@@ -13,7 +13,9 @@
  *
  * So a refresh keeps showing the last complete grid (as `ready`) until the
  * reload has drained every page, then swaps it in at once. A failed reload
- * surfaces normally (rows kept, error alert with Retry). The committee that
+ * keeps showing that last complete grid with the error alert and Retry,
+ * rather than the pages that loaded before the failure; Retry (a plain
+ * reload) then drains in the background the same way. The committee that
  * was selected when the refresh started stays in the list even if it no
  * longer matches the filters, until the user changes the selection or a
  * filter. Selection, tab and filters live in the URL and local state, which a
@@ -73,15 +75,15 @@ export function useGridRefresh(
 
   // The reload has not started while the hook still returns the snapshot's
   // rollups (`reload` builds a new array for every page), and has not finished
-  // until the grid is `ready` again.
-  const refreshing =
+  // until the grid is `ready` again. A failed reload keeps the snapshot too:
+  // `rawGrid.rollups` then holds only the pages that loaded before the failure.
+  const keepSnapshot =
     snapshot !== null &&
-    rawGrid.status !== "error" &&
     (rawGrid.status !== "ready" || rawGrid.rollups === snapshot.rollups);
 
   useEffect(() => {
-    if (snapshot !== null && !refreshing) setSnapshot(null);
-  }, [snapshot, refreshing]);
+    if (snapshot !== null && !keepSnapshot) setSnapshot(null);
+  }, [snapshot, keepSnapshot]);
 
   const activePin = pin !== null && pin.key === viewKey ? pin : null;
   useEffect(() => {
@@ -108,9 +110,15 @@ export function useGridRefresh(
     current.reload();
   }, []);
 
+  const failed = rawGrid.status === "error";
   const grid: CommitteeGridData =
-    refreshing && snapshot
-      ? { ...rawGrid, ...snapshot, status: "ready", error: null }
+    keepSnapshot && snapshot
+      ? {
+          ...rawGrid,
+          ...snapshot,
+          status: failed ? "error" : "ready",
+          error: failed ? rawGrid.error : null,
+        }
       : rawGrid;
 
   const pinnedId = activePin?.committeeId ?? null;
