@@ -17,11 +17,11 @@ import type {
   MembershipStatus,
   MembershipType,
   PrivilegeLevel,
-  RemovalReason,
   ResignationMethod,
 } from "@prisma/client";
 
 import { formatCalendarDateForDisplay } from "~/lib/dateUtils";
+import { REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import type {
   HistoryEvent,
   PetitionOutcomeContext,
@@ -41,14 +41,6 @@ const ROLE_LABELS: Record<PrivilegeLevel, string> = {
   Leader: "Leader",
   RequestAccess: "Request Access user",
   ReadAccess: "Read Access user",
-};
-
-const REMOVAL_REASON_LABELS: Record<RemovalReason, string> = {
-  PARTY_CHANGE: "Party change",
-  MOVED_OUT_OF_DISTRICT: "Moved out of district",
-  INACTIVE_REGISTRATION: "Inactive registration",
-  DECEASED: "Deceased",
-  OTHER: "Other",
 };
 
 const RESIGNATION_METHOD_LABELS: Record<ResignationMethod, string> = {

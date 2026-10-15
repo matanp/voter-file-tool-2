@@ -530,6 +530,115 @@ describe("CommitteeActionDrawer: submission roles", () => {
   });
 });
 
+// --- Ticket 14: removal and resignation ------------------------------------------------
+
+const REMOVE: CommitteeAction = { kind: "remove-member", committee: REF, memberId: "V-SEATED" };
+const RESIGN: CommitteeAction = { kind: "record-resignation", committee: REF, memberId: "V-SEATED" };
+const hint = () => within(drawer()).getByTestId("member-exit-requirements");
+
+describe("CommitteeActionDrawer: remove member", () => {
+  it("requires a reason, and notes for Other, then removes and completes", async () => {
+    const fetchMock = serve({ "/api/committee/remove": [{ body: { status: "success" } }] });
+    const { onComplete, onClose } = renderDrawer({ action: REMOVE });
+
+    expect(within(drawer()).getByRole("heading", { level: 2, name: "Remove member" })).toBeInTheDocument();
+    expect(drawer()).toHaveTextContent("Removing Sam Seated (V-SEATED), seat 1");
+    expect(drawer()).toHaveTextContent("administrative removal, not a resignation");
+    const remove = within(drawer()).getByRole("button", { name: "Remove member" });
+    expect(remove).toBeDisabled();
+    expect(hint()).toHaveTextContent("Choose a reason.");
+
+    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "OTHER");
+    expect(remove).toBeDisabled();
+    expect(hint()).toHaveTextContent("Notes are required when the reason is Other.");
+    expect(within(drawer()).getByLabelText("Notes (required)")).toBeInTheDocument();
+
+    await userEvent.type(within(drawer()).getByLabelText("Notes (required)"), "Asked to step down");
+    expect(remove).toBeEnabled();
+    await userEvent.click(remove);
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledWith({
+      title: "Success",
+      description: "Committee member removed successfully",
+    });
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0]!)).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-SEATED",
+      removalReason: "OTHER",
+      removalNotes: "Asked to step down",
+    });
+  });
+
+  it("keeps the drawer open with the server's error", async () => {
+    serve({
+      "/api/committee/remove": [
+        { body: { status: "error", error: "Member does not have an active membership in this committee" }, status: 400 },
+      ],
+    });
+    const { onComplete, onClose } = renderDrawer({ action: REMOVE });
+    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
+
+    expect(await within(drawer()).findByRole("alert")).toHaveTextContent(
+      "Member does not have an active membership in this committee",
+    );
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(within(drawer()).getByRole("button", { name: "Remove member" })).toBeEnabled();
+  });
+
+  it("is Admin-only", () => {
+    serve({});
+    renderDrawer({ role: PrivilegeLevel.Leader, action: REMOVE });
+    expect(drawer()).toHaveTextContent("Your role can't change this committee.");
+    expect(within(drawer()).queryByRole("button", { name: "Remove member" })).not.toBeInTheDocument();
+  });
+});
+
+describe("CommitteeActionDrawer: record resignation", () => {
+  it("requires the received date, method and reason, then records the resignation", async () => {
+    const fetchMock = serve({ "/api/committee/remove": [{ body: { status: "success" } }] });
+    const { onComplete } = renderDrawer({ action: RESIGN });
+
+    expect(within(drawer()).getByRole("heading", { level: 2, name: "Record resignation" })).toBeInTheDocument();
+    expect(drawer()).toHaveTextContent("Recording a resignation for Sam Seated (V-SEATED), seat 1");
+    const record = within(drawer()).getByRole("button", { name: "Record resignation" });
+    expect(record).toBeDisabled();
+    expect(hint()).toHaveTextContent("Enter the date the resignation was received.");
+    expect(hint()).toHaveTextContent("Choose how it was received.");
+    expect(hint()).toHaveTextContent("Choose a reason.");
+
+    await userEvent.type(within(drawer()).getByLabelText(/Date resignation received/), "2026-10-01");
+    await userEvent.click(within(drawer()).getByRole("radio", { name: "Mail" }));
+    await userEvent.selectOptions(
+      within(drawer()).getByLabelText(/Reason for resignation/),
+      "MOVED_OUT_OF_DISTRICT",
+    );
+    expect(record).toBeEnabled();
+    await userEvent.click(record);
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith({
+      title: "Success",
+      description: "Resignation recorded successfully",
+    });
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0]!)).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-SEATED",
+      action: "RESIGN",
+      resignationDateReceived: "2026-10-01",
+      resignationMethod: "MAIL",
+      resignationReason: "MOVED_OUT_OF_DISTRICT",
+    });
+  });
+});
+
 describe("CommitteeActionDrawer: closing", () => {
   it("closes on Escape and Cancel without completing", async () => {
     serve({});

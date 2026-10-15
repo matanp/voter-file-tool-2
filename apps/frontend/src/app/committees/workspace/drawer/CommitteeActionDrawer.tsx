@@ -13,8 +13,10 @@
  * openings. The drawer closes on success (no "Add another member" in v1).
  */
 import React, { useContext, useState } from "react";
+import { PrivilegeLevel } from "@prisma/client";
 
 import { GlobalContext } from "~/components/providers/GlobalContext";
+import { Button } from "~/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -23,12 +25,13 @@ import {
   SheetTitle,
 } from "~/components/ui/sheet";
 import { toast } from "~/components/ui/use-toast";
+import { hasPermissionFor } from "~/lib/utils";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import { candidateSubmissionMode, type CandidateSubmissionMode } from "../adapters";
 import type { CommitteeAction } from "../committeeAction";
 import { AddMemberFlow } from "./AddMemberFlow";
-import { DrawerFooter, committeeLabel } from "./drawerParts";
-import { Button } from "~/components/ui/button";
+import { DrawerFooter, committeeLabel, personName } from "./drawerParts";
+import { RecordResignationForm, RemoveMemberForm } from "./MemberExitForms";
 
 export type CommitteeActionDrawerProps = {
   /** The open action, or null when closed. */
@@ -56,6 +59,14 @@ function drawerTitle(
     case "record-resignation":
       return "Record resignation";
   }
+}
+
+/** "Jane Doe (V1), seat 1" from the loaded roster. */
+function memberLabel(detail: CommitteeDetailResponse, memberId: string): string {
+  const row = detail.rows.find((r) => r.occupant?.VRCNUM === memberId);
+  if (!row?.occupant) return memberId;
+  const who = `${personName(row.occupant)} (${memberId})`;
+  return row.seatNumber !== null ? `${who}, seat ${row.seatNumber}` : `${who}, unassigned`;
 }
 
 export function CommitteeActionDrawer({
@@ -91,18 +102,45 @@ export function CommitteeActionDrawer({
   let mode: CandidateSubmissionMode | null = null;
   let flow: React.ReactNode = null;
   if (current) {
-    if (current.kind === "add-member" || current.kind === "replace-member") {
-      mode = candidateSubmissionMode(current, actingPermissions);
-      flow = mode && (
-        <AddMemberFlow
-          key={shown?.n}
-          action={current}
-          mode={mode}
-          detail={detail}
-          onCancel={onClose}
-          onSuccess={handleSuccess}
-        />
-      );
+    const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+    switch (current.kind) {
+      case "add-member":
+      case "replace-member":
+        mode = candidateSubmissionMode(current, actingPermissions);
+        flow = mode ? (
+          <AddMemberFlow
+            key={shown?.n}
+            action={current}
+            mode={mode}
+            detail={detail}
+            onCancel={onClose}
+            onSuccess={handleSuccess}
+          />
+        ) : null;
+        break;
+      // Admin-only endpoints; the row menu offers them only to Admins.
+      case "remove-member":
+        flow = isAdmin ? (
+          <RemoveMemberForm
+            key={shown?.n}
+            action={current}
+            memberLabel={memberLabel(detail, current.memberId)}
+            onCancel={onClose}
+            onSuccess={handleSuccess}
+          />
+        ) : null;
+        break;
+      case "record-resignation":
+        flow = isAdmin ? (
+          <RecordResignationForm
+            key={shown?.n}
+            action={current}
+            memberLabel={memberLabel(detail, current.memberId)}
+            onCancel={onClose}
+            onSuccess={handleSuccess}
+          />
+        ) : null;
+        break;
     }
     flow ??= (
       <>

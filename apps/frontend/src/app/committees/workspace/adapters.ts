@@ -9,7 +9,12 @@
  * visibility only, skills/auth-check-patterns); every endpoint re-checks the
  * actual session privilege and decides eligibility itself.
  */
-import { PrivilegeLevel, type MembershipType } from "@prisma/client";
+import {
+  PrivilegeLevel,
+  type MembershipType,
+  type RemovalReason,
+  type ResignationMethod,
+} from "@prisma/client";
 import { z } from "zod";
 import {
   normalizeSearchQuery,
@@ -23,6 +28,8 @@ import { hasPermissionFor } from "~/lib/utils";
 import type {
   committeeDataSchema,
   committeeRequestDataSchema,
+  removeCommitteeDataSchema,
+  resignCommitteeDataSchema,
 } from "~/lib/validations/committee";
 import type { CommitteeAction, CommitteeRef } from "./committeeAction";
 
@@ -276,6 +283,93 @@ export async function submitCandidate(
       ? `Submitted your request for approval. ${warningText}`
       : "Submitted your request for approval",
   };
+}
+
+// --- Removal and resignation (ticket 14) ---------------------------------------------
+
+export type RemovalAction = Extract<CommitteeAction, { kind: "remove-member" }>;
+export type ResignationAction = Extract<CommitteeAction, { kind: "record-resignation" }>;
+
+/** Form state; `""` is "not chosen yet". */
+export type RemovalInput = { reason: RemovalReason | ""; notes: string };
+export type ResignationInput = {
+  dateReceived: string;
+  method: ResignationMethod | "";
+  reason: RemovalReason | "";
+  notes: string;
+};
+
+const OTHER_NEEDS_NOTES = "Notes are required when the reason is Other.";
+
+/**
+ * What still blocks a removal (SRS 2.5): a reason, and notes for **Other**.
+ * Mirrors `removeCommitteeDataSchema`, which the endpoint enforces anyway.
+ */
+export function removalProblems(input: RemovalInput): string[] {
+  if (input.reason === "") return ["Choose a reason."];
+  if (input.reason === "OTHER" && input.notes.trim() === "") return [OTHER_NEEDS_NOTES];
+  return [];
+}
+
+/**
+ * What still blocks recording a resignation (SRS 2.3): the received date, the
+ * method, a reason, and notes for **Other** (`resignCommitteeDataSchema`).
+ */
+export function resignationProblems(input: ResignationInput): string[] {
+  const problems: string[] = [];
+  if (input.dateReceived.trim() === "") {
+    problems.push("Enter the date the resignation was received.");
+  }
+  if (input.method === "") problems.push("Choose how it was received.");
+  problems.push(...removalProblems(input));
+  return problems;
+}
+
+type RemoveBody = z.input<typeof removeCommitteeDataSchema>;
+type ResignBody = z.input<typeof resignCommitteeDataSchema>;
+
+function memberKey(action: RemovalAction | ResignationAction) {
+  return {
+    cityTown: action.committee.cityTown,
+    ...legDistrictParam(action.committee),
+    electionDistrict: action.committee.electionDistrict,
+    memberId: action.memberId,
+  };
+}
+
+/** Administrative removal (Admin-only endpoint). Call once `removalProblems` is empty. */
+export async function submitRemoval(
+  action: RemovalAction,
+  input: RemovalInput,
+): Promise<ActionOutcome> {
+  if (input.reason === "") return { ok: false, kind: "error", message: "Choose a reason." };
+  const body: RemoveBody = {
+    ...memberKey(action),
+    removalReason: input.reason,
+    ...trimmedOrOmit("removalNotes", input.notes),
+  };
+  const result = await postJson("/api/committee/remove", body);
+  return result.ok ? { ok: true, message: "Committee member removed successfully" } : result;
+}
+
+/** Records a resignation (`action: "RESIGN"` on the remove endpoint). */
+export async function submitResignation(
+  action: ResignationAction,
+  input: ResignationInput,
+): Promise<ActionOutcome> {
+  if (input.reason === "" || input.method === "") {
+    return { ok: false, kind: "error", message: resignationProblems(input).join(" ") };
+  }
+  const body: ResignBody = {
+    ...memberKey(action),
+    action: "RESIGN",
+    resignationDateReceived: input.dateReceived.trim(),
+    resignationMethod: input.method,
+    resignationReason: input.reason,
+    ...trimmedOrOmit("removalNotes", input.notes),
+  };
+  const result = await postJson("/api/committee/remove", body);
+  return result.ok ? { ok: true, message: "Resignation recorded successfully" } : result;
 }
 
 // --- Plumbing ----------------------------------------------------------------------

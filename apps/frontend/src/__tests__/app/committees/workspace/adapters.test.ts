@@ -9,7 +9,11 @@ import { PrivilegeLevel } from "@prisma/client";
 import {
   candidateSearchQuery,
   candidateSubmissionMode,
+  removalProblems,
+  resignationProblems,
   submitCandidate,
+  submitRemoval,
+  submitResignation,
 } from "~/app/committees/workspace/adapters";
 import type {
   CommitteeAction,
@@ -20,6 +24,8 @@ import type * as UtilsModule from "~/lib/utils";
 import {
   committeeDataSchema,
   committeeRequestDataSchema,
+  removeCommitteeDataSchema,
+  resignCommitteeDataSchema,
 } from "~/lib/validations/committee";
 
 const GREECE: CommitteeRef = {
@@ -121,6 +127,108 @@ describe("candidateSearchQuery", () => {
       { field: "city", values: ["GREECE"] },
       { field: "electionDistrict", values: [5] },
     ]);
+  });
+});
+
+describe("submitRemoval", () => {
+  const REMOVE: CommitteeAction = { kind: "remove-member", committee: GREECE, memberId: "V-OLD" };
+
+  it("posts the removal with reason and trimmed notes in the body /api/committee/remove accepts", async () => {
+    respond({ status: "success" });
+    const outcome = await submitRemoval(REMOVE, { reason: "OTHER", notes: "  Moved away  " });
+
+    const { url, body } = sent();
+    expect(url).toBe("/api/committee/remove");
+    expect(body).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-OLD",
+      removalReason: "OTHER",
+      removalNotes: "Moved away",
+    });
+    expect(removeCommitteeDataSchema.safeParse(body).success).toBe(true);
+    expect(outcome).toEqual({ ok: true, message: "Committee member removed successfully" });
+  });
+
+  it("omits blank notes and the LD sentinel", async () => {
+    respond({ status: "success" });
+    await submitRemoval({ ...REMOVE, committee: NO_LD }, { reason: "DECEASED", notes: " " });
+    expect(sent().body).not.toHaveProperty("removalNotes");
+    expect(sent().body).not.toHaveProperty("legDistrict");
+    expect(removeCommitteeDataSchema.safeParse(sent().body).success).toBe(true);
+  });
+
+  it("reports the endpoint's status error", async () => {
+    respond({ status: "error", error: "Member does not have an active membership in this committee" }, 400);
+    await expect(submitRemoval(REMOVE, { reason: "DECEASED", notes: "" })).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "Member does not have an active membership in this committee",
+    });
+  });
+});
+
+describe("submitResignation", () => {
+  const RESIGN: CommitteeAction = {
+    kind: "record-resignation",
+    committee: GREECE,
+    memberId: "V-OLD",
+  };
+
+  it("posts a RESIGN body with date, method and reason that the endpoint accepts", async () => {
+    respond({ status: "success" });
+    const outcome = await submitResignation(RESIGN, {
+      dateReceived: "2026-10-01",
+      method: "MAIL",
+      reason: "MOVED_OUT_OF_DISTRICT",
+      notes: "",
+    });
+
+    const { url, body } = sent();
+    expect(url).toBe("/api/committee/remove");
+    expect(body).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-OLD",
+      action: "RESIGN",
+      resignationDateReceived: "2026-10-01",
+      resignationMethod: "MAIL",
+      resignationReason: "MOVED_OUT_OF_DISTRICT",
+    });
+    expect(resignCommitteeDataSchema.safeParse(body).success).toBe(true);
+    expect(outcome).toEqual({ ok: true, message: "Resignation recorded successfully" });
+  });
+
+  it("a status error delivered with 200 is still a failure", async () => {
+    respond({ status: "error", error: "Committee not found" });
+    await expect(
+      submitResignation(RESIGN, { dateReceived: "2026-10-01", method: "EMAIL", reason: "OTHER", notes: "x" }),
+    ).resolves.toEqual({ ok: false, kind: "error", message: "Committee not found" });
+  });
+});
+
+describe("member exit validation", () => {
+  it("requires a reason, and notes for Other", () => {
+    expect(removalProblems({ reason: "", notes: "" })).toEqual(["Choose a reason."]);
+    expect(removalProblems({ reason: "OTHER", notes: " " })).toEqual([
+      "Notes are required when the reason is Other.",
+    ]);
+    expect(removalProblems({ reason: "OTHER", notes: "why" })).toEqual([]);
+  });
+
+  it("requires the received date, method and reason for a resignation", () => {
+    expect(
+      resignationProblems({ dateReceived: "", method: "", reason: "", notes: "" }),
+    ).toEqual([
+      "Enter the date the resignation was received.",
+      "Choose how it was received.",
+      "Choose a reason.",
+    ]);
+    expect(
+      resignationProblems({ dateReceived: "2026-10-01", method: "EMAIL", reason: "DECEASED", notes: "" }),
+    ).toEqual([]);
   });
 });
 

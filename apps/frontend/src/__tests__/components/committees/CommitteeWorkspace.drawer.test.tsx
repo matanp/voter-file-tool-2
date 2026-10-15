@@ -260,6 +260,19 @@ function serve(server: Server) {
         );
         return jsonResponse({ success: true, message: "Member added to committee" });
       }
+      case "/api/committee/remove": {
+        const body = JSON.parse(String(init?.body)) as { memberId: string };
+        for (const [committeeListId, seats] of server.seats) {
+          const seat = seats.findIndex((s) => s?.VRCNUM === body.memberId);
+          if (seat === -1) continue;
+          seats[seat] = null;
+          server.rollups = server.rollups.map((x) =>
+            x.committeeListId === committeeListId ? { ...x, filled: x.filled - 1 } : x,
+          );
+          return jsonResponse({ status: "success" });
+        }
+        return jsonResponse({ status: "error", error: "Member not found in this committee" }, 404);
+      }
     }
     throw new Error(`unexpected fetch ${url.toString()}`);
   });
@@ -385,6 +398,34 @@ describe("Action drawer in the workspace", () => {
     await openRowAction("Actions for seat 3", "Add member");
     expect(within(drawer()).queryByRole("list", { name: "Candidates" })).not.toBeInTheDocument();
     expect(within(drawer()).getByRole("heading", { level: 3, name: /Find candidate/ })).toBeInTheDocument();
+  });
+
+  it("removes a member (ticket 14) and refreshes both panes, returning focus to the row", async () => {
+    serve(newServer());
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    await within(detailPane()).findByText("Sam Seated");
+    const query = urlNow();
+
+    await openRowAction("Actions for seat 1", "Remove member");
+    expect(within(drawer()).getByRole("heading", { level: 2, name: "Remove member" })).toBeInTheDocument();
+    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(toast).toHaveBeenCalledWith({
+      title: "Success",
+      description: "Committee member removed successfully",
+    });
+    await waitFor(() => expect(queryRow(2)).toHaveTextContent("0/4"));
+    await waitFor(() =>
+      expect(within(detailPane()).queryByText("Sam Seated")).not.toBeInTheDocument(),
+    );
+    expect(selectedRowIds()).toEqual([2]);
+    expect(urlNow()).toBe(query);
+    await waitFor(() =>
+      expect(within(detailPane()).getByRole("button", { name: "Actions for seat 1" })).toHaveFocus(),
+    );
   });
 
   it("returns focus to the trigger after a successful add", async () => {
