@@ -1,4 +1,5 @@
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
+import type { CommitteeActionHandler } from "../committeeAction";
 
 /**
  * The contract every detail tab implements (Roster, Pending, Seats & Weight,
@@ -26,4 +27,11 @@ export type CommitteeTabProps = {
    * the refetch is in flight.
    */
   onRefresh: () => void;
+  /**
+   * Opens the action drawer for a roster action (ticket 13); the workspace
+   * refreshes the detail and grid row when the action completes.
+   * `CommitteeTabs` always passes it. It is optional only so that tabs that
+   * never dispatch actions, and their tests, don't have to mention it.
+   */
+  onAction?: CommitteeActionHandler;
 };

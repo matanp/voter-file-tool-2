@@ -3,6 +3,7 @@ import React from "react";
 
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import type { CommitteeActionHandler } from "./committeeAction";
 import { COMMITTEE_TABS } from "./tabs/registry";
 import type { CommitteeDetailState } from "./useCommitteeDetail";
 import {
@@ -22,6 +23,8 @@ export type CommitteeTabsProps = {
   onRetry: () => void;
   /** Passed to the tab as `onRefresh`. */
   onRefresh: () => void;
+  /** Passed to the tab as `onAction` (opens the action drawer). */
+  onAction: CommitteeActionHandler;
 };
 
 /**
@@ -40,6 +43,7 @@ export function CommitteeTabs({
   header,
   onRetry,
   onRefresh,
+  onAction,
 }: CommitteeTabsProps) {
   return (
     <Tabs
@@ -75,6 +79,7 @@ export function CommitteeTabs({
                 committeeId={committeeId}
                 detail={detail.detail}
                 onRefresh={onRefresh}
+                onAction={onAction}
               />
             ) : (
               <DetailStatus detail={detail} onRetry={onRetry} />

@@ -10,7 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel } from "@prisma/client";
 
 import { RosterTab } from "~/app/committees/workspace/tabs/RosterTab";
-import type { RosterRowAction } from "~/app/committees/workspace/tabs/roster/rowActions";
+import type { CommitteeActionHandler } from "~/app/committees/workspace/committeeAction";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
@@ -126,7 +126,7 @@ function renderRoster({
 }: {
   role: PrivilegeLevel;
   rows?: SeatRosterRow[];
-  onAction?: (action: RosterRowAction) => void;
+  onAction?: CommitteeActionHandler;
 }) {
   return render(
     <GlobalContext.Provider
@@ -142,6 +142,8 @@ function renderRoster({
   );
 }
 
+/** The row's menu trigger, dispatched as where to return focus. */
+const trigger = (name: string) => screen.getByRole("button", { name });
 const table = () =>
   screen.getByRole("table", { name: "Seats for GREECE LD 1 ED 5" });
 const bodyRows = () => within(table()).getAllByRole("row").slice(1);
@@ -300,9 +302,9 @@ describe("RosterTab row actions", () => {
     );
 
     expect(onAction.mock.calls).toEqual([
-      [{ kind: "add-member", committee: REF, seatNumber: 3 }],
-      [{ kind: "record-resignation", committee: REF, memberId: "V1" }],
-      [{ kind: "remove-member", committee: REF, memberId: "V9" }],
+      [{ kind: "add-member", committee: REF, seatNumber: 3 }, trigger("Actions for seat 3")],
+      [{ kind: "record-resignation", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
+      [{ kind: "remove-member", committee: REF, memberId: "V9" }, trigger("Actions for Sam Loose")],
     ]);
     // Dispatch only: nothing opens.
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -328,8 +330,8 @@ describe("RosterTab row actions", () => {
       );
 
       expect(onAction.mock.calls).toEqual([
-        [{ kind: "add-member", committee: REF, seatNumber: 2 }],
-        [{ kind: "replace-member", committee: REF, memberId: "V1" }],
+        [{ kind: "add-member", committee: REF, seatNumber: 2 }, trigger("Actions for seat 2")],
+        [{ kind: "replace-member", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
       ]);
     },
   );

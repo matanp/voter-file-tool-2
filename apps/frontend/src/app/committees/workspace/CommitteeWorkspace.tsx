@@ -2,8 +2,8 @@
 /**
  * Committee Operations Workspace (plan §6), rendered by `committees/page.tsx`
  * when `COMMITTEES_WORKSPACE=1`. Owns only: filters, the selected committee
- * id, the selected tab, and loading/error coordination. (The open action
- * arrives with the action drawer, ticket 13.)
+ * id, the selected tab, the open action (the action drawer, plan §8), and
+ * loading/error coordination.
  *
  * URL is the source of truth for `committee`, `tab`, `town`, and `ld`:
  * - committee selection is `router.push` (back/forward moves between
@@ -25,7 +25,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PanelLeftOpen } from "lucide-react";
 
 import type { CommitteeScope } from "../committeeScope";
+import type { CommitteeDetailResponse } from "~/lib/validations/committee";
+import type { CommitteeAction, CommitteeActionHandler } from "./committeeAction";
 import { CommitteeDetailPane } from "./CommitteeDetailPane";
+import { CommitteeActionDrawer } from "./drawer/CommitteeActionDrawer";
 import { CommitteeEmptyScope } from "./CommitteeEmptyScope";
 import { CommitteeGridPane } from "./CommitteeGridPane";
 import { CommitteeWorkspaceHeader } from "./CommitteeWorkspaceHeader";
@@ -60,6 +63,11 @@ export type CommitteeWorkspaceProps = {
 };
 
 const COLLAPSE_LIST_ID = "committee-list-collapse";
+const DETAIL_PANE_ID = "committee-detail-pane";
+
+/** The committee's `h2` (script-focusable): where focus goes when its row is gone. */
+const focusDetailHeading = () =>
+  document.querySelector<HTMLElement>(`#${DETAIL_PANE_ID} h2`);
 const EXPAND_LIST_ID = "committee-list-expand";
 
 type LocalFilters = Pick<
@@ -193,6 +201,61 @@ export function CommitteeWorkspace({
   }, [reloadDetail, refreshGrid, selectedCommitteeId]);
   const detail = { ...loadedDetail, reload: refreshDetailAndGrid };
 
+  // --- Action drawer -----------------------------------------------------------
+  // Opened by a roster row action; on success it refreshes the detail and the
+  // grid row (the same cross-pane refresh as a tab's `onRefresh`), and never
+  // writes the URL, so selection, tab and filters stay put.
+  const [openAction, setOpenAction] = useState<{
+    action: CommitteeAction;
+    returnFocusTo: HTMLElement | null;
+  } | null>(null);
+  const handleAction = useCallback<CommitteeActionHandler>(
+    (action, returnFocusTo) =>
+      setOpenAction({ action, returnFocusTo: returnFocusTo ?? null }),
+    [],
+  );
+  const closeAction = useCallback(() => setOpenAction(null), []);
+  // The drawer acts on the last detail that loaded, so a failed or slow
+  // background refresh doesn't close it and lose a half-filled form. It does
+  // close if the selection moves away underneath it (e.g. browser Back).
+  const [lastLoadedDetail, setLastLoadedDetail] =
+    useState<CommitteeDetailResponse | null>(null);
+  const readyDetail =
+    loadedDetail.status === "ready" ? loadedDetail.detail : null;
+  if (readyDetail && readyDetail !== lastLoadedDetail) {
+    setLastLoadedDetail(readyDetail);
+  }
+  const drawerDetail = readyDetail ?? lastLoadedDetail;
+  const actionMatchesSelection =
+    openAction !== null &&
+    openAction.action.committee.committeeListId === selectedCommitteeId &&
+    drawerDetail?.committee.committeeListId === selectedCommitteeId;
+  useEffect(() => {
+    if (openAction !== null && !actionMatchesSelection) setOpenAction(null);
+  }, [openAction, actionMatchesSelection]);
+
+  // After a completed action, focus is back on the row's trigger, but the
+  // refreshed detail can remove that row (removing an unassigned member).
+  // Once the refresh settles, a focus that fell to <body> goes to the
+  // committee heading instead.
+  const focusAfterRefresh = useRef<HTMLElement | null>(null);
+  const completeAction = useCallback(() => {
+    focusAfterRefresh.current = openAction?.returnFocusTo ?? null;
+    refreshDetailAndGrid();
+  }, [openAction, refreshDetailAndGrid]);
+  const detailSettled =
+    loadedDetail.status === "error" ||
+    (loadedDetail.status === "ready" && !loadedDetail.refreshing);
+  useEffect(() => {
+    const trigger = focusAfterRefresh.current;
+    if (!trigger || !detailSettled) return;
+    focusAfterRefresh.current = null;
+    const active = document.activeElement;
+    if (!trigger.isConnected && (active === null || active === document.body)) {
+      focusDetailHeading()?.focus();
+    }
+  }, [detailSettled, loadedDetail]);
+
   // Mobile Back: return to the list and put focus back on the row it came from.
   const returnFocusTo = useRef<number | null>(null);
   const backToList = useCallback(() => {
@@ -281,6 +344,7 @@ export function CommitteeWorkspace({
           />
         </aside>
         <section
+          id={DETAIL_PANE_ID}
           aria-label="Committee detail"
           className={`${
             showingDetailOnMobile ? "flex" : "hidden md:flex"
@@ -294,10 +358,21 @@ export function CommitteeWorkspace({
             tab={url.tab}
             onTabChange={setTab}
             onBack={backToList}
+            onAction={handleAction}
             focusHeadingOnMount={!isDesktop}
           />
         </section>
       </div>
+      {drawerDetail && (
+        <CommitteeActionDrawer
+          action={actionMatchesSelection ? openAction.action : null}
+          detail={drawerDetail}
+          onClose={closeAction}
+          onComplete={completeAction}
+          returnFocusTo={openAction?.returnFocusTo}
+          fallbackFocus={focusDetailHeading}
+        />
+      )}
     </div>
   );
 }

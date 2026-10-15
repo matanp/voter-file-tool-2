@@ -11,6 +11,7 @@
 import React, { useCallback, useRef } from "react";
 
 import type { EdRollup } from "~/lib/validations/committee";
+import type { CommitteeActionHandler } from "./committeeAction";
 import {
   CommitteeContextHeader,
   type CommitteeIdentity,
@@ -30,6 +31,8 @@ export type CommitteeDetailPaneProps = {
   onTabChange: (tab: WorkspaceTab) => void;
   /** Below `md` only: return to the committee list. */
   onBack: () => void;
+  /** A roster action: the workspace opens the action drawer. */
+  onAction: CommitteeActionHandler;
   /**
    * Move focus to the committee heading when it first renders. Used below
    * `md`, where the list the user selected from has just been hidden.
@@ -44,6 +47,7 @@ export function CommitteeDetailPane({
   tab,
   onTabChange,
   onBack,
+  onAction,
   focusHeadingOnMount = false,
 }: CommitteeDetailPaneProps) {
   const focused = useRef(false);
@@ -84,6 +88,7 @@ export function CommitteeDetailPane({
       onTabChange={onTabChange}
       onRetry={detail.reload}
       onRefresh={detail.reload}
+      onAction={onAction}
       header={
         <>
           <CommitteeContextHeader
