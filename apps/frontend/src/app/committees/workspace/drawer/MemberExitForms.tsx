@@ -25,17 +25,21 @@ import {
   resignationProblems,
   submitRemoval,
   submitResignation,
-  type ActionOutcome,
   type RemovalAction,
   type RemovalInput,
   type ResignationAction,
   type ResignationInput,
 } from "../adapters";
-import { DrawerFooter, OutcomeAlert } from "./drawerParts";
+import {
+  DrawerFooter,
+  OutcomeAlert,
+  useActionSubmit,
+  type ActionFailure,
+} from "./drawerParts";
 
 const NOTES_MAX = 1000;
 
-type Failure = Extract<ActionOutcome, { ok: false }>;
+
 
 type MemberExitFormProps<A> = {
   action: A;
@@ -68,7 +72,7 @@ function ExitFormLayout({
 }: {
   children: React.ReactNode;
   problems: string[];
-  failure: Failure | null;
+  failure: ActionFailure | null;
   failureTitle: string;
   submitting: boolean;
   primaryLabel: string;
@@ -170,17 +174,8 @@ export function RemoveMemberForm({
   bodyClassName,
 }: MemberExitFormProps<RemovalAction>) {
   const [input, setInput] = useState<RemovalInput>({ reason: "", notes: "" });
-  const [submitting, setSubmitting] = useState(false);
-  const [failure, setFailure] = useState<Failure | null>(null);
-
-  const submit = async () => {
-    setSubmitting(true);
-    setFailure(null);
-    const outcome = await submitRemoval(action, input);
-    setSubmitting(false);
-    if (outcome.ok) onSuccess(outcome.message);
-    else setFailure(outcome);
-  };
+  const { submitting, failure, run } = useActionSubmit(onSuccess);
+  const submit = () => run(() => submitRemoval(action, input));
 
   return (
     <ExitFormLayout
@@ -229,19 +224,10 @@ export function RecordResignationForm({
     reason: "",
     notes: "",
   });
-  const [submitting, setSubmitting] = useState(false);
-  const [failure, setFailure] = useState<Failure | null>(null);
-  const set = (patch: Partial<ResignationInput>) =>
+  const { submitting, failure, run } = useActionSubmit(onSuccess);
+  const setField = (patch: Partial<ResignationInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
-
-  const submit = async () => {
-    setSubmitting(true);
-    setFailure(null);
-    const outcome = await submitResignation(action, input);
-    setSubmitting(false);
-    if (outcome.ok) onSuccess(outcome.message);
-    else setFailure(outcome);
-  };
+  const submit = () => run(() => submitResignation(action, input));
 
   return (
     <ExitFormLayout
@@ -265,7 +251,7 @@ export function RecordResignationForm({
           id={`${id}-date`}
           type="date"
           value={input.dateReceived}
-          onChange={(e) => set({ dateReceived: e.target.value })}
+          onChange={(e) => setField({ dateReceived: e.target.value })}
         />
       </div>
       <fieldset className="space-y-1">
@@ -278,14 +264,14 @@ export function RecordResignationForm({
                 name={`${id}-method`}
                 value={value}
                 checked={input.method === value}
-                onChange={() => set({ method: value })}
+                onChange={() => setField({ method: value })}
               />
               {label}
             </label>
           ))}
         </div>
       </fieldset>
-      <ReasonAndNotes label="Reason for resignation" value={input} onChange={set} />
+      <ReasonAndNotes label="Reason for resignation" value={input} onChange={setField} />
     </ExitFormLayout>
   );
 }

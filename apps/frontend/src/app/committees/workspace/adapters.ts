@@ -31,7 +31,11 @@ import type {
   removeCommitteeDataSchema,
   resignCommitteeDataSchema,
 } from "~/lib/validations/committee";
-import type { CommitteeAction, CommitteeRef } from "./committeeAction";
+import {
+  hasLegDistrict,
+  type CommitteeAction,
+  type CommitteeRef,
+} from "./committeeAction";
 
 /** The add-flow actions: both pick a candidate. */
 export type CandidateAction = Extract<
@@ -64,7 +68,7 @@ export function candidateSubmissionMode(
  * the sentinel (-1) in read models, and the endpoints want the key omitted.
  */
 function legDistrictParam(committee: CommitteeRef): { legDistrict?: number } {
-  return committee.legDistrict > 0 ? { legDistrict: committee.legDistrict } : {};
+  return hasLegDistrict(committee) ? { legDistrict: committee.legDistrict } : {};
 }
 
 function trimmedOrOmit<K extends string>(
@@ -92,7 +96,7 @@ export function candidateSearchQuery(
   const query: SearchQueryField[] = [];
   if (input.onlyEligible) {
     query.push({ field: searchableFieldEnum.enum.city, values: [committee.cityTown] });
-    if (committee.legDistrict > 0) {
+    if (hasLegDistrict(committee)) {
       query.push({
         field: searchableFieldEnum.enum.L_T,
         values: [String(committee.legDistrict)],
@@ -267,22 +271,22 @@ export async function submitCandidate(
   const result = await postJson(url, body);
   if (!result.ok) return result;
   const response = (result.body ?? {}) as SuccessBody;
+  // Server warnings are nonblocking: both endpoints return them on success,
+  // and the toast carries them (the drawer closes).
+  const withWarnings = (base: string) => {
+    const text = (response.warnings ?? []).map((w) => w.message).join(" ");
+    return text ? `${base}. ${text}` : base;
+  };
 
   if (mode === "add") {
     return {
       ok: true,
       message: response.idempotent
         ? "Member already connected to committee"
-        : "Committee member added successfully",
+        : withWarnings("Committee member added successfully"),
     };
   }
-  const warningText = (response.warnings ?? []).map((w) => w.message).join(" ");
-  return {
-    ok: true,
-    message: warningText
-      ? `Submitted your request for approval. ${warningText}`
-      : "Submitted your request for approval",
-  };
+  return { ok: true, message: withWarnings("Submitted your request for approval") };
 }
 
 // --- Removal and resignation (ticket 14) ---------------------------------------------

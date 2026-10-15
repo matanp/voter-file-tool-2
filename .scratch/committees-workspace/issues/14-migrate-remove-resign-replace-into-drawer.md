@@ -55,4 +55,28 @@ Already wired in 13 and unchanged here. `replace-member` for Leader/RequestAcces
 - State race, data scope: unchanged endpoint.
 - Validation: the bodies are the endpoint's Zod inputs, tested against the schemas. The client requirement checks only decide when the button is enabled.
 - Audit and invariants: removal and resignation still go through the endpoint, which logs `MEMBER_REMOVED` / `MEMBER_RESIGNED` with the actual session role. There are no command-service changes.
-- Gate (lane end): see the lane report. The one failing test is `CommitteeRequestForm.preflight.test.tsx`, which already fails on the branch base (see 13's Answer).
+- Gate (lane end): lint, build and `check:api-routes` pass. `test` has 2 failing suites, both failing on the branch base `8413196` before this lane: `CommitteeRequestForm.preflight.test.tsx` and `api/admin/committeeDiscrepancyMembershipType.test.ts`. `main` fixes both in `c365690`, which arrives when ticket 16 merges `main`.
+
+### Lane review follow-up (code-review against `8413196`)
+
+Fixed:
+- **Spec**
+  - The Admin add now carries the server's nonblocking warnings into the success toast. `requestAdd` already did.
+  - Search won't run with nothing to narrow by, which would page through the whole voter file. It is disabled, with a hint.
+  - A mutation that finishes after its drawer was closed still refreshes, but no longer closes a later opening. Openings are tracked by `generation`.
+  - Focus is restored even when the row is gone (removing an unassigned member). The drawer falls back to the committee `h2` at close, and the workspace re-checks focus after the refresh settles.
+  - The drawer keeps the last loaded detail, so a failed or slow background refresh doesn't close it and lose a half-filled form.
+  - Added tests for the search-failure and retry path.
+- **Standards**
+  - Client `fetch` mocks are centralized as `installFetchMock` / `fetchJsonResponse` in `__tests__/utils/mocks.ts` (skills/test-type-safety). The four new or changed test files use them, with no call-site casts.
+  - New shared helpers: `occupantLabel` (replaces two copies), `useActionSubmit` (replaces three copies of the submit state), and `hasLegDistrict` (the sentinel check).
+  - The `RosterRowAction` / `RosterCommitteeRef` / `RosterTabProps` aliases and the `committeeRefFrom` re-export are gone; callers import from `committeeAction.ts`.
+  - The remount key is renamed `generation`, and the summary rows no longer need casts.
+- New tests: `CommitteeActionDrawer.test.tsx` (22) covers stale close, the empty-search guard, and search failure. `CommitteeWorkspace.drawer.test.tsx` (6) covers the focus fallback for an unassigned member and a failed refresh with a later drawer open. Mutation checks confirmed the stale-close and failed-refresh tests fail without their fixes.
+
+Deferred or kept, for the orchestrator or human:
+- **Seat destination** stays "Next open seat". `add` and `requestAdd` can't target a seat (13's Answer). This deviates from plan §8 "explicit … seat destination" and needs product sign-off; targeting a seat would be a command-service change.
+- **Admin override UI** (13) is new capability, built from "override reason where permitted". The human can veto it.
+- **Toast copy** "Submitted your request for approval" is kept. It is the existing toast (13: "existing success toast"), although `CONTEXT.md` lists "request" under _Avoid_ for **Submission**. A copy change belongs with ticket 16.
+- The legacy `Dialog` shell, the `Footer` / `bodyClassName` props on the exit forms, and the remaining `toast` / `GlobalContext` `jest.mock` copies all go away with `CommitteeSelector` in ticket 16.
+- The eligibility preflight response is cast, not Zod-parsed: `EligibilityPreflightResponse` is a server type with no schema. Adding one is a small follow-up.

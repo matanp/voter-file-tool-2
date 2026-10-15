@@ -19,6 +19,7 @@ import { toast } from "~/components/ui/use-toast";
 import { hasPermissionFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import { summarizeEdRollups } from "~/lib/summarizeEdRollups";
+import { fetchJsonResponse, installFetchMock } from "../../utils/mocks";
 import type {
   CommitteeDetailResponse,
   EdRollup,
@@ -124,55 +125,64 @@ const ELIGIBLE = {
   },
 };
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: "",
-    headers: { get: () => "application/json" },
-    json: async () => body,
-  } as unknown as Response;
-}
-
-type Occupant = SeatRosterRow["occupant"];
+type Occupant = NonNullable<SeatRosterRow["occupant"]>;
 
 type Server = {
   rollups: EdRollup[];
   /** committeeListId → occupant per seat (index = seat - 1). */
-  seats: Map<number, Occupant[]>;
+  seats: Map<number, Array<Occupant | null>>;
+  /** committeeListId → active members without a seat. */
+  unassigned: Map<number, Occupant[]>;
+  /** While set, `/api/committee/remove` waits on it. */
+  removeGate: Promise<void> | null;
+  /** While true, the detail endpoint fails. */
+  failDetail: boolean;
 };
 
+const person = (VRCNUM: string, firstName: string, lastName: string): Occupant => ({
+  VRCNUM,
+  firstName,
+  lastName,
+  membershipType: "APPOINTED",
+});
+
 function newServer(): Server {
-  const sam = (VRCNUM: string): Occupant => ({
-    VRCNUM,
-    firstName: "Sam",
-    lastName: "Seated",
-    membershipType: "APPOINTED",
-  });
   return {
     rollups: [rollup(1, "GREECE", 1, 1), rollup(2, "GREECE", 1, 2), rollup(3, "PENFIELD", 2, 1)],
     seats: new Map([
-      [1, [sam("V-SAM1"), null, null, null]],
-      [2, [sam("V-SAM2"), null, null, null]],
-      [3, [sam("V-SAM3"), null, null, null]],
+      [1, [person("V-SAM1", "Sam", "Seated"), null, null, null]],
+      [2, [person("V-SAM2", "Sam", "Seated"), null, null, null]],
+      [3, [person("V-SAM3", "Sam", "Seated"), null, null, null]],
     ]),
+    unassigned: new Map(),
+    removeGate: null,
+    failDetail: false,
   };
 }
 
 function detailFor(server: Server, r: EdRollup): CommitteeDetailResponse {
-  const rows: SeatRosterRow[] = (server.seats.get(r.committeeListId) ?? []).map(
-    (occupant, i) => ({
-      committeeListId: r.committeeListId,
-      cityTown: r.cityTown,
-      legDistrict: r.legDistrict,
-      electionDistrict: r.electionDistrict,
+  const base = {
+    committeeListId: r.committeeListId,
+    cityTown: r.cityTown,
+    legDistrict: r.legDistrict,
+    electionDistrict: r.electionDistrict,
+    isPetitioned: false,
+    weight: null,
+    contact: { email: null, phone: null },
+  };
+  const rows: SeatRosterRow[] = [
+    ...(server.seats.get(r.committeeListId) ?? []).map((occupant, i) => ({
+      ...base,
       seatNumber: i + 1,
-      isPetitioned: false,
-      weight: null,
       occupant,
-      contact: { email: null, phone: null },
-    }),
-  );
+    })),
+    ...(server.unassigned.get(r.committeeListId) ?? []).map((occupant) => ({
+      ...base,
+      seatNumber: null,
+      unassigned: true,
+      occupant,
+    })),
+  ];
   return {
     committee: {
       committeeListId: r.committeeListId,
@@ -219,65 +229,69 @@ function rosterPage(server: Server): RosterResponse {
   };
 }
 
+function addMember(server: Server, body: { cityTown: string; legDistrict?: number; electionDistrict: number; memberId: string }) {
+  const r = server.rollups.find(
+    (x) =>
+      x.cityTown === body.cityTown &&
+      x.legDistrict === body.legDistrict &&
+      x.electionDistrict === body.electionDistrict,
+  );
+  if (!r) return fetchJsonResponse({ success: false, error: "Committee not found" }, 404);
+  const seats = server.seats.get(r.committeeListId)!;
+  seats[seats.indexOf(null)] = person(body.memberId, "Jane", "Doe");
+  server.rollups = server.rollups.map((x) => (x === r ? { ...x, filled: x.filled + 1 } : x));
+  return fetchJsonResponse({ success: true, message: "Member added to committee" });
+}
+
+function removeMember(server: Server, memberId: string) {
+  for (const [committeeListId, seats] of server.seats) {
+    const seat = seats.findIndex((s) => s?.VRCNUM === memberId);
+    if (seat === -1) continue;
+    seats[seat] = null;
+    server.rollups = server.rollups.map((x) =>
+      x.committeeListId === committeeListId ? { ...x, filled: x.filled - 1 } : x,
+    );
+    return fetchJsonResponse({ status: "success" });
+  }
+  for (const [committeeListId, members] of server.unassigned) {
+    if (!members.some((m) => m.VRCNUM === memberId)) continue;
+    server.unassigned.set(committeeListId, members.filter((m) => m.VRCNUM !== memberId));
+    server.rollups = server.rollups.map((x) =>
+      x.committeeListId === committeeListId
+        ? { ...x, unassignedCount: x.unassignedCount - 1 }
+        : x,
+    );
+    return fetchJsonResponse({ status: "success" });
+  }
+  return fetchJsonResponse({ status: "error", error: "Member not found in this committee" }, 404);
+}
+
 function serve(server: Server) {
-  const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  return installFetchMock(async (input, init) => {
     const url = new URL(String(input), "http://localhost");
     const detail = /^\/api\/committee\/(\d+)\/detail$/.exec(url.pathname);
     if (detail) {
+      if (server.failDetail) return fetchJsonResponse({ error: "Detail unavailable" }, 500);
       const r = server.rollups.find((x) => x.committeeListId === Number(detail[1]));
-      return r ? jsonResponse(detailFor(server, r)) : jsonResponse({ error: "nope" }, 404);
+      return r ? fetchJsonResponse(detailFor(server, r)) : fetchJsonResponse({ error: "nope" }, 404);
     }
     switch (url.pathname) {
       case "/api/committee/roster":
-        return jsonResponse(rosterPage(server));
+        return fetchJsonResponse(rosterPage(server));
       case "/api/fetchFilteredData":
-        return jsonResponse({ data: [JANE], totalRecords: 1 });
+        return fetchJsonResponse({ data: [JANE], totalRecords: 1 });
       case "/api/committee/eligibility":
-        return jsonResponse(ELIGIBLE);
-      case "/api/committee/add": {
-        const body = JSON.parse(String(init?.body)) as {
-          cityTown: string;
-          legDistrict?: number;
-          electionDistrict: number;
-          memberId: string;
-        };
-        const r = server.rollups.find(
-          (x) =>
-            x.cityTown === body.cityTown &&
-            x.legDistrict === body.legDistrict &&
-            x.electionDistrict === body.electionDistrict,
-        );
-        if (!r) return jsonResponse({ success: false, error: "Committee not found" }, 404);
-        const seats = server.seats.get(r.committeeListId)!;
-        seats[seats.indexOf(null)] = {
-          VRCNUM: body.memberId,
-          firstName: "Jane",
-          lastName: "Doe",
-          membershipType: "APPOINTED",
-        };
-        server.rollups = server.rollups.map((x) =>
-          x === r ? { ...x, filled: x.filled + 1 } : x,
-        );
-        return jsonResponse({ success: true, message: "Member added to committee" });
-      }
+        return fetchJsonResponse(ELIGIBLE);
+      case "/api/committee/add":
+        return addMember(server, JSON.parse(String(init?.body)) as Parameters<typeof addMember>[1]);
       case "/api/committee/remove": {
-        const body = JSON.parse(String(init?.body)) as { memberId: string };
-        for (const [committeeListId, seats] of server.seats) {
-          const seat = seats.findIndex((s) => s?.VRCNUM === body.memberId);
-          if (seat === -1) continue;
-          seats[seat] = null;
-          server.rollups = server.rollups.map((x) =>
-            x.committeeListId === committeeListId ? { ...x, filled: x.filled - 1 } : x,
-          );
-          return jsonResponse({ status: "success" });
-        }
-        return jsonResponse({ status: "error", error: "Member not found in this committee" }, 404);
+        if (server.removeGate) await server.removeGate;
+        const { memberId } = JSON.parse(String(init?.body)) as { memberId: string };
+        return removeMember(server, memberId);
       }
     }
     throw new Error(`unexpected fetch ${url.toString()}`);
   });
-  global.fetch = fetchMock as unknown as typeof fetch;
-  return fetchMock;
 }
 
 function renderWorkspace(query: string) {
@@ -442,5 +456,57 @@ describe("Action drawer in the workspace", () => {
     await waitFor(() =>
       expect(within(detailPane()).getByRole("button", { name: "Actions for seat 2" })).toHaveFocus(),
     );
+  });
+
+  it("moves focus to the committee heading when the row it came from is gone", async () => {
+    const server = newServer();
+    server.unassigned.set(2, [person("V-LOOSE", "Lou", "Loose")]);
+    server.rollups = server.rollups.map((r) =>
+      r.committeeListId === 2 ? { ...r, unassignedCount: 1 } : r,
+    );
+    serve(server);
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    await within(detailPane()).findByRole("button", { name: "Actions for Lou Loose" });
+
+    await openRowAction("Actions for Lou Loose", "Remove member");
+    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(detailPane()).queryByRole("button", { name: "Actions for Lou Loose" })).not.toBeInTheDocument(),
+    );
+    expect(within(detailPane()).getByRole("heading", { level: 2 })).toHaveFocus();
+  });
+
+  it("keeps a later drawer open when the refresh after an earlier mutation fails", async () => {
+    const server = newServer();
+    let release: () => void = () => undefined;
+    server.removeGate = new Promise<void>((r) => (release = r));
+    serve(server);
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    await within(detailPane()).findByRole("button", { name: "Actions for seat 1" });
+
+    // A removal in flight, closed before it answers.
+    await openRowAction("Actions for seat 1", "Remove member");
+    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    // Another action, part-filled.
+    await openRowAction("Actions for seat 3", "Add member");
+    await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
+
+    // The removal lands; its refresh fails.
+    server.failDetail = true;
+    release();
+    // (The page behind the open drawer is aria-hidden, so query by text.)
+    expect(await screen.findByText(/Could not load this committee/)).toBeInTheDocument();
+
+    expect(within(drawer()).getByRole("heading", { level: 2, name: "Add member" })).toBeInTheDocument();
+    expect(within(drawer()).getByLabelText("Last name")).toHaveValue("Doe");
   });
 });

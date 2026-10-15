@@ -2,27 +2,16 @@ import { PrivilegeLevel } from "@prisma/client";
 
 import { hasPermissionFor } from "~/lib/utils";
 import type { SeatRosterRow } from "~/lib/validations/committee";
-import {
-  committeeRefFrom,
-  type CommitteeAction,
-  type CommitteeRef,
-} from "../../committeeAction";
-
-/** Plan §8's `CommitteeRef` (kept as an alias for existing callers). */
-export type RosterCommitteeRef = CommitteeRef;
+import type { CommitteeAction, CommitteeRef } from "../../committeeAction";
 
 /**
- * What a roster row asks the workspace to do: plan §8's `CommitteeAction`.
- * The Roster tab only *dispatches* these; it never opens anything itself.
+ * A row menu item. The Roster tab only *dispatches* its action (plan §8's
+ * `CommitteeAction`); it never opens anything itself.
  */
-export type RosterRowAction = CommitteeAction;
-
 export type RosterRowActionItem = {
   label: string;
-  action: RosterRowAction;
+  action: CommitteeAction;
 };
-
-export { committeeRefFrom };
 
 /**
  * The row actions offered for `row` at the given *acting* privilege. This is
@@ -42,7 +31,7 @@ export { committeeRefFrom };
  */
 export function rosterRowActions(
   row: SeatRosterRow,
-  committee: RosterCommitteeRef,
+  committee: CommitteeRef,
   actingPermissions: PrivilegeLevel,
 ): RosterRowActionItem[] {
   const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);

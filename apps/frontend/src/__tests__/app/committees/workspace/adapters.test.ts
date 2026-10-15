@@ -20,6 +20,7 @@ import type {
   CommitteeRef,
 } from "~/app/committees/workspace/committeeAction";
 import { hasPermissionFor } from "~/lib/utils";
+import { fetchJsonResponse, installFetchMock } from "../../../utils/mocks";
 import type * as UtilsModule from "~/lib/utils";
 import {
   committeeDataSchema,
@@ -44,22 +45,13 @@ const REPLACE: CommitteeAction = {
   memberId: "V-OLD",
 };
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  } as unknown as Response;
-}
-
-let fetchMock: jest.Mock;
+let fetchMock: ReturnType<typeof installFetchMock>;
 function respond(body: unknown, status = 200) {
-  fetchMock = jest.fn(async () => jsonResponse(body, status));
-  global.fetch = fetchMock as unknown as typeof fetch;
+  fetchMock = installFetchMock(async () => fetchJsonResponse(body, status));
 }
 function sent(): { url: string; body: unknown } {
-  const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-  return { url, body: JSON.parse(String(init.body)) as unknown };
+  const [url, init] = fetchMock.mock.calls[0] ?? [];
+  return { url: String(url), body: JSON.parse(String(init?.body)) as unknown };
 }
 
 beforeEach(() => {
@@ -279,6 +271,18 @@ describe("submitCandidate", () => {
     expect(committeeDataSchema.safeParse(sent().body).success).toBe(true);
   });
 
+  it("carries the add's nonblocking warnings into the success message", async () => {
+    respond({
+      success: true,
+      message: "ok",
+      warnings: [{ code: "RECENT_RESIGNATION", message: "Resigned recently." }],
+    });
+    await expect(submitCandidate(ADD, "add", details)).resolves.toEqual({
+      ok: true,
+      message: "Committee member added successfully. Resigned recently.",
+    });
+  });
+
   it("reports an idempotent add with the existing toast copy", async () => {
     respond({ success: true, message: "already", idempotent: true });
     await expect(submitCandidate(ADD, "add", details)).resolves.toEqual({
@@ -340,10 +344,9 @@ describe("submitCandidate", () => {
       message: "You do not have jurisdiction access for this committee",
     });
 
-    fetchMock = jest.fn(async () => {
+    fetchMock = installFetchMock(async () => {
       throw new TypeError("Failed to fetch");
     });
-    global.fetch = fetchMock as unknown as typeof fetch;
     await expect(submitCandidate(ADD, "add", details)).resolves.toEqual({
       ok: false,
       kind: "error",

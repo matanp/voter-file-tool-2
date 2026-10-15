@@ -39,6 +39,14 @@ export type CommitteeActionHandler = (
   returnFocusTo?: HTMLElement | null,
 ) => void;
 
+/**
+ * Towns without legislative districts carry the sentinel (-1) as their LD in
+ * read models; endpoints want it omitted and labels leave it out.
+ */
+export function hasLegDistrict(committee: Pick<CommitteeRef, "legDistrict">): boolean {
+  return committee.legDistrict > 0;
+}
+
 export function committeeRefFrom(
   committee: CommitteeDetailResponse["committee"],
 ): CommitteeRef {

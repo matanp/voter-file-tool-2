@@ -25,7 +25,6 @@ import ContactInfoLabel from "../../ContactInfoLabel";
 import EligibilitySnapshotPanel from "../../EligibilitySnapshotPanel";
 import {
   submitCandidate,
-  type ActionOutcome,
   type CandidateAction,
   type CandidateRecord,
   type CandidateSubmissionMode,
@@ -41,7 +40,9 @@ import {
   OutcomeAlert,
   StepHeading,
   committeeLabel,
+  occupantLabel,
   personName,
+  useActionSubmit,
 } from "./drawerParts";
 import { useCandidateEligibility } from "./useCandidateEligibility";
 
@@ -81,17 +82,6 @@ export type AddMemberFlowProps = {
   onSuccess: (message: string) => void;
 };
 
-/** The replacement target's row, for replace-member. */
-function replacementTarget(action: CandidateAction, detail: CommitteeDetailResponse) {
-  if (action.kind !== "replace-member") return null;
-  const row = detail.rows.find((r) => r.occupant?.VRCNUM === action.memberId);
-  const name = row?.occupant ? personName(row.occupant) : action.memberId;
-  return {
-    name,
-    label: row?.seatNumber != null ? `${name} (seat ${row.seatNumber})` : name,
-  };
-}
-
 export function AddMemberFlow({
   action,
   mode,
@@ -106,10 +96,7 @@ export function AddMemberFlow({
   const [candidate, setCandidate] = useState<CandidateRecord | null>(null);
   const [override, setOverride] = useState(false);
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
-  const [submitting, setSubmitting] = useState(false);
-  const [failure, setFailure] = useState<Extract<ActionOutcome, { ok: false }> | null>(
-    null,
-  );
+  const { submitting, failure, clearFailure, run } = useActionSubmit(onSuccess);
 
   const eligibility = useCandidateEligibility(action.committee, candidate?.VRCNUM ?? null);
   const existingMemberIds = useMemo(
@@ -123,7 +110,8 @@ export function AddMemberFlow({
   const committeeFull =
     action.kind === "add-member" &&
     detail.rollup.filled + detail.rollup.unassignedCount >= detail.maxSeatsPerLted;
-  const target = replacementTarget(action, detail);
+  const target =
+    action.kind === "replace-member" ? occupantLabel(detail, action.memberId) : null;
 
   const isAdd = mode === "add";
   const primaryLabel = isAdd ? "Add member" : "Submit candidate";
@@ -131,29 +119,24 @@ export function AddMemberFlow({
     eligibility.status === "ready" ? eligibility.preflight.hardStops : [];
   const overriding = isAdd && override && hardStops.length > 0;
 
-  const go = (next: Step) => {
+  const goToStep = (next: Step) => {
     setMoved(true);
-    setFailure(null);
+    clearFailure();
     setStep(next);
   };
   const setDetail = (patch: Partial<Details>) =>
     setDetails((prev) => ({ ...prev, ...patch }));
 
-  const submit = async () => {
-    if (!candidate) return;
-    setSubmitting(true);
-    setFailure(null);
-    const outcome = await submitCandidate(action, mode, {
-      candidateId: candidate.VRCNUM,
-      ...(isAdd ? { membershipType: details.membershipType } : { notes: details.notes }),
-      email: details.email,
-      phone: details.phone,
-      ...(overriding ? { overrideReason: details.overrideReason } : {}),
-    });
-    setSubmitting(false);
-    if (outcome.ok) onSuccess(outcome.message);
-    else setFailure(outcome);
-  };
+  const submit = (selected: CandidateRecord) =>
+    run(() =>
+      submitCandidate(action, mode, {
+        candidateId: selected.VRCNUM,
+        ...(isAdd ? { membershipType: details.membershipType } : { notes: details.notes }),
+        email: details.email,
+        phone: details.phone,
+        ...(overriding ? { overrideReason: details.overrideReason } : {}),
+      }),
+    );
 
   const heading = (
     <StepHeading
@@ -182,7 +165,7 @@ export function AddMemberFlow({
             setDetail({ overrideReason: "" });
           }
           setCandidate(c);
-          go("review");
+          goToStep("review");
         }}
       />
     );
@@ -230,10 +213,10 @@ export function AddMemberFlow({
     );
     footer = (
       <>
-        <Button type="button" variant="outline" onClick={() => go("find")}>
+        <Button type="button" variant="outline" onClick={() => goToStep("find")}>
           Back
         </Button>
-        <Button type="button" disabled={!canContinue} onClick={() => go("details")}>
+        <Button type="button" disabled={!canContinue} onClick={() => goToStep("details")}>
           Continue
         </Button>
       </>
@@ -309,17 +292,18 @@ export function AddMemberFlow({
     );
     footer = (
       <>
-        <Button type="button" variant="outline" onClick={() => go("review")}>
+        <Button type="button" variant="outline" onClick={() => goToStep("review")}>
           Back
         </Button>
-        <Button type="button" disabled={!canContinue} onClick={() => go("confirm")}>
+        <Button type="button" disabled={!canContinue} onClick={() => goToStep("confirm")}>
           Continue
         </Button>
       </>
     );
   } else {
     const contact = [details.email.trim(), details.phone.trim()].filter(Boolean).join(" · ");
-    const rows: Array<[string, string]> = [
+    type SummaryRow = [label: string, value: string];
+    const rows: SummaryRow[] = [
       ["Committee", committeeLabel(action.committee)],
       target
         ? ["Replaces", target.label]
@@ -328,22 +312,16 @@ export function AddMemberFlow({
             isAdd ? "Next open seat" : "Next open seat, if the submission is accepted",
           ],
       ["Candidate", `${candidateName} (${candidate.VRCNUM})`],
-      ...(isAdd
-        ? ([
-            [
-              "Membership type",
-              details.membershipType === "PETITIONED" ? "Petitioned" : "Appointed",
-            ],
-          ] as Array<[string, string]>)
-        : []),
-      ...(contact ? ([["Contact", contact]] as Array<[string, string]>) : []),
-      ...(!isAdd && details.notes.trim()
-        ? ([["Notes", details.notes.trim()]] as Array<[string, string]>)
-        : []),
-      ...(overriding
-        ? ([["Override reason", details.overrideReason.trim()]] as Array<[string, string]>)
-        : []),
     ];
+    if (isAdd) {
+      rows.push([
+        "Membership type",
+        details.membershipType === "PETITIONED" ? "Petitioned" : "Appointed",
+      ]);
+    }
+    if (contact) rows.push(["Contact", contact]);
+    if (!isAdd && details.notes.trim()) rows.push(["Notes", details.notes.trim()]);
+    if (overriding) rows.push(["Override reason", details.overrideReason.trim()]);
     body = (
       <div className="space-y-3">
         <ul aria-label="Summary" className="divide-y rounded-md border text-sm">
@@ -374,7 +352,7 @@ export function AddMemberFlow({
           type="button"
           variant="outline"
           disabled={submitting}
-          onClick={() => go("details")}
+          onClick={() => goToStep("details")}
         >
           Back
         </Button>
@@ -382,7 +360,7 @@ export function AddMemberFlow({
           type="button"
           disabled={submitting}
           aria-busy={submitting || undefined}
-          onClick={() => void submit()}
+          onClick={() => void submit(candidate)}
         >
           {submitting ? (isAdd ? "Adding…" : "Submitting…") : primaryLabel}
         </Button>

@@ -12,7 +12,7 @@
  * Each new action mounts a fresh flow, so nothing carries over between
  * openings. The drawer closes on success (no "Add another member" in v1).
  */
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { PrivilegeLevel } from "@prisma/client";
 
 import { GlobalContext } from "~/components/providers/GlobalContext";
@@ -30,7 +30,7 @@ import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import { candidateSubmissionMode, type CandidateSubmissionMode } from "../adapters";
 import type { CommitteeAction } from "../committeeAction";
 import { AddMemberFlow } from "./AddMemberFlow";
-import { DrawerFooter, committeeLabel, personName } from "./drawerParts";
+import { DrawerFooter, committeeLabel, occupantLabel } from "./drawerParts";
 import { RecordResignationForm, RemoveMemberForm } from "./MemberExitForms";
 
 export type CommitteeActionDrawerProps = {
@@ -43,6 +43,11 @@ export type CommitteeActionDrawerProps = {
   onComplete: () => void;
   /** Where focus goes when the drawer closes. */
   returnFocusTo?: HTMLElement | null;
+  /**
+   * Where focus goes when `returnFocusTo` is gone by then (e.g. removing an
+   * unassigned member removes its row and trigger).
+   */
+  fallbackFocus?: () => HTMLElement | null;
 };
 
 function drawerTitle(
@@ -61,42 +66,50 @@ function drawerTitle(
   }
 }
 
-/** "Jane Doe (V1), seat 1" from the loaded roster. */
-function memberLabel(detail: CommitteeDetailResponse, memberId: string): string {
-  const row = detail.rows.find((r) => r.occupant?.VRCNUM === memberId);
-  if (!row?.occupant) return memberId;
-  const who = `${personName(row.occupant)} (${memberId})`;
-  return row.seatNumber !== null ? `${who}, seat ${row.seatNumber}` : `${who}, unassigned`;
-}
-
 export function CommitteeActionDrawer({
   action,
   detail,
   onClose,
   onComplete,
   returnFocusTo,
+  fallbackFocus,
 }: CommitteeActionDrawerProps) {
   const { actingPermissions } = useContext(GlobalContext);
 
   // Keep rendering the last action (and where to return focus) while the
-  // sheet animates closed, and remount the flow for every new action.
+  // sheet animates closed. `generation` counts openings: it remounts the flow
+  // for every new action, and ties a mutation's completion to its opening.
   type Shown = {
     action: CommitteeAction;
-    n: number;
+    generation: number;
     returnFocusTo: HTMLElement | null;
   };
   const [shown, setShown] = useState<Shown | null>(
-    action ? { action, n: 0, returnFocusTo: returnFocusTo ?? null } : null,
+    action ? { action, generation: 0, returnFocusTo: returnFocusTo ?? null } : null,
   );
   if (action && action !== shown?.action) {
-    setShown({ action, n: (shown?.n ?? 0) + 1, returnFocusTo: returnFocusTo ?? null });
+    setShown({
+      action,
+      generation: (shown?.generation ?? 0) + 1,
+      returnFocusTo: returnFocusTo ?? null,
+    });
   }
   const current = action ?? shown?.action ?? null;
+  const generation = shown?.generation ?? 0;
 
+  // What is open now, read when a mutation resolves.
+  const live = useRef({ open: action !== null, generation });
+  useEffect(() => {
+    live.current = { open: action !== null, generation };
+  });
+
+  // The data changed either way, so always refresh. Close only the opening
+  // this mutation came from: if the user closed it mid-flight and opened
+  // another action, leave that one alone.
   const handleSuccess = (message: string) => {
     toast({ title: "Success", description: message });
     onComplete();
-    onClose();
+    if (live.current.open && live.current.generation === generation) onClose();
   };
 
   let mode: CandidateSubmissionMode | null = null;
@@ -109,7 +122,7 @@ export function CommitteeActionDrawer({
         mode = candidateSubmissionMode(current, actingPermissions);
         flow = mode ? (
           <AddMemberFlow
-            key={shown?.n}
+            key={generation}
             action={current}
             mode={mode}
             detail={detail}
@@ -122,9 +135,9 @@ export function CommitteeActionDrawer({
       case "remove-member":
         flow = isAdmin ? (
           <RemoveMemberForm
-            key={shown?.n}
+            key={generation}
             action={current}
-            memberLabel={memberLabel(detail, current.memberId)}
+            memberLabel={occupantLabel(detail, current.memberId).label}
             onCancel={onClose}
             onSuccess={handleSuccess}
           />
@@ -133,9 +146,9 @@ export function CommitteeActionDrawer({
       case "record-resignation":
         flow = isAdmin ? (
           <RecordResignationForm
-            key={shown?.n}
+            key={generation}
             action={current}
-            memberLabel={memberLabel(detail, current.memberId)}
+            memberLabel={occupantLabel(detail, current.memberId).label}
             onCancel={onClose}
             onSuccess={handleSuccess}
           />
@@ -167,8 +180,9 @@ export function CommitteeActionDrawer({
         side="right"
         className="flex w-full flex-col gap-0 p-0 sm:max-w-none md:w-[34rem] md:max-w-[34rem]"
         onCloseAutoFocus={(event) => {
-          const target = shown?.returnFocusTo;
-          if (target?.isConnected) {
+          const trigger = shown?.returnFocusTo;
+          const target = trigger?.isConnected ? trigger : fallbackFocus?.();
+          if (target) {
             event.preventDefault();
             target.focus();
           }

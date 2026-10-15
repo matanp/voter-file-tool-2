@@ -8,10 +8,9 @@ import { hasPermissionFor } from "~/lib/utils";
 import type { SeatRosterRow } from "~/lib/validations/committee";
 import { CommitteeSeatTable } from "../../CommitteeRosterTable";
 import { RosterRowActionMenu } from "./roster/RosterRowActionMenu";
-import { committeeRefFrom, rosterRowActions } from "./roster/rowActions";
+import { committeeRefFrom } from "../committeeAction";
+import { rosterRowActions } from "./roster/rowActions";
 import type { CommitteeTabProps } from "./types";
-
-export type RosterTabProps = CommitteeTabProps;
 
 /** Only when rendered outside `CommitteeTabs` (which always passes `onAction`). */
 const noop = () => undefined;
@@ -24,7 +23,7 @@ function rowActionLabel(row: SeatRosterRow): string {
   return `Actions for ${name}`;
 }
 
-export function RosterTab({ detail, onAction = noop }: RosterTabProps) {
+export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {
   // Client visibility only (skills/auth-check-patterns). Contact is already
   // absent from `detail` below Admin; the acting privilege additionally hides
   // it from a Developer simulating a lower role.

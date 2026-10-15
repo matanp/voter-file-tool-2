@@ -14,7 +14,11 @@ import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import CommitteeSelector from "~/app/committees/CommitteeSelector";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { mockHasPermission } from "../../utils/mocks";
+import {
+  fetchJsonResponse,
+  installFetchMock,
+  mockHasPermission,
+} from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
@@ -106,8 +110,10 @@ function detailResponse() {
   };
 }
 
-function installFetch() {
-  const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+type FetchMock = ReturnType<typeof installFetchMock>;
+
+function installFetch(): FetchMock {
+  return installFetchMock(async (input) => {
     const url = String(input);
     const body = url.startsWith("/api/committee/roster")
       ? rosterResponse()
@@ -116,19 +122,14 @@ function installFetch() {
         : url === "/api/committee/remove"
           ? { status: "success" }
           : [];
-    return {
-      ok: true,
-      status: 200,
-      headers: { get: () => "application/json" },
-      json: async () => body,
-    } as unknown as Response;
+    return fetchJsonResponse(body);
   });
-  global.fetch = fetchMock as unknown as typeof fetch;
-  return fetchMock;
 }
 
-const callsTo = (fetchMock: jest.Mock, prefix: string): unknown[][] =>
-  (fetchMock.mock.calls as unknown[][]).filter(([input]) => String(input).startsWith(prefix));
+const callsTo = (fetchMock: FetchMock, prefix: string) =>
+  fetchMock.mock.calls.filter(([input]) => String(input).startsWith(prefix));
+const postedBody = (fetchMock: FetchMock, url: string): unknown =>
+  JSON.parse(String(callsTo(fetchMock, url)[0]?.[1]?.body));
 
 async function openAdminDetail() {
   render(
@@ -168,8 +169,7 @@ describe("CommitteeSelector Remove Member dialog (SRS 2.5)", () => {
     await userEvent.click(remove);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    const [, init] = callsTo(fetchMock, "/api/committee/remove")[0] as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(postedBody(fetchMock, "/api/committee/remove")).toEqual({
       cityTown: "GREECE",
       legDistrict: 1,
       electionDistrict: 5,
@@ -201,8 +201,7 @@ describe("CommitteeSelector Record Resignation dialog (SRS 2.3)", () => {
     await userEvent.click(record);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    const [, init] = callsTo(fetchMock, "/api/committee/remove")[0] as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(postedBody(fetchMock, "/api/committee/remove")).toEqual({
       cityTown: "GREECE",
       legDistrict: 1,
       electionDistrict: 5,

@@ -66,12 +66,17 @@ export function CandidateSearchStep({
   const setInput = (patch: Partial<CandidateSearchInput>) =>
     onSearchChange({ ...search, input: { ...input, ...patch } });
 
+  // Nothing to narrow by would page through the whole voter file.
+  const query = candidateSearchQuery(committee, input);
+  const canSearch = query.length > 0;
+
   const runSearch = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!canSearch) return;
     setSearching(true);
     setError(null);
     try {
-      const next = await searchCandidates(candidateSearchQuery(committee, input));
+      const next = await searchCandidates(query);
       onSearchChange({ input, result: next });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to search voter records.");
@@ -131,15 +136,22 @@ export function CandidateSearchStep({
             />
             <Label htmlFor={`${id}-eligible`}>Only eligible candidates</Label>
           </div>
-          <Button type="submit" disabled={searching} aria-busy={searching || undefined}>
+          <Button
+            type="submit"
+            disabled={searching || !canSearch}
+            aria-busy={searching || undefined}
+            aria-describedby={`${id}-scope`}
+          >
             {searching ? "Searching…" : "Search"}
           </Button>
         </div>
-        {input.onlyEligible && (
-          <p className="text-xs text-slate-500">
-            Voters registered in this committee&apos;s town and districts.
-          </p>
-        )}
+        <p id={`${id}-scope`} className="text-xs text-slate-500">
+          {input.onlyEligible
+            ? "Voters registered in this committee's town and districts."
+            : canSearch
+              ? "All voters matching the ID or name."
+              : "Enter a voter ID or name, or turn on Only eligible candidates."}
+        </p>
       </form>
 
       {error && (

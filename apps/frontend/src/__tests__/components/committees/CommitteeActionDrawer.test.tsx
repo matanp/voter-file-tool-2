@@ -21,6 +21,11 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import { toast } from "~/components/ui/use-toast";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
 import { hasPermissionFor } from "~/lib/utils";
+import {
+  fetchJsonResponse,
+  installFetchMock,
+  type FetchMockImpl,
+} from "../../utils/mocks";
 import type * as UtilsModule from "~/lib/utils";
 import type {
   CommitteeDetailResponse,
@@ -137,36 +142,28 @@ function preflight(
   };
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  } as unknown as Response;
-}
-
-type Reply = { body: unknown; status?: number } | (() => Promise<never>);
+/** `gate`: the reply waits for it (to observe a request in flight). */
+type Reply = { body: unknown; status?: number; gate?: Promise<void> };
+type FetchMock = ReturnType<typeof installFetchMock>;
 
 /** Endpoint → queued replies (the last one repeats). */
-function serve(routes: Record<string, Reply[]>) {
-  const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+function serve(routes: Record<string, Reply[]>): FetchMock {
+  return installFetchMock(async (input) => {
     const { pathname } = new URL(String(input), "http://localhost");
     const queue = routes[pathname];
     if (!queue?.length) throw new Error(`unexpected fetch ${pathname}`);
     const reply = queue.length > 1 ? queue.shift()! : queue[0]!;
-    if (typeof reply === "function") return reply();
-    return jsonResponse(reply.body, reply.status);
+    if (reply.gate) await reply.gate;
+    return fetchJsonResponse(reply.body, reply.status);
   });
-  global.fetch = fetchMock as unknown as typeof fetch;
-  return fetchMock;
 }
 
-const callsTo = (fetchMock: jest.Mock, pathname: string): unknown[][] =>
-  (fetchMock.mock.calls as unknown[][]).filter(
+const callsTo = (fetchMock: FetchMock, pathname: string) =>
+  fetchMock.mock.calls.filter(
     ([input]) => new URL(String(input), "http://localhost").pathname === pathname,
   );
-const bodyOf = (call: unknown[]) =>
-  JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>;
+const bodyOf = (call: Parameters<FetchMockImpl> | undefined) =>
+  JSON.parse(String(call?.[1]?.body)) as Record<string, unknown>;
 
 function renderDrawer({
   role = PrivilegeLevel.Admin,
@@ -231,7 +228,7 @@ describe("CommitteeActionDrawer: find candidate", () => {
     await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
 
     const results = await within(drawer()).findByRole("list", { name: "Candidates" });
-    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]!).searchQuery).toEqual([
+    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
       { field: "city", values: ["GREECE"] },
       { field: "L_T", values: ["1"] },
       { field: "electionDistrict", values: [5] },
@@ -253,7 +250,7 @@ describe("CommitteeActionDrawer: find candidate", () => {
     await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
 
     expect(await within(drawer()).findByText("No voters matched.")).toBeInTheDocument();
-    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]!).searchQuery).toEqual([
+    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
       { field: "firstName", values: ["ZED"] },
     ]);
   });
@@ -343,7 +340,7 @@ describe("CommitteeActionDrawer: review candidate", () => {
     await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
 
     await waitFor(() => expect(onComplete).toHaveBeenCalled());
-    expect(bodyOf(callsTo(fetchMock, "/api/committee/add")[0]!)).toMatchObject({
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/add")[0])).toMatchObject({
       memberId: "V-JANE",
       forceAdd: true,
       overrideReason: "Approved by the chair",
@@ -415,7 +412,7 @@ describe("CommitteeActionDrawer: Admin add", () => {
       title: "Success",
       description: "Committee member added successfully",
     });
-    expect(bodyOf(callsTo(fetchMock, "/api/committee/add")[0]!)).toEqual({
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/add")[0])).toEqual({
       cityTown: "GREECE",
       legDistrict: 1,
       electionDistrict: 5,
@@ -480,7 +477,7 @@ describe("CommitteeActionDrawer: submission roles", () => {
 
     await waitFor(() => expect(onComplete).toHaveBeenCalled());
     expect(callsTo(fetchMock, "/api/committee/add")).toHaveLength(0);
-    expect(bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0]!)).toEqual({
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0])).toEqual({
       cityTown: "GREECE",
       legDistrict: 1,
       electionDistrict: 5,
@@ -505,18 +502,18 @@ describe("CommitteeActionDrawer: submission roles", () => {
       committeeDetail: detail({ filled: 4 }),
     });
     expect(within(drawer()).getByRole("heading", { level: 2, name: "Replace member" })).toBeInTheDocument();
-    expect(drawer()).toHaveTextContent("Replacing Sam Seated (seat 1)");
+    expect(drawer()).toHaveTextContent("Replacing Sam Seated (V-SEATED), seat 1");
     expect(within(drawer()).queryByText(/This committee is full/)).not.toBeInTheDocument();
 
     await searchAndSelect();
     await within(drawer()).findByText("Eligibility Snapshot");
     await userEvent.click(continueButton());
     await userEvent.click(continueButton());
-    expect(within(drawer()).getByRole("list", { name: "Summary" })).toHaveTextContent("Sam Seated (seat 1)");
+    expect(within(drawer()).getByRole("list", { name: "Summary" })).toHaveTextContent("Sam Seated (V-SEATED), seat 1");
     await userEvent.click(within(drawer()).getByRole("button", { name: "Submit candidate" }));
 
     await waitFor(() => expect(onComplete).toHaveBeenCalled());
-    expect(bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0]!)).toMatchObject({
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0])).toMatchObject({
       addMemberId: "V-JANE",
       removeMemberId: "V-SEATED",
     });
@@ -563,7 +560,7 @@ describe("CommitteeActionDrawer: remove member", () => {
       title: "Success",
       description: "Committee member removed successfully",
     });
-    expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0]!)).toEqual({
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0])).toEqual({
       cityTown: "GREECE",
       legDistrict: 1,
       electionDistrict: 5,
@@ -626,7 +623,7 @@ describe("CommitteeActionDrawer: record resignation", () => {
       title: "Success",
       description: "Resignation recorded successfully",
     });
-    expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0]!)).toEqual({
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0])).toEqual({
       cityTown: "GREECE",
       legDistrict: 1,
       electionDistrict: 5,
@@ -649,5 +646,71 @@ describe("CommitteeActionDrawer: closing", () => {
     await userEvent.click(within(drawer()).getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalledTimes(2);
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("refreshes but does not close a later opening when a closed drawer's mutation finishes", async () => {
+    let release: () => void = () => undefined;
+    serve({
+      "/api/committee/remove": [
+        { body: { status: "success" }, gate: new Promise<void>((r) => (release = r)) },
+      ],
+    });
+    const onClose = jest.fn();
+    const onComplete = jest.fn();
+    const ui = (action: CommitteeAction | null) => (
+      <GlobalContext.Provider
+        value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+      >
+        <CommitteeActionDrawer
+          action={action}
+          detail={detail()}
+          onClose={onClose}
+          onComplete={onComplete}
+        />
+      </GlobalContext.Provider>
+    );
+    const { rerender } = render(ui(REMOVE));
+    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
+
+    // Closed mid-flight, then another action opened.
+    rerender(ui(null));
+    rerender(ui({ kind: "add-member", committee: REF, seatNumber: 2 }));
+    release();
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(within(drawer()).getByRole("heading", { level: 2, name: "Add member" })).toBeInTheDocument();
+  });
+});
+
+describe("CommitteeActionDrawer: search guards", () => {
+  it("won't search the whole voter file with nothing to narrow by", async () => {
+    const fetchMock = serve({});
+    renderDrawer();
+    await userEvent.click(within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" }));
+    const search = within(drawer()).getByRole("button", { name: "Search" });
+    expect(search).toBeDisabled();
+    expect(drawer()).toHaveTextContent("Enter a voter ID or name, or turn on Only eligible candidates.");
+    await userEvent.type(within(drawer()).getByLabelText("Voter ID"), "123");
+    expect(search).toBeEnabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows a failed search and lets the user search again", async () => {
+    serve({
+      "/api/fetchFilteredData": [
+        { body: { error: "Internal Server Error" }, status: 500 },
+        { body: { data: [JANE], totalRecords: 1 } },
+      ],
+    });
+    renderDrawer();
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+    expect(await within(drawer()).findByRole("alert")).toHaveTextContent("Search failed");
+    expect(drawer()).toHaveTextContent("Internal Server Error");
+
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+    expect(await within(drawer()).findByRole("button", { name: "Select Jane Doe" })).toBeInTheDocument();
+    expect(within(drawer()).queryByText("Search failed")).not.toBeInTheDocument();
   });
 });

@@ -47,6 +47,7 @@ import {
   RecordResignationForm,
   RemoveMemberForm,
 } from "./workspace/drawer/MemberExitForms";
+import { personName } from "./workspace/drawer/drawerParts";
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeSelectorList[];
@@ -371,7 +372,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     return { committee, memberId: memberExit.member.VRCNUM };
   })();
   const memberExitLabel = memberExit
-    ? `${memberExit.member.firstName ?? ""} ${memberExit.member.lastName ?? ""} (${memberExit.member.VRCNUM})`.replace(/^\s+/, "")
+    ? `${personName(memberExit.member)} (${memberExit.member.VRCNUM})`
     : "";
 
   const updateLtedWeightMutation = useApiMutation<
