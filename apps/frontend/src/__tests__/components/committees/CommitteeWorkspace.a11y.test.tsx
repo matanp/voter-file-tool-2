@@ -418,6 +418,20 @@ describe("Keyboard path through the workspace (plan §10)", () => {
   });
 });
 
+// --- Narrow layouts ---------------------------------------------------------------
+
+describe("Roster on narrow screens (plan §10)", () => {
+  it("pins each row's action menu to the table's right edge, so the table's sideways scroll never hides it", async () => {
+    serve();
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    const triggers = await within(detailPane()).findAllByRole("button", { name: /^Actions for / });
+    for (const trigger of triggers) {
+      expect(trigger.closest("td")).toHaveClass("sticky", "right-0");
+    }
+  });
+});
+
 // --- Not color alone ------------------------------------------------------------
 
 describe("Workspace states are not conveyed by color alone (plan §10)", () => {
