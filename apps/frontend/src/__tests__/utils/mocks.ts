@@ -55,3 +55,38 @@ export function mockHasPermission(granted: boolean) {
 }
 
 export const prismaMock = globalThis.mockPrisma;
+
+// --- Client-side fetch (component tests) ----------------------------------------
+
+/** The part of `Response` client code reads: status, ok, headers, and JSON. */
+export type FetchJsonResponse = Pick<Response, "ok" | "status" | "statusText" | "json"> & {
+  headers: { get: (name: string) => string | null };
+};
+
+/** A JSON `Response` stand-in for a mocked `fetch`. */
+export function fetchJsonResponse(body: unknown, status = 200): FetchJsonResponse {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: "",
+    headers: { get: () => "application/json" },
+    json: () => Promise.resolve(body),
+  };
+}
+
+export type FetchMockImpl = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<FetchJsonResponse>;
+
+/**
+ * Installs `impl` as `global.fetch` and returns the Jest mock, keeping the one
+ * unavoidable cast at this boundary (skills/test-type-safety).
+ */
+export function installFetchMock(
+  impl: FetchMockImpl,
+): jest.Mock<ReturnType<FetchMockImpl>, Parameters<FetchMockImpl>> {
+  const fetchMock = jest.fn(impl);
+  global.fetch = fetchMock as unknown as typeof fetch;
+  return fetchMock;
+}

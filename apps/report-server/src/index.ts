@@ -391,6 +391,7 @@ async function processJob(jobData: EnrichedReportData) {
         dateTo,
         cityTown,
         legDistrict,
+        { includePetitionOutcomes: jobData.includePetitionOutcomes },
       );
       if (jobData.format === 'xlsx') {
         await generateChangesReportXLSXAndUpload(changesRows, fileName);

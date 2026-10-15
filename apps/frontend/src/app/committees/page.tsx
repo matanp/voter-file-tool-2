@@ -1,36 +1,56 @@
-import React from "react";
+import React, { Suspense } from "react";
 
 import prisma from "~/lib/prisma";
 import { hasPermissionFor } from "~/lib/utils";
-import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import CommitteeSelector from "./CommitteeSelector";
-import { singleCommitteeScope } from "./committeeScope";
+import {
+  committeeSelectorListSelect,
+  singleCommitteeScope,
+  type CommitteeSelectorList,
+} from "./committeeScope";
 import { GenerateCommitteeReportButton } from "./GenerateCommitteeReportButton";
 import {
-  getActiveTermId,
+  getActiveTerm,
   getUserJurisdictions,
   committeeMatchesJurisdictions,
 } from "~/app/api/lib/committeeValidation";
+import { CommitteesPrototype } from "./_prototype/CommitteesPrototype";
+import { CommitteeWorkspace } from "./workspace/CommitteeWorkspace";
 
 export const dynamic = "force-dynamic";
 
-const CommitteeLists = async () => {
+interface CommitteeListsProps {
+  searchParams?: Promise<{ variant?: string }>;
+}
+
+const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
   const permissions = await auth();
+
+  // PROTOTYPE (ticket 01): development-only layout variants on this route,
+  // rendered from mock data. Removed once the layout decision is captured.
+  const { variant } = (await Promise.resolve(searchParams)) ?? {};
+  if (process.env.NODE_ENV !== "production" && variant && permissions?.user) {
+    return <CommitteesPrototype variant={variant} />;
+  }
 
   const isAdminUser = hasPermissionFor(
     permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
     PrivilegeLevel.Admin,
   );
 
-  const activeTermId = await getActiveTermId();
+  const activeTerm = await getActiveTerm();
+  const activeTermId = activeTerm.id;
 
   // Only include PII data for admin users; filter by active term (SRS §5.1)
-  let committeeLists: CommitteeList[] = await prisma.committeeList.findMany({
-    where: { termId: activeTermId },
-  });
+  let committeeLists: CommitteeSelectorList[] =
+    await prisma.committeeList.findMany({
+      where: { termId: activeTermId },
+      select: committeeSelectorListSelect,
+    });
 
   // SRS 3.1 — Leaders only see committees in their assigned jurisdictions
   const privilegeLevel = permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess;
@@ -56,6 +76,20 @@ const CommitteeLists = async () => {
     privilegeLevel === PrivilegeLevel.Leader
       ? singleCommitteeScope(committeeLists)
       : null;
+
+  // Committees workspace (plan §6): a server-side switch, never derived from
+  // actingPermissions. A top-level branch — the workspace does not wrap
+  // CommitteeSelector. Ticket 16 makes it unconditional and deletes the flag.
+  if (process.env.COMMITTEES_WORKSPACE === "1") {
+    return (
+      <Suspense fallback={null}>
+        <CommitteeWorkspace
+          termLabel={activeTerm.label}
+          initialScope={initialScope}
+        />
+      </Suspense>
+    );
+  }
 
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 

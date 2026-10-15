@@ -35,7 +35,7 @@ const features = [
     icon: FileText,
     title: "Document Generation",
     description: "Create professional political documents and reports",
-    items: ["Designated petitions", "Committee reports", "Voter list exports"],
+    items: ["Committee reports", "Voter list exports"],
   },
 ];
 

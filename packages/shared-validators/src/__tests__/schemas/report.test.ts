@@ -202,6 +202,38 @@ describe('generateReportSchema - changesReport', () => {
 
     expect(() => generateReportSchema.parse(invalid)).toThrow(/Expected ISO date YYYY-MM-DD/);
   });
+
+  it('strips a client-supplied includePetitionOutcomes (worker-only field)', () => {
+    const result = generateReportSchema.parse({
+      type: 'changesReport',
+      name: 'Test',
+      format: 'pdf',
+      scope: 'countywide',
+      dateFrom: '2025-01-01',
+      dateTo: '2025-12-31',
+      includePetitionOutcomes: true,
+    });
+    expect(result).not.toHaveProperty('includePetitionOutcomes');
+  });
+
+  it('carries includePetitionOutcomes on the enriched worker payload', () => {
+    const base = {
+      type: 'changesReport',
+      name: 'Test',
+      format: 'pdf',
+      scope: 'countywide',
+      dateFrom: '2025-01-01',
+      dateTo: '2025-12-31',
+      reportAuthor: 'Author',
+      jobId: 'cjld2cjxh0000qzrmn831i7rn',
+    };
+    expect(
+      enrichedReportDataSchema.parse({ ...base, includePetitionOutcomes: true }),
+    ).toMatchObject({ includePetitionOutcomes: true });
+    expect(enrichedReportDataSchema.parse(base)).not.toHaveProperty(
+      'includePetitionOutcomes',
+    );
+  });
 });
 
 describe('generateReportSchema - scope jurisdiction validation', () => {

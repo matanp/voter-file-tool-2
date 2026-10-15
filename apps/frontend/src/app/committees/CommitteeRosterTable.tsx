@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import type { MembershipType } from "@prisma/client";
 import {
   Table,
   TableBody,
@@ -15,6 +14,7 @@ import type {
   RosterResponse,
   SeatRosterRow,
 } from "~/lib/validations/committee";
+import { seatPetitionDisplay } from "./workspace/tabs/roster/seatPetitionDisplay";
 
 export interface CommitteeRosterTableProps {
   data: RosterResponse;
@@ -26,21 +26,12 @@ export interface CommitteeRosterTableProps {
   onViewEdDetails?: (rollup: EdRollup) => void;
 }
 
-const MEMBERSHIP_TYPE_LABEL: Record<MembershipType, string> = {
-  PETITIONED: "Petitioned",
-  APPOINTED: "Appointed",
-};
-
-function formatMembershipType(type: MembershipType | null): string {
-  return type ? MEMBERSHIP_TYPE_LABEL[type] : "—";
-}
-
 /**
  * Renders a rollup's designation weight, mirroring CommitteeSummaryBlock's
  * "weight incomplete ≠ zero weight" rule: any missing-weight seat (or a null
  * weight) renders an em dash rather than a misleading number.
  */
-function formatRollupWeight(rollup: EdRollup): string {
+export function formatRollupWeight(rollup: EdRollup): string {
   if (
     rollup.designationWeight === null ||
     rollup.missingWeightSeatNumbers.length > 0
@@ -53,6 +44,22 @@ function formatRollupWeight(rollup: EdRollup): string {
 /** Stable group key for an ED within a (possibly multi-LD) scope. */
 function edKey(legDistrict: number, electionDistrict: number): string {
   return `${legDistrict}-${electionDistrict}`;
+}
+
+/**
+ * Orders one committee's rows: seated rows by seat number, then unassigned
+ * rows (active members with no seat) in their given order.
+ */
+function splitCommitteeRows(rows: SeatRosterRow[]): {
+  seated: SeatRosterRow[];
+  unassigned: SeatRosterRow[];
+} {
+  return {
+    seated: rows
+      .filter((row) => !row.unassigned)
+      .sort((a, b) => (a.seatNumber ?? 0) - (b.seatNumber ?? 0)),
+    unassigned: rows.filter((row) => row.unassigned),
+  };
 }
 
 /** Sticky column labels pinned to the top of the viewport while scrolling. */
@@ -72,12 +79,13 @@ export function CommitteeRosterTable({
   isAdmin,
   onViewEdDetails,
 }: CommitteeRosterTableProps) {
-  const { rows, edRollups, summary } = data;
+  const { edRollups, summary } = data;
+  // `rows` is omitted when the caller asked for `includeRows=false`.
+  const rows = data.rows ?? [];
 
   // Contact column appears only for Admins, and only when the response actually
   // carries contact on some row (spec §2: gate on `row.contact !== undefined`).
-  const showContact =
-    isAdmin && rows.some((row) => row.contact !== undefined);
+  const showContact = isAdmin && rows.some((row) => row.contact !== undefined);
 
   // Group rows by ED. Within a group: seated rows first (by seat number), then
   // unassigned rows. No cross-group global sort in v1 (would break grouping).
@@ -108,75 +116,77 @@ export function CommitteeRosterTable({
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Name</TableHead>
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Type</TableHead>
               {showContact ? (
-                <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Contact</TableHead>
+                <TableHead className={STICKY_COLUMN_HEAD_CLASS}>
+                  Contact
+                </TableHead>
               ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-          {edRollups.map((rollup) => {
-            const key = edKey(rollup.legDistrict, rollup.electionDistrict);
-            const groupRows = rowsByEd.get(key) ?? [];
-            const seatedRows = groupRows
-              .filter((row) => !row.unassigned)
-              .sort((a, b) => (a.seatNumber ?? 0) - (b.seatNumber ?? 0));
-            const unassignedRows = groupRows.filter((row) => row.unassigned);
+            {edRollups.map((rollup) => {
+              const key = edKey(rollup.legDistrict, rollup.electionDistrict);
+              const groupRows = rowsByEd.get(key) ?? [];
+              const { seated: seatedRows, unassigned: unassignedRows } =
+                splitCommitteeRows(groupRows);
 
-            return (
-              <React.Fragment key={key}>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableCell colSpan={columnCount} className="font-medium">
-                    <div className="flex items-center justify-between gap-2">
-                      <span>
-                        ED {rollup.electionDistrict} · {rollup.filled}/
-                        {rollup.totalSeats} filled · weight{" "}
-                        {formatRollupWeight(rollup)}
-                        {rollup.unassignedCount > 0
-                          ? ` · ${rollup.unassignedCount} unassigned`
-                          : ""}
-                      </span>
-                      {onViewEdDetails ? (
-                        <button
-                          type="button"
-                          className="shrink-0 text-sm font-medium text-blue-600 hover:underline"
-                          onClick={() => onViewEdDetails(rollup)}
+              return (
+                <React.Fragment key={key}>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableCell colSpan={columnCount} className="font-medium">
+                      <div className="flex items-center justify-between gap-2">
+                        <span>
+                          ED {rollup.electionDistrict} · {rollup.filled}/
+                          {rollup.totalSeats} filled · weight{" "}
+                          {formatRollupWeight(rollup)}
+                          {rollup.unassignedCount > 0
+                            ? ` · ${rollup.unassignedCount} unassigned`
+                            : ""}
+                        </span>
+                        {onViewEdDetails ? (
+                          <button
+                            type="button"
+                            className="shrink-0 text-sm font-medium text-blue-600 hover:underline"
+                            onClick={() => onViewEdDetails(rollup)}
+                          >
+                            View details
+                          </button>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  {seatedRows.map((row) => (
+                    <SeatRow
+                      key={`${row.committeeListId}-seat-${row.seatNumber}`}
+                      row={row}
+                      showElectionDistrict
+                      showContact={showContact}
+                    />
+                  ))}
+
+                  {unassignedRows.length > 0 ? (
+                    <>
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell
+                          colSpan={columnCount}
+                          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
                         >
-                          View details
-                        </button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-
-                {seatedRows.map((row) => (
-                  <SeatRow
-                    key={`${row.committeeListId}-seat-${row.seatNumber}`}
-                    row={row}
-                    showContact={showContact}
-                  />
-                ))}
-
-                {unassignedRows.length > 0 ? (
-                  <>
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell
-                        colSpan={columnCount}
-                        className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                      >
-                        Unassigned
-                      </TableCell>
-                    </TableRow>
-                    {unassignedRows.map((row, i) => (
-                      <SeatRow
-                        key={`${row.committeeListId}-unassigned-${row.occupant?.VRCNUM ?? i}`}
-                        row={row}
-                        showContact={showContact}
-                      />
-                    ))}
-                  </>
-                ) : null}
-              </React.Fragment>
-            );
-          })}
+                          Unassigned
+                        </TableCell>
+                      </TableRow>
+                      {unassignedRows.map((row, i) => (
+                        <SeatRow
+                          key={`${row.committeeListId}-unassigned-${row.occupant?.VRCNUM ?? i}`}
+                          row={row}
+                          showElectionDistrict
+                          showContact={showContact}
+                        />
+                      ))}
+                    </>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -184,31 +194,144 @@ export function CommitteeRosterTable({
   );
 }
 
-interface SeatRowProps {
-  row: SeatRosterRow;
-  showContact: boolean;
+export interface CommitteeSeatTableProps {
+  /** One committee's rows (`detail.rows`): one per seat plus unassigned rows. */
+  rows: SeatRosterRow[];
+  /**
+   * Acting privilege is Admin or above. Contact renders only when this is true
+   * AND the response carries it (the server omits `contact` below Admin).
+   */
+  isAdmin: boolean;
+  /** Accessible name for the table. */
+  label: string;
+  /**
+   * Renders a row's action control, or null when the viewer has none for that
+   * row. The Actions column appears only if some row renders one.
+   */
+  renderRowActions?: (row: SeatRosterRow) => React.ReactNode;
 }
 
-function SeatRow({ row, showContact }: SeatRowProps) {
-  const isVacant = row.occupant === null;
+/**
+ * The row-action column stays pinned to the table's right edge, so on narrow
+ * screens (the detail pane at 768px, the full-width detail at 375px) a row's
+ * action menu is visible without scrolling the table sideways (plan §10).
+ */
+const ACTIONS_STICKY_CLASS = "sticky right-0 z-[1]";
+
+/**
+ * Single-committee seat table (the workspace Roster tab, plan §7.1): seat,
+ * member or vacancy, membership type, contact when authorized, and an optional
+ * per-row action column. Shares its row rendering with the town roster above;
+ * there is no ED column or rollup header because the committee is the scope.
+ */
+export function CommitteeSeatTable({
+  rows,
+  isAdmin,
+  label,
+  renderRowActions,
+}: CommitteeSeatTableProps) {
+  const showContact = isAdmin && rows.some((row) => row.contact !== undefined);
+  const { seated, unassigned } = splitCommitteeRows(rows);
+  const actions = new Map<SeatRosterRow, React.ReactNode>();
+  for (const row of rows) {
+    const node = renderRowActions?.(row) ?? null;
+    if (node !== null) actions.set(row, node);
+  }
+  const showActions = actions.size > 0;
+  const columnCount = 3 + (showContact ? 1 : 0) + (showActions ? 1 : 0);
+
+  const renderRow = (row: SeatRosterRow, key: string) => (
+    <SeatRow
+      key={key}
+      row={row}
+      showElectionDistrict={false}
+      showContact={showContact}
+      actions={showActions ? (actions.get(row) ?? null) : undefined}
+    />
+  );
+
+  return (
+    // `Table` wraps itself in an `overflow-auto` box, so wide content scrolls
+    // inside the tab and the page never overflows at 375px.
+    <Table aria-label={label}>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead>Seat</TableHead>
+          <TableHead>Member</TableHead>
+          <TableHead>Type</TableHead>
+          {showContact ? <TableHead>Contact</TableHead> : null}
+          {showActions ? (
+            <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white dark:bg-slate-950`}>
+              <span className="sr-only">Actions</span>
+            </TableHead>
+          ) : null}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {seated.map((row) =>
+          renderRow(row, `seat-${row.seatNumber ?? "none"}`),
+        )}
+        {unassigned.length > 0 ? (
+          <>
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                colSpan={columnCount}
+                className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                Unassigned
+              </TableCell>
+            </TableRow>
+            {unassigned.map((row, i) =>
+              renderRow(row, `unassigned-${row.occupant?.VRCNUM ?? i}`),
+            )}
+          </>
+        ) : null}
+      </TableBody>
+    </Table>
+  );
+}
+
+interface SeatRowProps {
+  row: SeatRosterRow;
+  showElectionDistrict: boolean;
+  showContact: boolean;
+  /** undefined: no Actions column; null: column present, nothing for this row. */
+  actions?: React.ReactNode;
+}
+
+function SeatRow({
+  row,
+  showElectionDistrict,
+  showContact,
+  actions,
+}: SeatRowProps) {
   const name = row.occupant
     ? `${row.occupant.firstName} ${row.occupant.lastName}`.trim()
     : null;
+  // Every petitioned/appointed display goes through this one helper
+  // (leader-petition-visibility group C is unresolved).
+  const petition = seatPetitionDisplay(row);
 
   return (
-    <TableRow className={row.petitionedVacant ? "bg-amber-50" : undefined}>
-      <TableCell>{row.electionDistrict}</TableCell>
+    <TableRow
+      className={
+        petition.petitionedVacant
+          ? "bg-amber-50 dark:bg-amber-950/30"
+          : undefined
+      }
+    >
+      {showElectionDistrict ? (
+        <TableCell>{row.electionDistrict}</TableCell>
+      ) : null}
       <TableCell>{row.seatNumber ?? "—"}</TableCell>
       <TableCell>
-        {isVacant ? (
-          <span className="text-muted-foreground">
-            {row.petitionedVacant ? "— petitioned vacant —" : "— vacant —"}
-          </span>
+        {petition.vacancyLabel !== null ? (
+          <span className="text-muted-foreground">{petition.vacancyLabel}</span>
         ) : (
           name
         )}
       </TableCell>
-      <TableCell>{formatMembershipType(row.occupant?.membershipType ?? null)}</TableCell>
+      <TableCell>{petition.membershipTypeLabel}</TableCell>
       {showContact ? (
         <TableCell className="text-sm text-muted-foreground">
           {row.contact ? (
@@ -219,6 +342,17 @@ function SeatRow({ row, showContact }: SeatRowProps) {
           ) : (
             "—"
           )}
+        </TableCell>
+      ) : null}
+      {actions !== undefined ? (
+        <TableCell
+          className={`text-right ${ACTIONS_STICKY_CLASS} ${
+            petition.petitionedVacant
+              ? "bg-amber-50 dark:bg-amber-950"
+              : "bg-white dark:bg-slate-950"
+          }`}
+        >
+          {actions}
         </TableCell>
       ) : null}
     </TableRow>

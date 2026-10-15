@@ -16,9 +16,9 @@ const PetitionsPage: React.FC = async () => {
     return <PageSignInRequired />;
   }
 
-  // Petition generation POSTs to /api/generateReport, which requires RequestAccess.
-  // Gate the page to match so ReadAccess users don't reach a form the server rejects.
-  if (!hasPermissionFor(access.privilegeLevel, PrivilegeLevel.RequestAccess)) {
+  // Petition generation is Admin-only (leader-petition-visibility/01), and
+  // /api/generateReport rejects designatedPetition below Admin. Gate the page to match.
+  if (!hasPermissionFor(access.privilegeLevel, PrivilegeLevel.Admin)) {
     return <AdminPageAccessDenied />;
   }
 

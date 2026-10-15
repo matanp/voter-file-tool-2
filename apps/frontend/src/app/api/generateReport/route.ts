@@ -26,6 +26,13 @@ const PDF_API_BASE = process.env.PDF_SERVER_URL
 
 const PDF_API_URL = PDF_API_BASE + "/start-job";
 
+/** Report types that generate or expose petition data; Admin-only. */
+const ADMIN_ONLY_PETITION_REPORT_TYPES: ReadonlySet<GenerateReportData["type"]> =
+  new Set<GenerateReportData["type"]>([
+    "designatedPetition",
+    "petitionOutcomesReport",
+  ]);
+
 export const POST = withPrivilege(
   PrivilegeLevel.RequestAccess,
   async (
@@ -70,6 +77,19 @@ export const POST = withPrivilege(
         );
       }
 
+      // Petition reports are Admin-only (leader-petition-visibility/01).
+      if (
+        ADMIN_ONLY_PETITION_REPORT_TYPES.has(reportData.type) &&
+        !hasPermissionFor(userPrivilege, PrivilegeLevel.Admin)
+      ) {
+        return NextResponse.json(
+          {
+            error: `Only admins can generate ${reportData.type} reports.`,
+          },
+          { status: 403 },
+        );
+      }
+
       // SRS 3.2, 3.3, 3.4 — Jurisdiction enforcement for scope-based reports
       if (isScopedReportData(reportData)) {
         const reportLabel = getScopeReportJurisdictionLabel(reportData.type);
@@ -101,7 +121,7 @@ export const POST = withPrivilege(
 
       reportId = report.id;
 
-      const enrichedReportData: EnrichedReportData = {
+      const enrichedBase = {
         ...reportData,
         reportAuthor: getUserDisplayName(
           session.user.id,
@@ -110,6 +130,18 @@ export const POST = withPrivilege(
         ),
         jobId: reportId,
       };
+      // Petition results in the Changes Report are Admin-only; the worker
+      // hides them unless told otherwise. Decided from actual privilege.
+      const enrichedReportData: EnrichedReportData =
+        enrichedBase.type === "changesReport"
+          ? {
+              ...enrichedBase,
+              includePetitionOutcomes: hasPermissionFor(
+                userPrivilege,
+                PrivilegeLevel.Admin,
+              ),
+            }
+          : enrichedBase;
 
       const gzippedBuffer = gzipSync(JSON.stringify(enrichedReportData));
 

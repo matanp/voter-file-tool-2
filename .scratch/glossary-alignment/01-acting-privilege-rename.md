@@ -50,3 +50,11 @@ Pick one deliberately; don't rename the key by find-and-replace.
 - The localStorage decision above is made and, if option 2, the fallback read exists
 - `skills/auth-check-patterns/SKILL.md` code samples updated to match
 - Typecheck and tests pass; no behaviour change
+
+## Comments
+
+- 2026-09-19 — `.scratch/developer-acting-as/` (option 2: server-readable acting state with
+  jurisdictions) depends on this rename landing first or concurrently. Its ticket 03 changes the
+  localStorage payload from a bare enum string to a JSON `ActingState`, so if you choose option 2
+  above (rename the key with a one-time fallback read), coordinate the key name with that ticket
+  (`actingPrivilege`) rather than picking independently.

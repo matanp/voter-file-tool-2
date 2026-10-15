@@ -74,13 +74,17 @@ function baseResponse(): RosterResponse {
   return {
     scope: { cityTown: "GREECE", legDistrict: 1 },
     rows,
+    filters: { towns: ["GREECE"], legDistricts: [{ cityTown: "GREECE", legDistrict: 1 }] },
     edRollups: [
       {
+        committeeListId: 1,
+        cityTown: "GREECE",
         electionDistrict: 5,
         legDistrict: 1,
         filled: 1,
         totalSeats: 3,
         unassignedCount: 1,
+        pendingCount: 0,
         designationWeight: 1,
         missingWeightSeatNumbers: [],
       },
@@ -91,7 +95,10 @@ function baseResponse(): RosterResponse {
       vacant: 2,
       edCount: 1,
       unassignedCount: 1,
+      pendingCount: 0,
+      activeMemberCount: 2,
     },
+    nextCursor: null,
   };
 }
 
@@ -126,7 +133,7 @@ describe("CommitteeRosterTable", () => {
   it("hides Contact column for Leaders but shows View details when handler provided", () => {
     const data = baseResponse();
     // Leaders never receive contact from the API.
-    for (const row of data.rows) delete row.contact;
+    for (const row of data.rows ?? []) delete row.contact;
     render(
       <CommitteeRosterTable
         data={data}
@@ -177,7 +184,7 @@ describe("CommitteeRosterTable", () => {
   it("sorts seated rows by seat number within a group", () => {
     const data = baseResponse();
     // Reverse the row order to prove the component sorts, not the input.
-    data.rows = [...data.rows].reverse();
+    data.rows = [...(data.rows ?? [])].reverse();
     render(<CommitteeRosterTable data={data} isAdmin={false} />);
     const rows = screen.getAllByRole("row");
     // Header + ED subheader + seats 1,2,3 + Unassigned subheader + unassigned row.

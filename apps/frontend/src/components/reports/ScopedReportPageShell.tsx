@@ -21,7 +21,7 @@ export function ScopedReportPageShell({
 }: ScopedReportPageShellProps) {
   const ui: ScopeReportUiDefinition = SCOPE_REPORT_UI[type];
 
-  if (!pageData.isLeaderOrAbove) {
+  if (!pageData.canAccessPage) {
     return (
       <div className="w-full p-4">
         <Card>

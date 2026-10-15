@@ -8,28 +8,50 @@ import {
   buildJurisdictionWhere,
 } from "~/app/api/lib/committeeValidation";
 
+/**
+ * Only the fields the client form needs. Full rows carry `ltedWeight`
+ * (a Prisma Decimal), which can't cross the Server → Client boundary.
+ */
+export type ScopedReportCommitteeList = Pick<
+  CommitteeList,
+  "cityTown" | "legDistrict"
+>;
+
+const committeeListSelect = { cityTown: true, legDistrict: true } as const;
+
 export interface ScopedReportPageData {
   privilegeLevel: PrivilegeLevel;
-  isLeaderOrAbove: boolean;
-  committeeLists: CommitteeList[];
+  canAccessPage: boolean;
+  committeeLists: ScopedReportCommitteeList[];
+}
+
+export interface LoadScopedReportPageOptions {
+  /**
+   * Minimum actual privilege for the page. Defaults to Leader; never lower.
+   * Set explicitly per page (e.g. Admin for Petition Outcomes) rather than
+   * derived from the UI registry's display-only `minPrivilege`.
+   */
+  minPagePrivilege?: typeof PrivilegeLevel.Leader | typeof PrivilegeLevel.Admin;
 }
 
 /** Load auth, gate, and jurisdiction-scoped committee lists for scoped report pages. */
-export async function loadScopedReportPageData(): Promise<ScopedReportPageData> {
+export async function loadScopedReportPageData(
+  options: LoadScopedReportPageOptions = {},
+): Promise<ScopedReportPageData> {
   const permissions = await auth();
 
   const privilegeLevel =
     permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess;
 
-  const isLeaderOrAbove = hasPermissionFor(
+  const canAccessPage = hasPermissionFor(
     privilegeLevel,
-    PrivilegeLevel.Leader,
+    options.minPagePrivilege ?? PrivilegeLevel.Leader,
   );
 
-  if (!isLeaderOrAbove) {
+  if (!canAccessPage) {
     return {
       privilegeLevel,
-      isLeaderOrAbove: false,
+      canAccessPage: false,
       committeeLists: [],
     };
   }
@@ -41,7 +63,7 @@ export async function loadScopedReportPageData(): Promise<ScopedReportPageData> 
     if (userId == null) {
       return {
         privilegeLevel,
-        isLeaderOrAbove: true,
+        canAccessPage: true,
         committeeLists: [],
       };
     }
@@ -55,7 +77,7 @@ export async function loadScopedReportPageData(): Promise<ScopedReportPageData> 
     if (!Array.isArray(jurisdictions) || jurisdictions.length === 0) {
       return {
         privilegeLevel,
-        isLeaderOrAbove: true,
+        canAccessPage: true,
         committeeLists: [],
       };
     }
@@ -65,22 +87,24 @@ export async function loadScopedReportPageData(): Promise<ScopedReportPageData> 
         termId: activeTermId,
         ...buildJurisdictionWhere(jurisdictions),
       },
+      select: committeeListSelect,
     });
 
     return {
       privilegeLevel,
-      isLeaderOrAbove: true,
+      canAccessPage: true,
       committeeLists,
     };
   }
 
   const committeeLists = await prisma.committeeList.findMany({
     where: { termId: activeTermId },
+    select: committeeListSelect,
   });
 
   return {
     privilegeLevel,
-    isLeaderOrAbove: true,
+    canAccessPage: true,
     committeeLists,
   };
 }
