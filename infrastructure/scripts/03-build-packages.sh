@@ -5,13 +5,22 @@
 
 set -e
 
+PROJECT_DIR="/opt/voter-file-tool"
+
+# When sourced as root, re-run this script as the SSH user who runs the app under PM2.
+# Otherwise node_modules, build output and the pnpm store/cache in the user's home end up root-owned.
+if [ "$(whoami)" = "root" ] && [ -n "$SSH_USER" ] && [ "$SSH_USER" != "root" ]; then
+  echo "📋 Building as SSH user: $SSH_USER"
+  chown -R "$SSH_USER:$SSH_USER" "$PROJECT_DIR"
+  sudo -u "$SSH_USER" bash -c "export HOME='$SSH_USER_HOME' && export NVM_DIR='$SSH_USER_HOME/.nvm' && [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\" && nvm use default > /dev/null && bash '${BASH_SOURCE[0]}'"
+  return 0 2>/dev/null || exit 0
+fi
+
 # Verify pnpm is available (safety check - should already be loaded by master script)
 if ! command -v pnpm &> /dev/null; then
   echo "❌ pnpm is not available. This script should be sourced by 00-setup-all.sh"
   exit 1
 fi
-
-PROJECT_DIR="/opt/voter-file-tool"
 
 echo "🔨 Building workspace packages..."
 

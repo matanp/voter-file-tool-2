@@ -122,11 +122,9 @@ resource "aws_lightsail_instance" "nodejs_server" {
               
               # Step 2: Clone repository (scripts will be run from here)
               echo "📥 Cloning repository..."
-              # Detect the actual user running this script
-              ACTUAL_USER=$(whoami)
+              # This runs as root, so the clone is root-owned for now.
+              # 02-setup-project.sh and 00-setup-all.sh hand it to the SSH user.
               if [ -d "$PROJECT_DIR/.git" ]; then
-                # Fix ownership if needed
-                sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR" || true
                 cd "$PROJECT_DIR"
                 # Configure git safe directory
                 git config --global --add safe.directory "$PROJECT_DIR" || true
@@ -134,7 +132,6 @@ resource "aws_lightsail_instance" "nodejs_server" {
                 git pull origin main || echo "⚠️  Could not pull latest (may be on correct branch)"
               else
                 sudo mkdir -p "$PROJECT_DIR"
-                sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR"
                 git clone https://matanp:${var.github_token}@github.com/matanp/voter-file-tool-2.git "$PROJECT_DIR"
                 cd "$PROJECT_DIR"
                 # Configure git safe directory
