@@ -217,11 +217,19 @@ if ! grep -q 'nvm use default' "$USER_HOME/.bashrc"; then
   fi
 fi
 
-# Install pnpm globally (as the SSH user if we're root)
+# Install the pinned pnpm globally (as the SSH user if we're root). PNPM_VERSION is set by 00-setup-all.sh.
+: "${PNPM_VERSION:?PNPM_VERSION is not set. Run this through 00-setup-all.sh}"
 if [ "$(whoami)" = "root" ] && [ -n "$SSH_USER" ] && [ "$SSH_USER" != "root" ]; then
-  sudo -u "$SSH_USER" bash -c "export HOME='$USER_HOME' && export NVM_DIR='$NVM_DIR' && [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\" && nvm use default && npm install -g pnpm"
+  sudo -u "$SSH_USER" bash -c "export HOME='$USER_HOME' && export NVM_DIR='$NVM_DIR' && [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\" && nvm use default && npm install -g pnpm@$PNPM_VERSION"
+  INSTALLED_PNPM=$(sudo -u "$SSH_USER" bash -c "export HOME='$USER_HOME' && export NVM_DIR='$NVM_DIR' && \. \"\$NVM_DIR/nvm.sh\" > /dev/null && nvm use default > /dev/null && pnpm --version")
 else
-  npm install -g pnpm
+  npm install -g "pnpm@$PNPM_VERSION"
+  INSTALLED_PNPM=$(pnpm --version)
 fi
+if [ "$INSTALLED_PNPM" != "$PNPM_VERSION" ]; then
+  echo "❌ Expected pnpm $PNPM_VERSION for $SSH_USER, got $INSTALLED_PNPM" >&2
+  exit 1
+fi
+echo "✅ pnpm $INSTALLED_PNPM installed"
 
 echo "✅ System dependencies and Node.js installed successfully"

@@ -16,7 +16,7 @@ git pull origin main
 
 # Install dependencies
 echo "📦 Installing dependencies..."
-pnpm install
+pnpm install --frozen-lockfile
 
 # Build all packages
 echo "🔨 Building workspace packages..."

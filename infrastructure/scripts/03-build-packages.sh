@@ -26,7 +26,7 @@ cd "$PROJECT_DIR" || {
 
 # Step 1: Install ALL dependencies at root level (skip all scripts including dependency postinstalls)
 echo "📦 Installing all dependencies (skipping all scripts)..."
-PRISMA_SKIP_POSTINSTALL_GENERATE=true pnpm install --ignore-scripts || {
+PRISMA_SKIP_POSTINSTALL_GENERATE=true pnpm install --frozen-lockfile --ignore-scripts || {
   echo "❌ Failed to install dependencies"
   exit 1
 }

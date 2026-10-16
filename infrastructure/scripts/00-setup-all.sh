@@ -7,6 +7,15 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="/opt/voter-file-tool"
 
+# Install the pnpm version pinned in package.json ("packageManager"), not whatever is latest.
+# A newer pnpm tries to switch to the pinned version on every command, which broke report-server startup.
+PNPM_VERSION=$(sed -n 's/.*"packageManager": *"pnpm@\([^"]*\)".*/\1/p' "$SCRIPT_DIR/../../package.json")
+if [ -z "$PNPM_VERSION" ]; then
+  echo "❌ Could not read the pnpm version from packageManager in $SCRIPT_DIR/../../package.json" >&2
+  exit 1
+fi
+export PNPM_VERSION
+
 echo "🚀 Starting complete setup process..."
 
 # Detect the SSH user (the user who will actually log in via SSH)
@@ -62,9 +71,9 @@ fi
 # Ensure pnpm is available after nvm loads (if nvm was already installed)
 # Skip if we're root installing for another user (will be done in dependency script)
 if [ "$(whoami)" != "root" ] || [ -z "$SSH_USER" ] || [ "$SSH_USER" = "root" ]; then
-  if command -v npm &> /dev/null && ! command -v pnpm &> /dev/null; then
-    echo "📦 Installing pnpm globally..."
-    npm install -g pnpm || {
+  if command -v npm &> /dev/null && [ "$(pnpm --version 2>/dev/null)" != "$PNPM_VERSION" ]; then
+    echo "📦 Installing pnpm@$PNPM_VERSION globally..."
+    npm install -g "pnpm@$PNPM_VERSION" || {
       echo "⚠️  Failed to install pnpm (will be installed by 01-install-dependencies.sh)"
     }
   fi
