@@ -16,6 +16,9 @@ if [ -z "$PNPM_VERSION" ]; then
 fi
 export PNPM_VERSION
 
+# Non-fatal problems reported by the sourced step scripts, printed in the final summary
+SETUP_WARNINGS=()
+
 echo "🚀 Starting complete setup process..."
 
 # Detect the SSH user (the user who will actually log in via SSH)
@@ -125,5 +128,12 @@ source "$SCRIPT_DIR/07-start-services.sh"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Complete setup finished successfully!"
+if [ "${#SETUP_WARNINGS[@]}" -gt 0 ]; then
+  echo "⚠️  Setup finished with warnings:"
+  for warning in "${SETUP_WARNINGS[@]}"; do
+    echo "   - $warning"
+  done
+else
+  echo "✅ Complete setup finished successfully!"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

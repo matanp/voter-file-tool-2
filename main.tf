@@ -27,6 +27,12 @@ variable "use_self_signed_ssl" {
   default     = false
 }
 
+variable "certbot_email" {
+  type        = string
+  description = "Email for the Let's Encrypt account. Required when use_ssl=true with a domain_name and no self-signed cert."
+  default     = ""
+}
+
 # Environment variables
 variable "port" {
   type        = string
@@ -107,6 +113,7 @@ resource "aws_lightsail_instance" "nodejs_server" {
               export DOMAIN_NAME="${var.domain_name}"
               export USE_SSL="${var.use_ssl}"
               export USE_SELF_SIGNED_SSL="${var.use_self_signed_ssl}"
+              export CERTBOT_EMAIL="${var.certbot_email}"
               
               # Step 1: Install basic dependencies and clone repo
               echo "📦 Installing basic dependencies..."
@@ -184,8 +191,15 @@ NGINXEOF
               cd "$PROJECT_DIR"
               bash infrastructure/scripts/00-setup-all.sh
               
-              echo "✅ Deployment complete!"
+              echo "🏁 Deployment script finished (see setup summary above for warnings)"
               EOF
+
+  lifecycle {
+    precondition {
+      condition     = !(var.use_ssl && !var.use_self_signed_ssl && var.domain_name != "") || var.certbot_email != ""
+      error_message = "certbot_email must be set when use_ssl = true with a domain_name (Let's Encrypt)."
+    }
+  }
 }
 
 resource "aws_lightsail_instance_public_ports" "public_ports" {
