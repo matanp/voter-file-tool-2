@@ -189,15 +189,15 @@ describe("RosterTab seat table", () => {
     const cells = bodyRows().map((r) =>
       within(r)
         .getAllByRole("cell")
-        .slice(0, 3)
+        .slice(0, 2)
         .map((c) => c.textContent),
     );
     expect(cells).toEqual([
-      ["1", "Jane Doe", "Petitioned"],
-      ["2", "— vacant —", "—"],
-      ["3", "— petitioned vacant —", "—"],
+      ["1", "Jane Doe"],
+      ["2", "— vacant —"],
+      ["3", "— petitioned vacant —"],
       ["Unassigned"],
-      ["—", "Sam Loose", "Appointed"],
+      ["—", "Sam Loose"],
     ]);
   });
 
@@ -206,8 +206,18 @@ describe("RosterTab seat table", () => {
     const headers = within(table())
       .getAllByRole("columnheader")
       .map((h) => h.textContent);
-    expect(headers.slice(0, 3)).toEqual(["Seat", "Member", "Type"]);
+    expect(headers.slice(0, 2)).toEqual(["Seat", "Member"]);
     expect(headers).not.toContain("ED");
+  });
+
+  it("hides the membership type column for now", () => {
+    renderRoster({ role: PrivilegeLevel.Leader });
+    const headers = within(table())
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent);
+    expect(headers).not.toContain("Type");
+    expect(screen.queryByText("Petitioned")).not.toBeInTheDocument();
+    expect(screen.queryByText("Appointed")).not.toBeInTheDocument();
   });
 
   it("distinguishes a petitioned vacancy in text and with a highlight", () => {

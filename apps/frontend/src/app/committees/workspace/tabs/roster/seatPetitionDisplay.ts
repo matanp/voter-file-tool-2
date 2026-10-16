@@ -22,6 +22,14 @@ export type SeatPetitionDisplay = {
   petitionedVacant: boolean;
 };
 
+/**
+ * Whether the membership type (Petitioned / Appointed) is shown anywhere: the
+ * roster tables' Type column and the committee member card's badge. Hidden for
+ * now; the data and rendering stay wired up so flipping this back to true
+ * restores them.
+ */
+export const SHOW_MEMBERSHIP_TYPE = false;
+
 const MEMBERSHIP_TYPE_LABEL: Record<MembershipType, string> = {
   PETITIONED: "Petitioned",
   APPOINTED: "Appointed",

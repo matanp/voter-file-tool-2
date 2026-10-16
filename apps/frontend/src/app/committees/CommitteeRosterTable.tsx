@@ -14,7 +14,10 @@ import type {
   RosterResponse,
   SeatRosterRow,
 } from "~/lib/validations/committee";
-import { seatPetitionDisplay } from "./workspace/tabs/roster/seatPetitionDisplay";
+import {
+  SHOW_MEMBERSHIP_TYPE,
+  seatPetitionDisplay,
+} from "./workspace/tabs/roster/seatPetitionDisplay";
 
 export interface CommitteeRosterTableProps {
   data: RosterResponse;
@@ -62,6 +65,9 @@ function splitCommitteeRows(rows: SeatRosterRow[]): {
   };
 }
 
+/** Columns the optional membership Type column adds (0 while it is hidden). */
+const MEMBERSHIP_TYPE_COLUMNS = SHOW_MEMBERSHIP_TYPE ? 1 : 0;
+
 /** Sticky column labels pinned to the top of the viewport while scrolling. */
 const STICKY_COLUMN_HEAD_CLASS = "sticky top-0 z-20 bg-background";
 
@@ -97,7 +103,8 @@ export function CommitteeRosterTable({
     else rowsByEd.set(key, [row]);
   }
 
-  const columnCount = 4 + (showContact ? 1 : 0); // ED, Seat, Name, Type
+  // ED, Seat, Name, [Type], [Contact]
+  const columnCount = 3 + MEMBERSHIP_TYPE_COLUMNS + (showContact ? 1 : 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -114,7 +121,9 @@ export function CommitteeRosterTable({
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>ED</TableHead>
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Seat</TableHead>
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Name</TableHead>
-              <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Type</TableHead>
+              {SHOW_MEMBERSHIP_TYPE ? (
+                <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Type</TableHead>
+              ) : null}
               {showContact ? (
                 <TableHead className={STICKY_COLUMN_HEAD_CLASS}>
                   Contact
@@ -220,9 +229,10 @@ const ACTIONS_STICKY_CLASS = "sticky right-0 z-[1]";
 
 /**
  * Single-committee seat table (the workspace Roster tab, plan §7.1): seat,
- * member or vacancy, membership type, contact when authorized, and an optional
- * per-row action column. Shares its row rendering with the town roster above;
- * there is no ED column or rollup header because the committee is the scope.
+ * member or vacancy, membership type (while SHOW_MEMBERSHIP_TYPE is on), contact
+ * when authorized, and an optional per-row action column. Shares its row
+ * rendering with the town roster above; there is no ED column or rollup header
+ * because the committee is the scope.
  */
 export function CommitteeSeatTable({
   rows,
@@ -238,7 +248,8 @@ export function CommitteeSeatTable({
     if (node !== null) actions.set(row, node);
   }
   const showActions = actions.size > 0;
-  const columnCount = 3 + (showContact ? 1 : 0) + (showActions ? 1 : 0);
+  const columnCount =
+    2 + MEMBERSHIP_TYPE_COLUMNS + (showContact ? 1 : 0) + (showActions ? 1 : 0);
 
   const renderRow = (row: SeatRosterRow, key: string) => (
     <SeatRow
@@ -258,7 +269,7 @@ export function CommitteeSeatTable({
         <TableRow className="hover:bg-transparent">
           <TableHead>Seat</TableHead>
           <TableHead>Member</TableHead>
-          <TableHead>Type</TableHead>
+          {SHOW_MEMBERSHIP_TYPE ? <TableHead>Type</TableHead> : null}
           {showContact ? <TableHead>Contact</TableHead> : null}
           {showActions ? (
             <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white dark:bg-slate-950`}>
@@ -331,7 +342,9 @@ function SeatRow({
           name
         )}
       </TableCell>
-      <TableCell>{petition.membershipTypeLabel}</TableCell>
+      {SHOW_MEMBERSHIP_TYPE ? (
+        <TableCell>{petition.membershipTypeLabel}</TableCell>
+      ) : null}
       {showContact ? (
         <TableCell className="text-sm text-muted-foreground">
           {row.contact ? (

@@ -30,6 +30,7 @@ import { useContext } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { PrivilegeLevel } from "@prisma/client";
 import { hasPermissionFor } from "~/lib/utils";
+import { SHOW_MEMBERSHIP_TYPE } from "~/app/committees/workspace/tabs/roster/seatPetitionDisplay";
 
 const LOADING_SECTION_ID = "loading-section";
 
@@ -277,7 +278,7 @@ export const VoterCard = ({
         <h2 className="text-xl font-medium text-gray-800">
           {`${record.firstName} ${record.lastName}`}
         </h2>
-        {committee && membershipType != null && (
+        {SHOW_MEMBERSHIP_TYPE && committee && membershipType != null && (
           <Badge variant="secondary" hoverable={false}>
             {membershipType === "APPOINTED" ? "Appointed" : "Petitioned"}
           </Badge>
