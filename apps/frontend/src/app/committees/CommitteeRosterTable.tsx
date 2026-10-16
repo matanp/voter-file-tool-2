@@ -14,7 +14,10 @@ import type {
   RosterResponse,
   SeatRosterRow,
 } from "~/lib/validations/committee";
-import { seatPetitionDisplay } from "./workspace/tabs/roster/seatPetitionDisplay";
+import {
+  SHOW_MEMBERSHIP_TYPE,
+  seatPetitionDisplay,
+} from "./workspace/tabs/roster/seatPetitionDisplay";
 
 export interface CommitteeRosterTableProps {
   data: RosterResponse;
@@ -62,11 +65,8 @@ function splitCommitteeRows(rows: SeatRosterRow[]): {
   };
 }
 
-/**
- * Membership type (Petitioned / Appointed) column. Hidden for now; the data and
- * rendering stay wired up so flipping this back to true restores the column.
- */
-const SHOW_MEMBERSHIP_TYPE = false;
+/** Columns the optional membership Type column adds (0 while it is hidden). */
+const MEMBERSHIP_TYPE_COLUMNS = SHOW_MEMBERSHIP_TYPE ? 1 : 0;
 
 /** Sticky column labels pinned to the top of the viewport while scrolling. */
 const STICKY_COLUMN_HEAD_CLASS = "sticky top-0 z-20 bg-background";
@@ -104,8 +104,7 @@ export function CommitteeRosterTable({
   }
 
   // ED, Seat, Name, [Type], [Contact]
-  const columnCount =
-    3 + (SHOW_MEMBERSHIP_TYPE ? 1 : 0) + (showContact ? 1 : 0);
+  const columnCount = 3 + MEMBERSHIP_TYPE_COLUMNS + (showContact ? 1 : 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -230,9 +229,10 @@ const ACTIONS_STICKY_CLASS = "sticky right-0 z-[1]";
 
 /**
  * Single-committee seat table (the workspace Roster tab, plan §7.1): seat,
- * member or vacancy, membership type, contact when authorized, and an optional
- * per-row action column. Shares its row rendering with the town roster above;
- * there is no ED column or rollup header because the committee is the scope.
+ * member or vacancy, membership type (while SHOW_MEMBERSHIP_TYPE is on), contact
+ * when authorized, and an optional per-row action column. Shares its row
+ * rendering with the town roster above; there is no ED column or rollup header
+ * because the committee is the scope.
  */
 export function CommitteeSeatTable({
   rows,
@@ -249,10 +249,7 @@ export function CommitteeSeatTable({
   }
   const showActions = actions.size > 0;
   const columnCount =
-    2 +
-    (SHOW_MEMBERSHIP_TYPE ? 1 : 0) +
-    (showContact ? 1 : 0) +
-    (showActions ? 1 : 0);
+    2 + MEMBERSHIP_TYPE_COLUMNS + (showContact ? 1 : 0) + (showActions ? 1 : 0);
 
   const renderRow = (row: SeatRosterRow, key: string) => (
     <SeatRow
