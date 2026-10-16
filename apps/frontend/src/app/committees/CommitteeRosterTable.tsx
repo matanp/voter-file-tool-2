@@ -62,6 +62,12 @@ function splitCommitteeRows(rows: SeatRosterRow[]): {
   };
 }
 
+/**
+ * Membership type (Petitioned / Appointed) column. Hidden for now; the data and
+ * rendering stay wired up so flipping this back to true restores the column.
+ */
+const SHOW_MEMBERSHIP_TYPE = false;
+
 /** Sticky column labels pinned to the top of the viewport while scrolling. */
 const STICKY_COLUMN_HEAD_CLASS = "sticky top-0 z-20 bg-background";
 
@@ -97,7 +103,9 @@ export function CommitteeRosterTable({
     else rowsByEd.set(key, [row]);
   }
 
-  const columnCount = 4 + (showContact ? 1 : 0); // ED, Seat, Name, Type
+  // ED, Seat, Name, [Type], [Contact]
+  const columnCount =
+    3 + (SHOW_MEMBERSHIP_TYPE ? 1 : 0) + (showContact ? 1 : 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -114,7 +122,9 @@ export function CommitteeRosterTable({
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>ED</TableHead>
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Seat</TableHead>
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Name</TableHead>
-              <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Type</TableHead>
+              {SHOW_MEMBERSHIP_TYPE ? (
+                <TableHead className={STICKY_COLUMN_HEAD_CLASS}>Type</TableHead>
+              ) : null}
               {showContact ? (
                 <TableHead className={STICKY_COLUMN_HEAD_CLASS}>
                   Contact
@@ -238,7 +248,11 @@ export function CommitteeSeatTable({
     if (node !== null) actions.set(row, node);
   }
   const showActions = actions.size > 0;
-  const columnCount = 3 + (showContact ? 1 : 0) + (showActions ? 1 : 0);
+  const columnCount =
+    2 +
+    (SHOW_MEMBERSHIP_TYPE ? 1 : 0) +
+    (showContact ? 1 : 0) +
+    (showActions ? 1 : 0);
 
   const renderRow = (row: SeatRosterRow, key: string) => (
     <SeatRow
@@ -258,7 +272,7 @@ export function CommitteeSeatTable({
         <TableRow className="hover:bg-transparent">
           <TableHead>Seat</TableHead>
           <TableHead>Member</TableHead>
-          <TableHead>Type</TableHead>
+          {SHOW_MEMBERSHIP_TYPE ? <TableHead>Type</TableHead> : null}
           {showContact ? <TableHead>Contact</TableHead> : null}
           {showActions ? (
             <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white dark:bg-slate-950`}>
@@ -331,7 +345,9 @@ function SeatRow({
           name
         )}
       </TableCell>
-      <TableCell>{petition.membershipTypeLabel}</TableCell>
+      {SHOW_MEMBERSHIP_TYPE ? (
+        <TableCell>{petition.membershipTypeLabel}</TableCell>
+      ) : null}
       {showContact ? (
         <TableCell className="text-sm text-muted-foreground">
           {row.contact ? (
