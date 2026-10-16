@@ -6,6 +6,8 @@
 domain_name = "reports.opensourcepolitics.online"
 use_ssl = true
 use_self_signed_ssl = false
+# Let's Encrypt account email (required when use_ssl = true with a domain_name, unless self-signed); use a mailbox someone reads
+certbot_email = "you@example.com"
 
 # GitHub token for cloning repository
 github_token = "your-github-token-here"

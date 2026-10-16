@@ -27,6 +27,12 @@ variable "use_self_signed_ssl" {
   default     = false
 }
 
+variable "certbot_email" {
+  type        = string
+  description = "Email for the Let's Encrypt account. Required when use_ssl=true with a domain_name and no self-signed cert."
+  default     = ""
+}
+
 # Environment variables
 variable "port" {
   type        = string
@@ -107,6 +113,7 @@ resource "aws_lightsail_instance" "nodejs_server" {
               export DOMAIN_NAME="${var.domain_name}"
               export USE_SSL="${var.use_ssl}"
               export USE_SELF_SIGNED_SSL="${var.use_self_signed_ssl}"
+              export CERTBOT_EMAIL="${var.certbot_email}"
               
               # Step 1: Install basic dependencies and clone repo
               echo "📦 Installing basic dependencies..."
@@ -115,11 +122,9 @@ resource "aws_lightsail_instance" "nodejs_server" {
               
               # Step 2: Clone repository (scripts will be run from here)
               echo "📥 Cloning repository..."
-              # Detect the actual user running this script
-              ACTUAL_USER=$(whoami)
+              # This runs as root, so the clone is root-owned for now.
+              # 02-setup-project.sh and 00-setup-all.sh hand it to the SSH user.
               if [ -d "$PROJECT_DIR/.git" ]; then
-                # Fix ownership if needed
-                sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR" || true
                 cd "$PROJECT_DIR"
                 # Configure git safe directory
                 git config --global --add safe.directory "$PROJECT_DIR" || true
@@ -127,7 +132,6 @@ resource "aws_lightsail_instance" "nodejs_server" {
                 git pull origin main || echo "⚠️  Could not pull latest (may be on correct branch)"
               else
                 sudo mkdir -p "$PROJECT_DIR"
-                sudo chown -R $ACTUAL_USER:$ACTUAL_USER "$PROJECT_DIR"
                 git clone https://matanp:${var.github_token}@github.com/matanp/voter-file-tool-2.git "$PROJECT_DIR"
                 cd "$PROJECT_DIR"
                 # Configure git safe directory
@@ -184,8 +188,15 @@ NGINXEOF
               cd "$PROJECT_DIR"
               bash infrastructure/scripts/00-setup-all.sh
               
-              echo "✅ Deployment complete!"
+              echo "🏁 Deployment script finished (see setup summary above for warnings)"
               EOF
+
+  lifecycle {
+    precondition {
+      condition     = !(var.use_ssl && !var.use_self_signed_ssl && var.domain_name != "") || var.certbot_email != ""
+      error_message = "certbot_email must be set when use_ssl = true with a domain_name (Let's Encrypt)."
+    }
+  }
 }
 
 resource "aws_lightsail_instance_public_ports" "public_ports" {

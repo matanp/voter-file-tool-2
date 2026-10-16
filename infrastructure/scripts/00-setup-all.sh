@@ -16,6 +16,9 @@ if [ -z "$PNPM_VERSION" ]; then
 fi
 export PNPM_VERSION
 
+# Non-fatal problems reported by the sourced step scripts, printed in the final summary
+SETUP_WARNINGS=()
+
 echo "🚀 Starting complete setup process..."
 
 # Detect the SSH user (the user who will actually log in via SSH)
@@ -117,6 +120,13 @@ echo "Step 6/7: Setting up pm2"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 source "$SCRIPT_DIR/06-setup-pm2.sh"
 
+# Backstop: steps run as root write into the project and, because 01 exports HOME as the SSH user's home,
+# into that home too (e.g. ~/.gitconfig, ~/.local/share/pnpm, ~/.cache). Hand it all to the SSH user before PM2 starts.
+if [ "$(whoami)" = "root" ] && [ "$SSH_USER" != "root" ]; then
+  echo "📋 Handing $PROJECT_DIR and $SSH_USER_HOME to $SSH_USER..."
+  chown -R "$SSH_USER:$SSH_USER" "$PROJECT_DIR" "$SSH_USER_HOME"
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Step 7/7: Starting services"
@@ -125,5 +135,12 @@ source "$SCRIPT_DIR/07-start-services.sh"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Complete setup finished successfully!"
+if [ "${#SETUP_WARNINGS[@]}" -gt 0 ]; then
+  echo "⚠️  Setup finished with warnings:"
+  for warning in "${SETUP_WARNINGS[@]}"; do
+    echo "   - $warning"
+  done
+else
+  echo "✅ Complete setup finished successfully!"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

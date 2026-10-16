@@ -61,7 +61,7 @@ pnpm run terraform:recreate
 
 ## Step 3: SSL Certificate
 
-Certbot is attempted **automatically** during `07-start-services.sh` when Terraform provisions the instance. If it fails (DNS propagation, port 80, etc.), SSH in and run manually:
+Certbot is attempted **automatically** during `07-start-services.sh` when Terraform provisions the instance, using `certbot_email` from `terraform.tfvars` (required when `use_ssl = true` with a `domain_name` and no self-signed cert; `terraform plan` fails without it). The script first waits up to ~5 minutes for the domain to resolve to the instance's public IP (the static IP is attached after the instance boots), then tries certbot up to 3 times. If it still fails, the user-data log shows `⚠️  HTTPS NOT CONFIGURED` and the setup summary says it finished with warnings. Check `/var/log/user-data.log` and `/tmp/certbot.log`, then SSH in and run manually:
 
 ```bash
 # SSH user varies by image (bitnami, ubuntu, etc.); use whoami after login if unsure

@@ -97,27 +97,73 @@ EOF
   sleep 3
   
   # Attempt certbot (non-blocking - don't fail deployment if this fails)
-  # Extract email from domain or use a default
-  CERTBOT_EMAIL="${CERTBOT_EMAIL:-admin@${DOMAIN_NAME#*.}}"
-  echo "   Using email: $CERTBOT_EMAIL"
-  
-  if sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --email "$CERTBOT_EMAIL" --redirect 2>&1 | tee /tmp/certbot.log; then
-    echo "✅ SSL certificate obtained successfully!"
-    # Certbot automatically modified the nginx config and reloaded nginx
+  if [ -z "$CERTBOT_EMAIL" ]; then
+    echo "❌ CERTBOT_EMAIL is required when use_ssl=true (set certbot_email in terraform.tfvars)"
+    echo "   Skipping certificate acquisition."
+    SETUP_WARNINGS+=("HTTPS not configured for $DOMAIN_NAME (CERTBOT_EMAIL not set)")
   else
-    CERTBOT_EXIT_CODE=${PIPESTATUS[0]}
-    echo "⚠️  Automatic certificate acquisition failed (exit code: $CERTBOT_EXIT_CODE)"
-    echo "   Common reasons:"
-    echo "   - DNS not fully propagated (wait a few minutes and try again)"
-    echo "   - Port 80 not accessible from internet"
-    echo "   - Domain not pointing to this server"
-    echo ""
-    echo "   To retry manually:"
-    echo "   sudo certbot --nginx -d $DOMAIN_NAME"
-    
-    # If certbot failed, nginx might not be running with SSL config
-    # Try to start it anyway (will work if HTTP-only config is in place)
-    sudo systemctl start nginx || true
+    echo "   Using email: $CERTBOT_EMAIL"
+
+    # Terraform attaches the static IP and opens port 80 only after the instance exists,
+    # so on first boot the domain may not point at this machine yet. Wait for it (up to ~5 min).
+    # The IP attachment depends on the firewall ports in main.tf, so a matching IP also means port 80 is open.
+    echo "   Waiting for $DOMAIN_NAME to resolve to this instance's public IP..."
+    IP_WAIT_SECONDS=0
+    while true; do
+      RESOLVED_IP=$(getent ahostsv4 "$DOMAIN_NAME" | awk '{print $1; exit}')
+      PUBLIC_IP=$(curl -s --max-time 5 https://checkip.amazonaws.com || true)
+      if [ -n "$RESOLVED_IP" ] && [ "$RESOLVED_IP" = "$PUBLIC_IP" ]; then
+        echo "   $DOMAIN_NAME resolves to $PUBLIC_IP (this instance) after ${IP_WAIT_SECONDS}s"
+        break
+      fi
+      if [ "$IP_WAIT_SECONDS" -ge 300 ]; then
+        echo "⚠️  Timed out: $DOMAIN_NAME resolves to '${RESOLVED_IP}', this instance is '${PUBLIC_IP}'. Trying certbot anyway."
+        break
+      fi
+      sleep 10
+      IP_WAIT_SECONDS=$((IP_WAIT_SECONDS + 10))
+    done
+
+    # Retry with backoff. Capped at 3 attempts to stay under Let's Encrypt's
+    # failed-validation limit (5 per hour per hostname).
+    : > /tmp/certbot.log
+    CERTBOT_EXIT_CODE=1
+    for CERTBOT_ATTEMPT in 1 2 3; do
+      echo "   certbot attempt $CERTBOT_ATTEMPT/3..."
+      set +e
+      sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --email "$CERTBOT_EMAIL" --redirect 2>&1 | tee -a /tmp/certbot.log
+      CERTBOT_EXIT_CODE=${PIPESTATUS[0]}
+      set -e
+      [ "$CERTBOT_EXIT_CODE" -eq 0 ] && break
+      if [ "$CERTBOT_ATTEMPT" -lt 3 ]; then
+        CERTBOT_BACKOFF=$((CERTBOT_ATTEMPT * 30))
+        echo "   certbot failed (exit code: $CERTBOT_EXIT_CODE), retrying in ${CERTBOT_BACKOFF}s..."
+        sleep "$CERTBOT_BACKOFF"
+      fi
+    done
+
+    if [ "$CERTBOT_EXIT_CODE" -eq 0 ]; then
+      echo "✅ SSL certificate obtained successfully!"
+      # Certbot automatically modified the nginx config and reloaded nginx
+    else
+      echo ""
+      echo "⚠️  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "⚠️  HTTPS NOT CONFIGURED: certbot failed (exit code: $CERTBOT_EXIT_CODE)"
+      echo "⚠️  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "   Common reasons:"
+      echo "   - DNS not fully propagated (wait a few minutes and try again)"
+      echo "   - Port 80 not accessible from internet"
+      echo "   - Domain not pointing to this server"
+      echo "   Full output: /tmp/certbot.log"
+      echo ""
+      echo "   To retry manually:"
+      echo "   sudo certbot --nginx -d $DOMAIN_NAME --non-interactive --agree-tos --email $CERTBOT_EMAIL --redirect"
+      SETUP_WARNINGS+=("HTTPS not configured for $DOMAIN_NAME (certbot failed, see /tmp/certbot.log)")
+
+      # If certbot failed, nginx might not be running with SSL config
+      # Try to start it anyway (will work if HTTP-only config is in place)
+      sudo systemctl start nginx || true
+    fi
   fi
 else
   # Not using Let's Encrypt, just start nginx normally
@@ -137,13 +183,13 @@ fi
 # Show pm2 status
 run_pm2 "pm2 status"
 
-echo "✅ Services started successfully"
+echo "🚀 Services started"
 echo ""
 if [ -n "$DOMAIN_NAME" ] && [ "$USE_SSL" = "true" ] && [ "$USE_SELF_SIGNED_SSL" != "true" ]; then
   if ! sudo systemctl is-active --quiet nginx || ! sudo test -f "/etc/letsencrypt/live/$DOMAIN_NAME/fullchain.pem"; then
     echo "📋 SSL Certificate Setup:"
     echo "   If automatic certificate acquisition failed, run manually:"
-    echo "   sudo certbot --nginx -d $DOMAIN_NAME"
+    echo "   sudo certbot --nginx -d $DOMAIN_NAME --non-interactive --agree-tos --email ${CERTBOT_EMAIL:-<your-email>} --redirect"
   fi
 fi
 echo "📋 Useful commands:"
