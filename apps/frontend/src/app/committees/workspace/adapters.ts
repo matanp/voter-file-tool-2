@@ -14,6 +14,7 @@ import {
   type MembershipType,
   type RemovalReason,
   type ResignationMethod,
+  type VoterRecord,
 } from "@prisma/client";
 import { z } from "zod";
 import {
@@ -172,6 +173,44 @@ export async function searchCandidates(
     candidates: parsed.data,
     total: parsed.totalRecords ?? parsed.data.length,
   };
+}
+
+// --- Voter details ---------------------------------------------------------------
+
+const voterRecordResponseSchema = z.object({
+  data: z.array(z.object({ VRCNUM: z.string() }).passthrough()),
+});
+
+/**
+ * The member's full voter record, for the details view. Goes through record
+ * search, so it shows a member exactly what record search would. Resolves to
+ * null when the record is gone.
+ */
+export async function fetchVoterRecord(
+  voterRecordId: string,
+  signal?: AbortSignal,
+): Promise<VoterRecord | null> {
+  const response = await fetch("/api/fetchFilteredData", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      searchQuery: normalizeSearchQuery([
+        { field: searchableFieldEnum.enum.VRCNUM, values: [voterRecordId] },
+      ]),
+      page: 1,
+      pageSize: 1,
+    }),
+    signal,
+  });
+  const body = await readJson(response);
+  if (!response.ok) {
+    throw new Error(errorMessage(body, "Unable to load voter record."));
+  }
+  const record = voterRecordResponseSchema
+    .parse(body)
+    .data.find((r) => r.VRCNUM === voterRecordId);
+  // Dates arrive as strings; `VoterCard` only formats them.
+  return (record as VoterRecord | undefined) ?? null;
 }
 
 // --- Eligibility preflight -------------------------------------------------------

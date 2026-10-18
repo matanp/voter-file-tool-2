@@ -14,7 +14,7 @@ import type {
   RosterResponse,
 } from "~/lib/validations/committee";
 import { Button } from "~/components/ui/button";
-import { VoterCard } from "~/app/recordsearch/RecordsList";
+import { VoterCard } from "~/app/recordsearch/VoterCard";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";

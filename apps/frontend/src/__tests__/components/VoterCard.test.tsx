@@ -5,7 +5,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 
-import { VoterCard } from "~/app/recordsearch/RecordsList";
+import { VoterCard } from "~/app/recordsearch/VoterCard";
 import { createMockVoterRecord } from "../utils/testUtils";
 
 // next-auth/react (imported by RecordsList) is ESM-only and not transformed under jest.

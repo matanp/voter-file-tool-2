@@ -50,7 +50,7 @@ jest.mock("~/components/ui/ComboBox", () => ({
 
 jest.mock("~/app/committees/AddCommitteeForm", () => ({ AddCommitteeForm: () => null }));
 jest.mock("~/app/committees/CommitteeRequestForm", () => () => null);
-jest.mock("~/app/recordsearch/RecordsList", () => ({
+jest.mock("~/app/recordsearch/VoterCard", () => ({
   VoterCard: () => <div data-testid="voter-card" />,
 }));
 jest.mock("~/app/committees/CommitteeSummaryBlock", () => ({

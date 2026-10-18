@@ -280,17 +280,19 @@ describe("RosterTab contact info", () => {
 // --- Row actions -----------------------------------------------------------------
 
 describe("RosterTab row actions", () => {
-  it("offers an Admin add on a vacant seat, and resignation and removal on members (no replace)", async () => {
+  it("offers an Admin add on a vacant seat, and details, resignation and removal on members (no replace)", async () => {
     renderRoster({ role: PrivilegeLevel.Admin });
 
     expect(await menuItemsFor("Actions for seat 2")).toEqual(["Add member"]);
     await userEvent.keyboard("{Escape}");
     expect(await menuItemsFor("Actions for seat 1")).toEqual([
+      "View voter details",
       "Record resignation",
       "Remove member",
     ]);
     await userEvent.keyboard("{Escape}");
     expect(await menuItemsFor("Actions for Sam Loose")).toEqual([
+      "View voter details",
       "Record resignation",
       "Remove member",
     ]);
@@ -310,18 +312,23 @@ describe("RosterTab row actions", () => {
     await userEvent.click(
       screen.getByRole("menuitem", { name: "Remove member" }),
     );
+    await menuItemsFor("Actions for seat 1");
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "View voter details" }),
+    );
 
     expect(onAction.mock.calls).toEqual([
       [{ kind: "add-member", committee: REF, seatNumber: 3 }, trigger("Actions for seat 3")],
       [{ kind: "record-resignation", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
       [{ kind: "remove-member", committee: REF, memberId: "V9" }, trigger("Actions for Sam Loose")],
+      [{ kind: "view-voter-details", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
     ]);
     // Dispatch only: nothing opens.
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it.each([PrivilegeLevel.Leader, PrivilegeLevel.RequestAccess])(
-    "offers %s submit on a vacant seat and replace on members, never resignation or removal",
+    "offers %s submit on a vacant seat and details and replace on members, never resignation or removal",
     async (role) => {
       const onAction = jest.fn();
       renderRoster({ role, onAction });
@@ -333,6 +340,7 @@ describe("RosterTab row actions", () => {
         screen.getByRole("menuitem", { name: "Submit candidate" }),
       );
       expect(await menuItemsFor("Actions for seat 1")).toEqual([
+        "View voter details",
         "Replace member",
       ]);
       await userEvent.click(
@@ -349,6 +357,7 @@ describe("RosterTab row actions", () => {
   it("gives a Developer the Admin actions", async () => {
     renderRoster({ role: PrivilegeLevel.Developer });
     expect(await menuItemsFor("Actions for seat 1")).toEqual([
+      "View voter details",
       "Record resignation",
       "Remove member",
     ]);

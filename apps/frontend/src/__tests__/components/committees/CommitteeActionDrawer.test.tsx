@@ -714,3 +714,92 @@ describe("CommitteeActionDrawer: search guards", () => {
     expect(within(drawer()).queryByText("Search failed")).not.toBeInTheDocument();
   });
 });
+
+describe("CommitteeActionDrawer: voter details", () => {
+  const VIEW: CommitteeAction = {
+    kind: "view-voter-details",
+    committee: REF,
+    memberId: "V-SEATED",
+  };
+  const SAM_RECORD = {
+    ...SAM,
+    party: "DEM",
+    gender: "M",
+    email: "sam@voterfile.example",
+    telephone: "555-0000",
+  };
+  const withContact = (): CommitteeDetailResponse => {
+    const d = detail();
+    return {
+      ...d,
+      rows: [
+        { ...SEATED, contact: { email: "sam@submitted.example", phone: "555-9999" } },
+        VACANT,
+      ],
+    };
+  };
+
+  it("loads the member's voter record by VRCNUM and shows it read-only", async () => {
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [SAM_RECORD], totalRecords: 1 } }],
+    });
+    const { onClose, onComplete } = renderDrawer({
+      role: PrivilegeLevel.Leader,
+      action: VIEW,
+    });
+
+    expect(
+      within(drawer()).getByRole("heading", { level: 2, name: "Voter details" }),
+    ).toBeInTheDocument();
+    expect(
+      await within(drawer()).findByRole("heading", { name: "Sam Seated" }),
+    ).toBeInTheDocument();
+    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0])).toMatchObject({
+      searchQuery: [{ field: "VRCNUM", values: ["V-SEATED"] }],
+      page: 1,
+      pageSize: 1,
+    });
+
+    // The footer's Close (the sheet's corner X shares the name).
+    const [footerClose] = within(drawer()).getAllByRole("button", { name: "Close" });
+    await userEvent.click(footerClose!);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("prefers the roster's submission contact for an Admin", async () => {
+    serve({ "/api/fetchFilteredData": [{ body: { data: [SAM_RECORD] } }] });
+    renderDrawer({ action: VIEW, committeeDetail: withContact() });
+    expect(await within(drawer()).findByText("sam@submitted.example")).toBeInTheDocument();
+    expect(within(drawer()).queryByText("sam@voterfile.example")).not.toBeInTheDocument();
+  });
+
+  it("ignores the roster contact for a Developer acting below Admin", async () => {
+    serve({ "/api/fetchFilteredData": [{ body: { data: [SAM_RECORD] } }] });
+    renderDrawer({
+      role: PrivilegeLevel.Leader,
+      action: VIEW,
+      committeeDetail: withContact(),
+    });
+    await within(drawer()).findByRole("heading", { name: "Sam Seated" });
+    expect(within(drawer()).queryByText("sam@submitted.example")).not.toBeInTheDocument();
+  });
+
+  it("says when the record is missing", async () => {
+    serve({ "/api/fetchFilteredData": [{ body: { data: [] } }] });
+    renderDrawer({ action: VIEW });
+    expect(
+      await within(drawer()).findByText("No voter record found for V-SEATED."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the server's error", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { error: "Internal Server Error" }, status: 500 }],
+    });
+    renderDrawer({ action: VIEW });
+    expect(await within(drawer()).findByRole("alert")).toHaveTextContent(
+      "Internal Server Error",
+    );
+  });
+});

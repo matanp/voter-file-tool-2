@@ -32,6 +32,7 @@ import type { CommitteeAction } from "../committeeAction";
 import { AddMemberFlow } from "./AddMemberFlow";
 import { DrawerFooter, committeeLabel, occupantLabel } from "./drawerParts";
 import { RecordResignationForm, RemoveMemberForm } from "./MemberExitForms";
+import { VoterDetailsView } from "./VoterDetailsView";
 
 export type CommitteeActionDrawerProps = {
   /** The open action, or null when closed. */
@@ -63,6 +64,8 @@ function drawerTitle(
       return "Remove member";
     case "record-resignation":
       return "Record resignation";
+    case "view-voter-details":
+      return "Voter details";
   }
 }
 
@@ -153,6 +156,23 @@ export function CommitteeActionDrawer({
             onSuccess={handleSuccess}
           />
         ) : null;
+        break;
+      // Contact is the roster's Admin-only column; hide it from a Developer
+      // acting below Admin even though the detail carries it.
+      case "view-voter-details":
+        flow = (
+          <VoterDetailsView
+            key={generation}
+            memberId={current.memberId}
+            contact={
+              isAdmin
+                ? detail.rows.find((r) => r.occupant?.VRCNUM === current.memberId)
+                    ?.contact
+                : undefined
+            }
+            onClose={onClose}
+          />
+        );
         break;
     }
     flow ??= (
