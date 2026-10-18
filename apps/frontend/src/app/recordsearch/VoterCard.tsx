@@ -80,6 +80,9 @@ export const VoterCard = ({
           <p>
             <span>County Leg District:</span> {record.countyLegDistrict}
           </p>
+          <p>
+            <span>Election District:</span> {record.electionDistrict ?? "-"}
+          </p>
         </div>
       </div>
     </div>

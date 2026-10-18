@@ -23,4 +23,22 @@ describe("VoterCard", () => {
     expect(screen.queryByText("Appointed")).not.toBeInTheDocument();
     expect(screen.queryByText("Petitioned")).not.toBeInTheDocument();
   });
+
+  it("shows the election district", () => {
+    render(
+      <VoterCard record={createMockVoterRecord({ electionDistrict: 7 })} />,
+    );
+    expect(
+      screen.getByText("Election District:").parentElement,
+    ).toHaveTextContent("Election District: 7");
+  });
+
+  it("shows a dash when the election district is missing", () => {
+    render(
+      <VoterCard record={createMockVoterRecord({ electionDistrict: null })} />,
+    );
+    expect(
+      screen.getByText("Election District:").parentElement,
+    ).toHaveTextContent("Election District: -");
+  });
 });
