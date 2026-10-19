@@ -752,7 +752,7 @@ describe("CommitteeActionDrawer: voter details", () => {
       within(drawer()).getByRole("heading", { level: 2, name: "Voter details" }),
     ).toBeInTheDocument();
     expect(
-      await within(drawer()).findByRole("heading", { name: "Sam Seated" }),
+      await within(drawer()).findByRole("heading", { level: 3, name: "Sam Seated" }),
     ).toBeInTheDocument();
     expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0])).toMatchObject({
       searchQuery: [{ field: "VRCNUM", values: ["V-SEATED"] }],

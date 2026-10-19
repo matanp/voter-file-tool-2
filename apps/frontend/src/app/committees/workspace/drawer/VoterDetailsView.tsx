@@ -69,6 +69,7 @@ export function VoterDetailsView({
             record={loaded.record}
             committee
             submissionMetadata={contact}
+            headingLevel="h3"
           />
         )}
         {loaded.status === "missing" && (

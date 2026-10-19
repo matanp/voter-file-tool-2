@@ -9,9 +9,6 @@ import { render, screen } from "@testing-library/react";
 import { VoterCard } from "~/app/recordsearch/VoterCard";
 import { createMockVoterRecord } from "../utils/testUtils";
 
-// next-auth/react (imported by RecordsList) is ESM-only and not transformed under jest.
-jest.mock("next-auth/react", () => ({ useSession: jest.fn() }));
-
 describe("VoterCard", () => {
   it("shows the membership type badge for a committee member", () => {
     render(

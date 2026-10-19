@@ -15,12 +15,15 @@ export const VoterCard = ({
   committee,
   membershipType,
   submissionMetadata,
+  headingLevel: Heading = "h2",
 }: {
   record: VoterRecord;
   committee?: boolean;
   membershipType?: MembershipType | null;
   /** SRS 2.1a — when present, display email/phone from submission over voter record. */
   submissionMetadata?: SubmissionContactOverrides | null;
+  /** The name's heading; "h3" under a titled container such as a drawer. */
+  headingLevel?: "h2" | "h3";
 }) => {
   // SRS 2.1a: Prefer submission contact over voter record (BOE imports overwrite VoterRecord; submission preserves leader-provided contact).
   const displayEmail = submissionMetadata?.email ?? record.email;
@@ -29,9 +32,9 @@ export const VoterCard = ({
   return (
     <div className="max-w-lg mx-auto bg-white rounded-lg p-4">
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-xl font-medium text-gray-800">
+        <Heading className="text-xl font-medium text-gray-800">
           {`${record.firstName} ${record.lastName}`}
-        </h2>
+        </Heading>
         {committee && membershipType != null && (
           <Badge variant="secondary" hoverable={false}>
             {membershipType === "APPOINTED" ? "Appointed" : "Petitioned"}
