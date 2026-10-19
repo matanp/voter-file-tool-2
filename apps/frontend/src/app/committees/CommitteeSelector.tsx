@@ -48,6 +48,7 @@ import {
   RemoveMemberForm,
 } from "./workspace/drawer/MemberExitForms";
 import { personName } from "./workspace/drawer/drawerParts";
+import { SHOW_MEMBERSHIP_TYPE } from "./workspace/tabs/roster/seatPetitionDisplay";
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeSelectorList[];
@@ -943,7 +944,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                           <VoterCard
                             record={voterRecord}
                             committee={true}
-                            membershipType={membershipType}
+                            membershipType={SHOW_MEMBERSHIP_TYPE ? membershipType : null}
                             submissionMetadata={submissionMetadata}
                           />
                         </CardContent>

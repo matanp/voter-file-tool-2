@@ -30,6 +30,11 @@ export function personName(person: {
     .join(" ");
 }
 
+/** The roster row for a current member, if they're on it. */
+export function occupantRow(detail: CommitteeDetailResponse, memberId: string) {
+  return detail.rows.find((r) => r.occupant?.VRCNUM === memberId);
+}
+
 /**
  * A current member as the drawer names them: "Jane Doe (V1), seat 1", or
  * "…, unassigned". Falls back to the VRCNUM when the roster lacks them.
@@ -38,7 +43,7 @@ export function occupantLabel(
   detail: CommitteeDetailResponse,
   memberId: string,
 ): { name: string; label: string } {
-  const row = detail.rows.find((r) => r.occupant?.VRCNUM === memberId);
+  const row = occupantRow(detail, memberId);
   if (!row?.occupant) return { name: memberId, label: memberId };
   const name = personName(row.occupant);
   const who = `${name} (${memberId})`;

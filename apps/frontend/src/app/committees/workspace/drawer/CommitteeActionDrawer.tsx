@@ -30,7 +30,7 @@ import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import { candidateSubmissionMode, type CandidateSubmissionMode } from "../adapters";
 import type { CommitteeAction } from "../committeeAction";
 import { AddMemberFlow } from "./AddMemberFlow";
-import { DrawerFooter, committeeLabel, occupantLabel } from "./drawerParts";
+import { DrawerFooter, committeeLabel, occupantLabel, occupantRow } from "./drawerParts";
 import { RecordResignationForm, RemoveMemberForm } from "./MemberExitForms";
 import { VoterDetailsView } from "./VoterDetailsView";
 
@@ -164,12 +164,7 @@ export function CommitteeActionDrawer({
           <VoterDetailsView
             key={generation}
             memberId={current.memberId}
-            contact={
-              isAdmin
-                ? detail.rows.find((r) => r.occupant?.VRCNUM === current.memberId)
-                    ?.contact
-                : undefined
-            }
+            contact={isAdmin ? occupantRow(detail, current.memberId)?.contact : undefined}
             onClose={onClose}
           />
         );

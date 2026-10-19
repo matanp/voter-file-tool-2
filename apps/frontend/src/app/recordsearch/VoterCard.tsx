@@ -1,14 +1,13 @@
 import React from "react";
 import type { MembershipType, VoterRecord } from "@prisma/client";
 
-import { SHOW_MEMBERSHIP_TYPE } from "~/app/committees/workspace/tabs/roster/seatPetitionDisplay";
 import { Badge } from "~/components/ui/badge";
 import { getAddress } from "~/lib/voterRecordFormatters";
 
 /** SRS 2.1a — optional submission contact overrides (prefer over voter record when displaying committee member). */
 export type SubmissionContactOverrides = {
-  email?: string;
-  phone?: string;
+  email?: string | null;
+  phone?: string | null;
 };
 
 export const VoterCard = ({
@@ -33,7 +32,7 @@ export const VoterCard = ({
         <h2 className="text-xl font-medium text-gray-800">
           {`${record.firstName} ${record.lastName}`}
         </h2>
-        {SHOW_MEMBERSHIP_TYPE && committee && membershipType != null && (
+        {committee && membershipType != null && (
           <Badge variant="secondary" hoverable={false}>
             {membershipType === "APPOINTED" ? "Appointed" : "Petitioned"}
           </Badge>

@@ -8,10 +8,8 @@ import type { VoterRecord } from "@prisma/client";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import {
-  VoterCard,
-  type SubmissionContactOverrides,
-} from "~/app/recordsearch/VoterCard";
+import { VoterCard } from "~/app/recordsearch/VoterCard";
+import type { RosterContact } from "~/lib/validations/committee";
 import { fetchVoterRecord } from "../adapters";
 import { DrawerFooter } from "./drawerParts";
 
@@ -21,7 +19,7 @@ export type VoterDetailsViewProps = {
    * The roster row's contact (Admin only), which prefers the submission's
    * contact over the voter file's (SRS 2.1a).
    */
-  contact?: { email: string | null; phone: string | null };
+  contact?: RosterContact;
   onClose: () => void;
 };
 
@@ -53,10 +51,6 @@ export function VoterDetailsView({ memberId, contact, onClose }: VoterDetailsVie
     return () => controller.abort();
   }, [memberId]);
 
-  const overrides: SubmissionContactOverrides | null = contact
-    ? { email: contact.email ?? undefined, phone: contact.phone ?? undefined }
-    : null;
-
   return (
     <>
       <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -66,7 +60,7 @@ export function VoterDetailsView({ memberId, contact, onClose }: VoterDetailsVie
           </p>
         )}
         {loaded.status === "ready" && (
-          <VoterCard record={loaded.record} submissionMetadata={overrides} />
+          <VoterCard record={loaded.record} submissionMetadata={contact} />
         )}
         {loaded.status === "missing" && (
           <p className="text-sm text-muted-foreground">

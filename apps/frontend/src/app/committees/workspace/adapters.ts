@@ -154,20 +154,12 @@ export async function searchCandidates(
   query: SearchQueryField[],
   signal?: AbortSignal,
 ): Promise<CandidateSearchResult> {
-  const response = await fetch("/api/fetchFilteredData", {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      searchQuery: normalizeSearchQuery(query),
-      page: 1,
-      pageSize: CANDIDATE_PAGE_SIZE,
-    }),
+  const body = await postRecordSearch(
+    query,
+    CANDIDATE_PAGE_SIZE,
+    "Unable to search voter records.",
     signal,
-  });
-  const body = await readJson(response);
-  if (!response.ok) {
-    throw new Error(errorMessage(body, "Unable to search voter records."));
-  }
+  );
   const parsed = candidateSearchResponseSchema.parse(body);
   return {
     candidates: parsed.data,
@@ -190,22 +182,12 @@ export async function fetchVoterRecord(
   voterRecordId: string,
   signal?: AbortSignal,
 ): Promise<VoterRecord | null> {
-  const response = await fetch("/api/fetchFilteredData", {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      searchQuery: normalizeSearchQuery([
-        { field: searchableFieldEnum.enum.VRCNUM, values: [voterRecordId] },
-      ]),
-      page: 1,
-      pageSize: 1,
-    }),
+  const body = await postRecordSearch(
+    [{ field: searchableFieldEnum.enum.VRCNUM, values: [voterRecordId] }],
+    1,
+    "Unable to load voter record.",
     signal,
-  });
-  const body = await readJson(response);
-  if (!response.ok) {
-    throw new Error(errorMessage(body, "Unable to load voter record."));
-  }
+  );
   const record = voterRecordResponseSchema
     .parse(body)
     .data.find((r) => r.VRCNUM === voterRecordId);
@@ -432,6 +414,24 @@ function errorMessage(body: unknown, fallback: string): string {
     if (typeof message === "string" && message) return message;
   }
   return fallback;
+}
+
+/** POSTs a record search; throws the API's error (or `fallback`) on failure. */
+async function postRecordSearch(
+  query: SearchQueryField[],
+  pageSize: number,
+  fallback: string,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const response = await fetch("/api/fetchFilteredData", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ searchQuery: normalizeSearchQuery(query), page: 1, pageSize }),
+    signal,
+  });
+  const body = await readJson(response);
+  if (!response.ok) throw new Error(errorMessage(body, fallback));
+  return body;
 }
 
 /**

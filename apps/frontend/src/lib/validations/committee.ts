@@ -706,6 +706,8 @@ export const rosterContactSchema = z.object({
   phone: z.string().nullable(),
 });
 
+export type RosterContact = z.infer<typeof rosterContactSchema>;
+
 /** One row per seat (occupied or vacant) plus extra rows for unassigned members. */
 export const seatRosterRowSchema = z.object({
   committeeListId: z.number().int(),
