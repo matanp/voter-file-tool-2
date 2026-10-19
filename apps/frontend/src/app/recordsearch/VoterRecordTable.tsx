@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { VoterCard } from "./RecordsList";
+import { VoterCard } from "./VoterCard";
 import { EllipsisVertical } from "~/components/icons/ellipsisVertical";
 import { fields, type FieldName } from "./fieldsConfig";
 import { scrollToElement } from "~/lib/scrollUtils";

@@ -4,6 +4,7 @@ import {
   createMockSession,
   createMockRequest,
   createAuthTestSuite,
+  expectErrorResponse,
   expectSuccessResponse,
   type AuthTestConfig,
 } from "../utils/testUtils";
@@ -1164,6 +1165,19 @@ describe("/api/fetchFilteredData", () => {
         it(testCase.description, async () => {
           await runValidationTest(testCase, POST, setupAuthMocks, prismaMock);
         });
+      });
+
+      it("should return 400 for a malformed or truncated JSON body", async () => {
+        setupAuthMocks();
+        const request = createMockRequest({});
+        jest
+          .spyOn(request, "json")
+          .mockRejectedValue(new SyntaxError("Unexpected end of JSON input"));
+
+        const response = await POST(request);
+
+        await expectErrorResponse(response, 400, "Invalid JSON body");
+        expect(prismaMock.voterRecord.findMany).not.toHaveBeenCalled();
       });
     });
 

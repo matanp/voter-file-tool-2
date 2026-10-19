@@ -14,6 +14,7 @@ import {
   type MembershipType,
   type RemovalReason,
   type ResignationMethod,
+  type VoterRecord,
 } from "@prisma/client";
 import { z } from "zod";
 import {
@@ -153,25 +154,45 @@ export async function searchCandidates(
   query: SearchQueryField[],
   signal?: AbortSignal,
 ): Promise<CandidateSearchResult> {
-  const response = await fetch("/api/fetchFilteredData", {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      searchQuery: normalizeSearchQuery(query),
-      page: 1,
-      pageSize: CANDIDATE_PAGE_SIZE,
-    }),
+  const body = await postRecordSearch(
+    query,
+    CANDIDATE_PAGE_SIZE,
+    "Unable to search voter records.",
     signal,
-  });
-  const body = await readJson(response);
-  if (!response.ok) {
-    throw new Error(errorMessage(body, "Unable to search voter records."));
-  }
+  );
   const parsed = candidateSearchResponseSchema.parse(body);
   return {
     candidates: parsed.data,
     total: parsed.totalRecords ?? parsed.data.length,
   };
+}
+
+// --- Voter details ---------------------------------------------------------------
+
+const voterRecordResponseSchema = z.object({
+  data: z.array(z.object({ VRCNUM: z.string() }).passthrough()),
+});
+
+/**
+ * The member's full voter record, for the details view. Goes through record
+ * search, so it shows a member exactly what record search would. Resolves to
+ * null when the record is gone.
+ */
+export async function fetchVoterRecord(
+  voterRecordId: string,
+  signal?: AbortSignal,
+): Promise<VoterRecord | null> {
+  const body = await postRecordSearch(
+    [{ field: searchableFieldEnum.enum.VRCNUM, values: [voterRecordId] }],
+    1,
+    "Unable to load voter record.",
+    signal,
+  );
+  const record = voterRecordResponseSchema
+    .parse(body)
+    .data.find((r) => r.VRCNUM === voterRecordId);
+  // Dates arrive as strings; `VoterCard` only formats them.
+  return (record as VoterRecord | undefined) ?? null;
 }
 
 // --- Eligibility preflight -------------------------------------------------------
@@ -393,6 +414,24 @@ function errorMessage(body: unknown, fallback: string): string {
     if (typeof message === "string" && message) return message;
   }
   return fallback;
+}
+
+/** POSTs a record search; throws the API's error (or `fallback`) on failure. */
+async function postRecordSearch(
+  query: SearchQueryField[],
+  pageSize: number,
+  fallback: string,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const response = await fetch("/api/fetchFilteredData", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ searchQuery: normalizeSearchQuery(query), page: 1, pageSize }),
+    signal,
+  });
+  const body = await readJson(response);
+  if (!response.ok) throw new Error(errorMessage(body, fallback));
+  return body;
 }
 
 /**

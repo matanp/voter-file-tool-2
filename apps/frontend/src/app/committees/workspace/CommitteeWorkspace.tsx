@@ -235,9 +235,10 @@ export function CommitteeWorkspace({
   }, [openAction, actionMatchesSelection]);
 
   // After a completed action, focus is back on the row's trigger, but the
-  // refreshed detail can remove that row (removing an unassigned member).
-  // Once the refresh settles, a focus that fell to <body> goes to the
-  // committee heading instead.
+  // refreshed detail can replace it (a seat filled or vacated swaps its menu
+  // for an add button or back) or remove the row (removing an unassigned
+  // member). Once the refresh settles, a focus that fell to <body> goes to the
+  // same row's new control, else to the committee heading.
   const focusAfterRefresh = useRef<HTMLElement | null>(null);
   const completeAction = useCallback(() => {
     focusAfterRefresh.current = openAction?.returnFocusTo ?? null;
@@ -252,7 +253,13 @@ export function CommitteeWorkspace({
     focusAfterRefresh.current = null;
     const active = document.activeElement;
     if (!trigger.isConnected && (active === null || active === document.body)) {
-      focusDetailHeading()?.focus();
+      const rowKey = trigger.dataset.rowAction;
+      const sameRow = rowKey
+        ? document.querySelector<HTMLElement>(
+            `#${DETAIL_PANE_ID} [data-row-action="${CSS.escape(rowKey)}"]`,
+          )
+        : null;
+      (sameRow ?? focusDetailHeading())?.focus();
     }
   }, [detailSettled, loadedDetail]);
 

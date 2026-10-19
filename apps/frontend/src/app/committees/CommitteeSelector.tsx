@@ -14,7 +14,7 @@ import type {
   RosterResponse,
 } from "~/lib/validations/committee";
 import { Button } from "~/components/ui/button";
-import { VoterCard } from "~/app/recordsearch/RecordsList";
+import { VoterCard } from "~/app/recordsearch/VoterCard";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
@@ -48,6 +48,7 @@ import {
   RemoveMemberForm,
 } from "./workspace/drawer/MemberExitForms";
 import { personName } from "./workspace/drawer/drawerParts";
+import { SHOW_MEMBERSHIP_TYPE } from "./workspace/tabs/roster/seatPetitionDisplay";
 
 interface CommitteeSelectorProps {
   committeeLists: CommitteeSelectorList[];
@@ -943,7 +944,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                           <VoterCard
                             record={voterRecord}
                             committee={true}
-                            membershipType={membershipType}
+                            membershipType={SHOW_MEMBERSHIP_TYPE ? membershipType : null}
                             submissionMetadata={submissionMetadata}
                           />
                         </CardContent>

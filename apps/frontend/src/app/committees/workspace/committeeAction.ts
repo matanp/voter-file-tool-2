@@ -21,12 +21,14 @@ export type CommitteeRef = {
  *   target, submitted through `requestAdd`. Not offered to Admin until an
  *   atomic replace command exists (plan §8 "Replacement in v1").
  * - `remove-member`, `record-resignation`: Admin only (ticket 14).
+ * - `view-voter-details`: read-only; shows the occupant's voter record.
  */
 export type CommitteeAction =
   | { kind: "add-member"; committee: CommitteeRef; seatNumber?: number }
   | { kind: "replace-member"; committee: CommitteeRef; memberId: string }
   | { kind: "remove-member"; committee: CommitteeRef; memberId: string }
-  | { kind: "record-resignation"; committee: CommitteeRef; memberId: string };
+  | { kind: "record-resignation"; committee: CommitteeRef; memberId: string }
+  | { kind: "view-voter-details"; committee: CommitteeRef; memberId: string };
 
 export type CommitteeActionKind = CommitteeAction["kind"];
 

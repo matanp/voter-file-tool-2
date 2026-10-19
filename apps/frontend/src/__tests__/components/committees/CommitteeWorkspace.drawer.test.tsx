@@ -320,6 +320,14 @@ async function waitForGrid() {
   await waitFor(() => expect(screen.queryByText("Loading committees…")).not.toBeInTheDocument());
 }
 
+/** Opens a vacant seat's drawer from its Add member button. */
+async function openVacantSeatAdd(seat: number) {
+  await userEvent.click(
+    within(detailPane()).getByRole("button", { name: `Add member for seat ${seat}` }),
+  );
+  await screen.findByRole("dialog");
+}
+
 async function openRowAction(trigger: string, item: string) {
   await userEvent.click(within(detailPane()).getByRole("button", { name: trigger }));
   await userEvent.click(await screen.findByRole("menuitem", { name: item }));
@@ -362,11 +370,11 @@ describe("Action drawer in the workspace", () => {
     const fetchMock = serve(newServer());
     renderWorkspace("committee=2&tab=roster&town=GREECE");
     await waitForGrid();
-    await within(detailPane()).findByRole("button", { name: "Actions for seat 2" });
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
     expect(queryRow(2)).toHaveTextContent("1/4");
     const query = urlNow();
 
-    await openRowAction("Actions for seat 2", "Add member");
+    await openVacantSeatAdd(2);
     expect(within(drawer()).getByRole("heading", { level: 2, name: "Add member" })).toBeInTheDocument();
     await addJane();
 
@@ -399,9 +407,9 @@ describe("Action drawer in the workspace", () => {
     serve(newServer());
     renderWorkspace("committee=2&tab=roster");
     await waitForGrid();
-    const trigger = await within(detailPane()).findByRole("button", { name: "Actions for seat 3" });
+    const trigger = await within(detailPane()).findByRole("button", { name: "Add member for seat 3" });
 
-    await openRowAction("Actions for seat 3", "Add member");
+    await openVacantSeatAdd(3);
     await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
     await within(drawer()).findByRole("button", { name: "Select Jane Doe" });
     await userEvent.keyboard("{Escape}");
@@ -409,7 +417,7 @@ describe("Action drawer in the workspace", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());
 
-    await openRowAction("Actions for seat 3", "Add member");
+    await openVacantSeatAdd(3);
     expect(within(drawer()).queryByRole("list", { name: "Candidates" })).not.toBeInTheDocument();
     expect(within(drawer()).getByRole("heading", { level: 3, name: /Find candidate/ })).toBeInTheDocument();
   });
@@ -438,7 +446,7 @@ describe("Action drawer in the workspace", () => {
     expect(selectedRowIds()).toEqual([2]);
     expect(urlNow()).toBe(query);
     await waitFor(() =>
-      expect(within(detailPane()).getByRole("button", { name: "Actions for seat 1" })).toHaveFocus(),
+      expect(within(detailPane()).getByRole("button", { name: "Add member for seat 1" })).toHaveFocus(),
     );
   });
 
@@ -446,13 +454,14 @@ describe("Action drawer in the workspace", () => {
     serve(newServer());
     renderWorkspace("committee=2&tab=roster");
     await waitForGrid();
-    await within(detailPane()).findByRole("button", { name: "Actions for seat 2" });
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
 
-    await openRowAction("Actions for seat 2", "Add member");
+    await openVacantSeatAdd(2);
     await addJane();
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    // Seat 2 is now occupied; its trigger keeps the seat's accessible name.
+    // Seat 2 is now occupied, so its Add member button became the row's menu;
+    // focus follows to the new control.
     await waitFor(() =>
       expect(within(detailPane()).getByRole("button", { name: "Actions for seat 2" })).toHaveFocus(),
     );
@@ -497,7 +506,7 @@ describe("Action drawer in the workspace", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     // Another action, part-filled.
-    await openRowAction("Actions for seat 3", "Add member");
+    await openVacantSeatAdd(3);
     await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
 
     // The removal lands; its refresh fails.

@@ -13,9 +13,16 @@ import { PrivilegeLevel } from "@prisma/client";
 import type { Session } from "next-auth";
 
 async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
+  // A malformed or truncated body (e.g. a request the client aborted) is the
+  // caller's error, not a server failure.
+  let requestBody: unknown;
   try {
-    const requestBody: unknown = await req.json();
+    requestBody = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
+  try {
     const validation = validateRequest(requestBody, fetchFilteredDataSchema);
     if (!validation.success) {
       return validation.response;

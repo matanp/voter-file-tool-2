@@ -21,7 +21,7 @@ export type RosterRowActionItem = {
  * Mirrors today's `/committees` and plan §8:
  * - Vacant seat: Admin **Add member**; Leader/RequestAccess **Submit
  *   candidate** (both are `add-member`, the drawer picks add vs requestAdd).
- * - Occupied (seated or unassigned):
+ * - Occupied (seated or unassigned): **View voter details** first, then
  *   - Admin: **Record resignation** and **Remove member** (Admin-only
  *     endpoint). Replace is not offered to Admin until an atomic replace
  *     command exists (plan §8 "Replacement in v1").
@@ -52,8 +52,13 @@ export function rosterRowActions(
   }
 
   const memberId = row.occupant.VRCNUM;
+  const viewDetails: RosterRowActionItem = {
+    label: "View voter details",
+    action: { kind: "view-voter-details", committee, memberId },
+  };
   if (isAdmin) {
     return [
+      viewDetails,
       {
         label: "Record resignation",
         action: { kind: "record-resignation", committee, memberId },
@@ -65,6 +70,7 @@ export function rosterRowActions(
     ];
   }
   return [
+    viewDetails,
     {
       label: "Replace member",
       action: { kind: "replace-member", committee, memberId },

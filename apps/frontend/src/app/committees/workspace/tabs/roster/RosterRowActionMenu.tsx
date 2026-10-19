@@ -15,6 +15,11 @@ import type { RosterRowActionItem } from "./rowActions";
 export type RosterRowActionMenuProps = {
   /** Accessible name for the trigger, e.g. "Actions for seat 2". */
   label: string;
+  /**
+   * Identifies the row (e.g. "seat-2"), so focus can find the row's control
+   * again when a refresh swaps the menu for a vacant seat's button or back.
+   */
+  rowKey: string;
   items: RosterRowActionItem[];
   onAction: CommitteeActionHandler;
 };
@@ -27,6 +32,7 @@ export type RosterRowActionMenuProps = {
  */
 export function RosterRowActionMenu({
   label,
+  rowKey,
   items,
   onAction,
 }: RosterRowActionMenuProps) {
@@ -34,7 +40,13 @@ export function RosterRowActionMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button ref={trigger} variant="ghost" size="icon" aria-label={label}>
+        <Button
+          ref={trigger}
+          variant="ghost"
+          size="icon"
+          aria-label={label}
+          data-row-action={rowKey}
+        >
           <MoreHorizontal className="h-4 w-4" aria-hidden />
         </Button>
       </DropdownMenuTrigger>

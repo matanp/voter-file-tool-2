@@ -218,6 +218,13 @@ export interface CommitteeSeatTableProps {
    * row. The Actions column appears only if some row renders one.
    */
   renderRowActions?: (row: SeatRosterRow) => React.ReactNode;
+  /**
+   * Renders a vacant row's action, or null for none: in the row's empty
+   * Contact cell, or beside the vacancy text when there is no Contact column.
+   * Kept out of the pinned Actions column so a labelled button does not widen
+   * it on narrow screens.
+   */
+  renderVacancyAction?: (row: SeatRosterRow) => React.ReactNode;
 }
 
 /**
@@ -239,6 +246,7 @@ export function CommitteeSeatTable({
   isAdmin,
   label,
   renderRowActions,
+  renderVacancyAction,
 }: CommitteeSeatTableProps) {
   const showContact = isAdmin && rows.some((row) => row.contact !== undefined);
   const { seated, unassigned } = splitCommitteeRows(rows);
@@ -258,6 +266,7 @@ export function CommitteeSeatTable({
       showElectionDistrict={false}
       showContact={showContact}
       actions={showActions ? (actions.get(row) ?? null) : undefined}
+      vacancyAction={renderVacancyAction?.(row) ?? null}
     />
   );
 
@@ -308,6 +317,8 @@ interface SeatRowProps {
   showContact: boolean;
   /** undefined: no Actions column; null: column present, nothing for this row. */
   actions?: React.ReactNode;
+  /** A vacant row's action: in the Contact cell, else beside the vacancy text. */
+  vacancyAction?: React.ReactNode;
 }
 
 function SeatRow({
@@ -315,6 +326,7 @@ function SeatRow({
   showElectionDistrict,
   showContact,
   actions,
+  vacancyAction,
 }: SeatRowProps) {
   const name = row.occupant
     ? `${row.occupant.firstName} ${row.occupant.lastName}`.trim()
@@ -322,6 +334,12 @@ function SeatRow({
   // Every petitioned/appointed display goes through this one helper
   // (leader-petition-visibility group C is unresolved).
   const petition = seatPetitionDisplay(row);
+  const vacancyLabel =
+    petition.vacancyLabel !== null ? (
+      <span className="text-muted-foreground">{petition.vacancyLabel}</span>
+    ) : null;
+  // A vacant row's empty Contact cell holds its action, when that column shows.
+  const actionBesideVacancy = !showContact || row.contact !== undefined;
 
   return (
     <TableRow
@@ -336,8 +354,16 @@ function SeatRow({
       ) : null}
       <TableCell>{row.seatNumber ?? "—"}</TableCell>
       <TableCell>
-        {petition.vacancyLabel !== null ? (
-          <span className="text-muted-foreground">{petition.vacancyLabel}</span>
+        {vacancyLabel !== null ? (
+          vacancyAction && actionBesideVacancy ? (
+            // Wraps the button under the text when the cell is narrow.
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {vacancyLabel}
+              {vacancyAction}
+            </div>
+          ) : (
+            vacancyLabel
+          )
         ) : (
           name
         )}
@@ -353,7 +379,7 @@ function SeatRow({
               <span>{row.contact.phone ?? "—"}</span>
             </div>
           ) : (
-            "—"
+            (vacancyAction ?? "—")
           )}
         </TableCell>
       ) : null}
