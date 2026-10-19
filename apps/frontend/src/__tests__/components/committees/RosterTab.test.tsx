@@ -194,8 +194,8 @@ describe("RosterTab seat table", () => {
     );
     expect(cells).toEqual([
       ["1", "Jane Doe"],
-      ["2", "— vacant —"],
-      ["3", "— petitioned vacant —"],
+      ["2", "— vacant —Submit candidate"],
+      ["3", "— petitioned vacant —Submit candidate"],
       ["Unassigned"],
       ["—", "Sam Loose"],
     ]);
@@ -284,6 +284,16 @@ describe("RosterTab row actions", () => {
     renderRoster({ role: PrivilegeLevel.Admin });
 
     expect(trigger("Add member for seat 2")).toHaveTextContent("Add member");
+    // In the vacant row's empty Contact cell, not in the pinned Actions
+    // column, which stays icon-wide on narrow screens.
+    const cells = within(rowWith("— vacant —")).getAllByRole("cell");
+    expect(cells.map((c) => c.textContent)).toEqual([
+      "2",
+      "— vacant —",
+      "Add member",
+      "",
+    ]);
+    expect(cells[2]).toContainElement(trigger("Add member for seat 2"));
     expect(
       screen.queryByRole("button", { name: "Actions for seat 2" }),
     ).not.toBeInTheDocument();
