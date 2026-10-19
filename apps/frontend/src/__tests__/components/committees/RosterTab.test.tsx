@@ -142,7 +142,7 @@ function renderRoster({
   );
 }
 
-/** The row's menu trigger, dispatched as where to return focus. */
+/** The row's menu trigger or single-action button, dispatched as where to return focus. */
 const trigger = (name: string) => screen.getByRole("button", { name });
 const table = () =>
   screen.getByRole("table", { name: "Seats for GREECE LD 1 ED 5" });
@@ -280,11 +280,13 @@ describe("RosterTab contact info", () => {
 // --- Row actions -----------------------------------------------------------------
 
 describe("RosterTab row actions", () => {
-  it("offers an Admin add on a vacant seat, and details, resignation and removal on members (no replace)", async () => {
+  it("offers an Admin add on a vacant seat as a visible button, and details, resignation and removal on members (no replace)", async () => {
     renderRoster({ role: PrivilegeLevel.Admin });
 
-    expect(await menuItemsFor("Actions for seat 2")).toEqual(["Add member"]);
-    await userEvent.keyboard("{Escape}");
+    expect(trigger("Add member for seat 2")).toHaveTextContent("Add member");
+    expect(
+      screen.queryByRole("button", { name: "Actions for seat 2" }),
+    ).not.toBeInTheDocument();
     expect(await menuItemsFor("Actions for seat 1")).toEqual([
       "View voter details",
       "Record resignation",
@@ -302,8 +304,7 @@ describe("RosterTab row actions", () => {
     const onAction = jest.fn();
     renderRoster({ role: PrivilegeLevel.Admin, onAction });
 
-    await menuItemsFor("Actions for seat 3");
-    await userEvent.click(screen.getByRole("menuitem", { name: "Add member" }));
+    await userEvent.click(trigger("Add member for seat 3"));
     await menuItemsFor("Actions for seat 1");
     await userEvent.click(
       screen.getByRole("menuitem", { name: "Record resignation" }),
@@ -318,7 +319,7 @@ describe("RosterTab row actions", () => {
     );
 
     expect(onAction.mock.calls).toEqual([
-      [{ kind: "add-member", committee: REF, seatNumber: 3 }, trigger("Actions for seat 3")],
+      [{ kind: "add-member", committee: REF, seatNumber: 3 }, trigger("Add member for seat 3")],
       [{ kind: "record-resignation", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
       [{ kind: "remove-member", committee: REF, memberId: "V9" }, trigger("Actions for Sam Loose")],
       [{ kind: "view-voter-details", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
@@ -328,17 +329,15 @@ describe("RosterTab row actions", () => {
   });
 
   it.each([PrivilegeLevel.Leader, PrivilegeLevel.RequestAccess])(
-    "offers %s submit on a vacant seat and details and replace on members, never resignation or removal",
+    "offers %s submit on a vacant seat as a visible button and details and replace on members, never resignation or removal",
     async (role) => {
       const onAction = jest.fn();
       renderRoster({ role, onAction });
 
-      expect(await menuItemsFor("Actions for seat 2")).toEqual([
+      expect(trigger("Submit candidate for seat 2")).toHaveTextContent(
         "Submit candidate",
-      ]);
-      await userEvent.click(
-        screen.getByRole("menuitem", { name: "Submit candidate" }),
       );
+      await userEvent.click(trigger("Submit candidate for seat 2"));
       expect(await menuItemsFor("Actions for seat 1")).toEqual([
         "View voter details",
         "Replace member",
@@ -348,7 +347,7 @@ describe("RosterTab row actions", () => {
       );
 
       expect(onAction.mock.calls).toEqual([
-        [{ kind: "add-member", committee: REF, seatNumber: 2 }, trigger("Actions for seat 2")],
+        [{ kind: "add-member", committee: REF, seatNumber: 2 }, trigger("Submit candidate for seat 2")],
         [{ kind: "replace-member", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
       ]);
     },

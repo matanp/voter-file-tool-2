@@ -9,18 +9,26 @@ import type { SeatRosterRow } from "~/lib/validations/committee";
 import { CommitteeSeatTable } from "../../CommitteeRosterTable";
 import { RosterRowActionMenu } from "./roster/RosterRowActionMenu";
 import { committeeRefFrom } from "../committeeAction";
-import { rosterRowActions } from "./roster/rowActions";
+import {
+  rosterRowActions,
+  type RosterRowActionItem,
+} from "./roster/rowActions";
 import type { CommitteeTabProps } from "./types";
 
 /** Only when rendered outside `CommitteeTabs` (which always passes `onAction`). */
 const noop = () => undefined;
 
-function rowActionLabel(row: SeatRosterRow): string {
-  if (row.seatNumber !== null) return `Actions for seat ${row.seatNumber}`;
+function rowActionLabel(
+  row: SeatRosterRow,
+  items: RosterRowActionItem[],
+): string {
+  // A single action renders as its own button, named for what it does.
+  const action = items.length === 1 ? (items[0]?.label ?? "") : "Actions";
+  if (row.seatNumber !== null) return `${action} for seat ${row.seatNumber}`;
   const name = row.occupant
     ? `${row.occupant.firstName} ${row.occupant.lastName}`.trim()
     : "unassigned member";
-  return `Actions for ${name}`;
+  return `${action} for ${name}`;
 }
 
 export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {
@@ -39,7 +47,12 @@ export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {
     if (items.length === 0) return null;
     return (
       <RosterRowActionMenu
-        label={rowActionLabel(row)}
+        label={rowActionLabel(row, items)}
+        rowKey={
+          row.seatNumber !== null
+            ? `seat-${row.seatNumber}`
+            : `member-${row.occupant?.VRCNUM ?? ""}`
+        }
         items={items}
         onAction={onAction}
       />

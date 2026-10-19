@@ -320,9 +320,8 @@ describe("Workspace heading hierarchy (plan §10)", () => {
     renderWorkspace("committee=2&tab=roster");
     await waitForGrid();
     await userEvent.click(
-      await within(detailPane()).findByRole("button", { name: "Actions for seat 2" }),
+      await within(detailPane()).findByRole("button", { name: "Add member for seat 2" }),
     );
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Add member" }));
 
     const headings = within(await screen.findByRole("dialog")).getAllByRole("heading");
     expect(headings.map((h) => h.tagName)).toEqual(["H2", "H3"]);
@@ -342,7 +341,7 @@ describe("Keyboard path through the workspace (plan §10)", () => {
     act(() => rowFor(2).focus());
     await userEvent.keyboard("{Enter}");
     expect(mockPush).toHaveBeenCalledTimes(1);
-    await within(detailPane()).findByRole("button", { name: "Actions for seat 2" });
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
 
     // Tab order leads from the list into the detail's tab strip.
     await tabTo(() => screen.getByRole("tab", { name: "Roster" }));
@@ -351,18 +350,12 @@ describe("Keyboard path through the workspace (plan §10)", () => {
     await userEvent.keyboard("{ArrowLeft}");
     expect(screen.getByRole("tab", { name: "Roster" })).toHaveFocus();
     expect(screen.getByRole("tab", { name: "Roster" })).toHaveAttribute("aria-selected", "true");
-    await within(detailPane()).findByRole("button", { name: "Actions for seat 2" });
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
 
-    // Into the panel, to a row's action menu.
+    // Into the panel, to a vacant seat's Add member button.
     const trigger = () =>
-      within(detailPane()).queryByRole("button", { name: "Actions for seat 2" });
+      within(detailPane()).queryByRole("button", { name: "Add member for seat 2" });
     await tabTo(trigger);
-    await userEvent.keyboard("{Enter}");
-    const menu = await screen.findByRole("menu");
-    const items = within(menu).getAllByRole("menuitem");
-    await waitFor(() => expect(items[0]).toHaveFocus());
-    const add = within(menu).getByRole("menuitem", { name: "Add member" });
-    while (document.activeElement !== add) await userEvent.keyboard("{ArrowDown}");
     await userEvent.keyboard("{Enter}");
 
     // The drawer opens with focus inside it.
@@ -380,9 +373,8 @@ describe("Keyboard path through the workspace (plan §10)", () => {
     renderWorkspace("committee=2&tab=roster");
     await waitForGrid();
     await userEvent.click(
-      await within(detailPane()).findByRole("button", { name: "Actions for seat 2" }),
+      await within(detailPane()).findByRole("button", { name: "Add member for seat 2" }),
     );
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Add member" }));
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
 
@@ -407,10 +399,9 @@ describe("Keyboard path through the workspace (plan §10)", () => {
     renderWorkspace("committee=2&tab=roster");
     await waitForGrid();
     const trigger = await within(detailPane()).findByRole("button", {
-      name: "Actions for seat 3",
+      name: "Add member for seat 3",
     });
     await userEvent.click(trigger);
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Add member" }));
     await userEvent.click(within(drawer()).getByRole("button", { name: "Close" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

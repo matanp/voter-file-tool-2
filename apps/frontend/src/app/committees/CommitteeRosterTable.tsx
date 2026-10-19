@@ -272,7 +272,7 @@ export function CommitteeSeatTable({
           {SHOW_MEMBERSHIP_TYPE ? <TableHead>Type</TableHead> : null}
           {showContact ? <TableHead>Contact</TableHead> : null}
           {showActions ? (
-            <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white dark:bg-slate-950`}>
+            <TableHead className={`w-px ${ACTIONS_STICKY_CLASS} bg-white dark:bg-slate-950`}>
               <span className="sr-only">Actions</span>
             </TableHead>
           ) : null}
