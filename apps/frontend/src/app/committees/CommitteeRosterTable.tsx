@@ -334,8 +334,12 @@ function SeatRow({
   // Every petitioned/appointed display goes through this one helper
   // (leader-petition-visibility group C is unresolved).
   const petition = seatPetitionDisplay(row);
+  const vacancyLabel =
+    petition.vacancyLabel !== null ? (
+      <span className="text-muted-foreground">{petition.vacancyLabel}</span>
+    ) : null;
   // A vacant row's empty Contact cell holds its action, when that column shows.
-  const actionInMemberCell = !showContact || row.contact !== undefined;
+  const actionBesideVacancy = !showContact || row.contact !== undefined;
 
   return (
     <TableRow
@@ -350,19 +354,15 @@ function SeatRow({
       ) : null}
       <TableCell>{row.seatNumber ?? "—"}</TableCell>
       <TableCell>
-        {petition.vacancyLabel !== null ? (
-          vacancyAction && actionInMemberCell ? (
+        {vacancyLabel !== null ? (
+          vacancyAction && actionBesideVacancy ? (
             // Wraps the button under the text when the cell is narrow.
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-muted-foreground">
-                {petition.vacancyLabel}
-              </span>
+              {vacancyLabel}
               {vacancyAction}
             </div>
           ) : (
-            <span className="text-muted-foreground">
-              {petition.vacancyLabel}
-            </span>
+            vacancyLabel
           )
         ) : (
           name

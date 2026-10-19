@@ -255,7 +255,9 @@ export function CommitteeWorkspace({
     if (!trigger.isConnected && (active === null || active === document.body)) {
       const rowKey = trigger.dataset.rowAction;
       const sameRow = rowKey
-        ? document.querySelector<HTMLElement>(`[data-row-action="${rowKey}"]`)
+        ? document.querySelector<HTMLElement>(
+            `#${DETAIL_PANE_ID} [data-row-action="${CSS.escape(rowKey)}"]`,
+          )
         : null;
       (sameRow ?? focusDetailHeading())?.focus();
     }

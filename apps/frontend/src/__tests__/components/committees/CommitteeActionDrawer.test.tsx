@@ -785,6 +785,16 @@ describe("CommitteeActionDrawer: voter details", () => {
     expect(within(drawer()).queryByText("sam@submitted.example")).not.toBeInTheDocument();
   });
 
+  it("shows the committee address, as the legacy /committees cards did", async () => {
+    serve({
+      "/api/fetchFilteredData": [
+        { body: { data: [{ ...SAM_RECORD, addressForCommittee: "PO Box 12" }] } },
+      ],
+    });
+    renderDrawer({ action: VIEW });
+    expect(await within(drawer()).findByText("PO Box 12")).toBeInTheDocument();
+  });
+
   it("says when the record is missing", async () => {
     serve({ "/api/fetchFilteredData": [{ body: { data: [] } }] });
     renderDrawer({ action: VIEW });

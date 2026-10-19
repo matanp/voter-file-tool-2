@@ -29,7 +29,11 @@ type Loaded =
   | { status: "missing" }
   | { status: "error"; message: string };
 
-export function VoterDetailsView({ memberId, contact, onClose }: VoterDetailsViewProps) {
+export function VoterDetailsView({
+  memberId,
+  contact,
+  onClose,
+}: VoterDetailsViewProps) {
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
 
   useEffect(() => {
@@ -44,7 +48,8 @@ export function VoterDetailsView({ memberId, contact, onClose }: VoterDetailsVie
         if (controller.signal.aborted) return;
         setLoaded({
           status: "error",
-          message: err instanceof Error ? err.message : "Unable to load voter record.",
+          message:
+            err instanceof Error ? err.message : "Unable to load voter record.",
         });
       },
     );
@@ -60,7 +65,11 @@ export function VoterDetailsView({ memberId, contact, onClose }: VoterDetailsVie
           </p>
         )}
         {loaded.status === "ready" && (
-          <VoterCard record={loaded.record} submissionMetadata={contact} />
+          <VoterCard
+            record={loaded.record}
+            committee
+            submissionMetadata={contact}
+          />
         )}
         {loaded.status === "missing" && (
           <p className="text-sm text-muted-foreground">

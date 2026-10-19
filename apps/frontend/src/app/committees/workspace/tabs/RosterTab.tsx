@@ -25,6 +25,13 @@ function rowActionLabel(row: SeatRosterRow, action: string): string {
   return `${action} for ${name}`;
 }
 
+/** e.g. "seat-2", "member-V1": matches a row's control across refreshes. */
+function rowKey(row: SeatRosterRow): string {
+  return row.seatNumber !== null
+    ? `seat-${row.seatNumber}`
+    : `member-${row.occupant?.VRCNUM ?? ""}`;
+}
+
 export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {
   // Client visibility only (skills/auth-check-patterns). Contact is already
   // absent from `detail` below Admin; the acting privilege additionally hides
@@ -35,11 +42,6 @@ export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {
     () => committeeRefFrom(detail.committee),
     [detail.committee],
   );
-
-  const rowKey = (row: SeatRosterRow) =>
-    row.seatNumber !== null
-      ? `seat-${row.seatNumber}`
-      : `member-${row.occupant?.VRCNUM ?? ""}`;
 
   // A vacant seat's action sits beside the vacancy text; the pinned Actions
   // column holds only occupied rows' menus, so it stays icon-wide on phones.
