@@ -2,9 +2,9 @@
 # Start the local stack: Postgres (Docker), the report server and the frontend, wired to
 # each other's ports. Ctrl-C stops both servers; Postgres keeps running.
 #
-# Usage: pnpm dev [--port 3000] [--report-port N] [--no-db]
-#   --port N          frontend port
-#   --report-port N   report server port; defaults to the frontend port + 1
+# Usage: pnpm dev [--port N] [--report-port M] [--no-db]
+#   --port N          frontend port (default 3000)
+#   --report-port M   report server port; defaults to N + 1
 #   --no-db           skip Docker, for when POSTGRES_PRISMA_URL points at a remote database
 # Starting Docker automatically needs macOS (Docker Desktop); elsewhere, start the daemon first.
 
@@ -15,6 +15,7 @@ COMPOSE_FILE="$ROOT/apps/frontend/docker-compose.yml"
 
 WEB_PORT=3000
 REPORT_PORT=
+REPORT_PORT_SET=false
 START_DB=true
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -24,11 +25,8 @@ while [[ $# -gt 0 ]]; do
     --port=*) WEB_PORT=${1#*=}; shift ;;
     --report-port)
       [[ $# -ge 2 ]] || { echo "dev: --report-port needs a value (see --help)" >&2; exit 1; }
-      REPORT_PORT=$2; shift 2 ;;
-    --report-port=*)
-      REPORT_PORT=${1#*=}
-      [[ -n $REPORT_PORT ]] || { echo "dev: --report-port needs a value (see --help)" >&2; exit 1; }
-      shift ;;
+      REPORT_PORT=$2; REPORT_PORT_SET=true; shift 2 ;;
+    --report-port=*) REPORT_PORT=${1#*=}; REPORT_PORT_SET=true; shift ;;
     --no-db) START_DB=false; shift ;;
     --) shift ;;
     -h | --help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -43,7 +41,7 @@ check_port() {
   fi
 }
 check_port --port "$WEB_PORT"
-if [[ -n $REPORT_PORT ]]; then
+if $REPORT_PORT_SET; then
   check_port --report-port "$REPORT_PORT"
 elif ((WEB_PORT == 65535)); then
   echo "dev: --port 65535 leaves no default report port; pass --report-port" >&2
