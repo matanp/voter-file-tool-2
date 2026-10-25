@@ -43,3 +43,16 @@ packages/
 ## Contributing
 
 See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for setup, then run `pnpm dev` from the root to start Postgres, the report-server and the frontend together. It builds the workspace packages first if they haven't been built; after changing one, run `pnpm run build:packages`.
+
+## Manual setup
+
+Settings that are made in a dashboard rather than in this repo. Variable names are in each app's `.env.example`; values live in the dashboards below.
+
+- **Vercel** (project `voter-file-tool-2`): root directory `apps/frontend`, Node 24.x, install command `cd ../.. && pnpm install --filter=./apps/frontend --filter=./packages/shared-prisma --filter=./packages/shared-validators`, build command `pnpm run build`; production env vars; domains. Could move to `apps/frontend/vercel.json`.
+- **Neon**: production Postgres; its connection string is `POSTGRES_PRISMA_URL` in Vercel and on the report-server.
+- **Cloudflare R2**: buckets and API tokens (`R2_*` in both apps).
+- **AWS Lightsail**: the instance, ports and static IP are in Terraform (`main.tf`); the report-server's `.env` on the instance is generated from `infrastructure/terraform.tfvars` when the instance is created, so change secrets there rather than on the box.
+- **Google Cloud**: OAuth client (`AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`) and its authorized redirect URIs, including each local port in use.
+- **Ably**, **Resend**, **PostHog**: API keys (`ABLY_API_KEY`, `RESEND_API_KEY`, `NEXT_PUBLIC_POSTHOG_KEY`); Resend sending domain.
+- **Sentry**: org `matan-co`, project `voter-file-tool` (named in `apps/frontend/next.config.ts`); alerts and auth token.
+- **GitHub**: repo settings, secrets and branch protection (workflows are in `.github/workflows/`).
