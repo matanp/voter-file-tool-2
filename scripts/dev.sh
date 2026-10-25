@@ -2,9 +2,10 @@
 # Start the local stack: Postgres (Docker), the report server and the frontend, wired to
 # each other's ports. Ctrl-C stops both servers; Postgres keeps running.
 #
-# Usage: pnpm dev [--port 3000] [--no-db]
-#   --port N   frontend port; the report server listens on N+1
-#   --no-db    skip Docker, for when POSTGRES_PRISMA_URL points at a remote database
+# Usage: pnpm dev [--port 3000] [--report-port N] [--no-db]
+#   --port N          frontend port
+#   --report-port N   report server port; defaults to the frontend port + 1
+#   --no-db           skip Docker, for when POSTGRES_PRISMA_URL points at a remote database
 # Starting Docker automatically needs macOS (Docker Desktop); elsewhere, start the daemon first.
 
 set -euo pipefail
@@ -13,6 +14,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="$ROOT/apps/frontend/docker-compose.yml"
 
 WEB_PORT=3000
+REPORT_PORT=
 START_DB=true
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -20,17 +22,39 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || { echo "dev: --port needs a value (see --help)" >&2; exit 1; }
       WEB_PORT=$2; shift 2 ;;
     --port=*) WEB_PORT=${1#*=}; shift ;;
+    --report-port)
+      [[ $# -ge 2 ]] || { echo "dev: --report-port needs a value (see --help)" >&2; exit 1; }
+      REPORT_PORT=$2; shift 2 ;;
+    --report-port=*)
+      REPORT_PORT=${1#*=}
+      [[ -n $REPORT_PORT ]] || { echo "dev: --report-port needs a value (see --help)" >&2; exit 1; }
+      shift ;;
     --no-db) START_DB=false; shift ;;
     --) shift ;;
-    -h | --help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "dev: unknown option $1 (see --help)" >&2; exit 1 ;;
   esac
 done
-if ! [[ $WEB_PORT =~ ^[0-9]+$ ]] || ((WEB_PORT < 1024 || WEB_PORT > 65534)); then
-  echo "dev: --port must be a number from 1024 to 65534 (got '$WEB_PORT')" >&2
+# No leading zero, which (( )) reads as octal, and at most 5 digits, so it can't overflow.
+check_port() {
+  if ! [[ $2 =~ ^[1-9][0-9]{0,4}$ ]] || (($2 < 1024 || $2 > 65535)); then
+    echo "dev: $1 must be a number from 1024 to 65535 (got '$2')" >&2
+    exit 1
+  fi
+}
+check_port --port "$WEB_PORT"
+if [[ -n $REPORT_PORT ]]; then
+  check_port --report-port "$REPORT_PORT"
+elif ((WEB_PORT == 65535)); then
+  echo "dev: --port 65535 leaves no default report port; pass --report-port" >&2
+  exit 1
+else
+  REPORT_PORT=$((WEB_PORT + 1))
+fi
+if ((WEB_PORT == REPORT_PORT)); then
+  echo "dev: --port and --report-port must differ (both $WEB_PORT)" >&2
   exit 1
 fi
-REPORT_PORT=$((WEB_PORT + 1))
 
 # Fail on a taken port instead of letting a server drift to another one.
 if command -v lsof >/dev/null; then

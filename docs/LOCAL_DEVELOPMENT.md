@@ -53,10 +53,10 @@ Use a **separate dev R2 instance** in the cloud (different bucket/credentials fr
 
 ## One command: `pnpm dev`
 
-`pnpm dev [--port N] [--no-db]` from the repo root ([scripts/dev.sh](../scripts/dev.sh)):
+`pnpm dev [--port N] [--report-port M] [--no-db]` from the repo root ([scripts/dev.sh](../scripts/dev.sh)):
 
 - Starts Docker Desktop if it isn't running, then `docker compose up -d` on `apps/frontend/docker-compose.yml` (the same container `setup-dev-db.sh` created). `--no-db` skips this when using a remote database.
-- Starts the frontend on port N (default 3000) and the report-server on N+1, and links them by setting `PDF_SERVER_URL`, `NEXTAUTH_URL`, `PORT` and `CALLBACK_URL`. These override the values in the `.env` files.
+- Starts the frontend on port N (default 3000) and the report-server on M (default N+1), and links them by setting `PDF_SERVER_URL`, `NEXTAUTH_URL`, `PORT` and `CALLBACK_URL`. These override the values in the `.env` files.
 - Builds the workspace packages (`pnpm run build:packages`) if any haven't been built yet.
 - Exits with an error if either port is already taken.
 - Prefixes output with `[web]` / `[report]`. Ctrl-C stops both servers; Postgres keeps running.
