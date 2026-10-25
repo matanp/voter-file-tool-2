@@ -15,6 +15,7 @@ import {
   generateVacancyReportHTML,
   generateChangesReportHTML,
   generatePetitionOutcomesReportHTML,
+  reportServerPort,
 } from './utils';
 import {
   generateUnifiedXLSXAndUpload,
@@ -93,7 +94,7 @@ if (recurringBoeSchedule.enabled) {
 }
 
 const app = express();
-const PORT = Number.parseInt(process.env.PORT ?? '8080', 10);
+const PORT = reportServerPort();
 
 const callbackUrlResult = callbackUrlSchema.safeParse(
   process.env.CALLBACK_URL || 'http://localhost:3000/api/reportComplete'

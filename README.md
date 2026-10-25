@@ -42,4 +42,4 @@ packages/
 
 ## Contributing
 
-See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for setup. Run `pnpm run build:packages` from root before starting the report-server.
+See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for setup, then run `pnpm dev` from the root to start Postgres, the report-server and the frontend together. It builds the workspace packages first if they haven't been built; after changing one, run `pnpm run build:packages`.

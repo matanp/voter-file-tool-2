@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "pnpm@8.15.7",
   "scripts": {
+    "dev": "bash scripts/dev.sh",
     "build:packages": "pnpm --filter './packages/**' run build",
     "check:api-routes": "node scripts/check-api-route-wrappers.mjs",
     "review:freeze": "bash scripts/review/freeze-basis.sh",

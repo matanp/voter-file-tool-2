@@ -8,7 +8,7 @@ Scripts live in two places:
 
 | Location | Purpose | Examples |
 |----------|---------|----------|
-| **`scripts/`** (repo root) | Shared dev/deploy scripts | `setup-dev-db.sh`, `sync-prisma-models.js`, `deploy-lightsail.sh` |
+| **`scripts/`** (repo root) | Shared dev/deploy scripts | `dev.sh`, `setup-dev-db.sh`, `sync-prisma-models.js`, `deploy-lightsail.sh` |
 | **`scripts/review/`** | Whole-app review tooling | `pnpm review:freeze`, `review:scans`, `review:gate`, `review:doctor` |
 | **`apps/frontend/scripts/`** | App-specific one-off scripts | `seedLtedCrosswalk.ts` (LTED crosswalk from Excel) |
 | **`apps/frontend/prisma/`** | Prisma seed (standard location) | `seed.ts` |
@@ -48,6 +48,7 @@ Artifacts live under `.review/runs/<run-id>/` (active run: read `.review/current
 **How to run from workspace root:**
 
 ```bash
+pnpm dev                         # Postgres + report-server + frontend (scripts/dev.sh; --port N, --no-db)
 pnpm db:setup                    # Docker DB setup (or ./scripts/setup-dev-db.sh)
 pnpm db:setup -- --fresh         # Same, with --fresh flag
 pnpm sync-prisma                 # Sync Prisma models to shared-prisma
@@ -209,8 +210,7 @@ pnpm db:setup
 
 #### Starting work (database already exists):
 ```bash
-cd apps/frontend
-docker compose up -d
+pnpm dev    # from the repo root; starts the database and both servers
 ```
 
 #### After pulling new migrations:

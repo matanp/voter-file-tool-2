@@ -65,6 +65,14 @@ function formatElectionDateForPetition(dateString: string): string {
   }
 }
 
+// A function rather than a constant: index.ts loads .env after its imports are evaluated.
+export const reportServerPort = (): number =>
+  Number.parseInt(process.env.PORT ?? '8080', 10);
+
+// Puppeteer fetches the stylesheet from this server, so the link follows its port.
+const tailwindCssLink = () =>
+  `<link href="http://localhost:${reportServerPort()}/tailwind.css" rel="stylesheet">`;
+
 export const generateHTML = (
   candidates: { name: string; address: string; office: string }[],
   vacancyAppointments: { name: string; address: string }[],
@@ -73,8 +81,7 @@ export const generateHTML = (
   numPages: number
 ) => {
   // Make sure the path to your built Tailwind CSS is correct
-  const tailwindCSS =
-    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const tailwindCSS = tailwindCssLink();
 
   // Convert election date from YYYY-MM-DD to "Month Day, Year" format
   const formattedElectionDate = formatElectionDateForPetition(electionDate);
@@ -203,8 +210,7 @@ function transformToCommitteeMemberFormat(
 export const generateCommitteeReportHTML = (
   groupedCommittees: CommitteeReportStructure[],
 ) => {
-  const tailwindCSS =
-    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const tailwindCSS = tailwindCssLink();
 
   const processedCommittees =
     transformToCommitteeMemberFormat(groupedCommittees);
@@ -252,8 +258,7 @@ export const generateSignInSheetHTML = (
   meetingDate?: string,
   reportAuthor?: string,
 ): string => {
-  const tailwindCSS =
-    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const tailwindCSS = tailwindCssLink();
 
   const processedCommittees = transformToSignInSheetCommittees(committees);
 
@@ -284,8 +289,7 @@ export const generateDesignationWeightSummaryHTML = (
   scopeDescription: string,
   reportAuthor?: string,
 ): string => {
-  const tailwindCSS =
-    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const tailwindCSS = tailwindCssLink();
 
   const groups = groupWeightSummaries(summaries);
   const grandTotalWeight = groups.reduce(
@@ -325,8 +329,7 @@ export const generateVacancyReportHTML = (
   rows: VacancyReportRow[],
   reportAuthor: string,
 ): string => {
-  const tailwindCSS =
-    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const tailwindCSS = tailwindCssLink();
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(VacancyReport, { rows, reportAuthor: reportAuthor ?? '' }),
   );
@@ -348,8 +351,7 @@ export const generateChangesReportHTML = (
   dateTo: string,
   reportAuthor: string,
 ): string => {
-  const tailwindCSS =
-    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const tailwindCSS = tailwindCssLink();
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(ChangesReport, {
       rows,
@@ -374,8 +376,7 @@ export const generatePetitionOutcomesReportHTML = (
   rows: PetitionOutcomeRow[],
   reportAuthor: string,
 ): string => {
-  const tailwindCSS =
-    '<link href="http://localhost:8080/tailwind.css" rel="stylesheet">';
+  const tailwindCSS = tailwindCssLink();
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(PetitionOutcomesReport, {
       rows,

@@ -4,9 +4,9 @@ Single reference for starting the voter-file-tool locally: database, R2, report-
 
 ## Prerequisites
 
-- **Node.js 22** (nvm recommended)
+- **Node.js 22 or later** (nvm recommended; the report-server requires 22+, and Vercel builds the frontend on 24.x)
 - **pnpm**
-- **Docker Desktop** (optional; only if using local database)
+- **Docker Desktop** (optional; only if using local database. `pnpm dev` starts it on macOS)
 
 ## Database
 
@@ -49,8 +49,21 @@ Use a **separate dev R2 instance** in the cloud (different bucket/credentials fr
 
 1. **Database:** Either run `./scripts/setup-dev-db.sh` (Docker) or set `POSTGRES_PRISMA_URL` in both app `.env` files to a remote DB.
 2. **R2:** Set R2 env vars in both `apps/frontend/.env` and `apps/report-server/.env` (dev bucket).
-3. **Report-server:** `cd apps/report-server && pnpm dev` (port 8080).
-4. **Frontend:** `cd apps/frontend && pnpm dev` (port 3000).
+3. **Run everything:** `pnpm dev` from the repo root.
+
+## One command: `pnpm dev`
+
+`pnpm dev [--port N] [--no-db]` from the repo root ([scripts/dev.sh](../scripts/dev.sh)):
+
+- Starts Docker Desktop if it isn't running, then `docker compose up -d` on `apps/frontend/docker-compose.yml` (the same container `setup-dev-db.sh` created). `--no-db` skips this when using a remote database.
+- Starts the frontend on port N (default 3000) and the report-server on N+1, and links them by setting `PDF_SERVER_URL`, `NEXTAUTH_URL`, `PORT` and `CALLBACK_URL`. These override the values in the `.env` files.
+- Builds the workspace packages (`pnpm run build:packages`) if any haven't been built yet.
+- Exits with an error if either port is already taken.
+- Prefixes output with `[web]` / `[report]`. Ctrl-C stops both servers; Postgres keeps running.
+
+On a port other than 3000, Google sign-in needs `http://localhost:N/api/auth/callback/google` listed as an authorized redirect URI on the OAuth client.
+
+Running each app on its own (above) still works.
 
 ## Troubleshooting
 
