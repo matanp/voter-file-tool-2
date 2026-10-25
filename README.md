@@ -1,6 +1,7 @@
 # Voter File Tool
 
-Voter file management, report generation (PDF/XLSX), and committee membership governance. Import BOE voter files, run designated petition and absentee reports, and manage committee membership.
+Voter file management, report generation (PDF/XLSX), and committee membership governance.
+Import BOE voter files, run designated petition and absentee reports, and manage committee membership.
 
 ## Tech Stack
 
