@@ -27,6 +27,9 @@ export type CommitteeMembershipSubmissionMetadata = {
 /** Response shape from /api/fetchCommitteeList with memberships + voterRecord + seats + maxSeatsPerLted. */
 export type FetchCommitteeListResponse = CommitteeList & {
   ltedWeight?: number | string | null;
+  /** The committee's AD from LtedDistrictCrosswalk (trimmed), or null when its LTED has none. */
+  assemblyDistrict: string | null;
+  requireAssemblyDistrictMatch: boolean;
   memberships: Array<{
     voterRecord: VoterRecord;
     membershipType: MembershipType | null;

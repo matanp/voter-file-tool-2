@@ -1,6 +1,6 @@
 import { GET } from "~/app/api/fetchCommitteeList/route";
 import { NextRequest } from "next/server";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type Prisma } from "@prisma/client";
 import * as Sentry from "@sentry/nextjs";
 import {
   createMockSession,
@@ -14,6 +14,7 @@ import {
   objectContainingMatcher,
   expectAnything,
   createAuthTestSuite,
+  resolvesTo,
   type AuthTestConfig,
   type CommitteeListWithMembers,
 } from "../utils/testUtils";
@@ -24,6 +25,23 @@ import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 jest.mock("@sentry/nextjs", () => ({
   captureException: jest.fn(),
 }));
+
+/** Residency fields for a committee with no crosswalk row, with the AD check on. */
+const NO_CROSSWALK_RESIDENCY = {
+  assemblyDistrict: null,
+  requireAssemblyDistrictMatch: true,
+};
+
+type CrosswalkAssemblyDistrictRow = Prisma.LtedDistrictCrosswalkGetPayload<{
+  select: { stateAssemblyDistrict: true };
+}>;
+
+function mockCrosswalkLookup(row: CrosswalkAssemblyDistrictRow | null): void {
+  prismaMock.ltedDistrictCrosswalk.findUnique.mockImplementation(
+    (_args: Prisma.LtedDistrictCrosswalkFindUniqueArgs) =>
+      resolvesTo<CrosswalkAssemblyDistrictRow | null>(row),
+  );
+}
 
 describe("/api/fetchCommitteeList", () => {
   beforeEach(() => {
@@ -92,6 +110,7 @@ describe("/api/fetchCommitteeList", () => {
       await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
@@ -149,6 +168,76 @@ describe("/api/fetchCommitteeList", () => {
 
       const data = (await response.json()) as { maxSeatsPerLted?: number };
       expect(data.maxSeatsPerLted).toBe(2);
+    });
+
+    describe("committee residency (AddCommitteeForm eligible-only filter)", () => {
+      const request = () =>
+        new NextRequest(
+          "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1",
+        );
+
+      beforeEach(() => {
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        prismaMock.committeeList.findUnique.mockResolvedValue(
+          createMockCommittee(),
+        );
+      });
+
+      it("returns the committee's trimmed AD from its LTED's crosswalk row", async () => {
+        prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+          createMockGovernanceConfig(),
+        );
+        mockCrosswalkLookup({ stateAssemblyDistrict: " 134 " });
+
+        const data = (await (await GET(request())).json()) as {
+          assemblyDistrict: string | null;
+          requireAssemblyDistrictMatch: boolean;
+        };
+
+        expect(data.assemblyDistrict).toBe("134");
+        expect(data.requireAssemblyDistrictMatch).toBe(true);
+        expect(prismaMock.ltedDistrictCrosswalk.findUnique).toHaveBeenCalledWith({
+          where: {
+            cityTown_legDistrict_electionDistrict: {
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            },
+          },
+          select: { stateAssemblyDistrict: true },
+        });
+      });
+
+      it("returns a null AD when the committee's ED has no crosswalk entry", async () => {
+        prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+          createMockGovernanceConfig(),
+        );
+        mockCrosswalkLookup(null);
+
+        const data = (await (await GET(request())).json()) as {
+          assemblyDistrict: string | null;
+        };
+
+        expect(data.assemblyDistrict).toBeNull();
+      });
+
+      it("returns the AD and the flag when the AD check is off", async () => {
+        prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+          createMockGovernanceConfig({ requireAssemblyDistrictMatch: false }),
+        );
+        mockCrosswalkLookup({ stateAssemblyDistrict: "134" });
+
+        const data = (await (await GET(request())).json()) as {
+          assemblyDistrict: string | null;
+          requireAssemblyDistrictMatch: boolean;
+        };
+
+        expect(data.assemblyDistrict).toBe("134");
+        expect(data.requireAssemblyDistrictMatch).toBe(false);
+      });
     });
 
     it("returns designationWeightSummary when includeDesignationWeightSummary=true", async () => {
@@ -393,6 +482,7 @@ describe("/api/fetchCommitteeList", () => {
       await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
@@ -426,6 +516,7 @@ describe("/api/fetchCommitteeList", () => {
       await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
@@ -459,6 +550,7 @@ describe("/api/fetchCommitteeList", () => {
       await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
@@ -532,6 +624,7 @@ describe("/api/fetchCommitteeList", () => {
       await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
       expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
         createCommitteeFindUniqueArgs({
@@ -667,6 +760,7 @@ describe("/api/fetchCommitteeList", () => {
         await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
           createCommitteeFindUniqueArgs({
@@ -720,6 +814,7 @@ describe("/api/fetchCommitteeList", () => {
         await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
         expect(prismaMock.committeeList.findUnique).toHaveBeenCalledWith(
           createCommitteeFindUniqueArgs(expectedArgs),
@@ -808,6 +903,7 @@ describe("/api/fetchCommitteeList", () => {
         await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
 
         // Verify the committee lookup included active memberships
@@ -846,6 +942,7 @@ describe("/api/fetchCommitteeList", () => {
         await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
 
         // Verify the lookup used the exact district parameters
@@ -942,6 +1039,7 @@ describe("/api/fetchCommitteeList", () => {
         await expectSuccessResponse(response, {
         ...mockCommittee,
         maxSeatsPerLted: 4,
+        ...NO_CROSSWALK_RESIDENCY,
       });
 
         // Verify the request completed successfully with valid session
