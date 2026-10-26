@@ -36,6 +36,7 @@ import type {
 } from "~/lib/validations/committee";
 import {
   hasLegDistrict,
+  type CandidateCommitteeRef,
   type CommitteeAction,
   type CommitteeRef,
 } from "./committeeAction";
@@ -103,7 +104,7 @@ export type CandidateSearchInput = {
  * committee's ED is deliberately not used instead.
  */
 export function canFilterEligibleOnly(
-  committee: CommitteeRef,
+  committee: CandidateCommitteeRef,
   requireAssemblyDistrictMatch: boolean,
 ): boolean {
   return (
@@ -115,7 +116,7 @@ export function canFilterEligibleOnly(
 }
 
 export function candidateSearchQuery(
-  committee: CommitteeRef,
+  committee: CandidateCommitteeRef,
   input: CandidateSearchInput,
   requireAssemblyDistrictMatch: boolean,
 ): SearchQueryField[] {

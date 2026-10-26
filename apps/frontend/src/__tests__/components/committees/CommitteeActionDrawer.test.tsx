@@ -14,6 +14,7 @@ import { PrivilegeLevel } from "@prisma/client";
 
 import { CommitteeActionDrawer } from "~/app/committees/workspace/drawer/CommitteeActionDrawer";
 import type {
+  CandidateCommitteeRef,
   CommitteeAction,
   CommitteeRef,
 } from "~/app/committees/workspace/committeeAction";
@@ -49,16 +50,19 @@ jest.mock("~/components/ui/use-toast", () => ({
 
 // --- Fixtures -------------------------------------------------------------------
 
-const REF: CommitteeRef = {
+const COMMITTEE_REF: CommitteeRef = {
   committeeListId: 7,
   cityTown: "GREECE",
   legDistrict: 1,
   electionDistrict: 5,
+};
+const REF: CandidateCommitteeRef = {
+  ...COMMITTEE_REF,
   assemblyDistrict: "134",
 };
 
 const SEATED: SeatRosterRow = {
-  ...REF,
+  ...COMMITTEE_REF,
   seatNumber: 1,
   isPetitioned: false,
   weight: null,
@@ -69,7 +73,7 @@ const SEATED: SeatRosterRow = {
     membershipType: "APPOINTED",
   },
 };
-const VACANT: SeatRosterRow = { ...REF, seatNumber: 2, isPetitioned: false, weight: null, occupant: null };
+const VACANT: SeatRosterRow = { ...COMMITTEE_REF, seatNumber: 2, isPetitioned: false, weight: null, occupant: null };
 
 function detail({
   filled = 1,
@@ -91,7 +95,7 @@ function detail({
     maxSeatsPerLted: maxSeats,
     requireAssemblyDistrictMatch,
     rollup: {
-      ...REF,
+      ...COMMITTEE_REF,
       filled,
       totalSeats: maxSeats,
       unassignedCount: 0,
@@ -122,6 +126,7 @@ const JANE = {
   electionDistrict: 5,
   party: "DEM",
 };
+const JANE_DIFFERENT_ED = { ...JANE, electionDistrict: 9 };
 /** Already on this committee: not selectable. */
 const SAM = { ...JANE, VRCNUM: "V-SEATED", firstName: "Sam", lastName: "Seated" };
 
@@ -434,6 +439,75 @@ describe("CommitteeActionDrawer: review candidate", () => {
 });
 
 describe("CommitteeActionDrawer: Admin add", () => {
+  it("adds an eligible voter from a different ED in the committee's AD without an override", async () => {
+    const crossEdPreflight = preflight({
+      snapshot: {
+        voter: {
+          voterRecordId: "V-JANE",
+          name: "Jane Doe",
+          homeCityTown: "GREECE",
+          homeElectionDistrict: 9,
+          homeAssemblyDistrict: "134",
+          party: "DEM",
+        },
+        lted: {
+          cityTown: "GREECE",
+          legDistrict: 1,
+          electionDistrict: 5,
+          assemblyDistrict: "134",
+        },
+        committee: { activeMemberCount: 1, maxSeatsPerLted: 4 },
+        warningState: "NONE",
+      },
+    });
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [
+        { body: { data: [JANE_DIFFERENT_ED], totalRecords: 1 } },
+      ],
+      "/api/committee/eligibility": [{ body: crossEdPreflight }],
+      "/api/committee/add": [
+        { body: { success: true, message: "Member added to committee" } },
+      ],
+    });
+    const { onComplete } = renderDrawer();
+
+    expect(
+      within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" }),
+    ).toBeChecked();
+    await searchAndSelect();
+
+    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
+      { field: "stateAssmblyDistrict", values: ["134"] },
+      { field: "lastName", values: ["DOE"] },
+    ]);
+    expect(await within(drawer()).findByText("Eligibility Snapshot")).toBeInTheDocument();
+    expect(drawer()).toHaveTextContent(
+      "Home ED: 9 (informational: it doesn't need to match the committee's ED)",
+    );
+    expect(drawer()).toHaveTextContent("Voter's Assembly District: 134");
+    expect(drawer()).toHaveTextContent("Committee's Assembly District: 134");
+    expect(continueButton()).toBeEnabled();
+    expect(
+      within(drawer()).queryByRole("checkbox", { name: /Override these hard stops/ }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(continueButton());
+    await userEvent.click(continueButton());
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    const addBody = bodyOf(callsTo(fetchMock, "/api/committee/add")[0]);
+    expect(addBody).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-JANE",
+      membershipType: "APPOINTED",
+    });
+    expect(addBody).not.toHaveProperty("forceAdd");
+    expect(addBody).not.toHaveProperty("overrideReason");
+  });
+
   it("collects membership details, confirms the destination and adds the member", async () => {
     const fetchMock = serve({
       "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],

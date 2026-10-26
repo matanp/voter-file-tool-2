@@ -24,7 +24,7 @@ import {
   type CandidateSearchInput,
   type CandidateSearchResult,
 } from "../adapters";
-import type { CommitteeRef } from "../committeeAction";
+import type { CandidateCommitteeRef } from "../committeeAction";
 import { personName } from "./drawerParts";
 
 /** Search form and results, kept by the flow so Back returns to them. */
@@ -44,7 +44,7 @@ export function candidateAddress(c: CandidateRecord): string {
 }
 
 export type CandidateSearchStepProps = {
-  committee: CommitteeRef;
+  committee: CandidateCommitteeRef;
   /** Governance config: off means the eligible-only filter has no residency condition. */
   requireAssemblyDistrictMatch: boolean;
   search: CandidateSearchState;

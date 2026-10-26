@@ -369,7 +369,6 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
         ? Number(selectedLegDistrict)
         : LEG_DISTRICT_SENTINEL,
       electionDistrict: selectedDistrict,
-      assemblyDistrict: null, // unused by the remove adapters
     };
     return { committee, memberId: memberExit.member.VRCNUM };
   })();

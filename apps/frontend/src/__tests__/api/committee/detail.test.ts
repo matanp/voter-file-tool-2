@@ -38,7 +38,6 @@ jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 type CommitteeListMock = { findUnique: jest.Mock };
 type UserJurisdictionMock = { findMany: jest.Mock };
-type CrosswalkMock = { findUnique: jest.Mock };
 
 function getCommitteeListMock(): CommitteeListMock {
   return (prismaMock as unknown as { committeeList: CommitteeListMock })
@@ -48,11 +47,6 @@ function getCommitteeListMock(): CommitteeListMock {
 function getUserJurisdictionMock(): UserJurisdictionMock {
   return (prismaMock as unknown as { userJurisdiction: UserJurisdictionMock })
     .userJurisdiction;
-}
-
-function getCrosswalkMock(): CrosswalkMock {
-  return (prismaMock as unknown as { ltedDistrictCrosswalk: CrosswalkMock })
-    .ltedDistrictCrosswalk;
 }
 
 // --- Fixtures ----------------------------------------------------------------
@@ -68,6 +62,17 @@ const TERM = {
 
 const ADMIN_USER_ID = "admin-user-id";
 const LEADER_USER_ID = "leader-user-id";
+
+type CrosswalkAssemblyDistrictRow = Prisma.LtedDistrictCrosswalkGetPayload<{
+  select: { stateAssemblyDistrict: true };
+}>;
+
+function mockCrosswalkLookup(row: CrosswalkAssemblyDistrictRow | null): void {
+  prismaMock.ltedDistrictCrosswalk.findUnique.mockImplementation(
+    (_args: Prisma.LtedDistrictCrosswalkFindUniqueArgs) =>
+      resolvesTo<CrosswalkAssemblyDistrictRow | null>(row),
+  );
+}
 
 function mockSeat(overrides: {
   seatNumber: number;
@@ -676,7 +681,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
         }),
         [],
       );
-      getCrosswalkMock().findUnique.mockResolvedValue({
+      mockCrosswalkLookup({
         stateAssemblyDistrict: " 134 ",
       });
 
@@ -684,7 +689,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
 
       expect(body.committee.assemblyDistrict).toBe("134");
       expect(body.requireAssemblyDistrictMatch).toBe(true);
-      expect(getCrosswalkMock().findUnique).toHaveBeenCalledWith({
+      expect(prismaMock.ltedDistrictCrosswalk.findUnique).toHaveBeenCalledWith({
         where: {
           cityTown_legDistrict_electionDistrict: {
             cityTown: "GREECE",
@@ -699,7 +704,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
     it("returns a null AD when the committee's ED has no crosswalk entry", async () => {
       adminSession();
       mockCommitteeWithMemberships(mockCommittee({}), []);
-      getCrosswalkMock().findUnique.mockResolvedValue(null);
+      mockCrosswalkLookup(null);
 
       const body = await getDetail();
 
@@ -709,7 +714,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
     it("returns the AD and the flag when the AD check is off", async () => {
       adminSession();
       mockCommitteeWithMemberships(mockCommittee({}), []);
-      getCrosswalkMock().findUnique.mockResolvedValue({
+      mockCrosswalkLookup({
         stateAssemblyDistrict: "134",
       });
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(

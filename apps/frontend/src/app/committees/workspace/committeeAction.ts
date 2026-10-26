@@ -2,14 +2,17 @@ import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 
 /**
  * The committee an action targets: `committeeListId` plus the composite key
- * the mutation endpoints use (plan §3.11, §8), and the committee's assembly
- * district, which decides who may serve on it.
+ * the mutation endpoints use (plan §3.11, §8).
  */
 export type CommitteeRef = {
   committeeListId: number;
   cityTown: string;
   legDistrict: number;
   electionDistrict: number;
+};
+
+/** Candidate search additionally needs the committee's residency context. */
+export type CandidateCommitteeRef = CommitteeRef & {
   /** From the LTED crosswalk; null when the committee's ED has no entry. */
   assemblyDistrict: string | null;
 };
@@ -27,8 +30,8 @@ export type CommitteeRef = {
  * - `view-voter-details`: read-only; shows the occupant's voter record.
  */
 export type CommitteeAction =
-  | { kind: "add-member"; committee: CommitteeRef; seatNumber?: number }
-  | { kind: "replace-member"; committee: CommitteeRef; memberId: string }
+  | { kind: "add-member"; committee: CandidateCommitteeRef; seatNumber?: number }
+  | { kind: "replace-member"; committee: CandidateCommitteeRef; memberId: string }
   | { kind: "remove-member"; committee: CommitteeRef; memberId: string }
   | { kind: "record-resignation"; committee: CommitteeRef; memberId: string }
   | { kind: "view-voter-details"; committee: CommitteeRef; memberId: string };
@@ -54,7 +57,7 @@ export function hasLegDistrict(committee: Pick<CommitteeRef, "legDistrict">): bo
 
 export function committeeRefFrom(
   committee: CommitteeDetailResponse["committee"],
-): CommitteeRef {
+): CandidateCommitteeRef {
   return {
     committeeListId: committee.committeeListId,
     cityTown: committee.cityTown,

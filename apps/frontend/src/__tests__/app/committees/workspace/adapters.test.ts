@@ -17,6 +17,7 @@ import {
   submitResignation,
 } from "~/app/committees/workspace/adapters";
 import type {
+  CandidateCommitteeRef,
   CommitteeAction,
   CommitteeRef,
 } from "~/app/committees/workspace/committeeAction";
@@ -35,17 +36,21 @@ const GREECE: CommitteeRef = {
   cityTown: "GREECE",
   legDistrict: 1,
   electionDistrict: 5,
+};
+const GREECE_CANDIDATE: CandidateCommitteeRef = {
+  ...GREECE,
   assemblyDistrict: "134",
 };
 /** A town without legislative districts: the sentinel, never sent. */
 const NO_LD: CommitteeRef = { ...GREECE, legDistrict: -1 };
+const NO_LD_CANDIDATE: CandidateCommitteeRef = { ...GREECE_CANDIDATE, legDistrict: -1 };
 /** The committee's ED has no crosswalk entry. */
-const NO_AD: CommitteeRef = { ...GREECE, assemblyDistrict: null };
+const NO_AD: CandidateCommitteeRef = { ...GREECE_CANDIDATE, assemblyDistrict: null };
 
-const ADD: CommitteeAction = { kind: "add-member", committee: GREECE, seatNumber: 2 };
+const ADD: CommitteeAction = { kind: "add-member", committee: GREECE_CANDIDATE, seatNumber: 2 };
 const REPLACE: CommitteeAction = {
   kind: "replace-member",
-  committee: GREECE,
+  committee: GREECE_CANDIDATE,
   memberId: "V-OLD",
 };
 
@@ -90,7 +95,7 @@ describe("candidateSearchQuery", () => {
 
   it("restricts to the committee's assembly district when only-eligible is on", () => {
     const query = candidateSearchQuery(
-      GREECE,
+      GREECE_CANDIDATE,
       { voterId: " 123 ", firstName: "", lastName: "Doe", onlyEligible: true },
       true,
     );
@@ -107,7 +112,7 @@ describe("candidateSearchQuery", () => {
   });
 
   it("filters a town without LDs by AD alone", () => {
-    expect(candidateSearchQuery(NO_LD, ELIGIBLE_ONLY, true)).toEqual([
+    expect(candidateSearchQuery(NO_LD_CANDIDATE, ELIGIBLE_ONLY, true)).toEqual([
       { field: "stateAssmblyDistrict", values: ["134"] },
     ]);
   });
@@ -115,7 +120,7 @@ describe("candidateSearchQuery", () => {
   it("drops the residency restriction when only-eligible is off", () => {
     expect(
       candidateSearchQuery(
-        GREECE,
+        GREECE_CANDIDATE,
         { voterId: "", firstName: "Jane", lastName: "", onlyEligible: false },
         true,
       ),
@@ -123,10 +128,10 @@ describe("candidateSearchQuery", () => {
   });
 
   it("adds no residency condition when requireAssemblyDistrictMatch is off", () => {
-    expect(candidateSearchQuery(GREECE, ELIGIBLE_ONLY, false)).toEqual([]);
+    expect(candidateSearchQuery(GREECE_CANDIDATE, ELIGIBLE_ONLY, false)).toEqual([]);
     expect(
       candidateSearchQuery(
-        GREECE,
+        GREECE_CANDIDATE,
         { voterId: "", firstName: "Jane", lastName: "", onlyEligible: true },
         false,
       ),
@@ -140,8 +145,8 @@ describe("candidateSearchQuery", () => {
 
 describe("canFilterEligibleOnly", () => {
   it("is offered when the committee has an AD, or when the AD check is off", () => {
-    expect(canFilterEligibleOnly(GREECE, true)).toBe(true);
-    expect(canFilterEligibleOnly(GREECE, false)).toBe(true);
+    expect(canFilterEligibleOnly(GREECE_CANDIDATE, true)).toBe(true);
+    expect(canFilterEligibleOnly(GREECE_CANDIDATE, false)).toBe(true);
     expect(canFilterEligibleOnly(NO_AD, false)).toBe(true);
   });
 
@@ -294,7 +299,7 @@ describe("submitCandidate", () => {
 
   it("omits the LD sentinel", async () => {
     respond({ success: true, message: "ok" });
-    await submitCandidate({ ...ADD, committee: NO_LD }, "add", details);
+    await submitCandidate({ ...ADD, committee: NO_LD_CANDIDATE }, "add", details);
     expect(sent().body).not.toHaveProperty("legDistrict");
     expect(committeeDataSchema.safeParse(sent().body).success).toBe(true);
   });
