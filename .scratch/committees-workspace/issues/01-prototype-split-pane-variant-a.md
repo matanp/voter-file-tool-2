@@ -1,7 +1,7 @@
 # 01 - Prototype the split-pane layout (Variant A)
 
 Type: prototype
-Status: done
+Status: resolved
 Parent: ../map.md
 
 ## Question
