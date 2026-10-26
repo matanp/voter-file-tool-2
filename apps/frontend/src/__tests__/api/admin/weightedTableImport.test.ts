@@ -2,7 +2,13 @@ import { type NextRequest } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { POST } from "~/app/api/admin/weightedTable/import/route";
 import { parseJsonResponse, createMockSession } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  prismaMock,
+  rawQueryMock,
+  rawQueryValues,
+} from "../../utils/mocks";
 import * as xlsx from "xlsx";
 
 jest.mock("xlsx", () => ({
@@ -14,11 +20,11 @@ jest.mock("xlsx", () => ({
 
 const readWorkbookMock = xlsx.read as jest.Mock;
 const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
-const executeRawMock = prismaMock.$executeRaw as unknown as jest.Mock;
+const executeRawMock = rawQueryMock("$executeRaw");
 
 /** Bound values of the nth $executeRaw tagged-template call (strings array dropped). */
 function executeRawValues(callIndex: number): unknown[] {
-  return (executeRawMock.mock.calls[callIndex] as unknown[]).slice(1);
+  return rawQueryValues(executeRawMock, callIndex);
 }
 
 type UploadFile = {

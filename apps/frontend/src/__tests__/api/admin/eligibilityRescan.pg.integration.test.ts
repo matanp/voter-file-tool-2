@@ -73,6 +73,7 @@ describePg("BOE eligibility rescan (PostgreSQL)", () => {
     voterRecordId: string,
     reason: "PARTY_MISMATCH" | "ASSEMBLY_DISTRICT_MISMATCH",
     details: Prisma.InputJsonObject | null,
+    sourceReportId?: string,
   ) => {
     await prisma.eligibilityFlag.create({
       data: {
@@ -84,6 +85,7 @@ describePg("BOE eligibility rescan (PostgreSQL)", () => {
         reason,
         status: "PENDING",
         ...(details ? { details } : {}),
+        ...(sourceReportId ? { sourceReportId } : {}),
       },
     });
   };
@@ -257,6 +259,60 @@ describePg("BOE eligibility rescan (PostgreSQL)", () => {
     const again = await runBoeEligibilityFlagging(prisma, { termId: TERM_ID });
     expect(again).toMatchObject({ newFlags: 0, existingPending: 2, autoResolved: 0 });
     expect(await prisma.auditLog.count()).toBe(2);
+  });
+
+  const OLD_SOURCE_REPORT_ID = "cmpgrescanold00000000000";
+
+  it("refreshes only the details and keeps the stored source report", async () => {
+    const rep = await seedMember("PG_REP", "REP", "131");
+    await seedPendingFlag(
+      "flag-details-only",
+      rep,
+      "PG_REP",
+      "PARTY_MISMATCH",
+      { expectedPartyCode: "OLD" },
+      OLD_SOURCE_REPORT_ID,
+    );
+
+    // No sourceReportId on the run, so only the details change.
+    const summary = await runBoeEligibilityFlagging(prisma, { termId: TERM_ID });
+
+    expect(summary).toMatchObject({ newFlags: 0, existingPending: 1, autoResolved: 0 });
+    const flag = await prisma.eligibilityFlag.findUniqueOrThrow({
+      where: { id: "flag-details-only" },
+    });
+    expect(flag.status).toBe("PENDING");
+    expect(flag.details).toEqual({ expectedPartyCode: "DEM", voterPartyCode: "REP" });
+    expect(flag.sourceReportId).toBe(OLD_SOURCE_REPORT_ID);
+  });
+
+  it("refreshes only the source report and keeps the stored details", async () => {
+    const rep = await seedMember("PG_REP", "REP", "131");
+    await seedPendingFlag(
+      "flag-source-only",
+      rep,
+      "PG_REP",
+      "PARTY_MISMATCH",
+      { expectedPartyCode: "DEM", voterPartyCode: "REP" },
+      OLD_SOURCE_REPORT_ID,
+    );
+    const seeded = await prisma.eligibilityFlag.findUniqueOrThrow({
+      where: { id: "flag-source-only" },
+    });
+
+    const summary = await runBoeEligibilityFlagging(prisma, {
+      termId: TERM_ID,
+      sourceReportId: SOURCE_REPORT_ID,
+    });
+
+    expect(summary).toMatchObject({ newFlags: 0, existingPending: 1, autoResolved: 0 });
+    const flag = await prisma.eligibilityFlag.findUniqueOrThrow({
+      where: { id: "flag-source-only" },
+    });
+    expect(flag.status).toBe("PENDING");
+    expect(flag.sourceReportId).toBe(SOURCE_REPORT_ID);
+    // The same UPDATE wrote sourceReportId, so the kept details are COALESCE's doing.
+    expect(flag.details).toEqual(seeded.details);
   });
 
   it("leaves a flag a reviewer decided mid-run alone and does not audit it", async () => {

@@ -277,6 +277,25 @@ type MockAuditLogModel = {
 export const getAuditLogMock = (mock: unknown): MockAuditLogModel =>
   (mock as { auditLog: MockAuditLogModel }).auditLog;
 
+/**
+ * The interpolated values, in order, of the BOE rescan's raw UPDATEs in
+ * packages/shared-prisma/src/boeEligibilityFlagging.ts. Read them with
+ * `namedRawQueryValues` from mocks.ts.
+ */
+export const REFRESH_PENDING_FLAGS_PARAMS = [
+  "updatedAt",
+  "ids",
+  "details",
+  "sourceReportIds",
+] as const;
+export const RESOLVE_STALE_FLAGS_PARAMS = [
+  "reviewedById",
+  "reviewedAt",
+  "updatedAt",
+  "ids",
+  "details",
+] as const;
+
 /** Typed mock model accessor for eligibilityFlag. */
 type MockEligibilityFlagModel = {
   findUnique: jest.Mock;

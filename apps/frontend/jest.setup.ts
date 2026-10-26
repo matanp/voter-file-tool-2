@@ -343,23 +343,10 @@ beforeEach(() => {
     update: jest.fn(),
     updateMany: jest.fn().mockResolvedValue({ count: 4 }),
   };
-  (
-    prismaMock as unknown as {
-      auditLog: {
-        create: jest.Mock;
-        createMany: jest.Mock;
-        findMany: jest.Mock;
-        findUnique: jest.Mock;
-        count: jest.Mock;
-      };
-    }
-  ).auditLog = {
-    create: jest.fn(),
-    createMany: jest.fn().mockResolvedValue({ count: 0 }),
-    findMany: jest.fn().mockResolvedValue([]),
-    findUnique: jest.fn().mockResolvedValue(null),
-    count: jest.fn().mockResolvedValue(0),
-  };
+  // auditLog keeps its typed deep-mock delegates; only the read defaults are set.
+  prismaMock.auditLog.findMany.mockResolvedValue([]);
+  prismaMock.auditLog.findUnique.mockResolvedValue(null);
+  prismaMock.auditLog.count.mockResolvedValue(0);
   (
     prismaMock as unknown as {
       eligibilityFlag: {

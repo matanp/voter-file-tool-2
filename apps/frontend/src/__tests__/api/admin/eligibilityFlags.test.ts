@@ -11,8 +11,15 @@ import {
   getMembershipMock,
   getAuditLogMock,
   getEligibilityFlagMock,
+  RESOLVE_STALE_FLAGS_PARAMS,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  namedRawQueryValues,
+  prismaMock,
+  rawQueryMock,
+} from "../../utils/mocks";
 
 function reviewRouteContext(id: string) {
   return { params: Promise.resolve({ id }) };
@@ -188,12 +195,8 @@ describe("/api/admin/eligibility-flags", () => {
       count: 0,
     });
     // The guarded UPDATE ... RETURNING reports which flags it resolved.
-    (prismaMock.$queryRaw as unknown as jest.Mock).mockResolvedValue([
-      { id: "flag-stale-1" },
-    ]);
-    (prismaMock.auditLog.createMany as jest.Mock).mockResolvedValue({
-      count: 1,
-    });
+    rawQueryMock("$queryRaw").mockResolvedValue([{ id: "flag-stale-1" }]);
+    prismaMock.auditLog.createMany.mockResolvedValue({ count: 1 });
 
     const response = await runEligibilityFlags(
       createMockRequest({ termId: "term-1" }),
@@ -205,10 +208,12 @@ describe("/api/admin/eligibility-flags", () => {
     }>(response);
     expect(body.autoResolved).toBe(1);
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
-    const resolveCall = (prismaMock.$queryRaw as unknown as jest.Mock).mock
-      .calls[0] as unknown[];
-    expect(resolveCall[1]).toBe("system");
-    expect(resolveCall[4]).toEqual(["flag-stale-1"]);
+    const resolve = namedRawQueryValues(
+      rawQueryMock("$queryRaw"),
+      RESOLVE_STALE_FLAGS_PARAMS,
+    );
+    expect(resolve.reviewedById).toBe("system");
+    expect(resolve.ids).toEqual(["flag-stale-1"]);
 
     expect(prismaMock.auditLog.createMany).toHaveBeenCalledWith({
       data: [
