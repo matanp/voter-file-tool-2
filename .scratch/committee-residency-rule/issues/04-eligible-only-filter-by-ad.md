@@ -1,6 +1,6 @@
 # 04 - "Only eligible candidates" filters by assembly district
 
-Status: done
+Status: resolved
 Type: task
 Blocked by: 01, 03, 08
 

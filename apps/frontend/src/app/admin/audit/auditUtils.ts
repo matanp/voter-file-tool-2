@@ -22,6 +22,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   DISCREPANCY_REJECTED: "Discrepancy Rejected",
   DISCREPANCY_UNDONE: "Discrepancy Undone",
   CROSSWALK_IMPORTED: "Crosswalk Imported",
+  WEIGHTED_TABLE_IMPORTED: "Weighted Table Imported",
   OFFICE_NAMES_BULK_CREATED: "Office Names Bulk Created",
   ELECTION_DATES_BULK_CREATED: "Election Dates Bulk Created",
   OFFICE_NAME_CREATED: "Office Name Created",
@@ -44,6 +45,11 @@ export type AuditEntityTypeOption = {
  * "this was never recorded". `auditUtils.test.ts` asserts both directions.
  */
 export const AUDIT_ENTITY_TYPE_OPTIONS: readonly AuditEntityTypeOption[] = [
+  {
+    value: "CommitteeList",
+    label: "Committee LTED weight",
+    description: "Weighted-table imports of LTED and seat weights",
+  },
   {
     value: "CommitteeMembership",
     label: "Committee membership",

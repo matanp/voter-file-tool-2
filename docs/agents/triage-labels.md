@@ -20,6 +20,8 @@ Status: ready-for-agent
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), write the corresponding value from this table into the issue's `Status:` line.
 
-`/wayfinder` uses its own `Status:` values (`claimed`, `resolved`) on wayfinding tickets; those are separate from this vocabulary.
+A finished ticket of any kind is marked `Status: resolved`. Don't use `done`, `closed` or similar.
+
+`/wayfinder` also uses `open` (unclaimed) and `claimed` on wayfinding tickets; those are separate from this vocabulary.
 
 Edit the right-hand column to match whatever vocabulary you actually use.

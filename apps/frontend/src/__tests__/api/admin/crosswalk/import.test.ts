@@ -5,7 +5,14 @@
 import { type NextRequest } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { POST } from "~/app/api/admin/crosswalk/import/route";
-import { parseJsonResponse, createMockSession, getMockCallArgs } from "../../../utils/testUtils";
+import {
+  parseJsonResponse,
+  createMockSession,
+  createInsufficientPrivilegeTestCases,
+  createUnauthenticatedTestCase,
+  getMockCallArgs,
+  runAuthTest,
+} from "../../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
 import * as xlsx from "xlsx";
 
@@ -57,6 +64,34 @@ describe("/api/admin/crosswalk/import", () => {
     (prismaMock.ltedDistrictCrosswalk.findMany as jest.Mock).mockResolvedValue([]);
     (prismaMock.ltedDistrictCrosswalk.createMany as jest.Mock).mockResolvedValue({ count: 0 });
     (prismaMock.auditLog as { create: jest.Mock }).create.mockResolvedValue({});
+  });
+
+  describe("authorization", () => {
+    // The shared generator also emits Developer, which only fails here because
+    // hasPermissionFor is mocked; Developer outranks Admin, so it is left out.
+    const deniedCases = [
+      createUnauthenticatedTestCase(),
+      ...createInsufficientPrivilegeTestCases(PrivilegeLevel.Admin).filter(
+        (testCase) =>
+          testCase.session?.user?.privilegeLevel !== PrivilegeLevel.Developer,
+      ),
+    ];
+
+    it.each(deniedCases)("$description and writes nothing", async (testCase) => {
+      await runAuthTest(
+        testCase,
+        POST,
+        createFormDataRequest(createUploadFile()),
+        mockAuthSession,
+        mockHasPermission,
+      );
+
+      expect(prismaMock.ltedDistrictCrosswalk.findMany).not.toHaveBeenCalled();
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(createManyMock()).not.toHaveBeenCalled();
+      expect(executeRawMock).not.toHaveBeenCalled();
+      expect((prismaMock.auditLog as { create: jest.Mock }).create).not.toHaveBeenCalled();
+    });
   });
 
   it("returns 400 when no file provided", async () => {

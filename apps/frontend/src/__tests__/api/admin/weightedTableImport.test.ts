@@ -1,7 +1,14 @@
 import { type NextRequest } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { POST } from "~/app/api/admin/weightedTable/import/route";
-import { parseJsonResponse, createMockSession } from "../../utils/testUtils";
+import {
+  parseJsonResponse,
+  createMockSession,
+  createInsufficientPrivilegeTestCases,
+  createUnauthenticatedTestCase,
+  getMockCallArgs,
+  runAuthTest,
+} from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
 import * as xlsx from "xlsx";
 
@@ -15,6 +22,9 @@ jest.mock("xlsx", () => ({
 const readWorkbookMock = xlsx.read as jest.Mock;
 const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
 const executeRawMock = prismaMock.$executeRaw as unknown as jest.Mock;
+// jest.setup replaces prismaMock.auditLog before every test, so read it lazily.
+const auditCreateMock = () =>
+  (prismaMock.auditLog as { create: jest.Mock }).create;
 
 /** Bound values of the nth $executeRaw tagged-template call (strings array dropped). */
 function executeRawValues(callIndex: number): unknown[] {
@@ -55,6 +65,34 @@ describe("/api/admin/weightedTable/import", () => {
     jest.clearAllMocks();
     mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
     mockHasPermission(true);
+    auditCreateMock().mockResolvedValue({});
+  });
+
+  describe("authorization", () => {
+    // The shared generator also emits Developer, which only fails here because
+    // hasPermissionFor is mocked; Developer outranks Admin, so it is left out.
+    const deniedCases = [
+      createUnauthenticatedTestCase(),
+      ...createInsufficientPrivilegeTestCases(PrivilegeLevel.Admin).filter(
+        (testCase) =>
+          testCase.session?.user?.privilegeLevel !== PrivilegeLevel.Developer,
+      ),
+    ];
+
+    it.each(deniedCases)("$description and writes nothing", async (testCase) => {
+      await runAuthTest(
+        testCase,
+        POST,
+        createFormDataRequest({ weightedTable: createUploadFile() }),
+        mockAuthSession,
+        mockHasPermission,
+      );
+
+      expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(executeRawMock).not.toHaveBeenCalled();
+      expect(auditCreateMock()).not.toHaveBeenCalled();
+    });
   });
 
   it("skips ambiguous LD/ED rows when multiple committees match and no resolver is available", async () => {
@@ -286,5 +324,74 @@ describe("/api/admin/weightedTable/import", () => {
     expect(seatWeights[1]).toBeNull();
     expect(Number(seatWeights[0])).toBeCloseTo(100 / 3, 15);
     expect(seatWeights[2]).toBe("4");
+  });
+
+  it("logs a WEIGHTED_TABLE_IMPORTED audit event after the write commits", async () => {
+    readWorkbookMock.mockReturnValue({
+      SheetNames: ["Weighted"],
+      Sheets: { Weighted: {} },
+    });
+    sheetToJsonMock.mockReturnValue([
+      { LTED: "17001", "Weighted Vote": 100 },
+      { LTED: "17002", "Weighted Vote": 80 },
+      { LTED: "99001", "Weighted Vote": 10 },
+    ]);
+
+    prismaMock.committeeList.findMany.mockResolvedValue([
+      { id: 1, cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 1 },
+      { id: 2, cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 2 },
+    ] as never);
+    prismaMock.ltedDistrictCrosswalk.findMany.mockResolvedValue([] as never);
+    // Row counts affected by the committee update, then the seat update.
+    executeRawMock.mockResolvedValueOnce(2).mockResolvedValueOnce(8);
+
+    const response = await POST(
+      createFormDataRequest({ weightedTable: createUploadFile() }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(auditCreateMock()).toHaveBeenCalledTimes(1);
+    expect(getMockCallArgs(auditCreateMock())[0]).toMatchObject({
+      data: {
+        userId: "test-user-id",
+        userRole: PrivilegeLevel.Admin,
+        action: "WEIGHTED_TABLE_IMPORTED",
+        entityType: "CommitteeList",
+        afterValue: {
+          rowsProcessed: 3,
+          matched: 2,
+          committeesUpdated: 2,
+          seatsUpdated: 8,
+          skippedNoCommittee: 1,
+          skippedAmbiguous: 0,
+        },
+        metadata: {
+          importType: "weightedTable",
+          termId: "term-default-2024-2026",
+          usedLtedMatrix: false,
+        },
+      },
+    });
+  });
+
+  it("returns 500 and skips the audit event when the write fails", async () => {
+    readWorkbookMock.mockReturnValue({
+      SheetNames: ["Weighted"],
+      Sheets: { Weighted: {} },
+    });
+    sheetToJsonMock.mockReturnValue([{ LTED: "17001", "Weighted Vote": 100 }]);
+
+    prismaMock.committeeList.findMany.mockResolvedValue([
+      { id: 1, cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 1 },
+    ] as never);
+    prismaMock.ltedDistrictCrosswalk.findMany.mockResolvedValue([] as never);
+    executeRawMock.mockRejectedValueOnce(new Error("connection reset"));
+
+    const response = await POST(
+      createFormDataRequest({ weightedTable: createUploadFile() }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(auditCreateMock()).not.toHaveBeenCalled();
   });
 });

@@ -62,11 +62,11 @@ export {
 } from './eligibilityPredicates';
 
 export {
-  checkAssemblyDistrictResidency,
-  checkCommitteeResidency,
   committeeResidencySearchFilter,
+  findAssemblyDistrictMismatch,
   findCommitteeAssemblyDistrict,
   findCommitteeAssemblyDistricts,
+  findResidencyMismatch,
   prepareCommitteeResidencyChecks,
   type AssemblyDistrictMismatch,
   type CommitteeAssemblyDistrictLookup,
