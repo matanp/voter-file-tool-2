@@ -1,24 +1,29 @@
-/** Monroe County town code → CommitteeList.cityTown (21 entries). */
+/**
+ * Monroe County town code → CommitteeList.cityTown (21 entries).
+ * Codes follow alphabetical town order. Each town code covers one LD (45-64),
+ * except 080 (Rochester city wards). Checked against the 2024 LTED matrix, the
+ * 2026 voter file and the BOE elected committee list.
+ */
 export const TOWN_CODE_TO_CITY: Record<string, string> = {
   "005": "BRIGHTON",
   "010": "CHILI",
   "015": "CLARKSON",
-  "017": "CLARKSON",
-  "020": "EAST ROCHESTER",
-  "025": "BRIGHTON",
-  "030": "GATES",
-  "035": "GATES",
-  "040": "GREECE",
-  "045": "HAMLIN",
-  "050": "HENRIETTA",
-  "055": "OGDEN",
-  "060": "RIGA",
-  "065": "RUSH",
-  "070": "SWEDEN",
-  "075": "PENFIELD",
+  "017": "EAST ROCHESTER",
+  "020": "GATES",
+  "025": "GREECE",
+  "030": "HAMLIN",
+  "035": "HENRIETTA",
+  "040": "IRONDEQUOIT",
+  "045": "MENDON",
+  "050": "OGDEN",
+  "055": "PARMA",
+  "060": "PENFIELD",
+  "065": "PERINTON",
+  "070": "PITTSFORD",
+  "075": "RIGA",
   "080": "ROCHESTER",
-  "085": "PERINTON",
-  "090": "PITTSFORD",
+  "085": "RUSH",
+  "090": "SWEDEN",
   "095": "WEBSTER",
   "100": "WHEATLAND",
 };

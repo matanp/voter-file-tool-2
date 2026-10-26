@@ -1,6 +1,6 @@
 # 08 - Fix the Monroe town-code table so crosswalk rows get the right town
 
-Status: ready-for-agent
+Status: ready-for-human
 Type: task
 
 ## Why
@@ -40,14 +40,36 @@ the two files agree. The BOE office names in `data/Elected County Committee List
 
 ## To do
 
-- Correct `TOWN_CODE_TO_CITY`, and add a test that pins every entry. The current test checks only
+- [x] Correct `TOWN_CODE_TO_CITY`, and add a test that pins every entry. The current test checks only
   080 and an unknown code.
-- Re-import the crosswalk in each environment. The import upserts on (town, LD, ED), so the
+- [ ] Re-import the crosswalk in each environment. The import upserts on (town, LD, ED), so the
   mislabelled rows stay behind: delete them first, or clear the table before importing.
-- Re-run the weighted-table import if weights were loaded with the bad table.
-- Re-run the BOE eligibility audit. It auto-resolves (`RESOLVED_BY_RESCAN`) the stale
+- [ ] Re-run the weighted-table import if weights were loaded with the bad table.
+- [ ] Re-run the BOE eligibility audit. It auto-resolves (`RESOLVED_BY_RESCAN`) the stale
   `ASSEMBLY_DISTRICT_MISMATCH` flags. Locally, all 1,426 active members have one; see ticket 02.
-- Re-run section 2 of `audit-ad-data.sql`. It should report 0 committees without a crosswalk row
+- [ ] Re-run section 2 of `audit-ad-data.sql`. It should report 0 committees without a crosswalk row
   and an empty 2b (town labels).
 
 ## Comments
+
+### 2026-10-25 - code fix landed
+
+- `TOWN_CODE_TO_CITY` in `apps/frontend/src/lib/lted/monroeTownCodes.ts` now matches the table
+  above: 21 codes, 21 distinct towns, IRONDEQUOIT, MENDON and PARMA added, 017-075, 085 and 090
+  moved to the right town.
+- Re-checked the table before changing it. `data/2024_LTED_Matrix.xlsx` (`town` → `ward`) and
+  `data/2026_1_voter_file_full.txt` both give exactly one LD per code (45-64, in code order; 080
+  covers the city wards), and every LD 45-64 in the BOE committee list carries the same single
+  town name.
+- `monroeTownCodes.test.ts` now pins the whole mapping with `toEqual`, checks there are no
+  duplicate towns, and resolves each code in strict mode. It failed on the old table (15 codes
+  wrong, 18 distinct towns) and passes now.
+- Other users: the crosswalk import, the weighted-table import (`fallback` mode) and
+  `scripts/seedLtedCrosswalk.ts` all go through `lookupCityTown`, so they pick up the fix with no
+  code change. No existing test relied on the wrong mapping. One weighted-table import test pairs
+  town `025` with a BRIGHTON committee in its fixture. It still passes, because it only needs two
+  different towns for the same LTED, but `025` is GREECE now, so the fixture reads oddly.
+- Left for a human, in each environment: delete the mislabelled crosswalk rows (or clear the
+  table) and re-import the crosswalk, re-run the weighted-table import if weights were loaded
+  with the bad table, re-run the BOE eligibility audit, and re-run section 2 of
+  `audit-ad-data.sql`. No database was touched.
