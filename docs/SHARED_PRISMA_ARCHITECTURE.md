@@ -96,7 +96,7 @@ if (process.env.NODE_ENV !== 'production') {
 - ✅ Direct `@prisma/client` dependency
 - ✅ Runs migrations (`prisma migrate dev`)
 - ✅ Generates Prisma client (`prisma generate`)
-- ✅ No dependency on shared-prisma package
+- ✅ Depends on shared-prisma for shared server-only helpers (e.g. `findResidencyMismatch`)
 
 ### **3. Report-Server Application (`apps/report-server`)**
 
