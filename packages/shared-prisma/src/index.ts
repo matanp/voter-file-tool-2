@@ -59,8 +59,19 @@ export {
 export {
   normalizeEligibilityText,
   isPartyMismatch,
-  isAssemblyDistrictMismatch,
 } from './eligibilityPredicates';
+
+export {
+  checkAssemblyDistrictResidency,
+  checkCommitteeResidency,
+  findCommitteeAssemblyDistrict,
+  findCommitteeAssemblyDistricts,
+  prepareCommitteeResidencyChecks,
+  type AssemblyDistrictMismatch,
+  type CommitteeAssemblyDistrictLookup,
+  type CommitteeLted,
+  type CommitteeResidencyCheck,
+} from './committeeResidency';
 
 export {
   computeDesignationWeight,

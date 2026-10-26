@@ -169,6 +169,34 @@ describe("validateEligibility", () => {
       expect(result.eligible).toBe(true);
       expect(result.hardStops).not.toContain("ASSEMBLY_DISTRICT_MISMATCH");
     });
+
+    it("is eligible when the voter shares the committee's AD but lives in a different ED, LD and town", async () => {
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({
+          party: "DEM",
+          stateAssmblyDistrict: "1",
+          electionDistrict: 9,
+          countyLegDistrict: "9",
+          city: "Other Town",
+          townCode: "999",
+        }),
+      );
+      setupCommitteeList({ cityTown: "Test City", legDistrict: 1, electionDistrict: 1 });
+      setupCrosswalk("1");
+      prismaMock.committeeMembership.count.mockResolvedValue(0);
+      prismaMock.committeeMembership.findFirst.mockResolvedValue(null);
+      prismaMock.voterRecord.findFirst.mockResolvedValue(
+        createMockVoterRecord({
+          latestRecordEntryYear: 2024,
+          latestRecordEntryNumber: 1,
+        }),
+      );
+
+      const result = await validateEligibility(voterId, committeeListId, termId);
+
+      expect(result.eligible).toBe(true);
+      expect(result.hardStops).toEqual([]);
+    });
   });
 
   describe("CAPACITY", () => {

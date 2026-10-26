@@ -13,11 +13,11 @@ import {
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
+  checkCommitteeResidency,
   getMostRecentImportVersion,
-  isAssemblyDistrictMismatch,
   isPartyMismatch,
   isVoterPossiblyInactive,
-} from "~/app/api/lib/eligibilityService";
+} from "@voter-file-tool/shared-prisma";
 
 export type { IneligibilityReason };
 
@@ -156,42 +156,16 @@ export async function validateEligibility(
   }
 
   // 3. ASSEMBLY_DISTRICT_MISMATCH — only when requireAssemblyDistrictMatch
-  // If LtedDistrictCrosswalk is empty (crosswalk not yet loaded), lookup fails for all LTEDs;
-  // we treat missing crosswalk as mismatch (hard stop). See ticket 2.1 implementation notes.
-  if (config.requireAssemblyDistrictMatch) {
-    const committeeList = await prisma.committeeList.findUnique({
-      where: { id: committeeListId },
-      select: {
-        cityTown: true,
-        legDistrict: true,
-        electionDistrict: true,
-      },
-    });
-
-    if (!committeeList) {
-      hardStops.push("ASSEMBLY_DISTRICT_MISMATCH");
-    } else {
-      const crosswalk = await prisma.ltedDistrictCrosswalk.findUnique({
-        where: {
-          cityTown_legDistrict_electionDistrict: {
-            cityTown: committeeList.cityTown,
-            legDistrict: Number(committeeList.legDistrict),
-            electionDistrict: committeeList.electionDistrict,
-          },
-        },
-        select: { stateAssemblyDistrict: true },
-      });
-
-      if (
-        isAssemblyDistrictMismatch(
-          voter.stateAssmblyDistrict,
-          crosswalk?.stateAssemblyDistrict,
-          config.requireAssemblyDistrictMatch,
-        )
-      ) {
-        hardStops.push("ASSEMBLY_DISTRICT_MISMATCH");
-      }
-    }
+  // A missing committee or crosswalk row (e.g. crosswalk not yet loaded) is a mismatch (hard stop).
+  // See ticket 2.1 implementation notes.
+  if (
+    await checkCommitteeResidency(prisma, {
+      committeeListId,
+      voterAssemblyDistrict: voter.stateAssmblyDistrict,
+      requireAssemblyDistrictMatch: config.requireAssemblyDistrictMatch,
+    })
+  ) {
+    hardStops.push("ASSEMBLY_DISTRICT_MISMATCH");
   }
 
   // 4. CAPACITY

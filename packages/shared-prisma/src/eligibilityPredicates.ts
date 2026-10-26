@@ -1,5 +1,5 @@
 /**
- * Shared party / assembly-district eligibility predicates.
+ * Shared party eligibility predicates. The assembly-district rule lives in committeeResidency.
  * Used by admission gate (validateEligibility) and BOE standing audit (detectFlagsForMembership).
  */
 
@@ -22,23 +22,4 @@ export function isPartyMismatch(
     normalizeEligibilityText(voterParty) !==
     normalizeEligibilityText(requiredPartyCode)
   );
-}
-
-/**
- * Returns true when AD check is enabled and voter AD does not match expected crosswalk AD.
- * Missing or empty expected AD is treated as mismatch when the check is enabled.
- */
-export function isAssemblyDistrictMismatch(
-  voterAssemblyDistrict: string | null | undefined,
-  expectedAssemblyDistrict: string | null | undefined,
-  requireAssemblyDistrictMatch: boolean,
-): boolean {
-  if (!requireAssemblyDistrictMatch) {
-    return false;
-  }
-
-  const expected = normalizeEligibilityText(expectedAssemblyDistrict);
-  const actual = normalizeEligibilityText(voterAssemblyDistrict);
-
-  return !expected || expected !== actual;
 }

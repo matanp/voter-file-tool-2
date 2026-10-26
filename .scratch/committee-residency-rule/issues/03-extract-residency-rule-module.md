@@ -1,6 +1,6 @@
 # 03 - Extract one residency rule module
 
-Status: ready-for-agent
+Status: done
 Type: task
 
 ## Why
@@ -79,3 +79,10 @@ this module.
   frontend typecheck, and the existing eligibility and BOE flagging tests pass.
 
 ## Comments
+
+- 2026-10-25: Done. The module is `packages/shared-prisma/src/committeeResidency.ts`.
+  `checkCommitteeResidency` also owns the committee lookup, so the "missing committee → mismatch"
+  case now lives in the module and is tested there. BOE flagging skips the crosswalk query when
+  the flag is off; the flags it produces are unchanged. The `getMostRecentImportVersion` /
+  `isVoterPossiblyInactive` cases moved to `packages/shared-prisma/src/__tests__/importVersion.test.ts`.
+  Docs that still name `eligibilityService.ts` and `isAssemblyDistrictMismatch` are left for ticket 07.

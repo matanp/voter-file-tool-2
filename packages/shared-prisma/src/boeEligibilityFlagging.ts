@@ -7,7 +7,10 @@ import {
 } from "@prisma/client";
 
 import {
-  isAssemblyDistrictMismatch,
+  prepareCommitteeResidencyChecks,
+  type CommitteeResidencyCheck,
+} from "./committeeResidency";
+import {
   isPartyMismatch,
   normalizeEligibilityText,
 } from "./eligibilityPredicates";
@@ -98,14 +101,6 @@ function jsonValueKey(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function ltedKey(
-  cityTown: string,
-  legDistrict: number,
-  electionDistrict: number,
-): string {
-  return `${cityTown}::${String(legDistrict)}::${String(electionDistrict)}`;
-}
-
 export async function getMostRecentImportVersion(
   db: EligibilityFlaggingClient,
 ): Promise<MostRecentImportVersion | null> {
@@ -149,9 +144,8 @@ function detectFlagsForMembership(
   membership: MembershipWithEligibilityContext,
   context: {
     requiredPartyCode: string;
-    requireAssemblyDistrictMatch: boolean;
     mostRecentImport: MostRecentImportVersion | null;
-    crosswalkByKey: Map<string, { stateAssemblyDistrict: string }>;
+    checkResidency: CommitteeResidencyCheck;
   },
 ): DetectedFlag[] {
   const detected: DetectedFlag[] = [];
@@ -179,32 +173,15 @@ function detectFlagsForMembership(
     });
   }
 
-  if (context.requireAssemblyDistrictMatch) {
-    const key = ltedKey(
-      membership.committeeList.cityTown,
-      membership.committeeList.legDistrict,
-      membership.committeeList.electionDistrict,
-    );
-    const expectedAssemblyDistrict =
-      context.crosswalkByKey.get(key)?.stateAssemblyDistrict;
-    const expected = normalizeEligibilityText(expectedAssemblyDistrict);
-    const actual = normalizeEligibilityText(voter.stateAssmblyDistrict);
-
-    if (
-      isAssemblyDistrictMismatch(
-        voter.stateAssmblyDistrict,
-        expectedAssemblyDistrict,
-        context.requireAssemblyDistrictMatch,
-      )
-    ) {
-      detected.push({
-        reason: "ASSEMBLY_DISTRICT_MISMATCH",
-        details: {
-          expectedAssemblyDistrict: expected || null,
-          voterAssemblyDistrict: actual || null,
-        },
-      });
-    }
+  const assemblyDistrictMismatch = context.checkResidency(
+    membership.committeeList,
+    voter.stateAssmblyDistrict,
+  );
+  if (assemblyDistrictMismatch) {
+    detected.push({
+      reason: "ASSEMBLY_DISTRICT_MISMATCH",
+      details: assemblyDistrictMismatch,
+    });
   }
 
   if (
@@ -293,51 +270,11 @@ export async function runBoeEligibilityFlagging(
     },
   })) as MembershipWithEligibilityContext[];
 
-  const uniqueLtedFilters: Array<{
-    cityTown: string;
-    legDistrict: number;
-    electionDistrict: number;
-  }> = [];
-  const seenLtedKeys = new Set<string>();
-
-  for (const membership of memberships) {
-    const key = ltedKey(
-      membership.committeeList.cityTown,
-      membership.committeeList.legDistrict,
-      membership.committeeList.electionDistrict,
-    );
-    if (!seenLtedKeys.has(key)) {
-      seenLtedKeys.add(key);
-      uniqueLtedFilters.push({
-        cityTown: membership.committeeList.cityTown,
-        legDistrict: membership.committeeList.legDistrict,
-        electionDistrict: membership.committeeList.electionDistrict,
-      });
-    }
-  }
-
-  const crosswalkRows =
-    uniqueLtedFilters.length > 0
-      ? await db.ltedDistrictCrosswalk.findMany({
-          where: { OR: uniqueLtedFilters },
-          select: {
-            cityTown: true,
-            legDistrict: true,
-            electionDistrict: true,
-            stateAssemblyDistrict: true,
-          },
-        })
-      : [];
-
-  const crosswalkByKey = new Map<string, { stateAssemblyDistrict: string }>();
-  for (const row of crosswalkRows) {
-    crosswalkByKey.set(
-      ltedKey(row.cityTown, row.legDistrict, row.electionDistrict),
-      {
-        stateAssemblyDistrict: row.stateAssemblyDistrict,
-      },
-    );
-  }
+  const checkResidency = await prepareCommitteeResidencyChecks(
+    db,
+    memberships.map((membership) => membership.committeeList),
+    governanceConfig.requireAssemblyDistrictMatch,
+  );
 
   const pendingFlags = await db.eligibilityFlag.findMany({
     where: {
@@ -372,10 +309,8 @@ export async function runBoeEligibilityFlagging(
   for (const membership of memberships) {
     const detected = detectFlagsForMembership(membership, {
       requiredPartyCode: governanceConfig.requiredPartyCode,
-      requireAssemblyDistrictMatch:
-        governanceConfig.requireAssemblyDistrictMatch,
       mostRecentImport,
-      crosswalkByKey,
+      checkResidency,
     });
 
     for (const flag of detected) {

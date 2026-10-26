@@ -36,6 +36,11 @@ function createDbMock(): MockEligibilityDb {
   };
 }
 
+// runBoeEligibilityFlagging only touches the delegates above; the cast stops here.
+function asEligibilityDb(db: MockEligibilityDb): PrismaClient {
+  return db as unknown as PrismaClient;
+}
+
 describe("runBoeEligibilityFlagging", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -126,7 +131,7 @@ describe("runBoeEligibilityFlagging", () => {
     db.eligibilityFlag.createMany.mockResolvedValue({ count: 4 });
 
     const summary = await runBoeEligibilityFlagging(
-      db as unknown as PrismaClient,
+      asEligibilityDb(db),
       {
         termId: "term-1",
         sourceReportId: "cm1234567890abcdef123456",
@@ -216,7 +221,7 @@ describe("runBoeEligibilityFlagging", () => {
     db.eligibilityFlag.findMany.mockResolvedValue([]);
     db.eligibilityFlag.createMany.mockResolvedValue({ count: 2 });
 
-    await runBoeEligibilityFlagging(db as unknown as PrismaClient, {
+    await runBoeEligibilityFlagging(asEligibilityDb(db), {
       termId: "term-1",
     });
 
@@ -247,6 +252,50 @@ describe("runBoeEligibilityFlagging", () => {
       expectedAssemblyDistrict: "1",
       voterAssemblyDistrict: "2",
     });
+  });
+
+  it("does not flag a member who lives in a different ED but the same AD", async () => {
+    const db = createDbMock();
+    db.committeeGovernanceConfig.findFirst.mockResolvedValue({
+      requiredPartyCode: "DEM",
+      requireAssemblyDistrictMatch: true,
+    });
+    db.voterRecord.findFirst.mockResolvedValue({
+      latestRecordEntryYear: 2026,
+      latestRecordEntryNumber: 10,
+    });
+    db.committeeMembership.findMany.mockResolvedValue([
+      {
+        id: "m-other-ed",
+        committeeListId: 1,
+        voterRecordId: "V1",
+        committeeList: { cityTown: "A", legDistrict: 1, electionDistrict: 1 },
+        voterRecord: {
+          party: "DEM",
+          stateAssmblyDistrict: "1",
+          electionDistrict: 7,
+          latestRecordEntryYear: 2026,
+          latestRecordEntryNumber: 10,
+        },
+      },
+    ]);
+    db.ltedDistrictCrosswalk.findMany.mockResolvedValue([
+      {
+        cityTown: "A",
+        legDistrict: 1,
+        electionDistrict: 1,
+        stateAssemblyDistrict: "1",
+      },
+    ]);
+    db.eligibilityFlag.findMany.mockResolvedValue([]);
+
+    const summary = await runBoeEligibilityFlagging(
+      asEligibilityDb(db),
+      { termId: "term-1" },
+    );
+
+    expect(summary.newFlags).toBe(0);
+    expect(db.eligibilityFlag.createMany).not.toHaveBeenCalled();
   });
 
   it("does not create duplicate pending flags for the same membership + reason", async () => {
@@ -289,7 +338,7 @@ describe("runBoeEligibilityFlagging", () => {
     db.eligibilityFlag.createMany.mockResolvedValue({ count: 0 });
 
     const summary = await runBoeEligibilityFlagging(
-      db as unknown as PrismaClient,
+      asEligibilityDb(db),
       {
         termId: "term-1",
       },
@@ -332,7 +381,7 @@ describe("runBoeEligibilityFlagging", () => {
     db.eligibilityFlag.createMany.mockResolvedValue({ count: 1 });
 
     const summary = await runBoeEligibilityFlagging(
-      db as unknown as PrismaClient,
+      asEligibilityDb(db),
       { termId: "term-1" },
     );
 
@@ -382,7 +431,7 @@ describe("runBoeEligibilityFlagging", () => {
     db.eligibilityFlag.createMany.mockResolvedValue({ count: 0 });
 
     const summary = await runBoeEligibilityFlagging(
-      db as unknown as PrismaClient,
+      asEligibilityDb(db),
       {
         termId: "term-1",
         sourceReportId: "cm1234567890abcdef123456",
@@ -445,7 +494,7 @@ describe("runBoeEligibilityFlagging", () => {
     db.eligibilityFlag.createMany.mockResolvedValue({ count: 0 });
 
     const summary = await runBoeEligibilityFlagging(
-      db as unknown as PrismaClient,
+      asEligibilityDb(db),
       { termId: "term-1" },
     );
 

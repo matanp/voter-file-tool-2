@@ -1,12 +1,12 @@
 /**
- * Unit tests for shared eligibility predicates (party / assembly-district).
+ * Unit tests for shared eligibility predicates (party). The assembly-district cases live with the
+ * residency module in packages/shared-prisma/src/__tests__/committeeResidency.test.ts.
  */
 
-import { isPartyMismatch } from "@voter-file-tool/shared-prisma";
 import {
-  isAssemblyDistrictMismatch,
+  isPartyMismatch,
   normalizeEligibilityText,
-} from "~/app/api/lib/eligibilityService";
+} from "@voter-file-tool/shared-prisma";
 
 describe("eligibilityPredicates", () => {
   describe("normalizeEligibilityText", () => {
@@ -17,7 +17,7 @@ describe("eligibilityPredicates", () => {
     });
   });
 
-  describe("isPartyMismatch (via eligibilityService)", () => {
+  describe("isPartyMismatch", () => {
     it("returns false for exact match", () => {
       expect(isPartyMismatch("DEM", "DEM")).toBe(false);
     });
@@ -47,39 +47,6 @@ describe("eligibilityPredicates", () => {
     it("is exported from @voter-file-tool/shared-prisma", () => {
       expect(isPartyMismatch("DEM", "DEM")).toBe(false);
       expect(isPartyMismatch("REP", "DEM")).toBe(true);
-    });
-  });
-
-  describe("isAssemblyDistrictMismatch", () => {
-    it("returns false for exact match", () => {
-      expect(isAssemblyDistrictMismatch("1", "1", true)).toBe(false);
-    });
-
-    it("returns false when whitespace differs only", () => {
-      expect(isAssemblyDistrictMismatch(" 1 ", "1", true)).toBe(false);
-    });
-
-    it("returns true for different assembly districts", () => {
-      expect(isAssemblyDistrictMismatch("2", "1", true)).toBe(true);
-    });
-
-    it("returns false when AD check is disabled", () => {
-      expect(isAssemblyDistrictMismatch("2", "1", false)).toBe(false);
-      expect(isAssemblyDistrictMismatch(null, null, false)).toBe(false);
-    });
-
-    it("returns true when voter AD is missing but expected AD is present", () => {
-      expect(isAssemblyDistrictMismatch(null, "1", true)).toBe(true);
-    });
-
-    it("returns true when expected AD is missing even if voter AD is empty", () => {
-      expect(isAssemblyDistrictMismatch(null, null, true)).toBe(true);
-      expect(isAssemblyDistrictMismatch("", null, true)).toBe(true);
-      expect(isAssemblyDistrictMismatch("", "", true)).toBe(true);
-    });
-
-    it("returns true when voter AD is empty but expected AD is present", () => {
-      expect(isAssemblyDistrictMismatch("", "1", true)).toBe(true);
     });
   });
 });
