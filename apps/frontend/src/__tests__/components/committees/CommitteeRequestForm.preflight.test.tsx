@@ -47,6 +47,7 @@ describe("CommitteeRequestForm preflight", () => {
           cityTown: "Test City",
           legDistrict: 1,
           electionDistrict: 1,
+          assemblyDistrict: "1",
         },
         committee: {
           activeMemberCount: 4,
@@ -123,6 +124,7 @@ describe("CommitteeRequestForm preflight", () => {
           cityTown: "Test City",
           legDistrict: 1,
           electionDistrict: 1,
+          assemblyDistrict: "1",
         },
         committee: {
           activeMemberCount: 1,
@@ -204,6 +206,7 @@ describe("CommitteeRequestForm preflight", () => {
           cityTown: "Test City",
           legDistrict: 1,
           electionDistrict: 1,
+          assemblyDistrict: "1",
         },
         committee: {
           activeMemberCount: 1,
@@ -305,6 +308,7 @@ describe("CommitteeRequestForm preflight", () => {
           cityTown: "Test City",
           legDistrict: 1,
           electionDistrict: 1,
+          assemblyDistrict: "1",
         },
         committee: {
           activeMemberCount: 1,

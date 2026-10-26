@@ -1,4 +1,5 @@
 import type { CommitteeGovernanceConfig } from "@prisma/client";
+import { findCommitteeAssemblyDistrict } from "@voter-file-tool/shared-prisma";
 import {
   countActiveMembers,
   getGovernanceConfig,
@@ -26,6 +27,12 @@ export type EligibilitySnapshot = {
     cityTown: string;
     legDistrict: number;
     electionDistrict: number;
+    /**
+     * The committee's AD from the crosswalk row for its LTED, or null when there's no row (or
+     * the AD is empty). Residency is decided by this AD alone. Filled in whether or not
+     * requireAssemblyDistrictMatch is on.
+     */
+    assemblyDistrict: string | null;
   };
   committee: {
     activeMemberCount: number;
@@ -60,6 +67,7 @@ type VoterDisplayFields = {
 export function buildEligibilitySnapshot(
   voterRecordId: string,
   committeeList: CommitteeListLted,
+  committeeAssemblyDistrict: string | null,
   voter: VoterDisplayFields | null,
   governanceConfig: CommitteeGovernanceConfig,
   activeMemberCount: number,
@@ -83,6 +91,7 @@ export function buildEligibilitySnapshot(
       cityTown: committeeList.cityTown,
       legDistrict: committeeList.legDistrict,
       electionDistrict: committeeList.electionDistrict,
+      assemblyDistrict: committeeAssemblyDistrict,
     },
     committee: {
       activeMemberCount,
@@ -111,17 +120,20 @@ export async function runEligibilityPreflight(
     { prefetched: { config: governanceConfig, activeMemberCount } },
   );
 
-  const voter = await prisma.voterRecord.findUnique({
-    where: { VRCNUM: voterRecordId },
-    select: {
-      firstName: true,
-      lastName: true,
-      city: true,
-      electionDistrict: true,
-      stateAssmblyDistrict: true,
-      party: true,
-    },
-  });
+  const [voter, committeeAssemblyDistrict] = await Promise.all([
+    prisma.voterRecord.findUnique({
+      where: { VRCNUM: voterRecordId },
+      select: {
+        firstName: true,
+        lastName: true,
+        city: true,
+        electionDistrict: true,
+        stateAssmblyDistrict: true,
+        party: true,
+      },
+    }),
+    findCommitteeAssemblyDistrict(prisma, committeeList),
+  ]);
 
   return {
     eligible: result.eligible,
@@ -130,6 +142,7 @@ export async function runEligibilityPreflight(
     snapshot: buildEligibilitySnapshot(
       voterRecordId,
       committeeList,
+      committeeAssemblyDistrict,
       voter,
       governanceConfig,
       activeMemberCount,

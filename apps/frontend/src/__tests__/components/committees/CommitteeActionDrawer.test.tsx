@@ -134,7 +134,12 @@ function preflight(
         homeAssemblyDistrict: "134",
         party: "DEM",
       },
-      lted: { cityTown: "GREECE", legDistrict: 1, electionDistrict: 5 },
+      lted: {
+        cityTown: "GREECE",
+        legDistrict: 1,
+        electionDistrict: 5,
+        assemblyDistrict: "134",
+      },
       committee: { activeMemberCount: 1, maxSeatsPerLted: 4 },
       warningState: "NONE",
     },

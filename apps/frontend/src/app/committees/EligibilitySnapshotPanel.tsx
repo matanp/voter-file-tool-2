@@ -57,7 +57,9 @@ export default function EligibilitySnapshotPanel({
         <p className="font-medium">Eligibility Snapshot</p>
         <p className="text-muted-foreground">
           Warning state:{" "}
-          {snapshot.warningState === "HAS_WARNINGS" ? "Warnings present" : "Clear"}
+          {snapshot.warningState === "HAS_WARNINGS"
+            ? "Warnings present"
+            : "Clear"}
         </p>
       </div>
 
@@ -74,26 +76,40 @@ export default function EligibilitySnapshotPanel({
           <span className="font-medium">Home city/town:</span>{" "}
           {renderValue(snapshot.voter.homeCityTown)}
         </p>
-        <p>
+        <p className="text-muted-foreground">
           <span className="font-medium">Home ED:</span>{" "}
-          {renderValue(snapshot.voter.homeElectionDistrict)}
-        </p>
-        <p>
-          <span className="font-medium">Assembly District:</span>{" "}
-          {renderValue(snapshot.voter.homeAssemblyDistrict)}
+          {renderValue(snapshot.voter.homeElectionDistrict)}{" "}
+          <span className="text-xs">
+            (informational: it doesn&apos;t need to match the committee&apos;s
+            ED)
+          </span>
         </p>
         <p>
           <span className="font-medium">Party:</span>{" "}
           {renderValue(snapshot.voter.party)}
         </p>
         <p>
-          <span className="font-medium">LTED:</span>{" "}
-          {snapshot.lted.cityTown} / LD {snapshot.lted.legDistrict} / ED{" "}
-          {snapshot.lted.electionDistrict}
+          <span className="font-medium">Voter&apos;s Assembly District:</span>{" "}
+          {renderValue(snapshot.voter.homeAssemblyDistrict)}
+        </p>
+        <p>
+          <span className="font-medium">
+            Committee&apos;s Assembly District:
+          </span>{" "}
+          {snapshot.lted.assemblyDistrict ?? (
+            <span className="text-muted-foreground">
+              Unknown: the committee&apos;s ED has no crosswalk entry
+            </span>
+          )}
+        </p>
+        <p>
+          <span className="font-medium">LTED:</span> {snapshot.lted.cityTown} /
+          LD {snapshot.lted.legDistrict} / ED {snapshot.lted.electionDistrict}
         </p>
         <p>
           <span className="font-medium">Committee seats:</span>{" "}
-          {snapshot.committee.activeMemberCount}/{snapshot.committee.maxSeatsPerLted}
+          {snapshot.committee.activeMemberCount}/
+          {snapshot.committee.maxSeatsPerLted}
         </p>
       </div>
 

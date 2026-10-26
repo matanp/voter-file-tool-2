@@ -119,7 +119,12 @@ const ELIGIBLE = {
       homeAssemblyDistrict: null,
       party: "DEM",
     },
-    lted: { cityTown: "GREECE", legDistrict: 1, electionDistrict: 2 },
+    lted: {
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 2,
+      assemblyDistrict: "134",
+    },
     committee: { activeMemberCount: 1, maxSeatsPerLted: 4 },
     warningState: "NONE",
   },
