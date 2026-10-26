@@ -2,7 +2,7 @@ import React from "react";
 import { PrivilegeLevel } from "@prisma/client";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { mockJsonResponse } from "../../utils/testUtils";
+import { fetchJsonResponse, installFetchMock } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
@@ -29,17 +29,16 @@ type SearchBody = { searchQuery: Array<{ field: string; values: unknown[] }> };
 
 describe("AddCommitteeForm: Only Eligible Candidates", () => {
   const originalFetch = global.fetch;
-  let fetchMock: jest.Mock;
+  let fetchMock: ReturnType<typeof installFetchMock>;
 
   beforeEach(() => {
-    fetchMock = jest.fn((input: RequestInfo | URL) => {
+    fetchMock = installFetchMock((input) => {
       const url = String(input);
       if (url.includes("/api/fetchFilteredData")) {
-        return Promise.resolve(mockJsonResponse({ data: [] }));
+        return Promise.resolve(fetchJsonResponse({ data: [] }));
       }
       throw new Error(`Unexpected fetch call: ${url}`);
     });
-    global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -71,8 +70,8 @@ describe("AddCommitteeForm: Only Eligible Candidates", () => {
       screen.getByRole("button", { name: "Find Members to Add" }),
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    return JSON.parse(String(init.body)) as SearchBody;
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    return JSON.parse(String(init?.body)) as SearchBody;
   }
 
   it("filters by the committee's assembly district, not town, LD or ED", async () => {

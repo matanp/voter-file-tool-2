@@ -1,6 +1,6 @@
 # 11 - Re-run the BOE eligibility audit on prod to clear stale AD flags
 
-Status: ready-for-human
+Status: resolved
 Type: task
 Blocked by: 08
 
@@ -80,3 +80,21 @@ insert). For about 1,500 flags that is far beyond the client timeout. A second r
   The acceptance criteria are read as applying to the active term.
 
 Follow-up: the per-flag writes should be batched, as the imports were in `5db65f3`.
+
+**Remaining real AD mismatches (active term, `PENDING`), listed for review on `/admin/eligibility-flags`:**
+
+| VRCNUM | Committee |
+| --- | --- |
+| 000108460 | ROCHESTER · LD 24 · ED 19 |
+| 000255799 | ROCHESTER · LD 24 · ED 14 |
+| 100069210 | ROCHESTER · LD 25 · ED 14 |
+| 100087307 | ROCHESTER · LD 25 · ED 10 |
+| 000246003 | ROCHESTER · LD 29 · ED 7 |
+| 000018455 | PARMA · LD 56 · ED 8 |
+| 000011736 | PARMA · LD 56 · ED 1 |
+| 100107460 | PENFIELD · LD 57 · ED 5 |
+| 100136357 | GATES · LD 49 · ED 23 |
+| 000245518 | GATES · LD 49 · ED 23 |
+
+The review dialog doesn't show the expected and actual AD (ticket 12). Until that's fixed, get
+them from psql.

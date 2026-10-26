@@ -42,16 +42,23 @@ jest.mock("~/components/ui/ComboBox", () => ({
   ),
 }));
 
-// Stand-in exposes onAdd so the test can simulate a successful addition.
+// Stand-in exposes onAdd so the test can simulate a successful addition, and
+// echoes the residency props so the test can check what the selector passes.
 jest.mock("~/app/committees/AddCommitteeForm", () => ({
   AddCommitteeForm: ({
     onAdd,
+    assemblyDistrict,
+    requireAssemblyDistrictMatch,
   }: {
     onAdd: (city: string, district: number, legDistrict?: string) => void;
+    assemblyDistrict: string | null;
+    requireAssemblyDistrictMatch: boolean;
   }) => (
     <button
       type="button"
       data-testid="add-form"
+      data-assembly-district={assemblyDistrict ?? "none"}
+      data-require-ad-match={String(requireAssemblyDistrictMatch)}
       onClick={() => onAdd("GREECE", 5, "1")}
     >
       Simulate add
@@ -134,6 +141,8 @@ function rosterResponse() {
 function detailResponse() {
   return {
     id: 1,
+    assemblyDistrict: "134",
+    requireAssemblyDistrictMatch: false,
     memberships: [
       {
         voterRecord: { VRCNUM: "V1", firstName: "Jane", lastName: "Doe" },
@@ -285,6 +294,16 @@ describe("CommitteeSelector detail interim layout", () => {
       screen.getByRole("button", { name: "Add committee member" }),
     ).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByTestId("add-form")).not.toBeVisible();
+  });
+
+  it("passes the committee's AD and the AD-match setting to the add-member form", async () => {
+    mockHasPermission(true);
+    installFetch();
+    await openDetail(PrivilegeLevel.Admin);
+
+    const form = screen.getByTestId("add-form");
+    expect(form).toHaveAttribute("data-assembly-district", "134");
+    expect(form).toHaveAttribute("data-require-ad-match", "false");
   });
 
   it("hides add-member and settings controls from ReadAccess users", async () => {
