@@ -10,6 +10,7 @@ import type {
 import {
   checkAssemblyDistrictResidency,
   checkCommitteeResidency,
+  committeeResidencySearchFilter,
   findCommitteeAssemblyDistrict,
   findCommitteeAssemblyDistricts,
   prepareCommitteeResidencyChecks,
@@ -282,5 +283,23 @@ describe('prepareCommitteeResidencyChecks', () => {
       expectedAssemblyDistrict: null,
       voterAssemblyDistrict: '2',
     });
+  });
+});
+
+describe('committeeResidencySearchFilter', () => {
+  it("filters on the committee's AD, trimmed", () => {
+    expect(committeeResidencySearchFilter(' 134 ', true)).toEqual([
+      { field: 'stateAssmblyDistrict', values: ['134'] },
+    ]);
+  });
+
+  it('adds no condition when the AD check is off, even without an AD', () => {
+    expect(committeeResidencySearchFilter('134', false)).toEqual([]);
+    expect(committeeResidencySearchFilter(null, false)).toEqual([]);
+  });
+
+  it('returns null when the check is on and the committee has no AD', () => {
+    expect(committeeResidencySearchFilter(null, true)).toBeNull();
+    expect(committeeResidencySearchFilter('  ', true)).toBeNull();
   });
 });

@@ -88,7 +88,7 @@ function withoutContact(rows: SeatRosterRow[]): SeatRosterRow[] {
 
 function detailWith(rows: SeatRosterRow[]): CommitteeDetailResponse {
   return {
-    committee: { ...KEY, termId: "term-1", ltedWeight: null },
+    committee: { ...KEY, termId: "term-1", ltedWeight: null, assemblyDistrict: "134" },
     term: {
       id: "term-1",
       label: "2024–2026",
@@ -96,6 +96,7 @@ function detailWith(rows: SeatRosterRow[]): CommitteeDetailResponse {
       endDate: "2026-12-31T00:00:00.000Z",
     },
     maxSeatsPerLted: 4,
+    requireAssemblyDistrictMatch: true,
     rollup: {
       ...KEY,
       filled: 1,
@@ -166,6 +167,7 @@ const REF = {
   cityTown: "GREECE",
   legDistrict: 1,
   electionDistrict: 5,
+  assemblyDistrict: "134",
 };
 
 beforeEach(() => {

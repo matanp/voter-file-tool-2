@@ -4,6 +4,16 @@
   "description": "Shared Prisma types and utilities for the voter file tool",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./committeeResidency": {
+      "types": "./dist/committeeResidency.d.ts",
+      "default": "./dist/committeeResidency.js"
+    }
+  },
   "scripts": {
     "postinstall": "prisma generate --schema=../../apps/frontend/prisma/schema.prisma",
     "build": "prisma generate --schema=../../apps/frontend/prisma/schema.prisma && tsc -p tsconfig.build.json",

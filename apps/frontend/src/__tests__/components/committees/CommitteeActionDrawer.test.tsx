@@ -54,6 +54,7 @@ const REF: CommitteeRef = {
   cityTown: "GREECE",
   legDistrict: 1,
   electionDistrict: 5,
+  assemblyDistrict: "134",
 };
 
 const SEATED: SeatRosterRow = {
@@ -73,7 +74,12 @@ const VACANT: SeatRosterRow = { ...REF, seatNumber: 2, isPetitioned: false, weig
 function detail({
   filled = 1,
   maxSeats = 4,
-}: { filled?: number; maxSeats?: number } = {}): CommitteeDetailResponse {
+  requireAssemblyDistrictMatch = true,
+}: {
+  filled?: number;
+  maxSeats?: number;
+  requireAssemblyDistrictMatch?: boolean;
+} = {}): CommitteeDetailResponse {
   return {
     committee: { ...REF, termId: "term-1", ltedWeight: null },
     term: {
@@ -83,6 +89,7 @@ function detail({
       endDate: "2026-12-31T00:00:00.000Z",
     },
     maxSeatsPerLted: maxSeats,
+    requireAssemblyDistrictMatch,
     rollup: {
       ...REF,
       filled,
@@ -218,7 +225,7 @@ beforeEach(() => {
 // --- Tests -------------------------------------------------------------------------
 
 describe("CommitteeActionDrawer: find candidate", () => {
-  it("names the action and committee, and searches the committee's district by default", async () => {
+  it("names the action and committee, and searches the committee's AD by default", async () => {
     const fetchMock = serve({
       "/api/fetchFilteredData": [{ body: { data: [SAM, JANE], totalRecords: 2 } }],
     });
@@ -234,11 +241,10 @@ describe("CommitteeActionDrawer: find candidate", () => {
 
     const results = await within(drawer()).findByRole("list", { name: "Candidates" });
     expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
-      { field: "city", values: ["GREECE"] },
-      { field: "L_T", values: ["1"] },
-      { field: "electionDistrict", values: [5] },
+      { field: "stateAssmblyDistrict", values: ["134"] },
       { field: "lastName", values: ["DOE"] }, // normalized, as in the legacy search
     ]);
+    expect(drawer()).toHaveTextContent("Voters living in this committee's assembly district.");
     // An existing member is listed but cannot be picked.
     const sam = within(results).getByRole("listitem", { name: /Sam Seated/ });
     expect(sam).toHaveTextContent("Already on this committee");
@@ -257,6 +263,50 @@ describe("CommitteeActionDrawer: find candidate", () => {
     expect(await within(drawer()).findByText("No voters matched.")).toBeInTheDocument();
     expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
       { field: "firstName", values: ["ZED"] },
+    ]);
+  });
+
+  it("disables only-eligible when the committee has no AD, and searches by name instead of the ED", async () => {
+    const fetchMock = serve({ "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }] });
+    renderDrawer({
+      action: { kind: "add-member", committee: { ...REF, assemblyDistrict: null }, seatNumber: 2 },
+    });
+
+    const eligibleOnly = within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" });
+    expect(eligibleOnly).toBeDisabled();
+    expect(eligibleOnly).not.toBeChecked();
+    expect(eligibleOnly).toHaveAccessibleDescription(
+      "Only eligible candidates is unavailable: this committee's ED has no crosswalk entry, so its assembly district is unknown.",
+    );
+    expect(within(drawer()).getByRole("button", { name: "Search" })).toBeDisabled();
+    expect(drawer()).toHaveTextContent("Enter a voter ID or name.");
+
+    await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+
+    await within(drawer()).findByRole("listitem", { name: /Jane Doe/ });
+    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
+      { field: "lastName", values: ["DOE"] },
+    ]);
+  });
+
+  it("keeps only-eligible on but adds no residency condition when the AD check is off", async () => {
+    const fetchMock = serve({ "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }] });
+    renderDrawer({
+      action: { kind: "add-member", committee: { ...REF, assemblyDistrict: null }, seatNumber: 2 },
+      committeeDetail: detail({ requireAssemblyDistrictMatch: false }),
+    });
+
+    const eligibleOnly = within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" });
+    expect(eligibleOnly).toBeEnabled();
+    expect(eligibleOnly).toBeChecked();
+
+    await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+
+    await within(drawer()).findByRole("listitem", { name: /Jane Doe/ });
+    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
+      { field: "lastName", values: ["DOE"] },
     ]);
   });
 

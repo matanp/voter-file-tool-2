@@ -17,6 +17,8 @@ import {
   type VoterRecord,
 } from "@prisma/client";
 import { z } from "zod";
+// The client-safe entry point: the package root also exports PrismaClient.
+import { committeeResidencySearchFilter } from "@voter-file-tool/shared-prisma/committeeResidency";
 import {
   normalizeSearchQuery,
   searchableFieldEnum,
@@ -86,27 +88,45 @@ export type CandidateSearchInput = {
   voterId: string;
   firstName: string;
   lastName: string;
-  /** Restrict to voters living in the committee's town, LD and ED. */
+  /**
+   * Restrict to voters who meet the residency rule: living in the committee's
+   * assembly district (town, LD and ED don't matter). Adds nothing when
+   * `requireAssemblyDistrictMatch` is off, as the server then checks no
+   * residency. Not offered for a committee with no AD (`canFilterEligibleOnly`).
+   */
   onlyEligible: boolean;
 };
+
+/**
+ * False when the AD check is on but the committee's ED has no crosswalk entry:
+ * there is no AD to filter by, and the server would stop every candidate. The
+ * committee's ED is deliberately not used instead.
+ */
+export function canFilterEligibleOnly(
+  committee: CommitteeRef,
+  requireAssemblyDistrictMatch: boolean,
+): boolean {
+  return (
+    committeeResidencySearchFilter(
+      committee.assemblyDistrict,
+      requireAssemblyDistrictMatch,
+    ) !== null
+  );
+}
 
 export function candidateSearchQuery(
   committee: CommitteeRef,
   input: CandidateSearchInput,
+  requireAssemblyDistrictMatch: boolean,
 ): SearchQueryField[] {
   const query: SearchQueryField[] = [];
   if (input.onlyEligible) {
-    query.push({ field: searchableFieldEnum.enum.city, values: [committee.cityTown] });
-    if (hasLegDistrict(committee)) {
-      query.push({
-        field: searchableFieldEnum.enum.L_T,
-        values: [String(committee.legDistrict)],
-      });
-    }
-    query.push({
-      field: searchableFieldEnum.enum.electionDistrict,
-      values: [committee.electionDistrict],
-    });
+    query.push(
+      ...(committeeResidencySearchFilter(
+        committee.assemblyDistrict,
+        requireAssemblyDistrictMatch,
+      ) ?? []),
+    );
   }
   const text: Array<[SearchQueryField["field"], string]> = [
     [searchableFieldEnum.enum.VRCNUM, input.voterId],

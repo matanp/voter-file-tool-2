@@ -287,9 +287,11 @@ function buildCommittee(
       electionDistrict,
       termId: TERM.id,
       ltedWeight: rand() < 0.8 ? (Math.round((150 + rand() * 400) * 100) / 100).toFixed(2) : null,
+      assemblyDistrict: null,
     },
     term: TERM,
     maxSeatsPerLted: MAX_SEATS_PER_LTED,
+    requireAssemblyDistrictMatch: true,
     rollup,
     rows,
     designationWeightSummary: {

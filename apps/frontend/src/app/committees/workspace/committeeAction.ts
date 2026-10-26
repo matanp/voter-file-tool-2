@@ -2,13 +2,16 @@ import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 
 /**
  * The committee an action targets: `committeeListId` plus the composite key
- * the mutation endpoints use (plan §3.11, §8).
+ * the mutation endpoints use (plan §3.11, §8), and the committee's assembly
+ * district, which decides who may serve on it.
  */
 export type CommitteeRef = {
   committeeListId: number;
   cityTown: string;
   legDistrict: number;
   electionDistrict: number;
+  /** From the LTED crosswalk; null when the committee's ED has no entry. */
+  assemblyDistrict: string | null;
 };
 
 /**
@@ -57,5 +60,6 @@ export function committeeRefFrom(
     cityTown: committee.cityTown,
     legDistrict: committee.legDistrict,
     electionDistrict: committee.electionDistrict,
+    assemblyDistrict: committee.assemblyDistrict,
   };
 }

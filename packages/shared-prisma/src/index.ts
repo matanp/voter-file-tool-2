@@ -64,6 +64,7 @@ export {
 export {
   checkAssemblyDistrictResidency,
   checkCommitteeResidency,
+  committeeResidencySearchFilter,
   findCommitteeAssemblyDistrict,
   findCommitteeAssemblyDistricts,
   prepareCommitteeResidencyChecks,
@@ -71,6 +72,7 @@ export {
   type CommitteeAssemblyDistrictLookup,
   type CommitteeLted,
   type CommitteeResidencyCheck,
+  type ResidencySearchField,
 } from './committeeResidency';
 
 export {

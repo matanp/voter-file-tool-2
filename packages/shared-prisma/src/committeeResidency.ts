@@ -6,8 +6,10 @@
  * only runs when CommitteeGovernanceConfig.requireAssemblyDistrictMatch is on. A committee with
  * no crosswalk row (or an empty AD) has no AD that anyone can match.
  *
- * Used by the admission gate (validateEligibility) and the BOE standing audit
- * (runBoeEligibilityFlagging).
+ * Used by the admission gate (validateEligibility), the BOE standing audit
+ * (runBoeEligibilityFlagging), the eligibility snapshot, and the "Only eligible candidates" search
+ * filter. The filter runs in the browser, so this module imports only types from @prisma/client
+ * and is exported on its own as @voter-file-tool/shared-prisma/committeeResidency.
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -26,6 +28,12 @@ export type CommitteeLted = {
 export type AssemblyDistrictMismatch = {
   expectedAssemblyDistrict: string | null;
   voterAssemblyDistrict: string | null;
+};
+
+/** A record-search condition, in the shape SearchQueryField (shared-validators) takes. */
+export type ResidencySearchField = {
+  field: "stateAssmblyDistrict";
+  values: string[];
 };
 
 /** Looks up a committee's AD in a batch fetched by findCommitteeAssemblyDistricts. */
@@ -177,4 +185,23 @@ export async function prepareCommitteeResidencyChecks(
   const lookup = await findCommitteeAssemblyDistricts(db, committees);
   return (committee, voterAssemblyDistrict) =>
     checkAssemblyDistrictResidency(voterAssemblyDistrict, lookup(committee));
+}
+
+/**
+ * The "Only eligible candidates" search filter: voters whose AD is the committee's AD. Empty when
+ * requireAssemblyDistrictMatch is off, because the gates then don't check residency. Null when the
+ * check is on but the committee has no AD: nobody can pass it, so there is nothing to search for.
+ */
+export function committeeResidencySearchFilter(
+  committeeAssemblyDistrict: string | null | undefined,
+  requireAssemblyDistrictMatch: boolean,
+): ResidencySearchField[] | null {
+  if (!requireAssemblyDistrictMatch) {
+    return [];
+  }
+
+  const expected = toAssemblyDistrict(committeeAssemblyDistrict);
+  return expected
+    ? [{ field: "stateAssmblyDistrict", values: [expected] }]
+    : null;
 }

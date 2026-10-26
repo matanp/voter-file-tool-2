@@ -7,6 +7,7 @@
 import { PrivilegeLevel } from "@prisma/client";
 
 import {
+  canFilterEligibleOnly,
   candidateSearchQuery,
   candidateSubmissionMode,
   removalProblems,
@@ -34,9 +35,12 @@ const GREECE: CommitteeRef = {
   cityTown: "GREECE",
   legDistrict: 1,
   electionDistrict: 5,
+  assemblyDistrict: "134",
 };
 /** A town without legislative districts: the sentinel, never sent. */
 const NO_LD: CommitteeRef = { ...GREECE, legDistrict: -1 };
+/** The committee's ED has no crosswalk entry. */
+const NO_AD: CommitteeRef = { ...GREECE, assemblyDistrict: null };
 
 const ADD: CommitteeAction = { kind: "add-member", committee: GREECE, seatNumber: 2 };
 const REPLACE: CommitteeAction = {
@@ -82,43 +86,67 @@ describe("candidateSubmissionMode", () => {
 });
 
 describe("candidateSearchQuery", () => {
-  it("restricts to the committee's town, LD and ED when only-eligible is on", () => {
-    expect(
-      candidateSearchQuery(GREECE, {
-        voterId: " 123 ",
-        firstName: "",
-        lastName: "Doe",
-        onlyEligible: true,
-      }),
-    ).toEqual([
-      { field: "city", values: ["GREECE"] },
-      { field: "L_T", values: ["1"] },
-      { field: "electionDistrict", values: [5] },
+  const ELIGIBLE_ONLY = { voterId: "", firstName: "", lastName: "", onlyEligible: true };
+
+  it("restricts to the committee's assembly district when only-eligible is on", () => {
+    const query = candidateSearchQuery(
+      GREECE,
+      { voterId: " 123 ", firstName: "", lastName: "Doe", onlyEligible: true },
+      true,
+    );
+    expect(query).toEqual([
+      { field: "stateAssmblyDistrict", values: ["134"] },
       { field: "VRCNUM", values: ["123"] },
       { field: "lastName", values: ["Doe"] },
     ]);
+    // Town, LD and ED don't decide residency.
+    const fields = query.map((f) => f.field);
+    expect(fields).not.toContain("city");
+    expect(fields).not.toContain("L_T");
+    expect(fields).not.toContain("electionDistrict");
   });
 
-  it("drops the district restriction when only-eligible is off, and never sends the LD sentinel", () => {
-    expect(
-      candidateSearchQuery(GREECE, {
-        voterId: "",
-        firstName: "Jane",
-        lastName: "",
-        onlyEligible: false,
-      }),
-    ).toEqual([{ field: "firstName", values: ["Jane"] }]);
-    expect(
-      candidateSearchQuery(NO_LD, {
-        voterId: "",
-        firstName: "",
-        lastName: "",
-        onlyEligible: true,
-      }),
-    ).toEqual([
-      { field: "city", values: ["GREECE"] },
-      { field: "electionDistrict", values: [5] },
+  it("filters a town without LDs by AD alone", () => {
+    expect(candidateSearchQuery(NO_LD, ELIGIBLE_ONLY, true)).toEqual([
+      { field: "stateAssmblyDistrict", values: ["134"] },
     ]);
+  });
+
+  it("drops the residency restriction when only-eligible is off", () => {
+    expect(
+      candidateSearchQuery(
+        GREECE,
+        { voterId: "", firstName: "Jane", lastName: "", onlyEligible: false },
+        true,
+      ),
+    ).toEqual([{ field: "firstName", values: ["Jane"] }]);
+  });
+
+  it("adds no residency condition when requireAssemblyDistrictMatch is off", () => {
+    expect(candidateSearchQuery(GREECE, ELIGIBLE_ONLY, false)).toEqual([]);
+    expect(
+      candidateSearchQuery(
+        GREECE,
+        { voterId: "", firstName: "Jane", lastName: "", onlyEligible: true },
+        false,
+      ),
+    ).toEqual([{ field: "firstName", values: ["Jane"] }]);
+  });
+
+  it("never falls back to the ED for a committee with no AD", () => {
+    expect(candidateSearchQuery(NO_AD, ELIGIBLE_ONLY, true)).toEqual([]);
+  });
+});
+
+describe("canFilterEligibleOnly", () => {
+  it("is offered when the committee has an AD, or when the AD check is off", () => {
+    expect(canFilterEligibleOnly(GREECE, true)).toBe(true);
+    expect(canFilterEligibleOnly(GREECE, false)).toBe(true);
+    expect(canFilterEligibleOnly(NO_AD, false)).toBe(true);
+  });
+
+  it("is not offered when the AD check is on and the committee has no AD", () => {
+    expect(canFilterEligibleOnly(NO_AD, true)).toBe(false);
   });
 });
 
