@@ -2,10 +2,14 @@
 # Start the local stack: Postgres (Docker), the report server and the frontend, wired to
 # each other's ports. Ctrl-C stops both servers; Postgres keeps running.
 #
-# Usage: pnpm dev [--port N] [--report-port M] [--no-db]
+# Usage: pnpm dev [--port N] [--report-port M] [--no-db] [--log-dir DIR] [--keep-logs K]
 #   --port N          frontend port (default 3000)
 #   --report-port M   report server port; defaults to N + 1
 #   --no-db           skip Docker, for when POSTGRES_PRISMA_URL points at a remote database
+#   --log-dir DIR     where server logs go (default logs/; relative paths are from the repo root)
+#   --keep-logs K     how many runs' logs to keep (default 10)
+# Each run logs to DIR/runs/<start time>/{web,report}.log, without colors and with a timestamp
+# per line; DIR/web.log and DIR/report.log link to the latest run, so `tail -F` follows restarts.
 # Starting Docker automatically needs macOS (Docker Desktop); elsewhere, start the daemon first.
 
 set -euo pipefail
@@ -17,6 +21,8 @@ WEB_PORT=3000
 REPORT_PORT=
 REPORT_PORT_SET=false
 START_DB=true
+LOG_DIR=logs
+KEEP_LOGS=10
 while [[ $# -gt 0 ]]; do
   case $1 in
     --port)
@@ -28,8 +34,16 @@ while [[ $# -gt 0 ]]; do
       REPORT_PORT=$2; REPORT_PORT_SET=true; shift 2 ;;
     --report-port=*) REPORT_PORT=${1#*=}; REPORT_PORT_SET=true; shift ;;
     --no-db) START_DB=false; shift ;;
+    --log-dir)
+      [[ $# -ge 2 ]] || { echo "dev: --log-dir needs a value (see --help)" >&2; exit 1; }
+      LOG_DIR=$2; shift 2 ;;
+    --log-dir=*) LOG_DIR=${1#*=}; shift ;;
+    --keep-logs)
+      [[ $# -ge 2 ]] || { echo "dev: --keep-logs needs a value (see --help)" >&2; exit 1; }
+      KEEP_LOGS=$2; shift 2 ;;
+    --keep-logs=*) KEEP_LOGS=${1#*=}; shift ;;
     --) shift ;;
-    -h | --help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "dev: unknown option $1 (see --help)" >&2; exit 1 ;;
   esac
 done
@@ -53,6 +67,12 @@ if ((WEB_PORT == REPORT_PORT)); then
   echo "dev: --port and --report-port must differ (both $WEB_PORT)" >&2
   exit 1
 fi
+if ! [[ $KEEP_LOGS =~ ^[1-9][0-9]{0,3}$ ]]; then
+  echo "dev: --keep-logs must be a number from 1 to 9999 (got '$KEEP_LOGS')" >&2
+  exit 1
+fi
+[[ -n $LOG_DIR ]] || { echo "dev: --log-dir can't be empty" >&2; exit 1; }
+[[ $LOG_DIR == /* ]] || LOG_DIR="$ROOT/$LOG_DIR"
 
 # Fail on a taken port instead of letting a server drift to another one.
 if command -v lsof >/dev/null; then
@@ -118,6 +138,41 @@ prefix() {
   while IFS= read -r line; do printf '[%s] %s\n' "$1" "$line"; done
 }
 
+# Passes output through unchanged and appends it to the file $1 without color codes, each line
+# stamped with the local time. Perl, because bash 3.2 can't format the time without running
+# `date` once per line.
+log_to() {
+  perl -e '
+    use strict; use warnings; use IO::Handle; use POSIX qw(strftime); use Time::HiRes qw(time);
+    open(my $log, ">>", $ARGV[0]) or die "dev: can'"'"'t write $ARGV[0]: $!\n";
+    $log->autoflush(1);
+    STDOUT->autoflush(1);
+    while (my $line = <STDIN>) {
+      print $line;
+      $line =~ s/\e\[[0-?]*[ -\/]*[@-~]//g;
+      $line .= "\n" unless $line =~ /\n\z/;
+      my $now = time;
+      printf $log "%s.%03d %s", strftime("%H:%M:%S", localtime $now), ($now - int $now) * 1000, $line;
+    }
+  ' "$1"
+}
+
+# A new directory per run, so a restart keeps the previous run's logs. Names sort by start
+# time, which is what pruning relies on.
+RUN_ID=$(date +%Y-%m-%dT%H-%M-%S)
+RUN_DIR="$LOG_DIR/runs/$RUN_ID"
+[[ ! -e $RUN_DIR ]] || RUN_DIR="$RUN_DIR-$$"
+mkdir -p "$RUN_DIR"
+for name in web report; do
+  touch "$RUN_DIR/$name.log"
+  # Swap the link with a rename, so a reader never finds it missing. Relative, so the log
+  # directory can be moved.
+  ln -s "runs/${RUN_DIR##*/}/$name.log" "$LOG_DIR/.$name.log.$$"
+  mv -f "$LOG_DIR/.$name.log.$$" "$LOG_DIR/$name.log"
+done
+runs=("$LOG_DIR"/runs/[0-9][0-9][0-9][0-9]-*/)
+for ((i = 0; i < ${#runs[@]} - KEEP_LOGS; i++)); do rm -rf -- "${runs[i]}"; done
+
 # Job control puts each server pipeline in its own process group, so stopping can signal
 # exactly those groups rather than whatever started this script. The servers get </dev/null
 # because a background group that reads the terminal is stopped (nodemon reads stdin).
@@ -134,14 +189,15 @@ export FORCE_COLOR=1
 cd "$ROOT"
 
 PORT=$REPORT_PORT CALLBACK_URL="http://localhost:$WEB_PORT/api/reportComplete" \
-  pnpm --filter node-pdf-generation dev </dev/null 2>&1 | prefix report &
+  pnpm --filter node-pdf-generation dev </dev/null 2>&1 | log_to "$RUN_DIR/report.log" | prefix report &
 report_pid=$!
 
 PDF_SERVER_URL="http://localhost:$REPORT_PORT" NEXTAUTH_URL="http://localhost:$WEB_PORT" \
-  pnpm --filter voter-file-tool dev --port "$WEB_PORT" </dev/null 2>&1 | prefix web &
+  pnpm --filter voter-file-tool dev --port "$WEB_PORT" </dev/null 2>&1 | log_to "$RUN_DIR/web.log" | prefix web &
 web_pid=$!
 
 echo "dev: frontend http://localhost:$WEB_PORT, report server http://localhost:$REPORT_PORT"
+echo "dev: logs in $LOG_DIR/{web,report}.log (this run: $RUN_DIR)"
 
 # Bash 3.2 (macOS) has no `wait -n`, so poll; if either server exits, stop the other.
 while kill -0 "$report_pid" 2>/dev/null && kill -0 "$web_pid" 2>/dev/null; do
