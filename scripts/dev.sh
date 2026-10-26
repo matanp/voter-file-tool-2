@@ -158,11 +158,12 @@ log_to() {
 }
 
 # A new directory per run, so a restart keeps the previous run's logs. Names sort by start
-# time, which is what pruning relies on.
+# time, which is what pruning relies on. Plain mkdir fails if the directory exists, so two
+# runs started in the same second can't share one.
 RUN_ID=$(date +%Y-%m-%dT%H-%M-%S)
 RUN_DIR="$LOG_DIR/runs/$RUN_ID"
-[[ ! -e $RUN_DIR ]] || RUN_DIR="$RUN_DIR-$$"
-mkdir -p "$RUN_DIR"
+mkdir -p "$LOG_DIR/runs"
+mkdir "$RUN_DIR" 2>/dev/null || { [[ -e $RUN_DIR ]] && RUN_DIR="$RUN_DIR-$$"; mkdir "$RUN_DIR"; }
 for name in web report; do
   touch "$RUN_DIR/$name.log"
   # Swap the link with a rename, so a reader never finds it missing. Relative, so the log
@@ -171,7 +172,10 @@ for name in web report; do
   mv -f "$LOG_DIR/.$name.log.$$" "$LOG_DIR/$name.log"
 done
 runs=("$LOG_DIR"/runs/[0-9][0-9][0-9][0-9]-*/)
-for ((i = 0; i < ${#runs[@]} - KEEP_LOGS; i++)); do rm -rf -- "${runs[i]}"; done
+# Skip this run: if the clock went back (daylight saving ends), its name sorts before older ones.
+for ((i = 0; i < ${#runs[@]} - KEEP_LOGS; i++)); do
+  [[ ${runs[i]%/} == "$RUN_DIR" ]] || rm -rf -- "${runs[i]}"
+done
 
 # Job control puts each server pipeline in its own process group, so stopping can signal
 # exactly those groups rather than whatever started this script. The servers get </dev/null
