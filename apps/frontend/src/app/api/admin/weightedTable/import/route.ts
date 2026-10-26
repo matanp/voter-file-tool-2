@@ -8,6 +8,7 @@ import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
+import { logAuditEvent } from "~/lib/auditLog";
 import {
   getActiveTermId,
   getGovernanceConfig,
@@ -25,7 +26,7 @@ import {
   parseXlsxUpload,
 } from "~/lib/lted/xlsxUpload";
 import type { NextRequest } from "next/server";
-import type { Session } from "next-auth";
+import type { SessionWithUser } from "~/app/api/lib/withPrivilege";
 
 export const maxDuration = 60;
 
@@ -71,7 +72,7 @@ function districtKey(legDistrict: number, electionDistrict: number): string {
   return `${legDistrict}|${electionDistrict}`;
 }
 
-async function importHandler(req: NextRequest, _session: Session) {
+async function importHandler(req: NextRequest, session: SessionWithUser) {
   try {
     const formData = await req.formData();
     const file = formData.get("weightedTable");
@@ -313,6 +314,9 @@ async function importHandler(req: NextRequest, _session: Session) {
       matched++;
     }
 
+    let committeesUpdated = 0;
+    let seatsUpdated = 0;
+
     if (weightsByCommitteeId.size > 0) {
       const { maxSeatsPerLted } = await getGovernanceConfig();
       const updates = Array.from(weightsByCommitteeId, ([id, weight]) => ({
@@ -327,9 +331,9 @@ async function importHandler(req: NextRequest, _session: Session) {
       // update, so each joins against unnest'd arrays; numerics travel as text so the
       // seat weight matches recomputeSeatWeights' Decimal division exactly. Seats are
       // rewritten for every matched committee, as recomputeSeatWeights was.
-      await prisma.$transaction(
+      [committeesUpdated, seatsUpdated] = await prisma.$transaction(
         async (tx) => {
-          await tx.$executeRaw`
+          const committeeRows = await tx.$executeRaw`
             UPDATE "CommitteeList" AS c
             SET "ltedWeight" = r.weight::numeric
             FROM unnest(
@@ -338,7 +342,7 @@ async function importHandler(req: NextRequest, _session: Session) {
             ) AS r(id, weight)
             WHERE c.id = r.id
           `;
-          await tx.$executeRaw`
+          const seatRows = await tx.$executeRaw`
             UPDATE "Seat" AS s
             SET "weight" = r.seat_weight::numeric
             FROM unnest(
@@ -347,10 +351,35 @@ async function importHandler(req: NextRequest, _session: Session) {
             ) AS r(committee_list_id, seat_weight)
             WHERE s."committeeListId" = r.committee_list_id
           `;
+          return [committeeRows, seatRows] as const;
         },
         { timeout: IMPORT_TRANSACTION_TIMEOUT_MS },
       );
     }
+
+    // Fail-open, like the crosswalk import: weights are reference data re-imported
+    // from the county file, not membership state.
+    await logAuditEvent(
+      session.user.id,
+      session.user.privilegeLevel ?? PrivilegeLevel.Admin,
+      "WEIGHTED_TABLE_IMPORTED",
+      "CommitteeList",
+      `import-${Date.now()}`,
+      null,
+      {
+        rowsProcessed: rows.length,
+        matched,
+        committeesUpdated,
+        seatsUpdated,
+        skippedNoCommittee,
+        skippedAmbiguous,
+      },
+      {
+        importType: "weightedTable",
+        termId: activeTermId,
+        usedLtedMatrix: isUploadFile(matrixFile),
+      },
+    );
 
     return NextResponse.json(
       {
