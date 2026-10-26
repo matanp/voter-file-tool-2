@@ -161,7 +161,7 @@ July branch-review index: [fix-plans/2026-07-06-srs-branch-findings-confirmation
 | [2.6](2.6-petition-primary-outcome-tracking.md) | Petition + Primary Outcome Tracking | Done | Tier 2 §2.6 | 1.2, 1.3, 1.4, 2.4 |
 | [2.7](2.7-weight-designation-logic.md) | Weight / Designation Logic | Done | Tier 2 §2.7 | 1.4, 2.6 |
 | [2.8](2.8-boe-driven-automatic-eligibility-flagging.md) | BOE-Driven Automatic Eligibility Flagging | Done | Tier 2 §2.8 | 1.2, 2.1, 2.2, 2.5 |
-| [2.9](2.9-serve-ed-vs-home-ed-resolution.md) | Serve ED vs Home ED Resolution | Open | Tier 2 follow-up | 2.1, 3.1 |
+| [2.9](2.9-serve-ed-vs-home-ed-resolution.md) | Serve ED vs Home ED Resolution | Done | Tier 2 follow-up | 2.1, 3.1 |
 
 ### Tier 3 — Workflows, Reports & Access Control
 

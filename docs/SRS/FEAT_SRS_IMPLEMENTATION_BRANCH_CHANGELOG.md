@@ -156,7 +156,7 @@ These are **outside Tier 4 scope**. Safe to defer if risk is accepted.
 
 | ID | Title | Type | Effort | Blocker? |
 | --- | --- | --- | --- | --- |
-| **2.9** | Serve ED vs Home ED resolution | Product decision + doc update | 0.5–1 day | No — v1 policy choice pending |
+| **2.9** | Serve ED vs Home ED resolution | Product decision + doc update | 0.5–1 day | No — resolved 2026-10-25: residency by assembly district alone ([ADR 0001](../adr/0001-committee-residency-by-assembly-district.md)) |
 | **3.6** | Mobile & accessibility baseline | Quality gate | 0.5–1 day | No — checklist drafted, audit not applied |
 | **T1.4** | Voter import processor tests | Test coverage | 2–3 days | No |
 | **T1.5** | Report-server core tests | Test coverage | 2–3 days | No |
@@ -168,7 +168,7 @@ These are **outside Tier 4 scope**. Safe to defer if risk is accepted.
 **Suggested next actions:**
 
 1. **P1 gaps** — Address in recommended order per fix-plans index: requestAdd scope → admin direct-add → replacement CAPACITY.
-2. **2.9** — Decide Option A (Serve ED = Home ED) vs Option B (explicit `serveEd` model); update [`SRS_GAPS_AND_CONSIDERATIONS.md`](SRS_GAPS_AND_CONSIDERATIONS.md) §5.3.
+2. **2.9** — Resolved 2026-10-25: neither option. Home ED may differ from Serve ED; residency is decided by the assembly district alone ([ADR 0001](../adr/0001-committee-residency-by-assembly-district.md), [`SRS_GAPS_AND_CONSIDERATIONS.md`](SRS_GAPS_AND_CONSIDERATIONS.md) §5.3).
 3. **3.6** — Apply [`ACCESSIBILITY_MOBILE_CHECKLIST.md`](ACCESSIBILITY_MOBILE_CHECKLIST.md) to Tier 2/3 UI surfaces and record pass/fail.
 4. **T1.4–T2.4** — Parallel test hardening.
 
@@ -185,7 +185,7 @@ Items below are **documented follow-ups**, not Tier 4 blockers. See [`SRS_REQUIR
 | `CONFIRMED` status | Not a persisted DB state; captured via audit + timestamps at activation | Accept as product design, or add persisted intermediate status |
 | Report formats | Scenario 7 wording mentions CSV; implementation is PDF/XLSX by report type | Resolved in docs via [`REPORT_PARAMETER_MATRIX.md`](REPORT_PARAMETER_MATRIX.md); no code change required unless CSV is mandated |
 | Access DB import | CSV ingestion only; no in-app Access DB parser | Document CSV-only as v1 scope, or cut import ticket |
-| Serve ED vs Home ED | Partially resolved | Ticket **2.9** |
+| Serve ED vs Home ED | Resolved: residency by assembly district alone; Home ED may differ | [ADR 0001](../adr/0001-committee-residency-by-assembly-district.md); search filter follow-up in `.scratch/committee-residency-rule/issues/04-eligible-only-filter-by-ad.md` |
 | Mobile / a11y baseline | Checklist exists; formal audit not run | Ticket **3.6** |
 
 Phase 1 code review P1 items (dual ACTIVE memberships, stale `removeMemberId`, etc.) were addressed in subsequent 1.R.* remediation tickets. Historical findings: [`PHASE1_CODE_REVIEW_FINDINGS.md`](PHASE1_CODE_REVIEW_FINDINGS.md).
