@@ -48,7 +48,7 @@ Artifacts live under `.review/runs/<run-id>/` (active run: read `.review/current
 **How to run from workspace root:**
 
 ```bash
-pnpm dev                         # Postgres + report-server + frontend (scripts/dev.sh; --port N, --report-port M, --no-db)
+pnpm dev                         # Postgres + report-server + frontend (scripts/dev.sh; --port N, --report-port M, --no-db, --log-dir DIR, --keep-logs K); logs in logs/web.log, logs/report.log
 pnpm db:setup                    # Docker DB setup (or ./scripts/setup-dev-db.sh)
 pnpm db:setup -- --fresh         # Same, with --fresh flag
 pnpm sync-prisma                 # Sync Prisma models to shared-prisma
