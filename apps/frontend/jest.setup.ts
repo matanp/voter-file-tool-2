@@ -347,6 +347,7 @@ beforeEach(() => {
     prismaMock as unknown as {
       auditLog: {
         create: jest.Mock;
+        createMany: jest.Mock;
         findMany: jest.Mock;
         findUnique: jest.Mock;
         count: jest.Mock;
@@ -354,6 +355,7 @@ beforeEach(() => {
     }
   ).auditLog = {
     create: jest.fn(),
+    createMany: jest.fn().mockResolvedValue({ count: 0 }),
     findMany: jest.fn().mockResolvedValue([]),
     findUnique: jest.fn().mockResolvedValue(null),
     count: jest.fn().mockResolvedValue(0),

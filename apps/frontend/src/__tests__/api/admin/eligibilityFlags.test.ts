@@ -187,7 +187,11 @@ describe("/api/admin/eligibility-flags", () => {
     getEligibilityFlagMock(prismaMock).createMany.mockResolvedValue({
       count: 0,
     });
-    getEligibilityFlagMock(prismaMock).updateMany.mockResolvedValue({
+    // The guarded UPDATE ... RETURNING reports which flags it resolved.
+    (prismaMock.$queryRaw as unknown as jest.Mock).mockResolvedValue([
+      { id: "flag-stale-1" },
+    ]);
+    (prismaMock.auditLog.createMany as jest.Mock).mockResolvedValue({
       count: 1,
     });
 
@@ -200,22 +204,15 @@ describe("/api/admin/eligibility-flags", () => {
       autoResolved: number;
     }>(response);
     expect(body.autoResolved).toBe(1);
-    expect(getEligibilityFlagMock(prismaMock).updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          id: "flag-stale-1",
-          status: "PENDING",
-        },
-        data: expect.objectContaining({
-          status: "RESOLVED_BY_RESCAN",
-          reviewedById: "system",
-        }) as unknown,
-      }) as unknown,
-    );
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    const resolveCall = (prismaMock.$queryRaw as unknown as jest.Mock).mock
+      .calls[0] as unknown[];
+    expect(resolveCall[1]).toBe("system");
+    expect(resolveCall[4]).toEqual(["flag-stale-1"]);
 
-    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
+    expect(prismaMock.auditLog.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
           action: "DISCREPANCY_RESOLVED",
           entityType: "EligibilityFlag",
           entityId: "flag-stale-1",
@@ -226,9 +223,9 @@ describe("/api/admin/eligibility-flags", () => {
             flagId: "flag-stale-1",
             reason: "PARTY_MISMATCH",
           }) as unknown,
-        }) as unknown,
-      }) as unknown,
-    );
+        }),
+      ],
+    });
   });
 
   it("dismiss decision updates flag status and logs DISCREPANCY_RESOLVED", async () => {
