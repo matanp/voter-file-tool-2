@@ -120,11 +120,11 @@ This document captures gaps, open questions, and items to resolve before or duri
 
 ### 5.3 Serve ED vs Home ED (Glossary)
 
-**Status:** Partially Resolved
+**Status:** Resolved (2026-10-25)
 
 **Context:** Glossary defines "Serve ED" (Election District where member serves) as possibly differing from "Home ED" (residence). Current model does not have a "serve ED" field.
 
-**Resolution:** For v1, treat Serve ED = Home ED (or document as future enhancement if MCDC has different requirements).
+**Resolution:** Home ED may differ from Serve ED. A voter may serve on a committee when they live in the committee's assembly district; their town, LD and ED don't matter. No `serveEd` field is needed: Serve ED is `CommitteeList.electionDistrict` and Home ED is `VoterRecord.electionDistrict`. This replaces the earlier v1 assumption that Serve ED = Home ED. See [ADR 0001](../adr/0001-committee-residency-by-assembly-district.md).
 
 **See:** [SRS_SERVE_ED_VS_HOME_ED.md](SRS_SERVE_ED_VS_HOME_ED.md) for design considerations and implementation options.
 **Tracking:** [tickets/2.9-serve-ed-vs-home-ed-resolution.md](tickets/2.9-serve-ed-vs-home-ed-resolution.md)
@@ -143,7 +143,7 @@ This document captures gaps, open questions, and items to resolve before or duri
 | 4.2 | Migration rollback/recovery             | **Resolved**           | Low      | Out of scope (see SRS_DATA_MODEL_CHANGES §5.3)                                       |
 | 5.1 | Access import                           | **Resolved**           | Low      | Out of scope for v1; deferred to future phase                                       |
 | 5.2 | Email/phone on submission               | **Resolved**           | Low      | Use submissionMetadata (see §5.2)                                                    |
-| 5.3 | Serve ED vs Home ED                     | **Partially resolved** | Low      | Finalize via [2.9](tickets/2.9-serve-ed-vs-home-ed-resolution.md); see [SRS_SERVE_ED_VS_HOME_ED.md](SRS_SERVE_ED_VS_HOME_ED.md) |
+| 5.3 | Serve ED vs Home ED                     | **Resolved**           | Low      | Residency by assembly district alone; Home ED may differ (see [ADR 0001](../adr/0001-committee-residency-by-assembly-district.md), [2.9](tickets/2.9-serve-ed-vs-home-ed-resolution.md)) |
 
 ---
 

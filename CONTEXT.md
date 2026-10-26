@@ -40,6 +40,19 @@ _Avoid_: jurisdiction (for the grant itself), scope, mapping
 **Pending Assignment**:
 An assignment recorded on an invite, taking effect when the invite is redeemed.
 
+**Assembly District**:
+The state assembly district a voter lives in, or that a committee's election district lies in. It is the only geography that decides Committee Residency.
+
+**Committee Residency**:
+Whether a voter lives in the right place to serve on a committee: they must live in the committee's Assembly District. Their town, legislative district and election district don't matter.
+_Avoid_: Serve ED = Home ED, district match
+
+**Home ED**:
+The election district a voter lives in, per the BOE. It may differ from their Serve ED.
+
+**Serve ED**:
+The election district of the committee a member serves on. It may differ from their Home ED.
+
 **Report Scope**:
 Whether a report covers a single jurisdiction or the whole county. The two scopes are named `jurisdiction` and `countywide`; here `jurisdiction` names the scope, not the place.
 

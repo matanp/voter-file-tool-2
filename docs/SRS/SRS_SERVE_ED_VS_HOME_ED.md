@@ -4,6 +4,8 @@
 
 This document expands on [SRS_GAPS_AND_CONSIDERATIONS.md](SRS_GAPS_AND_CONSIDERATIONS.md) §5.3. The glossary defines **Serve ED** (where a member serves) and **Home ED** (where a voter resides) as possibly differing. This doc captures implementation options.
 
+> **Decided 2026-10-25:** Home ED may differ from Serve ED. A voter may serve on a committee when they live in the committee's assembly district; their town, LD and ED don't matter. None of the options below is needed. See [ADR 0001](../adr/0001-committee-residency-by-assembly-district.md). The options are kept for history.
+
 ---
 
 ## Current Model
@@ -19,7 +21,10 @@ The MCDC committee export uses columns `"Serve LT"` and `"Serve ED"` (see `bulkL
 
 ## Current Constraint
 
-`AddCommitteeForm` pre-filters search so only voters whose **Home ED matches the committee's ED** appear in results. This effectively enforces Home ED = Serve ED — members must reside in the same ED as the committee they join.
+Residency is decided by the assembly district alone. A member's Home ED doesn't have to match their Serve ED.
+
+- **Server gates.** The admission gate (`validateEligibility`) and the BOE standing audit (`runBoeEligibilityFlagging`) compare the voter's `VoterRecord.stateAssmblyDistrict` with the `stateAssemblyDistrict` of the committee's LTED in `LtedDistrictCrosswalk`, through `packages/shared-prisma/src/committeeResidency.ts`. They only check this when `requireAssemblyDistrictMatch` is on, and they never checked LD or ED.
+- **"Only eligible candidates" search filter.** When this was written, the filter in the workspace drawer (`candidateSearchQuery` in `apps/frontend/src/app/committees/workspace/adapters.ts`) and in `AddCommitteeForm` (`extraSearchQuery`) still showed only voters in the committee's town, LD and ED. That hid eligible voters from elsewhere in the AD, but it never let an ineligible voter through: the server gates decide. The filter moves to `stateAssmblyDistrict` in `.scratch/committee-residency-rule/issues/04-eligible-only-filter-by-ad.md` and `05-addcommitteeform-path.md`, which land separately. When the committee has no AD, the filter is disabled with an explanation rather than falling back to the ED filter. When `requireAssemblyDistrictMatch` is off, it applies no residency filter.
 
 ---
 
@@ -52,7 +57,7 @@ Add `serveED Int?` to the planned `CommitteeMembership` model. If null, default 
 
 Add `allowCrossEdMembership` (or similar) to governance config:
 
-- `false` (default) — enforce Home ED = Serve ED (current behavior).
+- `false` (default) — enforce Home ED = Serve ED (the behavior at the time; superseded, see above).
 - `true` — allow cross-ED membership; optionally surface as a warning.
 
 No schema change; validation rules vary by config.
@@ -71,7 +76,7 @@ The model already stores both:
 - **Home ED** — `VoterRecord.electionDistrict` (BOE)
 - **Serve ED** — `CommitteeList.electionDistrict` (committee’s ED)
 
-The main gap is **enforcement**: the UI currently restricts membership to voters whose Home ED matches the committee. Supporting Serve ED ≠ Home ED is mainly a matter of relaxing or configuring that validation, plus optional explicit override fields on `CommitteeMembership` if needed.
+Serve ED ≠ Home ED needs no schema change: the server gates already check only the assembly district, and the search filter follow-up (ticket 04 above) removes the last place that matched on ED.
 
 ---
 

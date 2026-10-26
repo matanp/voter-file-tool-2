@@ -243,6 +243,11 @@ admission gate (`lib/eligibility.ts` via `eligibilityService.ts`) and BOE standi
 (`boeEligibilityFlagging.ts`) call them; each maps the boolean to its own enum
 (`IneligibilityReason` vs `EligibilityFlagReason`).
 
+*Later (2026-10-25):* `isAssemblyDistrictMismatch` was folded into the residency module
+`packages/shared-prisma/src/committeeResidency.ts` (`checkCommitteeResidency`,
+`prepareCommitteeResidencyChecks`), which also owns the crosswalk lookups, and the
+`eligibilityService.ts` re-export was deleted. See [ADR 0001](adr/0001-committee-residency-by-assembly-district.md).
+
 - **Key decisions:** trim-only comparison (not case-insensitive) — `"dem"` vs `"DEM"` is a
   mismatch; empty expected AD counts as mismatch when AD check is enabled.
 - **Optional follow-up:** single shared reason enum with `{ hardStop | flag }` classification (Finding 13
@@ -592,7 +597,8 @@ All items below were resolved in the SLAM DUNK pass. Kept for audit trail only.
   the shared mutation hook rather than hand-rolled `fetch`.
 - Eligibility rules are correctly shared via `shared-prisma`: inactivity
   (`isVoterPossiblyInactive`), party mismatch (`isPartyMismatch`), and AD mismatch
-  (`isAssemblyDistrictMismatch`); `eligibilityService.ts` is a clean re-export shim.
+  (`isAssemblyDistrictMismatch`); `eligibilityService.ts` is a clean re-export shim. *(Later: the AD
+  check moved to `committeeResidency.ts` and the shim was deleted, 2026-10-25.)*
 - Capacity / active-elsewhere predicates (`countActiveMembers`, `isCommitteeAtCapacity`,
   `isVoterActiveInAnotherCommittee`) are centralized in `committeeValidation.ts` with optional tx
   client — admission, preflight, discrepancy resolve, bulk load, and membership confirmation all
