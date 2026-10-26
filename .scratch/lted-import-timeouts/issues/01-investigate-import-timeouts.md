@@ -117,3 +117,14 @@ Fixed H1 from the code; no prod access was used, so step 1/3 (Vercel logs, parti
   test:pg`), covering all-null columns and the 100/3 seat weight.
 
 To close: have Avi retry both uploads (crosswalk first, per H4) and confirm "Last imported" updates.
+
+### 2026-10-25 — weighted-table import verified in prod
+
+The batched weighted-table import ran on prod through `/admin/weighted-table` with
+`data/Base Committee Weight by LTED 20260109.xlsx` (690 rows). It succeeded on the first upload,
+with no timeout. Afterwards, all 437 active-term committees had a weight and all 1,748 seats had a
+`weight` (see `committee-residency-rule/issues/10`). This closes the weighted-table half.
+
+The crosswalk was reloaded on prod the same day (659 rows; ticket 10), but nothing records whether
+that went through `/admin/lted-crosswalk` or `db:seed-lted-crosswalk`. Before this ticket can close,
+confirm a crosswalk upload through the UI on prod, and that "Last imported" updates afterwards.

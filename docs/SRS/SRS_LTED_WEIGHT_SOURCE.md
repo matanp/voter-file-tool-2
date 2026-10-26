@@ -12,7 +12,7 @@ This document captures the resolution of [SRS_GAPS_AND_CONSIDERATIONS.md](SRS_GA
 |------|------------|
 | **Does BOE export include weight?** | No |
 | **Weight source** | Separate MCDC-provided Excel file ("Weighted Table") |
-| **Import path** | Admin upload or seed script (similar to LTED crosswalk in Gap 2.1) |
+| **Import path** | Admin upload only: **Admin → Weighted Table** (`/admin/weighted-table`) → `POST /api/admin/weightedTable/import`. There is no seed script for weights; `pnpm db:seed` and `pnpm db:seed-lted-crosswalk` never write `ltedWeight`. Load the crosswalk first — the import uses it to pick the town. |
 | **Fallback** | Admin manual entry when file not yet provided |
 | **Related file** | 2024 LTED Matrix — provides town/ward/district per LTED; join with Weighted Table on LTED to resolve `cityTown` |
 
@@ -21,6 +21,42 @@ Weight does **not** come from the BOE voter/committee export. It comes from a **
 ---
 
 ## 2. Weighted Table Format
+
+The importer reads only the **first sheet**, and only two columns from it, matched by header name:
+`LTED` and `Weighted Vote` (fallback headers: `Weight`). Every other column is ignored, so the
+file's layout can change between deliveries as long as those two headers are present.
+
+### 2.0 Current file (2026)
+
+**File:** `data/Base Committee Weight by LTED 20260109.xlsx` (prepared 2026-01-10). Imported to
+local and prod on 2026-10-25.
+
+**Sheet name:** `Base Committee Weight 3` · **Rows:** 690 data rows (A1:I691)
+
+| Column | Header | Type | Notes |
+|--------|--------|------|-------|
+| A | LT | String | Zero-padded leg district (`004`, `052`), or `Total` on subtotal rows |
+| B | LT Name | String | `LD 0NN` for city LDs, town name for town LDs, or `Total` |
+| C | LTED | Number | Same encoding as §2.2, stored as a number (`4001`, not `04001`) |
+| D | Weighted Vote | Number | LTED total weight — the value imported into `CommitteeList.ltedWeight` |
+| E–I | Weighted Seats, Current Filed Seats, Base Weight, Current Weight, Vacancy | Number | Ignored by the importer |
+
+Things to know about this file:
+
+- **Subtotal rows.** 31 rows have `LT = Total` with an LTED of `{LD}199` (e.g. `4199`, `52199`) and
+  a blank Weighted Vote. The importer doesn't detect them: each parses as ED 199, finds no
+  committee, and counts as `skippedNoCommittee`. If a committee with ED 199 ever exists, it
+  would get a null weight.
+- **A blank weight.** LTED `52019` (Henrietta) has a blank Weighted Vote. If a row with a blank
+  weight matches a committee, the importer sets that committee's weight to null. On 2026-10-25,
+  no active committee had a null weight after the import.
+- **Rows vs committees.** Of the 690 rows, 437 matched an active-term committee. The rest are
+  subtotals, or LTEDs with no committee this term.
+- **Duplicate copy.** `data/Base Committee Weight by LTED 20260109 (1).xlsx` is the same file
+  re-saved in Excel on 2026-08-26 with columns E–I deleted. Columns A–D match the original cell
+  for cell, so either copy imports the same weights.
+
+### 2.1–2.3 Previous file (2025)
 
 **Reference file:** `Weighted Table 20250110.xlsx` (date in filename: 2025-01-10)
 
