@@ -115,9 +115,9 @@ export async function findCommitteeAssemblyDistricts(
 /**
  * Checks a voter's AD against the committee's AD. Returns the mismatch details, or null when the
  * voter may serve. A missing expected AD is a mismatch. Ignores requireAssemblyDistrictMatch:
- * checkCommitteeResidency and prepareCommitteeResidencyChecks honour it.
+ * findResidencyMismatch and prepareCommitteeResidencyChecks honour it.
  */
-export function checkAssemblyDistrictResidency(
+export function findAssemblyDistrictMismatch(
   voterAssemblyDistrict: string | null | undefined,
   expectedAssemblyDistrict: string | null | undefined,
 ): AssemblyDistrictMismatch | null {
@@ -138,7 +138,7 @@ export function checkAssemblyDistrictResidency(
  * Checks a voter against one committee, looked up by id. Runs no queries when the check is off.
  * A missing committee is a mismatch.
  */
-export async function checkCommitteeResidency(
+export async function findResidencyMismatch(
   db: ResidencyClient,
   input: {
     committeeListId: number;
@@ -163,7 +163,7 @@ export async function checkCommitteeResidency(
     ? await findCommitteeAssemblyDistrict(db, committee)
     : null;
 
-  return checkAssemblyDistrictResidency(
+  return findAssemblyDistrictMismatch(
     input.voterAssemblyDistrict,
     expectedAssemblyDistrict,
   );
@@ -184,7 +184,7 @@ export async function prepareCommitteeResidencyChecks(
 
   const lookup = await findCommitteeAssemblyDistricts(db, committees);
   return (committee, voterAssemblyDistrict) =>
-    checkAssemblyDistrictResidency(voterAssemblyDistrict, lookup(committee));
+    findAssemblyDistrictMismatch(voterAssemblyDistrict, lookup(committee));
 }
 
 /**

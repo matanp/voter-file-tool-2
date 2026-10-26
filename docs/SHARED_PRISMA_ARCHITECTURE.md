@@ -17,8 +17,9 @@ This document outlines the recommended architecture pattern for sharing Prisma t
 
 ```
 packages/
-├── shared-prisma/           # Type-only package
-│   ├── src/index.ts        # Exports all Prisma types
+├── shared-prisma/           # Prisma types + server-only query helpers
+│   ├── src/index.ts        # Exports all Prisma types and the helpers
+│   ├── src/committeeResidency.ts # e.g. the committee residency rule
 │   ├── package.json        # Dependencies: @prisma/client
 │   └── tsconfig.json       # TypeScript configuration
 │
@@ -37,7 +38,7 @@ apps/
 
 ### **1. Shared-Prisma Package (`packages/shared-prisma`)**
 
-**Purpose**: Export all Prisma types for consumption by other applications
+**Purpose**: Export all Prisma types for consumption by other applications, plus server-only query helpers that several apps share (e.g. the committee residency rule in `committeeResidency.ts`, BOE eligibility flagging in `boeEligibilityFlagging.ts`)
 
 ```typescript
 // src/index.ts
@@ -65,10 +66,10 @@ export {
 
 **Key Features**:
 
-- ✅ Type-only package (no runtime dependencies)
+- ✅ Prisma types plus server-only query helpers (never import it from client bundles; see the anti-pattern below)
 - ✅ Automatically rebuilds when schema changes
 - ✅ Exports all Prisma types and utilities
-- ✅ No PrismaClient instance (types only)
+- ✅ No PrismaClient instance (helpers take the caller's client as an argument)
 
 ### **2. Frontend Application (`apps/frontend`)**
 

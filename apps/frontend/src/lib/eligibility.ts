@@ -13,7 +13,7 @@ import {
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
-  checkCommitteeResidency,
+  findResidencyMismatch,
   getMostRecentImportVersion,
   isPartyMismatch,
   isVoterPossiblyInactive,
@@ -159,7 +159,7 @@ export async function validateEligibility(
   // A missing committee or crosswalk row (e.g. crosswalk not yet loaded) is a mismatch (hard stop).
   // See ticket 2.1 implementation notes.
   if (
-    await checkCommitteeResidency(prisma, {
+    await findResidencyMismatch(prisma, {
       committeeListId,
       voterAssemblyDistrict: voter.stateAssmblyDistrict,
       requireAssemblyDistrictMatch: config.requireAssemblyDistrictMatch,
