@@ -31,13 +31,31 @@ function createFormDataRequest(file: unknown): NextRequest {
   } as unknown as NextRequest;
 }
 
+const executeRawMock = prismaMock.$executeRaw as unknown as jest.Mock;
+const createManyMock = () => prismaMock.ltedDistrictCrosswalk.createMany as jest.Mock;
+
+function existingRow(overrides: {
+  id: string;
+  electionDistrict: number;
+  stateSenateDistrict: string | null;
+}) {
+  return {
+    cityTown: "ROCHESTER",
+    legDistrict: 17,
+    stateAssemblyDistrict: "131",
+    congressionalDistrict: null,
+    countyLegDistrict: null,
+    ...overrides,
+  };
+}
+
 describe("/api/admin/crosswalk/import", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
     mockHasPermission(true);
-    (prismaMock.ltedDistrictCrosswalk as { findUnique: jest.Mock }).findUnique.mockResolvedValue(null);
-    (prismaMock.ltedDistrictCrosswalk as { upsert: jest.Mock }).upsert.mockResolvedValue({ id: "x1" });
+    (prismaMock.ltedDistrictCrosswalk.findMany as jest.Mock).mockResolvedValue([]);
+    (prismaMock.ltedDistrictCrosswalk.createMany as jest.Mock).mockResolvedValue({ count: 0 });
     (prismaMock.auditLog as { create: jest.Mock }).create.mockResolvedValue({});
   });
 
@@ -48,7 +66,7 @@ describe("/api/admin/crosswalk/import", () => {
     expect(json.error).toContain("Excel file");
   });
 
-  it("parses valid rows and upserts crosswalk entries", async () => {
+  it("parses valid rows and creates new crosswalk entries in one createMany", async () => {
     readWorkbookMock.mockReturnValue({
       SheetNames: ["NEW_LTED_Matrix"],
       Sheets: { NEW_LTED_Matrix: {} },
@@ -75,24 +93,116 @@ describe("/api/admin/crosswalk/import", () => {
       updated: 0,
       skipped: 0,
     });
-    const upsertArgs = getMockCallArgs(
-      (prismaMock.ltedDistrictCrosswalk as { upsert: jest.Mock }).upsert,
-    )[0];
-    expect(upsertArgs).toMatchObject({
-      where: {
-        cityTown_legDistrict_electionDistrict: {
+    expect(createManyMock()).toHaveBeenCalledWith({
+      data: [
+        {
           cityTown: "ROCHESTER",
           legDistrict: 17,
           electionDistrict: 1,
+          stateAssemblyDistrict: "131",
+          stateSenateDistrict: "55",
+          congressionalDistrict: "25",
+          countyLegDistrict: "004",
         },
-      },
-      create: {
-        cityTown: "ROCHESTER",
-        legDistrict: 17,
-        electionDistrict: 1,
-        stateAssemblyDistrict: "131",
-      },
+      ],
     });
+    expect(executeRawMock).not.toHaveBeenCalled();
+  });
+
+  it("updates only changed rows in one statement and leaves unchanged rows alone", async () => {
+    readWorkbookMock.mockReturnValue({
+      SheetNames: ["NEW_LTED_Matrix"],
+      Sheets: { NEW_LTED_Matrix: {} },
+    });
+    sheetToJsonMock.mockReturnValue([
+      { town: "080", ward: "17", district: "1", stleg_dist: "131", stsen_dist: "55" },
+      { town: "080", ward: "17", district: "2", stleg_dist: "136", stsen_dist: "56" },
+      { town: "080", ward: "17", district: "3", stleg_dist: "131" },
+    ]);
+    (prismaMock.ltedDistrictCrosswalk.findMany as jest.Mock).mockResolvedValue([
+      existingRow({ id: "a", electionDistrict: 1, stateSenateDistrict: "55" }),
+      existingRow({ id: "b", electionDistrict: 2, stateSenateDistrict: "55" }),
+    ]);
+
+    const response = await POST(createFormDataRequest(createUploadFile()));
+    expect(response.status).toBe(200);
+    const json = await parseJsonResponse<{ summary: unknown }>(response);
+    expect(json.summary).toMatchObject({
+      rowsProcessed: 3,
+      created: 1,
+      updated: 1,
+      unchanged: 1,
+      skipped: 0,
+    });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(createManyMock()).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ electionDistrict: 3 })],
+    });
+    expect(executeRawMock).toHaveBeenCalledTimes(1);
+    expect((executeRawMock.mock.calls[0] as unknown[]).slice(1)).toEqual([
+      ["b"],
+      ["136"],
+      ["56"],
+      [null],
+      [null],
+    ]);
+  });
+
+  it("keeps the last row when a key repeats in the file", async () => {
+    readWorkbookMock.mockReturnValue({
+      SheetNames: ["NEW_LTED_Matrix"],
+      Sheets: { NEW_LTED_Matrix: {} },
+    });
+    sheetToJsonMock.mockReturnValue([
+      { town: "080", ward: "17", district: "1", stleg_dist: "131" },
+      { town: "080", ward: "17", district: "1", stleg_dist: "137" },
+    ]);
+
+    const response = await POST(createFormDataRequest(createUploadFile()));
+    const json = await parseJsonResponse<{ summary: unknown }>(response);
+    expect(json.summary).toMatchObject({ rowsProcessed: 2, created: 1, duplicates: 1 });
+    expect(createManyMock()).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ stateAssemblyDistrict: "137" })],
+    });
+  });
+
+  it("judges a repeated existing key by its last row", async () => {
+    readWorkbookMock.mockReturnValue({
+      SheetNames: ["NEW_LTED_Matrix"],
+      Sheets: { NEW_LTED_Matrix: {} },
+    });
+    sheetToJsonMock.mockReturnValue([
+      { town: "080", ward: "17", district: "1", stleg_dist: "999" },
+      { town: "080", ward: "17", district: "1", stleg_dist: "131" },
+    ]);
+    (prismaMock.ltedDistrictCrosswalk.findMany as jest.Mock).mockResolvedValue([
+      existingRow({ id: "a", electionDistrict: 1, stateSenateDistrict: null }),
+    ]);
+
+    const response = await POST(createFormDataRequest(createUploadFile()));
+    const json = await parseJsonResponse<{ summary: unknown }>(response);
+    expect(json.summary).toMatchObject({
+      created: 0,
+      updated: 0,
+      unchanged: 1,
+      duplicates: 1,
+    });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 and skips the audit event when the write fails", async () => {
+    readWorkbookMock.mockReturnValue({
+      SheetNames: ["NEW_LTED_Matrix"],
+      Sheets: { NEW_LTED_Matrix: {} },
+    });
+    sheetToJsonMock.mockReturnValue([
+      { town: "080", ward: "17", district: "1", stleg_dist: "131" },
+    ]);
+    createManyMock().mockRejectedValue(new Error("connection reset"));
+
+    const response = await POST(createFormDataRequest(createUploadFile()));
+    expect(response.status).toBe(500);
+    expect((prismaMock.auditLog as { create: jest.Mock }).create).not.toHaveBeenCalled();
   });
 
   it("skips rows with unknown town code and reports errors", async () => {
@@ -110,7 +220,8 @@ describe("/api/admin/crosswalk/import", () => {
     expect(json.success).toBe(true);
     expect(json.summary.skipped).toBe(1);
     expect(json.summary.errors.length).toBeGreaterThan(0);
-    expect((prismaMock.ltedDistrictCrosswalk as { upsert: jest.Mock }).upsert).not.toHaveBeenCalled();
+    expect(createManyMock()).not.toHaveBeenCalled();
+    expect(executeRawMock).not.toHaveBeenCalled();
   });
 
   it("logs CROSSWALK_IMPORTED audit event", async () => {

@@ -8,8 +8,11 @@ import prisma from "~/lib/prisma";
 import { NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
-import { getActiveTermId } from "~/app/api/lib/committeeValidation";
-import { recomputeSeatWeights } from "~/app/api/lib/seatUtils";
+import {
+  getActiveTermId,
+  getGovernanceConfig,
+} from "~/app/api/lib/committeeValidation";
+import { computeSeatWeight } from "~/app/api/lib/seatUtils";
 import {
   normalizeDigits,
   normalizeTownCode,
@@ -23,6 +26,12 @@ import {
 } from "~/lib/lted/xlsxUpload";
 import type { NextRequest } from "next/server";
 import type { Session } from "next-auth";
+
+export const maxDuration = 60;
+
+// Prisma's 5 s interactive-transaction default is tight for a county-wide write
+// against a hosted database.
+const IMPORT_TRANSACTION_TIMEOUT_MS = 30_000;
 
 type ParsedLted = {
   ltedKey: string;
@@ -241,6 +250,7 @@ async function importHandler(req: NextRequest, _session: Session) {
       uniqueCrosswalkCityByDistrict.set(key, Array.from(cities)[0]!);
     }
 
+    const weightsByCommitteeId = new Map<number, number | null>();
     let matched = 0;
     let skippedNoCommittee = 0;
     let skippedAmbiguous = 0;
@@ -298,12 +308,48 @@ async function importHandler(req: NextRequest, _session: Session) {
         continue;
       }
 
-      await prisma.committeeList.update({
-        where: { id: committeeIdToUpdate },
-        data: { ltedWeight: row.weight },
-      });
-      await recomputeSeatWeights(committeeIdToUpdate);
+      // A committee matched by more than one row keeps the last row's weight.
+      weightsByCommitteeId.set(committeeIdToUpdate, row.weight);
       matched++;
+    }
+
+    if (weightsByCommitteeId.size > 0) {
+      const { maxSeatsPerLted } = await getGovernanceConfig();
+      const updates = Array.from(weightsByCommitteeId, ([id, weight]) => ({
+        id,
+        weight: weight != null ? String(weight) : null,
+        seatWeight:
+          computeSeatWeight(weight, maxSeatsPerLted)?.toString() ?? null,
+      }));
+
+      // Two statements for the whole file instead of an update + seat recompute per
+      // row, which timed out on full-county files. Prisma has no per-row-values bulk
+      // update, so each joins against unnest'd arrays; numerics travel as text so the
+      // seat weight matches recomputeSeatWeights' Decimal division exactly. Seats are
+      // rewritten for every matched committee, as recomputeSeatWeights was.
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`
+            UPDATE "CommitteeList" AS c
+            SET "ltedWeight" = r.weight::numeric
+            FROM unnest(
+              ${updates.map((u) => u.id)}::int[],
+              ${updates.map((u) => u.weight)}::text[]
+            ) AS r(id, weight)
+            WHERE c.id = r.id
+          `;
+          await tx.$executeRaw`
+            UPDATE "Seat" AS s
+            SET "weight" = r.seat_weight::numeric
+            FROM unnest(
+              ${updates.map((u) => u.id)}::int[],
+              ${updates.map((u) => u.seatWeight)}::text[]
+            ) AS r(committee_list_id, seat_weight)
+            WHERE s."committeeListId" = r.committee_list_id
+          `;
+        },
+        { timeout: IMPORT_TRANSACTION_TIMEOUT_MS },
+      );
     }
 
     return NextResponse.json(

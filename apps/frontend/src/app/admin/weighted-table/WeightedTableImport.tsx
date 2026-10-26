@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { XlsxUploadCard } from "~/components/admin/XlsxUploadCard";
+import { IMPORT_TIMEOUT_MS, XlsxUploadCard } from "~/components/admin/XlsxUploadCard";
 
 type WeightedTableImportResponse = {
   matched?: number;
@@ -16,6 +16,7 @@ export const WeightedTableImport = () => {
       title="Weighted Table Import"
       label="Weighted Table (Excel)"
       inputId="weighted-table-file"
+      timeout={IMPORT_TIMEOUT_MS}
       noFileDescription="Please select a Weighted Table Excel file"
       description="Import LTED weights from the MCDC Weighted Table Excel file. Matches committees by leg district and election district."
       renderResult={(data) => (

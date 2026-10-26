@@ -3,7 +3,6 @@ import { PrivilegeLevel } from "@prisma/client";
 import { POST } from "~/app/api/admin/weightedTable/import/route";
 import { parseJsonResponse, createMockSession } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
-import * as seatUtils from "~/app/api/lib/seatUtils";
 import * as xlsx from "xlsx";
 
 jest.mock("xlsx", () => ({
@@ -13,13 +12,14 @@ jest.mock("xlsx", () => ({
   },
 }));
 
-jest.mock("~/app/api/lib/seatUtils", () => ({
-  recomputeSeatWeights: jest.fn(),
-}));
-
 const readWorkbookMock = xlsx.read as jest.Mock;
 const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
-const recomputeSeatWeightsMock = seatUtils.recomputeSeatWeights as jest.Mock;
+const executeRawMock = prismaMock.$executeRaw as unknown as jest.Mock;
+
+/** Bound values of the nth $executeRaw tagged-template call (strings array dropped). */
+function executeRawValues(callIndex: number): unknown[] {
+  return (executeRawMock.mock.calls[callIndex] as unknown[]).slice(1);
+}
 
 type UploadFile = {
   arrayBuffer: () => Promise<ArrayBuffer>;
@@ -96,8 +96,7 @@ describe("/api/admin/weightedTable/import", () => {
       skippedNoCommittee: 0,
       skippedAmbiguous: 1,
     });
-    expect(prismaMock.committeeList.update).not.toHaveBeenCalled();
-    expect(recomputeSeatWeightsMock).not.toHaveBeenCalled();
+    expect(executeRawMock).not.toHaveBeenCalled();
   });
 
   it("uses LTED matrix mapping to target the correct committee when LD/ED is ambiguous", async () => {
@@ -131,7 +130,6 @@ describe("/api/admin/weightedTable/import", () => {
       },
     ] as never);
     prismaMock.ltedDistrictCrosswalk.findMany.mockResolvedValue([] as never);
-    prismaMock.committeeList.update.mockResolvedValue({ id: 1 } as never);
 
     const response = await POST(
       createFormDataRequest({
@@ -148,14 +146,8 @@ describe("/api/admin/weightedTable/import", () => {
       skippedNoCommittee: 0,
       skippedAmbiguous: 0,
     });
-    expect(prismaMock.committeeList.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: { ltedWeight: 128.5 },
-    });
-    expect(recomputeSeatWeightsMock).toHaveBeenCalledWith(1);
-    expect(prismaMock.committeeList.update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 2 } }),
-    );
+    expect(executeRawMock).toHaveBeenCalledTimes(2);
+    expect(executeRawValues(0)).toEqual([[1], ["128.5"]]);
   });
 
   it("full-key via crosswalk: when crosswalk resolves unique city for LD/ED with multiple committees, updates exactly one committee", async () => {
@@ -199,12 +191,7 @@ describe("/api/admin/weightedTable/import", () => {
       skippedNoCommittee: 0,
       skippedAmbiguous: 0,
     });
-    expect(prismaMock.committeeList.update).toHaveBeenCalledTimes(1);
-    expect(prismaMock.committeeList.update).toHaveBeenCalledWith({
-      where: { id: 10 },
-      data: { ltedWeight: 99 },
-    });
-    expect(recomputeSeatWeightsMock).toHaveBeenCalledWith(10);
+    expect(executeRawValues(0)).toEqual([[10], ["99"]]);
   });
 
   it("skips LTED rows that are ambiguous in the matrix (same LTED maps to different city/town)", async () => {
@@ -257,7 +244,47 @@ describe("/api/admin/weightedTable/import", () => {
       skippedNoCommittee: 0,
       skippedAmbiguous: 1,
     });
-    expect(prismaMock.committeeList.update).not.toHaveBeenCalled();
-    expect(recomputeSeatWeightsMock).not.toHaveBeenCalled();
+    expect(executeRawMock).not.toHaveBeenCalled();
+  });
+
+  it("writes all matched committees and their seat weights in two statements in one transaction", async () => {
+    readWorkbookMock.mockReturnValue({
+      SheetNames: ["Weighted"],
+      Sheets: { Weighted: {} },
+    });
+    sheetToJsonMock.mockReturnValue([
+      { LTED: "17001", "Weighted Vote": 100 },
+      { LTED: "17002", "Weighted Vote": "" },
+      { LTED: "18001", "Weighted Vote": 30 },
+      { LTED: "18001", "Weighted Vote": 12 },
+    ]);
+
+    prismaMock.committeeList.findMany.mockResolvedValue([
+      { id: 1, cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 1 },
+      { id: 2, cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 2 },
+      { id: 3, cityTown: "ROCHESTER", legDistrict: 18, electionDistrict: 1 },
+    ] as never);
+    prismaMock.ltedDistrictCrosswalk.findMany.mockResolvedValue([] as never);
+    (prismaMock.committeeGovernanceConfig.findFirst as jest.Mock).mockResolvedValue({
+      maxSeatsPerLted: 3,
+    });
+
+    const response = await POST(
+      createFormDataRequest({ weightedTable: createUploadFile() }),
+    );
+
+    expect(response.status).toBe(200);
+    const json = await parseJsonResponse<WeightedImportResponse>(response);
+    expect(json.matched).toBe(4);
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(executeRawMock).toHaveBeenCalledTimes(2);
+    // Committee 3 appears twice; the last row wins. A blank weight clears it.
+    expect(executeRawValues(0)).toEqual([[1, 2, 3], ["100", null, "12"]]);
+    // Seat weight = ltedWeight / maxSeatsPerLted, null when the weight is cleared.
+    const [seatIds, seatWeights] = executeRawValues(1) as [number[], string[]];
+    expect(seatIds).toEqual([1, 2, 3]);
+    expect(seatWeights[1]).toBeNull();
+    expect(Number(seatWeights[0])).toBeCloseTo(100 / 3, 15);
+    expect(seatWeights[2]).toBe("4");
   });
 });

@@ -130,13 +130,16 @@ export async function recomputeSeatWeights(
 
   const maxSeats = await resolveMaxSeats(db, options?.maxSeats);
 
-  const seatWeight =
-    committee.ltedWeight != null
-      ? new Prisma.Decimal(committee.ltedWeight).div(maxSeats)
-      : null;
-
   await db.seat.updateMany({
     where: { committeeListId },
-    data: { weight: seatWeight },
+    data: { weight: computeSeatWeight(committee.ltedWeight, maxSeats) },
   });
+}
+
+/** Seat weight = ltedWeight / maxSeatsPerLted; null when the LTED weight is unknown. */
+export function computeSeatWeight(
+  ltedWeight: Prisma.Decimal.Value | null,
+  maxSeats: number,
+): Prisma.Decimal | null {
+  return ltedWeight != null ? new Prisma.Decimal(ltedWeight).div(maxSeats) : null;
 }

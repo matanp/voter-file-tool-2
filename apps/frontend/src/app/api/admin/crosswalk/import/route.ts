@@ -24,6 +24,12 @@ import type { SessionWithUser } from "~/app/api/lib/withPrivilege";
 
 const MAX_ERROR_REPORT = 50;
 
+export const maxDuration = 60;
+
+// Prisma's 5 s interactive-transaction default is tight for a county-wide write
+// against a hosted database.
+const IMPORT_TRANSACTION_TIMEOUT_MS = 30_000;
+
 type ParsedRow = {
   cityTown: string;
   legDistrict: number;
@@ -87,6 +93,23 @@ function parseRow(
   };
 }
 
+function crosswalkKey(row: {
+  cityTown: string;
+  legDistrict: number;
+  electionDistrict: number;
+}): string {
+  return `${row.cityTown}|${row.legDistrict}|${row.electionDistrict}`;
+}
+
+function hasDistrictChanges(existing: ParsedRow, incoming: ParsedRow): boolean {
+  return (
+    existing.stateAssemblyDistrict !== incoming.stateAssemblyDistrict ||
+    existing.stateSenateDistrict !== incoming.stateSenateDistrict ||
+    existing.congressionalDistrict !== incoming.congressionalDistrict ||
+    existing.countyLegDistrict !== incoming.countyLegDistrict
+  );
+}
+
 async function importHandler(req: NextRequest, session: SessionWithUser) {
   try {
     const formData = await req.formData();
@@ -108,10 +131,11 @@ async function importHandler(req: NextRequest, session: SessionWithUser) {
 
     const { rows } = parsed;
     const errors: { row: number; message: string }[] = [];
-    let created = 0;
-    let updated = 0;
     let skipped = 0;
 
+    // Keyed by the crosswalk's unique key; a key repeated in the file keeps its last row.
+    const incomingByKey = new Map<string, ParsedRow>();
+    let duplicates = 0;
     for (let i = 0; i < rows.length; i++) {
       const rowIndex = i + 2;
       const result = parseRow(rows[i]!, rowIndex);
@@ -122,46 +146,69 @@ async function importHandler(req: NextRequest, session: SessionWithUser) {
         }
         continue;
       }
+      const key = crosswalkKey(result.ok);
+      if (incomingByKey.has(key)) duplicates++;
+      incomingByKey.set(key, result.ok);
+    }
 
-      const { ok } = result;
-      const existing = await prisma.ltedDistrictCrosswalk.findUnique({
-        where: {
-          cityTown_legDistrict_electionDistrict: {
-            cityTown: ok.cityTown,
-            legDistrict: ok.legDistrict,
-            electionDistrict: ok.electionDistrict,
-          },
-        },
-      });
+    // One read of the whole crosswalk (one row per county LTED) replaces a
+    // findUnique + upsert per row, which timed out on full-county files.
+    const existingRows = await prisma.ltedDistrictCrosswalk.findMany();
+    const existingByKey = new Map(
+      existingRows.map((row) => [crosswalkKey(row), row]),
+    );
 
-      await prisma.ltedDistrictCrosswalk.upsert({
-        where: {
-          cityTown_legDistrict_electionDistrict: {
-            cityTown: ok.cityTown,
-            legDistrict: ok.legDistrict,
-            electionDistrict: ok.electionDistrict,
-          },
-        },
-        create: ok,
-        update: {
-          stateAssemblyDistrict: ok.stateAssemblyDistrict,
-          stateSenateDistrict: ok.stateSenateDistrict,
-          congressionalDistrict: ok.congressionalDistrict,
-          countyLegDistrict: ok.countyLegDistrict,
-        },
-      });
-
-      if (existing) {
-        updated++;
-      } else {
-        created++;
+    const toCreate: ParsedRow[] = [];
+    const toUpdate: Array<ParsedRow & { id: string }> = [];
+    for (const [key, incoming] of incomingByKey) {
+      const existing = existingByKey.get(key);
+      if (!existing) {
+        toCreate.push(incoming);
+      } else if (hasDistrictChanges(existing, incoming)) {
+        toUpdate.push({ ...incoming, id: existing.id });
       }
     }
+
+    if (toCreate.length > 0 || toUpdate.length > 0) {
+      await prisma.$transaction(
+        async (tx) => {
+          if (toCreate.length > 0) {
+            await tx.ltedDistrictCrosswalk.createMany({ data: toCreate });
+          }
+          if (toUpdate.length > 0) {
+            // Prisma has no per-row-values bulk update, so changed rows are one raw
+            // statement joined against unnest'd column arrays.
+            await tx.$executeRaw`
+              UPDATE "LtedDistrictCrosswalk" AS x
+              SET "stateAssemblyDistrict" = r.state_assembly,
+                  "stateSenateDistrict" = r.state_senate,
+                  "congressionalDistrict" = r.congressional,
+                  "countyLegDistrict" = r.county_leg
+              FROM unnest(
+                ${toUpdate.map((row) => row.id)}::text[],
+                ${toUpdate.map((row) => row.stateAssemblyDistrict)}::text[],
+                ${toUpdate.map((row) => row.stateSenateDistrict)}::text[],
+                ${toUpdate.map((row) => row.congressionalDistrict)}::text[],
+                ${toUpdate.map((row) => row.countyLegDistrict)}::text[]
+              ) AS r(id, state_assembly, state_senate, congressional, county_leg)
+              WHERE x.id = r.id
+            `;
+          }
+        },
+        { timeout: IMPORT_TRANSACTION_TIMEOUT_MS },
+      );
+    }
+
+    const created = toCreate.length;
+    const updated = toUpdate.length;
+    const unchanged = incomingByKey.size - created - updated;
 
     const summary = {
       rowsProcessed: rows.length,
       created,
       updated,
+      unchanged,
+      duplicates,
       skipped,
       errors,
     };

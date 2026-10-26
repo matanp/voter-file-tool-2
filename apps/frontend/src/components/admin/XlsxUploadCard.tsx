@@ -25,7 +25,12 @@ type XlsxUploadCardProps<TResponse> = {
   invalidTypeMessage?: string;
   renderResult: (data: TResponse) => React.ReactNode;
   onSuccess?: (data: TResponse) => void;
+  /** Client-side abort, in ms. Defaults to useApiMutation's 10 s. */
+  timeout?: number;
 };
+
+/** Imports write a whole county's rows; give them far longer than a single query. */
+export const IMPORT_TIMEOUT_MS = 120_000;
 
 /** Reusable admin card for multipart .xlsx import via FormData POST. */
 export function XlsxUploadCard<TResponse>({
@@ -44,6 +49,7 @@ export function XlsxUploadCard<TResponse>({
   invalidTypeMessage = "Please select an .xlsx file",
   renderResult,
   onSuccess,
+  timeout,
 }: XlsxUploadCardProps<TResponse>) {
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<TResponse | null>(null);
@@ -51,6 +57,7 @@ export function XlsxUploadCard<TResponse>({
   const { toast } = useToast();
 
   const importMutation = useApiMutation<TResponse, FormData>(endpoint, "POST", {
+    timeout,
     onSuccess: (data) => {
       setResult(data);
       setFile(null);

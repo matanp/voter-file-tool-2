@@ -43,7 +43,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { Alert, AlertDescription } from "~/components/ui/alert";
-import { XlsxUploadCard } from "~/components/admin/XlsxUploadCard";
+import { IMPORT_TIMEOUT_MS, XlsxUploadCard } from "~/components/admin/XlsxUploadCard";
 import { useToast } from "~/components/ui/use-toast";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useApiQuery } from "~/hooks/useApiQuery";
@@ -73,6 +73,8 @@ type ImportSummary = {
   rowsProcessed: number;
   created: number;
   updated: number;
+  unchanged: number;
+  duplicates: number;
   skipped: number;
   errors: { row: number; message: string }[];
 };
@@ -86,7 +88,9 @@ const CrosswalkImportSummary = ({ summary }: { summary: ImportSummary }) => (
   <div className="space-y-2">
     <p>
       {summary.rowsProcessed} rows processed. Created: {summary.created}, Updated:{" "}
-      {summary.updated}, Skipped: {summary.skipped}
+      {summary.updated}, Unchanged: {summary.unchanged}, Skipped: {summary.skipped}
+      {summary.duplicates > 0 &&
+        ` (${summary.duplicates} repeated rows; the last one for each district was used)`}
     </p>
     {summary.errors.length > 0 && (
       <details className="mt-2">
@@ -222,6 +226,7 @@ export const LtedCrosswalkTab = () => {
         label="LTED Matrix (Excel)"
         inputId="crosswalk-file"
         submitLabel="Upload LTED Matrix"
+        timeout={IMPORT_TIMEOUT_MS}
         lastImported={lastImported}
         onSuccess={() => {
           void listQuery.refetch(query);
