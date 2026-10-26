@@ -19,6 +19,7 @@ describe("EligibilityFlagsTable", () => {
             id: "flag-1",
             reason: "PARTY_MISMATCH",
             status: "PENDING",
+            details: { expectedPartyCode: "DEM", voterPartyCode: "REP" },
             createdAt: "2026-02-20T00:00:00.000Z",
             reviewedAt: null,
             reviewedBy: null,
@@ -30,6 +31,8 @@ describe("EligibilityFlagsTable", () => {
                 VRCNUM: "V1",
                 firstName: "Jane",
                 lastName: "Doe",
+                party: "REP",
+                stateAssmblyDistrict: "136",
               },
               committeeList: {
                 cityTown: "Rochester",
@@ -79,6 +82,9 @@ describe("EligibilityFlagsTable", () => {
     await waitFor(() => {
       expect(screen.getByText("Jane Doe")).toBeInTheDocument();
     });
+    expect(
+      screen.getByText("Required party: DEM · Voter's party: REP"),
+    ).toBeInTheDocument();
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/api/admin/eligibility-flags?"),
