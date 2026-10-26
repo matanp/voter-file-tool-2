@@ -17,6 +17,7 @@ import {
   createMockSession,
   createMockRequest,
   createAuthTestSuite,
+  createMockGovernanceConfig,
   expectErrorResponse,
   parseJsonResponse,
   parseJsonResponseWith,
@@ -61,6 +62,17 @@ const TERM = {
 
 const ADMIN_USER_ID = "admin-user-id";
 const LEADER_USER_ID = "leader-user-id";
+
+type CrosswalkAssemblyDistrictRow = Prisma.LtedDistrictCrosswalkGetPayload<{
+  select: { stateAssemblyDistrict: true };
+}>;
+
+function mockCrosswalkLookup(row: CrosswalkAssemblyDistrictRow | null): void {
+  prismaMock.ltedDistrictCrosswalk.findUnique.mockImplementation(
+    (_args: Prisma.LtedDistrictCrosswalkFindUniqueArgs) =>
+      resolvesTo<CrosswalkAssemblyDistrictRow | null>(row),
+  );
+}
 
 function mockSeat(overrides: {
   seatNumber: number;
@@ -555,6 +567,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
         electionDistrict: 12,
         termId: DEFAULT_ACTIVE_TERM_ID,
         ltedWeight: null,
+        assemblyDistrict: null,
       });
     });
 
@@ -656,6 +669,62 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
         missingWeightSeatNumbers: [1],
       });
       expect(body.designationWeightSummary.seats).toHaveLength(3);
+    });
+
+    it("returns the committee's AD from its LTED's crosswalk row, trimmed", async () => {
+      adminSession();
+      mockCommitteeWithMemberships(
+        mockCommittee({
+          cityTown: "GREECE",
+          legDistrict: 2,
+          electionDistrict: 7,
+        }),
+        [],
+      );
+      mockCrosswalkLookup({
+        stateAssemblyDistrict: " 134 ",
+      });
+
+      const body = await getDetail();
+
+      expect(body.committee.assemblyDistrict).toBe("134");
+      expect(body.requireAssemblyDistrictMatch).toBe(true);
+      expect(prismaMock.ltedDistrictCrosswalk.findUnique).toHaveBeenCalledWith({
+        where: {
+          cityTown_legDistrict_electionDistrict: {
+            cityTown: "GREECE",
+            legDistrict: 2,
+            electionDistrict: 7,
+          },
+        },
+        select: { stateAssemblyDistrict: true },
+      });
+    });
+
+    it("returns a null AD when the committee's ED has no crosswalk entry", async () => {
+      adminSession();
+      mockCommitteeWithMemberships(mockCommittee({}), []);
+      mockCrosswalkLookup(null);
+
+      const body = await getDetail();
+
+      expect(body.committee.assemblyDistrict).toBeNull();
+    });
+
+    it("returns the AD and the flag when the AD check is off", async () => {
+      adminSession();
+      mockCommitteeWithMemberships(mockCommittee({}), []);
+      mockCrosswalkLookup({
+        stateAssemblyDistrict: "134",
+      });
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig({ requireAssemblyDistrictMatch: false }),
+      );
+
+      const body = await getDetail();
+
+      expect(body.committee.assemblyDistrict).toBe("134");
+      expect(body.requireAssemblyDistrictMatch).toBe(false);
     });
 
     it("synthesizes maxSeatsPerLted vacant seats when the committee has no Seat rows", async () => {

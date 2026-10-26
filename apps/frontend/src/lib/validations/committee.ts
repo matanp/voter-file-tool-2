@@ -1040,6 +1040,8 @@ export const committeeDetailResponseSchema = z.object({
     termId: z.string(),
     /** SRS §8.1 — Decimal serialized; null until known. */
     ltedWeight: z.string().nullable(),
+    /** From the LTED crosswalk, trimmed; null when the committee's ED has no crosswalk entry. */
+    assemblyDistrict: z.string().nullable(),
   }),
   term: z.object({
     id: z.string(),
@@ -1048,6 +1050,8 @@ export const committeeDetailResponseSchema = z.object({
     endDate: z.string(),
   }),
   maxSeatsPerLted: z.number().int(),
+  /** Governance config: whether residency (the committee's AD) is checked at all. */
+  requireAssemblyDistrictMatch: z.boolean(),
   /** Same rollup the grid shows for this committee (ticket 05's builder). */
   rollup: edRollupSchema,
   /** One row per seat plus unassigned rows; `contact` present iff Admin. */

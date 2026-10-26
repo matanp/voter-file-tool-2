@@ -184,6 +184,7 @@ function detail(
       electionDistrict: 29,
       termId: "term-1",
       ltedWeight: null,
+      assemblyDistrict: "134",
     },
     term: {
       id: "term-1",
@@ -192,6 +193,7 @@ function detail(
       endDate: "2026-12-31T00:00:00.000Z",
     },
     maxSeatsPerLted: 4,
+    requireAssemblyDistrictMatch: true,
     rollup: {
       committeeListId: 7,
       cityTown: "Rochester",

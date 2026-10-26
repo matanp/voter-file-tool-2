@@ -11,6 +11,12 @@ export type CommitteeRef = {
   electionDistrict: number;
 };
 
+/** Candidate search additionally needs the committee's residency context. */
+export type CandidateCommitteeRef = CommitteeRef & {
+  /** From the LTED crosswalk; null when the committee's ED has no entry. */
+  assemblyDistrict: string | null;
+};
+
 /**
  * What the workspace asks the action drawer to do (plan §8). `memberId` is the
  * occupant's VRCNUM, which `/api/committee/remove` and `requestAdd`'s
@@ -24,8 +30,8 @@ export type CommitteeRef = {
  * - `view-voter-details`: read-only; shows the occupant's voter record.
  */
 export type CommitteeAction =
-  | { kind: "add-member"; committee: CommitteeRef; seatNumber?: number }
-  | { kind: "replace-member"; committee: CommitteeRef; memberId: string }
+  | { kind: "add-member"; committee: CandidateCommitteeRef; seatNumber?: number }
+  | { kind: "replace-member"; committee: CandidateCommitteeRef; memberId: string }
   | { kind: "remove-member"; committee: CommitteeRef; memberId: string }
   | { kind: "record-resignation"; committee: CommitteeRef; memberId: string }
   | { kind: "view-voter-details"; committee: CommitteeRef; memberId: string };
@@ -51,11 +57,12 @@ export function hasLegDistrict(committee: Pick<CommitteeRef, "legDistrict">): bo
 
 export function committeeRefFrom(
   committee: CommitteeDetailResponse["committee"],
-): CommitteeRef {
+): CandidateCommitteeRef {
   return {
     committeeListId: committee.committeeListId,
     cityTown: committee.cityTown,
     legDistrict: committee.legDistrict,
     electionDistrict: committee.electionDistrict,
+    assemblyDistrict: committee.assemblyDistrict,
   };
 }

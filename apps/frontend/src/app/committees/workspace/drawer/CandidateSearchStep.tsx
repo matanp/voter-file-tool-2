@@ -1,9 +1,12 @@
 "use client";
 /**
  * Step 1, find candidate (plan §8): voter ID / first / last name, the **Only
- * eligible candidates** filter (the committee's town, LD and ED), and compact
- * results. Existing members of this committee are listed but not selectable;
- * on a full committee (add only) nobody is.
+ * eligible candidates** filter, and compact results. The filter is the
+ * residency rule: voters in the committee's assembly district, whatever their
+ * town, LD or ED. It adds nothing when `requireAssemblyDistrictMatch` is off,
+ * and is disabled when the committee's ED has no crosswalk entry (no AD to
+ * match; the ED is not used instead). Existing members of this committee are
+ * listed but not selectable; on a full committee (add only) nobody is.
  */
 import React, { useId, useState } from "react";
 
@@ -14,13 +17,14 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
   CANDIDATE_PAGE_SIZE,
+  canFilterEligibleOnly,
   candidateSearchQuery,
   searchCandidates,
   type CandidateRecord,
   type CandidateSearchInput,
   type CandidateSearchResult,
 } from "../adapters";
-import type { CommitteeRef } from "../committeeAction";
+import type { CandidateCommitteeRef } from "../committeeAction";
 import { personName } from "./drawerParts";
 
 /** Search form and results, kept by the flow so Back returns to them. */
@@ -40,7 +44,9 @@ export function candidateAddress(c: CandidateRecord): string {
 }
 
 export type CandidateSearchStepProps = {
-  committee: CommitteeRef;
+  committee: CandidateCommitteeRef;
+  /** Governance config: off means the eligible-only filter has no residency condition. */
+  requireAssemblyDistrictMatch: boolean;
   search: CandidateSearchState;
   onSearchChange: (next: CandidateSearchState) => void;
   /** VRCNUMs already on this committee. */
@@ -52,6 +58,7 @@ export type CandidateSearchStepProps = {
 
 export function CandidateSearchStep({
   committee,
+  requireAssemblyDistrictMatch,
   search,
   onSearchChange,
   existingMemberIds,
@@ -61,13 +68,19 @@ export function CandidateSearchStep({
   const id = useId();
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { input, result } = search;
+  const eligibleOnlyAvailable = canFilterEligibleOnly(committee, requireAssemblyDistrictMatch);
+  // With no AD to match, the filter is off (never swapped for the ED).
+  const input: CandidateSearchInput = eligibleOnlyAvailable
+    ? search.input
+    : { ...search.input, onlyEligible: false };
+  const { result } = search;
+  const filtersByAssemblyDistrict = eligibleOnlyAvailable && requireAssemblyDistrictMatch;
 
   const setInput = (patch: Partial<CandidateSearchInput>) =>
     onSearchChange({ ...search, input: { ...input, ...patch } });
 
   // Nothing to narrow by would page through the whole voter file.
-  const query = candidateSearchQuery(committee, input);
+  const query = candidateSearchQuery(committee, input, requireAssemblyDistrictMatch);
   const canSearch = query.length > 0;
 
   const runSearch = async (event: React.FormEvent) => {
@@ -132,6 +145,8 @@ export function CandidateSearchStep({
             <Checkbox
               id={`${id}-eligible`}
               checked={input.onlyEligible}
+              disabled={!eligibleOnlyAvailable}
+              aria-describedby={eligibleOnlyAvailable ? undefined : `${id}-no-ad`}
               onCheckedChange={(v) => setInput({ onlyEligible: v === true })}
             />
             <Label htmlFor={`${id}-eligible`}>Only eligible candidates</Label>
@@ -145,12 +160,20 @@ export function CandidateSearchStep({
             {searching ? "Searching…" : "Search"}
           </Button>
         </div>
+        {!eligibleOnlyAvailable && (
+          <p id={`${id}-no-ad`} className="text-xs text-slate-600 dark:text-slate-400">
+            Only eligible candidates is unavailable: this committee&apos;s ED has no
+            crosswalk entry, so its assembly district is unknown.
+          </p>
+        )}
         <p id={`${id}-scope`} className="text-xs text-slate-500">
-          {input.onlyEligible
-            ? "Voters registered in this committee's town and districts."
+          {input.onlyEligible && filtersByAssemblyDistrict
+            ? "Voters living in this committee's assembly district."
             : canSearch
               ? "All voters matching the ID or name."
-              : "Enter a voter ID or name, or turn on Only eligible candidates."}
+              : filtersByAssemblyDistrict
+                ? "Enter a voter ID or name, or turn on Only eligible candidates."
+                : "Enter a voter ID or name."}
         </p>
       </form>
 

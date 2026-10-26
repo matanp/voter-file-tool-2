@@ -157,6 +157,7 @@ function detailFor(r: EdRollup): CommitteeDetailResponse {
       electionDistrict: r.electionDistrict,
       termId: "term-1",
       ltedWeight: null,
+      assemblyDistrict: "134",
     },
     term: {
       id: "term-1",
@@ -165,6 +166,7 @@ function detailFor(r: EdRollup): CommitteeDetailResponse {
       endDate: "2026-12-31T00:00:00.000Z",
     },
     maxSeatsPerLted: 4,
+    requireAssemblyDistrictMatch: true,
     rollup: r,
     rows,
     designationWeightSummary: {

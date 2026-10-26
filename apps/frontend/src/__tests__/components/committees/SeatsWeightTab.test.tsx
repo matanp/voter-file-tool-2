@@ -63,6 +63,7 @@ function detailWith(overrides: DetailOverrides = {}): CommitteeDetailResponse {
       electionDistrict: 2,
       termId: "term-1",
       ltedWeight: overrides.ltedWeight === undefined ? "100" : overrides.ltedWeight,
+      assemblyDistrict: "134",
     },
     term: {
       id: "term-1",
@@ -71,6 +72,7 @@ function detailWith(overrides: DetailOverrides = {}): CommitteeDetailResponse {
       endDate: "2026-12-31T00:00:00.000Z",
     },
     maxSeatsPerLted: 4,
+    requireAssemblyDistrictMatch: true,
     rollup,
     rows: [],
     designationWeightSummary: {

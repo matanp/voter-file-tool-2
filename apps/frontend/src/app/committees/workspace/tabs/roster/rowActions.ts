@@ -2,7 +2,7 @@ import { PrivilegeLevel } from "@prisma/client";
 
 import { hasPermissionFor } from "~/lib/utils";
 import type { SeatRosterRow } from "~/lib/validations/committee";
-import type { CommitteeAction, CommitteeRef } from "../../committeeAction";
+import type { CandidateCommitteeRef, CommitteeAction } from "../../committeeAction";
 
 /**
  * A row menu item. The Roster tab only *dispatches* its action (plan §8's
@@ -31,7 +31,7 @@ export type RosterRowActionItem = {
  */
 export function rosterRowActions(
   row: SeatRosterRow,
-  committee: CommitteeRef,
+  committee: CandidateCommitteeRef,
   actingPermissions: PrivilegeLevel,
 ): RosterRowActionItem[] {
   const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);

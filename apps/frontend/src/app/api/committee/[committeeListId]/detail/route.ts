@@ -2,8 +2,8 @@
  * Committee detail read model — GET /api/committee/[committeeListId]/detail
  *
  * One call returns everything the workspace detail pane shows for a
- * committee in the active term: identity (id + composite key + term), the
- * grid rollup, seat rows, the designation-weight summary, pending
+ * committee in the active term: identity (id + composite key + term + AD),
+ * the grid rollup, seat rows, the designation-weight summary, pending
  * submissions, Admin-only petition context, and recent membership history.
  * Read-only. See docs/SRS/COMMITTEES_WORKSPACE_UI_IMPLEMENTATION_PLAN.md §5
  * "Detail" and .scratch/committees-workspace/history-inventory.md.
@@ -21,6 +21,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import * as Sentry from "@sentry/nextjs";
+import { findCommitteeAssemblyDistrict } from "@voter-file-tool/shared-prisma";
 import prisma from "~/lib/prisma";
 import {
   withPrivilege,
@@ -132,57 +133,65 @@ async function getCommitteeDetail(
       );
     }
 
-    const [config, pendingMemberships, allMemberships, petitionRows] =
-      await Promise.all([
-        getGovernanceConfig(),
-        prisma.committeeMembership.findMany({
-          where: {
-            committeeListId,
-            termId: activeTermId,
-            status: PENDING_MEMBERSHIP_STATUS,
-          },
-          orderBy: { submittedAt: "asc" },
-          include: {
-            voterRecord: {
-              select: {
-                VRCNUM: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                telephone: true,
-              },
-            },
-            submittedBy: { select: { id: true, name: true } },
-          },
-        }),
-        // Every membership row for the committee + term, any status: the
-        // history's audit rows key on these ids, and replacement targets /
-        // incoming members resolve their names here.
-        prisma.committeeMembership.findMany({
-          where: { committeeListId, termId: activeTermId },
-          select: {
-            id: true,
-            voterRecordId: true,
-            seatNumber: true,
-            petitionPrimaryDate: true,
-            petitionSeatNumber: true,
-            submissionMetadata: true,
-            voterRecord: {
-              select: { firstName: true, middleInitial: true, lastName: true },
+    const [
+      config,
+      assemblyDistrict,
+      pendingMemberships,
+      allMemberships,
+      petitionRows,
+    ] = await Promise.all([
+      getGovernanceConfig(),
+      // A fact about the committee, so it's returned whether or not the AD
+      // check is on; the drawer's eligible-only filter needs both.
+      findCommitteeAssemblyDistrict(prisma, committee),
+      prisma.committeeMembership.findMany({
+        where: {
+          committeeListId,
+          termId: activeTermId,
+          status: PENDING_MEMBERSHIP_STATUS,
+        },
+        orderBy: { submittedAt: "asc" },
+        include: {
+          voterRecord: {
+            select: {
+              VRCNUM: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              telephone: true,
             },
           },
-        }),
-        isAdmin
-          ? prisma.committeeMembership.findMany({
-              where: petitionOutcomeWhere({
-                committeeListId,
-                termId: activeTermId,
-              }),
-              include: { voterRecord: PETITION_OUTCOME_VOTER_SELECT },
-              orderBy: PETITION_OUTCOME_ORDER,
-            })
-          : Promise.resolve(undefined),
-      ]);
+          submittedBy: { select: { id: true, name: true } },
+        },
+      }),
+      // Every membership row for the committee + term, any status: the
+      // history's audit rows key on these ids, and replacement targets /
+      // incoming members resolve their names here.
+      prisma.committeeMembership.findMany({
+        where: { committeeListId, termId: activeTermId },
+        select: {
+          id: true,
+          voterRecordId: true,
+          seatNumber: true,
+          petitionPrimaryDate: true,
+          petitionSeatNumber: true,
+          submissionMetadata: true,
+          voterRecord: {
+            select: { firstName: true, middleInitial: true, lastName: true },
+          },
+        },
+      }),
+      isAdmin
+        ? prisma.committeeMembership.findMany({
+            where: petitionOutcomeWhere({
+              committeeListId,
+              termId: activeTermId,
+            }),
+            include: { voterRecord: PETITION_OUTCOME_VOTER_SELECT },
+            orderBy: PETITION_OUTCOME_ORDER,
+          })
+        : Promise.resolve(undefined),
+    ]);
 
     const rollupOptions = {
       termId: activeTermId,
@@ -255,6 +264,7 @@ async function getCommitteeDetail(
         electionDistrict: committee.electionDistrict,
         termId: committee.termId,
         ltedWeight: serializeDecimal(committee.ltedWeight),
+        assemblyDistrict,
       },
       term: {
         id: committee.term.id,
@@ -263,6 +273,7 @@ async function getCommitteeDetail(
         endDate: committee.term.endDate.toISOString(),
       },
       maxSeatsPerLted: config.maxSeatsPerLted,
+      requireAssemblyDistrictMatch: config.requireAssemblyDistrictMatch,
       rollup,
       rows,
       designationWeightSummary: buildDesignationWeightSummary(

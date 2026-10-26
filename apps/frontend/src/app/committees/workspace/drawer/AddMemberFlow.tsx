@@ -155,6 +155,7 @@ export function AddMemberFlow({
     body = (
       <CandidateSearchStep
         committee={action.committee}
+        requireAssemblyDistrictMatch={detail.requireAssemblyDistrictMatch}
         search={search}
         onSearchChange={setSearch}
         existingMemberIds={existingMemberIds}
