@@ -26,7 +26,7 @@ describe("GovernanceConfigClient", () => {
     jest.clearAllMocks();
   });
 
-  it("loads config, shows diff confirmation, and saves successfully", async () => {
+  it("loads config, shows pending diff, and saves on a single click", async () => {
     const patchResponse = {
       ...initialResponse,
       config: {
@@ -68,10 +68,8 @@ describe("GovernanceConfigClient", () => {
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     expect(
-      screen.getByRole("button", { name: "Confirm save" }),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Confirm save" }));
+      screen.queryByRole("button", { name: "Confirm save" }),
+    ).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -132,7 +130,6 @@ describe("GovernanceConfigClient", () => {
     await user.clear(maxSeatsInput);
     await user.type(maxSeatsInput, "0");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
-    await user.click(screen.getByRole("button", { name: "Confirm save" }));
 
     await waitFor(() => {
       expect(

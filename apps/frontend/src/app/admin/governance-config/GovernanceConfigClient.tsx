@@ -108,7 +108,6 @@ export function GovernanceConfigClient() {
   const [original, setOriginal] = useState<GovernanceConfigApiPayload | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const query = useApiQuery<GovernanceConfigResponse>("/api/admin/governance-config");
@@ -126,7 +125,6 @@ export function GovernanceConfigClient() {
     });
     setFieldErrors({});
     setSaveError(null);
-    setShowConfirm(false);
   }, [query.data]);
 
   const pendingDiff = useMemo(() => {
@@ -194,7 +192,6 @@ export function GovernanceConfigClient() {
           ...successBody.config.nonOverridableIneligibilityReasons,
         ],
       });
-      setShowConfirm(false);
       toast({ title: "Governance config saved" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save config";
@@ -381,29 +378,11 @@ export function GovernanceConfigClient() {
 
               <div className="flex gap-2">
                 <Button
-                  onClick={() => setShowConfirm(true)}
+                  onClick={() => void onSubmit()}
                   disabled={pendingDiff.length === 0 || saving}
                 >
-                  Save changes
+                  {saving ? "Saving..." : "Save changes"}
                 </Button>
-                {showConfirm && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowConfirm(false)}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="default"
-                      onClick={() => void onSubmit()}
-                      disabled={saving}
-                    >
-                      {saving ? "Saving..." : "Confirm save"}
-                    </Button>
-                  </>
-                )}
               </div>
             </div>
           </>
