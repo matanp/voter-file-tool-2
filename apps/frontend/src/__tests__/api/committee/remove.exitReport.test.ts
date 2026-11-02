@@ -16,6 +16,7 @@ import {
   expectErrorResponse,
   expectMembershipExitWrite,
   jsonContaining,
+  resolvesTo,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
 
@@ -173,16 +174,17 @@ describe("/api/committee/remove with Exit Reports", () => {
         exitReportedKind: "REMOVAL",
       });
     prismaMock.committeeMembership.update.mockRejectedValueOnce(recordNotFound);
-
     const response = await POST(
-      createMockRequest(createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" })),
+      createMockRequest(
+        createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" }),
+      ),
     );
 
     expect(response.status).toBe(200);
     const wheres = prismaMock.committeeMembership.update.mock.calls.map(
       ([args]) => args.where.exitReportedAt,
     );
-    expect(wheres).toEqual([null, REPORTED_AT]);
+    expect(wheres).toEqual([null, undefined]);
     expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "MEMBER_REMOVED",
@@ -190,6 +192,67 @@ describe("/api/committee/remove with Exit Reports", () => {
           supersededExitReport: {
             reportedById: "leader-1",
             reportedAt: REPORTED_AT.toISOString(),
+            kind: "REMOVAL",
+          },
+        }),
+      }),
+    );
+  });
+
+  it("does not fail an ACTIVE exit after repeated report-state changes", async () => {
+    adminWithReportedMember();
+    const beforeReport = {
+      ...createMockMembership({ seatNumber: 2 }),
+      status: "ACTIVE",
+      membershipType: null,
+      submissionMetadata: null,
+      removalReason: null,
+      resignationMethod: null,
+    } satisfies CommitteeMembership;
+    const reports = [1, 2, 3, 4].map((second) => ({
+      ...beforeReport,
+      exitReportedAt: new Date(`2026-10-30T15:04:0${String(second)}.000Z`),
+      exitReportedById: `leader-${String(second)}`,
+      exitReportedKind: "REMOVAL" as const,
+    }));
+    let locked = false;
+    let unlockedRead = 0;
+    prismaMock.$queryRaw.mockImplementation(() => {
+      locked = true;
+      return resolvesTo<Array<{ id: string }>>([{ id: beforeReport.id }]);
+    });
+    prismaMock.committeeMembership.findUnique.mockImplementation(() => {
+      if (locked) return resolvesTo<CommitteeMembership>(reports.at(-1)!);
+      if (unlockedRead === 0) {
+        unlockedRead += 1;
+        return resolvesTo<CommitteeMembership>(beforeReport);
+      }
+      const report = reports[Math.min(unlockedRead - 1, reports.length - 1)]!;
+      unlockedRead += 1;
+      return resolvesTo<CommitteeMembership>(report);
+    });
+    prismaMock.committeeMembership.update.mockImplementation((args) => {
+      const expectedAt = args.where.exitReportedAt;
+      if (expectedAt !== undefined) throw recordNotFound;
+      return resolvesTo(
+        createMockMembership({ id: beforeReport.id, status: "REMOVED" }),
+      );
+    });
+
+    const response = await POST(
+      createMockRequest(
+        createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" }),
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_REMOVED",
+        metadata: jsonContaining({
+          supersededExitReport: {
+            reportedById: "leader-4",
+            reportedAt: reports.at(-1)!.exitReportedAt.toISOString(),
             kind: "REMOVAL",
           },
         }),

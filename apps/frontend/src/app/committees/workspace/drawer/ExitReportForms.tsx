@@ -85,8 +85,9 @@ type InstructionsState =
 
 /**
  * The instructions shown before a report is sent. Fetched when it opens.
- * Continue is offered once the text has loaded (or failed to: the report can
- * still be filed, and the dialog says the instructions couldn't load).
+ * Continue is offered only after the current text has loaded. A missing
+ * configured value is valid; a failed request is not treated as an empty
+ * configuration because the Leader may otherwise miss updated instructions.
  */
 export function ExitInstructionsDialog({
   open,
@@ -135,7 +136,8 @@ export function ExitInstructionsDialog({
               )}
               {state.status === "error" && (
                 <p role="alert">
-                  {state.message}. You can still send the report.
+                  {state.message}. Go back and try again before sending the
+                  report.
                 </p>
               )}
               <p>
@@ -148,7 +150,7 @@ export function ExitInstructionsDialog({
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Go back</AlertDialogCancel>
           <AlertDialogAction
-            disabled={state.status === "loading"}
+            disabled={state.status !== "ready"}
             onClick={onContinue}
           >
             I understand, send report

@@ -1057,6 +1057,35 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
     });
   });
 
+  it("keeps submission blocked when the current instructions cannot be loaded", async () => {
+    const fetchMock = serve({
+      "/api/committee/exit-instructions": [
+        { status: 503, body: { error: "Instructions unavailable" } },
+      ],
+    });
+    renderDrawer({ role: PrivilegeLevel.Leader, action: REPORT_EXIT });
+
+    await userEvent.click(within(drawer()).getByLabelText("Should be removed"));
+    await userEvent.selectOptions(
+      within(drawer()).getByLabelText(/^Reason/),
+      "DECEASED",
+    );
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Report" }),
+    );
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Instructions unavailable",
+    );
+    expect(
+      within(dialog).getByRole("button", {
+        name: "I understand, send report",
+      }),
+    ).toBeDisabled();
+    expect(callsTo(fetchMock, "/api/committee/exitReport")).toHaveLength(0);
+  });
+
   it("is not offered to an acting Admin, who exits members directly", () => {
     renderDrawer({ role: PrivilegeLevel.Admin, action: REPORT_EXIT });
     expect(drawer()).toHaveTextContent("Your role can't change this committee.");

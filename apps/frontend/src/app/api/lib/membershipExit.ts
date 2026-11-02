@@ -93,10 +93,9 @@ export const CLEARED_EXIT_FIELDS = {
 
 /**
  * The row as the caller read it. Every caller has already loaded the
- * membership (and checked it is ACTIVE), so the helper doesn't read again
- * unless the write misses: the conditional `where` on `exitReportedAt` proves
- * at write time that this is still the row's report state, which is what
- * makes `clearedReport` accurate.
+ * membership and checked it is ACTIVE. The helper locks and rereads it before
+ * writing so superseding exits do not depend on how often the report state
+ * changed before the lock was acquired.
  */
 export type ExitReportState = {
   id: string;
@@ -138,56 +137,64 @@ function isRecordNotFound(error: unknown): boolean {
 }
 
 /**
- * `update` on `{ id, status: ACTIVE, exitReportedAt: <as read> }`. Prisma
- * raises P2025 when no row matches (no SQL error, so the transaction stays
- * usable).
- *
- * - `exact` (confirming a report): the row must still carry the report the
- *   Admin saw; any change is the caller's 409.
- * - `supersede` (every other exit, decision 14): only `status = ACTIVE`
- *   matters. If a report was filed or cleared since the caller's read, re-read
- *   and try again, so the write still lands and `clearedReport` names the
- *   report it actually cleared. Only a row that left ACTIVE is `changed`.
+ * First tries the report state the caller read. Confirming is exact: a miss is
+ * the caller's 409. A superseding exit locks and rereads after a miss, then
+ * writes based only on `status = ACTIVE`. This keeps the common path cheap
+ * while making report/reject/refile churn irrelevant once the lock is held.
  */
-const SUPERSEDE_ATTEMPTS = 3;
-
 async function updateIfUnchanged(
   tx: Prisma.TransactionClient,
   state: ExitReportState,
   data: Prisma.CommitteeMembershipUncheckedUpdateInput,
   mode: "exact" | "supersede",
 ): Promise<MembershipExitResult> {
-  let current = state;
-  for (let attempt = 1; ; attempt++) {
-    try {
-      const membership = await tx.committeeMembership.update({
-        where: {
-          id: current.id,
-          status: ACTIVE_MEMBERSHIP_STATUS,
-          // `?? null`: an undefined filter would match any report.
-          exitReportedAt: current.exitReportedAt ?? null,
-        },
-        data: { ...data, ...CLEARED_EXIT_REPORT_FIELDS },
-      });
-      return {
-        kind: "written",
-        membership,
-        clearedReport: toClearedReport(current),
-      };
-    } catch (error) {
-      if (!isRecordNotFound(error)) throw error;
-      if (mode === "exact" || attempt >= SUPERSEDE_ATTEMPTS) {
-        return { kind: "changed" };
-      }
-      const reread = await tx.committeeMembership.findUnique({
-        where: { id: current.id },
-        select: { ...EXIT_REPORT_STATE_SELECT, status: true },
-      });
-      if (!reread || reread.status !== ACTIVE_MEMBERSHIP_STATUS) {
-        return { kind: "changed" };
-      }
-      current = reread;
-    }
+  try {
+    const membership = await tx.committeeMembership.update({
+      where: {
+        id: state.id,
+        status: ACTIVE_MEMBERSHIP_STATUS,
+        // `?? null`: an undefined filter would match any report.
+        exitReportedAt: state.exitReportedAt ?? null,
+      },
+      data: { ...data, ...CLEARED_EXIT_REPORT_FIELDS },
+    });
+    return {
+      kind: "written",
+      membership,
+      clearedReport: toClearedReport(state),
+    };
+  } catch (error) {
+    if (!isRecordNotFound(error)) throw error;
+    if (mode === "exact") return { kind: "changed" };
+  }
+
+  await tx.$queryRaw`
+    SELECT "id"
+    FROM "CommitteeMembership"
+    WHERE "id" = ${state.id}
+    FOR UPDATE
+  `;
+  const current = await tx.committeeMembership.findUnique({
+    where: { id: state.id },
+    select: { ...EXIT_REPORT_STATE_SELECT, status: true },
+  });
+  if (!current || current.status !== ACTIVE_MEMBERSHIP_STATUS) {
+    return { kind: "changed" };
+  }
+
+  try {
+    const membership = await tx.committeeMembership.update({
+      where: { id: current.id, status: ACTIVE_MEMBERSHIP_STATUS },
+      data: { ...data, ...CLEARED_EXIT_REPORT_FIELDS },
+    });
+    return {
+      kind: "written",
+      membership,
+      clearedReport: toClearedReport(current),
+    };
+  } catch (error) {
+    if (!isRecordNotFound(error)) throw error;
+    return { kind: "changed" };
   }
 }
 
