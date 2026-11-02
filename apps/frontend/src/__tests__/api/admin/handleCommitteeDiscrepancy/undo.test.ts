@@ -14,7 +14,9 @@ import {
   getMembershipMock,
   getAuditLogMock,
   expectAuditLogCreate,
+  expectMembershipExitWrite,
   jsonContaining,
+  selectedRow,
   DEFAULT_ACTIVE_TERM_ID,
   type AuthTestConfig,
 } from "../../../utils/testUtils";
@@ -55,9 +57,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
     prismaMock.$queryRaw.mockResolvedValue([] as never);
     getAuditLogMock(prismaMock).create.mockResolvedValue({});
     prismaMock.committeeUploadDiscrepancy.update.mockResolvedValue({} as never);
-    prismaMock.voterRecord.findUnique.mockResolvedValue(
-      createMockVoterRecord({ VRCNUM: "TEST123" }),
-    );
+    prismaMock.voterRecord.findUnique.mockResolvedValue(createMockVoterRecord({ VRCNUM: "TEST123" }));
   };
 
   beforeEach(() => {
@@ -73,9 +73,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       };
 
       const setupMocks = () => {
-        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-          createResolvedDiscrepancy() as never,
-        );
+        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(createResolvedDiscrepancy() as never);
         setupUndoMocks();
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({
@@ -94,13 +92,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
         );
       };
 
-      const authTestSuite = createAuthTestSuite(
-        authConfig,
-        POST,
-        mockAuthSession,
-        mockHasPermission,
-        setupMocks,
-      );
+      const authTestSuite = createAuthTestSuite(authConfig, POST, mockAuthSession, mockHasPermission, setupMocks);
 
       authTestSuite.forEach(({ description, runTest }) => {
         it(description, runTest);
@@ -131,31 +123,32 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
         mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
         mockHasPermission(true);
         setupUndoMocks();
-        getMembershipMock(prismaMock).findUnique.mockResolvedValue(reportedMember());
+        prismaMock.committeeMembership.findUnique.mockResolvedValue(selectedRow(reportedMember()));
       });
 
       it("undoing a created membership removes it, clearing the report and its reported details", async () => {
-        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-          createResolvedDiscrepancy() as never,
-        );
-        getMembershipMock(prismaMock).update.mockResolvedValue(
-          createMockMembership({ id: "membership-new", status: "REMOVED", seatNumber: null }),
+        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(selectedRow(createResolvedDiscrepancy()));
+        prismaMock.committeeMembership.update.mockResolvedValue(
+          selectedRow(
+            createMockMembership({
+              id: "membership-new",
+              status: "REMOVED",
+              seatNumber: null,
+            }),
+          ),
         );
 
         const response = await POST(createMockRequest({ VRCNUM: "TEST123" }));
 
         expect(response.status).toBe(200);
-        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: { id: "membership-new", status: "ACTIVE", exitReportedAt: REPORTED_AT },
-            data: expect.objectContaining({
-              status: "REMOVED",
-              removalReason: "OTHER",
-              removalNotes: "Undo of discrepancy accept",
-              exitReportedAt: null,
-              exitReportedById: null,
-              exitReportedKind: null,
-            }) as unknown,
+        expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+          expectMembershipExitWrite("membership-new", {
+            status: "REMOVED",
+            removalReason: "OTHER",
+            removalNotes: "Undo of discrepancy accept",
+            exitReportedAt: null,
+            exitReportedById: null,
+            exitReportedKind: null,
           }),
         );
         expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
@@ -171,50 +164,59 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
 
       it("undoing a reactivation writes back the saved RESIGNED state with the report fields null", async () => {
         prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-          createResolvedDiscrepancy({
-            resolutionMetadata: {
-              membershipOutcome: "reactivated",
-              membershipId: "membership-new",
-              membershipAfter: { status: "ACTIVE", seatNumber: 1, activatedAt },
-              membershipBefore: {
-                status: "RESIGNED",
-                membershipType: "APPOINTED",
-                seatNumber: null,
-                activatedAt: "2025-01-01T00:00:00.000Z",
-                confirmedAt: null,
-                resignedAt: "2025-06-01T00:00:00.000Z",
-                removedAt: null,
-                rejectedAt: null,
-                rejectionNote: null,
-                resignationDateReceived: "2025-05-30T00:00:00.000Z",
-                resignationMethod: "MAIL",
-                removalReason: "MOVED_OUT_OF_DISTRICT",
-                removalNotes: null,
-                petitionVoteCount: null,
-                petitionPrimaryDate: null,
+          selectedRow(
+            createResolvedDiscrepancy({
+              resolutionMetadata: {
+                membershipOutcome: "reactivated",
+                membershipId: "membership-new",
+                membershipAfter: {
+                  status: "ACTIVE",
+                  seatNumber: 1,
+                  activatedAt,
+                },
+                membershipBefore: {
+                  status: "RESIGNED",
+                  membershipType: "APPOINTED",
+                  seatNumber: null,
+                  activatedAt: "2025-01-01T00:00:00.000Z",
+                  confirmedAt: null,
+                  resignedAt: "2025-06-01T00:00:00.000Z",
+                  removedAt: null,
+                  rejectedAt: null,
+                  rejectionNote: null,
+                  resignationDateReceived: "2025-05-30T00:00:00.000Z",
+                  resignationMethod: "MAIL",
+                  removalReason: "MOVED_OUT_OF_DISTRICT",
+                  removalNotes: null,
+                  petitionVoteCount: null,
+                  petitionPrimaryDate: null,
+                },
               },
-            },
-          }) as never,
+            }),
+          ),
         );
-        getMembershipMock(prismaMock).update.mockResolvedValue(
-          createMockMembership({ id: "membership-new", status: "RESIGNED", seatNumber: null }),
+        prismaMock.committeeMembership.update.mockResolvedValue(
+          selectedRow(
+            createMockMembership({
+              id: "membership-new",
+              status: "RESIGNED",
+              seatNumber: null,
+            }),
+          ),
         );
 
         const response = await POST(createMockRequest({ VRCNUM: "TEST123" }));
 
         expect(response.status).toBe(200);
-        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: { id: "membership-new", status: "ACTIVE", exitReportedAt: REPORTED_AT },
-            data: expect.objectContaining({
-              status: "RESIGNED",
-              resignedAt: new Date("2025-06-01T00:00:00.000Z"),
-              resignationMethod: "MAIL",
-              removalReason: "MOVED_OUT_OF_DISTRICT",
-              removalNotes: null,
-              exitReportedAt: null,
-              exitReportedKind: null,
-            }) as unknown,
+        expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+          expectMembershipExitWrite("membership-new", {
+            status: "RESIGNED",
+            resignedAt: new Date("2025-06-01T00:00:00.000Z"),
+            resignationMethod: "MAIL",
+            removalReason: "MOVED_OUT_OF_DISTRICT",
+            removalNotes: null,
+            exitReportedAt: null,
+            exitReportedKind: null,
           }),
         );
         expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
@@ -232,9 +234,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
     it("created-membership accept undo: transitions to REMOVED and reopens row", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
-      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-        createResolvedDiscrepancy() as never,
-      );
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(createResolvedDiscrepancy() as never);
       setupUndoMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
@@ -256,12 +256,9 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
 
       expect(response.status).toBe(200);
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "membership-new", status: "ACTIVE", exitReportedAt: null },
-          data: expect.objectContaining({
-            status: "REMOVED",
-            seatNumber: null,
-          }) as unknown,
+        expectMembershipExitWrite("membership-new", {
+          status: "REMOVED",
+          seatNumber: null,
         }),
       );
       expect(prismaMock.committeeUploadDiscrepancy.update).toHaveBeenCalledWith(
@@ -310,9 +307,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
     it("returns 409 membership_diverged when membership changed since resolve", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
-      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-        createResolvedDiscrepancy() as never,
-      );
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(createResolvedDiscrepancy() as never);
       setupUndoMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
@@ -334,9 +329,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
     it("returns 409 membership_diverged when membership row is missing", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
-      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-        createResolvedDiscrepancy() as never,
-      );
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(createResolvedDiscrepancy() as never);
       setupUndoMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
 
@@ -443,9 +436,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       const response = await POST(createMockRequest({ VRCNUM: "TEST123" }));
 
       expect(response.status).toBe(200);
-      const json = await parseJsonResponse<{ addressRestoreSkipped?: boolean }>(
-        response,
-      );
+      const json = await parseJsonResponse<{ addressRestoreSkipped?: boolean }>(response);
       expect(json.addressRestoreSkipped).toBe(true);
       expect(prismaMock.voterRecord.update).not.toHaveBeenCalled();
     });

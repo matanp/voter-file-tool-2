@@ -18,7 +18,11 @@ import {
   jsonContaining,
   resolvesTo,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  prismaMock,
+} from "../../utils/mocks";
 
 const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
 
@@ -28,7 +32,9 @@ const recordNotFound = Object.assign(new Error("Record to update not found."), {
 });
 
 function adminWithReportedMember() {
-  mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+  mockAuthSession(
+    createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+  );
   mockHasPermission(true);
   prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
   prismaMock.voterRecord.findUnique.mockResolvedValue(createMockVoterRecord());
@@ -68,7 +74,9 @@ describe("/api/committee/remove with Exit Reports", () => {
     adminWithReportedMember();
 
     const response = await POST(
-      createMockRequest(resignBody({ exitReportedAt: REPORTED_AT.toISOString() })),
+      createMockRequest(
+        resignBody({ exitReportedAt: REPORTED_AT.toISOString() }),
+      ),
     );
 
     expect(response.status).toBe(200);
@@ -84,8 +92,13 @@ describe("/api/committee/remove with Exit Reports", () => {
         exitReportedKind: null,
       }),
     );
-    const where = prismaMock.committeeMembership.update.mock.calls[0]?.[0].where;
-    expect(where?.exitReportedAt).toEqual(REPORTED_AT);
+    const where =
+      prismaMock.committeeMembership.update.mock.calls[0]?.[0].where;
+    expect(where).toEqual({
+      id: "membership-test-id-001",
+      status: "ACTIVE",
+      exitReportedAt: REPORTED_AT,
+    });
     expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "MEMBER_RESIGNED",
@@ -147,7 +160,9 @@ describe("/api/committee/remove with Exit Reports", () => {
     prismaMock.committeeMembership.update.mockRejectedValue(recordNotFound);
 
     const response = await POST(
-      createMockRequest(resignBody({ exitReportedAt: REPORTED_AT.toISOString() })),
+      createMockRequest(
+        resignBody({ exitReportedAt: REPORTED_AT.toISOString() }),
+      ),
     );
 
     await expectErrorResponse(response, 409, "This member changed, refresh.");
@@ -264,7 +279,9 @@ describe("/api/committee/remove with Exit Reports", () => {
     adminWithReportedMember();
 
     const response = await POST(
-      createMockRequest(createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" })),
+      createMockRequest(
+        createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" }),
+      ),
     );
 
     expect(response.status).toBe(200);

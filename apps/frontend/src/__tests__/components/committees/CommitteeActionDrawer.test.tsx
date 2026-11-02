@@ -73,7 +73,13 @@ const SEATED: SeatRosterRow = {
     membershipType: "APPOINTED",
   },
 };
-const VACANT: SeatRosterRow = { ...COMMITTEE_REF, seatNumber: 2, isPetitioned: false, weight: null, occupant: null };
+const VACANT: SeatRosterRow = {
+  ...COMMITTEE_REF,
+  seatNumber: 2,
+  isPetitioned: false,
+  weight: null,
+  occupant: null,
+};
 
 function detail({
   filled = 1,
@@ -129,7 +135,12 @@ const JANE = {
 };
 const JANE_DIFFERENT_ED = { ...JANE, electionDistrict: 9 };
 /** Already on this committee: not selectable. */
-const SAM = { ...JANE, VRCNUM: "V-SEATED", firstName: "Sam", lastName: "Seated" };
+const SAM = {
+  ...JANE,
+  VRCNUM: "V-SEATED",
+  firstName: "Sam",
+  lastName: "Seated",
+};
 
 function preflight(
   overrides: Partial<EligibilityPreflightResponse> = {},
@@ -178,7 +189,8 @@ function serve(routes: Record<string, Reply[]>): FetchMock {
 
 const callsTo = (fetchMock: FetchMock, pathname: string) =>
   fetchMock.mock.calls.filter(
-    ([input]) => new URL(String(input), "http://localhost").pathname === pathname,
+    ([input]) =>
+      new URL(String(input), "http://localhost").pathname === pathname,
   );
 const bodyOf = (call: Parameters<FetchMockImpl> | undefined) =>
   JSON.parse(String(call?.[1]?.body)) as Record<string, unknown>;
@@ -213,11 +225,16 @@ const drawer = () => screen.getByRole("dialog");
 
 async function searchAndSelect(name = "Jane Doe") {
   await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
-  await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
-  await userEvent.click(await within(drawer()).findByRole("button", { name: `Select ${name}` }));
+  await userEvent.click(
+    within(drawer()).getByRole("button", { name: "Search" }),
+  );
+  await userEvent.click(
+    await within(drawer()).findByRole("button", { name: `Select ${name}` }),
+  );
 }
 
-const continueButton = () => within(drawer()).getByRole("button", { name: "Continue" });
+const continueButton = () =>
+  within(drawer()).getByRole("button", { name: "Continue" });
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -233,97 +250,162 @@ beforeEach(() => {
 describe("CommitteeActionDrawer: find candidate", () => {
   it("names the action and committee, and searches the committee's AD by default", async () => {
     const fetchMock = serve({
-      "/api/fetchFilteredData": [{ body: { data: [SAM, JANE], totalRecords: 2 } }],
+      "/api/fetchFilteredData": [
+        { body: { data: [SAM, JANE], totalRecords: 2 } },
+      ],
     });
     renderDrawer();
 
-    expect(within(drawer()).getByRole("heading", { level: 2, name: "Add member" })).toBeInTheDocument();
+    expect(
+      within(drawer()).getByRole("heading", { level: 2, name: "Add member" }),
+    ).toBeInTheDocument();
     expect(drawer()).toHaveTextContent("GREECE · LD 1 · ED 5");
-    expect(within(drawer()).getByRole("heading", { level: 3, name: /Find candidate/ })).toBeInTheDocument();
-    expect(within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" })).toBeChecked();
+    expect(
+      within(drawer()).getByRole("heading", {
+        level: 3,
+        name: /Find candidate/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer()).getByRole("checkbox", {
+        name: "Only eligible candidates",
+      }),
+    ).toBeChecked();
 
     await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Search" }),
+    );
 
-    const results = await within(drawer()).findByRole("list", { name: "Candidates" });
-    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
+    const results = await within(drawer()).findByRole("list", {
+      name: "Candidates",
+    });
+    expect(
+      bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery,
+    ).toEqual([
       { field: "stateAssmblyDistrict", values: ["134"] },
       { field: "lastName", values: ["DOE"] }, // normalized, as in the legacy search
     ]);
-    expect(drawer()).toHaveTextContent("Voters living in this committee's assembly district.");
+    expect(drawer()).toHaveTextContent(
+      "Voters living in this committee's assembly district.",
+    );
     // An existing member is listed but cannot be picked.
     const sam = within(results).getByRole("listitem", { name: /Sam Seated/ });
     expect(sam).toHaveTextContent("Already on this committee");
     expect(within(sam).queryByRole("button")).not.toBeInTheDocument();
-    expect(within(results).getByRole("button", { name: "Select Jane Doe" })).toBeEnabled();
+    expect(
+      within(results).getByRole("button", { name: "Select Jane Doe" }),
+    ).toBeEnabled();
   });
 
   it("searches everyone when only-eligible is unchecked, and says when nothing matched", async () => {
-    const fetchMock = serve({ "/api/fetchFilteredData": [{ body: { data: [], totalRecords: 0 } }] });
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [], totalRecords: 0 } }],
+    });
     renderDrawer();
 
-    await userEvent.click(within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" }));
+    await userEvent.click(
+      within(drawer()).getByRole("checkbox", {
+        name: "Only eligible candidates",
+      }),
+    );
     await userEvent.type(within(drawer()).getByLabelText("First name"), "Zed");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Search" }),
+    );
 
-    expect(await within(drawer()).findByText("No voters matched.")).toBeInTheDocument();
-    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
-      { field: "firstName", values: ["ZED"] },
-    ]);
+    expect(
+      await within(drawer()).findByText("No voters matched."),
+    ).toBeInTheDocument();
+    expect(
+      bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery,
+    ).toEqual([{ field: "firstName", values: ["ZED"] }]);
   });
 
   it("disables only-eligible when the committee has no AD, and searches by name instead of the ED", async () => {
-    const fetchMock = serve({ "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }] });
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+    });
     renderDrawer({
-      action: { kind: "add-member", committee: { ...REF, assemblyDistrict: null }, seatNumber: 2 },
+      action: {
+        kind: "add-member",
+        committee: { ...REF, assemblyDistrict: null },
+        seatNumber: 2,
+      },
     });
 
-    const eligibleOnly = within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" });
+    const eligibleOnly = within(drawer()).getByRole("checkbox", {
+      name: "Only eligible candidates",
+    });
     expect(eligibleOnly).toBeDisabled();
     expect(eligibleOnly).not.toBeChecked();
     expect(eligibleOnly).toHaveAccessibleDescription(
       "Only eligible candidates is unavailable: this committee's ED has no crosswalk entry, so its assembly district is unknown.",
     );
-    expect(within(drawer()).getByRole("button", { name: "Search" })).toBeDisabled();
+    expect(
+      within(drawer()).getByRole("button", { name: "Search" }),
+    ).toBeDisabled();
     expect(drawer()).toHaveTextContent("Enter a voter ID or name.");
 
     await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Search" }),
+    );
 
     await within(drawer()).findByRole("listitem", { name: /Jane Doe/ });
-    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
-      { field: "lastName", values: ["DOE"] },
-    ]);
+    expect(
+      bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery,
+    ).toEqual([{ field: "lastName", values: ["DOE"] }]);
   });
 
   it("keeps only-eligible on but adds no residency condition when the AD check is off", async () => {
-    const fetchMock = serve({ "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }] });
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+    });
     renderDrawer({
-      action: { kind: "add-member", committee: { ...REF, assemblyDistrict: null }, seatNumber: 2 },
+      action: {
+        kind: "add-member",
+        committee: { ...REF, assemblyDistrict: null },
+        seatNumber: 2,
+      },
       committeeDetail: detail({ requireAssemblyDistrictMatch: false }),
     });
 
-    const eligibleOnly = within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" });
+    const eligibleOnly = within(drawer()).getByRole("checkbox", {
+      name: "Only eligible candidates",
+    });
     expect(eligibleOnly).toBeEnabled();
     expect(eligibleOnly).toBeChecked();
 
     await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Search" }),
+    );
 
     await within(drawer()).findByRole("listitem", { name: /Jane Doe/ });
-    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
-      { field: "lastName", values: ["DOE"] },
-    ]);
+    expect(
+      bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery,
+    ).toEqual([{ field: "lastName", values: ["DOE"] }]);
   });
 
   it("blocks adding to a full committee before any candidate is picked", async () => {
-    serve({ "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }] });
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+    });
     renderDrawer({ committeeDetail: detail({ filled: 4 }) });
 
-    expect(within(drawer()).getByRole("alert")).toHaveTextContent("This committee is full");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
-    const jane = await within(drawer()).findByRole("listitem", { name: /Jane Doe/ });
-    expect(within(jane).getByRole("button", { name: "Select Jane Doe" })).toBeDisabled();
+    expect(within(drawer()).getByRole("alert")).toHaveTextContent(
+      "This committee is full",
+    );
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Search" }),
+    );
+    const jane = await within(drawer()).findByRole("listitem", {
+      name: /Jane Doe/,
+    });
+    expect(
+      within(jane).getByRole("button", { name: "Select Jane Doe" }),
+    ).toBeDisabled();
   });
 });
 
@@ -336,10 +418,19 @@ describe("CommitteeActionDrawer: review candidate", () => {
     renderDrawer();
     await searchAndSelect();
 
-    expect(within(drawer()).getByRole("heading", { level: 3, name: /Review candidate/ })).toBeInTheDocument();
-    expect(await within(drawer()).findByText("Eligibility Snapshot")).toBeInTheDocument();
+    expect(
+      within(drawer()).getByRole("heading", {
+        level: 3,
+        name: /Review candidate/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await within(drawer()).findByText("Eligibility Snapshot"),
+    ).toBeInTheDocument();
     const [url] = callsTo(fetchMock, "/api/committee/eligibility")[0] ?? [];
-    expect(String(url)).toBe("/api/committee/eligibility?voterRecordId=V-JANE&committeeListId=7");
+    expect(String(url)).toBe(
+      "/api/committee/eligibility?voterRecordId=V-JANE&committeeListId=7",
+    );
     expect(drawer()).toHaveTextContent("Committee seats: 1/4");
     expect(continueButton()).toBeEnabled();
   });
@@ -350,7 +441,9 @@ describe("CommitteeActionDrawer: review candidate", () => {
       "/api/committee/eligibility": [
         {
           body: preflight({
-            warnings: [{ code: "POSSIBLY_INACTIVE", message: "Voter may be inactive." }],
+            warnings: [
+              { code: "POSSIBLY_INACTIVE", message: "Voter may be inactive." },
+            ],
           }),
         },
       ],
@@ -358,7 +451,9 @@ describe("CommitteeActionDrawer: review candidate", () => {
     renderDrawer();
     await searchAndSelect();
 
-    expect(await within(drawer()).findByText("Non-blocking warnings")).toBeInTheDocument();
+    expect(
+      await within(drawer()).findByText("Non-blocking warnings"),
+    ).toBeInTheDocument();
     expect(drawer()).toHaveTextContent("Voter may be inactive.");
     expect(continueButton()).toBeEnabled();
   });
@@ -373,10 +468,14 @@ describe("CommitteeActionDrawer: review candidate", () => {
     renderDrawer({ role: PrivilegeLevel.Leader });
     await searchAndSelect();
 
-    expect(await within(drawer()).findByText("Ineligible for this committee")).toBeInTheDocument();
+    expect(
+      await within(drawer()).findByText("Ineligible for this committee"),
+    ).toBeInTheDocument();
     expect(drawer()).toHaveTextContent("Party does not match");
     expect(continueButton()).toBeDisabled();
-    expect(within(drawer()).queryByRole("checkbox", { name: /Override/ })).not.toBeInTheDocument();
+    expect(
+      within(drawer()).queryByRole("checkbox", { name: /Override/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("lets an Admin override a hard stop with a required reason", async () => {
@@ -385,20 +484,31 @@ describe("CommitteeActionDrawer: review candidate", () => {
       "/api/committee/eligibility": [
         { body: preflight({ eligible: false, hardStops: ["PARTY_MISMATCH"] }) },
       ],
-      "/api/committee/add": [{ body: { success: true, message: "Member added to committee" } }],
+      "/api/committee/add": [
+        { body: { success: true, message: "Member added to committee" } },
+      ],
     });
     const { onComplete } = renderDrawer();
     await searchAndSelect();
     await within(drawer()).findByText("Ineligible for this committee");
     expect(continueButton()).toBeDisabled();
 
-    await userEvent.click(within(drawer()).getByRole("checkbox", { name: /Override these hard stops/ }));
+    await userEvent.click(
+      within(drawer()).getByRole("checkbox", {
+        name: /Override these hard stops/,
+      }),
+    );
     await userEvent.click(continueButton());
     expect(continueButton()).toBeDisabled(); // reason still blank
-    await userEvent.type(within(drawer()).getByLabelText(/Override reason/), "Approved by the chair");
+    await userEvent.type(
+      within(drawer()).getByLabelText(/Override reason/),
+      "Approved by the chair",
+    );
     await userEvent.click(continueButton());
     expect(drawer()).toHaveTextContent("Approved by the chair");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Add member" }),
+    );
 
     await waitFor(() => expect(onComplete).toHaveBeenCalled());
     expect(bodyOf(callsTo(fetchMock, "/api/committee/add")[0])).toMatchObject({
@@ -419,10 +529,16 @@ describe("CommitteeActionDrawer: review candidate", () => {
     renderDrawer();
     await searchAndSelect();
 
-    expect(await within(drawer()).findByText("Eligibility Snapshot Unavailable")).toBeInTheDocument();
+    expect(
+      await within(drawer()).findByText("Eligibility Snapshot Unavailable"),
+    ).toBeInTheDocument();
     expect(continueButton()).toBeDisabled();
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Retry eligibility check" }));
-    expect(await within(drawer()).findByText("Eligibility Snapshot")).toBeInTheDocument();
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Retry eligibility check" }),
+    );
+    expect(
+      await within(drawer()).findByText("Eligibility Snapshot"),
+    ).toBeInTheDocument();
     expect(callsTo(fetchMock, "/api/committee/eligibility")).toHaveLength(2);
     expect(continueButton()).toBeEnabled();
   });
@@ -434,8 +550,12 @@ describe("CommitteeActionDrawer: review candidate", () => {
     });
     renderDrawer();
     await searchAndSelect();
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Back" }));
-    expect(within(drawer()).getByRole("button", { name: "Select Jane Doe" })).toBeInTheDocument();
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Back" }),
+    );
+    expect(
+      within(drawer()).getByRole("button", { name: "Select Jane Doe" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -473,15 +593,21 @@ describe("CommitteeActionDrawer: Admin add", () => {
     const { onComplete } = renderDrawer();
 
     expect(
-      within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" }),
+      within(drawer()).getByRole("checkbox", {
+        name: "Only eligible candidates",
+      }),
     ).toBeChecked();
     await searchAndSelect();
 
-    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery).toEqual([
+    expect(
+      bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]).searchQuery,
+    ).toEqual([
       { field: "stateAssmblyDistrict", values: ["134"] },
       { field: "lastName", values: ["DOE"] },
     ]);
-    expect(await within(drawer()).findByText("Eligibility Snapshot")).toBeInTheDocument();
+    expect(
+      await within(drawer()).findByText("Eligibility Snapshot"),
+    ).toBeInTheDocument();
     expect(drawer()).toHaveTextContent(
       "Home ED: 9 (informational: it doesn't need to match the committee's ED)",
     );
@@ -489,12 +615,16 @@ describe("CommitteeActionDrawer: Admin add", () => {
     expect(drawer()).toHaveTextContent("Committee's Assembly District: 134");
     expect(continueButton()).toBeEnabled();
     expect(
-      within(drawer()).queryByRole("checkbox", { name: /Override these hard stops/ }),
+      within(drawer()).queryByRole("checkbox", {
+        name: /Override these hard stops/,
+      }),
     ).not.toBeInTheDocument();
 
     await userEvent.click(continueButton());
     await userEvent.click(continueButton());
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Add member" }),
+    );
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     const addBody = bodyOf(callsTo(fetchMock, "/api/committee/add")[0]);
@@ -513,20 +643,36 @@ describe("CommitteeActionDrawer: Admin add", () => {
     const fetchMock = serve({
       "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
       "/api/committee/eligibility": [{ body: preflight() }],
-      "/api/committee/add": [{ body: { success: true, message: "Member added to committee" } }],
+      "/api/committee/add": [
+        { body: { success: true, message: "Member added to committee" } },
+      ],
     });
     const { onComplete, onClose } = renderDrawer();
     await searchAndSelect();
     await within(drawer()).findByText("Eligibility Snapshot");
     await userEvent.click(continueButton());
 
-    expect(within(drawer()).getByRole("heading", { level: 3, name: /Membership details/ })).toBeInTheDocument();
-    expect(within(drawer()).getByRole("radio", { name: "Appointed" })).toBeChecked();
-    await userEvent.click(within(drawer()).getByRole("radio", { name: "Petitioned" }));
-    await userEvent.type(within(drawer()).getByRole("textbox", { name: "Member contact email" }), "jane@example.com");
+    expect(
+      within(drawer()).getByRole("heading", {
+        level: 3,
+        name: /Membership details/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer()).getByRole("radio", { name: "Appointed" }),
+    ).toBeChecked();
+    await userEvent.click(
+      within(drawer()).getByRole("radio", { name: "Petitioned" }),
+    );
+    await userEvent.type(
+      within(drawer()).getByRole("textbox", { name: "Member contact email" }),
+      "jane@example.com",
+    );
     await userEvent.click(continueButton());
 
-    expect(within(drawer()).getByRole("heading", { level: 3, name: /Confirm/ })).toBeInTheDocument();
+    expect(
+      within(drawer()).getByRole("heading", { level: 3, name: /Confirm/ }),
+    ).toBeInTheDocument();
     const summary = within(drawer()).getByRole("list", { name: "Summary" });
     expect(summary).toHaveTextContent("GREECE · LD 1 · ED 5");
     expect(summary).toHaveTextContent("Next open seat");
@@ -534,7 +680,9 @@ describe("CommitteeActionDrawer: Admin add", () => {
     expect(summary).toHaveTextContent("Petitioned");
     expect(summary).toHaveTextContent("jane@example.com");
 
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Add member" }),
+    );
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -557,8 +705,14 @@ describe("CommitteeActionDrawer: Admin add", () => {
       "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
       "/api/committee/eligibility": [{ body: preflight() }],
       "/api/committee/add": [
-        { body: { success: false, error: "INELIGIBLE", reasons: ["CAPACITY"] }, status: 422 },
-        { body: { success: false, error: "Internal server error" }, status: 500 },
+        {
+          body: { success: false, error: "INELIGIBLE", reasons: ["CAPACITY"] },
+          status: 422,
+        },
+        {
+          body: { success: false, error: "Internal server error" },
+          status: 500,
+        },
         { body: { success: true, message: "Member added to committee" } },
       ],
     });
@@ -567,7 +721,8 @@ describe("CommitteeActionDrawer: Admin add", () => {
     await within(drawer()).findByText("Eligibility Snapshot");
     await userEvent.click(continueButton());
     await userEvent.click(continueButton());
-    const add = () => within(drawer()).getByRole("button", { name: "Add member" });
+    const add = () =>
+      within(drawer()).getByRole("button", { name: "Add member" });
 
     await userEvent.click(add());
     const blocked = await within(drawer()).findByRole("alert");
@@ -576,7 +731,11 @@ describe("CommitteeActionDrawer: Admin add", () => {
     expect(onComplete).not.toHaveBeenCalled();
 
     await userEvent.click(add());
-    await waitFor(() => expect(within(drawer()).getByRole("alert")).toHaveTextContent("Internal server error"));
+    await waitFor(() =>
+      expect(within(drawer()).getByRole("alert")).toHaveTextContent(
+        "Internal server error",
+      ),
+    );
     expect(onClose).not.toHaveBeenCalled();
 
     await userEvent.click(add());
@@ -593,17 +752,31 @@ describe("CommitteeActionDrawer: submission roles", () => {
       "/api/committee/requestAdd": [{ body: { success: true, message: "ok" } }],
     });
     const { onComplete } = renderDrawer({ role: PrivilegeLevel.Leader });
-    expect(within(drawer()).getByRole("heading", { level: 2, name: "Submit candidate" })).toBeInTheDocument();
+    expect(
+      within(drawer()).getByRole("heading", {
+        level: 2,
+        name: "Submit candidate",
+      }),
+    ).toBeInTheDocument();
 
     await searchAndSelect();
     await within(drawer()).findByText("Eligibility Snapshot");
     await userEvent.click(continueButton());
-    expect(within(drawer()).queryByRole("radio", { name: "Appointed" })).not.toBeInTheDocument();
-    await userEvent.type(within(drawer()).getByLabelText("Notes for the reviewer"), "Active volunteer");
+    expect(
+      within(drawer()).queryByRole("radio", { name: "Appointed" }),
+    ).not.toBeInTheDocument();
+    await userEvent.type(
+      within(drawer()).getByLabelText("Notes for the reviewer"),
+      "Active volunteer",
+    );
     await userEvent.click(continueButton());
 
-    expect(drawer()).toHaveTextContent("not on the committee until an Admin accepts");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Submit candidate" }));
+    expect(drawer()).toHaveTextContent(
+      "not on the committee until an Admin accepts",
+    );
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Submit candidate" }),
+    );
 
     await waitFor(() => expect(onComplete).toHaveBeenCalled());
     expect(callsTo(fetchMock, "/api/committee/add")).toHaveLength(0);
@@ -631,19 +804,34 @@ describe("CommitteeActionDrawer: submission roles", () => {
       action: { kind: "replace-member", committee: REF, memberId: "V-SEATED" },
       committeeDetail: detail({ filled: 4 }),
     });
-    expect(within(drawer()).getByRole("heading", { level: 2, name: "Replace member" })).toBeInTheDocument();
-    expect(drawer()).toHaveTextContent("Replacing Sam Seated (V-SEATED), seat 1");
-    expect(within(drawer()).queryByText(/This committee is full/)).not.toBeInTheDocument();
+    expect(
+      within(drawer()).getByRole("heading", {
+        level: 2,
+        name: "Replace member",
+      }),
+    ).toBeInTheDocument();
+    expect(drawer()).toHaveTextContent(
+      "Replacing Sam Seated (V-SEATED), seat 1",
+    );
+    expect(
+      within(drawer()).queryByText(/This committee is full/),
+    ).not.toBeInTheDocument();
 
     await searchAndSelect();
     await within(drawer()).findByText("Eligibility Snapshot");
     await userEvent.click(continueButton());
     await userEvent.click(continueButton());
-    expect(within(drawer()).getByRole("list", { name: "Summary" })).toHaveTextContent("Sam Seated (V-SEATED), seat 1");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Submit candidate" }));
+    expect(
+      within(drawer()).getByRole("list", { name: "Summary" }),
+    ).toHaveTextContent("Sam Seated (V-SEATED), seat 1");
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Submit candidate" }),
+    );
 
     await waitFor(() => expect(onComplete).toHaveBeenCalled());
-    expect(bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0])).toMatchObject({
+    expect(
+      bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0]),
+    ).toMatchObject({
       addMemberId: "V-JANE",
       removeMemberId: "V-SEATED",
     });
@@ -652,35 +840,70 @@ describe("CommitteeActionDrawer: submission roles", () => {
   it("offers no action to ReadAccess", () => {
     serve({});
     renderDrawer({ role: PrivilegeLevel.ReadAccess });
-    expect(drawer()).toHaveTextContent("Your role can't change this committee.");
-    expect(within(drawer()).queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+    expect(drawer()).toHaveTextContent(
+      "Your role can't change this committee.",
+    );
+    expect(
+      within(drawer()).queryByRole("button", { name: "Search" }),
+    ).not.toBeInTheDocument();
   });
 });
 
 // --- Ticket 14: removal and resignation ------------------------------------------------
 
-const REMOVE: CommitteeAction = { kind: "remove-member", committee: REF, memberId: "V-SEATED" };
-const RESIGN: CommitteeAction = { kind: "record-resignation", committee: REF, memberId: "V-SEATED" };
+const REMOVE: CommitteeAction = {
+  kind: "remove-member",
+  committee: REF,
+  memberId: "V-SEATED",
+};
+const RESIGN: CommitteeAction = {
+  kind: "record-resignation",
+  committee: REF,
+  memberId: "V-SEATED",
+};
 const hint = () => within(drawer()).getByTestId("member-exit-requirements");
 
 describe("CommitteeActionDrawer: remove member", () => {
   it("requires a reason, and notes for Other, then removes and completes", async () => {
-    const fetchMock = serve({ "/api/committee/remove": [{ body: { status: "success" } }] });
+    const fetchMock = serve({
+      "/api/committee/remove": [{ body: { status: "success" } }],
+    });
     const { onComplete, onClose } = renderDrawer({ action: REMOVE });
 
-    expect(within(drawer()).getByRole("heading", { level: 2, name: "Remove member" })).toBeInTheDocument();
-    expect(drawer()).toHaveTextContent("Removing Sam Seated (V-SEATED), seat 1");
-    expect(drawer()).toHaveTextContent("administrative removal, not a resignation");
-    const remove = within(drawer()).getByRole("button", { name: "Remove member" });
+    expect(
+      within(drawer()).getByRole("heading", {
+        level: 2,
+        name: "Remove member",
+      }),
+    ).toBeInTheDocument();
+    expect(drawer()).toHaveTextContent(
+      "Removing Sam Seated (V-SEATED), seat 1",
+    );
+    expect(drawer()).toHaveTextContent(
+      "administrative removal, not a resignation",
+    );
+    const remove = within(drawer()).getByRole("button", {
+      name: "Remove member",
+    });
     expect(remove).toBeDisabled();
     expect(hint()).toHaveTextContent("Choose a reason.");
 
-    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "OTHER");
+    await userEvent.selectOptions(
+      within(drawer()).getByLabelText(/Reason for removal/),
+      "OTHER",
+    );
     expect(remove).toBeDisabled();
-    expect(hint()).toHaveTextContent("Notes are required when the reason is Other.");
-    expect(within(drawer()).getByLabelText("Notes (required)")).toBeInTheDocument();
+    expect(hint()).toHaveTextContent(
+      "Notes are required when the reason is Other.",
+    );
+    expect(
+      within(drawer()).getByLabelText("Notes (required)"),
+    ).toBeInTheDocument();
 
-    await userEvent.type(within(drawer()).getByLabelText("Notes (required)"), "Asked to step down");
+    await userEvent.type(
+      within(drawer()).getByLabelText("Notes (required)"),
+      "Asked to step down",
+    );
     expect(remove).toBeEnabled();
     await userEvent.click(remove);
 
@@ -703,44 +926,80 @@ describe("CommitteeActionDrawer: remove member", () => {
   it("keeps the drawer open with the server's error", async () => {
     serve({
       "/api/committee/remove": [
-        { body: { status: "error", error: "Member does not have an active membership in this committee" }, status: 400 },
+        {
+          body: {
+            status: "error",
+            error:
+              "Member does not have an active membership in this committee",
+          },
+          status: 400,
+        },
       ],
     });
     const { onComplete, onClose } = renderDrawer({ action: REMOVE });
-    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
+    await userEvent.selectOptions(
+      within(drawer()).getByLabelText(/Reason for removal/),
+      "DECEASED",
+    );
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Remove member" }),
+    );
 
     expect(await within(drawer()).findByRole("alert")).toHaveTextContent(
       "Member does not have an active membership in this committee",
     );
     expect(onComplete).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
-    expect(within(drawer()).getByRole("button", { name: "Remove member" })).toBeEnabled();
+    expect(
+      within(drawer()).getByRole("button", { name: "Remove member" }),
+    ).toBeEnabled();
   });
 
   it("is Admin-only", () => {
     serve({});
     renderDrawer({ role: PrivilegeLevel.Leader, action: REMOVE });
-    expect(drawer()).toHaveTextContent("Your role can't change this committee.");
-    expect(within(drawer()).queryByRole("button", { name: "Remove member" })).not.toBeInTheDocument();
+    expect(drawer()).toHaveTextContent(
+      "Your role can't change this committee.",
+    );
+    expect(
+      within(drawer()).queryByRole("button", { name: "Remove member" }),
+    ).not.toBeInTheDocument();
   });
 });
 
 describe("CommitteeActionDrawer: record resignation", () => {
   it("requires the received date, method and reason, then records the resignation", async () => {
-    const fetchMock = serve({ "/api/committee/remove": [{ body: { status: "success" } }] });
+    const fetchMock = serve({
+      "/api/committee/remove": [{ body: { status: "success" } }],
+    });
     const { onComplete } = renderDrawer({ action: RESIGN });
 
-    expect(within(drawer()).getByRole("heading", { level: 2, name: "Record resignation" })).toBeInTheDocument();
-    expect(drawer()).toHaveTextContent("Recording a resignation for Sam Seated (V-SEATED), seat 1");
-    const record = within(drawer()).getByRole("button", { name: "Record resignation" });
+    expect(
+      within(drawer()).getByRole("heading", {
+        level: 2,
+        name: "Record resignation",
+      }),
+    ).toBeInTheDocument();
+    expect(drawer()).toHaveTextContent(
+      "Recording a resignation for Sam Seated (V-SEATED), seat 1",
+    );
+    const record = within(drawer()).getByRole("button", {
+      name: "Record resignation",
+    });
     expect(record).toBeDisabled();
-    expect(hint()).toHaveTextContent("Enter the date the resignation was received.");
+    expect(hint()).toHaveTextContent(
+      "Enter the date the resignation was received.",
+    );
     expect(hint()).toHaveTextContent("Choose how it was received.");
     expect(hint()).toHaveTextContent("Choose a reason.");
 
-    await userEvent.type(within(drawer()).getByLabelText(/Date resignation received/), "2026-10-01");
-    await userEvent.click(within(drawer()).getByRole("radio", { name: "Mail" }));
+    await userEvent.type(
+      within(drawer()).getByLabelText(/Date resignation received/),
+      "2026-10-01",
+    );
+    await userEvent.click(
+      within(drawer()).getByRole("radio", { name: "Mail" }),
+    );
     await userEvent.selectOptions(
       within(drawer()).getByLabelText(/Reason for resignation/),
       "MOVED_OUT_OF_DISTRICT",
@@ -773,7 +1032,9 @@ describe("CommitteeActionDrawer: closing", () => {
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
 
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Cancel" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Cancel" }),
+    );
     expect(onClose).toHaveBeenCalledTimes(2);
     expect(onComplete).not.toHaveBeenCalled();
   });
@@ -782,14 +1043,20 @@ describe("CommitteeActionDrawer: closing", () => {
     let release: () => void = () => undefined;
     serve({
       "/api/committee/remove": [
-        { body: { status: "success" }, gate: new Promise<void>((r) => (release = r)) },
+        {
+          body: { status: "success" },
+          gate: new Promise<void>((r) => (release = r)),
+        },
       ],
     });
     const onClose = jest.fn();
     const onComplete = jest.fn();
     const ui = (action: CommitteeAction | null) => (
       <GlobalContext.Provider
-        value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+        value={{
+          actingPermissions: PrivilegeLevel.Admin,
+          setActingPermissions: () => undefined,
+        }}
       >
         <CommitteeActionDrawer
           action={action}
@@ -800,8 +1067,13 @@ describe("CommitteeActionDrawer: closing", () => {
       </GlobalContext.Provider>
     );
     const { rerender } = render(ui(REMOVE));
-    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
+    await userEvent.selectOptions(
+      within(drawer()).getByLabelText(/Reason for removal/),
+      "DECEASED",
+    );
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Remove member" }),
+    );
 
     // Closed mid-flight, then another action opened.
     rerender(ui(null));
@@ -810,7 +1082,9 @@ describe("CommitteeActionDrawer: closing", () => {
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(onClose).not.toHaveBeenCalled();
-    expect(within(drawer()).getByRole("heading", { level: 2, name: "Add member" })).toBeInTheDocument();
+    expect(
+      within(drawer()).getByRole("heading", { level: 2, name: "Add member" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -818,10 +1092,16 @@ describe("CommitteeActionDrawer: search guards", () => {
   it("won't search the whole voter file with nothing to narrow by", async () => {
     const fetchMock = serve({});
     renderDrawer();
-    await userEvent.click(within(drawer()).getByRole("checkbox", { name: "Only eligible candidates" }));
+    await userEvent.click(
+      within(drawer()).getByRole("checkbox", {
+        name: "Only eligible candidates",
+      }),
+    );
     const search = within(drawer()).getByRole("button", { name: "Search" });
     expect(search).toBeDisabled();
-    expect(drawer()).toHaveTextContent("Enter a voter ID or name, or turn on Only eligible candidates.");
+    expect(drawer()).toHaveTextContent(
+      "Enter a voter ID or name, or turn on Only eligible candidates.",
+    );
     await userEvent.type(within(drawer()).getByLabelText("Voter ID"), "123");
     expect(search).toBeEnabled();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -835,13 +1115,23 @@ describe("CommitteeActionDrawer: search guards", () => {
       ],
     });
     renderDrawer();
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
-    expect(await within(drawer()).findByRole("alert")).toHaveTextContent("Search failed");
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Search" }),
+    );
+    expect(await within(drawer()).findByRole("alert")).toHaveTextContent(
+      "Search failed",
+    );
     expect(drawer()).toHaveTextContent("Internal Server Error");
 
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
-    expect(await within(drawer()).findByRole("button", { name: "Select Jane Doe" })).toBeInTheDocument();
-    expect(within(drawer()).queryByText("Search failed")).not.toBeInTheDocument();
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Search" }),
+    );
+    expect(
+      await within(drawer()).findByRole("button", { name: "Select Jane Doe" }),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer()).queryByText("Search failed"),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -863,7 +1153,10 @@ describe("CommitteeActionDrawer: voter details", () => {
     return {
       ...d,
       rows: [
-        { ...SEATED, contact: { email: "sam@submitted.example", phone: "555-9999" } },
+        {
+          ...SEATED,
+          contact: { email: "sam@submitted.example", phone: "555-9999" },
+        },
         VACANT,
       ],
     };
@@ -871,7 +1164,9 @@ describe("CommitteeActionDrawer: voter details", () => {
 
   it("loads the member's voter record by VRCNUM and shows it read-only", async () => {
     const fetchMock = serve({
-      "/api/fetchFilteredData": [{ body: { data: [SAM_RECORD], totalRecords: 1 } }],
+      "/api/fetchFilteredData": [
+        { body: { data: [SAM_RECORD], totalRecords: 1 } },
+      ],
     });
     const { onClose, onComplete } = renderDrawer({
       role: PrivilegeLevel.Leader,
@@ -879,19 +1174,29 @@ describe("CommitteeActionDrawer: voter details", () => {
     });
 
     expect(
-      within(drawer()).getByRole("heading", { level: 2, name: "Voter details" }),
+      within(drawer()).getByRole("heading", {
+        level: 2,
+        name: "Voter details",
+      }),
     ).toBeInTheDocument();
     expect(
-      await within(drawer()).findByRole("heading", { level: 3, name: "Sam Seated" }),
+      await within(drawer()).findByRole("heading", {
+        level: 3,
+        name: "Sam Seated",
+      }),
     ).toBeInTheDocument();
-    expect(bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0])).toMatchObject({
+    expect(
+      bodyOf(callsTo(fetchMock, "/api/fetchFilteredData")[0]),
+    ).toMatchObject({
       searchQuery: [{ field: "VRCNUM", values: ["V-SEATED"] }],
       page: 1,
       pageSize: 1,
     });
 
     // The footer's Close (the sheet's corner X shares the name).
-    const [footerClose] = within(drawer()).getAllByRole("button", { name: "Close" });
+    const [footerClose] = within(drawer()).getAllByRole("button", {
+      name: "Close",
+    });
     await userEvent.click(footerClose!);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onComplete).not.toHaveBeenCalled();
@@ -900,8 +1205,12 @@ describe("CommitteeActionDrawer: voter details", () => {
   it("prefers the roster's submission contact for an Admin", async () => {
     serve({ "/api/fetchFilteredData": [{ body: { data: [SAM_RECORD] } }] });
     renderDrawer({ action: VIEW, committeeDetail: withContact() });
-    expect(await within(drawer()).findByText("sam@submitted.example")).toBeInTheDocument();
-    expect(within(drawer()).queryByText("sam@voterfile.example")).not.toBeInTheDocument();
+    expect(
+      await within(drawer()).findByText("sam@submitted.example"),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer()).queryByText("sam@voterfile.example"),
+    ).not.toBeInTheDocument();
   });
 
   it("ignores the roster contact for a Developer acting below Admin", async () => {
@@ -912,13 +1221,17 @@ describe("CommitteeActionDrawer: voter details", () => {
       committeeDetail: withContact(),
     });
     await within(drawer()).findByRole("heading", { name: "Sam Seated" });
-    expect(within(drawer()).queryByText("sam@submitted.example")).not.toBeInTheDocument();
+    expect(
+      within(drawer()).queryByText("sam@submitted.example"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the committee address, as the legacy /committees cards did", async () => {
     serve({
       "/api/fetchFilteredData": [
-        { body: { data: [{ ...SAM_RECORD, addressForCommittee: "PO Box 12" }] } },
+        {
+          body: { data: [{ ...SAM_RECORD, addressForCommittee: "PO Box 12" }] },
+        },
       ],
     });
     renderDrawer({ action: VIEW });
@@ -935,7 +1248,9 @@ describe("CommitteeActionDrawer: voter details", () => {
 
   it("shows the server's error", async () => {
     serve({
-      "/api/fetchFilteredData": [{ body: { error: "Internal Server Error" }, status: 500 }],
+      "/api/fetchFilteredData": [
+        { body: { error: "Internal Server Error" }, status: 500 },
+      ],
     });
     renderDrawer({ action: VIEW });
     expect(await within(drawer()).findByRole("alert")).toHaveTextContent(
@@ -946,7 +1261,11 @@ describe("CommitteeActionDrawer: voter details", () => {
 
 // --- Exit Reports (leader-feedback-2026-11 ticket 01) ------------------------------
 
-const REPORT_EXIT: CommitteeAction = { kind: "report-exit", committee: REF, memberId: "V-SEATED" };
+const REPORT_EXIT: CommitteeAction = {
+  kind: "report-exit",
+  committee: REF,
+  memberId: "V-SEATED",
+};
 const REPORTED_AT = "2026-10-30T15:04:05.678Z";
 const CONFIRM_EXIT: CommitteeAction = {
   kind: "confirm-exit-report",
@@ -979,10 +1298,16 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
         { status: 201, body: { success: true, exitReportedAt: REPORTED_AT } },
       ],
     });
-    const { onComplete } = renderDrawer({ role: PrivilegeLevel.Leader, action: REPORT_EXIT });
+    const { onComplete } = renderDrawer({
+      role: PrivilegeLevel.Leader,
+      action: REPORT_EXIT,
+    });
 
     expect(
-      within(drawer()).getByRole("heading", { level: 2, name: "Report resignation or removal" }),
+      within(drawer()).getByRole("heading", {
+        level: 2,
+        name: "Report resignation or removal",
+      }),
     ).toBeInTheDocument();
     const report = within(drawer()).getByRole("button", { name: "Report" });
     expect(report).toBeDisabled();
@@ -1000,11 +1325,15 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
     await userEvent.click(report);
 
     const dialog = await screen.findByRole("alertdialog");
-    const link = await within(dialog).findByRole("link", { name: "stephen@example.org" });
+    const link = await within(dialog).findByRole("link", {
+      name: "stephen@example.org",
+    });
     expect(link).toHaveAttribute("href", "mailto:stephen@example.org");
     expect(callsTo(fetchMock, "/api/committee/exitReport")).toHaveLength(0);
 
-    await userEvent.click(within(dialog).getByRole("button", { name: "I understand, send report" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "I understand, send report" }),
+    );
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(bodyOf(callsTo(fetchMock, "/api/committee/exitReport")[0])).toEqual({
@@ -1025,33 +1354,61 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
         { status: 201, body: { success: true, exitReportedAt: REPORTED_AT } },
       ],
     });
-    const { onComplete } = renderDrawer({ role: PrivilegeLevel.RequestAccess, action: REPORT_EXIT });
+    const { onComplete } = renderDrawer({
+      role: PrivilegeLevel.RequestAccess,
+      action: REPORT_EXIT,
+    });
 
     await userEvent.click(within(drawer()).getByLabelText("Should be removed"));
-    await userEvent.selectOptions(within(drawer()).getByLabelText(/^Reason/), "DECEASED");
+    await userEvent.selectOptions(
+      within(drawer()).getByLabelText(/^Reason/),
+      "DECEASED",
+    );
     // Resignation details apply only to a resignation.
-    expect(within(drawer()).queryByLabelText(/Date resignation received/)).not.toBeInTheDocument();
+    expect(
+      within(drawer()).queryByLabelText(/Date resignation received/),
+    ).not.toBeInTheDocument();
 
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Report" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Report" }),
+    );
     let dialog = await screen.findByRole("alertdialog");
     await waitFor(() =>
-      expect(within(dialog).getByRole("button", { name: "I understand, send report" })).toBeEnabled(),
+      expect(
+        within(dialog).getByRole("button", {
+          name: "I understand, send report",
+        }),
+      ).toBeEnabled(),
     );
-    expect(within(dialog).queryByTestId("exit-instructions")).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Go back" }));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(
+      within(dialog).queryByTestId("exit-instructions"),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Go back" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
     expect(callsTo(fetchMock, "/api/committee/exitReport")).toHaveLength(0);
 
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Report" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Report" }),
+    );
     dialog = await screen.findByRole("alertdialog");
-    const send = within(dialog).getByRole("button", { name: "I understand, send report" });
+    const send = within(dialog).getByRole("button", {
+      name: "I understand, send report",
+    });
     await waitFor(() => expect(send).toBeEnabled());
     await userEvent.click(send);
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     // Fetched again on reopening, so an Admin's edit is never stale.
-    expect(callsTo(fetchMock, "/api/committee/exit-instructions")).toHaveLength(2);
-    expect(bodyOf(callsTo(fetchMock, "/api/committee/exitReport")[0])).toMatchObject({
+    expect(callsTo(fetchMock, "/api/committee/exit-instructions")).toHaveLength(
+      2,
+    );
+    expect(
+      bodyOf(callsTo(fetchMock, "/api/committee/exitReport")[0]),
+    ).toMatchObject({
       kind: "REMOVAL",
       removalReason: "DECEASED",
     });
@@ -1088,23 +1445,29 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
 
   it("is not offered to an acting Admin, who exits members directly", () => {
     renderDrawer({ role: PrivilegeLevel.Admin, action: REPORT_EXIT });
-    expect(drawer()).toHaveTextContent("Your role can't change this committee.");
+    expect(drawer()).toHaveTextContent(
+      "Your role can't change this committee.",
+    );
   });
 });
 
 describe("CommitteeActionDrawer: confirm a reported exit (Admin)", () => {
   it("prefills the resignation form from the report and confirms the report it was shown", async () => {
-    const fetchMock = serve({ "/api/committee/remove": [{ body: { status: "success" } }] });
+    const fetchMock = serve({
+      "/api/committee/remove": [{ body: { status: "success" } }],
+    });
     const { onComplete } = renderDrawer({ action: CONFIRM_EXIT });
 
-    expect(within(drawer()).getByTestId("exit-report-summary")).toHaveTextContent(
-      "Resignation reported",
-    );
-    expect(within(drawer()).getByLabelText("Date resignation received (required)")).toHaveValue(
-      "2026-10-29",
-    );
+    expect(
+      within(drawer()).getByTestId("exit-report-summary"),
+    ).toHaveTextContent("Resignation reported");
+    expect(
+      within(drawer()).getByLabelText("Date resignation received (required)"),
+    ).toHaveValue("2026-10-29");
     expect(within(drawer()).getByLabelText("Mail")).toBeChecked();
-    expect(within(drawer()).getByLabelText("Notes (required)")).toHaveValue("Moving to Ohio");
+    expect(within(drawer()).getByLabelText("Notes (required)")).toHaveValue(
+      "Moving to Ohio",
+    );
 
     // The Admin's values replace the reported ones.
     await userEvent.selectOptions(
@@ -1112,7 +1475,9 @@ describe("CommitteeActionDrawer: confirm a reported exit (Admin)", () => {
       "MOVED_OUT_OF_DISTRICT",
     );
     await userEvent.clear(within(drawer()).getByLabelText("Notes (optional)"));
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Confirm resignation" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Confirm resignation" }),
+    );
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0])).toEqual({
@@ -1129,13 +1494,19 @@ describe("CommitteeActionDrawer: confirm a reported exit (Admin)", () => {
   });
 
   it("lets the Admin record the reported resignation as a removal", async () => {
-    const fetchMock = serve({ "/api/committee/remove": [{ body: { status: "success" } }] });
+    const fetchMock = serve({
+      "/api/committee/remove": [{ body: { status: "success" } }],
+    });
     renderDrawer({ action: CONFIRM_EXIT });
 
     await userEvent.click(within(drawer()).getByLabelText("Removal"));
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Confirm removal" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Confirm removal" }),
+    );
 
-    await waitFor(() => expect(callsTo(fetchMock, "/api/committee/remove")).toHaveLength(1));
+    await waitFor(() =>
+      expect(callsTo(fetchMock, "/api/committee/remove")).toHaveLength(1),
+    );
     expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0])).toEqual({
       cityTown: "GREECE",
       legDistrict: 1,
@@ -1150,17 +1521,26 @@ describe("CommitteeActionDrawer: confirm a reported exit (Admin)", () => {
   it("keeps the drawer open on a 409 when the report changed", async () => {
     serve({
       "/api/committee/remove": [
-        { status: 409, body: { status: "error", error: "This member changed, refresh." } },
+        {
+          status: 409,
+          body: { status: "error", error: "This member changed, refresh." },
+        },
       ],
     });
     const { onComplete } = renderDrawer({ action: CONFIRM_EXIT });
-    await userEvent.click(within(drawer()).getByRole("button", { name: "Confirm resignation" }));
-    expect(await within(drawer()).findByText(/This member changed, refresh\./)).toBeInTheDocument();
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Confirm resignation" }),
+    );
+    expect(
+      await within(drawer()).findByText(/This member changed, refresh\./),
+    ).toBeInTheDocument();
     expect(onComplete).not.toHaveBeenCalled();
   });
 
   it("is not offered below Admin", () => {
     renderDrawer({ role: PrivilegeLevel.Leader, action: CONFIRM_EXIT });
-    expect(drawer()).toHaveTextContent("Your role can't change this committee.");
+    expect(drawer()).toHaveTextContent(
+      "Your role can't change this committee.",
+    );
   });
 });

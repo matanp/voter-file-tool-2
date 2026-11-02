@@ -133,9 +133,9 @@ describe('fetchSignInSheetData', () => {
   it('throws when scope is jurisdiction and cityTown is empty', async () => {
     prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
 
-    await expect(
-      fetchSignInSheetData('jurisdiction', ''),
-    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    await expect(fetchSignInSheetData('jurisdiction', '')).rejects.toThrow(
+      /cityTown is required when scope is jurisdiction/,
+    );
     await expect(
       fetchSignInSheetData('jurisdiction', undefined),
     ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
@@ -183,9 +183,9 @@ describe('fetchCommitteeRosterData', () => {
   it('throws when jurisdiction scope is requested without cityTown', async () => {
     prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
 
-    await expect(
-      fetchCommitteeRosterData('jurisdiction', ''),
-    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    await expect(fetchCommitteeRosterData('jurisdiction', '')).rejects.toThrow(
+      /cityTown is required when scope is jurisdiction/,
+    );
     expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
   });
 });
@@ -247,9 +247,9 @@ describe('fetchDesignationWeights', () => {
   it('throws when scope is jurisdiction and cityTown is empty', async () => {
     prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
 
-    await expect(
-      fetchDesignationWeights('jurisdiction', ''),
-    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    await expect(fetchDesignationWeights('jurisdiction', '')).rejects.toThrow(
+      /cityTown is required when scope is jurisdiction/,
+    );
     await expect(
       fetchDesignationWeights('jurisdiction', undefined),
     ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
@@ -293,9 +293,9 @@ describe('mapCommitteesToReportShape', () => {
             submissionMetadata: null,
             meetingRecordId: null,
             petitionSeatNumber: null,
-            exitReportedAt: null,
-            exitReportedById: null,
-            exitReportedKind: null,
+            exitReportedAt: new Date('2026-10-30T15:04:05.678Z'),
+            exitReportedById: 'leader-1',
+            exitReportedKind: 'RESIGNATION',
             voterRecord: {
               VRCNUM: 'VRC001',
               latestRecordEntryYear: 2025,
@@ -793,7 +793,11 @@ describe('fetchChangesData', () => {
           removedAt: null,
           removalReason: null,
           activatedAt: new Date(Date.UTC(2026, 6, 6, 9, 0, 0, 0)),
-          voterRecord: { VRCNUM: 'VRC-A', firstName: 'Ann', lastName: 'Appointed' },
+          voterRecord: {
+            VRCNUM: 'VRC-A',
+            firstName: 'Ann',
+            lastName: 'Appointed',
+          },
         },
       ];
     }
@@ -815,7 +819,9 @@ describe('fetchChangesData', () => {
         dateTo,
         undefined,
         undefined,
-        { includePetitionOutcomes: true },
+        {
+          includePetitionOutcomes: true,
+        },
       );
 
       expect(summarize(rows)).toEqual([
@@ -864,9 +870,9 @@ describe('fetchPetitionOutcomesData', () => {
   it('throws when scope is jurisdiction and cityTown is empty', async () => {
     prismaMock.committeeTerm.findFirst.mockResolvedValue({ id: 'term-1' });
 
-    await expect(
-      fetchPetitionOutcomesData('jurisdiction', ''),
-    ).rejects.toThrow(/cityTown is required when scope is jurisdiction/);
+    await expect(fetchPetitionOutcomesData('jurisdiction', '')).rejects.toThrow(
+      /cityTown is required when scope is jurisdiction/,
+    );
   });
 });
 

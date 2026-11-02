@@ -162,8 +162,8 @@ describe("membershipConfirmation", () => {
     });
 
     it("returns replacementTargetInvalid when replacement is not ACTIVE", async () => {
-      getMembershipMock(prismaMock).findUnique
-        .mockResolvedValueOnce(
+      getMembershipMock(prismaMock)
+        .findUnique.mockResolvedValueOnce(
           createMockMembership({
             id: MEMBERSHIP_ID,
             status: "SUBMITTED",
@@ -219,15 +219,16 @@ describe("membershipConfirmation", () => {
         status: "ACTIVE",
         seatNumber: 2,
       });
-      getMembershipMock(prismaMock).findUnique
-        .mockResolvedValueOnce(
+      getMembershipMock(prismaMock)
+        .findUnique.mockResolvedValueOnce(
           createMockMembership({
             id: MEMBERSHIP_ID,
             status: "SUBMITTED",
             submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
           }),
         )
-        .mockResolvedValueOnce(replacementTarget);
+        .mockResolvedValueOnce(replacementTarget)
+        .mockResolvedValueOnce(replacementTarget); // locked reread before the exit write
       getMembershipMock(prismaMock).count.mockResolvedValue(4);
 
       const result = await confirmSubmittedMembership(prismaMock, {
@@ -259,15 +260,16 @@ describe("membershipConfirmation", () => {
         exitReportedKind: "REMOVAL",
         removalReason: "DECEASED",
       });
-      getMembershipMock(prismaMock).findUnique
-        .mockResolvedValueOnce(
+      getMembershipMock(prismaMock)
+        .findUnique.mockResolvedValueOnce(
           createMockMembership({
             id: MEMBERSHIP_ID,
             status: "SUBMITTED",
             submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
           }),
         )
-        .mockResolvedValueOnce(replacementTarget);
+        .mockResolvedValueOnce(replacementTarget)
+        .mockResolvedValueOnce(replacementTarget); // locked reread before the exit write
       getMembershipMock(prismaMock).count.mockResolvedValue(2);
 
       const result = await confirmSubmittedMembership(prismaMock, {

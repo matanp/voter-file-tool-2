@@ -18,6 +18,7 @@ import type {
   PendingExitReport,
   PendingMembership,
 } from "~/lib/validations/committee";
+import { installFetchMock } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
@@ -38,11 +39,18 @@ const ADMIN_SUBMISSION: PendingMembership = {
   lastName: "Doe",
   submittedAt: "2026-03-02T15:00:00.000Z",
   isOwnSubmission: false,
-  replacementFor: { voterRecordId: "VR009", firstName: "Old", lastName: "Member" },
+  replacementFor: {
+    voterRecordId: "VR009",
+    firstName: "Old",
+    lastName: "Member",
+  },
   submittedBy: { id: "u-1", name: "Lee Leader" },
   requestNotes: "Met at the caucus",
   eligibilityWarnings: [
-    { code: "RECENT_RESIGNATION", message: "Resigned from a committee recently." },
+    {
+      code: "RECENT_RESIGNATION",
+      message: "Resigned from a committee recently.",
+    },
   ],
   contact: { email: null, phone: null },
 };
@@ -181,31 +189,23 @@ const decisionBodies = (fetchMock: jest.Mock) =>
     .filter(([input]) => String(input) === "/api/committee/handleRequest")
     .map(([, init]: [unknown, RequestInit]) => JSON.parse(String(init.body)) as unknown);
 
-function renderTab(
-  pending: PendingMembership[],
-  role: PrivilegeLevel = PrivilegeLevel.Admin,
-) {
+function renderTab(pending: PendingMembership[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
   const onRefresh = jest.fn();
   render(
-    <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
-    >
+    <GlobalContext.Provider value={{ actingPermissions: role, setActingPermissions: () => undefined }}>
       <PendingTab committeeId={2} detail={detailWith(pending)} onRefresh={onRefresh} />
     </GlobalContext.Provider>,
   );
   return { onRefresh };
 }
 
-const item = (name: string) =>
-  screen.getByRole("listitem", { name: new RegExp(name) });
+const item = (name: string) => screen.getByRole("listitem", { name: new RegExp(name) });
 
 beforeEach(() => {
   jest.clearAllMocks();
   jest
     .mocked(hasPermissionFor)
-    .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
-    );
+    .mockImplementation(jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor);
 });
 
 // --- Admin -----------------------------------------------------------------------
@@ -256,7 +256,9 @@ describe("PendingTab (Admin)", () => {
 
     await userEvent.click(within(item("Jane Doe")).getByRole("button", { name: "Reject Jane Doe" }));
 
-    const rejecting = within(item("Jane Doe")).getByRole("button", { name: "Rejecting Jane Doe" });
+    const rejecting = within(item("Jane Doe")).getByRole("button", {
+      name: "Rejecting Jane Doe",
+    });
     expect(rejecting).toBeDisabled();
     expect(within(item("Jane Doe")).getByRole("button", { name: "Accept Jane Doe" })).toBeDisabled();
     // Other submissions stay actionable.
@@ -267,9 +269,7 @@ describe("PendingTab (Admin)", () => {
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Rejected Jane Doe."));
     expect(onRefresh).toHaveBeenCalledTimes(1);
-    expect(decisionBodies(fetchMock)).toEqual([
-      { membershipId: "m-1", acceptOrReject: "reject" },
-    ]);
+    expect(decisionBodies(fetchMock)).toEqual([{ membershipId: "m-1", acceptOrReject: "reject" }]);
     // Until the refreshed detail drops it, the item cannot be decided again.
     expect(within(item("Jane Doe")).queryByRole("button")).not.toBeInTheDocument();
     expect(item("Jane Doe")).toHaveTextContent("Rejected. Updating…");
@@ -285,11 +285,11 @@ describe("PendingTab (Admin)", () => {
     await waitFor(() => expect(meeting).toBeEnabled());
     const confirm = screen.getByRole("button", { name: "Confirm accept" });
     expect(confirm).toBeDisabled();
-    expect(within(meeting).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "Choose a meeting…",
-      "May 1, 2026 · Executive committee",
-      "Mar 15, 2026 · Other meeting",
-    ]);
+    expect(
+      within(meeting)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["Choose a meeting…", "May 1, 2026 · Executive committee", "Mar 15, 2026 · Other meeting"]);
 
     await userEvent.selectOptions(meeting, "meet-1");
     await userEvent.click(confirm);
@@ -297,15 +297,17 @@ describe("PendingTab (Admin)", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Accepted Jane Doe."));
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(decisionBodies(fetchMock)).toEqual([
-      { membershipId: "m-1", acceptOrReject: "accept", meetingRecordId: "meet-1" },
+      {
+        membershipId: "m-1",
+        acceptOrReject: "accept",
+        meetingRecordId: "meet-1",
+      },
     ]);
     expect(fetchMock.mock.calls.filter(([u]) => String(u) === MEETINGS_URL)).toHaveLength(1);
   });
 
   it("shows the server's error on a failed reject and re-enables the controls", async () => {
-    serve(() =>
-      jsonResponse({ error: "This membership is not in a pending (SUBMITTED) state" }, 400),
-    );
+    serve(() => jsonResponse({ error: "This membership is not in a pending (SUBMITTED) state" }, 400));
     const { onRefresh } = renderTab([ADMIN_SUBMISSION]);
 
     await userEvent.click(screen.getByRole("button", { name: "Reject Jane Doe" }));
@@ -347,9 +349,7 @@ describe("PendingTab (Admin)", () => {
     renderTab([ADMIN_SUBMISSION]);
 
     await userEvent.click(screen.getByRole("button", { name: "Accept Jane Doe" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not load meetings (status 500)",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load meetings (status 500)");
     expect(screen.getByRole("button", { name: "Confirm accept" })).toBeDisabled();
 
     failMeetings = false;
@@ -420,16 +420,11 @@ const LEADER_EXIT_REPORT: PendingExitReport = {
   isOwnReport: true,
 };
 
-function renderWithExitReports(
-  reports: PendingExitReport[],
-  role: PrivilegeLevel = PrivilegeLevel.Admin,
-) {
+function renderWithExitReports(reports: PendingExitReport[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
   const onRefresh = jest.fn();
   const onAction = jest.fn();
   render(
-    <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
-    >
+    <GlobalContext.Provider value={{ actingPermissions: role, setActingPermissions: () => undefined }}>
       <PendingTab
         committeeId={2}
         detail={{ ...detailWith([]), pendingExitReports: reports }}
@@ -446,17 +441,18 @@ describe("PendingTab: reported exits", () => {
     serve();
     const { onAction } = renderWithExitReports([ADMIN_EXIT_REPORT]);
 
-    const rita = within(screen.getByRole("list", { name: "Reported exits" })).getByRole(
-      "listitem",
-      { name: /Rita Reported/ },
-    );
+    const rita = within(screen.getByRole("list", { name: "Reported exits" })).getByRole("listitem", {
+      name: /Rita Reported/,
+    });
     expect(rita).toHaveTextContent("Resignation reported Oct 30, 2026 by Lee Leader");
     expect(rita).toHaveTextContent("Reason: Other");
     expect(rita).toHaveTextContent("Notes: Moving to Ohio");
     expect(rita).toHaveTextContent("Received: Oct 29, 2026 by email");
 
     await userEvent.click(
-      within(rita).getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+      within(rita).getByRole("button", {
+        name: "Confirm resignation of Rita Reported",
+      }),
     );
     expect(onAction).toHaveBeenCalledWith(
       {
@@ -476,14 +472,15 @@ describe("PendingTab: reported exits", () => {
   });
 
   it("rejects with an optional note, echoing the report the Admin saw, then refreshes", async () => {
-    const fetchMock = jest.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse({ success: true }),
+    const fetchMock = installFetchMock(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ success: true }),
     );
-    global.fetch = fetchMock as unknown as typeof fetch;
     const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Reject resignation report for Rita Reported" }),
+      screen.getByRole("button", {
+        name: "Reject resignation report for Rita Reported",
+      }),
     );
     await userEvent.type(screen.getByLabelText("Note (optional)"), "No letter received");
     await userEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
@@ -499,19 +496,19 @@ describe("PendingTab: reported exits", () => {
       exitReportedAt: REPORTED_AT,
       note: "No letter received",
     });
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Rejected the exit report for Rita Reported.",
-    );
+    expect(screen.getByRole("status")).toHaveTextContent("Rejected the exit report for Rita Reported.");
   });
 
   it("shows the server's 409 when the report changed", async () => {
-    global.fetch = jest.fn(async () =>
+    installFetchMock(async () =>
       jsonResponse({ success: false, error: "This member changed, refresh." }, 409),
-    ) as unknown as typeof fetch;
+    );
     const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Reject resignation report for Rita Reported" }),
+      screen.getByRole("button", {
+        name: "Reject resignation report for Rita Reported",
+      }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
 

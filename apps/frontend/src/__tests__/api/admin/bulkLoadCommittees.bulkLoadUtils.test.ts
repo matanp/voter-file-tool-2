@@ -66,7 +66,13 @@ type RosterEntryOverrides = {
 };
 
 /** What the importer selects from the memberships it reconciles. */
-type CommitteeMemberRow = { id: string; voterRecordId: string };
+type CommitteeMemberRow = {
+  id: string;
+  voterRecordId: string;
+  exitReportedAt?: Date | null;
+  exitReportedById?: string | null;
+  exitReportedKind?: "RESIGNATION" | "REMOVAL" | null;
+};
 
 let nextSourceRow = 2;
 
@@ -379,7 +385,11 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         }),
       );
       prismaMock.committeeList.upsert.mockResolvedValue(
-        createMockCommitteeListRow({ id: 102, cityTown: "TEST CITY", electionDistrict: 1 }),
+        createMockCommitteeListRow({
+          id: 102,
+          cityTown: "TEST CITY",
+          electionDistrict: 1,
+        }),
       );
       prismaMock.$queryRaw.mockResolvedValue([]);
       getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
@@ -397,7 +407,11 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     };
 
     const entries = [
-      rosterEntry({ vrcnum: "VRC002", cityTown: "TEST CITY", name: "Jane Doe" }),
+      rosterEntry({
+        vrcnum: "VRC002",
+        cityTown: "TEST CITY",
+        name: "Jane Doe",
+      }),
     ];
 
     it("stays intact when the import re-lists the ACTIVE member", async () => {
@@ -470,7 +484,11 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         }),
       );
       prismaMock.committeeList.upsert.mockResolvedValue(
-        createMockCommitteeListRow({ id: 301, cityTown: "TEST CITY", electionDistrict: 1 }),
+        createMockCommitteeListRow({
+          id: 301,
+          cityTown: "TEST CITY",
+          electionDistrict: 1,
+        }),
       );
       prismaMock.$queryRaw.mockResolvedValue([]);
       getMembershipMock(prismaMock)
@@ -484,7 +502,15 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
             exitReportedKind: "REMOVAL",
           },
         ]); // existing active memberships in committee
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: "m-reported",
+          status: "ACTIVE",
+          exitReportedAt: REPORTED_AT,
+          exitReportedById: "leader-1",
+          exitReportedKind: "REMOVAL",
+        }),
+      );
       getMembershipMock(prismaMock).create.mockResolvedValue(
         createMockMembership({
           id: "m-new",
@@ -741,6 +767,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         return Promise.resolve([]);
       },
     );
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      createMockMembership({ id: "m-absent", status: "ACTIVE" }),
+    );
 
     const { plan, applied } = await applyRosterImport({
       entries,
@@ -794,6 +823,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
   });
 
   it("removes a voter from the old committee before seating them in the new one", async () => {
+    const reportedAt = new Date("2026-10-30T15:04:05.678Z");
     const entries = [
       rosterEntry({ vrcnum: "VRC_STAYS", cityTown: "OLD CITY" }),
       rosterEntry({
@@ -870,7 +900,15 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
           return resolvesTo<CommitteeMemberRow[]>(
             moverRemoved
               ? []
-              : [{ id: "m-mover-old", voterRecordId: "VRC_MOVER" }],
+              : [
+                  {
+                    id: "m-mover-old",
+                    voterRecordId: "VRC_MOVER",
+                    exitReportedAt: reportedAt,
+                    exitReportedById: "leader-1",
+                    exitReportedKind: "REMOVAL",
+                  },
+                ],
           );
         }
         if (where.committeeListId === 101) {
@@ -879,7 +917,13 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
               ? [{ id: "m-stays", voterRecordId: "VRC_STAYS" }]
               : [
                   { id: "m-stays", voterRecordId: "VRC_STAYS" },
-                  { id: "m-mover-old", voterRecordId: "VRC_MOVER" },
+                  {
+                    id: "m-mover-old",
+                    voterRecordId: "VRC_MOVER",
+                    exitReportedAt: reportedAt,
+                    exitReportedById: "leader-1",
+                    exitReportedKind: "REMOVAL",
+                  },
                 ],
           );
         }
@@ -903,13 +947,27 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
                 voterRecordId: "VRC_MOVER",
                 committeeListId: 101,
                 status: "ACTIVE",
+                exitReportedAt: reportedAt,
+                exitReportedById: "leader-1",
+                exitReportedKind: "REMOVAL",
               })
             : null,
         ),
     );
     prismaMock.committeeMembership.findUnique.mockImplementation(
-      (args: Prisma.CommitteeMembershipFindUniqueArgs) =>
-        resolvesTo(
+      (args: Prisma.CommitteeMembershipFindUniqueArgs) => {
+        if (args.where.id === "m-mover-old") {
+          return resolvesTo(
+            createMockMembership({
+              id: "m-mover-old",
+              status: "ACTIVE",
+              exitReportedAt: reportedAt,
+              exitReportedById: "leader-1",
+              exitReportedKind: "REMOVAL",
+            }),
+          );
+        }
+        return resolvesTo(
           args.where.voterRecordId_committeeListId_termId?.voterRecordId ===
             "VRC_STAYS"
             ? createMockMembership({
@@ -920,7 +978,8 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
                 seatNumber: 1,
               })
             : null,
-        ),
+        );
+      },
     );
     const createdMoverMembership = {
       ...createMockMembership({
@@ -976,6 +1035,19 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       expectMembershipCreate({
         voterRecordId: "VRC_MOVER",
         committeeListId: 202,
+      }),
+    );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_REMOVED",
+        entityId: "m-mover-old",
+        metadata: jsonContaining({
+          supersededExitReport: {
+            reportedById: "leader-1",
+            reportedAt: reportedAt.toISOString(),
+            kind: "REMOVAL",
+          },
+        }),
       }),
     );
   });
@@ -1121,8 +1193,13 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         ),
     );
     prismaMock.committeeMembership.findUnique.mockImplementation(
-      (args: Prisma.CommitteeMembershipFindUniqueArgs) =>
-        resolvesTo(
+      (args: Prisma.CommitteeMembershipFindUniqueArgs) => {
+        if (args.where.id === "m-mover-old") {
+          return resolvesTo(
+            createMockMembership({ id: "m-mover-old", status: "ACTIVE" }),
+          );
+        }
+        return resolvesTo(
           args.where.voterRecordId_committeeListId_termId?.voterRecordId ===
             "VRC_STAYS"
             ? createMockMembership({
@@ -1133,7 +1210,8 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
                 seatNumber: 1,
               })
             : null,
-        ),
+        );
+      },
     );
     prismaMock.committeeMembership.create.mockImplementation(
       (args: Prisma.CommitteeMembershipCreateArgs) =>
@@ -1345,6 +1423,11 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     );
     prismaMock.committeeMembership.findUnique.mockImplementation(
       (args: Prisma.CommitteeMembershipFindUniqueArgs) => {
+        if (args.where.id === "m-mover-old" || args.where.id === "m-stale") {
+          return resolvesTo(
+            createMockMembership({ id: args.where.id, status: "ACTIVE" }),
+          );
+        }
         const key = args.where.voterRecordId_committeeListId_termId;
         if (key?.voterRecordId === "VRC_STAYS_OLD") {
           return resolvesTo(
@@ -1448,7 +1531,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         { id: "m-to-remove", voterRecordId: "VRC_OLD" },
       ] satisfies CommitteeMemberRow[]); // existing active memberships in committee
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      createMockMembership({ id: "m-to-remove", status: "ACTIVE" }),
+    );
     getMembershipMock(prismaMock).create.mockResolvedValue(
       createMockMembership({
         id: "m-new",
@@ -1519,7 +1604,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         { id: "m-to-remove", voterRecordId: "VRC_OLD" },
       ] satisfies CommitteeMemberRow[]);
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      createMockMembership({ id: "m-to-remove", status: "ACTIVE" }),
+    );
     getMembershipMock(prismaMock).create.mockResolvedValue(
       createMockMembership({
         id: "m-new",

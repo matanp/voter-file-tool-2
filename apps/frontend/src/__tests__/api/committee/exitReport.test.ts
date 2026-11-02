@@ -12,8 +12,13 @@ import {
   expectErrorResponse,
   jsonContaining,
   parseJsonResponse,
+  selectedRow,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  prismaMock,
+} from "../../utils/mocks";
 import { exitInstructionsResponseSchema } from "~/lib/validations/committee";
 
 const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
@@ -49,7 +54,9 @@ function leaderJurisdictions(
 }
 
 /** An ACTIVE member of the committee, with `include: { voterRecord }`. */
-function activeMember(overrides: Parameters<typeof createMockMembership>[0] = {}) {
+function activeMember(
+  overrides: Parameters<typeof createMockMembership>[0] = {},
+) {
   return {
     ...createMockMembership({ status: "ACTIVE", seatNumber: 2, ...overrides }),
     voterRecord: createMockVoterRecord(),
@@ -62,13 +69,14 @@ function activeMember(overrides: Parameters<typeof createMockMembership>[0] = {}
  * here once.
  */
 function resolveIncludedMembership(row: object): void {
-  prismaMock.committeeMembership.findUnique.mockResolvedValue(row as never);
+  prismaMock.committeeMembership.findUnique.mockResolvedValue(selectedRow(row));
 }
 
 /** The first conditional `updateMany` the route made, from the typed delegate. */
 function updateManyArgs() {
   const args = prismaMock.committeeMembership.updateMany.mock.calls[0]?.[0];
-  if (!args) throw new Error("expected committeeMembership.updateMany to be called");
+  if (!args)
+    throw new Error("expected committeeMembership.updateMany to be called");
   return args;
 }
 
@@ -91,7 +99,11 @@ describe("POST /api/committee/exitReport", () => {
   it("returns 403 for ReadAccess", async () => {
     signIn(PrivilegeLevel.ReadAccess, false);
     const response = await reportExit(createMockRequest(reportBody()));
-    await expectErrorResponse(response, 403, "User does not have sufficient privilege");
+    await expectErrorResponse(
+      response,
+      403,
+      "User does not have sufficient privilege",
+    );
     expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
   });
 
@@ -143,7 +155,9 @@ describe("POST /api/committee/exitReport", () => {
   it("lets RequestAccess file a report (no jurisdiction scoping, as requestAdd)", async () => {
     signIn(PrivilegeLevel.RequestAccess);
     const response = await reportExit(
-      createMockRequest(reportBody({ kind: "REMOVAL", removalReason: "DECEASED" })),
+      createMockRequest(
+        reportBody({ kind: "REMOVAL", removalReason: "DECEASED" }),
+      ),
     );
     expect(response.status).toBe(201);
     expect(prismaMock.userJurisdiction.findMany).not.toHaveBeenCalled();
@@ -178,7 +192,12 @@ describe("POST /api/committee/exitReport", () => {
 
   it("returns 409 when the member already has a pending report", async () => {
     signIn(PrivilegeLevel.RequestAccess);
-    resolveIncludedMembership(activeMember({ exitReportedAt: REPORTED_AT, exitReportedKind: "REMOVAL" }));
+    resolveIncludedMembership(
+      activeMember({
+        exitReportedAt: REPORTED_AT,
+        exitReportedKind: "REMOVAL",
+      }),
+    );
     const response = await reportExit(createMockRequest(reportBody()));
     expect(response.status).toBe(409);
     expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
@@ -195,7 +214,10 @@ describe("POST /api/committee/exitReport", () => {
   it.each([
     ["Other without notes", { removalReason: "OTHER" }],
     ["no kind", { kind: undefined }],
-    ["resignation details on a removal", { kind: "REMOVAL", resignationMethod: "MAIL" }],
+    [
+      "resignation details on a removal",
+      { kind: "REMOVAL", resignationMethod: "MAIL" },
+    ],
     ["an unknown field", { removeMemberId: "X" }],
   ])("returns 422 for %s", async (_label, overrides) => {
     signIn(PrivilegeLevel.Leader);
@@ -226,10 +248,21 @@ describe("POST /api/committee/exitReport/reject", () => {
     prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 1 });
   });
 
+  it("returns 401 when signed out", async () => {
+    mockAuthSession(null);
+    const response = await rejectExitReport(createMockRequest(body()));
+    await expectErrorResponse(response, 401, "Please log in");
+    expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
+  });
+
   it("returns 403 for a Leader", async () => {
     signIn(PrivilegeLevel.Leader, false);
     const response = await rejectExitReport(createMockRequest(body()));
-    await expectErrorResponse(response, 403, "User does not have sufficient privilege");
+    await expectErrorResponse(
+      response,
+      403,
+      "User does not have sufficient privilege",
+    );
     expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
   });
 
@@ -303,9 +336,11 @@ describe("GET /api/committee/exit-instructions", () => {
 
   it("returns only the instructions text to RequestAccess", async () => {
     signIn(PrivilegeLevel.RequestAccess);
-    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
-      exitReportInstructions: "  Send the letter to chair@example.org  ",
-    } as never); // the route selects only this column
+    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+      selectedRow<{ exitReportInstructions: string }>({
+        exitReportInstructions: "  Send the letter to chair@example.org  ",
+      }),
+    );
     const response = await getExitInstructions(createMockRequest());
 
     expect(response.status).toBe(200);
@@ -320,9 +355,11 @@ describe("GET /api/committee/exit-instructions", () => {
 
   it("returns null text when none is set", async () => {
     signIn(PrivilegeLevel.Leader);
-    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue({
-      exitReportInstructions: "   ",
-    } as never); // the route selects only this column
+    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+      selectedRow<{ exitReportInstructions: string }>({
+        exitReportInstructions: "   ",
+      }),
+    );
     const response = await getExitInstructions(createMockRequest());
     expect(await parseJsonResponse<unknown>(response)).toEqual({ text: null });
   });

@@ -18,9 +18,13 @@ import {
   getMembershipMock,
   getAuditLogMock,
   expectAuditLogCreate,
+  expectMembershipExitWrite,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import type { RemoveCommitteeData, ResignCommitteeData } from "~/lib/validations/committee";
+import type {
+  RemoveCommitteeData,
+  ResignCommitteeData,
+} from "~/lib/validations/committee";
 import { type RemovalReason } from "@prisma/client";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import {
@@ -109,7 +113,10 @@ describe("/api/committee/remove", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
-      const body = createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" }, false);
+      const body = createMockRemoveCommitteeData(
+        { removalReason: "PARTY_CHANGE" },
+        false,
+      );
       const { removalReason: _reason, ...bodyWithoutReason } = body;
 
       const response = await POST(
@@ -508,6 +515,49 @@ describe("/api/committee/remove", () => {
         );
       });
 
+      it("supersedes a pending Exit Report when recording a direct resignation", async () => {
+        const reportedAt = new Date("2026-10-30T15:04:05.678Z");
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+        setupResignHappyPath();
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+          createMockMembership({
+            status: "ACTIVE",
+            seatNumber: 2,
+            exitReportedAt: reportedAt,
+            exitReportedById: "leader-1",
+            exitReportedKind: "RESIGNATION",
+            removalReason: "OTHER",
+          }),
+        );
+
+        const response = await POST(createMockRequest(createMockResignBody()));
+
+        await expectSuccessResponse(response, { status: "success" });
+        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+          expectMembershipExitWrite("membership-test-id-001", {
+            status: "RESIGNED",
+            exitReportedAt: null,
+            exitReportedById: null,
+            exitReportedKind: null,
+          }),
+        );
+        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+          expectAuditLogCreate({
+            action: "MEMBER_RESIGNED",
+            metadata: jsonContaining({
+              supersededExitReport: {
+                reportedById: "leader-1",
+                reportedAt: reportedAt.toISOString(),
+                kind: "RESIGNATION",
+              },
+            }),
+          }),
+        );
+      });
+
       it("should pass removalNotes when provided for resignation", async () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
@@ -571,9 +621,7 @@ describe("/api/committee/remove", () => {
           createMockMembership({ status: "REMOVED" }),
         );
 
-        const response = await POST(
-          createMockRequest(createMockResignBody()),
-        );
+        const response = await POST(createMockRequest(createMockResignBody()));
 
         await expectErrorResponse(
           response,
@@ -593,9 +641,7 @@ describe("/api/committee/remove", () => {
         );
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
 
-        const response = await POST(
-          createMockRequest(createMockResignBody()),
-        );
+        const response = await POST(createMockRequest(createMockResignBody()));
 
         await expectErrorResponse(
           response,

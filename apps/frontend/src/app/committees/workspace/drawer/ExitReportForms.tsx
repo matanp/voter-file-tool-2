@@ -110,7 +110,10 @@ export function ExitInstructionsDialog({
         if (controller.signal.aborted) return;
         setState({
           status: "error",
-          message: err instanceof Error ? err.message : "Could not load the instructions",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Could not load the instructions",
         });
       });
     return () => controller.abort();
@@ -210,7 +213,9 @@ export function ReportExitForm({
           then the member stays on the committee.
         </p>
         <fieldset className="space-y-1">
-          <legend className="text-sm font-medium">What happened (required)</legend>
+          <legend className="text-sm font-medium">
+            What happened (required)
+          </legend>
           <div className="flex flex-wrap gap-4">
             {KINDS.map(([value, label]) => (
               <label key={value} className="flex items-center gap-2 text-sm">
@@ -227,7 +232,9 @@ export function ReportExitForm({
           </div>
         </fieldset>
         <ReasonAndNotes
-          label={input.kind === "RESIGNATION" ? "Reason for resignation" : "Reason"}
+          label={
+            input.kind === "RESIGNATION" ? "Reason for resignation" : "Reason"
+          }
           value={input}
           onChange={setField}
         />
@@ -250,7 +257,10 @@ export function ReportExitForm({
               </legend>
               <div className="flex gap-4">
                 {RESIGNATION_METHODS.map(([value, label]) => (
-                  <label key={value} className="flex items-center gap-2 text-sm">
+                  <label
+                    key={value}
+                    className="flex items-center gap-2 text-sm"
+                  >
                     <input
                       type="radio"
                       name={`${id}-method`}
@@ -297,7 +307,10 @@ function ReportSummary({ report }: { report: PendingExitReport }) {
       {report.removalReason && (
         <p>Reason: {REMOVAL_REASON_LABELS[report.removalReason]}</p>
       )}
-      <p>The form below starts from the report. Correct anything before confirming.</p>
+      <p>
+        The form below starts from the report. Correct anything before
+        confirming.
+      </p>
     </div>
   );
 }
@@ -366,7 +379,11 @@ export function ConfirmExitReportForm({
   return kind === "RESIGNATION" ? (
     <RecordResignationForm
       key="resignation"
-      action={{ kind: "record-resignation", committee: action.committee, memberId: action.memberId }}
+      action={{
+        kind: "record-resignation",
+        committee: action.committee,
+        memberId: action.memberId,
+      }}
       memberLabel={memberLabel}
       onCancel={onCancel}
       onSuccess={onSuccess}
@@ -378,7 +395,11 @@ export function ConfirmExitReportForm({
   ) : (
     <RemoveMemberForm
       key="removal"
-      action={{ kind: "remove-member", committee: action.committee, memberId: action.memberId }}
+      action={{
+        kind: "remove-member",
+        committee: action.committee,
+        memberId: action.memberId,
+      }}
       memberLabel={memberLabel}
       onCancel={onCancel}
       onSuccess={onSuccess}

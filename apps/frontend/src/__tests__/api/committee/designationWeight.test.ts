@@ -37,8 +37,9 @@ function getCommitteeListMock(): CommitteeListMock {
 }
 
 function getUserJurisdictionMock(): { findMany: jest.Mock } {
-  return (prismaMock as unknown as { userJurisdiction: { findMany: jest.Mock } })
-    .userJurisdiction;
+  return (
+    prismaMock as unknown as { userJurisdiction: { findMany: jest.Mock } }
+  ).userJurisdiction;
 }
 
 function mockSeat(overrides: {
@@ -53,20 +54,22 @@ function mockSeat(overrides: {
     seatNumber: overrides.seatNumber,
     isPetitioned: overrides.isPetitioned ?? false,
     weight:
-      overrides.weight != null
-        ? new Prisma.Decimal(overrides.weight)
-        : null,
+      overrides.weight != null ? new Prisma.Decimal(overrides.weight) : null,
   };
 }
 
 function mockActiveMembership(overrides: {
   seatNumber: number;
   membershipType?: string;
+  exitReportedAt?: Date;
+  exitReportedKind?: "RESIGNATION" | "REMOVAL";
 }) {
   return {
     seatNumber: overrides.seatNumber,
     membershipType: overrides.membershipType ?? "PETITIONED",
     voterRecordId: `voter-${String(overrides.seatNumber)}`,
+    exitReportedAt: overrides.exitReportedAt ?? null,
+    exitReportedKind: overrides.exitReportedKind ?? null,
   };
 }
 
@@ -99,11 +102,7 @@ describe("GET /api/committee/designationWeight", () => {
         endpointName: "GET /api/committee/designationWeight",
         requiredPrivilege: PrivilegeLevel.Leader,
         mockRequest: () =>
-          createMockRequest(
-            {},
-            { committeeListId: "1" },
-            { method: "GET" },
-          ),
+          createMockRequest({}, { committeeListId: "1" }, { method: "GET" }),
       },
       GET as (req: Parameters<typeof GET>[0]) => Promise<Response>,
       mockAuthSession,
@@ -126,9 +125,7 @@ describe("GET /api/committee/designationWeight", () => {
       );
       mockHasPermission(true);
 
-      const response = await GET(
-        createMockRequest({}, {}, { method: "GET" }),
-      );
+      const response = await GET(createMockRequest({}, {}, { method: "GET" }));
 
       await expectErrorResponse(response, 422, "Invalid request data");
     });
@@ -162,7 +159,11 @@ describe("GET /api/committee/designationWeight", () => {
         mockSeat({ seatNumber: 2, isPetitioned: false, weight: 0.25 }),
       ]);
       getMembershipMock().findMany.mockResolvedValue([
-        mockActiveMembership({ seatNumber: 1 }),
+        mockActiveMembership({
+          seatNumber: 1,
+          exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+          exitReportedKind: "RESIGNATION",
+        }),
       ]);
 
       const response = await GET(
@@ -288,7 +289,11 @@ describe("GET /api/committee/designationWeight", () => {
       ]);
       getMembershipMock().findMany.mockResolvedValue([
         mockActiveMembership({ seatNumber: 1 }),
-        { seatNumber: 1, membershipType: "APPOINTED", voterRecordId: "voter-dup" },
+        {
+          seatNumber: 1,
+          membershipType: "APPOINTED",
+          voterRecordId: "voter-dup",
+        },
       ]);
 
       const response = await GET(

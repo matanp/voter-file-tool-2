@@ -1,4 +1,4 @@
-import { PrivilegeLevel, MembershipStatus, Prisma } from "@prisma/client";
+import { PrivilegeLevel, MembershipStatus } from "@prisma/client";
 import {
   GET,
   PATCH,
@@ -11,6 +11,8 @@ import {
   getAuditLogMock,
   getMembershipMock,
   createMockGovernanceConfig,
+  firstCallArg,
+  jsonContaining,
 } from "../../../utils/testUtils";
 import {
   mockAuthSession,
@@ -194,11 +196,11 @@ describe("/api/admin/governance-config", () => {
       expectAuditLogCreate({
         action: "GOVERNANCE_CONFIG_UPDATED",
         entityType: "CommitteeGovernanceConfig",
-        metadata: expect.objectContaining({
+        metadata: jsonContaining({
           reconciliation: expect.objectContaining({
             direction: "increase",
           }),
-        }) as Prisma.InputJsonValue,
+        }),
       }),
     );
   });
@@ -226,22 +228,20 @@ describe("/api/admin/governance-config", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(governanceConfigMock.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          exitReportInstructions: "Email the letter to chair@example.org.",
-        }) as unknown,
-      }),
-    );
+    expect(
+      firstCallArg<{ data: { exitReportInstructions: string } }>(
+        governanceConfigMock.update,
+      ).data.exitReportInstructions,
+    ).toBe("Email the letter to chair@example.org.");
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "GOVERNANCE_CONFIG_UPDATED",
-        beforeValue: expect.objectContaining({
+        beforeValue: jsonContaining({
           exitReportInstructions: null,
-        }) as Prisma.InputJsonValue,
-        afterValue: expect.objectContaining({
+        }),
+        afterValue: jsonContaining({
           exitReportInstructions: "Email the letter to chair@example.org.",
-        }) as Prisma.InputJsonValue,
+        }),
       }),
     );
     const body = await parseJsonResponse<{ config: Record<string, unknown> }>(response);
@@ -264,11 +264,11 @@ describe("/api/admin/governance-config", () => {
         { method: "PATCH" },
       ),
     );
-    expect(governanceConfigMock.update).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ exitReportInstructions: null }) as unknown,
-      }),
-    );
+    expect(
+      firstCallArg<{ data: { exitReportInstructions: null } }>(
+        governanceConfigMock.update,
+      ).data.exitReportInstructions,
+    ).toBeNull();
 
     await PATCH(
       createMockRequest(
