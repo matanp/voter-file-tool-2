@@ -3,6 +3,16 @@
 import { type IneligibilityReason } from "@prisma/client";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription } from "~/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -108,6 +118,7 @@ export function GovernanceConfigClient() {
   const [original, setOriginal] = useState<GovernanceConfigApiPayload | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const query = useApiQuery<GovernanceConfigResponse>("/api/admin/governance-config");
@@ -125,6 +136,7 @@ export function GovernanceConfigClient() {
     });
     setFieldErrors({});
     setSaveError(null);
+    setShowConfirm(false);
   }, [query.data]);
 
   const pendingDiff = useMemo(() => {
@@ -192,6 +204,7 @@ export function GovernanceConfigClient() {
           ...successBody.config.nonOverridableIneligibilityReasons,
         ],
       });
+      setShowConfirm(false);
       toast({ title: "Governance config saved" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save config";
@@ -378,13 +391,47 @@ export function GovernanceConfigClient() {
 
               <div className="flex gap-2">
                 <Button
-                  onClick={() => void onSubmit()}
+                  onClick={() => setShowConfirm(true)}
                   disabled={pendingDiff.length === 0 || saving}
                 >
-                  {saving ? "Saving..." : "Save changes"}
+                  Save changes
                 </Button>
               </div>
             </div>
+
+            <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Confirm governance changes
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      <p>
+                        These changes take effect immediately for eligibility
+                        and capacity checks.
+                      </p>
+                      <ul className="list-disc space-y-1 pl-5 text-left">
+                        {pendingDiff.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={saving}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => void onSubmit()}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Confirm save"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </CardContent>
