@@ -1,6 +1,6 @@
 # 19 - Share the committee-member target schema
 
-Status: ready-for-agent
+Status: resolved
 Merge blocking: no
 
 ## Problem
@@ -29,3 +29,7 @@ more likely.
   number or nothing. Other rejected inputs keep being rejected, some with a
   different message (blank strings now get "cannot be empty"; `null`, `false`,
   `[]`, and `{}` get "Invalid input").
+- 2026-11-02: Follow-up worth a ticket: `electionDistrict` still uses a bare
+  `z.coerce.number()` in all three schemas (and in `committeeDataSchema` and
+  `committeeRequestDataSchema`), so it accepts `true` as 1 and `[5]` as 5, the
+  same junk this ticket stopped `legDistrict` accepting in the Exit Report.

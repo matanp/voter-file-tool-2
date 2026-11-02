@@ -234,10 +234,48 @@ describe("reportExitDataSchema", () => {
       kind: "RESIGNATION",
     });
     expect(result.success).toBe(false);
-    expect(result.error?.issues.map((i) => i.path)).toEqual([
-      ["resignationDateReceived"],
-      ["resignationMethod"],
+    expect(
+      result.error?.issues.map(({ path, message }) => ({ path, message })),
+    ).toEqual([
+      {
+        path: ["resignationDateReceived"],
+        message: "Resignation date received is required",
+      },
+      {
+        path: ["resignationMethod"],
+        message: "How the resignation was received is required",
+      },
     ]);
+  });
+
+  it("rejects an invalid date received on a resignation", () => {
+    expect(
+      firstIssue(reportExitDataSchema, {
+        ...validExitResignation,
+        resignationDateReceived: "not a date",
+      }),
+    ).toMatchObject({
+      path: ["resignationDateReceived"],
+      message: "Resignation date must be a valid date",
+    });
+  });
+
+  it("accepts notes on a resignation", () => {
+    expect(
+      reportExitDataSchema.parse({
+        ...validExitResignation,
+        removalNotes: " Moved away ",
+      }).removalNotes,
+    ).toBe("Moved away");
+  });
+
+  it("rejects an unknown removal reason", () => {
+    expect(
+      firstIssue(reportExitDataSchema, {
+        ...validExitRemoval,
+        removalReason: "FOO",
+      }).path,
+    ).toEqual(["removalReason"]);
   });
 
   it("rejects a reason on a resignation", () => {
