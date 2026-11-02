@@ -39,6 +39,7 @@ export function ScopedReportPageShell({
       <ScopedReportForm
         type={type}
         committeeLists={pageData.committeeLists}
+        leaderAssignments={pageData.leaderAssignments}
         userPrivilegeLevel={pageData.privilegeLevel}
       />
     </PageContainer>

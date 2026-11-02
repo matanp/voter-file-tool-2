@@ -88,6 +88,7 @@ function renderWithPermissions(actingPermissions: PrivilegeLevel) {
       <ScopedReportForm
         type="committeeRoster"
         committeeLists={committeeLists}
+        leaderAssignments={[{ cityTown: "ROCHESTER", legDistrict: 1 }]}
         userPrivilegeLevel={actingPermissions}
       />
     </GlobalContext.Provider>,
@@ -113,15 +114,13 @@ describe("ScopedReportForm (committeeRoster)", () => {
     renderWithPermissions(PrivilegeLevel.Leader);
 
     expect(screen.queryByText("Countywide")).not.toBeInTheDocument();
-    expect(screen.getByText("City/Town")).toBeInTheDocument();
+    expect(screen.queryByText("City/Town")).not.toBeInTheDocument();
+    expect(screen.getByText("Rochester – LD 1")).toBeInTheDocument();
   });
 
   it("leader can submit jurisdiction roster report", async () => {
     renderWithPermissions(PrivilegeLevel.Leader);
 
-    fireEvent.change(screen.getByTestId("combobox-dropdown"), {
-      target: { value: "ROCHESTER" },
-    });
     fireEvent.click(
       screen.getByRole("button", { name: "Generate Report" }),
     );
@@ -132,6 +131,7 @@ describe("ScopedReportForm (committeeRoster)", () => {
           type: "committeeRoster",
           scope: "jurisdiction",
           cityTown: "ROCHESTER",
+          legDistrict: 1,
           includeFields: [],
         }),
       );

@@ -96,6 +96,9 @@ describe("loadScopedReportPageData", () => {
     const result = await loadScopedReportPageData();
 
     expect(result.committeeLists).toHaveLength(1);
+    expect(result.leaderAssignments).toEqual([
+      { cityTown: "ROCHESTER", legDistrict: 1 },
+    ]);
     expect(prismaMock.committeeList.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -103,6 +106,74 @@ describe("loadScopedReportPageData", () => {
         }),
       }),
     );
+  });
+
+  it("returns every Leader assignment for the active term, sorted, town-wide included", async () => {
+    mockAuthSession(
+      createMockSession({
+        user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
+      }),
+    );
+    const assignment = (
+      id: string,
+      cityTown: string,
+      legDistrict: number | null,
+    ) => ({
+      id,
+      userId: "leader-1",
+      cityTown,
+      legDistrict,
+      termId: DEFAULT_ACTIVE_TERM_ID,
+      createdAt: new Date(),
+      createdById: "admin-1",
+    });
+    getUserJurisdictionMock().findMany.mockResolvedValue([
+      assignment("j1", "ROCHESTER", 23),
+      assignment("j2", "BRIGHTON", null),
+      assignment("j3", "ROCHESTER", 22),
+    ]);
+    prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+    const result = await loadScopedReportPageData();
+
+    expect(getUserJurisdictionMock().findMany).toHaveBeenCalledWith({
+      where: { userId: "leader-1", termId: DEFAULT_ACTIVE_TERM_ID },
+    });
+    expect(result.leaderAssignments).toEqual([
+      { cityTown: "BRIGHTON", legDistrict: null },
+      { cityTown: "ROCHESTER", legDistrict: 22 },
+      { cityTown: "ROCHESTER", legDistrict: 23 },
+    ]);
+  });
+
+  it("returns no Leader assignments for a Leader with none", async () => {
+    mockAuthSession(
+      createMockSession({
+        user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
+      }),
+    );
+    getUserJurisdictionMock().findMany.mockResolvedValue([]);
+
+    const result = await loadScopedReportPageData();
+
+    expect(result.leaderAssignments).toEqual([]);
+  });
+
+  it("returns no Leader assignments for Admin or Developer", async () => {
+    for (const privilegeLevel of [
+      PrivilegeLevel.Admin,
+      PrivilegeLevel.Developer,
+    ]) {
+      mockAuthSession(
+        createMockSession({ user: { id: "u-1", privilegeLevel } }),
+      );
+      prismaMock.committeeList.findMany.mockResolvedValue([]);
+
+      const result = await loadScopedReportPageData();
+
+      expect(result.leaderAssignments).toEqual([]);
+    }
+    expect(getUserJurisdictionMock().findMany).not.toHaveBeenCalled();
   });
 
   it("loads all active-term committees for Admin", async () => {

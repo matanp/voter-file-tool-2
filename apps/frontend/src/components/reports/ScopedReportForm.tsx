@@ -4,7 +4,10 @@ import * as React from "react";
 import { useContext, useMemo, useState } from "react";
 import Link from "next/link";
 import { PrivilegeLevel } from "@prisma/client";
-import type { ScopedReportCommitteeList } from "~/lib/loadScopedReportPageData";
+import type {
+  LeaderAssignment,
+  ScopedReportCommitteeList,
+} from "~/lib/loadScopedReportPageData";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -26,12 +29,19 @@ import {
   last30DaysIsoRange,
 } from "./scopeReportFormSpecs";
 import { SCOPE_REPORT_UI } from "./scopeReportUiRegistry";
+import { formatLeaderAssignmentLabel } from "./leaderAssignmentLabel";
 
 interface ScopedReportFormProps {
   type: ScopeReportType;
+  /** Admin City/Town and LD choices. Not used in the Leader form. */
   committeeLists: ScopedReportCommitteeList[];
+  /** The Leader form's only jurisdiction choices. */
+  leaderAssignments: LeaderAssignment[];
   userPrivilegeLevel: PrivilegeLevel;
 }
+
+const NO_ASSIGNMENT_MESSAGE =
+  "You have no assigned committee for the current term, so you can't generate this report.";
 
 type Scope = "jurisdiction" | "countywide";
 type ReportFormat = "pdf" | "xlsx";
@@ -48,6 +58,7 @@ function getDefaultFormat(type: ScopeReportType): ReportFormat {
 export function ScopedReportForm({
   type,
   committeeLists,
+  leaderAssignments,
   userPrivilegeLevel,
 }: ScopedReportFormProps) {
   const ui = SCOPE_REPORT_UI[type];
@@ -74,6 +85,7 @@ export function ScopedReportForm({
   );
   const [cityTown, setCityTown] = useState("");
   const [legDistrict, setLegDistrict] = useState<number | undefined>(undefined);
+  const [assignmentIndex, setAssignmentIndex] = useState(0);
   const [meetingDate, setMeetingDate] = useState("");
   const [vacancyFilter, setVacancyFilter] =
     useState<VacancyFilter>("vacantOnly");
@@ -101,7 +113,13 @@ export function ScopedReportForm({
   }, [committeeLists, cityTown]);
 
   const showLegDistrict =
-    cityTown.toUpperCase() === "ROCHESTER" && legDistricts.length > 1;
+    !isLeaderOnly &&
+    cityTown.toUpperCase() === "ROCHESTER" &&
+    legDistricts.length > 1;
+
+  const selectedAssignment: LeaderAssignment | undefined =
+    leaderAssignments[assignmentIndex];
+  const leaderHasNoAssignment = isLeaderOnly && !selectedAssignment;
 
   const generateReportMutation = useApiMutation<
     { reportId: string },
@@ -146,7 +164,7 @@ export function ScopedReportForm({
     if (!name.trim()) {
       newErrors.name = "Report name is required";
     }
-    if (scope === "jurisdiction" && !cityTown) {
+    if (!isLeaderOnly && scope === "jurisdiction" && !cityTown) {
       newErrors.cityTown =
         "City/Town selection is required for jurisdiction scope";
     }
@@ -166,15 +184,32 @@ export function ScopedReportForm({
     }
   };
 
+  const jurisdictionFields = (): {
+    cityTown?: string;
+    legDistrict?: number;
+  } => {
+    if (isLeaderOnly) {
+      if (!selectedAssignment) return {};
+      return {
+        cityTown: selectedAssignment.cityTown,
+        ...(selectedAssignment.legDistrict != null
+          ? { legDistrict: selectedAssignment.legDistrict }
+          : {}),
+      };
+    }
+    if (scope !== "jurisdiction") return {};
+    return {
+      ...(cityTown ? { cityTown } : {}),
+      ...(legDistrict !== undefined ? { legDistrict } : {}),
+    };
+  };
+
   const buildPayload = (): ScopedReportData => {
     const base = {
       type,
       name: name.trim(),
       scope,
-      ...(scope === "jurisdiction" && cityTown ? { cityTown } : {}),
-      ...(scope === "jurisdiction" && legDistrict !== undefined
-        ? { legDistrict }
-        : {}),
+      ...jurisdictionFields(),
     };
 
     switch (type) {
@@ -224,6 +259,7 @@ export function ScopedReportForm({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (leaderHasNoAssignment) return;
     setHasSubmitted(true);
     if (!validate()) return;
     setReportUrl(null);
@@ -304,7 +340,43 @@ export function ScopedReportForm({
         </div>
       )}
 
-      {(scope === "jurisdiction" || isLeaderOnly) && (
+      {isLeaderOnly && (
+        <div className="space-y-2">
+          {!selectedAssignment ? (
+            <p className="text-sm text-muted-foreground">
+              {NO_ASSIGNMENT_MESSAGE}
+            </p>
+          ) : leaderAssignments.length === 1 ? (
+            <>
+              <Label>Committee</Label>
+              <p className="text-sm">
+                {formatLeaderAssignmentLabel(selectedAssignment)}
+              </p>
+            </>
+          ) : (
+            <>
+              <Label htmlFor="leaderAssignment">Committee</Label>
+              <select
+                id="leaderAssignment"
+                value={assignmentIndex}
+                onChange={(e) => setAssignmentIndex(Number(e.target.value))}
+                className="border rounded px-3 py-2 w-full max-w-xs"
+              >
+                {leaderAssignments.map((assignment, index) => (
+                  <option
+                    key={`${assignment.cityTown}-${assignment.legDistrict ?? "all"}`}
+                    value={index}
+                  >
+                    {formatLeaderAssignmentLabel(assignment)}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
+      )}
+
+      {!isLeaderOnly && scope === "jurisdiction" && (
         <div className="space-y-2">
           <Label>City/Town</Label>
           <ComboboxDropdown
@@ -418,6 +490,7 @@ export function ScopedReportForm({
           type="submit"
           disabled={
             generateReportMutation.loading ||
+            leaderHasNoAssignment ||
             (hasSubmitted && Object.keys(errors).length > 0)
           }
         >
