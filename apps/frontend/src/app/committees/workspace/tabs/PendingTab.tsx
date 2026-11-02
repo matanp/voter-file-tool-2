@@ -17,7 +17,7 @@
  * After a decision, `onRefresh` refetches the detail and (wired in
  * `CommitteeWorkspace`) the grid row, keeping selection, tab and filters.
  */
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useContext, useRef, useState } from "react";
 import Link from "next/link";
 import { PrivilegeLevel } from "@prisma/client";
 
@@ -41,6 +41,8 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
   const canDecide = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const meetings = useMeetingOptions();
   const [announcement, setAnnouncement] = useState("");
+  // Exit Report decisions land focus here: it outlives the decided item.
+  const announcementRef = useRef<HTMLParagraphElement>(null);
 
   const onDecided = useCallback(
     (submission: PendingMembership, decision: PendingDecision) => {
@@ -82,7 +84,12 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
           Submissions awaiting Admin review. An Admin accepts or rejects them.
         </p>
       )}
-      <p role="status" className="font-medium text-green-700 empty:hidden dark:text-green-400">
+      <p
+        ref={announcementRef}
+        role="status"
+        tabIndex={-1}
+        className="font-medium text-green-700 outline-none empty:hidden dark:text-green-400"
+      >
         {announcement}
       </p>
       {pending.length === 0 ? (
@@ -119,6 +126,7 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
               report={report}
               canDecide={canDecide}
               onDecided={onExitReportDecided}
+              focusAfterDecisionRef={announcementRef}
             />
           ))}
         </ul>

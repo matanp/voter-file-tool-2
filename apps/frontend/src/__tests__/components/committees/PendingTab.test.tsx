@@ -547,7 +547,7 @@ describe("PendingTab: reported exits", () => {
     const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveTextContent(/the Leader can report the resignation again/);
     await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "No letter received");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm reject" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Yes, reject report" }));
 
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
@@ -575,12 +575,82 @@ describe("PendingTab: reported exits", () => {
       }),
     );
     const dialog = screen.getByRole("alertdialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm reject" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Yes, reject report" }));
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "Could not reject: This member changed, refresh.",
     );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Cancel", () => userEvent.click(screen.getByRole("button", { name: "Cancel" }))],
+    ["Escape", () => userEvent.keyboard("{Escape}")],
+  ])("closes on %s without sending anything, returning focus to the trigger", async (_label, dismiss) => {
+    const fetchMock = installFetchMock(async () => jsonResponse({ success: true }));
+    renderWithExitReports([ADMIN_EXIT_REPORT]);
+    const trigger = screen.getByRole("button", { name: "Confirm resignation of Rita Reported" });
+
+    await userEvent.click(trigger);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    await dismiss();
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("stays open and can't be dismissed while the request is in flight", async () => {
+    let respond: (r: Response) => void = () => undefined;
+    installFetchMock(() => new Promise<Response>((resolve) => (respond = resolve)));
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Reject resignation report for Rita Reported" }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Yes, reject report" }));
+
+    expect(within(dialog).getByRole("button", { name: "Rejecting…" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(within(dialog).getByLabelText("Note (optional)")).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+    respond(jsonResponse({ success: true }));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("starts each opening with an empty note, even when switching from confirm to reject", async () => {
+    installFetchMock(async () => jsonResponse({ success: true }));
+    renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    await userEvent.type(screen.getByLabelText("Note (optional)"), "Draft");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Reject resignation report for Rita Reported" }),
+    );
+    expect(screen.getByLabelText("Note (optional)")).toHaveValue("");
+  });
+
+  it("moves focus to the announcement after a decision, since the item's buttons are gone", async () => {
+    installFetchMock(async () => jsonResponse({ success: true }));
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Confirm resignation" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveFocus());
+    expect(screen.getByRole("status")).toHaveTextContent("Confirmed the resignation of Rita Reported.");
   });
 
   it("shows a Leader their jurisdiction's reports read-only", () => {

@@ -477,6 +477,32 @@ describe("POST /api/committee/exitReport/confirm", () => {
     );
   });
 
+  it("leaves a whitespace-only confirmation note out of the audit", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported(resignation);
+
+    const response = await confirmExitReport(
+      createMockRequest(body({ note: "   " })),
+    );
+
+    expect(response.status).toBe(200);
+    const metadata =
+      prismaMock.auditLog.create.mock.calls[0]?.[0]?.data.metadata;
+    expect(metadata).not.toHaveProperty("confirmationNote");
+  });
+
+  it("returns 422 for a confirmation note over 1000 characters", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported(resignation);
+
+    const response = await confirmExitReport(
+      createMockRequest(body({ note: "x".repeat(1001) })),
+    );
+
+    expect(response.status).toBe(422);
+    expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
+  });
+
   it("refuses edits: the body takes only the report it confirms", async () => {
     signIn(PrivilegeLevel.Admin);
     reported(resignation);

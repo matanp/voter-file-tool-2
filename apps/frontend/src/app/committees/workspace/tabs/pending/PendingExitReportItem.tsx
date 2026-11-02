@@ -17,7 +17,7 @@
  * Both echo the report's `reportedAt`, so a report that changed since the
  * detail loaded is refused with "This member changed, refresh."
  */
-import React, { useId, useState } from "react";
+import React, { useId, useRef, useState, type RefObject } from "react";
 
 import {
   AlertDialog,
@@ -46,6 +46,13 @@ export type PendingExitReportItemProps = {
   canDecide: boolean;
   /** After the server accepted the confirmation or rejection. */
   onDecided: (report: PendingExitReport, decision: PendingDecision) => void;
+  /**
+   * Where focus lands after a successful decision, since the buttons that
+   * opened the dialog are gone. Pass something that outlives this item (the
+   * item is removed once the parent refreshes); without it, focus goes to the
+   * item's own "Confirmed. Updating…" line.
+   */
+  focusAfterDecisionRef?: RefObject<HTMLElement | null>;
 };
 
 function reportedByText(r: PendingExitReport, canDecide: boolean): string {
@@ -60,6 +67,7 @@ export function PendingExitReportItem({
   report,
   canDecide,
   onDecided,
+  focusAfterDecisionRef,
 }: PendingExitReportItemProps) {
   const ids = useId();
   const name = personName(report);
@@ -68,6 +76,10 @@ export function PendingExitReportItem({
   const [busy, setBusy] = useState(false);
   const [decided, setDecided] = useState<PendingDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const decidedLineRef = useRef<HTMLParagraphElement>(null);
+  // The dialog is opened from plain buttons, not a Radix Trigger, so focus is
+  // returned by hand: to the opening button on cancel.
+  const openerRef = useRef<HTMLButtonElement | null>(null);
 
   const decide = async (decision: PendingDecision) => {
     setBusy(true);
@@ -91,7 +103,8 @@ export function PendingExitReportItem({
   const kindLabel = report.kind === "RESIGNATION" ? "Resignation" : "Removal";
   const kindWord = kindLabel.toLowerCase();
 
-  const open = (decision: PendingDecision) => {
+  const openDecision = (decision: PendingDecision, opener: HTMLButtonElement) => {
+    openerRef.current = opener;
     setNote("");
     setError(null);
     setStep(decision);
@@ -148,7 +161,7 @@ export function PendingExitReportItem({
       )}
 
       {canDecide && decided && (
-        <p className="font-medium">
+        <p ref={decidedLineRef} tabIndex={-1} className="font-medium outline-none">
           {decided === "accept" ? "Confirmed" : "Rejected"}. Updating…
         </p>
       )}
@@ -157,7 +170,7 @@ export function PendingExitReportItem({
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
-            onClick={() => open("accept")}
+            onClick={(e) => openDecision("accept", e.currentTarget)}
             aria-label={`Confirm ${kindWord} of ${name}`}
           >
             Confirm
@@ -165,7 +178,7 @@ export function PendingExitReportItem({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => open("reject")}
+            onClick={(e) => openDecision("reject", e.currentTarget)}
             aria-label={`Reject ${kindWord} report for ${name}`}
           >
             Reject
@@ -179,7 +192,15 @@ export function PendingExitReportItem({
           if (!next && !busy) setStep("idle");
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            const target = decided
+              ? (focusAfterDecisionRef?.current ?? decidedLineRef.current)
+              : openerRef.current;
+            target?.focus();
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>
               {dialogStep === "reject"
@@ -211,14 +232,13 @@ export function PendingExitReportItem({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <Button
-              variant={dialogStep === "reject" ? "outline" : "default"}
               onClick={() => dialogStep && void decide(dialogStep)}
               disabled={busy}
             >
               {dialogStep === "reject"
                 ? busy
                   ? "Rejecting…"
-                  : "Confirm reject"
+                  : "Yes, reject report"
                 : busy
                   ? "Confirming…"
                   : `Confirm ${kindWord}`}
