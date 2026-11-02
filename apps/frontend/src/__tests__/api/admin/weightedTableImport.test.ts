@@ -28,9 +28,7 @@ jest.mock("xlsx", () => ({
 const readWorkbookMock = xlsx.read as jest.Mock;
 const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
 const executeRawMock = rawQueryMock("$executeRaw");
-// jest.setup replaces prismaMock.auditLog before every test, so read it lazily.
-const auditCreateMock = () =>
-  (prismaMock.auditLog as { create: jest.Mock }).create;
+const auditCreateMock = prismaMock.auditLog.create;
 
 /** Bound values of the nth $executeRaw tagged-template call (strings array dropped). */
 function executeRawValues(callIndex: number): unknown[] {
@@ -71,7 +69,7 @@ describe("/api/admin/weightedTable/import", () => {
     jest.clearAllMocks();
     mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
     mockHasPermission(true);
-    auditCreateMock().mockResolvedValue({});
+    auditCreateMock.mockResolvedValue({} as never);
   });
 
   describe("authorization", () => {
@@ -97,7 +95,7 @@ describe("/api/admin/weightedTable/import", () => {
       expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();
       expect(prismaMock.$transaction).not.toHaveBeenCalled();
       expect(executeRawMock).not.toHaveBeenCalled();
-      expect(auditCreateMock()).not.toHaveBeenCalled();
+      expect(auditCreateMock).not.toHaveBeenCalled();
     });
   });
 
@@ -356,8 +354,8 @@ describe("/api/admin/weightedTable/import", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(auditCreateMock()).toHaveBeenCalledTimes(1);
-    expect(getMockCallArgs(auditCreateMock())[0]).toMatchObject({
+    expect(auditCreateMock).toHaveBeenCalledTimes(1);
+    expect(getMockCallArgs(auditCreateMock)[0]).toMatchObject({
       data: {
         userId: "test-user-id",
         userRole: PrivilegeLevel.Admin,
@@ -398,6 +396,6 @@ describe("/api/admin/weightedTable/import", () => {
     );
 
     expect(response.status).toBe(500);
-    expect(auditCreateMock()).not.toHaveBeenCalled();
+    expect(auditCreateMock).not.toHaveBeenCalled();
   });
 });
