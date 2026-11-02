@@ -29,7 +29,6 @@ import {
   type SessionWithUser,
 } from "~/app/api/lib/withPrivilege";
 import {
-  ACTIVE_MEMBERSHIP_STATUS,
   PENDING_MEMBERSHIP_STATUS,
   getActiveTermId,
   getGovernanceConfig,
@@ -47,6 +46,11 @@ import {
   toPetitionOutcomeContext,
 } from "~/app/api/lib/petitionOutcomes";
 import {
+  PENDING_EXIT_REPORT_INCLUDE,
+  pendingExitReportWhere,
+  toPendingExitReport,
+} from "~/app/api/lib/pendingExitReports";
+import {
   loadMembershipHistory,
   type HistoryMembershipRow,
 } from "~/app/api/lib/membershipHistory";
@@ -54,7 +58,6 @@ import {
   COMMITTEE_DETAIL_HISTORY_LIMIT,
   committeeDetailParamsSchema,
   type CommitteeDetailResponse,
-  type PendingExitReport,
   type PendingMembership,
 } from "~/lib/validations/committee";
 import { z } from "zod";
@@ -170,19 +173,9 @@ async function getCommitteeDetail(
       }),
       // Pending Exit Reports live on the outgoing member's ACTIVE row.
       prisma.committeeMembership.findMany({
-        where: {
-          committeeListId,
-          termId: activeTermId,
-          status: ACTIVE_MEMBERSHIP_STATUS,
-          exitReportedAt: { not: null },
-        },
+        where: { committeeListId, ...pendingExitReportWhere(activeTermId) },
         orderBy: { exitReportedAt: "asc" },
-        include: {
-          voterRecord: {
-            select: { VRCNUM: true, firstName: true, lastName: true },
-          },
-          exitReportedBy: { select: { id: true, name: true } },
-        },
+        include: PENDING_EXIT_REPORT_INCLUDE,
       }),
       // Every membership row for the committee + term, any status: the
       // history's audit rows key on these ids, and replacement targets /
@@ -270,33 +263,13 @@ async function getCommitteeDetail(
       };
     });
 
-    const pendingExitReports: PendingExitReport[] = [];
-    for (const m of exitReportedMemberships) {
-      // The CHECK constraint keeps these set together; skip a row that isn't.
-      if (!m.exitReportedAt || !m.exitReportedKind) continue;
-      pendingExitReports.push({
-        membershipId: m.id,
-        voterRecordId: m.voterRecord.VRCNUM,
-        firstName: m.voterRecord.firstName ?? "",
-        lastName: m.voterRecord.lastName ?? "",
-        seatNumber: m.seatNumber,
-        kind: m.exitReportedKind,
-        reportedAt: m.exitReportedAt.toISOString(),
-        isOwnReport: m.exitReportedById === session.user.id,
-        ...(isAdmin
-          ? {
-              reportedBy: m.exitReportedBy
-                ? { id: m.exitReportedBy.id, name: m.exitReportedBy.name }
-                : undefined,
-              removalReason: m.removalReason,
-              removalNotes: m.removalNotes,
-              resignationDateReceived:
-                m.resignationDateReceived?.toISOString() ?? null,
-              resignationMethod: m.resignationMethod,
-            }
-          : {}),
+    const pendingExitReports = exitReportedMemberships.flatMap((m) => {
+      const report = toPendingExitReport(m, {
+        userId: session.user.id,
+        isAdmin,
       });
-    }
+      return report ? [report] : [];
+    });
 
     const history = await loadMembershipHistory({
       isAdmin,
