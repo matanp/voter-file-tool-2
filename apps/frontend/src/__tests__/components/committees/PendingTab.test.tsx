@@ -546,6 +546,8 @@ describe("PendingTab: reported exits", () => {
     );
     const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveTextContent(/the Leader can report the resignation again/);
+    // The default (black) style shared with "Confirm resignation", not outline.
+    expect(within(dialog).getByRole("button", { name: "Yes, reject report" })).toHaveClass("bg-slate-900");
     await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "No letter received");
     await userEvent.click(within(dialog).getByRole("button", { name: "Yes, reject report" }));
 
@@ -639,7 +641,7 @@ describe("PendingTab: reported exits", () => {
     expect(screen.getByLabelText("Note (optional)")).toHaveValue("");
   });
 
-  it("moves focus to the announcement after a decision, since the item's buttons are gone", async () => {
+  it("moves focus to the Reported exits heading after a decision, since the item's buttons are gone", async () => {
     installFetchMock(async () => jsonResponse({ success: true }));
     const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
 
@@ -649,8 +651,11 @@ describe("PendingTab: reported exits", () => {
     await userEvent.click(screen.getByRole("button", { name: "Confirm resignation" }));
 
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveFocus());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Reported exits" })).toHaveFocus(),
+    );
     expect(screen.getByRole("status")).toHaveTextContent("Confirmed the resignation of Rita Reported.");
+    expect(screen.getByRole("status")).not.toHaveFocus();
   });
 
   it("shows a Leader their jurisdiction's reports read-only", () => {

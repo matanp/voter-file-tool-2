@@ -1,17 +1,23 @@
 /**
  * Admin requests page's reported exits: reuses the workspace Pending item, so
  * this covers only what the list adds — refreshing the server-rendered page
- * after a decision, and keeping focus in place while it does.
+ * after a decision, and landing focus on the page heading, which survives the
+ * refresh that removes the decided item.
  */
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ExitReportList } from "~/app/committees/requests/ExitReportList";
+import { REQUESTS_HEADING_ID } from "~/app/committees/requests/requestsHeading";
 import type { PendingExitReport } from "~/lib/validations/committee";
 import { installFetchMock } from "../../utils/mocks";
 
 const mockRefresh = jest.fn();
+const mockToast = jest.fn();
+jest.mock("~/components/ui/use-toast", () => ({
+  toast: (...args: unknown[]): unknown => mockToast(...args),
+}));
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh }),
 }));
@@ -44,7 +50,27 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
-beforeEach(() => mockRefresh.mockClear());
+beforeEach(() => {
+  mockRefresh.mockReset();
+  mockToast.mockReset();
+});
+
+/**
+ * Mirrors the requests page: the heading stays put, and the refresh drops the
+ * decided report — here the committee's last, so its whole section goes.
+ */
+function RequestsPage({ initial }: { initial: PendingExitReport[] }) {
+  const [reports, setReports] = React.useState(initial);
+  mockRefresh.mockImplementation(() => setReports([]));
+  return (
+    <div>
+      <h1 id={REQUESTS_HEADING_ID} tabIndex={-1}>
+        Pending requests
+      </h1>
+      {reports.length > 0 && <ExitReportList reports={reports} />}
+    </div>
+  );
+}
 
 describe("ExitReportList", () => {
   it.each([
@@ -52,21 +78,21 @@ describe("ExitReportList", () => {
       "Confirm removal of Rita Reported",
       "Confirm removal",
       "/api/committee/exitReport/confirm",
-      "Confirmed. Updating…",
+      "Confirmed the removal of Rita Reported.",
     ],
     [
       "Reject removal report for Rita Reported",
       "Yes, reject report",
       "/api/committee/exitReport/reject",
-      "Rejected. Updating…",
+      "Rejected the exit report for Rita Reported.",
     ],
   ])(
-    "decides through the modal (%s), refreshes the page, and keeps focus on the item",
-    async (trigger, action, url, line) => {
+    "decides through the modal (%s), refreshes the page, announces it, and lands focus on the page heading",
+    async (trigger, action, url, announcement) => {
       const fetchMock = installFetchMock(async () =>
         jsonResponse({ success: true }),
       );
-      render(<ExitReportList reports={[REPORT]} />);
+      render(<RequestsPage initial={[REPORT]} />);
 
       await userEvent.click(screen.getByRole("button", { name: trigger }));
       const dialog = screen.getByRole("alertdialog");
@@ -88,8 +114,14 @@ describe("ExitReportList", () => {
         exitReportedAt: REPORTED_AT,
         note: "Checked",
       });
+      expect(mockToast).toHaveBeenCalledWith({ description: announcement });
+      expect(screen.queryByRole("list")).not.toBeInTheDocument();
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-      await waitFor(() => expect(screen.getByText(line)).toHaveFocus());
+      await waitFor(() =>
+        expect(
+          screen.getByRole("heading", { name: "Pending requests" }),
+        ).toHaveFocus(),
+      );
     },
   );
 
@@ -100,7 +132,7 @@ describe("ExitReportList", () => {
         409,
       ),
     );
-    render(<ExitReportList reports={[REPORT]} />);
+    render(<RequestsPage initial={[REPORT]} />);
 
     await userEvent.click(
       screen.getByRole("button", { name: "Confirm removal of Rita Reported" }),
@@ -113,5 +145,6 @@ describe("ExitReportList", () => {
       "Could not confirm: This member changed, refresh.",
     );
     expect(mockRefresh).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
   });
 });

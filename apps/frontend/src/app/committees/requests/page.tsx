@@ -19,6 +19,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { RequestCard } from "./RequestCard";
 import { ExitReportList } from "./ExitReportList";
+import { REQUESTS_HEADING_ID } from "./requestsHeading";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import {
   PENDING_EXIT_REPORT_INCLUDE,
@@ -126,12 +127,26 @@ const CommitteeRequests: React.FC = async () => {
       ? [firstCommitteeListId]
       : [];
 
+  // The heading stays at the same spot in both branches so React keeps the
+  // element across router.refresh(): Exit Report decisions focus it.
+  const heading = (
+    <h1 id={REQUESTS_HEADING_ID} tabIndex={-1} className="text-lg font-semibold outline-none">
+      Pending requests
+    </h1>
+  );
+
   if (committeeListIds.length === 0) {
-    return <div className="m-4">No pending committee requests found</div>;
+    return (
+      <div className="w-96 m-4 space-y-4">
+        {heading}
+        <p>No pending committee requests found</p>
+      </div>
+    );
   }
 
   return (
     <div className="w-96 m-4 space-y-4">
+      {heading}
       <p className="text-sm text-muted-foreground">
         Review and reject individually below. Confirmations are processed via a
         meeting record.

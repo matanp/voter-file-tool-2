@@ -17,7 +17,7 @@
  * Both echo the report's `reportedAt`, so a report that changed since the
  * detail loaded is refused with "This member changed, refresh."
  */
-import React, { useId, useRef, useState, type RefObject } from "react";
+import React, { useId, useRef, useState } from "react";
 
 import {
   AlertDialog,
@@ -48,11 +48,12 @@ export type PendingExitReportItemProps = {
   onDecided: (report: PendingExitReport, decision: PendingDecision) => void;
   /**
    * Where focus lands after a successful decision, since the buttons that
-   * opened the dialog are gone. Pass something that outlives this item (the
-   * item is removed once the parent refreshes); without it, focus goes to the
-   * item's own "Confirmed. Updating…" line.
+   * opened the dialog are gone and the parent's refresh removes this item.
+   * Return a focusable element that outlives it (a section heading with
+   * `tabIndex={-1}`); a null falls back to the item's "Confirmed. Updating…"
+   * line.
    */
-  focusAfterDecisionRef?: RefObject<HTMLElement | null>;
+  focusAfterDecision?: () => HTMLElement | null;
 };
 
 function reportedByText(r: PendingExitReport, canDecide: boolean): string {
@@ -67,7 +68,7 @@ export function PendingExitReportItem({
   report,
   canDecide,
   onDecided,
-  focusAfterDecisionRef,
+  focusAfterDecision,
 }: PendingExitReportItemProps) {
   const ids = useId();
   const name = personName(report);
@@ -196,7 +197,7 @@ export function PendingExitReportItem({
           onCloseAutoFocus={(e) => {
             e.preventDefault();
             const target = decided
-              ? (focusAfterDecisionRef?.current ?? decidedLineRef.current)
+              ? (focusAfterDecision?.() ?? decidedLineRef.current)
               : openerRef.current;
             target?.focus();
           }}

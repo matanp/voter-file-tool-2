@@ -41,8 +41,10 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
   const canDecide = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const meetings = useMeetingOptions();
   const [announcement, setAnnouncement] = useState("");
-  // Exit Report decisions land focus here: it outlives the decided item.
-  const announcementRef = useRef<HTMLParagraphElement>(null);
+  // Exit Report decisions land focus on the section heading: it outlives the
+  // decided item, and isn't the live region (focusing that reads it twice).
+  const exitsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const focusExitsHeading = useCallback(() => exitsHeadingRef.current, []);
 
   const onDecided = useCallback(
     (submission: PendingMembership, decision: PendingDecision) => {
@@ -84,12 +86,7 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
           Submissions awaiting Admin review. An Admin accepts or rejects them.
         </p>
       )}
-      <p
-        ref={announcementRef}
-        role="status"
-        tabIndex={-1}
-        className="font-medium text-green-700 outline-none empty:hidden dark:text-green-400"
-      >
+      <p role="status" className="font-medium text-green-700 empty:hidden dark:text-green-400">
         {announcement}
       </p>
       {pending.length === 0 ? (
@@ -109,7 +106,9 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
         </ul>
       )}
 
-      <h4 className="pt-2 font-semibold">Reported exits</h4>
+      <h4 ref={exitsHeadingRef} tabIndex={-1} className="pt-2 font-semibold outline-none">
+        Reported exits
+      </h4>
       {!canDecide && pendingExitReports.length > 0 && (
         <p className="text-slate-600 dark:text-slate-400">
           Resignations and removals reported by Leaders. The member stays on the
@@ -126,7 +125,7 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
               report={report}
               canDecide={canDecide}
               onDecided={onExitReportDecided}
-              focusAfterDecisionRef={announcementRef}
+              focusAfterDecision={focusExitsHeading}
             />
           ))}
         </ul>
