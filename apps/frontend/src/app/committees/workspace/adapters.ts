@@ -533,6 +533,52 @@ export async function fetchExitInstructions(signal?: AbortSignal): Promise<strin
   return exitInstructionsResponseSchema.parse(body).text;
 }
 
+/**
+ * The last instructions loaded this session, so the dialog can show them at
+ * once while it refreshes. Only successful loads are kept: a failed request
+ * leaves the previous text (or nothing) and the next load tries again.
+ */
+let cachedInstructions: { text: string | null } | null = null;
+let instructionsInFlight: Promise<string | null> | null = null;
+/** Bumped by a reset so a load sent before it can't write into the cache. */
+let instructionsGeneration = 0;
+
+/** The cached instructions, or undefined when none have loaded yet. */
+export function cachedExitInstructions(): string | null | undefined {
+  return cachedInstructions ? cachedInstructions.text : undefined;
+}
+
+/**
+ * Loads the current instructions into the cache. A call made while a load is
+ * in flight joins it rather than sending a second request.
+ */
+export function loadExitInstructions(): Promise<string | null> {
+  if (instructionsInFlight) return instructionsInFlight;
+  const generation = instructionsGeneration;
+  const load = fetchExitInstructions()
+    .then((text) => {
+      if (generation === instructionsGeneration) cachedInstructions = { text };
+      return text;
+    })
+    .finally(() => {
+      if (instructionsInFlight === load) instructionsInFlight = null;
+    });
+  instructionsInFlight = load;
+  return load;
+}
+
+/** Starts loading the instructions ahead of the dialog; errors surface there. */
+export function prefetchExitInstructions(): void {
+  loadExitInstructions().catch(() => undefined);
+}
+
+/** Test seam: forget the cached instructions. */
+export function resetExitInstructionsCache(): void {
+  instructionsGeneration += 1;
+  cachedInstructions = null;
+  instructionsInFlight = null;
+}
+
 // --- Plumbing ----------------------------------------------------------------------
 
 async function readJson(response: Response): Promise<unknown> {

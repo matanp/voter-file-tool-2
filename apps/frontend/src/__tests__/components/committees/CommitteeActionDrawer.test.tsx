@@ -8,10 +8,14 @@
  * `CommitteeWorkspace.drawer.test.tsx`.
  */
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel } from "@prisma/client";
 
+import {
+  cachedExitInstructions,
+  resetExitInstructionsCache,
+} from "~/app/committees/workspace/adapters";
 import { CommitteeActionDrawer } from "~/app/committees/workspace/drawer/CommitteeActionDrawer";
 import type {
   CandidateCommitteeRef,
@@ -238,6 +242,7 @@ const continueButton = () =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  resetExitInstructionsCache();
   jest
     .mocked(hasPermissionFor)
     .mockImplementation(
@@ -1267,6 +1272,18 @@ const REPORT_EXIT: CommitteeAction = {
 };
 const REPORTED_AT = "2026-10-30T15:04:05.678Z";
 
+/** Fills a Deceased removal and submits it, which opens the instructions. */
+async function reportRemoval() {
+  await userEvent.click(within(drawer()).getByLabelText("Should be removed"));
+  await userEvent.selectOptions(
+    within(drawer()).getByLabelText(/^Reason/),
+    "DECEASED",
+  );
+  await userEvent.click(
+    within(drawer()).getByRole("button", { name: "Report" }),
+  );
+}
+
 describe("CommitteeActionDrawer: report an exit (Leader)", () => {
   it("shows the Admin's instructions with links before sending the report", async () => {
     const fetchMock = serve({
@@ -1402,9 +1419,10 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
     await userEvent.click(send);
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
-    // Fetched again on reopening, so an Admin's edit is never stale.
+    // Prefetched with the form, then refreshed on each opening, so an Admin's
+    // edit is never missed.
     expect(callsTo(fetchMock, "/api/committee/exit-instructions")).toHaveLength(
-      2,
+      3,
     );
     expect(
       bodyOf(callsTo(fetchMock, "/api/committee/exitReport")[0]),
@@ -1441,6 +1459,78 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
       }),
     ).toBeDisabled();
     expect(callsTo(fetchMock, "/api/committee/exitReport")).toHaveLength(0);
+  });
+
+  it("shows the prefetched instructions at once and swaps in an Admin's edit", async () => {
+    let releaseRefresh = () => undefined as void;
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    const fetchMock = serve({
+      "/api/committee/exit-instructions": [
+        { body: { text: "Call the county office." } },
+        { body: { text: "Email the county office." }, gate: refreshGate },
+      ],
+    });
+    renderDrawer({ role: PrivilegeLevel.Leader, action: REPORT_EXIT });
+
+    // Fetched as soon as the form opens, before the Leader submits.
+    await waitFor(() =>
+      expect(cachedExitInstructions()).toBe("Call the county office."),
+    );
+    await reportRemoval();
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByTestId("exit-instructions")).toHaveTextContent(
+      "Call the county office.",
+    );
+    expect(
+      within(dialog).queryByText("Loading instructions…"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "I understand, send report" }),
+    ).toBeEnabled();
+    expect(callsTo(fetchMock, "/api/committee/exit-instructions")).toHaveLength(
+      2,
+    );
+
+    releaseRefresh();
+    expect(
+      await within(dialog).findByText("Email the county office."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the prefetched instructions when the refresh fails", async () => {
+    const fetchMock = serve({
+      "/api/committee/exit-instructions": [
+        { body: { text: "Call the county office." } },
+        { status: 503, body: { error: "Instructions unavailable" } },
+      ],
+    });
+    renderDrawer({ role: PrivilegeLevel.Leader, action: REPORT_EXIT });
+
+    await waitFor(() =>
+      expect(cachedExitInstructions()).toBe("Call the county office."),
+    );
+    await reportRemoval();
+
+    const dialog = await screen.findByRole("alertdialog");
+    await waitFor(() =>
+      expect(
+        callsTo(fetchMock, "/api/committee/exit-instructions"),
+      ).toHaveLength(2),
+    );
+    // Let the failed refresh settle, including any render it schedules.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(within(dialog).getByTestId("exit-instructions")).toHaveTextContent(
+      "Call the county office.",
+    );
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "I understand, send report" }),
+    ).toBeEnabled();
   });
 
   it("is not offered to an acting Admin, who exits members directly", () => {

@@ -4,8 +4,9 @@
  *
  * - `ReportExitForm`: a Leader / RequestAccess user reports that a member
  *   resigned or should be removed. Submitting first shows the Admin-set
- *   instructions (fetched each time, so an edit is never stale); the report
- *   is sent once the Leader acknowledges them. The member stays on the
+ *   instructions (prefetched when the form opens and refreshed each time the
+ *   dialog opens, so they show at once and an Admin's edit still lands); the
+ *   report is sent once the Leader acknowledges them. The member stays on the
  *   committee until an Admin confirms.
  *
  * An Admin confirms or rejects the report as filed (Pending tab); there is no
@@ -28,7 +29,9 @@ import { linkifyText } from "~/lib/linkify";
 import type { ExitReportKind } from "@prisma/client";
 import {
   exitReportProblems,
-  fetchExitInstructions,
+  cachedExitInstructions,
+  loadExitInstructions,
+  prefetchExitInstructions,
   submitExitReport,
   type ExitReportAction,
   type ExitReportInput,
@@ -75,11 +78,19 @@ type InstructionsState =
   | { status: "ready"; text: string | null }
   | { status: "error"; message: string };
 
+function cachedState(): InstructionsState {
+  const text = cachedExitInstructions();
+  return text === undefined ? { status: "loading" } : { status: "ready", text };
+}
+
 /**
- * The instructions shown before a report is sent. Fetched when it opens.
- * Continue is offered only after the current text has loaded. A missing
- * configured value is valid; a failed request is not treated as an empty
- * configuration because the Leader may otherwise miss updated instructions.
+ * The instructions shown before a report is sent. The report form prefetches
+ * them, so the dialog shows the cached text at once and refreshes it in the
+ * background each time it opens, swapping in an Admin's edit when one lands.
+ * Continue is offered only once some loaded text is showing. A missing
+ * configured value is valid; a failed request with nothing cached is not
+ * treated as an empty configuration because the Leader may otherwise miss
+ * updated instructions. A failed refresh keeps the cached text.
  */
 export function ExitInstructionsDialog({
   open,
@@ -90,16 +101,18 @@ export function ExitInstructionsDialog({
   onCancel: () => void;
   onContinue: () => void;
 }) {
-  const [state, setState] = useState<InstructionsState>({ status: "loading" });
+  const [state, setState] = useState<InstructionsState>(cachedState);
 
   useEffect(() => {
     if (!open) return;
-    const controller = new AbortController();
-    setState({ status: "loading" });
-    fetchExitInstructions(controller.signal)
-      .then((text) => setState({ status: "ready", text }))
+    let active = true;
+    setState(cachedState());
+    loadExitInstructions()
+      .then((text) => {
+        if (active) setState({ status: "ready", text });
+      })
       .catch((err: unknown) => {
-        if (controller.signal.aborted) return;
+        if (!active || cachedExitInstructions() !== undefined) return;
         setState({
           status: "error",
           message:
@@ -108,7 +121,9 @@ export function ExitInstructionsDialog({
               : "Could not load the instructions",
         });
       });
-    return () => controller.abort();
+    return () => {
+      active = false;
+    };
   }, [open]);
 
   return (
@@ -185,6 +200,7 @@ export function ReportExitForm({
   const [input, setInput] = useState<ExitReportInput>(EMPTY_REPORT);
   const [confirming, setConfirming] = useState(false);
   const { submitting, failure, run } = useActionSubmit(onSuccess);
+  useEffect(prefetchExitInstructions, []);
   const setField = (patch: Partial<ExitReportInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
   const send = () => {
