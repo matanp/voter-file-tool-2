@@ -244,7 +244,7 @@ admission gate (`lib/eligibility.ts` via `eligibilityService.ts`) and BOE standi
 (`IneligibilityReason` vs `EligibilityFlagReason`).
 
 *Later (2026-10-25):* `isAssemblyDistrictMismatch` was folded into the residency module
-`packages/shared-prisma/src/committeeResidency.ts` (`checkCommitteeResidency`,
+`packages/shared-prisma/src/committeeResidency.ts` (`findResidencyMismatch`,
 `prepareCommitteeResidencyChecks`), which also owns the crosswalk lookups, and the
 `eligibilityService.ts` re-export was deleted. See [ADR 0001](adr/0001-committee-residency-by-assembly-district.md).
 

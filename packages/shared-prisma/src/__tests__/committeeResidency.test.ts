@@ -8,11 +8,11 @@ import type {
   PrismaClient,
 } from '@prisma/client';
 import {
-  checkAssemblyDistrictResidency,
-  checkCommitteeResidency,
   committeeResidencySearchFilter,
+  findAssemblyDistrictMismatch,
   findCommitteeAssemblyDistrict,
   findCommitteeAssemblyDistricts,
+  findResidencyMismatch,
   prepareCommitteeResidencyChecks,
 } from '../committeeResidency';
 
@@ -61,14 +61,14 @@ function isMismatch(
   expectedAssemblyDistrict: string | null,
 ): boolean {
   return (
-    checkAssemblyDistrictResidency(
+    findAssemblyDistrictMismatch(
       voterAssemblyDistrict,
       expectedAssemblyDistrict,
     ) !== null
   );
 }
 
-describe('checkAssemblyDistrictResidency', () => {
+describe('findAssemblyDistrictMismatch', () => {
   it('passes for exact match', () => {
     expect(isMismatch('1', '1')).toBe(false);
   });
@@ -96,11 +96,11 @@ describe('checkAssemblyDistrictResidency', () => {
   });
 
   it('reports both ADs trimmed, with empty values as null', () => {
-    expect(checkAssemblyDistrictResidency(' 2 ', ' 1 ')).toEqual({
+    expect(findAssemblyDistrictMismatch(' 2 ', ' 1 ')).toEqual({
       expectedAssemblyDistrict: '1',
       voterAssemblyDistrict: '2',
     });
-    expect(checkAssemblyDistrictResidency('  ', null)).toEqual({
+    expect(findAssemblyDistrictMismatch('  ', null)).toEqual({
       expectedAssemblyDistrict: null,
       voterAssemblyDistrict: null,
     });
@@ -180,12 +180,12 @@ describe('findCommitteeAssemblyDistricts', () => {
   });
 });
 
-describe('checkCommitteeResidency', () => {
+describe('findResidencyMismatch', () => {
   it('runs no queries when the AD check is off', async () => {
     const { db, client } = createDbMock();
 
     await expect(
-      checkCommitteeResidency(client, {
+      findResidencyMismatch(client, {
         committeeListId: 1,
         voterAssemblyDistrict: '2',
         requireAssemblyDistrictMatch: false,
@@ -203,7 +203,7 @@ describe('checkCommitteeResidency', () => {
     });
 
     await expect(
-      checkCommitteeResidency(client, {
+      findResidencyMismatch(client, {
         committeeListId: 1,
         voterAssemblyDistrict: '1',
         requireAssemblyDistrictMatch: true,
@@ -219,7 +219,7 @@ describe('checkCommitteeResidency', () => {
     });
 
     await expect(
-      checkCommitteeResidency(client, {
+      findResidencyMismatch(client, {
         committeeListId: 1,
         voterAssemblyDistrict: '2',
         requireAssemblyDistrictMatch: true,
@@ -235,7 +235,7 @@ describe('checkCommitteeResidency', () => {
     db.committeeList.findUnique.mockResolvedValue(null);
 
     await expect(
-      checkCommitteeResidency(client, {
+      findResidencyMismatch(client, {
         committeeListId: 1,
         voterAssemblyDistrict: '1',
         requireAssemblyDistrictMatch: true,

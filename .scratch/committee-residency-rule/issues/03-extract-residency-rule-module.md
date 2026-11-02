@@ -1,6 +1,6 @@
 # 03 - Extract one residency rule module
 
-Status: done
+Status: resolved
 Type: task
 
 ## Why

@@ -1,6 +1,6 @@
 # 07 - Record the AD-only residency rule in the docs
 
-Status: done
+Status: resolved
 Type: task
 Blocked by: 01
 

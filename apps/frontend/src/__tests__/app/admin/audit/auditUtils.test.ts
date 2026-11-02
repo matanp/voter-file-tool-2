@@ -99,6 +99,7 @@ describe("auditUtils entity type labels", () => {
    *     -E 'logAuditEvent\(|logAuditEventOrThrow\(|auditLog\.create\(' apps packages
    */
   const LOGGED_ENTITY_TYPES = [
+    "CommitteeList",
     "CommitteeMembership",
     "CommitteeTerm",
     "CommitteeUploadDiscrepancy",
