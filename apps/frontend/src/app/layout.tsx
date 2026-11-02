@@ -15,6 +15,7 @@ import { GlobalContextProvider } from "~/components/providers/GlobalContext";
 import { VoterSearchProvider } from "~/contexts/VoterSearchContext";
 import { Toaster } from "~/components/ui/toaster";
 import { CSPostHogProvider } from "~/components/providers/PostHog";
+import { DbConnectionBadge } from "./components/DbConnectionBadge";
 
 export const metadata = {
   title: "Open Source Politics",
@@ -37,7 +38,7 @@ const RootLayout = ({ children }: { children: ReactNode }) => {
               disableTransitionOnChange
             > */}
                 <nav>
-                  <Header />
+                  <Header dbBadge={<DbConnectionBadge />} />
                 </nav>
                 <main className="min-h-screen bg-background font-sans antialiased">
                   {children}
