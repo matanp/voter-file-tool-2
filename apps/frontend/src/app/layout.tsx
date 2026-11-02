@@ -15,7 +15,7 @@ import { GlobalContextProvider } from "~/components/providers/GlobalContext";
 import { VoterSearchProvider } from "~/contexts/VoterSearchContext";
 import { Toaster } from "~/components/ui/toaster";
 import { CSPostHogProvider } from "~/components/providers/PostHog";
-import { getDbEnvironment } from "~/lib/dbEnvironment";
+import { DbConnectionBadge } from "./components/DbConnectionBadge";
 
 export const metadata = {
   title: "Open Source Politics",
@@ -24,10 +24,6 @@ export const metadata = {
 };
 
 const RootLayout = ({ children }: { children: ReactNode }) => {
-  const dbEnvironment = getDbEnvironment();
-  // Only expose the DB hostname outside production builds.
-  const dbHost =
-    process.env.NODE_ENV === "production" ? undefined : dbEnvironment.host;
   return (
     <html lang="en">
       <body className="font-sans">
@@ -42,7 +38,7 @@ const RootLayout = ({ children }: { children: ReactNode }) => {
               disableTransitionOnChange
             > */}
                 <nav>
-                  <Header dbKind={dbEnvironment.kind} dbHost={dbHost} />
+                  <Header dbBadge={<DbConnectionBadge />} />
                 </nav>
                 <main className="min-h-screen bg-background font-sans antialiased">
                   {children}

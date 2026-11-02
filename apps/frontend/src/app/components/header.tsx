@@ -1,35 +1,18 @@
 "use client";
 import { PrivilegeLevel } from "@prisma/client";
-import { useContext } from "react";
+import { useContext, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "~/components/ui/button";
 import { SignInButton } from "~/components/ui/signInButton";
 import { hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import type { DbEnvironment } from "~/lib/dbEnvironment";
-
 type HeaderProps = {
-  dbKind: DbEnvironment["kind"];
-  /** Shown as a tooltip on the badge; omitted in production builds. */
-  dbHost?: string;
+  /** Rendered in the top-left slot; the layout passes the DB badge here. */
+  dbBadge?: ReactNode;
 };
 
-const DbEnvironmentBadge: React.FC<HeaderProps> = ({ dbKind, dbHost }) => {
-  const isDev = dbKind === "dev";
-  return (
-    <span
-      title={dbHost ? `Database host: ${dbHost}` : undefined}
-      className={`rounded px-2 py-1 text-xs font-bold uppercase tracking-wide text-white ${
-        isDev ? "bg-green-700" : "bg-red-600"
-      }`}
-    >
-      {isDev ? "Dev DB" : "Prod DB"}
-    </span>
-  );
-};
-
-const Header: React.FC<HeaderProps> = ({ dbKind, dbHost }) => {
+const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   const pathname = usePathname();
   const { actingPermissions } = useContext(GlobalContext);
 
@@ -42,9 +25,15 @@ const Header: React.FC<HeaderProps> = ({ dbKind, dbHost }) => {
   return (
     <div className="overflow-x-auto bg-accent border-b-2 border-solid">
       <div className="flex items-center justify-between p-1 min-w-full">
-        {/* Left slot - which database this app is connected to */}
-        <div className="flex shrink-0 items-center px-2 lg:w-[150px]">
-          <DbEnvironmentBadge dbKind={dbKind} dbHost={dbHost} />
+        {/* Left slot - DB badge in dev; an empty spacer on large screens in prod */}
+        <div
+          className={
+            dbBadge
+              ? "flex shrink-0 items-center px-2 lg:w-[150px]"
+              : "hidden lg:block w-[150px]"
+          }
+        >
+          {dbBadge}
         </div>
 
         {/* Navigation tabs - centered on large screens, left-aligned on small screens */}
