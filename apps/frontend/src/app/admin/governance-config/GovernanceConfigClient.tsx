@@ -3,6 +3,16 @@
 import { type IneligibilityReason } from "@prisma/client";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription } from "~/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -100,6 +110,16 @@ function buildDiff(
   }
 
   return diff;
+}
+
+function PendingDiffList({ items }: { items: string[] }) {
+  return (
+    <ul className="list-disc space-y-1 pl-5 text-left text-sm">
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  );
 }
 
 export function GovernanceConfigClient() {
@@ -372,11 +392,7 @@ export function GovernanceConfigClient() {
               {pendingDiff.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No pending changes.</p>
               ) : (
-                <ul className="list-disc pl-5 text-sm">
-                  {pendingDiff.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+                <PendingDiffList items={pendingDiff} />
               )}
 
               <div className="flex gap-2">
@@ -386,26 +402,38 @@ export function GovernanceConfigClient() {
                 >
                   Save changes
                 </Button>
-                {showConfirm && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowConfirm(false)}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="default"
-                      onClick={() => void onSubmit()}
-                      disabled={saving}
-                    >
-                      {saving ? "Saving..." : "Confirm save"}
-                    </Button>
-                  </>
-                )}
               </div>
             </div>
+
+            <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Confirm governance changes
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      <p>
+                        These changes take effect immediately for eligibility
+                        and capacity checks.
+                      </p>
+                      <PendingDiffList items={pendingDiff} />
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={saving}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => void onSubmit()}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Confirm save"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </CardContent>

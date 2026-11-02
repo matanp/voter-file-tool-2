@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GovernanceConfigClient } from "~/app/admin/governance-config/GovernanceConfigClient";
 import { mockJsonResponse } from "../../../utils/testUtils";
@@ -26,7 +26,7 @@ describe("GovernanceConfigClient", () => {
     jest.clearAllMocks();
   });
 
-  it("loads config, shows diff confirmation, and saves successfully", async () => {
+  it("loads config, shows pending diff, and saves after modal confirmation", async () => {
     const patchResponse = {
       ...initialResponse,
       config: {
@@ -67,10 +67,30 @@ describe("GovernanceConfigClient", () => {
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
+    const confirmDialog = screen.getByRole("alertdialog", {
+      name: "Confirm governance changes",
+    });
+    expect(confirmDialog).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Confirm save" }),
+      within(confirmDialog).getByText("Max seats per LTED: 4 -> 6"),
     ).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some((call) => call[1]?.method === "PATCH"),
+    ).toBe(false);
 
+    await user.click(
+      within(confirmDialog).getByRole("button", { name: "Cancel" }),
+    );
+    expect(
+      screen.queryByRole("alertdialog", {
+        name: "Confirm governance changes",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some((call) => call[1]?.method === "PATCH"),
+    ).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
     await user.click(screen.getByRole("button", { name: "Confirm save" }));
 
     await waitFor(() => {
