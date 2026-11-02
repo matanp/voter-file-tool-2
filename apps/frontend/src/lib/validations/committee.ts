@@ -195,39 +195,48 @@ const exitReportedAtToken = z
   .string()
   .datetime({ message: "exitReportedAt must be an ISO timestamp" });
 
+/**
+ * The committee and member that a removal, a resignation, or an Exit Report
+ * targets. Each of those schemas extends this one and stays `.strict()`.
+ * `legDistrict` may arrive as a number or a numeric string; a blank string is
+ * rejected rather than read as "no district".
+ */
+const committeeMemberTargetSchema = z.object({
+  cityTown: z.string().trim().min(1, "City/Town is required"),
+  legDistrict: z
+    .union([z.string(), z.number()])
+    .optional()
+    .refine(
+      (val) =>
+        val === undefined ||
+        (typeof val === "string" ? val.trim() !== "" : true),
+      { message: "Legislative District cannot be empty when provided" },
+    )
+    .transform((val) => {
+      if (val === undefined) return undefined;
+      if (typeof val === "string") return val.trim();
+      return val.toString();
+    })
+    .pipe(
+      z.coerce
+        .number()
+        .int()
+        .optional()
+        .refine((val) => val === undefined || val > 0, {
+          message:
+            "Legislative District must be a positive integer when provided",
+        }),
+    ),
+  electionDistrict: z.coerce
+    .number()
+    .int()
+    .positive("Election District must be a positive integer"),
+  memberId: z.string().trim().min(1, "Member ID is required"),
+});
+
 // SRS 2.5 — Remove committee member: removalReason required; removalNotes required when OTHER.
-export const removeCommitteeDataSchema = z
-  .object({
-    cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z
-      .union([z.string(), z.number()])
-      .optional()
-      .refine(
-        (val) =>
-          val === undefined ||
-          (typeof val === "string" ? val.trim() !== "" : true),
-        { message: "Legislative District cannot be empty when provided" },
-      )
-      .transform((val) => {
-        if (val === undefined) return undefined;
-        if (typeof val === "string") return val.trim();
-        return val.toString();
-      })
-      .pipe(
-        z.coerce
-          .number()
-          .int()
-          .optional()
-          .refine((val) => val === undefined || val > 0, {
-            message:
-              "Legislative District must be a positive integer when provided",
-          }),
-      ),
-    electionDistrict: z.coerce
-      .number()
-      .int()
-      .positive("Election District must be a positive integer"),
-    memberId: z.string().trim().min(1, "Member ID is required"),
+export const removeCommitteeDataSchema = committeeMemberTargetSchema
+  .extend({
     removalReason: z.nativeEnum(RemovalReason, {
       errorMap: () => ({ message: "Removal reason is required" }),
     }),
@@ -262,38 +271,8 @@ const isoDateString = z
  * the method. A resignation has no reason (SRS §5 gives only removals one);
  * optional notes can say why.
  */
-export const resignCommitteeDataSchema = z
-  .object({
-    cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z
-      .union([z.string(), z.number()])
-      .optional()
-      .refine(
-        (val) =>
-          val === undefined ||
-          (typeof val === "string" ? val.trim() !== "" : true),
-        { message: "Legislative District cannot be empty when provided" },
-      )
-      .transform((val) => {
-        if (val === undefined) return undefined;
-        if (typeof val === "string") return val.trim();
-        return val.toString();
-      })
-      .pipe(
-        z.coerce
-          .number()
-          .int()
-          .optional()
-          .refine((val) => val === undefined || val > 0, {
-            message:
-              "Legislative District must be a positive integer when provided",
-          }),
-      ),
-    electionDistrict: z.coerce
-      .number()
-      .int()
-      .positive("Election District must be a positive integer"),
-    memberId: z.string().trim().min(1, "Member ID is required"),
+export const resignCommitteeDataSchema = committeeMemberTargetSchema
+  .extend({
     action: z.literal("RESIGN"),
     resignationDateReceived: isoDateString,
     resignationMethod: z.nativeEnum(ResignationMethod),
@@ -497,19 +476,8 @@ export type CommitteeRequestResponse =
  * - a resignation: the date received and the method (SRS §6.5), and no reason;
  * - a removal: a reason, notes for Other, and no resignation details.
  */
-export const reportExitDataSchema = z
-  .object({
-    cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z.coerce
-      .number()
-      .int()
-      .positive("Legislative District must be a positive integer when provided")
-      .optional(),
-    electionDistrict: z.coerce
-      .number()
-      .int()
-      .positive("Election District must be a positive integer"),
-    memberId: z.string().trim().min(1, "Member ID is required"),
+export const reportExitDataSchema = committeeMemberTargetSchema
+  .extend({
     kind: z.nativeEnum(ExitReportKind, {
       errorMap: () => ({ message: "Choose resignation or removal" }),
     }),
