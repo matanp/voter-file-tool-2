@@ -34,7 +34,9 @@ const validExitRemoval = {
 function firstIssue(schema: ZodTypeAny, body: unknown) {
   const result = schema.safeParse(body);
   if (result.success) throw new Error("expected the payload to be rejected");
-  return result.error.issues[0];
+  const [issue] = result.error.issues;
+  if (!issue) throw new Error("expected at least one issue");
+  return issue;
 }
 
 describe.each([
@@ -67,6 +69,10 @@ describe.each([
     });
   });
 
+  it("keeps a number legDistrict as a number", () => {
+    expect(schema.parse({ ...valid, legDistrict: 3 }).legDistrict).toBe(3);
+  });
+
   it("allows legDistrict to be omitted", () => {
     const { legDistrict: _omit, ...rest } = valid;
     const result = schema.parse(rest);
@@ -91,34 +97,48 @@ describe.each([
     },
   );
 
-  it.each(["1.5", "abc", null, true, [5]])(
-    "rejects a legDistrict that is not a whole number (%j)",
+  it.each(["1.5", "abc"])(
+    "rejects a legDistrict string that is not a whole number (%j)",
     (legDistrict) => {
-      expect(firstIssue(schema, { ...valid, legDistrict })?.path).toEqual([
+      expect(firstIssue(schema, { ...valid, legDistrict }).path).toEqual([
         "legDistrict",
       ]);
     },
   );
 
-  it.each([0, "x"])(
+  it.each([null, true, false, [5], ["5"], {}])(
+    "rejects a non-string, non-number legDistrict (%j)",
+    (legDistrict) => {
+      expect(firstIssue(schema, { ...valid, legDistrict }).path).toEqual([
+        "legDistrict",
+      ]);
+    },
+  );
+
+  it("requires electionDistrict", () => {
+    const { electionDistrict: _omit, ...rest } = valid;
+    expect(firstIssue(schema, rest).path).toEqual(["electionDistrict"]);
+  });
+
+  it.each([0, "x", null])(
     "rejects an invalid electionDistrict (%j)",
     (electionDistrict) => {
-      expect(firstIssue(schema, { ...valid, electionDistrict })?.path).toEqual([
+      expect(firstIssue(schema, { ...valid, electionDistrict }).path).toEqual([
         "electionDistrict",
       ]);
     },
   );
 
   it.each(["cityTown", "memberId"] as const)("requires %s", (field) => {
-    expect(firstIssue(schema, { ...valid, [field]: "  " })?.path).toEqual([
+    expect(firstIssue(schema, { ...valid, [field]: "  " }).path).toEqual([
       field,
     ]);
     const { [field]: _omit, ...rest } = valid;
-    expect(firstIssue(schema, rest)?.path).toEqual([field]);
+    expect(firstIssue(schema, rest).path).toEqual([field]);
   });
 
   it("rejects unknown keys", () => {
-    expect(firstIssue(schema, { ...valid, extra: 1 })?.code).toBe(
+    expect(firstIssue(schema, { ...valid, extra: 1 }).code).toBe(
       "unrecognized_keys",
     );
   });
@@ -147,11 +167,11 @@ describe("removeCommitteeDataSchema", () => {
 
   it("rejects resignation fields", () => {
     expect(
-      removeCommitteeDataSchema.safeParse({
+      firstIssue(removeCommitteeDataSchema, {
         ...validRemove,
         resignationMethod: "EMAIL",
-      }).success,
-    ).toBe(false);
+      }).code,
+    ).toBe("unrecognized_keys");
   });
 });
 
@@ -161,17 +181,19 @@ describe("resignCommitteeDataSchema", () => {
       firstIssue(resignCommitteeDataSchema, {
         ...validResign,
         action: "REMOVE",
-      })?.path,
+      }).path,
     ).toEqual(["action"]);
+    const { action: _omit, ...rest } = validResign;
+    expect(firstIssue(resignCommitteeDataSchema, rest).path).toEqual([
+      "action",
+    ]);
   });
 
   it.each(["resignationDateReceived", "resignationMethod"] as const)(
     "requires %s",
     (field) => {
       const { [field]: _omit, ...rest } = validResign;
-      expect(firstIssue(resignCommitteeDataSchema, rest)?.path).toEqual([
-        field,
-      ]);
+      expect(firstIssue(resignCommitteeDataSchema, rest).path).toEqual([field]);
     },
   );
 
@@ -192,7 +214,7 @@ describe("resignCommitteeDataSchema", () => {
       firstIssue(resignCommitteeDataSchema, {
         ...validResign,
         removalReason: "OTHER",
-      })?.code,
+      }).code,
     ).toBe("unrecognized_keys");
   });
 });
@@ -238,12 +260,23 @@ describe("reportExitDataSchema", () => {
     });
   });
 
-  it("requires notes for a removal with reason Other", () => {
+  it.each([undefined, "   "])(
+    "requires notes for a removal with reason Other (notes %j)",
+    (removalNotes) => {
+      const body = {
+        ...validExitRemoval,
+        removalReason: "OTHER",
+        removalNotes,
+      };
+      expect(firstIssue(reportExitDataSchema, body)).toMatchObject({
+        path: ["removalNotes"],
+        message: "Notes are required when reason is Other",
+      });
+    },
+  );
+
+  it("accepts a removal with reason Other and notes", () => {
     const body = { ...validExitRemoval, removalReason: "OTHER" };
-    expect(firstIssue(reportExitDataSchema, body)).toMatchObject({
-      path: ["removalNotes"],
-      message: "Notes are required when reason is Other",
-    });
     expect(
       reportExitDataSchema.safeParse({ ...body, removalNotes: "Why" }).success,
     ).toBe(true);
