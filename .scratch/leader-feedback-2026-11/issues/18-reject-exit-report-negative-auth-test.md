@@ -1,6 +1,7 @@
 # 18 - Reject Exit Report has complete negative-auth coverage
 
 Status: ready-for-agent
+Merge blocking: yes
 
 ## Problem
 

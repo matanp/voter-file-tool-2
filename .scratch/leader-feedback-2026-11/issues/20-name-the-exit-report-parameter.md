@@ -1,6 +1,7 @@
 # 20 - Name the Exit Report parameter
 
 Status: ready-for-agent
+Merge blocking: no
 
 ## Problem
 

@@ -1,6 +1,7 @@
 # 17 - Exit Report tests use typed Prisma mocks
 
 Status: ready-for-agent
+Merge blocking: yes
 
 ## Problem
 

@@ -1,6 +1,7 @@
 # 19 - Share the committee-member target schema
 
 Status: ready-for-agent
+Merge blocking: no
 
 ## Problem
 
