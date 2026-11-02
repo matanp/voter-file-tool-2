@@ -112,6 +112,16 @@ function buildDiff(
   return diff;
 }
 
+function PendingDiffList({ items }: { items: string[] }) {
+  return (
+    <ul className="list-disc space-y-1 pl-5 text-left text-sm">
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  );
+}
+
 export function GovernanceConfigClient() {
   const { toast } = useToast();
   const [draft, setDraft] = useState<GovernanceConfigUpdatePayload | null>(null);
@@ -382,11 +392,7 @@ export function GovernanceConfigClient() {
               {pendingDiff.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No pending changes.</p>
               ) : (
-                <ul className="list-disc pl-5 text-sm">
-                  {pendingDiff.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+                <PendingDiffList items={pendingDiff} />
               )}
 
               <div className="flex gap-2">
@@ -411,11 +417,7 @@ export function GovernanceConfigClient() {
                         These changes take effect immediately for eligibility
                         and capacity checks.
                       </p>
-                      <ul className="list-disc space-y-1 pl-5 text-left">
-                        {pendingDiff.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
+                      <PendingDiffList items={pendingDiff} />
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>

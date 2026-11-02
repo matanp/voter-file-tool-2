@@ -78,6 +78,19 @@ describe("GovernanceConfigClient", () => {
       fetchMock.mock.calls.some((call) => call[1]?.method === "PATCH"),
     ).toBe(false);
 
+    await user.click(
+      within(confirmDialog).getByRole("button", { name: "Cancel" }),
+    );
+    expect(
+      screen.queryByRole("alertdialog", {
+        name: "Confirm governance changes",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some((call) => call[1]?.method === "PATCH"),
+    ).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
     await user.click(screen.getByRole("button", { name: "Confirm save" }));
 
     await waitFor(() => {
