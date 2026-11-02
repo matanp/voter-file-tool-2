@@ -1,17 +1,24 @@
 import { GET as listEligibilityFlags } from "~/app/api/admin/eligibility-flags/route";
 import { POST as runEligibilityFlags } from "~/app/api/admin/eligibility-flags/run/route";
 import { POST as reviewEligibilityFlag } from "~/app/api/admin/eligibility-flags/[id]/review/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type CommitteeMembership } from "@prisma/client";
 import {
+  createMockEligibilityFlag,
+  createMockGovernanceConfig,
+  createMockMembership,
   createMockRequest,
   createMockSession,
   parseJsonResponse,
-  createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   getMembershipMock,
   getAuditLogMock,
   getEligibilityFlagMock,
+  expectAuditLogCreate,
+  expectMembershipExitWrite,
+  jsonContaining,
   RESOLVE_STALE_FLAGS_PARAMS,
+  createMockVoterRecord,
+  selectedRow,
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
@@ -26,14 +33,18 @@ function reviewRouteContext(id: string) {
 }
 
 /** Membership include shape for eligibility flag review (confirm → MEMBER_REMOVED audit). */
-function createReviewMembership(overrides: Record<string, unknown> = {}) {
+/** The membership row plus the relations the review route includes. */
+function createReviewMembership(overrides: Partial<CommitteeMembership> = {}) {
   return {
-    id: "membership-2",
-    status: "ACTIVE",
-    seatNumber: 3,
-    voterRecordId: "TEST123456",
-    committeeListId: 1,
-    termId: DEFAULT_ACTIVE_TERM_ID,
+    ...createMockMembership({
+      id: "membership-2",
+      status: "ACTIVE",
+      seatNumber: 3,
+      voterRecordId: "TEST123456",
+      committeeListId: 1,
+      termId: DEFAULT_ACTIVE_TERM_ID,
+      ...overrides,
+    }),
     voterRecord: {
       VRCNUM: "TEST123456",
       firstName: "John",
@@ -50,7 +61,6 @@ function createReviewMembership(overrides: Record<string, unknown> = {}) {
       id: DEFAULT_ACTIVE_TERM_ID,
       label: "2024–2026",
     },
-    ...overrides,
   };
 }
 
@@ -121,14 +131,18 @@ describe("/api/admin/eligibility-flags", () => {
   });
 
   it("runs manual eligibility flagging and returns summary", async () => {
-    (prismaMock.committeeGovernanceConfig.findFirst as jest.Mock).mockResolvedValue({
-      requiredPartyCode: "DEM",
-      requireAssemblyDistrictMatch: true,
-    });
-    prismaMock.voterRecord.findFirst.mockResolvedValue({
-      latestRecordEntryYear: 2026,
-      latestRecordEntryNumber: 10,
-    } as never);
+    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+      createMockGovernanceConfig({
+        requiredPartyCode: "DEM",
+        requireAssemblyDistrictMatch: true,
+      }),
+    );
+    prismaMock.voterRecord.findFirst.mockResolvedValue(
+      createMockVoterRecord({
+        latestRecordEntryYear: 2026,
+        latestRecordEntryNumber: 10,
+      }),
+    );
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
     getEligibilityFlagMock(prismaMock).findMany.mockResolvedValue([]);
     getEligibilityFlagMock(prismaMock).createMany.mockResolvedValue({
@@ -155,19 +169,25 @@ describe("/api/admin/eligibility-flags", () => {
   });
 
   it("auto-resolves stale pending flags on re-scan and writes system audit context", async () => {
-    (prismaMock.committeeGovernanceConfig.findFirst as jest.Mock).mockResolvedValue({
-      requiredPartyCode: "DEM",
-      requireAssemblyDistrictMatch: false,
-    });
-    prismaMock.voterRecord.findFirst.mockResolvedValue({
-      latestRecordEntryYear: 2026,
-      latestRecordEntryNumber: 10,
-    } as never);
+    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+      createMockGovernanceConfig({
+        requiredPartyCode: "DEM",
+        requireAssemblyDistrictMatch: false,
+      }),
+    );
+    prismaMock.voterRecord.findFirst.mockResolvedValue(
+      createMockVoterRecord({
+        latestRecordEntryYear: 2026,
+        latestRecordEntryNumber: 10,
+      }),
+    );
     getMembershipMock(prismaMock).findMany.mockResolvedValue([
       {
         id: "membership-1",
         committeeListId: 1,
         voterRecordId: "V1",
+        exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+        exitReportedKind: "RESIGNATION",
         committeeList: {
           cityTown: "Rochester",
           legDistrict: 1,
@@ -279,13 +299,15 @@ describe("/api/admin/eligibility-flags", () => {
   });
 
   it("confirm decision removes membership and marks flag confirmed", async () => {
+    const membership = createReviewMembership({ id: "membership-2" });
     getEligibilityFlagMock(prismaMock).findUnique.mockResolvedValue({
       id: "flag-2",
       reason: "PARTY_MISMATCH",
       status: "PENDING",
       details: null,
-      membership: createReviewMembership({ id: "membership-2" }),
+      membership,
     });
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(membership);
     getEligibilityFlagMock(prismaMock).update.mockResolvedValue({});
     getMembershipMock(prismaMock).update.mockResolvedValue({});
 
@@ -296,13 +318,13 @@ describe("/api/admin/eligibility-flags", () => {
 
     expect(response.status).toBe(200);
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "membership-2" },
-        data: expect.objectContaining({
-          status: "REMOVED",
-          removalReason: "PARTY_CHANGE",
-        }) as unknown,
-      }) as unknown,
+      expectMembershipExitWrite("membership-2", {
+        status: "REMOVED",
+        removalReason: "PARTY_CHANGE",
+        removalNotes: "Verified change",
+        resignationDateReceived: null,
+        resignationMethod: null,
+      }),
     );
     expect(getEligibilityFlagMock(prismaMock).update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -346,14 +368,74 @@ describe("/api/admin/eligibility-flags", () => {
     );
   });
 
+  it("confirm decision supersedes a pending Exit Report and records it in the audit", async () => {
+    const reportedAt = new Date("2026-10-30T15:04:05.678Z");
+    const membership = createReviewMembership({
+      id: "membership-4",
+      exitReportedAt: reportedAt,
+      exitReportedById: "leader-1",
+      exitReportedKind: "RESIGNATION",
+    });
+    const flag = createMockEligibilityFlag({
+      id: "flag-4",
+      membershipId: membership.id,
+      reason: "ASSEMBLY_DISTRICT_MISMATCH",
+    });
+    prismaMock.eligibilityFlag.findUnique.mockResolvedValue(
+      selectedRow<typeof flag & { membership: typeof membership }>({
+        ...flag,
+        membership,
+      }),
+    );
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(membership);
+    prismaMock.eligibilityFlag.update.mockResolvedValue({
+      ...flag,
+      status: "CONFIRMED",
+    });
+
+    const response = await reviewEligibilityFlag(
+      createMockRequest({ decision: "confirm" }),
+      reviewRouteContext("flag-4"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+      expectMembershipExitWrite("membership-4", {
+        status: "REMOVED",
+        removalReason: "MOVED_OUT_OF_DISTRICT",
+        removalNotes: null,
+        exitReportedAt: null,
+      }),
+    );
+    expect(prismaMock.auditLog.create).toHaveBeenNthCalledWith(
+      1,
+      expectAuditLogCreate({
+        action: "MEMBER_REMOVED",
+        metadata: jsonContaining({
+          source: "boe_flagging",
+          supersededExitReport: {
+            reportedById: "leader-1",
+            reportedAt: reportedAt.toISOString(),
+            kind: "RESIGNATION",
+          },
+        }),
+      }),
+    );
+  });
+
   it("returns 500 when confirm decision audit write fails", async () => {
+    const membership = createReviewMembership({
+      id: "membership-3",
+      seatNumber: 4,
+    });
     getEligibilityFlagMock(prismaMock).findUnique.mockResolvedValue({
       id: "flag-3",
       reason: "PARTY_MISMATCH",
       status: "PENDING",
       details: null,
-      membership: createReviewMembership({ id: "membership-3", seatNumber: 4 }),
+      membership,
     });
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(membership);
     getMembershipMock(prismaMock).update.mockResolvedValue({});
     getAuditLogMock(prismaMock).create.mockRejectedValueOnce(
       new Error("audit failure"),

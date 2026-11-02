@@ -173,7 +173,9 @@ export function describeHistoryEvent(
         title:
           event.source === "discrepancy_undo"
             ? "Resigned (restored when a discrepancy resolution was undone)"
-            : "Resigned",
+            : event.source === "exit_report"
+              ? "Resigned (confirmed from a reported resignation)"
+              : "Resigned",
         details,
       };
     }
@@ -188,6 +190,8 @@ export function describeHistoryEvent(
           return { title: "Removed after an eligibility flag review", details };
         case "discrepancy_undo":
           return { title: "Removed when a discrepancy resolution was undone", details };
+        case "exit_report":
+          return { title: "Removed (confirmed from a reported exit)", details };
         default:
           return { title: "Removed", details };
       }
@@ -210,6 +214,25 @@ export function describeHistoryEvent(
         details.push("Restored when a discrepancy resolution was undone, not a new result");
       }
       return { title: `Election result recorded: ${verb}`, details };
+    }
+    case "exit_reported": {
+      if (admin && event.reason) details.push(`Reason: ${REMOVAL_REASON_LABELS[event.reason] ?? event.reason}`);
+      if (admin && event.notes) details.push(`Notes: ${event.notes}`);
+      details.push("Pending Admin review; the member stays on the committee until then");
+      return {
+        title: event.exitKind === "RESIGNATION" ? "Resignation reported" : "Removal reported",
+        details,
+      };
+    }
+    case "exit_report_rejected": {
+      if (admin && event.rejectionNote) details.push(`Note: ${event.rejectionNote}`);
+      const what =
+        event.exitKind === "RESIGNATION"
+          ? "Resignation report"
+          : event.exitKind === "REMOVAL"
+            ? "Removal report"
+            : "Exit report";
+      return { title: `${what} rejected; the member stays`, details };
     }
   }
 }

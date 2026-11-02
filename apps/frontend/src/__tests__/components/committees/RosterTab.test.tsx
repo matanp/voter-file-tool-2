@@ -114,6 +114,7 @@ function detailWith(rows: SeatRosterRow[]): CommitteeDetailResponse {
       missingWeightSeatNumbers: [],
     },
     pending: [],
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
   };
 }
@@ -341,7 +342,7 @@ describe("RosterTab row actions", () => {
   });
 
   it.each([PrivilegeLevel.Leader, PrivilegeLevel.RequestAccess])(
-    "offers %s submit on a vacant seat as a visible button and details and replace on members, never resignation or removal",
+    "offers %s submit on a vacant seat as a visible button and details, replace and an exit report on members, never direct resignation or removal",
     async (role) => {
       const onAction = jest.fn();
       renderRoster({ role, onAction });
@@ -353,17 +354,44 @@ describe("RosterTab row actions", () => {
       expect(await menuItemsFor("Actions for seat 1")).toEqual([
         "View voter details",
         "Replace member",
+        "Report resignation or removal",
       ]);
       await userEvent.click(
         screen.getByRole("menuitem", { name: "Replace member" }),
+      );
+      await menuItemsFor("Actions for seat 1");
+      await userEvent.click(
+        screen.getByRole("menuitem", { name: "Report resignation or removal" }),
       );
 
       expect(onAction.mock.calls).toEqual([
         [{ kind: "add-member", committee: REF, seatNumber: 2 }, trigger("Submit candidate for seat 2")],
         [{ kind: "replace-member", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
+        [{ kind: "report-exit", committee: REF, memberId: "V1" }, trigger("Actions for seat 1")],
       ]);
     },
   );
+
+  it("marks a member with a pending exit report and offers no second report", async () => {
+    const reported = row({
+      ...JANE,
+      contact: undefined,
+      occupant: {
+        ...JANE.occupant!,
+        pendingExitReport: {
+          kind: "RESIGNATION",
+          reportedAt: "2026-10-30T15:00:00.000Z",
+        },
+      },
+    });
+    renderRoster({ role: PrivilegeLevel.Leader, rows: [reported, VACANT] });
+
+    expect(within(table()).getByText("Exit reported – pending")).toBeInTheDocument();
+    expect(await menuItemsFor("Actions for seat 1")).toEqual([
+      "View voter details",
+      "Replace member",
+    ]);
+  });
 
   it("gives a Developer the Admin actions", async () => {
     renderRoster({ role: PrivilegeLevel.Developer });

@@ -9,6 +9,7 @@ import {
   type VoterRecord,
   type CommitteeRequest,
   type CommitteeGovernanceConfig,
+  type EligibilityFlag,
 } from "@prisma/client";
 import type { Session } from "next-auth";
 import type { z } from "zod";
@@ -185,34 +186,8 @@ export type CommitteeListWithMembers = CommitteeList & {
 // CommitteeMembership mock helpers (pre-migration: not yet in PrismaClient)
 // ---------------------------------------------------------------------------
 
-/** Shape of a CommitteeMembership record returned by Prisma (pre-migration stub). */
-export type MockMembership = {
-  id: string;
-  voterRecordId: string;
-  committeeListId: number;
-  termId: string;
-  /** MembershipStatus enum value — string until `prisma generate` runs. */
-  status: string;
-  membershipType: string | null;
-  seatNumber: number | null;
-  submittedAt: Date;
-  confirmedAt: Date | null;
-  activatedAt: Date | null;
-  resignedAt: Date | null;
-  removedAt: Date | null;
-  rejectedAt: Date | null;
-  rejectionNote: string | null;
-  submittedById: string | null;
-  submissionMetadata: Record<string, unknown> | null;
-  meetingRecordId: string | null;
-  resignationDateReceived: Date | null;
-  resignationMethod: string | null;
-  removalReason: string | null;
-  removalNotes: string | null;
-  petitionVoteCount: number | null;
-  petitionPrimaryDate: Date | null;
-  petitionSeatNumber: number | null;
-};
+/** A CommitteeMembership row as Prisma returns it. */
+export type MockMembership = CommitteeMembership;
 
 export const createMockMembership = (
   overrides: Partial<MockMembership> = {},
@@ -241,6 +216,9 @@ export const createMockMembership = (
   petitionVoteCount: null,
   petitionPrimaryDate: null,
   petitionSeatNumber: null,
+  exitReportedAt: null,
+  exitReportedById: null,
+  exitReportedKind: null,
   ...overrides,
 });
 
@@ -423,6 +401,20 @@ export function expectMembershipUpdateMany(
 }
 
 /**
+ * Matcher for `writeMembershipExit`'s conditional `update` (the only way a
+ * membership becomes RESIGNED / REMOVED): the row must still be ACTIVE.
+ */
+export function expectMembershipExitWrite(
+  membershipId: string,
+  data: Partial<Prisma.CommitteeMembershipUncheckedUpdateManyInput>,
+): unknown {
+  return objectContainingMatcher({
+    where: objectContainingMatcher({ id: membershipId, status: "ACTIVE" }),
+    data: objectContainingMatcher(data),
+  });
+}
+
+/**
  * Typed matcher for prisma.committeeMembership.create calls.
  * Accepts partial create input (voterRecordId, committeeListId, etc.).
  */
@@ -549,9 +541,30 @@ export const createMockGovernanceConfig = (
     maxSeatsPerLted: 4,
     requireAssemblyDistrictMatch: true,
     nonOverridableIneligibilityReasons: [],
+    exitReportInstructions: null,
     updatedAt: new Date("2024-01-01"),
     ...overrides,
   }) as CommitteeGovernanceConfig;
+
+/** Full EligibilityFlag row: a PENDING flag on the default membership. */
+export const createMockEligibilityFlag = (
+  overrides: Partial<EligibilityFlag> = {},
+): EligibilityFlag => ({
+  id: "flag-test-id-001",
+  membershipId: "membership-test-id-001",
+  committeeListId: 1,
+  voterRecordId: "TEST123456",
+  termId: DEFAULT_ACTIVE_TERM_ID,
+  reason: "PARTY_MISMATCH",
+  status: "PENDING",
+  details: null,
+  sourceReportId: null,
+  reviewedById: null,
+  reviewedAt: null,
+  createdAt: new Date("2024-01-01"),
+  updatedAt: new Date("2024-01-01"),
+  ...overrides,
+});
 
 /** Full CommitteeTerm row, as `getActiveTerm` resolves it. */
 export const createMockCommitteeTerm = (

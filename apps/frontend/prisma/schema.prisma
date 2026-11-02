@@ -55,6 +55,12 @@ enum ResignationMethod {
   MAIL
 }
 
+// What a Leader's Exit Report says happened (see CommitteeMembership.exitReportedKind).
+enum ExitReportKind {
+  RESIGNATION
+  REMOVAL
+}
+
 enum AuditAction {
   MEMBER_SUBMITTED
   MEMBER_REJECTED
@@ -82,6 +88,8 @@ enum AuditAction {
   OFFICE_NAME_DELETED
   ELECTION_DATE_CREATED
   ELECTION_DATE_DELETED
+  MEMBER_EXIT_REPORTED
+  MEMBER_EXIT_REPORT_REJECTED
 }
 
 enum DiscrepancyResolution {
@@ -111,6 +119,7 @@ model User {
 
   // SRS 1.2 — CommitteeMembership relations
   submittedMemberships CommitteeMembership[]  @relation("SubmittedMemberships")
+  exitReportedMemberships CommitteeMembership[] @relation("ExitReportedMemberships")
 
   // SRS 2.4 — Meeting records created by this user
   createdMeetings      MeetingRecord[]        @relation("CreatedMeetings")
@@ -463,11 +472,27 @@ model CommitteeMembership {
   meetingRecord   MeetingRecord? @relation(fields: [meetingRecordId], references: [id])
   meetingRecordId String?
 
+  // The four exit fields. While status = ACTIVE and exitReportedAt is set, they hold the
+  // Leader's *reported* exit (an Exit Report awaiting Admin review). Once RESIGNED / REMOVED,
+  // they hold the *recorded* exit. Every write that leaves ACTIVE goes through
+  // writeMembershipExit (src/app/api/lib/membershipExit.ts), which sets all four and clears
+  // the report fields. See docs/adr/0002-exit-reports-on-the-membership-row.md.
   resignationDateReceived DateTime?
   resignationMethod       ResignationMethod?
 
   removalReason   RemovalReason?
   removalNotes    String?
+
+  // Exit Report fields: set together by a Leader's report, cleared together on confirm,
+  // reject, or any other exit.
+  // NOTE: CHECK constraints in
+  // prisma/migrations/20261101000000_committee_membership_exit_report/migration.sql enforce that
+  // exitReportedAt is set only while status = 'ACTIVE' and that exitReportedKind is set exactly
+  // when exitReportedAt is — Prisma does not support CHECK constraints.
+  exitReportedAt   DateTime?
+  exitReportedById String?
+  exitReportedBy   User?           @relation("ExitReportedMemberships", fields: [exitReportedById], references: [id])
+  exitReportedKind ExitReportKind?
 
   petitionVoteCount   Int?
   petitionPrimaryDate DateTime?
@@ -650,6 +675,9 @@ model CommitteeGovernanceConfig {
   maxSeatsPerLted                    Int                 @default(4)
   requireAssemblyDistrictMatch       Boolean             @default(true)
   nonOverridableIneligibilityReasons IneligibilityReason[] @default([])
+  // Plain text shown to a Leader before they file an Exit Report (e.g. where to send the
+  // resignation letter). Emails and URLs are linkified on display; no markdown.
+  exitReportInstructions             String?
   updatedAt                          DateTime            @updatedAt
 }
 

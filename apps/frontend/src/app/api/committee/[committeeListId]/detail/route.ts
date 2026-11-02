@@ -4,7 +4,8 @@
  * One call returns everything the workspace detail pane shows for a
  * committee in the active term: identity (id + composite key + term + AD),
  * the grid rollup, seat rows, the designation-weight summary, pending
- * submissions, Admin-only petition context, and recent membership history.
+ * submissions and Exit Reports, Admin-only petition context, and recent
+ * membership history.
  * Read-only. See docs/SRS/COMMITTEES_WORKSPACE_UI_IMPLEMENTATION_PLAN.md §5
  * "Detail" and .scratch/committees-workspace/history-inventory.md.
  *
@@ -44,6 +45,11 @@ import {
   petitionOutcomeWhere,
   toPetitionOutcomeContext,
 } from "~/app/api/lib/petitionOutcomes";
+import {
+  PENDING_EXIT_REPORT_INCLUDE,
+  pendingExitReportWhere,
+  toPendingExitReport,
+} from "~/app/api/lib/pendingExitReports";
 import {
   loadMembershipHistory,
   type HistoryMembershipRow,
@@ -137,6 +143,7 @@ async function getCommitteeDetail(
       config,
       assemblyDistrict,
       pendingMemberships,
+      exitReportedMemberships,
       allMemberships,
       petitionRows,
     ] = await Promise.all([
@@ -163,6 +170,12 @@ async function getCommitteeDetail(
           },
           submittedBy: { select: { id: true, name: true } },
         },
+      }),
+      // Pending Exit Reports live on the outgoing member's ACTIVE row.
+      prisma.committeeMembership.findMany({
+        where: { committeeListId, ...pendingExitReportWhere(activeTermId) },
+        orderBy: { exitReportedAt: "asc" },
+        include: PENDING_EXIT_REPORT_INCLUDE,
       }),
       // Every membership row for the committee + term, any status: the
       // history's audit rows key on these ids, and replacement targets /
@@ -193,12 +206,26 @@ async function getCommitteeDetail(
         : Promise.resolve(undefined),
     ]);
 
+    // Built before the rollup so its pending count matches what the tab lists.
+    const pendingExitReports = exitReportedMemberships.flatMap((m) => {
+      const report = toPendingExitReport(m, {
+        userId: session.user.id,
+        isAdmin,
+      });
+      return report ? [report] : [];
+    });
+
     const rollupOptions = {
       termId: activeTermId,
       maxSeatsPerLted: config.maxSeatsPerLted,
     };
     const { rows, edRollups } = buildSeatRosterRows(
-      [{ ...committee, pendingCount: pendingMemberships.length }],
+      [
+        {
+          ...committee,
+          pendingCount: pendingMemberships.length + pendingExitReports.length,
+        },
+      ],
       { ...rollupOptions, includeContact },
     );
     const rollup = edRollups[0];
@@ -281,6 +308,7 @@ async function getCommitteeDetail(
         activeTermId,
       ),
       pending,
+      pendingExitReports,
       ...(petitionRows !== undefined
         ? { petitionContext: petitionRows.map(toPetitionOutcomeContext) }
         : {}),

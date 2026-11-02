@@ -1,5 +1,6 @@
 import { IneligibilityReason } from "@prisma/client";
 import { z } from "zod";
+import { blankToNull } from "~/lib/blankToNull";
 
 const DEFAULT_MIN_MAX_SEATS = 1;
 const DEFAULT_MAX_MAX_SEATS = 12;
@@ -33,6 +34,8 @@ export const GOVERNANCE_MAX_SEATS_GUARDRAILS = {
   maxMaxSeatsPerLted,
 } as const;
 
+export const EXIT_REPORT_INSTRUCTIONS_MAX = 4000;
+
 export const governanceConfigUpdateSchema = z
   .object({
     requiredPartyCode: z.string().trim().min(1, "requiredPartyCode is required"),
@@ -56,6 +59,21 @@ export const governanceConfigUpdateSchema = z
           "nonOverridableIneligibilityReasons must be an array",
       })
       .default([]),
+    /**
+     * Shown to a Leader before they file an Exit Report. Plain text; blank
+     * saves as null. Omitted keeps the current text.
+     */
+    exitReportInstructions: z
+      .string()
+      .max(
+        EXIT_REPORT_INSTRUCTIONS_MAX,
+        `exitReportInstructions must be at most ${String(EXIT_REPORT_INSTRUCTIONS_MAX)} characters`,
+      )
+      .nullable()
+      .optional()
+      .transform((value) =>
+        value === undefined ? undefined : blankToNull(value),
+      ),
   })
   .strict();
 

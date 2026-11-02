@@ -113,6 +113,10 @@ _Avoid_: total weight, vote weight
 A candidate a Leader proposes for a committee, waiting for an Admin to accept or reject it. The candidate is not a member until accepted. A replacement submission also names the member the candidate would replace.
 _Avoid_: request, committee change request
 
+**Exit Report**:
+A Leader's report that a member resigned or should be removed, waiting for an Admin to confirm or reject it. The member stays ACTIVE and seated until confirmed.
+_Avoid_: removal request, pending removal, resignation request
+
 **Hard Stop**:
 An eligibility rule a candidate fails that blocks adding or submitting them, such as a party or district mismatch or a full committee. A warning is the nonblocking counterpart.
 _Avoid_: error, validation failure

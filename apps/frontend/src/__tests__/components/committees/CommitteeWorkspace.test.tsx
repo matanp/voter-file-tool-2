@@ -172,6 +172,7 @@ function detailFor(
       missingWeightSeatNumbers: [],
     },
     pending: [],
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
     ...overrides,
   };

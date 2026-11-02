@@ -26,7 +26,9 @@ export type RosterRowActionItem = {
  *     endpoint). Replace is not offered to Admin until an atomic replace
  *     command exists (plan §8 "Replacement in v1").
  *   - Leader/RequestAccess: **Replace member** (submitted via `requestAdd`
- *     with the occupant as the replacement target).
+ *     with the occupant as the replacement target) and **Report resignation
+ *     or removal** (an Exit Report for Admin review), the latter only while
+ *     the member has no pending report.
  * - ReadAccess: nothing.
  */
 export function rosterRowActions(
@@ -75,5 +77,13 @@ export function rosterRowActions(
       label: "Replace member",
       action: { kind: "replace-member", committee, memberId },
     },
+    ...(row.occupant.pendingExitReport
+      ? []
+      : [
+          {
+            label: "Report resignation or removal",
+            action: { kind: "report-exit" as const, committee, memberId },
+          },
+        ]),
   ];
 }

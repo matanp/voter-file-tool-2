@@ -6,7 +6,8 @@
  * dialogs render the same forms, so the domain rules live in one place:
  *
  * - removal requires a reason, and **Other** requires notes (SRS 2.5);
- * - resignation requires the received date, method and a reason (SRS 2.3).
+ * - resignation requires the received date and method, and has no reason
+ *   (SRS 2.3 / §6.5); notes are optional.
  *
  * Both are Admin-only endpoints that audit the change. The primary action
  * stays disabled until the requirements are met, and what's missing is
@@ -18,6 +19,14 @@ import type { ResignationMethod } from "@prisma/client";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { RadioGroup, RadioOption } from "~/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { REMOVAL_REASONS, REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import {
@@ -37,9 +46,12 @@ import {
   type ActionFailure,
 } from "./drawerParts";
 
-const NOTES_MAX = 1000;
+export const NOTES_MAX = 1000;
 
-
+export const RESIGNATION_METHODS: Array<[ResignationMethod, string]> = [
+  ["EMAIL", "Email"],
+  ["MAIL", "Mail"],
+];
 
 type MemberExitFormProps<A> = {
   action: A;
@@ -57,7 +69,7 @@ type MemberExitFormProps<A> = {
 const DRAWER_BODY = "flex-1 space-y-4 overflow-y-auto px-4 py-4";
 
 /** Shared layout: body, failure alert, requirements hint, and footer buttons. */
-function ExitFormLayout({
+export function ExitFormLayout({
   children,
   problems,
   failure,
@@ -117,48 +129,110 @@ function ExitFormLayout({
   );
 }
 
-function ReasonAndNotes({
-  label,
+/** Free-text notes, required when the removal reason is Other. */
+export function NotesField({
+  value,
+  required,
+  onChange,
+}: {
+  value: string;
+  required: boolean;
+  onChange: (notes: string) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="grid gap-1">
+      <Label htmlFor={id}>{required ? "Notes (required)" : "Notes (optional)"}</Label>
+      <Textarea
+        id={id}
+        rows={3}
+        maxLength={NOTES_MAX}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+/** A removal's reason, and notes (required for Other). */
+export function ReasonAndNotes({
   value,
   onChange,
 }: {
-  label: string;
   value: RemovalInput;
   onChange: (patch: Partial<RemovalInput>) => void;
 }) {
   const id = useId();
-  const notesRequired = value.reason === "OTHER";
   return (
     <>
       <div className="grid gap-1">
-        <Label htmlFor={`${id}-reason`}>{label} (required)</Label>
-        <select
-          id={`${id}-reason`}
+        <Label htmlFor={`${id}-reason`}>Reason for removal (required)</Label>
+        <Select
           value={value.reason}
-          onChange={(e) =>
-            onChange({ reason: e.target.value as RemovalInput["reason"] })
+          onValueChange={(reason) =>
+            onChange({ reason: reason as RemovalInput["reason"] })
           }
-          className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
         >
-          <option value="">Select a reason</option>
-          {REMOVAL_REASONS.map((reason) => (
-            <option key={reason} value={reason}>
-              {REMOVAL_REASON_LABELS[reason]}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id={`${id}-reason`}>
+            <SelectValue placeholder="Select a reason" />
+          </SelectTrigger>
+          <SelectContent>
+            {REMOVAL_REASONS.map((reason) => (
+              <SelectItem key={reason} value={reason}>
+                {REMOVAL_REASON_LABELS[reason]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+      <NotesField
+        value={value.notes}
+        required={value.reason === "OTHER"}
+        onChange={(notes) => onChange({ notes })}
+      />
+    </>
+  );
+}
+
+/** A resignation's date received and method (both required, SRS §6.5). */
+export function ResignationReceivedFields({
+  value,
+  onChange,
+}: {
+  value: Pick<ResignationInput, "dateReceived" | "method">;
+  onChange: (patch: Partial<ResignationInput>) => void;
+}) {
+  const id = useId();
+  return (
+    <>
       <div className="grid gap-1">
-        <Label htmlFor={`${id}-notes`}>
-          {notesRequired ? "Notes (required)" : "Notes (optional)"}
-        </Label>
-        <Textarea
-          id={`${id}-notes`}
-          rows={3}
-          maxLength={NOTES_MAX}
-          value={value.notes}
-          onChange={(e) => onChange({ notes: e.target.value })}
+        <Label htmlFor={`${id}-date`}>Date resignation received (required)</Label>
+        <Input
+          id={`${id}-date`}
+          type="date"
+          value={value.dateReceived}
+          onChange={(e) => onChange({ dateReceived: e.target.value })}
         />
+      </div>
+      <div className="grid gap-2">
+        <Label id={`${id}-method`}>How it was received (required)</Label>
+        <RadioGroup
+          aria-labelledby={`${id}-method`}
+          value={value.method}
+          onValueChange={(method) =>
+            onChange({ method: method as ResignationMethod })
+          }
+          className="flex gap-4"
+        >
+          {RESIGNATION_METHODS.map(([method, label]) => (
+            <RadioOption
+              key={method}
+              id={`${id}-method-${method}`}
+              value={method}
+              label={label}
+            />
+          ))}
+        </RadioGroup>
       </div>
     </>
   );
@@ -195,7 +269,6 @@ export function RemoveMemberForm({
         committee. This is an administrative removal, not a resignation.
       </p>
       <ReasonAndNotes
-        label="Reason for removal"
         value={input}
         onChange={(patch) => setInput((prev) => ({ ...prev, ...patch }))}
       />
@@ -203,12 +276,8 @@ export function RemoveMemberForm({
   );
 }
 
-const METHODS: Array<[ResignationMethod, string]> = [
-  ["EMAIL", "Email"],
-  ["MAIL", "Mail"],
-];
+/** Resignation: the received date and method, and optional notes. */
 
-/** Resignation: the received date, method, and a reason (notes for Other). */
 export function RecordResignationForm({
   action,
   memberLabel,
@@ -217,11 +286,9 @@ export function RecordResignationForm({
   Footer,
   bodyClassName,
 }: MemberExitFormProps<ResignationAction>) {
-  const id = useId();
   const [input, setInput] = useState<ResignationInput>({
     dateReceived: "",
     method: "",
-    reason: "",
     notes: "",
   });
   const { submitting, failure, run } = useActionSubmit(onSuccess);
@@ -245,33 +312,12 @@ export function RecordResignationForm({
       <p className="text-sm">
         Recording a resignation for <span className="font-medium">{memberLabel}</span>.
       </p>
-      <div className="grid gap-1">
-        <Label htmlFor={`${id}-date`}>Date resignation received (required)</Label>
-        <Input
-          id={`${id}-date`}
-          type="date"
-          value={input.dateReceived}
-          onChange={(e) => setField({ dateReceived: e.target.value })}
-        />
-      </div>
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">How it was received (required)</legend>
-        <div className="flex gap-4">
-          {METHODS.map(([value, label]) => (
-            <label key={value} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name={`${id}-method`}
-                value={value}
-                checked={input.method === value}
-                onChange={() => setField({ method: value })}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <ReasonAndNotes label="Reason for resignation" value={input} onChange={setField} />
+      <ResignationReceivedFields value={input} onChange={setField} />
+      <NotesField
+        value={input.notes}
+        required={false}
+        onChange={(notes) => setField({ notes })}
+      />
     </ExitFormLayout>
   );
 }

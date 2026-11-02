@@ -6,6 +6,7 @@ import {
   type VoterRecord,
   MeetingType,
   MembershipStatus,
+  ExitReportKind,
   MembershipType,
   PrivilegeLevel,
   RemovalReason,
@@ -186,6 +187,14 @@ export const committeeRequestDataSchema = z
     },
   );
 
+/**
+ * An Exit Report's `exitReportedAt`, echoed back by the Admin's confirm or
+ * reject so the write applies only to the report they saw (decision 14).
+ */
+const exitReportedAtToken = z
+  .string()
+  .datetime({ message: "exitReportedAt must be an ISO timestamp" });
+
 // SRS 2.5 — Remove committee member: removalReason required; removalNotes required when OTHER.
 export const removeCommitteeDataSchema = z
   .object({
@@ -248,7 +257,11 @@ const isoDateString = z
     { message: "Resignation date must be a valid date" },
   );
 
-// SRS 2.3 — Record resignation (action RESIGN) validation schema
+/**
+ * SRS 2.3 / §6.5 — Record resignation (action RESIGN): the date received and
+ * the method. A resignation has no reason (SRS §5 gives only removals one);
+ * optional notes can say why.
+ */
 export const resignCommitteeDataSchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
@@ -282,26 +295,11 @@ export const resignCommitteeDataSchema = z
       .positive("Election District must be a positive integer"),
     memberId: z.string().trim().min(1, "Member ID is required"),
     action: z.literal("RESIGN"),
-    resignationReason: z.nativeEnum(RemovalReason, {
-      errorMap: () => ({ message: "Resignation reason is required" }),
-    }),
     resignationDateReceived: isoDateString,
     resignationMethod: z.nativeEnum(ResignationMethod),
     removalNotes: z.string().trim().max(1000).optional(),
   })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (
-      data.resignationReason === "OTHER" &&
-      (data.removalNotes ?? "").trim() === ""
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Notes are required when reason is Other",
-        path: ["removalNotes"],
-      });
-    }
-  });
+  .strict();
 
 // Handle committee membership request data validation schema (SRS 1.2 — uses CommitteeMembership)
 export const handleCommitteeRequestDataSchema = z
@@ -487,6 +485,122 @@ export type CommitteeRequestResponse =
       warnings?: EligibilityWarning[];
     }
   | { success: false; error: string };
+
+// --- Exit Reports (leader-feedback-2026-11 ticket 01) ---------------------------
+
+/**
+ * A Leader (RequestAccess and above) reports that a member resigned or should
+ * be removed. Keyed like `removeCommitteeDataSchema`. An Admin confirms the
+ * report exactly as filed, so it must already hold what the recorded exit
+ * needs:
+ *
+ * - a resignation: the date received and the method (SRS §6.5), and no reason;
+ * - a removal: a reason, notes for Other, and no resignation details.
+ */
+export const reportExitDataSchema = z
+  .object({
+    cityTown: z.string().trim().min(1, "City/Town is required"),
+    legDistrict: z.coerce
+      .number()
+      .int()
+      .positive("Legislative District must be a positive integer when provided")
+      .optional(),
+    electionDistrict: z.coerce
+      .number()
+      .int()
+      .positive("Election District must be a positive integer"),
+    memberId: z.string().trim().min(1, "Member ID is required"),
+    kind: z.nativeEnum(ExitReportKind, {
+      errorMap: () => ({ message: "Choose resignation or removal" }),
+    }),
+    removalReason: z.nativeEnum(RemovalReason).optional(),
+    removalNotes: z.string().trim().max(1000).optional(),
+    resignationDateReceived: isoDateString.optional(),
+    resignationMethod: z.nativeEnum(ResignationMethod).optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.kind === "RESIGNATION") {
+      if (data.resignationDateReceived === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Resignation date received is required",
+          path: ["resignationDateReceived"],
+        });
+      }
+      if (data.resignationMethod === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "How the resignation was received is required",
+          path: ["resignationMethod"],
+        });
+      }
+      if (data.removalReason !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A resignation has no reason; use notes instead",
+          path: ["removalReason"],
+        });
+      }
+      return;
+    }
+    if (data.removalReason === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Reason is required",
+        path: ["removalReason"],
+      });
+    } else if (data.removalReason === "OTHER" && (data.removalNotes ?? "") === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Notes are required when reason is Other",
+        path: ["removalNotes"],
+      });
+    }
+    if (
+      data.resignationDateReceived !== undefined ||
+      data.resignationMethod !== undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Date received and method apply only to a resignation",
+        path: ["kind"],
+      });
+    }
+  });
+
+export type ReportExitData = z.infer<typeof reportExitDataSchema>;
+
+/** Admin rejects the pending Exit Report they saw; the note is optional. */
+export const rejectExitReportSchema = z
+  .object({
+    membershipId: z.string().trim().min(1, "membershipId is required"),
+    exitReportedAt: exitReportedAtToken,
+    note: z.string().trim().max(1000).optional(),
+  })
+  .strict();
+
+export type RejectExitReportData = z.infer<typeof rejectExitReportSchema>;
+
+/** Admin confirms the pending Exit Report they saw, exactly as reported; the note is optional. */
+export const confirmExitReportSchema = z
+  .object({
+    membershipId: z.string().trim().min(1, "membershipId is required"),
+    exitReportedAt: exitReportedAtToken,
+    note: z.string().trim().max(1000).optional(),
+  })
+  .strict();
+
+export type ConfirmExitReportData = z.infer<typeof confirmExitReportSchema>;
+
+/** `GET /api/committee/exit-instructions`: only the Admin-set text. */
+export const exitInstructionsResponseSchema = z.object({
+  text: z.string().nullable(),
+});
+
+export type ExitInstructionsResponse = z.infer<
+  typeof exitInstructionsResponseSchema
+>;
 
 // Type exports derived from schemas
 export type CommitteeData = z.infer<typeof committeeDataSchema>;
@@ -711,6 +825,17 @@ export const rosterContactSchema = z.object({
 
 export type RosterContact = z.infer<typeof rosterContactSchema>;
 
+/** What everyone in scope sees of a pending Exit Report. */
+export const pendingExitReportSummarySchema = z.object({
+  kind: z.nativeEnum(ExitReportKind),
+  /** `exitReportedAt`, ISO. */
+  reportedAt: z.string(),
+});
+
+export type PendingExitReportSummary = z.infer<
+  typeof pendingExitReportSummarySchema
+>;
+
 /** One row per seat (occupied or vacant) plus extra rows for unassigned members. */
 export const seatRosterRowSchema = z.object({
   committeeListId: z.number().int(),
@@ -731,6 +856,11 @@ export const seatRosterRowSchema = z.object({
       firstName: z.string(),
       lastName: z.string(),
       membershipType: z.nativeEnum(MembershipType).nullable(),
+      /**
+       * Present while a Leader's Exit Report on this member awaits Admin
+       * review ("Exit reported – pending"). The member is still ACTIVE.
+       */
+      pendingExitReport: pendingExitReportSummarySchema.optional(),
     })
     .nullable(),
   contact: rosterContactSchema.optional(),
@@ -754,7 +884,7 @@ export const edRollupSchema = z.object({
   totalSeats: z.number().int(),
   /** active members with no seatNumber (not counted in `filled`) */
   unassignedCount: z.number().int(),
-  /** SUBMITTED memberships awaiting review in the active term */
+  /** SUBMITTED memberships plus pending Exit Reports in the active term */
   pendingCount: z.number().int(),
   designationWeight: z.number().nullable(),
   /** petitioned seats lacking weight — render "—" */
@@ -773,7 +903,7 @@ export const rosterSummarySchema = z.object({
   edCount: z.number().int(),
   /** active members with no seat */
   unassignedCount: z.number().int(),
-  /** SUBMITTED memberships awaiting review */
+  /** SUBMITTED memberships plus pending Exit Reports */
   pendingCount: z.number().int(),
   /** ACTIVE memberships (seated + unassigned) */
   activeMemberCount: z.number().int(),
@@ -884,6 +1014,37 @@ export const pendingMembershipSchema = detailVoterSchema.extend({
 
 export type PendingMembership = z.infer<typeof pendingMembershipSchema>;
 
+/**
+ * A Leader's pending Exit Report on an ACTIVE member. Leaders in jurisdiction
+ * see whom it is about, the kind, and when; the reporter's identity, the
+ * reason, notes, and resignation details are Admin-only (like a Submission's
+ * notes and the history's exit reasons).
+ */
+export const pendingExitReportSchema = detailVoterSchema.extend({
+  membershipId: z.string(),
+  seatNumber: z.number().int().nullable(),
+  kind: z.nativeEnum(ExitReportKind),
+  /**
+   * `exitReportedAt`, ISO, at full precision. The Admin's confirm / reject
+   * echoes it back so the write applies only to this report.
+   */
+  reportedAt: z.string(),
+  /** true when the caller filed it. */
+  isOwnReport: z.boolean(),
+  /** Admin only. */
+  reportedBy: z.object({ id: z.string(), name: z.string().nullable() }).optional(),
+  /** Admin only. */
+  removalReason: z.nativeEnum(RemovalReason).nullable().optional(),
+  /** Admin only. */
+  removalNotes: z.string().nullable().optional(),
+  /** Admin only — ISO; resignations only, when the Leader knew it. */
+  resignationDateReceived: z.string().nullable().optional(),
+  /** Admin only. */
+  resignationMethod: z.nativeEnum(ResignationMethod).nullable().optional(),
+});
+
+export type PendingExitReport = z.infer<typeof pendingExitReportSchema>;
+
 /** SRS 2.6 — one petition candidate as `/api/admin/petition-outcomes` lists it (Admin-only). */
 export const petitionOutcomeContextSchema = z.object({
   id: z.string(),
@@ -942,6 +1103,8 @@ export const historySourceSchema = z.enum([
   "boe_flagging",
   "discrepancy_accept",
   "discrepancy_undo",
+  /** An Admin confirmed a Leader's Exit Report. */
+  "exit_report",
   "other",
 ]);
 
@@ -1017,6 +1180,24 @@ export const historyEventSchema = z.discriminatedUnion("kind", [
     /** Admin only — the incoming member of an accepted replacement request. */
     replacedBy: historyMemberSchema.optional(),
   }),
+  /** A Leader reported that the member resigned or should be removed. */
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("exit_reported"),
+    exitKind: z.nativeEnum(ExitReportKind),
+    /** Admin only. */
+    reason: z.nativeEnum(RemovalReason).optional(),
+    /** Admin only. */
+    notes: z.string().optional(),
+  }),
+  /** An Admin rejected a pending Exit Report; the member stays. */
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("exit_report_rejected"),
+    exitKind: z.nativeEnum(ExitReportKind).optional(),
+    /** Admin only. */
+    rejectionNote: z.string().optional(),
+  }),
   /** Admin only — the whole event is omitted for non-Admins. */
   z.object({
     ...historyEventBase,
@@ -1062,6 +1243,8 @@ export const committeeDetailResponseSchema = z.object({
   designationWeightSummary: designationWeightSummarySchema,
   /** SUBMITTED memberships in the active term, oldest first. */
   pending: z.array(pendingMembershipSchema),
+  /** ACTIVE memberships with a pending Exit Report, oldest report first. */
+  pendingExitReports: z.array(pendingExitReportSchema),
   /** Admin only — omitted for Leaders. */
   petitionContext: z.array(petitionOutcomeContextSchema).optional(),
   history: z.object({

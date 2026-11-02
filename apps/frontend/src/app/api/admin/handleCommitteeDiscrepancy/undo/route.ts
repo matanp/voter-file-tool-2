@@ -13,12 +13,17 @@ import {
   buildDecisionMetadata,
   compensatingAuditActionForStatus,
   lockDiscrepancyForUpdate,
-  membershipBeforeToUpdateData,
+  membershipBeforeToRestore,
   membershipMatchesAfter,
   parseResolutionMetadata,
   snapshotMembershipAfter,
   type DiscrepancyDecisionMetadata,
 } from "~/app/api/lib/committeeDiscrepancyResolution";
+import {
+  supersededExitReportMetadata,
+  writeMembershipExit,
+  writeMembershipLeavingActive,
+} from "~/app/api/lib/membershipExit";
 
 type UndoTxResult =
   | { kind: "success"; addressRestoreSkipped: boolean }
@@ -113,16 +118,22 @@ async function undoCommitteeDiscrepancyHandler(
         if (resolutionMetadata.membershipOutcome === "created") {
           const beforeSnapshot = snapshotMembershipAfter(currentMembership!);
 
-          const updatedMembership = await tx.committeeMembership.update({
-            where: { id: resolutionMetadata.membershipId },
-            data: {
+          const exitResult = await writeMembershipExit(
+            tx,
+            currentMembership!,
+            {
               status: "REMOVED",
-              removedAt: new Date(),
+              resignationDateReceived: null,
+              resignationMethod: null,
               removalReason: "OTHER",
               removalNotes: "Undo of discrepancy accept",
-              seatNumber: null,
+              extra: { seatNumber: null },
             },
-          });
+          );
+          if (exitResult.kind !== "written") {
+            return { kind: "membership_diverged" as const };
+          }
+          const updatedMembership = exitResult.membership;
 
           if (voterRecord) {
             await logAuditEventOrThrow(
@@ -134,7 +145,10 @@ async function undoCommitteeDiscrepancyHandler(
               beforeSnapshot,
               snapshotMembershipAfter(updatedMembership),
               mergeAuditMetadata(
-                { source: "discrepancy_undo" },
+                {
+                  source: "discrepancy_undo",
+                  ...supersededExitReportMetadata(exitResult),
+                },
                 buildMembershipAuditSubject({
                   voterRecord,
                   committee: discrepancy.committee,
@@ -154,12 +168,21 @@ async function undoCommitteeDiscrepancyHandler(
           const compensatingAction =
             compensatingAuditActionForStatus(restoredStatus);
 
-          const updatedMembership = await tx.committeeMembership.update({
-            where: { id: resolutionMetadata.membershipId },
-            data: membershipBeforeToUpdateData(
-              resolutionMetadata.membershipBefore,
-            ),
-          });
+          const restore = membershipBeforeToRestore(
+            resolutionMetadata.membershipBefore,
+          );
+          const restoreResult =
+            restore.kind === "exit"
+              ? await writeMembershipExit(tx, currentMembership!, restore.exit)
+              : await writeMembershipLeavingActive(
+                  tx,
+                  currentMembership!,
+                  restore.data,
+                );
+          if (restoreResult.kind !== "written") {
+            return { kind: "membership_diverged" as const };
+          }
+          const updatedMembership = restoreResult.membership;
 
           if (voterRecord && compensatingAction != null) {
             await logAuditEventOrThrow(
@@ -171,7 +194,10 @@ async function undoCommitteeDiscrepancyHandler(
               beforeSnapshot,
               snapshotMembershipAfter(updatedMembership),
               mergeAuditMetadata(
-                { source: "discrepancy_undo" },
+                {
+                  source: "discrepancy_undo",
+                  ...supersededExitReportMetadata(restoreResult),
+                },
                 buildMembershipAuditSubject({
                   voterRecord,
                   committee: discrepancy.committee,

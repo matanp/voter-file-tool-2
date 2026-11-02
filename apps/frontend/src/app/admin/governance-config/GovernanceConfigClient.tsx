@@ -17,14 +17,18 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Textarea } from "~/components/ui/textarea";
 import { useToast } from "~/components/ui/use-toast";
 import { useApiQuery } from "~/hooks/useApiQuery";
+import { EXIT_REPORT_INSTRUCTIONS_MAX } from "~/lib/validations/governanceConfig";
 
 type GovernanceConfigApiPayload = {
   requiredPartyCode: string;
   maxSeatsPerLted: number;
   requireAssemblyDistrictMatch: boolean;
   nonOverridableIneligibilityReasons: IneligibilityReason[];
+  /** Shown to Leaders before they report a resignation or removal. */
+  exitReportInstructions: string | null;
   updatedAt: string;
 };
 
@@ -109,6 +113,16 @@ function buildDiff(
     );
   }
 
+  const instructionsBefore = (original.exitReportInstructions ?? "").trim();
+  const instructionsAfter = (draft.exitReportInstructions ?? "").trim();
+  if (instructionsBefore !== instructionsAfter) {
+    diff.push(
+      instructionsAfter
+        ? "Exit report instructions: updated"
+        : "Exit report instructions: cleared",
+    );
+  }
+
   return diff;
 }
 
@@ -120,6 +134,18 @@ function PendingDiffList({ items }: { items: string[] }) {
       ))}
     </ul>
   );
+}
+
+function draftFrom(config: GovernanceConfigApiPayload): GovernanceConfigUpdatePayload {
+  return {
+    requiredPartyCode: config.requiredPartyCode,
+    maxSeatsPerLted: config.maxSeatsPerLted,
+    requireAssemblyDistrictMatch: config.requireAssemblyDistrictMatch,
+    nonOverridableIneligibilityReasons: [
+      ...config.nonOverridableIneligibilityReasons,
+    ],
+    exitReportInstructions: config.exitReportInstructions ?? "",
+  };
 }
 
 export function GovernanceConfigClient() {
@@ -136,14 +162,7 @@ export function GovernanceConfigClient() {
   useEffect(() => {
     if (!query.data) return;
     setOriginal(query.data.config);
-    setDraft({
-      requiredPartyCode: query.data.config.requiredPartyCode,
-      maxSeatsPerLted: query.data.config.maxSeatsPerLted,
-      requireAssemblyDistrictMatch: query.data.config.requireAssemblyDistrictMatch,
-      nonOverridableIneligibilityReasons: [
-        ...query.data.config.nonOverridableIneligibilityReasons,
-      ],
-    });
+    setDraft(draftFrom(query.data.config));
     setFieldErrors({});
     setSaveError(null);
     setShowConfirm(false);
@@ -206,14 +225,7 @@ export function GovernanceConfigClient() {
 
       const successBody = body as GovernanceConfigResponse;
       setOriginal(successBody.config);
-      setDraft({
-        requiredPartyCode: successBody.config.requiredPartyCode,
-        maxSeatsPerLted: successBody.config.maxSeatsPerLted,
-        requireAssemblyDistrictMatch: successBody.config.requireAssemblyDistrictMatch,
-        nonOverridableIneligibilityReasons: [
-          ...successBody.config.nonOverridableIneligibilityReasons,
-        ],
-      });
+      setDraft(draftFrom(successBody.config));
       setShowConfirm(false);
       toast({ title: "Governance config saved" });
     } catch (error) {
@@ -371,6 +383,39 @@ export function GovernanceConfigClient() {
                 )}
               </div>
               {fieldErrors.nonOverridableIneligibilityReasons?.map((message) => (
+                <p
+                  key={message}
+                  className="text-sm text-destructive"
+                  role="alert"
+                >
+                  {message}
+                </p>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="exitReportInstructions">
+                Exit report instructions for Leaders
+              </Label>
+              <p id="exitReportInstructions-hint" className="text-sm text-muted-foreground">
+                Shown before a Leader reports a resignation or removal, e.g. where
+                to send the resignation letter. Plain text; email addresses and
+                links become clickable. Leave blank to show nothing.
+              </p>
+              <Textarea
+                id="exitReportInstructions"
+                aria-describedby="exitReportInstructions-hint"
+                rows={4}
+                maxLength={EXIT_REPORT_INSTRUCTIONS_MAX}
+                value={draft.exitReportInstructions ?? ""}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    exitReportInstructions: event.target.value,
+                  })
+                }
+              />
+              {fieldErrors.exitReportInstructions?.map((message) => (
                 <p
                   key={message}
                   className="text-sm text-destructive"

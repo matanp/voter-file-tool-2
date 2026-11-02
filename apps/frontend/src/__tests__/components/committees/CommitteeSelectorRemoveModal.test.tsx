@@ -11,6 +11,8 @@
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+import { chooseSelectOption } from "~/__tests__/utils/chooseSelectOption";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import CommitteeSelector from "~/app/committees/CommitteeSelector";
 import { GlobalContext } from "~/components/providers/GlobalContext";
@@ -163,7 +165,7 @@ describe("CommitteeSelector Remove Member dialog (SRS 2.5)", () => {
     const remove = within(dialog).getByRole("button", { name: "Remove member" });
     expect(remove).toBeDisabled();
 
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Reason for removal/), "OTHER");
+    await chooseSelectOption(within(dialog).getByLabelText(/Reason for removal/), "Other");
     expect(remove).toBeDisabled();
     await userEvent.type(within(dialog).getByLabelText("Notes (required)"), "Stepped down");
     await userEvent.click(remove);
@@ -186,7 +188,7 @@ describe("CommitteeSelector Remove Member dialog (SRS 2.5)", () => {
 });
 
 describe("CommitteeSelector Record Resignation dialog (SRS 2.3)", () => {
-  it("requires date, method and reason, then posts a RESIGN body", async () => {
+  it("requires date and method, asks no reason, then posts a RESIGN body", async () => {
     const fetchMock = installFetch();
     await openAdminDetail();
 
@@ -197,7 +199,7 @@ describe("CommitteeSelector Record Resignation dialog (SRS 2.3)", () => {
 
     await userEvent.type(within(dialog).getByLabelText(/Date resignation received/), "2026-10-01");
     await userEvent.click(within(dialog).getByRole("radio", { name: "Email" }));
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Reason for resignation/), "DECEASED");
+    expect(within(dialog).queryByLabelText(/Reason/)).not.toBeInTheDocument();
     await userEvent.click(record);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -209,7 +211,6 @@ describe("CommitteeSelector Record Resignation dialog (SRS 2.3)", () => {
       action: "RESIGN",
       resignationDateReceived: "2026-10-01",
       resignationMethod: "EMAIL",
-      resignationReason: "DECEASED",
     });
   });
 });

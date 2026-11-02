@@ -125,6 +125,14 @@ function mockMembership(overrides: {
   petitionSeatNumber?: number | null;
   petitionPrimaryDate?: Date | null;
   petitionVoteCount?: number | null;
+  exitReportedAt?: Date | null;
+  exitReportedKind?: "RESIGNATION" | "REMOVAL" | null;
+  exitReportedById?: string | null;
+  exitReportedByName?: string | null;
+  removalReason?: string | null;
+  removalNotes?: string | null;
+  resignationDateReceived?: Date | null;
+  resignationMethod?: string | null;
 }) {
   return {
     id: overrides.id,
@@ -147,6 +155,17 @@ function mockMembership(overrides: {
     petitionSeatNumber: overrides.petitionSeatNumber ?? null,
     petitionPrimaryDate: overrides.petitionPrimaryDate ?? null,
     petitionVoteCount: overrides.petitionVoteCount ?? null,
+    exitReportedAt: overrides.exitReportedAt ?? null,
+    exitReportedKind: overrides.exitReportedKind ?? null,
+    exitReportedById: overrides.exitReportedById ?? null,
+    exitReportedBy:
+      overrides.exitReportedById != null
+        ? { id: overrides.exitReportedById, name: overrides.exitReportedByName ?? null }
+        : null,
+    removalReason: overrides.removalReason ?? null,
+    removalNotes: overrides.removalNotes ?? null,
+    resignationDateReceived: overrides.resignationDateReceived ?? null,
+    resignationMethod: overrides.resignationMethod ?? null,
     voterRecord: mockVoter(overrides),
   };
 }
@@ -206,6 +225,13 @@ function mockCommitteeWithMemberships(
           memberships.filter((m) => m.status === "SUBMITTED"),
         );
       }
+      if (args.where?.exitReportedAt !== undefined) {
+        return Promise.resolve(
+          memberships.filter(
+            (m) => m.status === "ACTIVE" && m.exitReportedAt != null,
+          ),
+        );
+      }
       if (args.where?.membershipType === "PETITIONED") {
         return Promise.resolve(
           memberships.filter(
@@ -242,6 +268,7 @@ function mockAuditRow(overrides: {
     entityId: overrides.entityId,
     timestamp: overrides.timestamp ?? new Date("2025-06-01T12:00:00.000Z"),
     userRole: overrides.userRole ?? PrivilegeLevel.Admin,
+    beforeValue: null as Record<string, unknown> | null,
     afterValue: overrides.afterValue ?? null,
     metadata: overrides.metadata ?? null,
     user: { name: overrides.userName ?? "Staff Member" },
@@ -830,6 +857,116 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
     });
   });
 
+  describe("pending Exit Reports", () => {
+    const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
+    const seedReported = () => {
+      const reported = mockMembership({
+        id: "m-reported",
+        VRCNUM: "V-REP",
+        firstName: "Rita",
+        lastName: "Reported",
+        status: "ACTIVE",
+        seatNumber: 1,
+        exitReportedAt: REPORTED_AT,
+        exitReportedKind: "RESIGNATION",
+        exitReportedById: LEADER_USER_ID,
+        exitReportedByName: "Lee Leader",
+        removalReason: "OTHER",
+        removalNotes: "Moving to Ohio",
+        resignationDateReceived: new Date("2026-10-29T00:00:00.000Z"),
+        resignationMethod: "EMAIL",
+      });
+      const plain = mockMembership({ id: "m-plain", VRCNUM: "V-PLAIN", seatNumber: 2 });
+      mockCommitteeWithMemberships(
+        mockCommittee({ memberships: [reported, plain] }),
+        [reported, plain],
+      );
+    };
+
+    it("lists the report for a Leader without the Admin-only details, and flags the roster row", async () => {
+      leaderSession();
+      leaderJurisdictions([{ cityTown: "Test City", legDistrict: 1 }]);
+      seedReported();
+
+      const body = await getDetail();
+
+      expect(body.pendingExitReports).toEqual([
+        {
+          membershipId: "m-reported",
+          voterRecordId: "V-REP",
+          firstName: "Rita",
+          lastName: "Reported",
+          seatNumber: 1,
+          kind: "RESIGNATION",
+          reportedAt: REPORTED_AT.toISOString(),
+          isOwnReport: true,
+        },
+      ]);
+      const rows = body.rows.filter((r) => r.occupant !== null);
+      expect(rows.map((r) => [r.occupant?.VRCNUM, r.occupant?.pendingExitReport])).toEqual([
+        ["V-REP", { kind: "RESIGNATION", reportedAt: REPORTED_AT.toISOString() }],
+        ["V-PLAIN", undefined],
+      ]);
+      // Still seated and counted, and counted as pending.
+      expect(body.rollup.filled).toBe(2);
+      expect(body.rollup.pendingCount).toBe(1);
+      const query = membershipFindManyCalls().find(
+        (c) => c.where?.exitReportedAt !== undefined,
+      );
+      expect(query?.where).toEqual({
+        committeeListId: 1,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        status: "ACTIVE",
+        exitReportedAt: { not: null },
+      });
+    });
+
+    it("counts a pending Exit Report and a Submission as two pending items", async () => {
+      adminSession();
+      const reported = mockMembership({
+        id: "m-reported",
+        VRCNUM: "V-REP",
+        status: "ACTIVE",
+        seatNumber: 1,
+        exitReportedAt: REPORTED_AT,
+        exitReportedKind: "REMOVAL",
+        exitReportedById: LEADER_USER_ID,
+        removalReason: "OTHER",
+      });
+      const submitted = mockMembership({
+        id: "m-submitted",
+        VRCNUM: "V-SUB",
+        status: "SUBMITTED",
+      });
+      mockCommitteeWithMemberships(
+        mockCommittee({ memberships: [reported] }),
+        [reported, submitted],
+      );
+
+      const body = await getDetail();
+
+      expect(body.pending).toHaveLength(1);
+      expect(body.pendingExitReports).toHaveLength(1);
+      expect(body.rollup.pendingCount).toBe(2);
+    });
+
+    it("adds the reporter, reason, notes and resignation details for Admin", async () => {
+      adminSession();
+      seedReported();
+
+      const body = await getDetail();
+
+      expect(body.pendingExitReports[0]).toMatchObject({
+        isOwnReport: false,
+        reportedBy: { id: LEADER_USER_ID, name: "Lee Leader" },
+        removalReason: "OTHER",
+        removalNotes: "Moving to Ohio",
+        resignationDateReceived: "2026-10-29T00:00:00.000Z",
+        resignationMethod: "EMAIL",
+      });
+    });
+  });
+
   // -------------------------------------------------------------------------
   // PII
   // -------------------------------------------------------------------------
@@ -1180,6 +1317,8 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
                 "MEMBER_ACTIVATED",
                 "MEMBER_RESIGNED",
                 "MEMBER_REMOVED",
+                "MEMBER_EXIT_REPORTED",
+                "MEMBER_EXIT_REPORT_REJECTED",
                 "PETITION_RECORDED",
               ],
             },
@@ -1473,6 +1612,72 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
       ]);
       const [activated] = eventsOfKind(body, "activated");
       expect(activated).toMatchObject({ overrideReason: "Chair approved" });
+    });
+
+    it("shows exit reports, rejections and confirmations, with reasons Admin-only", async () => {
+      const a = member("m-a", "V-A", 1);
+      const rows = [
+        mockAuditRow({
+          id: "a-3",
+          action: "MEMBER_RESIGNED",
+          entityId: a.id,
+          afterValue: { status: "RESIGNED", removalReason: "OTHER" },
+          metadata: { source: "exit_report", reportedById: "leader-1" },
+        }),
+        {
+          ...mockAuditRow({
+            id: "a-2",
+            action: "MEMBER_EXIT_REPORT_REJECTED",
+            entityId: a.id,
+            afterValue: { status: "ACTIVE" },
+            metadata: { rejectionNote: "No letter received" },
+          }),
+          beforeValue: { status: "ACTIVE", exitReportedKind: "REMOVAL" },
+        },
+        mockAuditRow({
+          id: "a-1",
+          action: "MEMBER_EXIT_REPORTED",
+          entityId: a.id,
+          userRole: PrivilegeLevel.Leader,
+          afterValue: {
+            status: "ACTIVE",
+            exitReportedKind: "REMOVAL",
+            removalReason: "DECEASED",
+            removalNotes: "Obituary in the paper",
+          },
+        }),
+      ];
+
+      adminSession();
+      mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
+      serveAuditRows(rows);
+      const admin = await getDetail();
+      expect(admin.history.events).toMatchObject([
+        { kind: "resigned", source: "exit_report" },
+        { kind: "exit_report_rejected", exitKind: "REMOVAL", rejectionNote: "No letter received" },
+        {
+          kind: "exit_reported",
+          exitKind: "REMOVAL",
+          reason: "DECEASED",
+          notes: "Obituary in the paper",
+          actor: { role: PrivilegeLevel.Leader },
+        },
+      ]);
+
+      jest.clearAllMocks();
+      leaderSession();
+      leaderJurisdictions([{ cityTown: "Test City", legDistrict: 1 }]);
+      mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
+      serveAuditRows(rows);
+      const leader = await getDetail();
+      const [rejected] = eventsOfKind(leader, "exit_report_rejected");
+      const [reported] = eventsOfKind(leader, "exit_reported");
+      expect(rejected).toMatchObject({ exitKind: "REMOVAL" });
+      expect(reported).toMatchObject({ exitKind: "REMOVAL" });
+      const serialized = JSON.stringify(leader);
+      for (const adminOnly of ["No letter received", "DECEASED", "Obituary in the paper"]) {
+        expect(serialized).not.toContain(adminOnly);
+      }
     });
 
     it("marks an undo-compensated petition outcome as reversed and derives the outcome from status", async () => {

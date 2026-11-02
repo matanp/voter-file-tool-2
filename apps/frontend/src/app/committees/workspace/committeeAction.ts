@@ -27,6 +27,8 @@ export type CandidateCommitteeRef = CommitteeRef & {
  *   target, submitted through `requestAdd`. Not offered to Admin until an
  *   atomic replace command exists (plan §8 "Replacement in v1").
  * - `remove-member`, `record-resignation`: Admin only (ticket 14).
+ * - `report-exit`: Leader/RequestAccess report that the occupant resigned or
+ *   should be removed, for Admin review (leader-feedback-2026-11 ticket 01).
  * - `view-voter-details`: read-only; shows the occupant's voter record.
  */
 export type CommitteeAction =
@@ -34,6 +36,7 @@ export type CommitteeAction =
   | { kind: "replace-member"; committee: CandidateCommitteeRef; memberId: string }
   | { kind: "remove-member"; committee: CommitteeRef; memberId: string }
   | { kind: "record-resignation"; committee: CommitteeRef; memberId: string }
+  | { kind: "report-exit"; committee: CommitteeRef; memberId: string }
   | { kind: "view-voter-details"; committee: CommitteeRef; memberId: string };
 
 export type CommitteeActionKind = CommitteeAction["kind"];

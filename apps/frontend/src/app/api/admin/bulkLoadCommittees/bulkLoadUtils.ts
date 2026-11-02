@@ -29,6 +29,13 @@ import {
   assignNextAvailableSeat,
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
+import {
+  CLEARED_EXIT_FIELDS,
+  EXIT_REPORT_STATE_SELECT,
+  type ExitReportState,
+  supersededExitReportMetadata,
+  writeMembershipExit,
+} from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow, SYSTEM_USER_ID } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
@@ -702,19 +709,24 @@ function assertWithinCapacity(plan: ImportPlan): void {
 async function removeMembershipForSync(
   tx: Prisma.TransactionClient,
   actor: BulkLoadActor,
-  membership: { id: string; voterRecordId: string },
+  membership: ExitReportState & { voterRecordId: string },
   context: { committeeId: number; subject: AuditMembershipSubject },
 ): Promise<void> {
-  await tx.committeeMembership.update({
-    where: { id: membership.id },
-    data: {
-      status: "REMOVED",
-      removedAt: new Date(),
-      removalReason: "OTHER",
-      removalNotes: "Removed by bulk import synchronization",
-      seatNumber: null,
-    },
+  const exitResult = await writeMembershipExit(tx, membership, {
+    status: "REMOVED",
+    resignationDateReceived: null,
+    resignationMethod: null,
+    removalReason: "OTHER",
+    removalNotes: "Removed by bulk import synchronization",
+    extra: { seatNumber: null },
   });
+  if (exitResult.kind !== "written") {
+    // The helper supersedes a report filed mid-import, so this means the member
+    // left ACTIVE under the import's committee lock. Roll the committee back.
+    throw new Error(
+      `Membership ${membership.id} changed during bulk import synchronization`,
+    );
+  }
   await logAuditEventOrThrow(
     actor.userId,
     actor.userRole,
@@ -728,6 +740,7 @@ async function removeMembershipForSync(
         source: "bulk_import_sync",
         reason: "not_in_import_file",
         committeeId: context.committeeId,
+        ...supersededExitReportMetadata(exitResult),
       },
       context.subject,
     ),
@@ -877,6 +890,10 @@ async function activateMember(
     // its member won the seat keeps that, and only an untyped one takes the file's.
     const membershipType: MembershipType =
       existingMembership.membershipType ?? plannedMembershipType;
+    // An import says the member is on the file, not that they haven't resigned:
+    // an already-ACTIVE row keeps its exit and Exit Report fields (a pending
+    // report stays pending). Only reactivation from another status clears them.
+    const reactivating = existingMembership.status !== ACTIVE_MEMBERSHIP_STATUS;
     try {
       await tx.committeeMembership.update({
         where: { id: existingMembership.id },
@@ -890,10 +907,7 @@ async function activateMember(
           removedAt: null,
           rejectedAt: null,
           rejectionNote: null,
-          resignationDateReceived: null,
-          resignationMethod: null,
-          removalReason: null,
-          removalNotes: null,
+          ...(reactivating ? CLEARED_EXIT_FIELDS : {}),
           petitionVoteCount: null,
           petitionPrimaryDate: null,
         },
@@ -1005,7 +1019,7 @@ async function removeStaleMembers(
       termId: term.id,
       status: ACTIVE_MEMBERSHIP_STATUS,
     },
-    select: { id: true, voterRecordId: true },
+    select: { ...EXIT_REPORT_STATE_SELECT, voterRecordId: true },
   });
   const stale = activeMemberships.filter(
     (membership) =>
@@ -1233,10 +1247,7 @@ export async function applyRosterImport(
                 termId: activeTermId,
                 status: ACTIVE_MEMBERSHIP_STATUS,
               },
-              select: {
-                id: true,
-                voterRecordId: true,
-              },
+              select: { ...EXIT_REPORT_STATE_SELECT, voterRecordId: true },
             });
 
           const voterIdsForCommittee = Array.from(
@@ -1294,7 +1305,7 @@ export async function applyRosterImport(
                   },
                   status: ACTIVE_MEMBERSHIP_STATUS,
                 },
-                select: { id: true, voterRecordId: true },
+                select: { ...EXIT_REPORT_STATE_SELECT, voterRecordId: true },
               })
             : [];
           const activeMovedMembershipById = new Map(

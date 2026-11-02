@@ -24,6 +24,7 @@ import type {
   PrivilegeLevel,
 } from "@prisma/client";
 import {
+  ExitReportKind,
   MembershipType,
   RemovalReason,
   ResignationMethod,
@@ -45,6 +46,8 @@ export const MEMBERSHIP_HISTORY_ACTIONS = [
   "MEMBER_ACTIVATED",
   "MEMBER_RESIGNED",
   "MEMBER_REMOVED",
+  "MEMBER_EXIT_REPORTED",
+  "MEMBER_EXIT_REPORT_REJECTED",
   "PETITION_RECORDED",
 ] as const satisfies readonly AuditAction[];
 
@@ -88,6 +91,8 @@ const auditMetadataSchema = z
     seatNumber: optionalNullableInt,
     primaryDate: optionalString,
     voteCount: optionalNullableInt,
+    /** MEMBER_EXIT_REPORT_REJECTED */
+    rejectionNote: optionalString,
     subject: auditSubjectSchema,
   })
   .catch({ subject: {} });
@@ -111,6 +116,14 @@ const afterValueSchema = z
     resignationReason: z.nativeEnum(RemovalReason).optional().catch(undefined),
     removalReason: z.nativeEnum(RemovalReason).optional().catch(undefined),
     removalNotes: optionalString,
+    exitReportedKind: z.nativeEnum(ExitReportKind).optional().catch(undefined),
+  })
+  .catch({});
+
+/** MEMBER_EXIT_REPORT_REJECTED keeps the rejected report's kind in its before-value. */
+const beforeValueSchema = z
+  .object({
+    exitReportedKind: z.nativeEnum(ExitReportKind).optional().catch(undefined),
   })
   .catch({});
 
@@ -122,6 +135,7 @@ export type HistoryAuditRow = {
   entityId: string;
   timestamp: Date;
   userRole: PrivilegeLevel;
+  beforeValue: Prisma.JsonValue | null;
   afterValue: Prisma.JsonValue | null;
   metadata: Prisma.JsonValue | null;
   user: { name: string | null } | null;
@@ -376,6 +390,25 @@ export function buildHistoryEvents(
         });
         break;
       }
+      case "MEMBER_EXIT_REPORTED":
+        if (after.exitReportedKind === undefined) break; // nothing to say
+        events.push({
+          ...base,
+          kind: "exit_reported",
+          exitKind: after.exitReportedKind,
+          reason: adminOnly(isAdmin, after.removalReason),
+          notes: adminOnly(isAdmin, after.removalNotes),
+        });
+        break;
+      case "MEMBER_EXIT_REPORT_REJECTED":
+        events.push({
+          ...base,
+          kind: "exit_report_rejected",
+          exitKind: beforeValueSchema.parse(row.beforeValue ?? {})
+            .exitReportedKind,
+          rejectionNote: adminOnly(isAdmin, metadata.rejectionNote),
+        });
+        break;
       case "PETITION_RECORDED": {
         // POLICY: petition outcomes are Admin-only (see the activated case).
         if (!isAdmin) break;
@@ -477,6 +510,7 @@ export async function loadMembershipHistory(
         entityId: true,
         timestamp: true,
         userRole: true,
+        beforeValue: true,
         afterValue: true,
         metadata: true,
         user: { select: { name: true } },

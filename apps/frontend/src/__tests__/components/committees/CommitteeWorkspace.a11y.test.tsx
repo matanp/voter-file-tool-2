@@ -176,6 +176,7 @@ function detailFor(r: EdRollup): CommitteeDetailResponse {
       missingWeightSeatNumbers: r.missingWeightSeatNumbers,
     },
     pending: [],
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
   };
 }

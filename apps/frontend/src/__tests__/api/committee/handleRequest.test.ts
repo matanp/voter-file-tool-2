@@ -1,5 +1,5 @@
 import { POST } from "~/app/api/committee/handleRequest/route";
-import { Prisma, PrivilegeLevel } from "@prisma/client";
+import { Prisma, PrivilegeLevel, type MembershipStatus } from "@prisma/client";
 import {
   createMockSession,
   createMockRequest,
@@ -8,6 +8,7 @@ import {
   createMockGovernanceConfig,
   createMockMembership,
   expectMembershipUpdate,
+  expectMembershipExitWrite,
   expectMembershipUpdateMany,
   expectAuditLogCreate,
   expectAnyDate,
@@ -163,13 +164,10 @@ describe("/api/committee/handleRequest", () => {
         200,
       );
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          {
-            status: "REMOVED",
-            removalReason: "OTHER",
-          },
-          { id: "membership-target-id-002" },
-        ),
+        expectMembershipExitWrite("membership-target-id-002", {
+          status: "REMOVED",
+          removalReason: "OTHER",
+        }),
       );
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
         expectMembershipUpdate(
@@ -223,13 +221,10 @@ describe("/api/committee/handleRequest", () => {
 
       await expectErrorResponse(response, 500, "Internal server error");
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          {
-            status: "REMOVED",
-            removalReason: "OTHER",
-          },
-          { id: "membership-target-id-002" },
-        ),
+        expectMembershipExitWrite("membership-target-id-002", {
+          status: "REMOVED",
+          removalReason: "OTHER",
+        }),
       );
       expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalledWith(
         expectMembershipUpdate(
@@ -327,13 +322,10 @@ describe("/api/committee/handleRequest", () => {
       );
       // Should remove the replacement target
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          {
-            status: "REMOVED",
-            removalReason: "OTHER",
-          },
-          { id: "membership-target-id-002" },
-        ),
+        expectMembershipExitWrite("membership-target-id-002", {
+          status: "REMOVED",
+          removalReason: "OTHER",
+        }),
       );
       // Should activate the new member
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
@@ -569,7 +561,7 @@ describe("/api/committee/handleRequest", () => {
           const updated = {
             ...existing,
             ...args.data,
-            status: (args.data.status as string | undefined) ?? existing.status,
+            status: (args.data.status as MembershipStatus | undefined) ?? existing.status,
             seatNumber:
               (args.data.seatNumber as number | null | undefined) ??
               existing.seatNumber,

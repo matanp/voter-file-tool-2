@@ -20,12 +20,12 @@ import {
 } from "~/app/api/lib/withPrivilege";
 import {
   ACTIVE_MEMBERSHIP_STATUS,
-  PENDING_MEMBERSHIP_STATUS,
   getActiveTermId,
   getGovernanceConfig,
   getUserJurisdictions,
   buildJurisdictionWhere,
 } from "~/app/api/lib/committeeValidation";
+import { pendingItemsWhere } from "~/app/api/lib/pendingExitReports";
 import {
   buildEdRollups,
   buildSeatRosterRows,
@@ -170,12 +170,7 @@ async function getRoster(req: NextRequest, session: SessionWithUser) {
           },
           _count: {
             select: {
-              memberships: {
-                where: {
-                  status: PENDING_MEMBERSHIP_STATUS,
-                  termId: activeTermId,
-                },
-              },
+              memberships: { where: pendingItemsWhere(activeTermId) },
             },
           },
         },

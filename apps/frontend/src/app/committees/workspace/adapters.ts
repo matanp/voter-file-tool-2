@@ -11,6 +11,7 @@
  */
 import {
   PrivilegeLevel,
+  type ExitReportKind,
   type MembershipType,
   type RemovalReason,
   type ResignationMethod,
@@ -28,11 +29,16 @@ import {
 import type { EligibilityWarning } from "~/lib/eligibility";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
 import { hasPermissionFor } from "~/lib/utils";
-import type {
-  committeeDataSchema,
-  committeeRequestDataSchema,
-  removeCommitteeDataSchema,
-  resignCommitteeDataSchema,
+import {
+  exitInstructionsResponseSchema,
+  type committeeDataSchema,
+  type committeeRequestDataSchema,
+  type PendingExitReport,
+  type confirmExitReportSchema,
+  type rejectExitReportSchema,
+  type removeCommitteeDataSchema,
+  type reportExitDataSchema,
+  type resignCommitteeDataSchema,
 } from "~/lib/validations/committee";
 import {
   hasLegDistrict,
@@ -338,10 +344,10 @@ export type ResignationAction = Extract<CommitteeAction, { kind: "record-resigna
 
 /** Form state; `""` is "not chosen yet". */
 export type RemovalInput = { reason: RemovalReason | ""; notes: string };
+/** A resignation has no reason (SRS §5, §6.5); notes can say why. */
 export type ResignationInput = {
   dateReceived: string;
   method: ResignationMethod | "";
-  reason: RemovalReason | "";
   notes: string;
 };
 
@@ -358,23 +364,24 @@ export function removalProblems(input: RemovalInput): string[] {
 }
 
 /**
- * What still blocks recording a resignation (SRS 2.3): the received date, the
- * method, a reason, and notes for **Other** (`resignCommitteeDataSchema`).
+ * What still blocks recording a resignation (SRS 2.3 / §6.5): the received
+ * date and the method (`resignCommitteeDataSchema`).
  */
-export function resignationProblems(input: ResignationInput): string[] {
+export function resignationProblems(
+  input: Pick<ResignationInput, "dateReceived" | "method">,
+): string[] {
   const problems: string[] = [];
   if (input.dateReceived.trim() === "") {
     problems.push("Enter the date the resignation was received.");
   }
   if (input.method === "") problems.push("Choose how it was received.");
-  problems.push(...removalProblems(input));
   return problems;
 }
 
 type RemoveBody = z.input<typeof removeCommitteeDataSchema>;
 type ResignBody = z.input<typeof resignCommitteeDataSchema>;
 
-function memberKey(action: RemovalAction | ResignationAction) {
+function memberKey(action: Pick<CommitteeAction & { memberId: string }, "committee" | "memberId">) {
   return {
     cityTown: action.committee.cityTown,
     ...legDistrictParam(action.committee),
@@ -385,7 +392,7 @@ function memberKey(action: RemovalAction | ResignationAction) {
 
 /** Administrative removal (Admin-only endpoint). Call once `removalProblems` is empty. */
 export async function submitRemoval(
-  action: RemovalAction,
+  action: Pick<RemovalAction, "committee" | "memberId">,
   input: RemovalInput,
 ): Promise<ActionOutcome> {
   if (input.reason === "") return { ok: false, kind: "error", message: "Choose a reason." };
@@ -400,10 +407,10 @@ export async function submitRemoval(
 
 /** Records a resignation (`action: "RESIGN"` on the remove endpoint). */
 export async function submitResignation(
-  action: ResignationAction,
+  action: Pick<ResignationAction, "committee" | "memberId">,
   input: ResignationInput,
 ): Promise<ActionOutcome> {
-  if (input.reason === "" || input.method === "") {
+  if (input.method === "") {
     return { ok: false, kind: "error", message: resignationProblems(input).join(" ") };
   }
   const body: ResignBody = {
@@ -411,11 +418,167 @@ export async function submitResignation(
     action: "RESIGN",
     resignationDateReceived: input.dateReceived.trim(),
     resignationMethod: input.method,
-    resignationReason: input.reason,
     ...trimmedOrOmit("removalNotes", input.notes),
   };
   const result = await postJson("/api/committee/remove", body);
   return result.ok ? { ok: true, message: "Resignation recorded successfully" } : result;
+}
+
+// --- Exit Reports (leader-feedback-2026-11 ticket 01) ---------------------------------
+
+export type ExitReportAction = Extract<CommitteeAction, { kind: "report-exit" }>;
+
+/**
+ * A Leader's Exit Report form. The Admin confirms it as reported, so a
+ * resignation needs the date received and method, and a removal needs a
+ * reason (notes for Other). Fields for the other kind are kept while the
+ * Leader switches but never sent.
+ */
+export type ExitReportInput = {
+  kind: ExitReportKind | "";
+  reason: RemovalReason | "";
+  notes: string;
+  dateReceived: string;
+  method: ResignationMethod | "";
+};
+
+/** What still blocks an Exit Report (`reportExitDataSchema`), by kind. */
+export function exitReportProblems(input: ExitReportInput): string[] {
+  switch (input.kind) {
+    case "":
+      return ["Choose resignation or removal."];
+    case "RESIGNATION":
+      return resignationProblems(input);
+    case "REMOVAL":
+      return removalProblems(input);
+  }
+}
+
+type ReportExitBody = z.input<typeof reportExitDataSchema>;
+
+/** Files the report (RequestAccess+). Call once `exitReportProblems` is empty. */
+export async function submitExitReport(
+  action: ExitReportAction,
+  input: ExitReportInput,
+): Promise<ActionOutcome> {
+  const { kind, reason, method } = input;
+  const problems = exitReportProblems(input);
+  if (problems.length > 0 || kind === "") {
+    return { ok: false, kind: "error", message: problems.join(" ") };
+  }
+  // Only the chosen kind's fields; the schema refuses the other kind's.
+  const byKind: Partial<ReportExitBody> =
+    kind === "RESIGNATION"
+      ? {
+          resignationDateReceived: input.dateReceived.trim(),
+          ...(method !== "" ? { resignationMethod: method } : {}),
+        }
+      : reason !== ""
+        ? { removalReason: reason }
+        : {};
+  const body: ReportExitBody = {
+    ...memberKey(action),
+    kind,
+    ...byKind,
+    ...trimmedOrOmit("removalNotes", input.notes),
+  };
+  const result = await postJson("/api/committee/exitReport", body);
+  return result.ok
+    ? {
+        ok: true,
+        message: "Reported for Admin review. The member stays on the committee until an Admin confirms it.",
+      }
+    : result;
+}
+
+/** Admin confirms the pending report it was shown, exactly as reported. */
+export async function confirmExitReport(
+  report: Pick<PendingExitReport, "membershipId" | "reportedAt" | "kind">,
+  note: string,
+): Promise<ActionOutcome> {
+  const body: z.input<typeof confirmExitReportSchema> = {
+    membershipId: report.membershipId,
+    exitReportedAt: report.reportedAt,
+    ...trimmedOrOmit("note", note),
+  };
+  const result = await postJson("/api/committee/exitReport/confirm", body);
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    message: report.kind === "RESIGNATION" ? "Resignation confirmed" : "Removal confirmed",
+  };
+}
+
+/** Admin rejects the pending report it was shown. */
+export async function rejectExitReport(
+  report: Pick<PendingExitReport, "membershipId" | "reportedAt">,
+  note: string,
+): Promise<ActionOutcome> {
+  const body: z.input<typeof rejectExitReportSchema> = {
+    membershipId: report.membershipId,
+    exitReportedAt: report.reportedAt,
+    ...trimmedOrOmit("note", note),
+  };
+  const result = await postJson("/api/committee/exitReport/reject", body);
+  return result.ok ? { ok: true, message: "Exit report rejected" } : result;
+}
+
+/** The Admin-set instructions shown before a Leader files a report; null when none. */
+export async function fetchExitInstructions(signal?: AbortSignal): Promise<string | null> {
+  const response = await fetch("/api/committee/exit-instructions", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  const body = await readJson(response);
+  if (!response.ok) throw new Error(errorMessage(body, "Could not load the instructions"));
+  return exitInstructionsResponseSchema.parse(body).text;
+}
+
+/**
+ * The last instructions loaded this session, so the dialog can show them at
+ * once while it refreshes. Only successful loads are kept: a failed request
+ * leaves the previous text (or nothing) and the next load tries again.
+ */
+let cachedInstructions: { text: string | null } | null = null;
+let instructionsInFlight: Promise<string | null> | null = null;
+/** Bumped by a reset so a load sent before it can't write into the cache. */
+let instructionsGeneration = 0;
+
+/** The cached instructions, or undefined when none have loaded yet. */
+export function cachedExitInstructions(): string | null | undefined {
+  return cachedInstructions ? cachedInstructions.text : undefined;
+}
+
+/**
+ * Loads the current instructions into the cache. A call made while a load is
+ * in flight joins it rather than sending a second request.
+ */
+export function loadExitInstructions(): Promise<string | null> {
+  if (instructionsInFlight) return instructionsInFlight;
+  const generation = instructionsGeneration;
+  const load = fetchExitInstructions()
+    .then((text) => {
+      if (generation === instructionsGeneration) cachedInstructions = { text };
+      return text;
+    })
+    .finally(() => {
+      if (instructionsInFlight === load) instructionsInFlight = null;
+    });
+  instructionsInFlight = load;
+  return load;
+}
+
+/** Starts loading the instructions ahead of the dialog; errors surface there. */
+export function prefetchExitInstructions(): void {
+  loadExitInstructions().catch(() => undefined);
+}
+
+/** Test seam: forget the cached instructions. */
+export function resetExitInstructionsCache(): void {
+  instructionsGeneration += 1;
+  cachedInstructions = null;
+  instructionsInFlight = null;
 }
 
 // --- Plumbing ----------------------------------------------------------------------

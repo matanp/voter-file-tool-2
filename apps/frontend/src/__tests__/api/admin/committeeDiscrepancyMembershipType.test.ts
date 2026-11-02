@@ -31,6 +31,7 @@ import {
   expectAuditLogCreate,
   expectMembershipCreate,
   expectMembershipUpdate,
+  expectMembershipExitWrite,
   firstCallArg,
   getAuditLogMock,
   getMembershipMock,
@@ -956,10 +957,10 @@ describe("membership type through discrepancy resolution", () => {
 
       expect(response.status).toBe(200);
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          { status: "REMOVED", seatNumber: null },
-          { id: "m-new" },
-        ),
+        expectMembershipExitWrite("m-new", {
+          status: "REMOVED",
+          seatNumber: null,
+        }),
       );
     });
 
@@ -1006,7 +1007,12 @@ describe("membership type through discrepancy resolution", () => {
         where: { id: string };
         data: Record<string, unknown>;
       }>(getMembershipMock(prismaMock).update);
-      expect(updateArgs.where).toEqual({ id: "m-untyped" });
+      // Conditional on the row still being the ACTIVE one the acceptance left.
+      expect(updateArgs.where).toEqual({
+        id: "m-untyped",
+        status: "ACTIVE",
+        exitReportedAt: null,
+      });
       expect(updateArgs.data).toEqual({
         status: "REMOVED",
         membershipType: null,
@@ -1023,6 +1029,9 @@ describe("membership type through discrepancy resolution", () => {
         removalNotes: "Left the district",
         petitionVoteCount: 42,
         petitionPrimaryDate: new Date("2024-06-25T00:00:00.000Z"),
+        exitReportedAt: null,
+        exitReportedById: null,
+        exitReportedKind: null,
       });
     });
   });

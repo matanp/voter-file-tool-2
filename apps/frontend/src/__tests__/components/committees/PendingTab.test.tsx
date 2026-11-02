@@ -15,8 +15,10 @@ import { hasPermissionFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import type {
   CommitteeDetailResponse,
+  PendingExitReport,
   PendingMembership,
 } from "~/lib/validations/committee";
+import { installFetchMock } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
@@ -37,11 +39,18 @@ const ADMIN_SUBMISSION: PendingMembership = {
   lastName: "Doe",
   submittedAt: "2026-03-02T15:00:00.000Z",
   isOwnSubmission: false,
-  replacementFor: { voterRecordId: "VR009", firstName: "Old", lastName: "Member" },
+  replacementFor: {
+    voterRecordId: "VR009",
+    firstName: "Old",
+    lastName: "Member",
+  },
   submittedBy: { id: "u-1", name: "Lee Leader" },
   requestNotes: "Met at the caucus",
   eligibilityWarnings: [
-    { code: "RECENT_RESIGNATION", message: "Resigned from a committee recently." },
+    {
+      code: "RECENT_RESIGNATION",
+      message: "Resigned from a committee recently.",
+    },
   ],
   contact: { email: null, phone: null },
 };
@@ -110,6 +119,7 @@ function detailWith(pending: PendingMembership[]): CommitteeDetailResponse {
       missingWeightSeatNumbers: [],
     },
     pending,
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
   };
 }
@@ -179,31 +189,23 @@ const decisionBodies = (fetchMock: jest.Mock) =>
     .filter(([input]) => String(input) === "/api/committee/handleRequest")
     .map(([, init]: [unknown, RequestInit]) => JSON.parse(String(init.body)) as unknown);
 
-function renderTab(
-  pending: PendingMembership[],
-  role: PrivilegeLevel = PrivilegeLevel.Admin,
-) {
+function renderTab(pending: PendingMembership[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
   const onRefresh = jest.fn();
   render(
-    <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
-    >
+    <GlobalContext.Provider value={{ actingPermissions: role, setActingPermissions: () => undefined }}>
       <PendingTab committeeId={2} detail={detailWith(pending)} onRefresh={onRefresh} />
     </GlobalContext.Provider>,
   );
   return { onRefresh };
 }
 
-const item = (name: string) =>
-  screen.getByRole("listitem", { name: new RegExp(name) });
+const item = (name: string) => screen.getByRole("listitem", { name: new RegExp(name) });
 
 beforeEach(() => {
   jest.clearAllMocks();
   jest
     .mocked(hasPermissionFor)
-    .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
-    );
+    .mockImplementation(jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor);
 });
 
 // --- Admin -----------------------------------------------------------------------
@@ -254,7 +256,9 @@ describe("PendingTab (Admin)", () => {
 
     await userEvent.click(within(item("Jane Doe")).getByRole("button", { name: "Reject Jane Doe" }));
 
-    const rejecting = within(item("Jane Doe")).getByRole("button", { name: "Rejecting Jane Doe" });
+    const rejecting = within(item("Jane Doe")).getByRole("button", {
+      name: "Rejecting Jane Doe",
+    });
     expect(rejecting).toBeDisabled();
     expect(within(item("Jane Doe")).getByRole("button", { name: "Accept Jane Doe" })).toBeDisabled();
     // Other submissions stay actionable.
@@ -265,9 +269,7 @@ describe("PendingTab (Admin)", () => {
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Rejected Jane Doe."));
     expect(onRefresh).toHaveBeenCalledTimes(1);
-    expect(decisionBodies(fetchMock)).toEqual([
-      { membershipId: "m-1", acceptOrReject: "reject" },
-    ]);
+    expect(decisionBodies(fetchMock)).toEqual([{ membershipId: "m-1", acceptOrReject: "reject" }]);
     // Until the refreshed detail drops it, the item cannot be decided again.
     expect(within(item("Jane Doe")).queryByRole("button")).not.toBeInTheDocument();
     expect(item("Jane Doe")).toHaveTextContent("Rejected. Updating…");
@@ -283,11 +285,11 @@ describe("PendingTab (Admin)", () => {
     await waitFor(() => expect(meeting).toBeEnabled());
     const confirm = screen.getByRole("button", { name: "Confirm accept" });
     expect(confirm).toBeDisabled();
-    expect(within(meeting).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "Choose a meeting…",
-      "May 1, 2026 · Executive committee",
-      "Mar 15, 2026 · Other meeting",
-    ]);
+    expect(
+      within(meeting)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["Choose a meeting…", "May 1, 2026 · Executive committee", "Mar 15, 2026 · Other meeting"]);
 
     await userEvent.selectOptions(meeting, "meet-1");
     await userEvent.click(confirm);
@@ -295,15 +297,17 @@ describe("PendingTab (Admin)", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Accepted Jane Doe."));
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(decisionBodies(fetchMock)).toEqual([
-      { membershipId: "m-1", acceptOrReject: "accept", meetingRecordId: "meet-1" },
+      {
+        membershipId: "m-1",
+        acceptOrReject: "accept",
+        meetingRecordId: "meet-1",
+      },
     ]);
     expect(fetchMock.mock.calls.filter(([u]) => String(u) === MEETINGS_URL)).toHaveLength(1);
   });
 
   it("shows the server's error on a failed reject and re-enables the controls", async () => {
-    serve(() =>
-      jsonResponse({ error: "This membership is not in a pending (SUBMITTED) state" }, 400),
-    );
+    serve(() => jsonResponse({ error: "This membership is not in a pending (SUBMITTED) state" }, 400));
     const { onRefresh } = renderTab([ADMIN_SUBMISSION]);
 
     await userEvent.click(screen.getByRole("button", { name: "Reject Jane Doe" }));
@@ -345,9 +349,7 @@ describe("PendingTab (Admin)", () => {
     renderTab([ADMIN_SUBMISSION]);
 
     await userEvent.click(screen.getByRole("button", { name: "Accept Jane Doe" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not load meetings (status 500)",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load meetings (status 500)");
     expect(screen.getByRole("button", { name: "Confirm accept" })).toBeDisabled();
 
     failMeetings = false;
@@ -383,5 +385,303 @@ describe("PendingTab (Leader)", () => {
     expect(jane).not.toHaveTextContent("Met at the caucus");
     expect(jane).not.toHaveTextContent("Resigned from a committee recently.");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});
+
+// --- Exit Reports ------------------------------------------------------------------
+
+const REPORTED_AT = "2026-10-30T15:04:05.678Z";
+
+const ADMIN_EXIT_REPORT: PendingExitReport = {
+  membershipId: "m-rep",
+  voterRecordId: "VR100",
+  firstName: "Rita",
+  lastName: "Reported",
+  seatNumber: 3,
+  kind: "RESIGNATION",
+  reportedAt: REPORTED_AT,
+  isOwnReport: false,
+  reportedBy: { id: "u-1", name: "Lee Leader" },
+  removalReason: null,
+  removalNotes: "Moving to Ohio",
+  resignationDateReceived: "2026-10-29T00:00:00.000Z",
+  resignationMethod: "EMAIL",
+};
+
+/** What a Leader receives: the Admin-only keys are absent. */
+const LEADER_EXIT_REPORT: PendingExitReport = {
+  membershipId: "m-rep",
+  voterRecordId: "VR100",
+  firstName: "Rita",
+  lastName: "Reported",
+  seatNumber: 3,
+  kind: "RESIGNATION",
+  reportedAt: REPORTED_AT,
+  isOwnReport: true,
+};
+
+function renderWithExitReports(reports: PendingExitReport[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
+  const onRefresh = jest.fn();
+  render(
+    <GlobalContext.Provider value={{ actingPermissions: role, setActingPermissions: () => undefined }}>
+      <PendingTab
+        committeeId={2}
+        detail={{ ...detailWith([]), pendingExitReports: reports }}
+        onRefresh={onRefresh}
+      />
+    </GlobalContext.Provider>,
+  );
+  return { onRefresh };
+}
+
+describe("PendingTab: reported exits", () => {
+  it("shows an Admin the report's details, with no reason on a resignation", () => {
+    serve();
+    renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    const rita = within(screen.getByRole("list", { name: "Reported exits" })).getByRole("listitem", {
+      name: /Rita Reported/,
+    });
+    expect(within(rita).getByText("Resignation")).toBeInTheDocument();
+    expect(rita).toHaveTextContent("Reported Oct 30, 2026 by Lee Leader");
+    expect(rita).not.toHaveTextContent("Reason:");
+    expect(rita).toHaveTextContent("Notes: Moving to Ohio");
+    expect(rita).toHaveTextContent("Received: Oct 29, 2026 by email");
+  });
+
+  it("shows a removal's reason", () => {
+    serve();
+    renderWithExitReports([
+      {
+        ...ADMIN_EXIT_REPORT,
+        kind: "REMOVAL",
+        removalReason: "DECEASED",
+        resignationDateReceived: null,
+        resignationMethod: null,
+      },
+    ]);
+    const rita = screen.getByRole("listitem", { name: /Rita Reported/ });
+    expect(within(rita).getByText("Removal")).toBeInTheDocument();
+    expect(rita).toHaveTextContent(/Reported Oct 30, 2026/);
+    expect(rita).toHaveTextContent("Reason: Deceased");
+  });
+
+  it("confirms exactly as reported after a second step, echoing the report the Admin saw", async () => {
+    const fetchMock = installFetchMock(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ success: true }),
+    );
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent(/Record this resignation exactly as reported\?/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm resignation" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/committee/exitReport/confirm",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      membershipId: "m-rep",
+      exitReportedAt: REPORTED_AT,
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Confirmed the resignation of Rita Reported.");
+  });
+
+  it("sends an optional confirmation note from the modal", async () => {
+    const fetchMock = installFetchMock(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ success: true }),
+    );
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "Letter on file");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm resignation" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      membershipId: "m-rep",
+      exitReportedAt: REPORTED_AT,
+      note: "Letter on file",
+    });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("shows the server's error on a failed confirm", async () => {
+    installFetchMock(async () =>
+      jsonResponse({ success: false, error: "This member changed, refresh." }, 409),
+    );
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm resignation" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Could not confirm: This member changed, refresh.",
+    );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("rejects with an optional note, echoing the report the Admin saw, then refreshes", async () => {
+    const fetchMock = installFetchMock(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ success: true }),
+    );
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Reject resignation report for Rita Reported",
+      }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent(/the Leader can report the resignation again/);
+    // The default (black) style shared with "Confirm resignation", not outline.
+    expect(within(dialog).getByRole("button", { name: "Yes, reject report" })).toHaveClass("bg-slate-900");
+    await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "No letter received");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Yes, reject report" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/committee/exitReport/reject",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      membershipId: "m-rep",
+      exitReportedAt: REPORTED_AT,
+      note: "No letter received",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Rejected the exit report for Rita Reported.");
+  });
+
+  it("shows the server's 409 when the report changed", async () => {
+    installFetchMock(async () =>
+      jsonResponse({ success: false, error: "This member changed, refresh." }, 409),
+    );
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Reject resignation report for Rita Reported",
+      }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Yes, reject report" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Could not reject: This member changed, refresh.",
+    );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Cancel", () => userEvent.click(screen.getByRole("button", { name: "Cancel" }))],
+    ["Escape", () => userEvent.keyboard("{Escape}")],
+  ])("closes on %s without sending anything, returning focus to the trigger", async (_label, dismiss) => {
+    const fetchMock = installFetchMock(async () => jsonResponse({ success: true }));
+    renderWithExitReports([ADMIN_EXIT_REPORT]);
+    const trigger = screen.getByRole("button", { name: "Confirm resignation of Rita Reported" });
+
+    await userEvent.click(trigger);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    await dismiss();
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("stays open and can't be dismissed while the request is in flight", async () => {
+    let respond: (r: Response) => void = () => undefined;
+    installFetchMock(() => new Promise<Response>((resolve) => (respond = resolve)));
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Reject resignation report for Rita Reported" }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Yes, reject report" }));
+
+    expect(within(dialog).getByRole("button", { name: "Rejecting…" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(within(dialog).getByLabelText("Note (optional)")).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+    respond(jsonResponse({ success: true }));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("starts each opening with an empty note, even when switching from confirm to reject", async () => {
+    installFetchMock(async () => jsonResponse({ success: true }));
+    renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    await userEvent.type(screen.getByLabelText("Note (optional)"), "Draft");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Reject resignation report for Rita Reported" }),
+    );
+    expect(screen.getByLabelText("Note (optional)")).toHaveValue("");
+  });
+
+  it("moves focus to the Reported exits heading after a decision, since the item's buttons are gone", async () => {
+    installFetchMock(async () => jsonResponse({ success: true }));
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Confirm resignation" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Reported exits" })).toHaveFocus(),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Confirmed the resignation of Rita Reported.");
+    expect(screen.getByRole("status")).not.toHaveFocus();
+  });
+
+  it("shows a Leader their jurisdiction's reports read-only", () => {
+    serve();
+    renderWithExitReports([LEADER_EXIT_REPORT], PrivilegeLevel.Leader);
+
+    const rita = screen.getByRole("listitem", { name: /Rita Reported/ });
+    expect(within(rita).getByText("Resignation")).toBeInTheDocument();
+    expect(rita).toHaveTextContent("Reported Oct 30, 2026 by you");
+    expect(within(rita).queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText(/The member stays on the committee until an Admin confirms/)).toBeInTheDocument();
+  });
+
+  it("hides the controls from a Developer acting as Leader even with Admin data", () => {
+    serve();
+    renderWithExitReports([ADMIN_EXIT_REPORT], PrivilegeLevel.Leader);
+    const rita = screen.getByRole("listitem", { name: /Rita Reported/ });
+    expect(within(rita).queryByRole("button")).not.toBeInTheDocument();
+    expect(rita).not.toHaveTextContent("Moving to Ohio");
+  });
+
+  it("says so when there are none", () => {
+    serve();
+    renderWithExitReports([]);
+    expect(screen.getByText("No reported exits for this committee.")).toBeInTheDocument();
   });
 });

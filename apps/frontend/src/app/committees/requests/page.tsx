@@ -18,7 +18,15 @@ import {
 } from "~/components/ui/accordion";
 import { Button } from "~/components/ui/button";
 import { RequestCard } from "./RequestCard";
+import { ExitReportList } from "./ExitReportList";
+import { REQUESTS_HEADING_ID } from "./requestsHeading";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
+import {
+  PENDING_EXIT_REPORT_INCLUDE,
+  pendingExitReportWhere,
+  toPendingExitReport,
+} from "~/app/api/lib/pendingExitReports";
+import type { PendingExitReport } from "~/lib/validations/committee";
 
 export const dynamic = "force-dynamic";
 
@@ -38,18 +46,14 @@ const getCommitteeName = (committeeList: CommitteeList) => {
   return `${committeeList.cityTown}, ${committeeList.electionDistrict}`;
 };
 
-const groupByCommitteeId = (
-  requests: MembershipRequestWithDetails[],
-): Record<string, MembershipRequestWithDetails[]> => {
-  return requests.reduce(
-    (acc, request) => {
-      const key = String(request.committeeListId);
-      (acc[key] ??= []).push(request);
-      return acc;
-    },
-    {} as Record<string, MembershipRequestWithDetails[]>,
-  );
+type CommitteeGroup = {
+  committeeList: CommitteeList;
+  submissions: MembershipRequestWithDetails[];
+  exitReports: PendingExitReport[];
 };
+
+const countLabel = (n: number, singular: string, plural: string) =>
+  `${n} ${n === 1 ? singular : plural}`;
 
 const CommitteeRequests: React.FC = async () => {
   const permissions = await auth();
@@ -68,39 +72,81 @@ const CommitteeRequests: React.FC = async () => {
     return <div>No active term found. Please set an active term in admin settings.</div>;
   }
 
-  // SRS 1.2 — Query SUBMITTED CommitteeMemberships instead of CommitteeRequests
-  const pendingMemberships = await prisma.committeeMembership.findMany({
-    where: { status: MembershipStatus.SUBMITTED, termId: activeTermId },
-    include: {
-      committeeList: true,
-      voterRecord: true,
-    },
-  });
+  // SRS 1.2 — Query SUBMITTED CommitteeMemberships instead of CommitteeRequests.
+  // Pending Exit Reports live on the outgoing member's ACTIVE row.
+  const [pendingMemberships, exitReportedMemberships] = await Promise.all([
+    prisma.committeeMembership.findMany({
+      where: { status: MembershipStatus.SUBMITTED, termId: activeTermId },
+      include: {
+        committeeList: true,
+        voterRecord: true,
+      },
+    }),
+    prisma.committeeMembership.findMany({
+      where: pendingExitReportWhere(activeTermId),
+      orderBy: { exitReportedAt: "asc" },
+      include: { ...PENDING_EXIT_REPORT_INCLUDE, committeeList: true },
+    }),
+  ]);
 
-  const requests: MembershipRequestWithDetails[] = pendingMemberships.map(
-    (m) => ({
+  const groups = new Map<string, CommitteeGroup>();
+  const groupFor = (committeeList: CommitteeList) => {
+    const key = String(committeeList.id);
+    let group = groups.get(key);
+    if (!group) {
+      group = { committeeList, submissions: [], exitReports: [] };
+      groups.set(key, group);
+    }
+    return group;
+  };
+
+  for (const m of pendingMemberships) {
+    groupFor(m.committeeList).submissions.push({
       id: m.id,
       committeeListId: m.committeeListId,
       committeeList: m.committeeList,
       voterRecord: m.voterRecord,
       submissionMetadata: m.submissionMetadata,
-    }),
-  );
+    });
+  }
 
-  const groupedRequests = groupByCommitteeId(requests);
-  const committeeListIds = Object.keys(groupedRequests);
+  // No id means no report is "own"; Admin context is shown either way.
+  const viewer = { userId: permissions.user.id ?? "", isAdmin: true };
+  for (const m of exitReportedMemberships) {
+    const report = toPendingExitReport(m, viewer);
+    if (report) groupFor(m.committeeList).exitReports.push(report);
+  }
+
+  // By committee id; the queries return committees in no set order.
+  const committeeListIds = [...groups.keys()].sort(
+    (a, b) => Number(a) - Number(b),
+  );
   const firstCommitteeListId = committeeListIds[0];
   const defaultOpenItems =
     firstCommitteeListId && committeeListIds.length === 1
       ? [firstCommitteeListId]
       : [];
 
+  // The heading stays at the same spot in both branches so React keeps the
+  // element across router.refresh(): Exit Report decisions focus it.
+  const heading = (
+    <h1 id={REQUESTS_HEADING_ID} tabIndex={-1} className="text-lg font-semibold outline-none">
+      Pending requests
+    </h1>
+  );
+
   if (committeeListIds.length === 0) {
-    return <div>No pending committee requests found</div>;
+    return (
+      <div className="w-96 m-4 space-y-4">
+        {heading}
+        <p>No pending committee requests found</p>
+      </div>
+    );
   }
 
   return (
     <div className="w-96 m-4 space-y-4">
+      {heading}
       <p className="text-sm text-muted-foreground">
         Review and reject individually below. Confirmations are processed via a
         meeting record.
@@ -110,21 +156,38 @@ const CommitteeRequests: React.FC = async () => {
       </Button>
       <Accordion type="multiple" defaultValue={defaultOpenItems}>
         {committeeListIds.map((committeeListId) => {
-          const reqs = groupedRequests[committeeListId];
-
-          if (!reqs || reqs.length === 0) return null;
-          const firstReq = reqs[0];
-          if (!firstReq) return null;
+          const group = groups.get(committeeListId);
+          if (!group) return null;
+          const { committeeList, submissions, exitReports } = group;
+          const counts = [
+            submissions.length > 0 &&
+              countLabel(submissions.length, "submission", "submissions"),
+            exitReports.length > 0 &&
+              countLabel(exitReports.length, "reported exit", "reported exits"),
+          ]
+            .filter(Boolean)
+            .join(" · ");
 
           return (
             <AccordionItem key={committeeListId} value={committeeListId}>
               <AccordionTrigger>
-                {getCommitteeName(firstReq.committeeList)}
+                <span className="flex flex-wrap items-baseline gap-x-2 text-left">
+                  <span>{getCommitteeName(committeeList)}</span>
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {counts}
+                  </span>
+                </span>
               </AccordionTrigger>
               <AccordionContent>
-                {reqs.map((request) => (
+                {submissions.map((request) => (
                   <RequestCard request={request} key={request.id} />
                 ))}
+                {exitReports.length > 0 && (
+                  <section className="my-2 space-y-2">
+                    <h3 className="font-semibold">Reported exits</h3>
+                    <ExitReportList reports={exitReports} />
+                  </section>
+                )}
               </AccordionContent>
             </AccordionItem>
           );

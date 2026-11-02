@@ -14,6 +14,10 @@ import {
   type RecordPetitionOutcomeData,
 } from "~/lib/validations/committee";
 import type { Session } from "next-auth";
+import {
+  supersededExitReportMetadata,
+  writeMembershipLeavingActive,
+} from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
@@ -231,10 +235,30 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             status: existing.status,
             seatNumber: existing.seatNumber,
           };
-          await tx.committeeMembership.update({
-            where: { id: existing.id },
-            data: baseData,
-          });
+          // An incumbent who loses leaves ACTIVE: that write must clear a
+          // pending Exit Report (ADR 0002), and the audit records it.
+          let supersededExitReport: Record<string, unknown> = {};
+          if (
+            existing.status === ACTIVE_MEMBERSHIP_STATUS &&
+            status !== ACTIVE_MEMBERSHIP_STATUS
+          ) {
+            const result = await writeMembershipLeavingActive(
+              tx,
+              existing,
+              baseData,
+            );
+            if (result.kind !== "written") {
+              throw new Error(
+                `Membership ${existing.id} left ACTIVE while recording the petition outcome`,
+              );
+            }
+            supersededExitReport = supersededExitReportMetadata(result);
+          } else {
+            await tx.committeeMembership.update({
+              where: { id: existing.id },
+              data: baseData,
+            });
+          }
           await logAuditEventOrThrow(
             userId,
             userRole,
@@ -258,6 +282,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
                 resultingStatus: status,
                 activated: isWinner,
                 exclusionReason,
+                ...supersededExitReport,
               },
               buildCandidateSubject(c.voterRecordId, finalSeatNumber),
             ),

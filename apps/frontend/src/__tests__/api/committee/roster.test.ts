@@ -64,6 +64,8 @@ function mockMembership(overrides: {
   email?: string | null;
   telephone?: string | null;
   submissionMetadata?: Record<string, unknown> | null;
+  exitReportedAt?: Date | null;
+  exitReportedKind?: "RESIGNATION" | "REMOVAL" | null;
 }) {
   const vrc = overrides.VRCNUM ?? `voter-${String(overrides.seatNumber)}`;
   return {
@@ -71,6 +73,8 @@ function mockMembership(overrides: {
     membershipType: overrides.membershipType ?? "PETITIONED",
     voterRecordId: vrc,
     submissionMetadata: overrides.submissionMetadata ?? null,
+    exitReportedAt: overrides.exitReportedAt ?? null,
+    exitReportedKind: overrides.exitReportedKind ?? null,
     voterRecord: {
       VRCNUM: vrc,
       firstName: overrides.firstName ?? "Jane",
@@ -464,7 +468,7 @@ describe("GET /api/committee/roster", () => {
           memberships: { where: { status: string; termId: string } };
           _count: {
             select: {
-              memberships: { where: { status: string; termId: string } };
+              memberships: { where: Prisma.CommitteeMembershipWhereInput };
             };
           };
         };
@@ -474,9 +478,13 @@ describe("GET /api/committee/roster", () => {
         status: "ACTIVE",
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
+      // Pending = SUBMITTED memberships plus pending Exit Reports.
       expect(scope.select._count.select.memberships.where).toEqual({
-        status: "SUBMITTED",
         termId: DEFAULT_ACTIVE_TERM_ID,
+        OR: [
+          { status: "SUBMITTED" },
+          { status: "ACTIVE", exitReportedAt: { not: null } },
+        ],
       });
     });
   });
@@ -518,7 +526,11 @@ describe("GET /api/committee/roster", () => {
             mockSeat({ seatNumber: 3 }),
           ],
           memberships: [
-            mockMembership({ seatNumber: 2 }),
+            mockMembership({
+              seatNumber: 2,
+              exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+              exitReportedKind: "RESIGNATION",
+            }),
             mockMembership({ seatNumber: null, VRCNUM: "loose" }),
           ],
           pendingCount: 2,

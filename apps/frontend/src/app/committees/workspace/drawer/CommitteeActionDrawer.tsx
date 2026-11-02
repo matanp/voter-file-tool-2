@@ -31,6 +31,7 @@ import { candidateSubmissionMode, type CandidateSubmissionMode } from "../adapte
 import type { CommitteeAction } from "../committeeAction";
 import { AddMemberFlow } from "./AddMemberFlow";
 import { DrawerFooter, committeeLabel, occupantLabel, occupantRow } from "./drawerParts";
+import { ReportExitForm } from "./ExitReportForms";
 import { RecordResignationForm, RemoveMemberForm } from "./MemberExitForms";
 import { VoterDetailsView } from "./VoterDetailsView";
 
@@ -66,6 +67,8 @@ function drawerTitle(
       return "Record resignation";
     case "view-voter-details":
       return "Voter details";
+    case "report-exit":
+      return "Report resignation or removal";
   }
 }
 
@@ -156,6 +159,20 @@ export function CommitteeActionDrawer({
             onSuccess={handleSuccess}
           />
         ) : null;
+        break;
+      // Leader/RequestAccess file a report; Admins exit members directly.
+      case "report-exit":
+        flow =
+          hasPermissionFor(actingPermissions, PrivilegeLevel.RequestAccess) &&
+          !isAdmin ? (
+            <ReportExitForm
+              key={generation}
+              action={current}
+              memberLabel={occupantLabel(detail, current.memberId).label}
+              onCancel={onClose}
+              onSuccess={handleSuccess}
+            />
+          ) : null;
         break;
       // Contact is the roster's Admin-only column; hide it from a Developer
       // acting below Admin even though the detail carries it.

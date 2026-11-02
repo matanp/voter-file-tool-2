@@ -76,3 +76,20 @@ export function formatCalendarDateForDisplay(date: Date | string): string {
     day: "numeric",
   });
 }
+
+/**
+ * The viewer's local calendar day of an Instant (e.g. when a report was
+ * filed), "Jan 1, 2026". Unlike `formatCalendarDateForDisplay`, not UTC: a
+ * report filed at 9pm Eastern shows that day, not the next.
+ */
+export function formatInstantDateForDisplay(instant: Date | string): string {
+  const value = typeof instant === "string" ? new Date(instant) : instant;
+  if (isNaN(value.getTime())) {
+    return "";
+  }
+  return value.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}

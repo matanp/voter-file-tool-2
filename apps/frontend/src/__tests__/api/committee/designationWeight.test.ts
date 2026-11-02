@@ -2,7 +2,7 @@
  * SRS 2.7 — Route tests for GET /api/committee/designationWeight.
  */
 
-import { PrivilegeLevel, Prisma } from "@prisma/client";
+import { PrivilegeLevel, Prisma, type UserJurisdiction } from "@prisma/client";
 import { GET } from "~/app/api/committee/designationWeight/route";
 import {
   createMockSession,
@@ -36,9 +36,20 @@ function getCommitteeListMock(): CommitteeListMock {
     .committeeList;
 }
 
-function getUserJurisdictionMock(): { findMany: jest.Mock } {
-  return (prismaMock as unknown as { userJurisdiction: { findMany: jest.Mock } })
-    .userJurisdiction;
+/** A Leader's jurisdiction row, as `findMany` returns it (no `select`). */
+function jurisdictionRow(
+  cityTown: string,
+  legDistrict: number | null,
+): UserJurisdiction {
+  return {
+    id: `jurisdiction-${cityTown}-${String(legDistrict)}`,
+    userId: "test-user-id",
+    cityTown,
+    legDistrict,
+    termId: DEFAULT_ACTIVE_TERM_ID,
+    createdAt: new Date("2026-01-01"),
+    createdById: "admin-1",
+  };
 }
 
 function mockSeat(overrides: {
@@ -53,20 +64,22 @@ function mockSeat(overrides: {
     seatNumber: overrides.seatNumber,
     isPetitioned: overrides.isPetitioned ?? false,
     weight:
-      overrides.weight != null
-        ? new Prisma.Decimal(overrides.weight)
-        : null,
+      overrides.weight != null ? new Prisma.Decimal(overrides.weight) : null,
   };
 }
 
 function mockActiveMembership(overrides: {
   seatNumber: number;
   membershipType?: string;
+  exitReportedAt?: Date;
+  exitReportedKind?: "RESIGNATION" | "REMOVAL";
 }) {
   return {
     seatNumber: overrides.seatNumber,
     membershipType: overrides.membershipType ?? "PETITIONED",
     voterRecordId: `voter-${String(overrides.seatNumber)}`,
+    exitReportedAt: overrides.exitReportedAt ?? null,
+    exitReportedKind: overrides.exitReportedKind ?? null,
   };
 }
 
@@ -89,8 +102,8 @@ describe("GET /api/committee/designationWeight", () => {
         electionDistrict: 1,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getUserJurisdictionMock().findMany.mockResolvedValue([
-        { cityTown: "Test City", legDistrict: 1 },
+      prismaMock.userJurisdiction.findMany.mockResolvedValue([
+        jurisdictionRow("Test City", 1),
       ]);
     };
 
@@ -99,11 +112,7 @@ describe("GET /api/committee/designationWeight", () => {
         endpointName: "GET /api/committee/designationWeight",
         requiredPrivilege: PrivilegeLevel.Leader,
         mockRequest: () =>
-          createMockRequest(
-            {},
-            { committeeListId: "1" },
-            { method: "GET" },
-          ),
+          createMockRequest({}, { committeeListId: "1" }, { method: "GET" }),
       },
       GET as (req: Parameters<typeof GET>[0]) => Promise<Response>,
       mockAuthSession,
@@ -126,9 +135,7 @@ describe("GET /api/committee/designationWeight", () => {
       );
       mockHasPermission(true);
 
-      const response = await GET(
-        createMockRequest({}, {}, { method: "GET" }),
-      );
+      const response = await GET(createMockRequest({}, {}, { method: "GET" }));
 
       await expectErrorResponse(response, 422, "Invalid request data");
     });
@@ -162,7 +169,11 @@ describe("GET /api/committee/designationWeight", () => {
         mockSeat({ seatNumber: 2, isPetitioned: false, weight: 0.25 }),
       ]);
       getMembershipMock().findMany.mockResolvedValue([
-        mockActiveMembership({ seatNumber: 1 }),
+        mockActiveMembership({
+          seatNumber: 1,
+          exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+          exitReportedKind: "RESIGNATION",
+        }),
       ]);
 
       const response = await GET(
@@ -198,8 +209,8 @@ describe("GET /api/committee/designationWeight", () => {
         electionDistrict: 1,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getUserJurisdictionMock().findMany.mockResolvedValue([
-        { cityTown: "Test City", legDistrict: 1 },
+      prismaMock.userJurisdiction.findMany.mockResolvedValue([
+        jurisdictionRow("Test City", 1),
       ]);
       getSeatMock().findMany.mockResolvedValue([
         mockSeat({ seatNumber: 1, isPetitioned: true, weight: 0.25 }),
@@ -256,8 +267,8 @@ describe("GET /api/committee/designationWeight", () => {
         legDistrict: 3,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getUserJurisdictionMock().findMany.mockResolvedValue([
-        { cityTown: "Different City", legDistrict: 1 },
+      prismaMock.userJurisdiction.findMany.mockResolvedValue([
+        jurisdictionRow("Different City", 1),
       ]);
 
       const response = await GET(
@@ -288,7 +299,11 @@ describe("GET /api/committee/designationWeight", () => {
       ]);
       getMembershipMock().findMany.mockResolvedValue([
         mockActiveMembership({ seatNumber: 1 }),
-        { seatNumber: 1, membershipType: "APPOINTED", voterRecordId: "voter-dup" },
+        {
+          seatNumber: 1,
+          membershipType: "APPOINTED",
+          voterRecordId: "voter-dup",
+        },
       ]);
 
       const response = await GET(
