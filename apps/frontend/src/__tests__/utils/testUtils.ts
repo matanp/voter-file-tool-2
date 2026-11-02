@@ -185,37 +185,8 @@ export type CommitteeListWithMembers = CommitteeList & {
 // CommitteeMembership mock helpers (pre-migration: not yet in PrismaClient)
 // ---------------------------------------------------------------------------
 
-/** Shape of a CommitteeMembership record returned by Prisma (pre-migration stub). */
-export type MockMembership = {
-  id: string;
-  voterRecordId: string;
-  committeeListId: number;
-  termId: string;
-  /** MembershipStatus enum value — string until `prisma generate` runs. */
-  status: string;
-  membershipType: string | null;
-  seatNumber: number | null;
-  submittedAt: Date;
-  confirmedAt: Date | null;
-  activatedAt: Date | null;
-  resignedAt: Date | null;
-  removedAt: Date | null;
-  rejectedAt: Date | null;
-  rejectionNote: string | null;
-  submittedById: string | null;
-  submissionMetadata: Record<string, unknown> | null;
-  meetingRecordId: string | null;
-  resignationDateReceived: Date | null;
-  resignationMethod: string | null;
-  removalReason: string | null;
-  removalNotes: string | null;
-  petitionVoteCount: number | null;
-  petitionPrimaryDate: Date | null;
-  petitionSeatNumber: number | null;
-  exitReportedAt: Date | null;
-  exitReportedById: string | null;
-  exitReportedKind: "RESIGNATION" | "REMOVAL" | null;
-};
+/** A CommitteeMembership row as Prisma returns it. */
+export type MockMembership = CommitteeMembership;
 
 export const createMockMembership = (
   overrides: Partial<MockMembership> = {},

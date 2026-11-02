@@ -2,7 +2,13 @@
  * Tests for POST /api/admin/handleCommitteeDiscrepancy/undo.
  */
 import { POST } from "~/app/api/admin/handleCommitteeDiscrepancy/undo/route";
-import { Prisma, PrivilegeLevel } from "@prisma/client";
+import {
+  Prisma,
+  PrivilegeLevel,
+  type CommitteeList,
+  type CommitteeTerm,
+  type CommitteeUploadDiscrepancy,
+} from "@prisma/client";
 import {
   createMockRequest,
   createAuthTestSuite,
@@ -24,7 +30,27 @@ import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/m
 
 const activatedAt = "2026-01-01T00:00:00.000Z";
 
-const createResolvedDiscrepancy = (overrides: Record<string, unknown> = {}) => ({
+/** The discrepancy row as `lockDiscrepancyForUpdate` selects it. */
+type ResolvedDiscrepancyRow = Pick<
+  CommitteeUploadDiscrepancy,
+  | "id"
+  | "VRCNUM"
+  | "committeeId"
+  | "discrepancy"
+  | "resolvedAt"
+  | "resolvedBy"
+  | "resolution"
+  | "resolutionMetadata"
+> & {
+  committee: Pick<
+    CommitteeList,
+    "id" | "cityTown" | "legDistrict" | "electionDistrict" | "termId"
+  > & { term: Pick<CommitteeTerm, "id" | "label"> };
+};
+
+const createResolvedDiscrepancy = (
+  overrides: Partial<ResolvedDiscrepancyRow> = {},
+): ResolvedDiscrepancyRow => ({
   id: "discrepancy-id-1",
   VRCNUM: "TEST123",
   committeeId: 1,
@@ -73,7 +99,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       };
 
       const setupMocks = () => {
-        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(createResolvedDiscrepancy() as never);
+        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(selectedRow(createResolvedDiscrepancy()));
         setupUndoMocks();
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({
@@ -151,7 +177,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
             exitReportedKind: null,
           }),
         );
-        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
           expectAuditLogCreate({
             action: "MEMBER_REMOVED",
             metadata: jsonContaining({
@@ -219,7 +245,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
             exitReportedKind: null,
           }),
         );
-        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
           expectAuditLogCreate({
             action: "MEMBER_RESIGNED",
             metadata: jsonContaining({
@@ -234,7 +260,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
     it("created-membership accept undo: transitions to REMOVED and reopens row", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
-      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(createResolvedDiscrepancy() as never);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(selectedRow(createResolvedDiscrepancy()));
       setupUndoMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
@@ -291,10 +317,12 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-        createResolvedDiscrepancy({
-          resolution: "REJECTED",
-          resolutionMetadata: { membershipOutcome: "none" },
-        }) as never,
+        selectedRow(
+          createResolvedDiscrepancy({
+            resolution: "REJECTED",
+            resolutionMetadata: { membershipOutcome: "none" },
+          }),
+        ),
       );
       setupUndoMocks();
 
@@ -307,7 +335,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
     it("returns 409 membership_diverged when membership changed since resolve", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
-      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(createResolvedDiscrepancy() as never);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(selectedRow(createResolvedDiscrepancy()));
       setupUndoMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
@@ -329,7 +357,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
     it("returns 409 membership_diverged when membership row is missing", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
-      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(createResolvedDiscrepancy() as never);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(selectedRow(createResolvedDiscrepancy()));
       setupUndoMocks();
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
 
@@ -344,11 +372,13 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-        createResolvedDiscrepancy({
-          resolvedAt: null,
-          resolution: null,
-          resolutionMetadata: null,
-        }) as never,
+        selectedRow(
+          createResolvedDiscrepancy({
+            resolvedAt: null,
+            resolution: null,
+            resolutionMetadata: null,
+          }),
+        ),
       );
       setupUndoMocks();
 
@@ -363,14 +393,16 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-        createResolvedDiscrepancy({
-          resolution: "ACCEPTED_WITH_ADDRESS",
-          resolutionMetadata: {
-            membershipOutcome: "none",
-            addressBefore: "123 Old St",
-            addressAfter: "456 New Ave",
-          },
-        }) as never,
+        selectedRow(
+          createResolvedDiscrepancy({
+            resolution: "ACCEPTED_WITH_ADDRESS",
+            resolutionMetadata: {
+              membershipOutcome: "none",
+              addressBefore: "123 Old St",
+              addressAfter: "456 New Ave",
+            },
+          }),
+        ),
       );
       setupUndoMocks();
       prismaMock.voterRecord.findUnique.mockResolvedValue({
@@ -391,14 +423,16 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-        createResolvedDiscrepancy({
-          resolution: "ACCEPTED_WITH_ADDRESS",
-          resolutionMetadata: {
-            membershipOutcome: "none",
-            addressBefore: null,
-            addressAfter: "456 New Ave",
-          },
-        }) as never,
+        selectedRow(
+          createResolvedDiscrepancy({
+            resolution: "ACCEPTED_WITH_ADDRESS",
+            resolutionMetadata: {
+              membershipOutcome: "none",
+              addressBefore: null,
+              addressAfter: "456 New Ave",
+            },
+          }),
+        ),
       );
       setupUndoMocks();
       prismaMock.voterRecord.findUnique.mockResolvedValue({
@@ -419,14 +453,16 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
-        createResolvedDiscrepancy({
-          resolution: "ACCEPTED_WITH_ADDRESS",
-          resolutionMetadata: {
-            membershipOutcome: "none",
-            addressBefore: "123 Old St",
-            addressAfter: "456 New Ave",
-          },
-        }) as never,
+        selectedRow(
+          createResolvedDiscrepancy({
+            resolution: "ACCEPTED_WITH_ADDRESS",
+            resolutionMetadata: {
+              membershipOutcome: "none",
+              addressBefore: "123 Old St",
+              addressAfter: "456 New Ave",
+            },
+          }),
+        ),
       );
       setupUndoMocks();
       prismaMock.voterRecord.findUnique.mockResolvedValue({

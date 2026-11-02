@@ -162,7 +162,7 @@ describe("membershipConfirmation", () => {
     });
 
     it("returns replacementTargetInvalid when replacement is not ACTIVE", async () => {
-      getMembershipMock(prismaMock)
+      prismaMock.committeeMembership
         .findUnique.mockResolvedValueOnce(
           createMockMembership({
             id: MEMBERSHIP_ID,
@@ -219,7 +219,7 @@ describe("membershipConfirmation", () => {
         status: "ACTIVE",
         seatNumber: 2,
       });
-      getMembershipMock(prismaMock)
+      prismaMock.committeeMembership
         .findUnique.mockResolvedValueOnce(
           createMockMembership({
             id: MEMBERSHIP_ID,
@@ -260,7 +260,7 @@ describe("membershipConfirmation", () => {
         exitReportedKind: "REMOVAL",
         removalReason: "DECEASED",
       });
-      getMembershipMock(prismaMock)
+      prismaMock.committeeMembership
         .findUnique.mockResolvedValueOnce(
           createMockMembership({
             id: MEMBERSHIP_ID,
@@ -270,7 +270,7 @@ describe("membershipConfirmation", () => {
         )
         .mockResolvedValueOnce(replacementTarget)
         .mockResolvedValueOnce(replacementTarget); // locked reread before the exit write
-      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+      prismaMock.committeeMembership.count.mockResolvedValue(2);
 
       const result = await confirmSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,
@@ -281,7 +281,7 @@ describe("membershipConfirmation", () => {
       });
 
       expect(result).toEqual({ kind: "accepted" });
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipExitWrite("membership-target-id-002", {
           status: "REMOVED",
           removalReason: "OTHER",
@@ -290,7 +290,7 @@ describe("membershipConfirmation", () => {
           exitReportedKind: null,
         }),
       );
-      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
         expectAuditLogCreate({
           action: "MEMBER_REMOVED",
           entityId: "membership-target-id-002",

@@ -1620,7 +1620,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
 
       adminSession();
       mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
-      getAuditLogMock(prismaMock).findMany.mockResolvedValue(rows);
+      serveAuditRows(rows);
       const admin = await getDetail();
       expect(admin.history.events).toMatchObject([
         { kind: "resigned", source: "exit_report" },
@@ -1638,7 +1638,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
       leaderSession();
       leaderJurisdictions([{ cityTown: "Test City", legDistrict: 1 }]);
       mockCommitteeWithMemberships(mockCommittee({ memberships: [a] }), [a]);
-      getAuditLogMock(prismaMock).findMany.mockResolvedValue(rows);
+      serveAuditRows(rows);
       const leader = await getDetail();
       const [rejected] = eventsOfKind(leader, "exit_report_rejected");
       const [reported] = eventsOfKind(leader, "exit_reported");

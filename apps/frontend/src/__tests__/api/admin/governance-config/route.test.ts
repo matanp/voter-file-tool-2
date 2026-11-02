@@ -233,7 +233,7 @@ describe("/api/admin/governance-config", () => {
         governanceConfigMock.update,
       ).data.exitReportInstructions,
     ).toBe("Email the letter to chair@example.org.");
-    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "GOVERNANCE_CONFIG_UPDATED",
         beforeValue: jsonContaining({

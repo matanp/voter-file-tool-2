@@ -1,5 +1,5 @@
 import { POST } from "~/app/api/committee/handleRequest/route";
-import { Prisma, PrivilegeLevel } from "@prisma/client";
+import { Prisma, PrivilegeLevel, type MembershipStatus } from "@prisma/client";
 import {
   createMockSession,
   createMockRequest,
@@ -561,7 +561,7 @@ describe("/api/committee/handleRequest", () => {
           const updated = {
             ...existing,
             ...args.data,
-            status: (args.data.status as string | undefined) ?? existing.status,
+            status: (args.data.status as MembershipStatus | undefined) ?? existing.status,
             seatNumber:
               (args.data.seatNumber as number | null | undefined) ??
               existing.seatNumber,

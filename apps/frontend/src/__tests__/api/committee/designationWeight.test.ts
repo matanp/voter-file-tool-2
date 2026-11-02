@@ -2,7 +2,7 @@
  * SRS 2.7 — Route tests for GET /api/committee/designationWeight.
  */
 
-import { PrivilegeLevel, Prisma } from "@prisma/client";
+import { PrivilegeLevel, Prisma, type UserJurisdiction } from "@prisma/client";
 import { GET } from "~/app/api/committee/designationWeight/route";
 import {
   createMockSession,
@@ -36,10 +36,20 @@ function getCommitteeListMock(): CommitteeListMock {
     .committeeList;
 }
 
-function getUserJurisdictionMock(): { findMany: jest.Mock } {
-  return (
-    prismaMock as unknown as { userJurisdiction: { findMany: jest.Mock } }
-  ).userJurisdiction;
+/** A Leader's jurisdiction row, as `findMany` returns it (no `select`). */
+function jurisdictionRow(
+  cityTown: string,
+  legDistrict: number | null,
+): UserJurisdiction {
+  return {
+    id: `jurisdiction-${cityTown}-${String(legDistrict)}`,
+    userId: "test-user-id",
+    cityTown,
+    legDistrict,
+    termId: DEFAULT_ACTIVE_TERM_ID,
+    createdAt: new Date("2026-01-01"),
+    createdById: "admin-1",
+  };
 }
 
 function mockSeat(overrides: {
@@ -92,8 +102,8 @@ describe("GET /api/committee/designationWeight", () => {
         electionDistrict: 1,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getUserJurisdictionMock().findMany.mockResolvedValue([
-        { cityTown: "Test City", legDistrict: 1 },
+      prismaMock.userJurisdiction.findMany.mockResolvedValue([
+        jurisdictionRow("Test City", 1),
       ]);
     };
 
@@ -199,8 +209,8 @@ describe("GET /api/committee/designationWeight", () => {
         electionDistrict: 1,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getUserJurisdictionMock().findMany.mockResolvedValue([
-        { cityTown: "Test City", legDistrict: 1 },
+      prismaMock.userJurisdiction.findMany.mockResolvedValue([
+        jurisdictionRow("Test City", 1),
       ]);
       getSeatMock().findMany.mockResolvedValue([
         mockSeat({ seatNumber: 1, isPetitioned: true, weight: 0.25 }),
@@ -257,8 +267,8 @@ describe("GET /api/committee/designationWeight", () => {
         legDistrict: 3,
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      getUserJurisdictionMock().findMany.mockResolvedValue([
-        { cityTown: "Different City", legDistrict: 1 },
+      prismaMock.userJurisdiction.findMany.mockResolvedValue([
+        jurisdictionRow("Different City", 1),
       ]);
 
       const response = await GET(

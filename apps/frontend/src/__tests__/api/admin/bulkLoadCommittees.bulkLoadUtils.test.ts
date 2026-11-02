@@ -18,10 +18,12 @@ import {
   getMembershipMock,
   jsonContaining,
   resolvesTo,
+  selectedRow,
 } from "../../utils/testUtils";
 import * as committeeValidation from "~/app/api/lib/committeeValidation";
 import type * as CommitteeValidationModule from "~/app/api/lib/committeeValidation";
 import * as seatUtils from "~/app/api/lib/seatUtils";
+import type { ExitReportState } from "~/app/api/lib/membershipExit";
 
 jest.mock("~/app/api/lib/committeeValidation", () => {
   const actual = jest.requireActual<typeof CommitteeValidationModule>(
@@ -94,6 +96,10 @@ const rosterEntry = ({
   membershipType,
   sourceRow: nextSourceRow++,
 });
+
+/** `select: { ...EXIT_REPORT_STATE_SELECT, voterRecordId: true }` */
+type ActiveMembershipExitState = ExitReportState &
+  Pick<CommitteeMembership, "voterRecordId">;
 
 describe("bulkLoadCommittees import from canonical roster entries", () => {
   beforeEach(() => {
@@ -392,8 +398,8 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         }),
       );
       prismaMock.$queryRaw.mockResolvedValue([]);
-      getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      prismaMock.committeeMembership.findMany.mockResolvedValue([]);
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({
           id: "m-existing",
           voterRecordId: "VRC002",
@@ -428,7 +434,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       await applyRosterImport({ entries, rejected: [] });
 
       const { data } = firstCallArg<{ data: Record<string, unknown> }>(
-        getMembershipMock(prismaMock).update,
+        prismaMock.committeeMembership.update,
       );
       expect(data).toMatchObject({ status: "ACTIVE", seatNumber: 1 });
       for (const column of [
@@ -454,7 +460,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
 
       await applyRosterImport({ entries, rejected: [] });
 
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipUpdate(
           {
             status: "ACTIVE",
@@ -491,18 +497,20 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         }),
       );
       prismaMock.$queryRaw.mockResolvedValue([]);
-      getMembershipMock(prismaMock)
+      prismaMock.committeeMembership
         .findMany.mockResolvedValueOnce([]) // initial cross-committee snapshot
-        .mockResolvedValueOnce([
-          {
-            id: "m-reported",
-            voterRecordId: "VRC_OLD",
-            exitReportedAt: REPORTED_AT,
-            exitReportedById: "leader-1",
-            exitReportedKind: "REMOVAL",
-          },
-        ]); // existing active memberships in committee
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        .mockResolvedValueOnce(
+          selectedRow<ActiveMembershipExitState[]>([
+            {
+              id: "m-reported",
+              voterRecordId: "VRC_OLD",
+              exitReportedAt: REPORTED_AT,
+              exitReportedById: "leader-1",
+              exitReportedKind: "REMOVAL",
+            },
+          ]),
+        ); // existing active memberships in committee
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({
           id: "m-reported",
           status: "ACTIVE",
@@ -511,7 +519,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
           exitReportedKind: "REMOVAL",
         }),
       );
-      getMembershipMock(prismaMock).create.mockResolvedValue(
+      prismaMock.committeeMembership.create.mockResolvedValue(
         createMockMembership({
           id: "m-new",
           voterRecordId: "VRC_NEW",
@@ -533,14 +541,14 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         rejected: [],
       });
 
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipExitWrite("m-reported", {
           status: "REMOVED",
           removalNotes: "Removed by bulk import synchronization",
           exitReportedAt: null,
         }),
       );
-      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
         expectAuditLogCreate({
           action: "MEMBER_REMOVED",
           metadata: jsonContaining({
@@ -767,7 +775,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         return Promise.resolve([]);
       },
     );
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(
       createMockMembership({ id: "m-absent", status: "ACTIVE" }),
     );
 
@@ -1037,7 +1045,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         committeeListId: 202,
       }),
     );
-    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "MEMBER_REMOVED",
         entityId: "m-mover-old",
@@ -1531,7 +1539,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         { id: "m-to-remove", voterRecordId: "VRC_OLD" },
       ] satisfies CommitteeMemberRow[]); // existing active memberships in committee
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(
       createMockMembership({ id: "m-to-remove", status: "ACTIVE" }),
     );
     getMembershipMock(prismaMock).create.mockResolvedValue(
@@ -1604,7 +1612,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         { id: "m-to-remove", voterRecordId: "VRC_OLD" },
       ] satisfies CommitteeMemberRow[]);
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(
       createMockMembership({ id: "m-to-remove", status: "ACTIVE" }),
     );
     getMembershipMock(prismaMock).create.mockResolvedValue(

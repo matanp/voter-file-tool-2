@@ -5,6 +5,7 @@
 import { POST } from "~/app/api/admin/petition-outcomes/record/route";
 import { PrivilegeLevel } from "@prisma/client";
 import {
+  createMockMembership,
   createMockSession,
   createMockRequest,
   expectSuccessResponse,
@@ -295,7 +296,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
       }),
     );
 
-    const petitionCandidateMetadata = getAuditLogMock(prismaMock)
+    const petitionCandidateMetadata = prismaMock.auditLog
       .create.mock.calls.map((call: unknown[]) => {
         const arg = call[0] as {
           data: {
@@ -341,7 +342,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
       expect(arg.data.status).not.toBe("PETITIONED_WON");
     });
 
-    const tieMetadataRows = getAuditLogMock(prismaMock)
+    const tieMetadataRows = prismaMock.auditLog
       .create.mock.calls.map((call: unknown[]) => {
         const arg = call[0] as {
           data: {
@@ -384,17 +385,21 @@ describe("POST /api/admin/petition-outcomes/record", () => {
   });
 
   it("updates existing membership when candidate already has membership", async () => {
-    getMembershipMock(prismaMock)
-      .findUnique.mockResolvedValueOnce({
-        id: "existing-1",
-        voterRecordId: "V1",
-        status: "SUBMITTED",
-      })
-      .mockResolvedValueOnce({
-        id: "existing-2",
-        voterRecordId: "V2",
-        status: "SUBMITTED",
-      });
+    prismaMock.committeeMembership
+      .findUnique.mockResolvedValueOnce(
+        createMockMembership({
+          id: "existing-1",
+          voterRecordId: "V1",
+          status: "SUBMITTED",
+        }),
+      )
+      .mockResolvedValueOnce(
+        createMockMembership({
+          id: "existing-2",
+          voterRecordId: "V2",
+          status: "SUBMITTED",
+        }),
+      );
 
     const body = createValidPayload();
     const response = await POST(createMockRequest(body));
@@ -417,7 +422,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
 
   it("clears an incumbent loser's pending Exit Report and records it in the audit", async () => {
     const reportedAt = new Date("2026-10-30T15:04:05.678Z");
-    const incumbent = {
+    const incumbent = createMockMembership({
       id: "incumbent",
       voterRecordId: "V2",
       status: "ACTIVE",
@@ -425,8 +430,8 @@ describe("POST /api/admin/petition-outcomes/record", () => {
       exitReportedAt: reportedAt,
       exitReportedById: "leader-1",
       exitReportedKind: "RESIGNATION",
-    };
-    getMembershipMock(prismaMock)
+    });
+    prismaMock.committeeMembership
       .findUnique.mockResolvedValueOnce(null) // V1, the winner, is new
       .mockResolvedValueOnce(incumbent)
       .mockResolvedValueOnce(incumbent); // locked reread before leaving ACTIVE
@@ -434,7 +439,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
     const response = await POST(createMockRequest(createValidPayload()));
 
     expect(response.status).toBe(200);
-    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
       expectMembershipExitWrite("incumbent", {
         status: "PETITIONED_LOST",
         seatNumber: null,
@@ -443,7 +448,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
         exitReportedKind: null,
       }),
     );
-    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "PETITION_RECORDED",
         entityId: "incumbent",
@@ -460,7 +465,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
   });
 
   it("returns 500 when audit write fails and rolls back the transaction", async () => {
-    getAuditLogMock(prismaMock).create.mockRejectedValue(new Error("Audit write failed"));
+    prismaMock.auditLog.create.mockRejectedValue(new Error("Audit write failed"));
 
     const response = await POST(createMockRequest(createValidPayload()));
 

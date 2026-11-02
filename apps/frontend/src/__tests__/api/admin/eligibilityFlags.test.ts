@@ -1,8 +1,9 @@
 import { GET as listEligibilityFlags } from "~/app/api/admin/eligibility-flags/route";
 import { POST as runEligibilityFlags } from "~/app/api/admin/eligibility-flags/run/route";
 import { POST as reviewEligibilityFlag } from "~/app/api/admin/eligibility-flags/[id]/review/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type CommitteeMembership } from "@prisma/client";
 import {
+  createMockMembership,
   createMockRequest,
   createMockSession,
   parseJsonResponse,
@@ -28,14 +29,18 @@ function reviewRouteContext(id: string) {
 }
 
 /** Membership include shape for eligibility flag review (confirm → MEMBER_REMOVED audit). */
-function createReviewMembership(overrides: Record<string, unknown> = {}) {
+/** The membership row plus the relations the review route includes. */
+function createReviewMembership(overrides: Partial<CommitteeMembership> = {}) {
   return {
-    id: "membership-2",
-    status: "ACTIVE",
-    seatNumber: 3,
-    voterRecordId: "TEST123456",
-    committeeListId: 1,
-    termId: DEFAULT_ACTIVE_TERM_ID,
+    ...createMockMembership({
+      id: "membership-2",
+      status: "ACTIVE",
+      seatNumber: 3,
+      voterRecordId: "TEST123456",
+      committeeListId: 1,
+      termId: DEFAULT_ACTIVE_TERM_ID,
+      ...overrides,
+    }),
     voterRecord: {
       VRCNUM: "TEST123456",
       firstName: "John",
@@ -52,7 +57,6 @@ function createReviewMembership(overrides: Record<string, unknown> = {}) {
       id: DEFAULT_ACTIVE_TERM_ID,
       label: "2024–2026",
     },
-    ...overrides,
   };
 }
 
@@ -295,7 +299,7 @@ describe("/api/admin/eligibility-flags", () => {
       details: null,
       membership,
     });
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(membership);
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(membership);
     getEligibilityFlagMock(prismaMock).update.mockResolvedValue({});
     getMembershipMock(prismaMock).update.mockResolvedValue({});
 
@@ -371,7 +375,7 @@ describe("/api/admin/eligibility-flags", () => {
       details: null,
       membership,
     });
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(membership);
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(membership);
     getEligibilityFlagMock(prismaMock).update.mockResolvedValue({});
 
     const response = await reviewEligibilityFlag(
@@ -380,7 +384,7 @@ describe("/api/admin/eligibility-flags", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
       expectMembershipExitWrite("membership-4", {
         status: "REMOVED",
         removalReason: "MOVED_OUT_OF_DISTRICT",
@@ -388,7 +392,7 @@ describe("/api/admin/eligibility-flags", () => {
         exitReportedAt: null,
       }),
     );
-    expect(getAuditLogMock(prismaMock).create).toHaveBeenNthCalledWith(
+    expect(prismaMock.auditLog.create).toHaveBeenNthCalledWith(
       1,
       expectAuditLogCreate({
         action: "MEMBER_REMOVED",
@@ -416,7 +420,7 @@ describe("/api/admin/eligibility-flags", () => {
       details: null,
       membership,
     });
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(membership);
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(membership);
     getMembershipMock(prismaMock).update.mockResolvedValue({});
     getAuditLogMock(prismaMock).create.mockRejectedValueOnce(
       new Error("audit failure"),

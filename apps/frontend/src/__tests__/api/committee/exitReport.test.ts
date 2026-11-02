@@ -253,6 +253,7 @@ describe("POST /api/committee/exitReport/reject", () => {
     const response = await rejectExitReport(createMockRequest(body()));
     await expectErrorResponse(response, 401, "Please log in");
     expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("returns 403 for a Leader", async () => {

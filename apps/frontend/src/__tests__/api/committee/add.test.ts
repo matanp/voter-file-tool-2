@@ -1,5 +1,5 @@
 import { POST } from "~/app/api/committee/add/route";
-import { PrivilegeLevel, Prisma } from "@prisma/client";
+import { PrivilegeLevel, Prisma, type MembershipStatus } from "@prisma/client";
 import {
   createMockSession,
   createMockCommitteeData,
@@ -383,7 +383,7 @@ describe("/api/committee/add", () => {
             voterRecordId: string;
             committeeListId: number;
             termId: string;
-            status: string;
+            status: MembershipStatus;
             seatNumber: number | null;
           };
         }) => {

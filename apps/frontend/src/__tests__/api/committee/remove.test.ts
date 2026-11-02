@@ -522,7 +522,7 @@ describe("/api/committee/remove", () => {
         );
         mockHasPermission(true);
         setupResignHappyPath();
-        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        prismaMock.committeeMembership.findUnique.mockResolvedValue(
           createMockMembership({
             status: "ACTIVE",
             seatNumber: 2,
@@ -536,7 +536,7 @@ describe("/api/committee/remove", () => {
         const response = await POST(createMockRequest(createMockResignBody()));
 
         await expectSuccessResponse(response, { status: "success" });
-        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
           expectMembershipExitWrite("membership-test-id-001", {
             status: "RESIGNED",
             exitReportedAt: null,
@@ -544,7 +544,7 @@ describe("/api/committee/remove", () => {
             exitReportedKind: null,
           }),
         );
-        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
           expectAuditLogCreate({
             action: "MEMBER_RESIGNED",
             metadata: jsonContaining({
