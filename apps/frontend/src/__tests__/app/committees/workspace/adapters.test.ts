@@ -10,11 +10,15 @@ import {
   canFilterEligibleOnly,
   candidateSearchQuery,
   candidateSubmissionMode,
+  confirmExitReport,
+  exitReportProblems,
   removalProblems,
   resignationProblems,
   submitCandidate,
+  submitExitReport,
   submitRemoval,
   submitResignation,
+  type ExitReportInput,
 } from "~/app/committees/workspace/adapters";
 import type {
   CandidateCommitteeRef,
@@ -27,7 +31,9 @@ import type * as UtilsModule from "~/lib/utils";
 import {
   committeeDataSchema,
   committeeRequestDataSchema,
+  confirmExitReportSchema,
   removeCommitteeDataSchema,
+  reportExitDataSchema,
   resignCommitteeDataSchema,
 } from "~/lib/validations/committee";
 
@@ -201,12 +207,11 @@ describe("submitResignation", () => {
     memberId: "V-OLD",
   };
 
-  it("posts a RESIGN body with date, method and reason that the endpoint accepts", async () => {
+  it("posts a RESIGN body with date and method, and no reason, that the endpoint accepts", async () => {
     respond({ status: "success" });
     const outcome = await submitResignation(RESIGN, {
       dateReceived: "2026-10-01",
       method: "MAIL",
-      reason: "MOVED_OUT_OF_DISTRICT",
       notes: "",
     });
 
@@ -220,7 +225,6 @@ describe("submitResignation", () => {
       action: "RESIGN",
       resignationDateReceived: "2026-10-01",
       resignationMethod: "MAIL",
-      resignationReason: "MOVED_OUT_OF_DISTRICT",
     });
     expect(resignCommitteeDataSchema.safeParse(body).success).toBe(true);
     expect(outcome).toEqual({ ok: true, message: "Resignation recorded successfully" });
@@ -229,7 +233,7 @@ describe("submitResignation", () => {
   it("a status error delivered with 200 is still a failure", async () => {
     respond({ status: "error", error: "Committee not found" });
     await expect(
-      submitResignation(RESIGN, { dateReceived: "2026-10-01", method: "EMAIL", reason: "OTHER", notes: "x" }),
+      submitResignation(RESIGN, { dateReceived: "2026-10-01", method: "EMAIL", notes: "x" }),
     ).resolves.toEqual({ ok: false, kind: "error", message: "Committee not found" });
   });
 });
@@ -243,17 +247,89 @@ describe("member exit validation", () => {
     expect(removalProblems({ reason: "OTHER", notes: "why" })).toEqual([]);
   });
 
-  it("requires the received date, method and reason for a resignation", () => {
-    expect(
-      resignationProblems({ dateReceived: "", method: "", reason: "", notes: "" }),
-    ).toEqual([
+  it("requires the received date and method for a resignation, and no reason", () => {
+    expect(resignationProblems({ dateReceived: "", method: "" })).toEqual([
       "Enter the date the resignation was received.",
       "Choose how it was received.",
-      "Choose a reason.",
     ]);
-    expect(
-      resignationProblems({ dateReceived: "2026-10-01", method: "EMAIL", reason: "DECEASED", notes: "" }),
-    ).toEqual([]);
+    expect(resignationProblems({ dateReceived: "2026-10-01", method: "EMAIL" })).toEqual([]);
+  });
+});
+
+describe("Exit Reports", () => {
+  const REPORT: CommitteeAction = { kind: "report-exit", committee: GREECE, memberId: "V-OLD" };
+  const EMPTY: ExitReportInput = { kind: "", reason: "", notes: "", dateReceived: "", method: "" };
+
+  it("asks for the kind first, then only that kind's fields", () => {
+    expect(exitReportProblems(EMPTY)).toEqual(["Choose resignation or removal."]);
+    expect(exitReportProblems({ ...EMPTY, kind: "RESIGNATION" })).toEqual([
+      "Enter the date the resignation was received.",
+      "Choose how it was received.",
+    ]);
+    expect(exitReportProblems({ ...EMPTY, kind: "REMOVAL" })).toEqual(["Choose a reason."]);
+  });
+
+  it("sends a resignation's date and method but not a reason picked before switching kind", async () => {
+    respond({ success: true, exitReportedAt: "2026-10-30T15:04:05.678Z" });
+    const outcome = await submitExitReport(REPORT, {
+      kind: "RESIGNATION",
+      reason: "DECEASED",
+      notes: " Moving ",
+      dateReceived: "2026-10-01",
+      method: "EMAIL",
+    });
+
+    const { url, body } = sent();
+    expect(url).toBe("/api/committee/exitReport");
+    expect(body).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-OLD",
+      kind: "RESIGNATION",
+      resignationDateReceived: "2026-10-01",
+      resignationMethod: "EMAIL",
+      removalNotes: "Moving",
+    });
+    expect(reportExitDataSchema.safeParse(body).success).toBe(true);
+    expect(outcome.ok).toBe(true);
+  });
+
+  it("sends a removal's reason but not resignation details typed before switching kind", async () => {
+    respond({ success: true, exitReportedAt: "2026-10-30T15:04:05.678Z" });
+    await submitExitReport(REPORT, {
+      kind: "REMOVAL",
+      reason: "PARTY_CHANGE",
+      notes: "",
+      dateReceived: "2026-10-01",
+      method: "MAIL",
+    });
+
+    const { body } = sent();
+    expect(body).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-OLD",
+      kind: "REMOVAL",
+      removalReason: "PARTY_CHANGE",
+    });
+    expect(reportExitDataSchema.safeParse(body).success).toBe(true);
+  });
+
+  it("confirms a report by its id and reportedAt only", async () => {
+    respond({ success: true });
+    const outcome = await confirmExitReport({
+      membershipId: "m-1",
+      reportedAt: "2026-10-30T15:04:05.678Z",
+      kind: "RESIGNATION",
+    });
+
+    const { url, body } = sent();
+    expect(url).toBe("/api/committee/exitReport/confirm");
+    expect(body).toEqual({ membershipId: "m-1", exitReportedAt: "2026-10-30T15:04:05.678Z" });
+    expect(confirmExitReportSchema.safeParse(body).success).toBe(true);
+    expect(outcome).toEqual({ ok: true, message: "Resignation confirmed" });
   });
 });
 

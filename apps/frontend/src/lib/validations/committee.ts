@@ -232,8 +232,6 @@ export const removeCommitteeDataSchema = z
       errorMap: () => ({ message: "Removal reason is required" }),
     }),
     removalNotes: z.string().trim().max(1000).optional(),
-    /** Set when confirming a Leader's Exit Report: the `exitReportedAt` the Admin saw. */
-    exitReportedAt: exitReportedAtToken.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -259,7 +257,11 @@ const isoDateString = z
     { message: "Resignation date must be a valid date" },
   );
 
-// SRS 2.3 — Record resignation (action RESIGN) validation schema
+/**
+ * SRS 2.3 / §6.5 — Record resignation (action RESIGN): the date received and
+ * the method. A resignation has no reason (SRS §5 gives only removals one);
+ * optional notes can say why.
+ */
 export const resignCommitteeDataSchema = z
   .object({
     cityTown: z.string().trim().min(1, "City/Town is required"),
@@ -293,28 +295,11 @@ export const resignCommitteeDataSchema = z
       .positive("Election District must be a positive integer"),
     memberId: z.string().trim().min(1, "Member ID is required"),
     action: z.literal("RESIGN"),
-    resignationReason: z.nativeEnum(RemovalReason, {
-      errorMap: () => ({ message: "Resignation reason is required" }),
-    }),
     resignationDateReceived: isoDateString,
     resignationMethod: z.nativeEnum(ResignationMethod),
     removalNotes: z.string().trim().max(1000).optional(),
-    /** Set when confirming a Leader's Exit Report: the `exitReportedAt` the Admin saw. */
-    exitReportedAt: exitReportedAtToken.optional(),
   })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (
-      data.resignationReason === "OTHER" &&
-      (data.removalNotes ?? "").trim() === ""
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Notes are required when reason is Other",
-        path: ["removalNotes"],
-      });
-    }
-  });
+  .strict();
 
 // Handle committee membership request data validation schema (SRS 1.2 — uses CommitteeMembership)
 export const handleCommitteeRequestDataSchema = z
@@ -505,9 +490,12 @@ export type CommitteeRequestResponse =
 
 /**
  * A Leader (RequestAccess and above) reports that a member resigned or should
- * be removed. Keyed like `removeCommitteeDataSchema`. A reason is required,
- * notes are required for Other, and a resignation may carry the date received
- * and method when the Leader knows them; a removal may not.
+ * be removed. Keyed like `removeCommitteeDataSchema`. An Admin confirms the
+ * report exactly as filed, so it must already hold what the recorded exit
+ * needs:
+ *
+ * - a resignation: the date received and the method (SRS §6.5), and no reason;
+ * - a removal: a reason, notes for Other, and no resignation details.
  */
 export const reportExitDataSchema = z
   .object({
@@ -525,16 +513,44 @@ export const reportExitDataSchema = z
     kind: z.nativeEnum(ExitReportKind, {
       errorMap: () => ({ message: "Choose resignation or removal" }),
     }),
-    removalReason: z.nativeEnum(RemovalReason, {
-      errorMap: () => ({ message: "Reason is required" }),
-    }),
+    removalReason: z.nativeEnum(RemovalReason).optional(),
     removalNotes: z.string().trim().max(1000).optional(),
     resignationDateReceived: isoDateString.optional(),
     resignationMethod: z.nativeEnum(ResignationMethod).optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (data.removalReason === "OTHER" && (data.removalNotes ?? "") === "") {
+    if (data.kind === "RESIGNATION") {
+      if (data.resignationDateReceived === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Resignation date received is required",
+          path: ["resignationDateReceived"],
+        });
+      }
+      if (data.resignationMethod === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "How the resignation was received is required",
+          path: ["resignationMethod"],
+        });
+      }
+      if (data.removalReason !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A resignation has no reason; use notes instead",
+          path: ["removalReason"],
+        });
+      }
+      return;
+    }
+    if (data.removalReason === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Reason is required",
+        path: ["removalReason"],
+      });
+    } else if (data.removalReason === "OTHER" && (data.removalNotes ?? "") === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Notes are required when reason is Other",
@@ -542,9 +558,8 @@ export const reportExitDataSchema = z
       });
     }
     if (
-      data.kind === "REMOVAL" &&
-      (data.resignationDateReceived !== undefined ||
-        data.resignationMethod !== undefined)
+      data.resignationDateReceived !== undefined ||
+      data.resignationMethod !== undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -566,6 +581,16 @@ export const rejectExitReportSchema = z
   .strict();
 
 export type RejectExitReportData = z.infer<typeof rejectExitReportSchema>;
+
+/** Admin confirms the pending Exit Report they saw, exactly as reported. */
+export const confirmExitReportSchema = z
+  .object({
+    membershipId: z.string().trim().min(1, "membershipId is required"),
+    exitReportedAt: exitReportedAtToken,
+  })
+  .strict();
+
+export type ConfirmExitReportData = z.infer<typeof confirmExitReportSchema>;
 
 /** `GET /api/committee/exit-instructions`: only the Admin-set text. */
 export const exitInstructionsResponseSchema = z.object({

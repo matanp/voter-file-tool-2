@@ -7,12 +7,12 @@
  *   instructions (fetched each time, so an edit is never stale); the report
  *   is sent once the Leader acknowledges them. The member stays on the
  *   committee until an Admin confirms.
- * - `ConfirmExitReportForm`: an Admin confirms a pending report through the
- *   existing Record resignation / Remove member form, prefilled from the
- *   report, with the kind switchable. The endpoint refuses (409) if the report
- *   changed since the Admin loaded it.
+ *
+ * An Admin confirms or rejects the report as filed (Pending tab); there is no
+ * editing, so the report carries everything the recorded exit needs: a
+ * resignation's date received and method, or a removal's reason.
  */
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 
 import {
   AlertDialog,
@@ -24,29 +24,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { formatInstantDateForDisplay } from "~/lib/dateUtils";
 import { linkifyText } from "~/lib/linkify";
-import { REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import type { ExitReportKind } from "@prisma/client";
-import type { PendingExitReport } from "~/lib/validations/committee";
 import {
   exitReportProblems,
   fetchExitInstructions,
   submitExitReport,
   type ExitReportAction,
   type ExitReportInput,
-  type ResignationInput,
 } from "../adapters";
-import type { CommitteeAction } from "../committeeAction";
 import { useActionSubmit } from "./drawerParts";
 import {
   ExitFormLayout,
-  RecordResignationForm,
+  NotesField,
   ReasonAndNotes,
-  RemoveMemberForm,
-  RESIGNATION_METHODS,
+  ResignationReceivedFields,
 } from "./MemberExitForms";
 
 const KINDS: Array<[ExitReportKind, string]> = [
@@ -172,7 +164,12 @@ const EMPTY_REPORT: ExitReportInput = {
   method: "",
 };
 
-/** A Leader's Exit Report: kind, reason, notes (Other), optional resignation details. */
+/**
+ * A Leader's Exit Report: the kind, then that kind's fields. A resignation
+ * takes the date received and method (no reason); a removal takes a reason
+ * (notes for Other). Switching kinds keeps what was typed, but only the
+ * chosen kind's fields are sent.
+ */
 export function ReportExitForm({
   action,
   memberLabel,
@@ -231,49 +228,18 @@ export function ReportExitForm({
             ))}
           </div>
         </fieldset>
-        <ReasonAndNotes
-          label={
-            input.kind === "RESIGNATION" ? "Reason for resignation" : "Reason"
-          }
-          value={input}
-          onChange={setField}
-        />
         {input.kind === "RESIGNATION" && (
           <>
-            <div className="grid gap-1">
-              <Label htmlFor={`${id}-date`}>
-                Date resignation received (if known)
-              </Label>
-              <Input
-                id={`${id}-date`}
-                type="date"
-                value={input.dateReceived}
-                onChange={(e) => setField({ dateReceived: e.target.value })}
-              />
-            </div>
-            <fieldset className="space-y-1">
-              <legend className="text-sm font-medium">
-                How it was received (if known)
-              </legend>
-              <div className="flex gap-4">
-                {RESIGNATION_METHODS.map(([value, label]) => (
-                  <label
-                    key={value}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <input
-                      type="radio"
-                      name={`${id}-method`}
-                      value={value}
-                      checked={input.method === value}
-                      onChange={() => setField({ method: value })}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            <ResignationReceivedFields value={input} onChange={setField} />
+            <NotesField
+              value={input.notes}
+              required={false}
+              onChange={(notes) => setField({ notes })}
+            />
           </>
+        )}
+        {input.kind === "REMOVAL" && (
+          <ReasonAndNotes value={input} onChange={setField} />
         )}
       </ExitFormLayout>
       <ExitInstructionsDialog
@@ -282,131 +248,5 @@ export function ReportExitForm({
         onContinue={send}
       />
     </>
-  );
-}
-
-type ConfirmAction = Extract<CommitteeAction, { kind: "confirm-exit-report" }>;
-
-/** "YYYY-MM-DD" for a date input, from an ISO timestamp. */
-function dateInputValue(iso: string | null | undefined): string {
-  return iso ? iso.slice(0, 10) : "";
-}
-
-/** What the Leader reported, above the Admin's prefilled form. */
-function ReportSummary({ report }: { report: PendingExitReport }) {
-  return (
-    <div
-      data-testid="exit-report-summary"
-      className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
-    >
-      <p className="font-medium">
-        {report.kind === "RESIGNATION" ? "Resignation" : "Removal"} reported{" "}
-        {formatInstantDateForDisplay(report.reportedAt)}
-        {report.reportedBy?.name ? ` by ${report.reportedBy.name}` : ""}
-      </p>
-      {report.removalReason && (
-        <p>Reason: {REMOVAL_REASON_LABELS[report.removalReason]}</p>
-      )}
-      <p>
-        The form below starts from the report. Correct anything before
-        confirming.
-      </p>
-    </div>
-  );
-}
-
-/**
- * Confirm a pending Exit Report: the Record resignation or Remove member form,
- * prefilled, with the kind switchable. Whatever the Admin submits replaces the
- * reported values (blank fields are saved blank).
- */
-export function ConfirmExitReportForm({
-  action,
-  memberLabel,
-  onCancel,
-  onSuccess,
-}: {
-  action: ConfirmAction;
-  memberLabel: string;
-  onCancel: () => void;
-  onSuccess: (message: string) => void;
-}) {
-  const id = useId();
-  const { report } = action;
-  const [kind, setKind] = useState<ExitReportKind>(report.kind);
-  const confirm = { exitReportedAt: report.reportedAt };
-  // Starts from the report, then follows the Admin's edits, so switching the
-  // kind remounts the other form with what the Admin already corrected.
-  const [initial] = useState<Partial<ResignationInput>>(() => ({
-    reason: report.removalReason ?? "",
-    notes: report.removalNotes ?? "",
-    dateReceived: dateInputValue(report.resignationDateReceived),
-    method: report.resignationMethod ?? "",
-  }));
-  const draft = useRef(initial);
-  const onInputChange = useCallback((input: Partial<ResignationInput>) => {
-    draft.current = { ...draft.current, ...input };
-  }, []);
-
-  const intro = (
-    <>
-      <ReportSummary report={report} />
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">Record as</legend>
-        <div className="flex flex-wrap gap-4">
-          {(
-            [
-              ["RESIGNATION", "Resignation"],
-              ["REMOVAL", "Removal"],
-            ] as const
-          ).map(([value, label]) => (
-            <label key={value} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name={`${id}-confirm-kind`}
-                value={value}
-                checked={kind === value}
-                onChange={() => setKind(value)}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-    </>
-  );
-
-  return kind === "RESIGNATION" ? (
-    <RecordResignationForm
-      key="resignation"
-      action={{
-        kind: "record-resignation",
-        committee: action.committee,
-        memberId: action.memberId,
-      }}
-      memberLabel={memberLabel}
-      onCancel={onCancel}
-      onSuccess={onSuccess}
-      initial={draft.current}
-      confirm={confirm}
-      intro={intro}
-      onInputChange={onInputChange}
-    />
-  ) : (
-    <RemoveMemberForm
-      key="removal"
-      action={{
-        kind: "remove-member",
-        committee: action.committee,
-        memberId: action.memberId,
-      }}
-      memberLabel={memberLabel}
-      onCancel={onCancel}
-      onSuccess={onSuccess}
-      initial={draft.current}
-      confirm={confirm}
-      intro={intro}
-      onInputChange={onInputChange}
-    />
   );
 }

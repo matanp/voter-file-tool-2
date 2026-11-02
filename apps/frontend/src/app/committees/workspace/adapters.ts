@@ -34,6 +34,7 @@ import {
   type committeeDataSchema,
   type committeeRequestDataSchema,
   type PendingExitReport,
+  type confirmExitReportSchema,
   type rejectExitReportSchema,
   type removeCommitteeDataSchema,
   type reportExitDataSchema,
@@ -343,10 +344,10 @@ export type ResignationAction = Extract<CommitteeAction, { kind: "record-resigna
 
 /** Form state; `""` is "not chosen yet". */
 export type RemovalInput = { reason: RemovalReason | ""; notes: string };
+/** A resignation has no reason (SRS §5, §6.5); notes can say why. */
 export type ResignationInput = {
   dateReceived: string;
   method: ResignationMethod | "";
-  reason: RemovalReason | "";
   notes: string;
 };
 
@@ -363,16 +364,17 @@ export function removalProblems(input: RemovalInput): string[] {
 }
 
 /**
- * What still blocks recording a resignation (SRS 2.3): the received date, the
- * method, a reason, and notes for **Other** (`resignCommitteeDataSchema`).
+ * What still blocks recording a resignation (SRS 2.3 / §6.5): the received
+ * date and the method (`resignCommitteeDataSchema`).
  */
-export function resignationProblems(input: ResignationInput): string[] {
+export function resignationProblems(
+  input: Pick<ResignationInput, "dateReceived" | "method">,
+): string[] {
   const problems: string[] = [];
   if (input.dateReceived.trim() === "") {
     problems.push("Enter the date the resignation was received.");
   }
   if (input.method === "") problems.push("Choose how it was received.");
-  problems.push(...removalProblems(input));
   return problems;
 }
 
@@ -388,28 +390,16 @@ function memberKey(action: Pick<CommitteeAction & { memberId: string }, "committ
   };
 }
 
-/**
- * When confirming a Leader's Exit Report: the report's `exitReportedAt`, so the
- * endpoint applies the exit only if the row still carries that report.
- */
-export type ConfirmExitReport = { exitReportedAt: string };
-
-function confirmParam(confirm: ConfirmExitReport | undefined) {
-  return confirm ? { exitReportedAt: confirm.exitReportedAt } : {};
-}
-
 /** Administrative removal (Admin-only endpoint). Call once `removalProblems` is empty. */
 export async function submitRemoval(
   action: Pick<RemovalAction, "committee" | "memberId">,
   input: RemovalInput,
-  confirm?: ConfirmExitReport,
 ): Promise<ActionOutcome> {
   if (input.reason === "") return { ok: false, kind: "error", message: "Choose a reason." };
   const body: RemoveBody = {
     ...memberKey(action),
     removalReason: input.reason,
     ...trimmedOrOmit("removalNotes", input.notes),
-    ...confirmParam(confirm),
   };
   const result = await postJson("/api/committee/remove", body);
   return result.ok ? { ok: true, message: "Committee member removed successfully" } : result;
@@ -419,9 +409,8 @@ export async function submitRemoval(
 export async function submitResignation(
   action: Pick<ResignationAction, "committee" | "memberId">,
   input: ResignationInput,
-  confirm?: ConfirmExitReport,
 ): Promise<ActionOutcome> {
-  if (input.reason === "" || input.method === "") {
+  if (input.method === "") {
     return { ok: false, kind: "error", message: resignationProblems(input).join(" ") };
   }
   const body: ResignBody = {
@@ -429,9 +418,7 @@ export async function submitResignation(
     action: "RESIGN",
     resignationDateReceived: input.dateReceived.trim(),
     resignationMethod: input.method,
-    resignationReason: input.reason,
     ...trimmedOrOmit("removalNotes", input.notes),
-    ...confirmParam(confirm),
   };
   const result = await postJson("/api/committee/remove", body);
   return result.ok ? { ok: true, message: "Resignation recorded successfully" } : result;
@@ -442,8 +429,10 @@ export async function submitResignation(
 export type ExitReportAction = Extract<CommitteeAction, { kind: "report-exit" }>;
 
 /**
- * A Leader's Exit Report form. A resignation may carry the date received and
- * method when the Leader knows them; both are optional.
+ * A Leader's Exit Report form. The Admin confirms it as reported, so a
+ * resignation needs the date received and method, and a removal needs a
+ * reason (notes for Other). Fields for the other kind are kept while the
+ * Leader switches but never sent.
  */
 export type ExitReportInput = {
   kind: ExitReportKind | "";
@@ -453,12 +442,16 @@ export type ExitReportInput = {
   method: ResignationMethod | "";
 };
 
-/** What still blocks an Exit Report: a kind, a reason, and notes for Other. */
+/** What still blocks an Exit Report (`reportExitDataSchema`), by kind. */
 export function exitReportProblems(input: ExitReportInput): string[] {
-  const problems: string[] = [];
-  if (input.kind === "") problems.push("Choose resignation or removal.");
-  problems.push(...removalProblems(input));
-  return problems;
+  switch (input.kind) {
+    case "":
+      return ["Choose resignation or removal."];
+    case "RESIGNATION":
+      return resignationProblems(input);
+    case "REMOVAL":
+      return removalProblems(input);
+  }
 }
 
 type ReportExitBody = z.input<typeof reportExitDataSchema>;
@@ -468,17 +461,26 @@ export async function submitExitReport(
   action: ExitReportAction,
   input: ExitReportInput,
 ): Promise<ActionOutcome> {
-  if (input.kind === "" || input.reason === "") {
-    return { ok: false, kind: "error", message: exitReportProblems(input).join(" ") };
+  const { kind, reason, method } = input;
+  const problems = exitReportProblems(input);
+  if (problems.length > 0 || kind === "") {
+    return { ok: false, kind: "error", message: problems.join(" ") };
   }
-  const isResignation = input.kind === "RESIGNATION";
+  // Only the chosen kind's fields; the schema refuses the other kind's.
+  const byKind: Partial<ReportExitBody> =
+    kind === "RESIGNATION"
+      ? {
+          resignationDateReceived: input.dateReceived.trim(),
+          ...(method !== "" ? { resignationMethod: method } : {}),
+        }
+      : reason !== ""
+        ? { removalReason: reason }
+        : {};
   const body: ReportExitBody = {
     ...memberKey(action),
-    kind: input.kind,
-    removalReason: input.reason,
+    kind,
+    ...byKind,
     ...trimmedOrOmit("removalNotes", input.notes),
-    ...(isResignation ? trimmedOrOmit("resignationDateReceived", input.dateReceived) : {}),
-    ...(isResignation && input.method !== "" ? { resignationMethod: input.method } : {}),
   };
   const result = await postJson("/api/committee/exitReport", body);
   return result.ok
@@ -487,6 +489,22 @@ export async function submitExitReport(
         message: "Reported for Admin review. The member stays on the committee until an Admin confirms it.",
       }
     : result;
+}
+
+/** Admin confirms the pending report it was shown, exactly as reported. */
+export async function confirmExitReport(
+  report: Pick<PendingExitReport, "membershipId" | "reportedAt" | "kind">,
+): Promise<ActionOutcome> {
+  const body: z.input<typeof confirmExitReportSchema> = {
+    membershipId: report.membershipId,
+    exitReportedAt: report.reportedAt,
+  };
+  const result = await postJson("/api/committee/exitReport/confirm", body);
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    message: report.kind === "RESIGNATION" ? "Resignation confirmed" : "Removal confirmed",
+  };
 }
 
 /** Admin rejects the pending report it was shown. */

@@ -1,6 +1,7 @@
 import { PrivilegeLevel, type UserJurisdiction } from "@prisma/client";
 import { POST as reportExit } from "~/app/api/committee/exitReport/route";
 import { POST as rejectExitReport } from "~/app/api/committee/exitReport/reject/route";
+import { POST as confirmExitReport } from "~/app/api/committee/exitReport/confirm/route";
 import { GET as getExitInstructions } from "~/app/api/committee/exit-instructions/route";
 import {
   createMockCommittee,
@@ -10,6 +11,7 @@ import {
   createMockVoterRecord,
   expectAuditLogCreate,
   expectErrorResponse,
+  expectMembershipExitWrite,
   jsonContaining,
   parseJsonResponse,
   selectedRow,
@@ -29,7 +31,8 @@ const reportBody = (overrides: Record<string, unknown> = {}) => ({
   electionDistrict: 1,
   memberId: "TEST123456",
   kind: "RESIGNATION",
-  removalReason: "MOVED_OUT_OF_DISTRICT",
+  resignationDateReceived: "2026-10-29",
+  resignationMethod: "EMAIL",
   ...overrides,
 });
 
@@ -72,6 +75,11 @@ function resolveIncludedMembership(row: object): void {
   prismaMock.committeeMembership.findUnique.mockResolvedValue(selectedRow(row));
 }
 
+/** A record-not-found from a conditional `update` (Prisma P2025). */
+const recordNotFound = Object.assign(new Error("Record to update not found."), {
+  code: "P2025",
+});
+
 /** The first conditional `updateMany` the route made, from the typed delegate. */
 function updateManyArgs() {
   const args = prismaMock.committeeMembership.updateMany.mock.calls[0]?.[0];
@@ -112,14 +120,7 @@ describe("POST /api/committee/exitReport", () => {
     leaderJurisdictions([{ cityTown: "Test City", legDistrict: 1 }]);
 
     const response = await reportExit(
-      createMockRequest(
-        reportBody({
-          removalReason: "OTHER",
-          removalNotes: "  Moving to Ohio  ",
-          resignationDateReceived: "2026-10-29",
-          resignationMethod: "EMAIL",
-        }),
-      ),
+      createMockRequest(reportBody({ removalNotes: "  Moving to Ohio  " })),
     );
 
     expect(response.status).toBe(201);
@@ -132,7 +133,7 @@ describe("POST /api/committee/exitReport", () => {
     expect(args.data).toMatchObject({
       exitReportedById: "test-user-id",
       exitReportedKind: "RESIGNATION",
-      removalReason: "OTHER",
+      removalReason: null,
       removalNotes: "Moving to Ohio",
       resignationMethod: "EMAIL",
       resignationDateReceived: new Date("2026-10-29"),
@@ -146,7 +147,8 @@ describe("POST /api/committee/exitReport", () => {
         afterValue: jsonContaining({
           status: "ACTIVE",
           exitReportedKind: "RESIGNATION",
-          removalReason: "OTHER",
+          resignationDateReceived: "2026-10-29",
+          resignationMethod: "EMAIL",
         }),
       }),
     );
@@ -156,7 +158,12 @@ describe("POST /api/committee/exitReport", () => {
     signIn(PrivilegeLevel.RequestAccess);
     const response = await reportExit(
       createMockRequest(
-        reportBody({ kind: "REMOVAL", removalReason: "DECEASED" }),
+        reportBody({
+          kind: "REMOVAL",
+          removalReason: "DECEASED",
+          resignationDateReceived: undefined,
+          resignationMethod: undefined,
+        }),
       ),
     );
     expect(response.status).toBe(201);
@@ -164,6 +171,7 @@ describe("POST /api/committee/exitReport", () => {
     const args = updateManyArgs();
     expect(args.data).toMatchObject({
       exitReportedKind: "REMOVAL",
+      removalReason: "DECEASED",
       resignationDateReceived: null,
       resignationMethod: null,
       removalNotes: null,
@@ -211,12 +219,28 @@ describe("POST /api/committee/exitReport", () => {
     expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
   });
 
+  const removal = {
+    kind: "REMOVAL",
+    removalReason: "PARTY_CHANGE",
+    resignationDateReceived: undefined,
+    resignationMethod: undefined,
+  };
   it.each([
-    ["Other without notes", { removalReason: "OTHER" }],
     ["no kind", { kind: undefined }],
     [
+      "a resignation without the date received",
+      { resignationDateReceived: undefined },
+    ],
+    ["a resignation without the method", { resignationMethod: undefined }],
+    ["a resignation with a reason", { removalReason: "MOVED_OUT_OF_DISTRICT" }],
+    ["a removal without a reason", { ...removal, removalReason: undefined }],
+    [
+      "a removal for Other without notes",
+      { ...removal, removalReason: "OTHER" },
+    ],
+    [
       "resignation details on a removal",
-      { kind: "REMOVAL", resignationMethod: "MAIL" },
+      { ...removal, resignationMethod: "MAIL" },
     ],
     ["an unknown field", { removeMemberId: "X" }],
   ])("returns 422 for %s", async (_label, overrides) => {
@@ -315,6 +339,159 @@ describe("POST /api/committee/exitReport/reject", () => {
     signIn(PrivilegeLevel.Admin);
     prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 0 });
     const response = await rejectExitReport(createMockRequest(body()));
+    await expectErrorResponse(response, 409, "This member changed, refresh.");
+    expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/committee/exitReport/confirm", () => {
+  const body = (overrides: Record<string, unknown> = {}) => ({
+    membershipId: "membership-test-id-001",
+    exitReportedAt: REPORTED_AT.toISOString(),
+    ...overrides,
+  });
+
+  /** A pending report on an ACTIVE member, as the confirm route reads it. */
+  function reported(overrides: Parameters<typeof createMockMembership>[0]) {
+    resolveIncludedMembership({
+      ...activeMember({
+        exitReportedAt: REPORTED_AT,
+        exitReportedById: "leader-1",
+        ...overrides,
+      }),
+      committeeList: createMockCommittee(),
+      term: { id: "term-default-2024-2026", label: "2024–2026" },
+    });
+  }
+
+  const resignation = {
+    exitReportedKind: "RESIGNATION",
+    resignationDateReceived: new Date("2026-10-28"),
+    resignationMethod: "MAIL",
+    removalNotes: "Moving to Ohio",
+  } as const;
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it("returns 403 for a Leader", async () => {
+    signIn(PrivilegeLevel.Leader, false);
+    reported(resignation);
+    const response = await confirmExitReport(createMockRequest(body()));
+    await expectErrorResponse(
+      response,
+      403,
+      "User does not have sufficient privilege",
+    );
+    expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
+  });
+
+  it("records a reported resignation exactly as reported, with no reason", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported(resignation);
+
+    const response = await confirmExitReport(createMockRequest(body()));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+      expectMembershipExitWrite("membership-test-id-001", {
+        status: "RESIGNED",
+        resignationDateReceived: new Date("2026-10-28"),
+        resignationMethod: "MAIL",
+        removalReason: null,
+        removalNotes: "Moving to Ohio",
+        exitReportedAt: null,
+        exitReportedById: null,
+        exitReportedKind: null,
+      }),
+    );
+    expect(
+      prismaMock.committeeMembership.update.mock.calls[0]?.[0].where,
+    ).toEqual({
+      id: "membership-test-id-001",
+      status: "ACTIVE",
+      exitReportedAt: REPORTED_AT,
+    });
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_RESIGNED",
+        afterValue: jsonContaining({
+          status: "RESIGNED",
+          resignationDateReceived: "2026-10-28",
+          resignationMethod: "MAIL",
+          removalNotes: "Moving to Ohio",
+        }),
+        metadata: jsonContaining({
+          source: "exit_report",
+          reportedById: "leader-1",
+          reportedAt: REPORTED_AT.toISOString(),
+        }),
+      }),
+    );
+  });
+
+  it("records a reported removal with the reported reason", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported({ exitReportedKind: "REMOVAL", removalReason: "DECEASED" });
+
+    const response = await confirmExitReport(createMockRequest(body()));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+      expectMembershipExitWrite("membership-test-id-001", {
+        status: "REMOVED",
+        removalReason: "DECEASED",
+        removalNotes: null,
+        resignationDateReceived: null,
+        resignationMethod: null,
+      }),
+    );
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_REMOVED",
+        afterValue: jsonContaining({
+          status: "REMOVED",
+          removalReason: "DECEASED",
+        }),
+        metadata: jsonContaining({ source: "exit_report" }),
+      }),
+    );
+  });
+
+  it("refuses edits: the body takes only the report it confirms", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported(resignation);
+    const response = await confirmExitReport(
+      createMockRequest(body({ resignationMethod: "EMAIL" })),
+    );
+    expect(response.status).toBe(422);
+    expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 for a resignation report missing the date or method", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported({ ...resignation, resignationMethod: null });
+    const response = await confirmExitReport(createMockRequest(body()));
+    expect(response.status).toBe(422);
+    expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
+    expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 for a report rejected and filed again since the Admin loaded it", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported(resignation);
+    const response = await confirmExitReport(
+      createMockRequest(body({ exitReportedAt: "2026-10-01T00:00:00.000Z" })),
+    );
+    await expectErrorResponse(response, 409, "This member changed, refresh.");
+    expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
+    expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when the conditional write finds the row changed", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported(resignation);
+    prismaMock.committeeMembership.update.mockRejectedValue(recordNotFound);
+    const response = await confirmExitReport(createMockRequest(body()));
     await expectErrorResponse(response, 409, "This member changed, refresh.");
     expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
   });

@@ -6,13 +6,14 @@
  * dialogs render the same forms, so the domain rules live in one place:
  *
  * - removal requires a reason, and **Other** requires notes (SRS 2.5);
- * - resignation requires the received date, method and a reason (SRS 2.3).
+ * - resignation requires the received date and method, and has no reason
+ *   (SRS 2.3 / §6.5); notes are optional.
  *
  * Both are Admin-only endpoints that audit the change. The primary action
  * stays disabled until the requirements are met, and what's missing is
  * listed beside it in text.
  */
-import React, { useEffect, useId, useState } from "react";
+import React, { useId, useState } from "react";
 import type { ResignationMethod } from "@prisma/client";
 
 import { Button } from "~/components/ui/button";
@@ -27,7 +28,6 @@ import {
   submitResignation,
   type RemovalAction,
   type RemovalInput,
-  type ConfirmExitReport,
   type ResignationAction,
   type ResignationInput,
 } from "../adapters";
@@ -40,6 +40,11 @@ import {
 
 export const NOTES_MAX = 1000;
 
+export const RESIGNATION_METHODS: Array<[ResignationMethod, string]> = [
+  ["EMAIL", "Email"],
+  ["MAIL", "Mail"],
+];
+
 type MemberExitFormProps<A> = {
   action: A;
   /** Who is leaving, e.g. "Jane Doe (V1), seat 1". */
@@ -51,14 +56,6 @@ type MemberExitFormProps<A> = {
   Footer?: React.ComponentType<{ children: React.ReactNode }>;
   /** Classes for the scrolling body. Defaults to the drawer's padding. */
   bodyClassName?: string;
-  /** Prefilled values, e.g. from a Leader's Exit Report being confirmed. */
-  initial?: Partial<ResignationInput>;
-  /** Set when confirming a Leader's Exit Report (the endpoint re-checks it). */
-  confirm?: ConfirmExitReport;
-  /** Shown above the form, e.g. what the Leader reported. */
-  intro?: React.ReactNode;
-  /** Every edit, so a parent can carry it into another form (confirm's kind switch). */
-  onInputChange?: (input: Partial<ResignationInput>) => void;
 };
 
 const DRAWER_BODY = "flex-1 space-y-4 overflow-y-auto px-4 py-4";
@@ -124,21 +121,44 @@ export function ExitFormLayout({
   );
 }
 
+/** Free-text notes, required when the removal reason is Other. */
+export function NotesField({
+  value,
+  required,
+  onChange,
+}: {
+  value: string;
+  required: boolean;
+  onChange: (notes: string) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="grid gap-1">
+      <Label htmlFor={id}>{required ? "Notes (required)" : "Notes (optional)"}</Label>
+      <Textarea
+        id={id}
+        rows={3}
+        maxLength={NOTES_MAX}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+/** A removal's reason, and notes (required for Other). */
 export function ReasonAndNotes({
-  label,
   value,
   onChange,
 }: {
-  label: string;
   value: RemovalInput;
   onChange: (patch: Partial<RemovalInput>) => void;
 }) {
   const id = useId();
-  const notesRequired = value.reason === "OTHER";
   return (
     <>
       <div className="grid gap-1">
-        <Label htmlFor={`${id}-reason`}>{label} (required)</Label>
+        <Label htmlFor={`${id}-reason`}>Reason for removal (required)</Label>
         <select
           id={`${id}-reason`}
           value={value.reason}
@@ -155,18 +175,52 @@ export function ReasonAndNotes({
           ))}
         </select>
       </div>
+      <NotesField
+        value={value.notes}
+        required={value.reason === "OTHER"}
+        onChange={(notes) => onChange({ notes })}
+      />
+    </>
+  );
+}
+
+/** A resignation's date received and method (both required, SRS §6.5). */
+export function ResignationReceivedFields({
+  value,
+  onChange,
+}: {
+  value: Pick<ResignationInput, "dateReceived" | "method">;
+  onChange: (patch: Partial<ResignationInput>) => void;
+}) {
+  const id = useId();
+  return (
+    <>
       <div className="grid gap-1">
-        <Label htmlFor={`${id}-notes`}>
-          {notesRequired ? "Notes (required)" : "Notes (optional)"}
-        </Label>
-        <Textarea
-          id={`${id}-notes`}
-          rows={3}
-          maxLength={NOTES_MAX}
-          value={value.notes}
-          onChange={(e) => onChange({ notes: e.target.value })}
+        <Label htmlFor={`${id}-date`}>Date resignation received (required)</Label>
+        <Input
+          id={`${id}-date`}
+          type="date"
+          value={value.dateReceived}
+          onChange={(e) => onChange({ dateReceived: e.target.value })}
         />
       </div>
+      <fieldset className="space-y-1">
+        <legend className="text-sm font-medium">How it was received (required)</legend>
+        <div className="flex gap-4">
+          {RESIGNATION_METHODS.map(([method, label]) => (
+            <label key={method} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name={`${id}-method`}
+                value={method}
+                checked={value.method === method}
+                onChange={() => onChange({ method })}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
     </>
   );
 }
@@ -179,18 +233,10 @@ export function RemoveMemberForm({
   onSuccess,
   Footer,
   bodyClassName,
-  initial,
-  confirm,
-  intro,
-  onInputChange,
 }: MemberExitFormProps<RemovalAction>) {
-  const [input, setInput] = useState<RemovalInput>({
-    reason: initial?.reason ?? "",
-    notes: initial?.notes ?? "",
-  });
-  useEffect(() => onInputChange?.(input), [input, onInputChange]);
+  const [input, setInput] = useState<RemovalInput>({ reason: "", notes: "" });
   const { submitting, failure, run } = useActionSubmit(onSuccess);
-  const submit = () => run(() => submitRemoval(action, input, confirm));
+  const submit = () => run(() => submitRemoval(action, input));
 
   return (
     <ExitFormLayout
@@ -198,20 +244,18 @@ export function RemoveMemberForm({
       failure={failure}
       failureTitle="Could not remove member"
       submitting={submitting}
-      primaryLabel={confirm ? "Confirm removal" : "Remove member"}
+      primaryLabel="Remove member"
       busyLabel="Removing…"
       onCancel={onCancel}
       onSubmit={() => void submit()}
       Footer={Footer}
       bodyClassName={bodyClassName}
     >
-      {intro}
       <p className="text-sm">
         Removing <span className="font-medium">{memberLabel}</span> from the
         committee. This is an administrative removal, not a resignation.
       </p>
       <ReasonAndNotes
-        label="Reason for removal"
         value={input}
         onChange={(patch) => setInput((prev) => ({ ...prev, ...patch }))}
       />
@@ -219,13 +263,7 @@ export function RemoveMemberForm({
   );
 }
 
-const METHODS: Array<[ResignationMethod, string]> = [
-  ["EMAIL", "Email"],
-  ["MAIL", "Mail"],
-];
-
-/** Resignation: the received date, method, and a reason (notes for Other). */
-export const RESIGNATION_METHODS = METHODS;
+/** Resignation: the received date and method, and optional notes. */
 
 export function RecordResignationForm({
   action,
@@ -234,23 +272,16 @@ export function RecordResignationForm({
   onSuccess,
   Footer,
   bodyClassName,
-  initial,
-  confirm,
-  intro,
-  onInputChange,
 }: MemberExitFormProps<ResignationAction>) {
-  const id = useId();
   const [input, setInput] = useState<ResignationInput>({
-    dateReceived: initial?.dateReceived ?? "",
-    method: initial?.method ?? "",
-    reason: initial?.reason ?? "",
-    notes: initial?.notes ?? "",
+    dateReceived: "",
+    method: "",
+    notes: "",
   });
-  useEffect(() => onInputChange?.(input), [input, onInputChange]);
   const { submitting, failure, run } = useActionSubmit(onSuccess);
   const setField = (patch: Partial<ResignationInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
-  const submit = () => run(() => submitResignation(action, input, confirm));
+  const submit = () => run(() => submitResignation(action, input));
 
   return (
     <ExitFormLayout
@@ -258,44 +289,22 @@ export function RecordResignationForm({
       failure={failure}
       failureTitle="Could not record resignation"
       submitting={submitting}
-      primaryLabel={confirm ? "Confirm resignation" : "Record resignation"}
+      primaryLabel="Record resignation"
       busyLabel="Saving…"
       onCancel={onCancel}
       onSubmit={() => void submit()}
       Footer={Footer}
       bodyClassName={bodyClassName}
     >
-      {intro}
       <p className="text-sm">
         Recording a resignation for <span className="font-medium">{memberLabel}</span>.
       </p>
-      <div className="grid gap-1">
-        <Label htmlFor={`${id}-date`}>Date resignation received (required)</Label>
-        <Input
-          id={`${id}-date`}
-          type="date"
-          value={input.dateReceived}
-          onChange={(e) => setField({ dateReceived: e.target.value })}
-        />
-      </div>
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">How it was received (required)</legend>
-        <div className="flex gap-4">
-          {METHODS.map(([value, label]) => (
-            <label key={value} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name={`${id}-method`}
-                value={value}
-                checked={input.method === value}
-                onChange={() => setField({ method: value })}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <ReasonAndNotes label="Reason for resignation" value={input} onChange={setField} />
+      <ResignationReceivedFields value={input} onChange={setField} />
+      <NotesField
+        value={input.notes}
+        required={false}
+        onChange={(notes) => setField({ notes })}
+      />
     </ExitFormLayout>
   );
 }

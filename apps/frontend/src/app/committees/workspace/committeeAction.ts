@@ -1,7 +1,4 @@
-import type {
-  CommitteeDetailResponse,
-  PendingExitReport,
-} from "~/lib/validations/committee";
+import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 
 /**
  * The committee an action targets: `committeeListId` plus the composite key
@@ -32,8 +29,6 @@ export type CandidateCommitteeRef = CommitteeRef & {
  * - `remove-member`, `record-resignation`: Admin only (ticket 14).
  * - `report-exit`: Leader/RequestAccess report that the occupant resigned or
  *   should be removed, for Admin review (leader-feedback-2026-11 ticket 01).
- * - `confirm-exit-report`: Admin confirms a pending Exit Report through the
- *   Record resignation / Remove member form, prefilled from `report`.
  * - `view-voter-details`: read-only; shows the occupant's voter record.
  */
 export type CommitteeAction =
@@ -42,12 +37,6 @@ export type CommitteeAction =
   | { kind: "remove-member"; committee: CommitteeRef; memberId: string }
   | { kind: "record-resignation"; committee: CommitteeRef; memberId: string }
   | { kind: "report-exit"; committee: CommitteeRef; memberId: string }
-  | {
-      kind: "confirm-exit-report";
-      committee: CommitteeRef;
-      memberId: string;
-      report: PendingExitReport;
-    }
   | { kind: "view-voter-details"; committee: CommitteeRef; memberId: string };
 
 export type CommitteeActionKind = CommitteeAction["kind"];

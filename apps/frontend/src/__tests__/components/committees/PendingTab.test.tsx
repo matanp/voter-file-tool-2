@@ -402,7 +402,7 @@ const ADMIN_EXIT_REPORT: PendingExitReport = {
   reportedAt: REPORTED_AT,
   isOwnReport: false,
   reportedBy: { id: "u-1", name: "Lee Leader" },
-  removalReason: "OTHER",
+  removalReason: null,
   removalNotes: "Moving to Ohio",
   resignationDateReceived: "2026-10-29T00:00:00.000Z",
   resignationMethod: "EMAIL",
@@ -422,53 +422,89 @@ const LEADER_EXIT_REPORT: PendingExitReport = {
 
 function renderWithExitReports(reports: PendingExitReport[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
   const onRefresh = jest.fn();
-  const onAction = jest.fn();
   render(
     <GlobalContext.Provider value={{ actingPermissions: role, setActingPermissions: () => undefined }}>
       <PendingTab
         committeeId={2}
         detail={{ ...detailWith([]), pendingExitReports: reports }}
         onRefresh={onRefresh}
-        onAction={onAction}
       />
     </GlobalContext.Provider>,
   );
-  return { onRefresh, onAction };
+  return { onRefresh };
 }
 
 describe("PendingTab: reported exits", () => {
-  it("shows an Admin the report's details, and Confirm opens the prefilled exit form", async () => {
+  it("shows an Admin the report's details, with no reason on a resignation", () => {
     serve();
-    const { onAction } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+    renderWithExitReports([ADMIN_EXIT_REPORT]);
 
     const rita = within(screen.getByRole("list", { name: "Reported exits" })).getByRole("listitem", {
       name: /Rita Reported/,
     });
     expect(rita).toHaveTextContent("Resignation reported Oct 30, 2026 by Lee Leader");
-    expect(rita).toHaveTextContent("Reason: Other");
+    expect(rita).not.toHaveTextContent("Reason:");
     expect(rita).toHaveTextContent("Notes: Moving to Ohio");
     expect(rita).toHaveTextContent("Received: Oct 29, 2026 by email");
+  });
+
+  it("shows a removal's reason", () => {
+    serve();
+    renderWithExitReports([
+      {
+        ...ADMIN_EXIT_REPORT,
+        kind: "REMOVAL",
+        removalReason: "DECEASED",
+        resignationDateReceived: null,
+        resignationMethod: null,
+      },
+    ]);
+    const rita = screen.getByRole("listitem", { name: /Rita Reported/ });
+    expect(rita).toHaveTextContent("Removal reported");
+    expect(rita).toHaveTextContent("Reason: Deceased");
+  });
+
+  it("confirms exactly as reported after a second step, echoing the report the Admin saw", async () => {
+    const fetchMock = installFetchMock(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ success: true }),
+    );
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
 
     await userEvent.click(
-      within(rita).getByRole("button", {
-        name: "Confirm resignation of Rita Reported",
-      }),
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
     );
-    expect(onAction).toHaveBeenCalledWith(
-      {
-        kind: "confirm-exit-report",
-        committee: {
-          committeeListId: 2,
-          cityTown: "GREECE",
-          legDistrict: 1,
-          electionDistrict: 2,
-          assemblyDistrict: "134",
-        },
-        memberId: "VR100",
-        report: ADMIN_EXIT_REPORT,
-      },
-      expect.any(HTMLElement),
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText(/Record this resignation exactly as reported\?/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Confirm resignation" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/committee/exitReport/confirm",
+      expect.objectContaining({ method: "POST" }),
     );
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      membershipId: "m-rep",
+      exitReportedAt: REPORTED_AT,
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Confirmed the resignation of Rita Reported.");
+  });
+
+  it("shows the server's error on a failed confirm", async () => {
+    installFetchMock(async () =>
+      jsonResponse({ success: false, error: "This member changed, refresh." }, 409),
+    );
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Confirm resignation" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not confirm: This member changed, refresh.",
+    );
+    expect(onRefresh).not.toHaveBeenCalled();
   });
 
   it("rejects with an optional note, echoing the report the Admin saw, then refreshes", async () => {

@@ -11,9 +11,8 @@
  * - Leaders: their jurisdiction's submissions and Exit Reports read-only. The
  *   detail endpoint decides what they may see; this tab only hides the
  *   controls.
- * - Exit Reports: an Admin confirms through the action drawer (`onAction`
- *   `confirm-exit-report`, the prefilled Record resignation / Remove member
- *   form) or rejects inline. Neither needs a meeting.
+ * - Exit Reports: an Admin confirms one exactly as reported, or rejects it,
+ *   inline. Neither needs a meeting.
  *
  * After a decision, `onRefresh` refetches the detail and (wired in
  * `CommitteeWorkspace`) the grid row, keeping selection, tab and filters.
@@ -28,7 +27,6 @@ import type {
   PendingExitReport,
   PendingMembership,
 } from "~/lib/validations/committee";
-import { committeeRefFrom } from "../committeeAction";
 import { PendingExitReportItem } from "./pending/PendingExitReportItem";
 import {
   PendingSubmissionItem,
@@ -38,10 +36,7 @@ import {
 import { useMeetingOptions } from "./pending/useMeetingOptions";
 import type { CommitteeTabProps } from "./types";
 
-/** Only when rendered outside `CommitteeTabs` (which always passes `onAction`). */
-const noop = () => undefined;
-
-export function PendingTab({ detail, onRefresh, onAction = noop }: CommitteeTabProps) {
+export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
   const { actingPermissions } = useContext(GlobalContext);
   const canDecide = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const meetings = useMeetingOptions();
@@ -57,27 +52,18 @@ export function PendingTab({ detail, onRefresh, onAction = noop }: CommitteeTabP
     [onRefresh],
   );
 
-  const onExitReportRejected = useCallback(
-    (report: PendingExitReport) => {
-      setAnnouncement(`Rejected the exit report for ${personName(report)}.`);
+  const onExitReportDecided = useCallback(
+    (report: PendingExitReport, decision: PendingDecision) => {
+      const kind = report.kind === "RESIGNATION" ? "resignation" : "removal";
+      setAnnouncement(
+        decision === "accept"
+          ? `Confirmed the ${kind} of ${personName(report)}.`
+          : `Rejected the exit report for ${personName(report)}.`,
+      );
       onRefresh();
     },
     [onRefresh],
   );
-
-  const onConfirmExitReport = (
-    report: PendingExitReport,
-    trigger: HTMLElement | null,
-  ) =>
-    onAction(
-      {
-        kind: "confirm-exit-report",
-        committee: committeeRefFrom(detail.committee),
-        memberId: report.voterRecordId,
-        report,
-      },
-      trigger,
-    );
 
   const { pending, pendingExitReports } = detail;
 
@@ -132,8 +118,7 @@ export function PendingTab({ detail, onRefresh, onAction = noop }: CommitteeTabP
               key={`${report.membershipId}-${report.reportedAt}`}
               report={report}
               canDecide={canDecide}
-              onConfirm={onConfirmExitReport}
-              onRejected={onExitReportRejected}
+              onDecided={onExitReportDecided}
             />
           ))}
         </ul>

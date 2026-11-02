@@ -5,8 +5,9 @@
  * it also shows the Admin-only context the detail carries (reporter, reason,
  * notes, resignation details) and the controls:
  *
- * - Confirm opens the action drawer's Record resignation / Remove member form
- *   prefilled from the report (`onConfirm`).
+ * - Confirm records the exit exactly as reported
+ *   (`/api/committee/exitReport/confirm`). There is no editing: a report with a
+ *   mistake is rejected and the Leader files it again.
  * - Reject takes an optional note and calls `/api/committee/exitReport/reject`.
  *
  * Both echo the report's `reportedAt`, so a report that changed since the
@@ -22,16 +23,15 @@ import {
 } from "~/lib/dateUtils";
 import { REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import type { PendingExitReport } from "~/lib/validations/committee";
-import { rejectExitReport } from "../../adapters";
-import { personName } from "./PendingSubmissionItem";
+import { confirmExitReport, rejectExitReport } from "../../adapters";
+import { personName, type PendingDecision } from "./PendingSubmissionItem";
 
 export type PendingExitReportItemProps = {
   report: PendingExitReport;
   /** Acting Admin: show Admin-only context and the confirm/reject controls. */
   canDecide: boolean;
-  onConfirm: (report: PendingExitReport, trigger: HTMLElement | null) => void;
-  /** After the server accepted a rejection. */
-  onRejected: (report: PendingExitReport) => void;
+  /** After the server accepted the confirmation or rejection. */
+  onDecided: (report: PendingExitReport, decision: PendingDecision) => void;
 };
 
 function reportedByText(r: PendingExitReport, canDecide: boolean): string {
@@ -45,33 +45,37 @@ const METHOD_LABELS = { EMAIL: "email", MAIL: "mail" } as const;
 export function PendingExitReportItem({
   report,
   canDecide,
-  onConfirm,
-  onRejected,
+  onDecided,
 }: PendingExitReportItemProps) {
   const ids = useId();
   const name = personName(report);
-  const [rejecting, setRejecting] = useState(false);
+  const [step, setStep] = useState<"idle" | PendingDecision>("idle");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const [rejected, setRejected] = useState(false);
+  const [decided, setDecided] = useState<PendingDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const reject = async () => {
+  const decide = async (decision: PendingDecision) => {
     setBusy(true);
     setError(null);
-    const outcome = await rejectExitReport(report, note);
+    const outcome =
+      decision === "accept"
+        ? await confirmExitReport(report)
+        : await rejectExitReport(report, note);
     setBusy(false);
     if (outcome.ok) {
-      setRejected(true);
-      onRejected(report);
+      setDecided(decision);
+      onDecided(report, decision);
     } else {
+      const verb = decision === "accept" ? "confirm" : "reject";
       setError(
-        `Could not reject: ${outcome.kind === "error" ? outcome.message : "Something went wrong."}`,
+        `Could not ${verb}: ${outcome.kind === "error" ? outcome.message : "Something went wrong."}`,
       );
     }
   };
 
   const kindLabel = report.kind === "RESIGNATION" ? "Resignation" : "Removal";
+  const kindWord = kindLabel.toLowerCase();
 
   return (
     <li
@@ -121,11 +125,31 @@ export function PendingExitReportItem({
         </div>
       )}
 
-      {canDecide && rejected && <p className="font-medium">Rejected. Updating…</p>}
+      {canDecide && decided && (
+        <p className="font-medium">
+          {decided === "accept" ? "Confirmed" : "Rejected"}. Updating…
+        </p>
+      )}
 
-      {canDecide && !rejected && (
+      {canDecide && !decided && (
         <div className="space-y-2">
-          {rejecting ? (
+          {step === "accept" && (
+            <div className="space-y-2">
+              <p>
+                Record this {kindWord} exactly as reported? To change anything,
+                reject it so the Leader can report it again.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => void decide("accept")} disabled={busy}>
+                  {busy ? "Confirming…" : `Confirm ${kindWord}`}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setStep("idle")} disabled={busy}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          {step === "reject" && (
             <div className="space-y-2">
               <div className="grid gap-1">
                 <label htmlFor={`${ids}-note`} className="font-medium">
@@ -141,28 +165,29 @@ export function PendingExitReportItem({
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => void reject()} disabled={busy}>
+                <Button size="sm" variant="outline" onClick={() => void decide("reject")} disabled={busy}>
                   {busy ? "Rejecting…" : "Confirm reject"}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setRejecting(false)} disabled={busy}>
+                <Button size="sm" variant="ghost" onClick={() => setStep("idle")} disabled={busy}>
                   Cancel
                 </Button>
               </div>
             </div>
-          ) : (
+          )}
+          {step === "idle" && (
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                onClick={(e) => onConfirm(report, e.currentTarget)}
-                aria-label={`Confirm ${kindLabel.toLowerCase()} of ${name}`}
+                onClick={() => setStep("accept")}
+                aria-label={`Confirm ${kindWord} of ${name}`}
               >
                 Confirm
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setRejecting(true)}
-                aria-label={`Reject ${kindLabel.toLowerCase()} report for ${name}`}
+                onClick={() => setStep("reject")}
+                aria-label={`Reject ${kindWord} report for ${name}`}
               >
                 Reject
               </Button>

@@ -186,7 +186,7 @@ describe("CommitteeSelector Remove Member dialog (SRS 2.5)", () => {
 });
 
 describe("CommitteeSelector Record Resignation dialog (SRS 2.3)", () => {
-  it("requires date, method and reason, then posts a RESIGN body", async () => {
+  it("requires date and method, asks no reason, then posts a RESIGN body", async () => {
     const fetchMock = installFetch();
     await openAdminDetail();
 
@@ -197,7 +197,7 @@ describe("CommitteeSelector Record Resignation dialog (SRS 2.3)", () => {
 
     await userEvent.type(within(dialog).getByLabelText(/Date resignation received/), "2026-10-01");
     await userEvent.click(within(dialog).getByRole("radio", { name: "Email" }));
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Reason for resignation/), "DECEASED");
+    expect(within(dialog).queryByLabelText(/Reason/)).not.toBeInTheDocument();
     await userEvent.click(record);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -209,7 +209,6 @@ describe("CommitteeSelector Record Resignation dialog (SRS 2.3)", () => {
       action: "RESIGN",
       resignationDateReceived: "2026-10-01",
       resignationMethod: "EMAIL",
-      resignationReason: "DECEASED",
     });
   });
 });

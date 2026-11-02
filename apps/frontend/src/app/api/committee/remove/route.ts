@@ -28,9 +28,8 @@ import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 
 /**
  * SRS 2.3 / 2.5 — Admin records a resignation (`action: "RESIGN"`) or removes a
- * member, through the shared exit helper. With `exitReportedAt`, this confirms
- * the Leader's pending Exit Report the Admin was looking at: 409 if the row no
- * longer carries exactly that report.
+ * member, through the shared exit helper. A pending Exit Report on the member
+ * is superseded (confirming one goes through `/api/committee/exitReport/confirm`).
  */
 async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
@@ -132,12 +131,6 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       seatNumber: membership.seatNumber,
     });
 
-    // Confirming a Leader's Exit Report: the Admin's form values replace the
-    // reported ones, and the row must still carry the report the Admin saw.
-    const confirmedReportAt = validation.data.exitReportedAt
-      ? new Date(validation.data.exitReportedAt)
-      : undefined;
-
     let exit: MembershipExit;
     let action: "MEMBER_RESIGNED" | "MEMBER_REMOVED";
     let afterValue: Record<string, unknown>;
@@ -149,7 +142,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         status: "RESIGNED",
         resignationDateReceived: new Date(resignData.resignationDateReceived),
         resignationMethod: resignData.resignationMethod,
-        removalReason: resignData.resignationReason,
+        removalReason: null,
         removalNotes: trimmedNotes,
       };
       action = "MEMBER_RESIGNED";
@@ -157,8 +150,6 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         status: "RESIGNED",
         resignationDateReceived: resignData.resignationDateReceived,
         resignationMethod: resignData.resignationMethod,
-        resignationReason: resignData.resignationReason,
-        removalReason: resignData.resignationReason,
         ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
       };
       baseMetadata = undefined;
@@ -182,22 +173,8 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     }
 
     const outcome = await prisma.$transaction(async (tx) => {
-      const result = await writeMembershipExit(
-        tx,
-        membership,
-        exit,
-        confirmedReportAt ? { expectedExitReportedAt: confirmedReportAt } : {},
-      );
+      const result = await writeMembershipExit(tx, membership, exit);
       if (result.kind !== "written") return result.kind;
-
-      const reportMetadata =
-        confirmedReportAt && result.clearedReport
-          ? {
-              source: "exit_report",
-              reportedById: result.clearedReport.reportedById,
-              reportedAt: result.clearedReport.reportedAt,
-            }
-          : supersededExitReportMetadata(result);
 
       await logAuditEventOrThrow(
         userId,
@@ -212,7 +189,10 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
             : {}),
         },
         afterValue,
-        mergeAuditMetadata({ ...baseMetadata, ...reportMetadata }, membershipSubject),
+        mergeAuditMetadata(
+          { ...baseMetadata, ...supersededExitReportMetadata(result) },
+          membershipSubject,
+        ),
         tx,
       );
       return "written" as const;

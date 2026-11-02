@@ -1,8 +1,9 @@
 /**
  * POST /api/committee/exitReport — a Leader (RequestAccess and above) reports
  * that an ACTIVE member resigned or should be removed. The member stays ACTIVE
- * and seated until an Admin confirms (`/api/committee/remove` with
- * `exitReportedAt`) or rejects (`/api/committee/exitReport/reject`) it.
+ * and seated until an Admin confirms it as reported
+ * (`/api/committee/exitReport/confirm`) or rejects it
+ * (`/api/committee/exitReport/reject`).
  *
  * Refuses: committees outside a Leader's jurisdictions (403), members who
  * aren't ACTIVE (400), and members who already have a pending report (409,
@@ -152,7 +153,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
           ? new Date(resignationDateReceived)
           : null,
       resignationMethod: isResignation ? (resignationMethod ?? null) : null,
-      removalReason,
+      removalReason: isResignation ? null : (removalReason ?? null),
       removalNotes: notes,
     };
 
@@ -171,7 +172,9 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
           status: ACTIVE_MEMBERSHIP_STATUS,
           exitReportedAt: at.toISOString(),
           exitReportedKind: kind,
-          removalReason,
+          ...(reported.removalReason
+            ? { removalReason: reported.removalReason }
+            : {}),
           ...(notes ? { removalNotes: notes } : {}),
           ...(reported.resignationDateReceived && resignationDateReceived
             ? { resignationDateReceived }
