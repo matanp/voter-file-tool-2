@@ -373,6 +373,16 @@ describe("POST /api/committee/exitReport/confirm", () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  it("returns 401 when signed out", async () => {
+    mockAuthSession(null);
+    reported(resignation);
+    const response = await confirmExitReport(createMockRequest(body()));
+    await expectErrorResponse(response, 401, "Please log in");
+    expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
+    expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it("returns 403 for a Leader", async () => {
     signIn(PrivilegeLevel.Leader, false);
     reported(resignation);

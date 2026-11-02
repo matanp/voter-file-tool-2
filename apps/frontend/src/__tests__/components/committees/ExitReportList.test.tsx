@@ -11,7 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { ExitReportList } from "~/app/committees/requests/ExitReportList";
 import { REQUESTS_HEADING_ID } from "~/app/committees/requests/requestsHeading";
 import type { PendingExitReport } from "~/lib/validations/committee";
-import { installFetchMock } from "../../utils/mocks";
+import { fetchJsonResponse, installFetchMock } from "../../utils/mocks";
 
 const mockRefresh = jest.fn();
 const mockToast = jest.fn();
@@ -39,16 +39,6 @@ const REPORT: PendingExitReport = {
   resignationDateReceived: null,
   resignationMethod: null,
 };
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: "",
-    headers: { get: () => "application/json" },
-    json: async () => body,
-  } as unknown as Response;
-}
 
 beforeEach(() => {
   mockRefresh.mockReset();
@@ -90,7 +80,7 @@ describe("ExitReportList", () => {
     "decides through the modal (%s), refreshes the page, announces it, and lands focus on the page heading",
     async (trigger, action, url, announcement) => {
       const fetchMock = installFetchMock(async () =>
-        jsonResponse({ success: true }),
+        fetchJsonResponse({ success: true }),
       );
       render(<RequestsPage initial={[REPORT]} />);
 
@@ -127,7 +117,7 @@ describe("ExitReportList", () => {
 
   it("does not refresh when the decision fails", async () => {
     installFetchMock(async () =>
-      jsonResponse(
+      fetchJsonResponse(
         { success: false, error: "This member changed, refresh." },
         409,
       ),

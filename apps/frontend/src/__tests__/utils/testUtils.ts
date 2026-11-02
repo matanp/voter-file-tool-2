@@ -9,6 +9,7 @@ import {
   type VoterRecord,
   type CommitteeRequest,
   type CommitteeGovernanceConfig,
+  type EligibilityFlag,
 } from "@prisma/client";
 import type { Session } from "next-auth";
 import type { z } from "zod";
@@ -544,6 +545,26 @@ export const createMockGovernanceConfig = (
     updatedAt: new Date("2024-01-01"),
     ...overrides,
   }) as CommitteeGovernanceConfig;
+
+/** Full EligibilityFlag row: a PENDING flag on the default membership. */
+export const createMockEligibilityFlag = (
+  overrides: Partial<EligibilityFlag> = {},
+): EligibilityFlag => ({
+  id: "flag-test-id-001",
+  membershipId: "membership-test-id-001",
+  committeeListId: 1,
+  voterRecordId: "TEST123456",
+  termId: DEFAULT_ACTIVE_TERM_ID,
+  reason: "PARTY_MISMATCH",
+  status: "PENDING",
+  details: null,
+  sourceReportId: null,
+  reviewedById: null,
+  reviewedAt: null,
+  createdAt: new Date("2024-01-01"),
+  updatedAt: new Date("2024-01-01"),
+  ...overrides,
+});
 
 /** Full CommitteeTerm row, as `getActiveTerm` resolves it. */
 export const createMockCommitteeTerm = (

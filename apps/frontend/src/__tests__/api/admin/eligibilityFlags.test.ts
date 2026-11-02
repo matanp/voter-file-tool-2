@@ -3,6 +3,8 @@ import { POST as runEligibilityFlags } from "~/app/api/admin/eligibility-flags/r
 import { POST as reviewEligibilityFlag } from "~/app/api/admin/eligibility-flags/[id]/review/route";
 import { PrivilegeLevel, type CommitteeMembership } from "@prisma/client";
 import {
+  createMockEligibilityFlag,
+  createMockGovernanceConfig,
   createMockMembership,
   createMockRequest,
   createMockSession,
@@ -15,6 +17,8 @@ import {
   expectMembershipExitWrite,
   jsonContaining,
   RESOLVE_STALE_FLAGS_PARAMS,
+  createMockVoterRecord,
+  selectedRow,
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
@@ -127,16 +131,18 @@ describe("/api/admin/eligibility-flags", () => {
   });
 
   it("runs manual eligibility flagging and returns summary", async () => {
-    (
-      prismaMock.committeeGovernanceConfig.findFirst as jest.Mock
-    ).mockResolvedValue({
-      requiredPartyCode: "DEM",
-      requireAssemblyDistrictMatch: true,
-    });
-    prismaMock.voterRecord.findFirst.mockResolvedValue({
-      latestRecordEntryYear: 2026,
-      latestRecordEntryNumber: 10,
-    } as never);
+    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+      createMockGovernanceConfig({
+        requiredPartyCode: "DEM",
+        requireAssemblyDistrictMatch: true,
+      }),
+    );
+    prismaMock.voterRecord.findFirst.mockResolvedValue(
+      createMockVoterRecord({
+        latestRecordEntryYear: 2026,
+        latestRecordEntryNumber: 10,
+      }),
+    );
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
     getEligibilityFlagMock(prismaMock).findMany.mockResolvedValue([]);
     getEligibilityFlagMock(prismaMock).createMany.mockResolvedValue({
@@ -163,16 +169,18 @@ describe("/api/admin/eligibility-flags", () => {
   });
 
   it("auto-resolves stale pending flags on re-scan and writes system audit context", async () => {
-    (
-      prismaMock.committeeGovernanceConfig.findFirst as jest.Mock
-    ).mockResolvedValue({
-      requiredPartyCode: "DEM",
-      requireAssemblyDistrictMatch: false,
-    });
-    prismaMock.voterRecord.findFirst.mockResolvedValue({
-      latestRecordEntryYear: 2026,
-      latestRecordEntryNumber: 10,
-    } as never);
+    prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+      createMockGovernanceConfig({
+        requiredPartyCode: "DEM",
+        requireAssemblyDistrictMatch: false,
+      }),
+    );
+    prismaMock.voterRecord.findFirst.mockResolvedValue(
+      createMockVoterRecord({
+        latestRecordEntryYear: 2026,
+        latestRecordEntryNumber: 10,
+      }),
+    );
     getMembershipMock(prismaMock).findMany.mockResolvedValue([
       {
         id: "membership-1",
@@ -368,15 +376,22 @@ describe("/api/admin/eligibility-flags", () => {
       exitReportedById: "leader-1",
       exitReportedKind: "RESIGNATION",
     });
-    getEligibilityFlagMock(prismaMock).findUnique.mockResolvedValue({
+    const flag = createMockEligibilityFlag({
       id: "flag-4",
+      membershipId: membership.id,
       reason: "ASSEMBLY_DISTRICT_MISMATCH",
-      status: "PENDING",
-      details: null,
-      membership,
     });
+    prismaMock.eligibilityFlag.findUnique.mockResolvedValue(
+      selectedRow<typeof flag & { membership: typeof membership }>({
+        ...flag,
+        membership,
+      }),
+    );
     prismaMock.committeeMembership.findUnique.mockResolvedValue(membership);
-    getEligibilityFlagMock(prismaMock).update.mockResolvedValue({});
+    prismaMock.eligibilityFlag.update.mockResolvedValue({
+      ...flag,
+      status: "CONFIRMED",
+    });
 
     const response = await reviewEligibilityFlag(
       createMockRequest({ decision: "confirm" }),
@@ -397,12 +412,12 @@ describe("/api/admin/eligibility-flags", () => {
       expectAuditLogCreate({
         action: "MEMBER_REMOVED",
         metadata: jsonContaining({
-            source: "boe_flagging",
-            supersededExitReport: {
-              reportedById: "leader-1",
-              reportedAt: reportedAt.toISOString(),
-              kind: "RESIGNATION",
-            },
+          source: "boe_flagging",
+          supersededExitReport: {
+            reportedById: "leader-1",
+            reportedAt: reportedAt.toISOString(),
+            kind: "RESIGNATION",
+          },
         }),
       }),
     );
