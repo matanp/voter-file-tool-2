@@ -7,8 +7,29 @@ import { Button } from "~/components/ui/button";
 import { SignInButton } from "~/components/ui/signInButton";
 import { hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
+import type { DbEnvironment } from "~/lib/dbEnvironment";
 
-const Header: React.FC = () => {
+type HeaderProps = {
+  dbKind: DbEnvironment["kind"];
+  /** Shown as a tooltip on the badge; omitted in production builds. */
+  dbHost?: string;
+};
+
+const DbEnvironmentBadge: React.FC<HeaderProps> = ({ dbKind, dbHost }) => {
+  const isDev = dbKind === "dev";
+  return (
+    <span
+      title={dbHost ? `Database host: ${dbHost}` : undefined}
+      className={`rounded px-2 py-1 text-xs font-bold uppercase tracking-wide text-white ${
+        isDev ? "bg-green-700" : "bg-red-600"
+      }`}
+    >
+      {isDev ? "Dev DB" : "Prod DB"}
+    </span>
+  );
+};
+
+const Header: React.FC<HeaderProps> = ({ dbKind, dbHost }) => {
   const pathname = usePathname();
   const { actingPermissions } = useContext(GlobalContext);
 
@@ -21,8 +42,10 @@ const Header: React.FC = () => {
   return (
     <div className="overflow-x-auto bg-accent border-b-2 border-solid">
       <div className="flex items-center justify-between p-1 min-w-full">
-        {/* Left spacer - hidden on small screens when content overflows */}
-        <div className="hidden lg:block w-[150px]"></div>
+        {/* Left slot - which database this app is connected to */}
+        <div className="flex shrink-0 items-center px-2 lg:w-[150px]">
+          <DbEnvironmentBadge dbKind={dbKind} dbHost={dbHost} />
+        </div>
 
         {/* Navigation tabs - centered on large screens, left-aligned on small screens */}
         <div className="flex items-center justify-center lg:justify-center gap-2 py-2 flex-1 lg:flex-none">
