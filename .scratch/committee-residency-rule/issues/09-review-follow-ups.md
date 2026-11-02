@@ -118,7 +118,7 @@ branch `committee-residency-review-follow-ups`.
   `WEIGHTED_TABLE_IMPORTED` audit action, which adds migration
   `20261025000000_add_weighted_table_imported_audit_action`. Reusing `CROSSWALK_IMPORTED` would
   have broken the crosswalk's "last imported" time, which is read from its latest audit row.
-- **4. Bulk crosswalk clear: split** into ticket 12 (`ready-for-human`). Choosing between the
+- **4. Bulk crosswalk clear: split** into ticket 14 (`ready-for-human`). Choosing between the
   options is a product decision.
 - **5. Crosswalk summary semantics: no action.** `LtedCrosswalkTab.tsx` already shows the Updated,
   Unchanged, Skipped and duplicates counts.

@@ -1,4 +1,4 @@
-# 12 - Give admins a bulk way to clear stale crosswalk rows
+# 14 - Give admins a bulk way to clear stale crosswalk rows
 
 Status: ready-for-human
 Type: task
