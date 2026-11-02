@@ -317,19 +317,37 @@ describe("Exit Reports", () => {
     expect(reportExitDataSchema.safeParse(body).success).toBe(true);
   });
 
-  it("confirms a report by its id and reportedAt only", async () => {
+  it("confirms a report by its id and reportedAt, leaving out a blank note", async () => {
     respond({ success: true });
-    const outcome = await confirmExitReport({
-      membershipId: "m-1",
-      reportedAt: "2026-10-30T15:04:05.678Z",
-      kind: "RESIGNATION",
-    });
+    const outcome = await confirmExitReport(
+      {
+        membershipId: "m-1",
+        reportedAt: "2026-10-30T15:04:05.678Z",
+        kind: "RESIGNATION",
+      },
+      "   ",
+    );
 
     const { url, body } = sent();
     expect(url).toBe("/api/committee/exitReport/confirm");
     expect(body).toEqual({ membershipId: "m-1", exitReportedAt: "2026-10-30T15:04:05.678Z" });
     expect(confirmExitReportSchema.safeParse(body).success).toBe(true);
     expect(outcome).toEqual({ ok: true, message: "Resignation confirmed" });
+  });
+
+  it("sends a confirmation note trimmed", async () => {
+    respond({ success: true });
+    await confirmExitReport(
+      { membershipId: "m-1", reportedAt: "2026-10-30T15:04:05.678Z", kind: "REMOVAL" },
+      "  Letter on file ",
+    );
+    const { body } = sent();
+    expect(body).toEqual({
+      membershipId: "m-1",
+      exitReportedAt: "2026-10-30T15:04:05.678Z",
+      note: "Letter on file",
+    });
+    expect(confirmExitReportSchema.safeParse(body).success).toBe(true);
   });
 });
 

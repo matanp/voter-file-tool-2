@@ -582,11 +582,12 @@ export const rejectExitReportSchema = z
 
 export type RejectExitReportData = z.infer<typeof rejectExitReportSchema>;
 
-/** Admin confirms the pending Exit Report they saw, exactly as reported. */
+/** Admin confirms the pending Exit Report they saw, exactly as reported; the note is optional. */
 export const confirmExitReportSchema = z
   .object({
     membershipId: z.string().trim().min(1, "membershipId is required"),
     exitReportedAt: exitReportedAtToken,
+    note: z.string().trim().max(1000).optional(),
   })
   .strict();
 

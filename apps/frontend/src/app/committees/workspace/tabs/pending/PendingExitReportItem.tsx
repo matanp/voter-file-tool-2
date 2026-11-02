@@ -8,14 +8,28 @@
  * - Confirm records the exit exactly as reported
  *   (`/api/committee/exitReport/confirm`). There is no editing: a report with a
  *   mistake is rejected and the Leader files it again.
- * - Reject takes an optional note and calls `/api/committee/exitReport/reject`.
+ * - Reject calls `/api/committee/exitReport/reject`; the Leader can report again.
+ *
+ * Both go through the same modal: it states what the decision does, takes an
+ * optional note (audited with the decision), stays open while the request runs
+ * and shows a failure inside it, and closes once the server accepts.
  *
  * Both echo the report's `reportedAt`, so a report that changed since the
  * detail loaded is refused with "This member changed, refresh."
  */
 import React, { useId, useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
+import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import {
   formatCalendarDateForDisplay,
@@ -60,7 +74,7 @@ export function PendingExitReportItem({
     setError(null);
     const outcome =
       decision === "accept"
-        ? await confirmExitReport(report)
+        ? await confirmExitReport(report, note)
         : await rejectExitReport(report, note);
     setBusy(false);
     if (outcome.ok) {
@@ -76,6 +90,14 @@ export function PendingExitReportItem({
 
   const kindLabel = report.kind === "RESIGNATION" ? "Resignation" : "Removal";
   const kindWord = kindLabel.toLowerCase();
+
+  const open = (decision: PendingDecision) => {
+    setNote("");
+    setError(null);
+    setStep(decision);
+  };
+
+  const dialogStep = step === "idle" ? null : step;
 
   return (
     <li
@@ -132,74 +154,78 @@ export function PendingExitReportItem({
       )}
 
       {canDecide && !decided && (
-        <div className="space-y-2">
-          {step === "accept" && (
-            <div className="space-y-2">
-              <p>
-                Record this {kindWord} exactly as reported? To change anything,
-                reject it so the Leader can report it again.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => void decide("accept")} disabled={busy}>
-                  {busy ? "Confirming…" : `Confirm ${kindWord}`}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setStep("idle")} disabled={busy}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-          {step === "reject" && (
-            <div className="space-y-2">
-              <div className="grid gap-1">
-                <label htmlFor={`${ids}-note`} className="font-medium">
-                  Note (optional)
-                </label>
-                <Textarea
-                  id={`${ids}-note`}
-                  rows={2}
-                  maxLength={1000}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  disabled={busy}
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => void decide("reject")} disabled={busy}>
-                  {busy ? "Rejecting…" : "Confirm reject"}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setStep("idle")} disabled={busy}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-          {step === "idle" && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                onClick={() => setStep("accept")}
-                aria-label={`Confirm ${kindWord} of ${name}`}
-              >
-                Confirm
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setStep("reject")}
-                aria-label={`Reject ${kindWord} report for ${name}`}
-              >
-                Reject
-              </Button>
-            </div>
-          )}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={() => open("accept")}
+            aria-label={`Confirm ${kindWord} of ${name}`}
+          >
+            Confirm
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => open("reject")}
+            aria-label={`Reject ${kindWord} report for ${name}`}
+          >
+            Reject
+          </Button>
+        </div>
+      )}
+
+      <AlertDialog
+        open={canDecide && !decided && dialogStep !== null}
+        onOpenChange={(next) => {
+          if (!next && !busy) setStep("idle");
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {dialogStep === "reject"
+                ? `Reject ${kindWord} report for ${name}?`
+                : `Confirm ${kindWord} of ${name}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {dialogStep === "reject"
+                ? `The member stays on the committee and the Leader can report the ${kindWord} again.`
+                : `Record this ${kindWord} exactly as reported? To change anything, reject it so the Leader can report it again.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-1">
+            <Label htmlFor={`${ids}-note`}>Note (optional)</Label>
+            <Textarea
+              id={`${ids}-note`}
+              rows={2}
+              maxLength={1000}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              disabled={busy}
+            />
+          </div>
           {error && (
             <p role="alert" className="text-red-700 dark:text-red-400">
               {error}
             </p>
           )}
-        </div>
-      )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <Button
+              variant={dialogStep === "reject" ? "outline" : "default"}
+              onClick={() => dialogStep && void decide(dialogStep)}
+              disabled={busy}
+            >
+              {dialogStep === "reject"
+                ? busy
+                  ? "Rejecting…"
+                  : "Confirm reject"
+                : busy
+                  ? "Confirming…"
+                  : `Confirm ${kindWord}`}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </li>
   );
 }

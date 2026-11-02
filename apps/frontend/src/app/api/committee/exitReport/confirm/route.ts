@@ -8,7 +8,8 @@
  * The body echoes the `exitReportedAt` the Admin saw; a row whose report has
  * since changed (confirmed, rejected, re-filed, or the member left) is a 409.
  * Audited as `MEMBER_RESIGNED` / `MEMBER_REMOVED` with
- * `{ source: "exit_report", reportedById, reportedAt }`.
+ * `{ source: "exit_report", reportedById, reportedAt }`, plus the Admin's
+ * optional `confirmationNote` (like a rejection's `rejectionNote`).
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -55,7 +56,7 @@ async function confirmExitReportHandler(
   const validation = validateRequest(body, confirmExitReportSchema);
   if (!validation.success) return validation.response;
 
-  const { membershipId, exitReportedAt } = validation.data;
+  const { membershipId, exitReportedAt, note } = validation.data;
   const expectedAt = new Date(exitReportedAt);
   const userId = session.user.id;
   const userRole = session.user.privilegeLevel;
@@ -173,6 +174,7 @@ async function confirmExitReportHandler(
             source: "exit_report",
             reportedById: membership.exitReportedById,
             reportedAt: exitReportedAt,
+            ...(note ? { confirmationNote: note } : {}),
           },
           buildMembershipAuditSubject({
             voterRecord: membership.voterRecord,

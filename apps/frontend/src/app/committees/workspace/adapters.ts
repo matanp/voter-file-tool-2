@@ -494,10 +494,12 @@ export async function submitExitReport(
 /** Admin confirms the pending report it was shown, exactly as reported. */
 export async function confirmExitReport(
   report: Pick<PendingExitReport, "membershipId" | "reportedAt" | "kind">,
+  note: string,
 ): Promise<ActionOutcome> {
   const body: z.input<typeof confirmExitReportSchema> = {
     membershipId: report.membershipId,
     exitReportedAt: report.reportedAt,
+    ...trimmedOrOmit("note", note),
   };
   const result = await postJson("/api/committee/exitReport/confirm", body);
   if (!result.ok) return result;

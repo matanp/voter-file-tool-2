@@ -474,8 +474,9 @@ describe("PendingTab: reported exits", () => {
       screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
     );
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByText(/Record this resignation exactly as reported\?/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Confirm resignation" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent(/Record this resignation exactly as reported\?/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm resignation" }));
 
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
@@ -490,6 +491,29 @@ describe("PendingTab: reported exits", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Confirmed the resignation of Rita Reported.");
   });
 
+  it("sends an optional confirmation note from the modal", async () => {
+    const fetchMock = installFetchMock(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ success: true }),
+    );
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "Letter on file");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm resignation" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      membershipId: "m-rep",
+      exitReportedAt: REPORTED_AT,
+      note: "Letter on file",
+    });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
   it("shows the server's error on a failed confirm", async () => {
     installFetchMock(async () =>
       jsonResponse({ success: false, error: "This member changed, refresh." }, 409),
@@ -499,11 +523,13 @@ describe("PendingTab: reported exits", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Confirm resignation of Rita Reported" }),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Confirm resignation" }));
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm resignation" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "Could not confirm: This member changed, refresh.",
     );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(onRefresh).not.toHaveBeenCalled();
   });
 
@@ -518,8 +544,10 @@ describe("PendingTab: reported exits", () => {
         name: "Reject resignation report for Rita Reported",
       }),
     );
-    await userEvent.type(screen.getByLabelText("Note (optional)"), "No letter received");
-    await userEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent(/the Leader can report the resignation again/);
+    await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "No letter received");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm reject" }));
 
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
@@ -546,9 +574,10 @@ describe("PendingTab: reported exits", () => {
         name: "Reject resignation report for Rita Reported",
       }),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm reject" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "Could not reject: This member changed, refresh.",
     );
     expect(onRefresh).not.toHaveBeenCalled();

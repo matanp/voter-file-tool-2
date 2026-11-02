@@ -457,6 +457,26 @@ describe("POST /api/committee/exitReport/confirm", () => {
     );
   });
 
+  it("audits the Admin's optional confirmation note", async () => {
+    signIn(PrivilegeLevel.Admin);
+    reported(resignation);
+
+    const response = await confirmExitReport(
+      createMockRequest(body({ note: "  Letter on file  " })),
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_RESIGNED",
+        metadata: jsonContaining({
+          source: "exit_report",
+          confirmationNote: "Letter on file",
+        }),
+      }),
+    );
+  });
+
   it("refuses edits: the body takes only the report it confirms", async () => {
     signIn(PrivilegeLevel.Admin);
     reported(resignation);
