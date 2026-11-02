@@ -11,6 +11,8 @@
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+import { chooseSelectOption } from "~/__tests__/utils/chooseSelectOption";
 import { PrivilegeLevel } from "@prisma/client";
 
 import { CommitteeWorkspace } from "~/app/committees/workspace/CommitteeWorkspace";
@@ -439,7 +441,7 @@ describe("Action drawer in the workspace", () => {
 
     await openRowAction("Actions for seat 1", "Remove member");
     expect(within(drawer()).getByRole("heading", { level: 2, name: "Remove member" })).toBeInTheDocument();
-    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
+    await chooseSelectOption(within(drawer()).getByLabelText(/Reason for removal/), "Deceased");
     await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -487,7 +489,7 @@ describe("Action drawer in the workspace", () => {
     await within(detailPane()).findByRole("button", { name: "Actions for Lou Loose" });
 
     await openRowAction("Actions for Lou Loose", "Remove member");
-    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
+    await chooseSelectOption(within(drawer()).getByLabelText(/Reason for removal/), "Deceased");
     await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -508,7 +510,7 @@ describe("Action drawer in the workspace", () => {
 
     // A removal in flight, closed before it answers.
     await openRowAction("Actions for seat 1", "Remove member");
-    await userEvent.selectOptions(within(drawer()).getByLabelText(/Reason for removal/), "DECEASED");
+    await chooseSelectOption(within(drawer()).getByLabelText(/Reason for removal/), "Deceased");
     await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

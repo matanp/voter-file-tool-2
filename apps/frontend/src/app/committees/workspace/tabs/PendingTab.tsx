@@ -76,7 +76,7 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-semibold">Pending</h3>
         {canDecide && (
-          <Link href="/committees/requests" className="text-blue-700 underline dark:text-blue-400">
+          <Link href="/committees/requests" className="text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
             Review all pending requests
           </Link>
         )}

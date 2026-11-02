@@ -25,6 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
+import { Label } from "~/components/ui/label";
+import { RadioCard, RadioGroup } from "~/components/ui/radio-group";
 import { linkifyText } from "~/lib/linkify";
 import type { ExitReportKind } from "@prisma/client";
 import {
@@ -44,9 +46,17 @@ import {
   ResignationReceivedFields,
 } from "./MemberExitForms";
 
-const KINDS: Array<[ExitReportKind, string]> = [
-  ["RESIGNATION", "Resigned"],
-  ["REMOVAL", "Should be removed"],
+const KINDS: Array<{ value: ExitReportKind; label: string; hint: string }> = [
+  {
+    value: "RESIGNATION",
+    label: "Resigned",
+    hint: "They told you they're leaving, by email or letter.",
+  },
+  {
+    value: "REMOVAL",
+    label: "Should be removed",
+    hint: "They moved, changed party, are inactive or deceased, or another reason.",
+  },
 ];
 
 /** Plain text with emails and URLs as links; line breaks kept. */
@@ -58,7 +68,7 @@ export function LinkifiedText({ text }: { text: string }) {
           <a
             key={i}
             href={part.href}
-            className="text-blue-700 underline dark:text-blue-400"
+            className="text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
             {...(part.href.startsWith("http")
               ? { target: "_blank", rel: "noopener noreferrer" }
               : {})}
@@ -225,25 +235,24 @@ export function ReportExitForm({
           leaving the committee. An Admin confirms or rejects the report; until
           then the member stays on the committee.
         </p>
-        <fieldset className="space-y-1">
-          <legend className="text-sm font-medium">
-            What happened (required)
-          </legend>
-          <div className="flex flex-wrap gap-4">
-            {KINDS.map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name={`${id}-kind`}
-                  value={value}
-                  checked={input.kind === value}
-                  onChange={() => setField({ kind: value })}
-                />
-                {label}
-              </label>
+        <div className="grid gap-2">
+          <Label id={`${id}-kind`}>What happened (required)</Label>
+          <RadioGroup
+            aria-labelledby={`${id}-kind`}
+            value={input.kind}
+            onValueChange={(kind) => setField({ kind: kind as ExitReportKind })}
+          >
+            {KINDS.map(({ value, label, hint }) => (
+              <RadioCard
+                key={value}
+                id={`${id}-kind-${value}`}
+                value={value}
+                label={label}
+                hint={hint}
+              />
             ))}
-          </div>
-        </fieldset>
+          </RadioGroup>
+        </div>
         {input.kind === "RESIGNATION" && (
           <>
             <ResignationReceivedFields value={input} onChange={setField} />

@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
@@ -126,10 +127,18 @@ export function PendingExitReportItem({
             <span className="font-normal text-slate-500"> · Seat {report.seatNumber}</span>
           )}
         </p>
-        <p className="text-slate-600 dark:text-slate-400">
-          {kindLabel} reported {formatInstantDateForDisplay(report.reportedAt)}
-          {reportedByText(report, canDecide)}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-600 dark:text-slate-400">
+          <Badge
+            variant={report.kind === "REMOVAL" ? "outline" : "secondary"}
+            hoverable={false}
+          >
+            {kindLabel}
+          </Badge>{" "}
+          <span>
+            Reported {formatInstantDateForDisplay(report.reportedAt)}
+            {reportedByText(report, canDecide)}
+          </span>
+        </div>
       </div>
 
       {canDecide && (

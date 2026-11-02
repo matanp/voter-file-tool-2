@@ -394,3 +394,21 @@ beforeEach(() => {
     },
   );
 });
+
+// Radix Select uses pointer capture and scrollIntoView, which jsdom lacks.
+if (typeof Element !== "undefined") {
+  const stubs: Partial<Record<keyof Element, () => unknown>> = {
+    hasPointerCapture: () => false,
+    releasePointerCapture: () => undefined,
+    scrollIntoView: () => undefined,
+  };
+  for (const [name, stub] of Object.entries(stubs)) {
+    if (!(name in Element.prototype)) {
+      Object.defineProperty(Element.prototype, name, {
+        value: stub,
+        configurable: true,
+        writable: true,
+      });
+    }
+  }
+}

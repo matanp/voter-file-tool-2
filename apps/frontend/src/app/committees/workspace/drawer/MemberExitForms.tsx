@@ -19,6 +19,14 @@ import type { ResignationMethod } from "@prisma/client";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { RadioGroup, RadioOption } from "~/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { REMOVAL_REASONS, REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import {
@@ -159,21 +167,23 @@ export function ReasonAndNotes({
     <>
       <div className="grid gap-1">
         <Label htmlFor={`${id}-reason`}>Reason for removal (required)</Label>
-        <select
-          id={`${id}-reason`}
+        <Select
           value={value.reason}
-          onChange={(e) =>
-            onChange({ reason: e.target.value as RemovalInput["reason"] })
+          onValueChange={(reason) =>
+            onChange({ reason: reason as RemovalInput["reason"] })
           }
-          className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
         >
-          <option value="">Select a reason</option>
-          {REMOVAL_REASONS.map((reason) => (
-            <option key={reason} value={reason}>
-              {REMOVAL_REASON_LABELS[reason]}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id={`${id}-reason`}>
+            <SelectValue placeholder="Select a reason" />
+          </SelectTrigger>
+          <SelectContent>
+            {REMOVAL_REASONS.map((reason) => (
+              <SelectItem key={reason} value={reason}>
+                {REMOVAL_REASON_LABELS[reason]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <NotesField
         value={value.notes}
@@ -204,23 +214,26 @@ export function ResignationReceivedFields({
           onChange={(e) => onChange({ dateReceived: e.target.value })}
         />
       </div>
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">How it was received (required)</legend>
-        <div className="flex gap-4">
+      <div className="grid gap-2">
+        <Label id={`${id}-method`}>How it was received (required)</Label>
+        <RadioGroup
+          aria-labelledby={`${id}-method`}
+          value={value.method}
+          onValueChange={(method) =>
+            onChange({ method: method as ResignationMethod })
+          }
+          className="flex gap-4"
+        >
           {RESIGNATION_METHODS.map(([method, label]) => (
-            <label key={method} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name={`${id}-method`}
-                value={method}
-                checked={value.method === method}
-                onChange={() => onChange({ method })}
-              />
-              {label}
-            </label>
+            <RadioOption
+              key={method}
+              id={`${id}-method-${method}`}
+              value={method}
+              label={label}
+            />
           ))}
-        </div>
-      </fieldset>
+        </RadioGroup>
+      </div>
     </>
   );
 }

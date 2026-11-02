@@ -11,6 +11,8 @@
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+import { chooseSelectOption } from "~/__tests__/utils/chooseSelectOption";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import CommitteeSelector from "~/app/committees/CommitteeSelector";
 import { GlobalContext } from "~/components/providers/GlobalContext";
@@ -163,7 +165,7 @@ describe("CommitteeSelector Remove Member dialog (SRS 2.5)", () => {
     const remove = within(dialog).getByRole("button", { name: "Remove member" });
     expect(remove).toBeDisabled();
 
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Reason for removal/), "OTHER");
+    await chooseSelectOption(within(dialog).getByLabelText(/Reason for removal/), "Other");
     expect(remove).toBeDisabled();
     await userEvent.type(within(dialog).getByLabelText("Notes (required)"), "Stepped down");
     await userEvent.click(remove);

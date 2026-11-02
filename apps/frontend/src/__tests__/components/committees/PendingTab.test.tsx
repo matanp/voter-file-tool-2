@@ -442,7 +442,8 @@ describe("PendingTab: reported exits", () => {
     const rita = within(screen.getByRole("list", { name: "Reported exits" })).getByRole("listitem", {
       name: /Rita Reported/,
     });
-    expect(rita).toHaveTextContent("Resignation reported Oct 30, 2026 by Lee Leader");
+    expect(within(rita).getByText("Resignation")).toBeInTheDocument();
+    expect(rita).toHaveTextContent("Reported Oct 30, 2026 by Lee Leader");
     expect(rita).not.toHaveTextContent("Reason:");
     expect(rita).toHaveTextContent("Notes: Moving to Ohio");
     expect(rita).toHaveTextContent("Received: Oct 29, 2026 by email");
@@ -460,7 +461,8 @@ describe("PendingTab: reported exits", () => {
       },
     ]);
     const rita = screen.getByRole("listitem", { name: /Rita Reported/ });
-    expect(rita).toHaveTextContent("Removal reported");
+    expect(within(rita).getByText("Removal")).toBeInTheDocument();
+    expect(rita).toHaveTextContent(/Reported Oct 30, 2026/);
     expect(rita).toHaveTextContent("Reason: Deceased");
   });
 
@@ -663,7 +665,8 @@ describe("PendingTab: reported exits", () => {
     renderWithExitReports([LEADER_EXIT_REPORT], PrivilegeLevel.Leader);
 
     const rita = screen.getByRole("listitem", { name: /Rita Reported/ });
-    expect(rita).toHaveTextContent("Resignation reported Oct 30, 2026 by you");
+    expect(within(rita).getByText("Resignation")).toBeInTheDocument();
+    expect(rita).toHaveTextContent("Reported Oct 30, 2026 by you");
     expect(within(rita).queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByText(/The member stays on the committee until an Admin confirms/)).toBeInTheDocument();
   });

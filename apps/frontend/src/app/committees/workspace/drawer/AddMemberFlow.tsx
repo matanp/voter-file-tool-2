@@ -19,6 +19,7 @@ import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { RadioGroup, RadioOption } from "~/components/ui/radio-group";
 import { Textarea } from "~/components/ui/textarea";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import ContactInfoLabel from "../../ContactInfoLabel";
@@ -227,26 +228,30 @@ export function AddMemberFlow({
     body = (
       <div className="space-y-4">
         {isAdd && (
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Membership type</legend>
-            {(
-              [
-                ["APPOINTED", "Appointed"],
-                ["PETITIONED", "Petitioned"],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name={`${id}-membership-type`}
+          <div className="grid gap-2">
+            <Label id={`${id}-membership-type`}>Membership type</Label>
+            <RadioGroup
+              aria-labelledby={`${id}-membership-type`}
+              value={details.membershipType}
+              onValueChange={(membershipType) =>
+                setDetail({ membershipType: membershipType as MembershipType })
+              }
+            >
+              {(
+                [
+                  ["APPOINTED", "Appointed"],
+                  ["PETITIONED", "Petitioned"],
+                ] as const
+              ).map(([value, label]) => (
+                <RadioOption
+                  key={value}
+                  id={`${id}-membership-type-${value}`}
                   value={value}
-                  checked={details.membershipType === value}
-                  onChange={() => setDetail({ membershipType: value })}
+                  label={label}
                 />
-                {label}
-              </label>
-            ))}
-          </fieldset>
+              ))}
+            </RadioGroup>
+          </div>
         )}
         <div className="grid gap-2">
           <ContactInfoLabel memberName={candidateName} />

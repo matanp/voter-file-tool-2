@@ -10,6 +10,8 @@
 import React from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+import { chooseSelectOption } from "~/__tests__/utils/chooseSelectOption";
 import { PrivilegeLevel } from "@prisma/client";
 
 import {
@@ -893,9 +895,9 @@ describe("CommitteeActionDrawer: remove member", () => {
     expect(remove).toBeDisabled();
     expect(hint()).toHaveTextContent("Choose a reason.");
 
-    await userEvent.selectOptions(
+    await chooseSelectOption(
       within(drawer()).getByLabelText(/Reason for removal/),
-      "OTHER",
+      "Other",
     );
     expect(remove).toBeDisabled();
     expect(hint()).toHaveTextContent(
@@ -942,9 +944,9 @@ describe("CommitteeActionDrawer: remove member", () => {
       ],
     });
     const { onComplete, onClose } = renderDrawer({ action: REMOVE });
-    await userEvent.selectOptions(
+    await chooseSelectOption(
       within(drawer()).getByLabelText(/Reason for removal/),
-      "DECEASED",
+      "Deceased",
     );
     await userEvent.click(
       within(drawer()).getByRole("button", { name: "Remove member" }),
@@ -1071,9 +1073,9 @@ describe("CommitteeActionDrawer: closing", () => {
       </GlobalContext.Provider>
     );
     const { rerender } = render(ui(REMOVE));
-    await userEvent.selectOptions(
+    await chooseSelectOption(
       within(drawer()).getByLabelText(/Reason for removal/),
-      "DECEASED",
+      "Deceased",
     );
     await userEvent.click(
       within(drawer()).getByRole("button", { name: "Remove member" }),
@@ -1275,9 +1277,9 @@ const REPORTED_AT = "2026-10-30T15:04:05.678Z";
 /** Fills a Deceased removal and submits it, which opens the instructions. */
 async function reportRemoval() {
   await userEvent.click(within(drawer()).getByLabelText("Should be removed"));
-  await userEvent.selectOptions(
+  await chooseSelectOption(
     within(drawer()).getByLabelText(/^Reason/),
-    "DECEASED",
+    "Deceased",
   );
   await userEvent.click(
     within(drawer()).getByRole("button", { name: "Report" }),
@@ -1377,9 +1379,9 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
     });
 
     await userEvent.click(within(drawer()).getByLabelText("Should be removed"));
-    await userEvent.selectOptions(
+    await chooseSelectOption(
       within(drawer()).getByLabelText(/^Reason/),
-      "DECEASED",
+      "Deceased",
     );
     // Resignation details apply only to a resignation.
     expect(
@@ -1441,9 +1443,9 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
     renderDrawer({ role: PrivilegeLevel.Leader, action: REPORT_EXIT });
 
     await userEvent.click(within(drawer()).getByLabelText("Should be removed"));
-    await userEvent.selectOptions(
+    await chooseSelectOption(
       within(drawer()).getByLabelText(/^Reason/),
-      "DECEASED",
+      "Deceased",
     );
     await userEvent.click(
       within(drawer()).getByRole("button", { name: "Report" }),
