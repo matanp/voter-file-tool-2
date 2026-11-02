@@ -116,6 +116,9 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
     }>
   >([]);
   const [maxSeatsPerLted, setMaxSeatsPerLted] = useState<number>(4);
+  const [assemblyDistrict, setAssemblyDistrict] = useState<string | null>(null);
+  const [requireAssemblyDistrictMatch, setRequireAssemblyDistrictMatch] =
+    useState<boolean>(true);
   const [selectedCommitteeId, setSelectedCommitteeId] = useState<
     number | null
   >(null);
@@ -185,6 +188,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const clearDetailState = useCallback(() => {
     setMemberships([]);
     setSelectedCommitteeId(null);
+    setAssemblyDistrict(null);
     setLtedWeightInput("");
     setSeats([]);
     setDesignationWeightSummary(null);
@@ -250,6 +254,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
             })) ?? [],
           );
           setMaxSeatsPerLted(data.maxSeatsPerLted ?? 4);
+          setAssemblyDistrict(data.assemblyDistrict ?? null);
+          setRequireAssemblyDistrictMatch(
+            data.requireAssemblyDistrictMatch ?? true,
+          );
           setSelectedCommitteeId(data.id);
           const w = data.ltedWeight;
           setLtedWeightInput(
@@ -876,6 +884,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                     committeeListId={selectedCommitteeId}
                     committeeList={memberships.map((m) => m.voterRecord)}
                     maxSeatsPerLted={maxSeatsPerLted}
+                    assemblyDistrict={assemblyDistrict}
+                    requireAssemblyDistrictMatch={requireAssemblyDistrictMatch}
                     onAdd={(city, district, legDistrict) => {
                       setShowAddMember(false);
                       fetchCommitteeList(city, district, legDistrict).catch(

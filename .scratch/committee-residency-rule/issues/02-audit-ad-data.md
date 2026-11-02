@@ -1,6 +1,6 @@
 # 02 - Audit assembly district data before widening the search filter
 
-Status: ready-for-human
+Status: resolved
 Type: task
 
 ## Why
@@ -65,3 +65,17 @@ Other local findings:
   the crosswalk ever becomes unreliable, but nothing needs it today.
 - **`requireAssemblyDistrictMatch` is on locally**, and `nonOverridableIneligibilityReasons` is
   empty, so admins can force an add past an AD mismatch.
+
+### 2026-10-25 - prod results: clean
+
+Run on prod after ticket 08's crosswalk reload (659 crosswalk rows, 534,559 voters, 437
+active-term committees).
+
+1. **Format: clean.** Both columns hold only plain digits, with the same 8 values (130 and 133 to
+   139). 1c is empty, so no AD appears on only one side.
+2. **Coverage: clean.** 0 of 437 active committees lack a crosswalk row, and 0 have an empty AD.
+   2b (town labels) is empty.
+3. **Consistency: clean.** 534,559 of 534,559 voters have a home LTED in the crosswalk whose AD
+   matches their `stateAssmblyDistrict`. There are 0 mismatches.
+
+Nothing needs fixing before ticket 04 ships.

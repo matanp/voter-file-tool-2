@@ -24,6 +24,7 @@ import {
   EligibilityFlagReviewDialog,
   type EligibilityFlagListItem,
 } from "./EligibilityFlagReviewDialog";
+import { summarizeEligibilityFlag } from "./eligibilityFlagSummary";
 
 type FlagsResponse = {
   flags: EligibilityFlagListItemWithContext[];
@@ -260,7 +261,12 @@ export function EligibilityFlagsTable({
                   {committee.cityTown} · ED {committee.electionDistrict} · Leg{" "}
                   {committee.legDistrict}
                 </TableCell>
-                <TableCell>{REASON_LABELS[flag.reason]}</TableCell>
+                <TableCell>
+                  <div>{REASON_LABELS[flag.reason]}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {summarizeEligibilityFlag(flag)}
+                  </div>
+                </TableCell>
                 <TableCell>
                   {new Date(flag.createdAt).toLocaleDateString()}
                 </TableCell>

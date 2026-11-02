@@ -14,6 +14,7 @@ import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import { useToast } from "~/components/ui/use-toast";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { summarizeEligibilityFlag } from "./eligibilityFlagSummary";
 
 export type EligibilityFlagListItem = {
   id: string;
@@ -27,12 +28,16 @@ export type EligibilityFlagListItem = {
     | "CONFIRMED"
     | "DISMISSED"
     | "RESOLVED_BY_RESCAN";
+  /** Reason-specific JSON; see summarizeEligibilityFlag for the shapes. */
+  details?: unknown;
   membership: {
     voterRecordId: string;
     voterRecord: {
       VRCNUM: string;
       firstName: string | null;
       lastName: string | null;
+      party: string | null;
+      stateAssmblyDistrict: string | null;
     } | null;
     committeeList: {
       cityTown: string;
@@ -123,6 +128,12 @@ export function EligibilityFlagReviewDialog({
               : "Review this flagged eligibility discrepancy."}
           </DialogDescription>
         </DialogHeader>
+
+        {flag ? (
+          <p className="rounded-md bg-muted px-3 py-2 text-sm">
+            {summarizeEligibilityFlag(flag)}
+          </p>
+        ) : null}
 
         <div className="space-y-2">
           <Label htmlFor="eligibility-review-notes">Notes (optional)</Label>

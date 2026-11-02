@@ -22,6 +22,7 @@ import {
   buildDesignationWeightSummary,
   canAccessCommittee,
 } from "~/app/api/lib/committeeRead";
+import { findCommitteeAssemblyDistrict } from "@voter-file-tool/shared-prisma";
 
 async function getCommitteeList(req: NextRequest, session: SessionWithUser) {
   // Extract query parameters
@@ -117,7 +118,12 @@ async function getCommitteeList(req: NextRequest, session: SessionWithUser) {
       );
     }
 
-    const config = await getGovernanceConfig();
+    const [config, assemblyDistrict] = await Promise.all([
+      getGovernanceConfig(),
+      // A fact about the committee, so it's returned whether or not the AD
+      // check is on; AddCommitteeForm's eligible-only filter needs both.
+      findCommitteeAssemblyDistrict(prisma, committee),
+    ]);
     const designationWeightSummary = includeDesignationWeightSummary
       ? buildDesignationWeightSummary(committee, activeTermId)
       : undefined;
@@ -126,6 +132,8 @@ async function getCommitteeList(req: NextRequest, session: SessionWithUser) {
       {
         ...committee,
         maxSeatsPerLted: config.maxSeatsPerLted,
+        assemblyDistrict,
+        requireAssemblyDistrictMatch: config.requireAssemblyDistrictMatch,
         ...(designationWeightSummary ? { designationWeightSummary } : {}),
       },
       { status: 200 },

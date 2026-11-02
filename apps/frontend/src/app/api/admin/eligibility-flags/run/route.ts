@@ -7,6 +7,9 @@ import { runEligibilityFlaggingSchema } from "~/lib/validations/eligibilityFlags
 import prisma from "~/lib/prisma";
 import { runBoeEligibilityFlagging } from "@voter-file-tool/shared-prisma";
 
+// Vercel's default would kill a county-wide rescan mid-write.
+export const maxDuration = 60;
+
 async function runEligibilityFlagsHandler(
   req: NextRequest,
   _session: Session,

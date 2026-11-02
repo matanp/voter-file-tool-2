@@ -23,10 +23,8 @@ import {
 } from "~/lib/eligibilityMessages";
 import type { EligibilityWarning } from "~/lib/eligibility";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
-import {
-  type SearchQueryField,
-  searchableFieldEnum,
-} from "@voter-file-tool/shared-validators";
+import type { SearchQueryField } from "@voter-file-tool/shared-validators";
+import { committeeResidencySearchFilter } from "@voter-file-tool/shared-prisma/committeeResidency";
 import {
   Select,
   SelectContent,
@@ -45,8 +43,15 @@ interface AddCommitteeFormProps {
   committeeListId?: number | null;
   committeeList: VoterRecord[];
   maxSeatsPerLted?: number;
+  /** The committee's AD from LtedDistrictCrosswalk, or null when its LTED has none. */
+  assemblyDistrict: string | null;
+  requireAssemblyDistrictMatch: boolean;
   onAdd: (city: string, district: number, legDistrict?: string) => void;
 }
+
+/** Shown when the AD check is on but the committee has no AD to filter by. */
+export const ELIGIBLE_ONLY_UNAVAILABLE_MESSAGE =
+  "Only eligible candidates is unavailable: this committee's ED has no crosswalk entry, so its assembly district is unknown.";
 
 export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   electionDistrict,
@@ -55,6 +60,8 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   committeeListId = null,
   committeeList,
   maxSeatsPerLted = 4,
+  assemblyDistrict,
+  requireAssemblyDistrictMatch,
   onAdd,
 }) => {
   const { toast } = useToast();
@@ -263,16 +270,15 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     return null;
   }
 
-  const extraSearchQuery: SearchQueryField[] = [
-    { field: searchableFieldEnum.enum.city, values: [city] },
-    ...(legDistrict
-      ? [{ field: searchableFieldEnum.enum.L_T, values: [legDistrict] }]
-      : []),
-    {
-      field: searchableFieldEnum.enum.electionDistrict,
-      values: [electionDistrict],
-    },
-  ];
+  // The residency rule: voters in the committee's assembly district (town, LD
+  // and ED don't matter). Empty when the AD check is off. Null when the check
+  // is on but the committee has no AD: the filter is then disabled, never
+  // swapped for the committee's ED.
+  const residencyFilter = committeeResidencySearchFilter(
+    assemblyDistrict,
+    requireAssemblyDistrictMatch,
+  );
+  const extraSearchQuery: SearchQueryField[] = residencyFilter ?? [];
 
   return (
     <>
@@ -293,6 +299,11 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
             }}
             extraSearchQuery={extraSearchQuery}
             optionalExtraSearch="Only Eligible Candidates"
+            optionalExtraSearchUnavailableReason={
+              residencyFilter === null
+                ? ELIGIBLE_ONLY_UNAVAILABLE_MESSAGE
+                : undefined
+            }
             submitButtonText="Find Members to Add"
           />
         )}

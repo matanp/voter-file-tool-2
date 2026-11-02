@@ -19,6 +19,12 @@ type RecordSearchProps = {
   extraSearchQuery?: SearchQueryField[];
   headerText?: string;
   optionalExtraSearch?: string;
+  /**
+   * When set, the optional extra search can't be used: its checkbox is shown
+   * disabled and unchecked with this explanation, and `extraSearchQuery` is
+   * never applied.
+   */
+  optionalExtraSearchUnavailableReason?: string;
   useFormElement?: boolean;
 };
 
@@ -28,6 +34,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   extraSearchQuery,
   headerText,
   optionalExtraSearch,
+  optionalExtraSearchUnavailableReason,
   useFormElement = true,
 }) => {
   const { width } = useWindowSize();
@@ -37,6 +44,9 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   const [lastName, setLastName] = useState<string | null>(null);
   const [useOptionalExtraSearch, setUseOptionalExtraSearch] =
     useState<boolean>(true);
+  const optionalExtraSearchAvailable = !optionalExtraSearchUnavailableReason;
+  const applyOptionalExtraSearch =
+    useOptionalExtraSearch && optionalExtraSearchAvailable;
 
   // API mutation hook
   const searchMutation = useApiMutation<
@@ -67,7 +77,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
 
   const handleSubmit = async () => {
     const query: SearchQueryField[] =
-      optionalExtraSearch && !useOptionalExtraSearch
+      optionalExtraSearch && !applyOptionalExtraSearch
         ? []
         : [...(extraSearchQuery ?? ([] as SearchQueryField[]))];
 
@@ -167,7 +177,13 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
           <div className="flex items-center gap-4 mt-2">
             <Checkbox
               id="eligible-candidates"
-              checked={useOptionalExtraSearch}
+              checked={applyOptionalExtraSearch}
+              disabled={!optionalExtraSearchAvailable}
+              aria-describedby={
+                optionalExtraSearchAvailable
+                  ? undefined
+                  : "eligible-candidates-unavailable"
+              }
               onCheckedChange={(value) => {
                 setUseOptionalExtraSearch(value === true);
               }}
@@ -175,6 +191,16 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             <label htmlFor="eligible-candidates">{optionalExtraSearch}</label>
           </div>
         )}
+        {optionalExtraSearch &&
+          extraSearchQuery &&
+          !optionalExtraSearchAvailable && (
+            <p
+              id="eligible-candidates-unavailable"
+              className="mt-1 text-xs text-muted-foreground"
+            >
+              {optionalExtraSearchUnavailableReason}
+            </p>
+          )}
       </ContainerElement>
     </>
   );

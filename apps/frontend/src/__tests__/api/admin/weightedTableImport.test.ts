@@ -9,7 +9,13 @@ import {
   getMockCallArgs,
   runAuthTest,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  prismaMock,
+  rawQueryMock,
+  rawQueryValues,
+} from "../../utils/mocks";
 import * as xlsx from "xlsx";
 
 jest.mock("xlsx", () => ({
@@ -21,14 +27,14 @@ jest.mock("xlsx", () => ({
 
 const readWorkbookMock = xlsx.read as jest.Mock;
 const sheetToJsonMock = xlsx.utils.sheet_to_json as jest.Mock;
-const executeRawMock = prismaMock.$executeRaw as unknown as jest.Mock;
+const executeRawMock = rawQueryMock("$executeRaw");
 // jest.setup replaces prismaMock.auditLog before every test, so read it lazily.
 const auditCreateMock = () =>
   (prismaMock.auditLog as { create: jest.Mock }).create;
 
 /** Bound values of the nth $executeRaw tagged-template call (strings array dropped). */
 function executeRawValues(callIndex: number): unknown[] {
-  return (executeRawMock.mock.calls[callIndex] as unknown[]).slice(1);
+  return rawQueryValues(executeRawMock, callIndex);
 }
 
 type UploadFile = {

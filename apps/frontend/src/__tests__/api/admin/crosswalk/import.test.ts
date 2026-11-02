@@ -13,7 +13,13 @@ import {
   getMockCallArgs,
   runAuthTest,
 } from "../../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  prismaMock,
+  rawQueryMock,
+  rawQueryValues,
+} from "../../../utils/mocks";
 import * as xlsx from "xlsx";
 
 jest.mock("xlsx", () => ({
@@ -38,7 +44,7 @@ function createFormDataRequest(file: unknown): NextRequest {
   } as unknown as NextRequest;
 }
 
-const executeRawMock = prismaMock.$executeRaw as unknown as jest.Mock;
+const executeRawMock = rawQueryMock("$executeRaw");
 const createManyMock = () => prismaMock.ltedDistrictCrosswalk.createMany as jest.Mock;
 
 function existingRow(overrides: {
@@ -174,7 +180,7 @@ describe("/api/admin/crosswalk/import", () => {
       data: [expect.objectContaining({ electionDistrict: 3 })],
     });
     expect(executeRawMock).toHaveBeenCalledTimes(1);
-    expect((executeRawMock.mock.calls[0] as unknown[]).slice(1)).toEqual([
+    expect(rawQueryValues(executeRawMock)).toEqual([
       ["b"],
       ["136"],
       ["56"],
