@@ -106,6 +106,7 @@ describe("ScopedReportForm (signInSheet)", () => {
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
     );
@@ -120,6 +121,7 @@ describe("ScopedReportForm (signInSheet)", () => {
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
     );
@@ -134,6 +136,7 @@ describe("ScopedReportForm (signInSheet)", () => {
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
         userPrivilegeLevel={PrivilegeLevel.Leader}
       />,
     );
@@ -149,6 +152,7 @@ describe("ScopedReportForm (signInSheet)", () => {
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
     );
@@ -172,6 +176,7 @@ describe("ScopedReportForm (signInSheet)", () => {
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
     );
@@ -192,6 +197,7 @@ describe("ScopedReportForm (signInSheet)", () => {
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
     );
@@ -222,6 +228,7 @@ describe("ScopedReportForm (signInSheet)", () => {
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
     );
@@ -235,18 +242,20 @@ describe("ScopedReportForm (signInSheet)", () => {
     });
   });
 
-  it("shows City/Town dropdown for Leader users", () => {
+  it("shows the Leader's own committee instead of a City/Town dropdown", () => {
     mockActingPermissions = PrivilegeLevel.Leader;
     render(
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[{ cityTown: "ROCHESTER", legDistrict: 22 }]}
         userPrivilegeLevel={PrivilegeLevel.Leader}
       />,
     );
 
-    expect(screen.getByText("City/Town")).toBeInTheDocument();
-    expect(screen.getByText("Select City/Town")).toBeInTheDocument();
+    expect(screen.getByText("Rochester – LD 22")).toBeInTheDocument();
+    expect(screen.queryByText("City/Town")).not.toBeInTheDocument();
+    expect(screen.queryByText("Select City/Town")).not.toBeInTheDocument();
   });
 
   it("shows meeting date field", () => {
@@ -254,6 +263,7 @@ describe("ScopedReportForm (signInSheet)", () => {
       <ScopedReportForm
         type="signInSheet"
         committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
         userPrivilegeLevel={PrivilegeLevel.Admin}
       />,
     );

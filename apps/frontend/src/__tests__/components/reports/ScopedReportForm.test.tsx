@@ -90,11 +90,20 @@ function getDefaultFormat(type: ScopeReportType): "pdf" | "xlsx" {
   return formatDef.kind === "fixed" ? formatDef.value : formatDef.default;
 }
 
-function leaderPayload(type: ScopeReportType): Record<string, unknown> {
+type Assignment = { cityTown: string; legDistrict: number | null };
+
+const ROCHESTER_LD_22: Assignment = { cityTown: "ROCHESTER", legDistrict: 22 };
+const ROCHESTER_LD_23: Assignment = { cityTown: "ROCHESTER", legDistrict: 23 };
+const BRIGHTON_TOWN_WIDE: Assignment = { cityTown: "BRIGHTON", legDistrict: null };
+
+function leaderPayload(
+  type: ScopeReportType,
+  jurisdiction: { cityTown: string; legDistrict?: number },
+): Record<string, unknown> {
   const base = {
     type,
     scope: "jurisdiction",
-    cityTown: "ROCHESTER",
+    ...jurisdiction,
     format: getDefaultFormat(type),
   };
 
@@ -136,6 +145,13 @@ function adminCountywidePayload(type: ScopeReportType): Record<string, unknown> 
 function renderWithPermissions(
   actingPermissions: PrivilegeLevel,
   type: ScopeReportType,
+  {
+    leaderAssignments = [],
+    userPrivilegeLevel = actingPermissions,
+  }: {
+    leaderAssignments?: Assignment[];
+    userPrivilegeLevel?: PrivilegeLevel;
+  } = {},
 ) {
   return render(
     <GlobalContext.Provider
@@ -147,7 +163,8 @@ function renderWithPermissions(
       <ScopedReportForm
         type={type}
         committeeLists={committeeLists}
-        userPrivilegeLevel={actingPermissions}
+        leaderAssignments={leaderAssignments}
+        userPrivilegeLevel={userPrivilegeLevel}
       />
     </GlobalContext.Provider>,
   );
@@ -170,24 +187,107 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
     });
   });
 
-  it("leader flow is jurisdiction-scoped and does not expose countywide", () => {
-    renderWithPermissions(PrivilegeLevel.Leader, type);
+  it("leader with one LD assignment submits it without choosing anything", async () => {
+    renderWithPermissions(PrivilegeLevel.Leader, type, {
+      leaderAssignments: [ROCHESTER_LD_22],
+    });
 
     expect(screen.queryByText("Countywide")).not.toBeInTheDocument();
-    expect(screen.getByText("City/Town")).toBeInTheDocument();
-  });
+    expect(screen.queryByText("City/Town")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("combobox-dropdown")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Committee")).not.toBeInTheDocument();
+    expect(screen.getByText("Rochester – LD 22")).toBeInTheDocument();
 
-  it("leader can submit jurisdiction-scoped report", async () => {
-    renderWithPermissions(PrivilegeLevel.Leader, type);
-
-    fireEvent.change(screen.getByTestId("combobox-dropdown"), {
-      target: { value: "ROCHESTER" },
-    });
     fireEvent.click(screen.getByRole("button", { name: submitLabel }));
 
     await waitFor(() => {
       expect(mutateMock).toHaveBeenCalledWith(
-        expect.objectContaining(leaderPayload(type)),
+        expect.objectContaining(
+          leaderPayload(type, { cityTown: "ROCHESTER", legDistrict: 22 }),
+        ),
+      );
+    });
+  });
+
+  it("leader with several assignments picks one from a dropdown of exactly those", async () => {
+    const user = userEvent.setup();
+    renderWithPermissions(PrivilegeLevel.Leader, type, {
+      leaderAssignments: [ROCHESTER_LD_22, ROCHESTER_LD_23],
+    });
+
+    const picker = screen.getByLabelText("Committee");
+    expect(
+      Array.from((picker as HTMLSelectElement).options).map((o) => o.text),
+    ).toEqual(["Rochester – LD 22", "Rochester – LD 23"]);
+    expect(picker).toHaveDisplayValue("Rochester – LD 22");
+
+    await user.click(screen.getByRole("button", { name: submitLabel }));
+    await waitFor(() => {
+      expect(mutateMock).toHaveBeenLastCalledWith(
+        expect.objectContaining(
+          leaderPayload(type, { cityTown: "ROCHESTER", legDistrict: 22 }),
+        ),
+      );
+    });
+
+    await user.selectOptions(picker, "Rochester – LD 23");
+    await user.click(screen.getByRole("button", { name: submitLabel }));
+    await waitFor(() => {
+      expect(mutateMock).toHaveBeenLastCalledWith(
+        expect.objectContaining(
+          leaderPayload(type, { cityTown: "ROCHESTER", legDistrict: 23 }),
+        ),
+      );
+    });
+  });
+
+  it("town-wide leader sends cityTown and no legDistrict", async () => {
+    renderWithPermissions(PrivilegeLevel.Leader, type, {
+      leaderAssignments: [BRIGHTON_TOWN_WIDE],
+    });
+
+    expect(screen.getByText("Brighton")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: submitLabel }));
+
+    await waitFor(() => {
+      expect(mutateMock).toHaveBeenCalledWith(
+        expect.objectContaining(leaderPayload(type, { cityTown: "BRIGHTON" })),
+      );
+    });
+    expect(mutateMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({ legDistrict: expect.anything() }),
+    );
+  });
+
+  it("leader with no assignments sees a message and cannot submit", () => {
+    renderWithPermissions(PrivilegeLevel.Leader, type, {
+      leaderAssignments: [],
+    });
+
+    expect(
+      screen.getByText(/no assigned committee for the current term/),
+    ).toBeInTheDocument();
+    const submit = screen.getByRole("button", { name: submitLabel });
+    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expect(mutateMock).not.toHaveBeenCalled();
+  });
+
+  it("developer acting as leader gets the leader form, not admin controls", async () => {
+    renderWithPermissions(PrivilegeLevel.Leader, type, {
+      userPrivilegeLevel: PrivilegeLevel.Developer,
+      leaderAssignments: [ROCHESTER_LD_22],
+    });
+
+    expect(screen.queryByText("Countywide")).not.toBeInTheDocument();
+    expect(screen.queryByText("City/Town")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: submitLabel }));
+
+    await waitFor(() => {
+      expect(mutateMock).toHaveBeenCalledWith(
+        expect.objectContaining(
+          leaderPayload(type, { cityTown: "ROCHESTER", legDistrict: 22 }),
+        ),
       );
     });
   });

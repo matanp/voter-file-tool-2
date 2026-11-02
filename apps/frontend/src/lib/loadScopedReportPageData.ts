@@ -6,6 +6,7 @@ import {
   getActiveTermId,
   getUserJurisdictions,
   buildJurisdictionWhere,
+  type JurisdictionScope,
 } from "~/app/api/lib/committeeValidation";
 
 /**
@@ -17,12 +18,33 @@ export type ScopedReportCommitteeList = Pick<
   "cityTown" | "legDistrict"
 >;
 
+/** One of a Leader's own committee assignments; `legDistrict: null` is town-wide. */
+export type LeaderAssignment = JurisdictionScope;
+
 const committeeListSelect = { cityTown: true, legDistrict: true } as const;
 
 export interface ScopedReportPageData {
   privilegeLevel: PrivilegeLevel;
   canAccessPage: boolean;
   committeeLists: ScopedReportCommitteeList[];
+  /**
+   * The actual Leader's assignments for the active term, sorted for display.
+   * Empty for every other privilege. Leaders pick their report jurisdiction
+   * from this list, not from `committeeLists`.
+   */
+  leaderAssignments: LeaderAssignment[];
+}
+
+function toSortedAssignments(
+  jurisdictions: JurisdictionScope[],
+): LeaderAssignment[] {
+  return jurisdictions
+    .map(({ cityTown, legDistrict }) => ({ cityTown, legDistrict }))
+    .sort(
+      (a, b) =>
+        a.cityTown.localeCompare(b.cityTown) ||
+        (a.legDistrict ?? -1) - (b.legDistrict ?? -1),
+    );
 }
 
 export interface LoadScopedReportPageOptions {
@@ -53,6 +75,7 @@ export async function loadScopedReportPageData(
       privilegeLevel,
       canAccessPage: false,
       committeeLists: [],
+      leaderAssignments: [],
     };
   }
 
@@ -65,6 +88,7 @@ export async function loadScopedReportPageData(
         privilegeLevel,
         canAccessPage: true,
         committeeLists: [],
+        leaderAssignments: [],
       };
     }
 
@@ -79,6 +103,7 @@ export async function loadScopedReportPageData(
         privilegeLevel,
         canAccessPage: true,
         committeeLists: [],
+        leaderAssignments: [],
       };
     }
 
@@ -94,6 +119,7 @@ export async function loadScopedReportPageData(
       privilegeLevel,
       canAccessPage: true,
       committeeLists,
+      leaderAssignments: toSortedAssignments(jurisdictions),
     };
   }
 
@@ -106,5 +132,6 @@ export async function loadScopedReportPageData(
     privilegeLevel,
     canAccessPage: true,
     committeeLists,
+    leaderAssignments: [],
   };
 }
