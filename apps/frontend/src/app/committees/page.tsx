@@ -1,6 +1,7 @@
 import React, { Suspense } from "react";
 
 import prisma from "~/lib/prisma";
+import { pendingItemsWhere } from "~/app/api/lib/pendingExitReports";
 import { hasPermissionFor } from "~/lib/utils";
 import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
@@ -93,11 +94,12 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
 
   const dropdownLists = await prisma.dropdownLists.findFirst({});
 
-  // SRS 1.2 — Count SUBMITTED CommitteeMemberships instead of CommitteeRequests
+  // SRS 1.2 — Count SUBMITTED CommitteeMemberships (and pending Exit
+  // Reports, which /committees/requests also lists) instead of CommitteeRequests
   let pendingRequestCount = 0;
   if (isAdminUser) {
     pendingRequestCount = await prisma.committeeMembership.count({
-      where: { status: "SUBMITTED", termId: activeTermId },
+      where: pendingItemsWhere(activeTermId),
     });
   }
 
@@ -112,7 +114,8 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
           {pendingRequestCount > 0 && (
             <div className="flex gap-4 items-center pb-4">
               <h1>
-                There are {pendingRequestCount} pending committee requests
+                There are {pendingRequestCount} pending committee requests and
+                exit reports
               </h1>
               <Link href="/committees/requests">
                 <Button>View Requests</Button>

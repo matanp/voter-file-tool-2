@@ -884,7 +884,7 @@ export const edRollupSchema = z.object({
   totalSeats: z.number().int(),
   /** active members with no seatNumber (not counted in `filled`) */
   unassignedCount: z.number().int(),
-  /** SUBMITTED memberships awaiting review in the active term */
+  /** SUBMITTED memberships plus pending Exit Reports in the active term */
   pendingCount: z.number().int(),
   designationWeight: z.number().nullable(),
   /** petitioned seats lacking weight — render "—" */
@@ -903,7 +903,7 @@ export const rosterSummarySchema = z.object({
   edCount: z.number().int(),
   /** active members with no seat */
   unassignedCount: z.number().int(),
-  /** SUBMITTED memberships awaiting review */
+  /** SUBMITTED memberships plus pending Exit Reports */
   pendingCount: z.number().int(),
   /** ACTIVE memberships (seated + unassigned) */
   activeMemberCount: z.number().int(),

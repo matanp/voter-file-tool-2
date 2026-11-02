@@ -57,9 +57,13 @@ export type PendingExitReportItemProps = {
   focusAfterDecision?: () => HTMLElement | null;
 };
 
-function reportedByText(r: PendingExitReport, canDecide: boolean): string {
-  if (r.isOwnReport) return " by you";
-  if (canDecide && r.reportedBy) return ` by ${r.reportedBy.name ?? "an unnamed user"}`;
+function reportedByText(
+  report: PendingExitReport,
+  canDecide: boolean,
+): string {
+  if (report.isOwnReport) return " by you";
+  if (canDecide && report.reportedBy)
+    return ` by ${report.reportedBy.name ?? "an unnamed user"}`;
   return "";
 }
 

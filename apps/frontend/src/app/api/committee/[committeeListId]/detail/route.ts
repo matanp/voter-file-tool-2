@@ -206,12 +206,26 @@ async function getCommitteeDetail(
         : Promise.resolve(undefined),
     ]);
 
+    // Built before the rollup so its pending count matches what the tab lists.
+    const pendingExitReports = exitReportedMemberships.flatMap((m) => {
+      const report = toPendingExitReport(m, {
+        userId: session.user.id,
+        isAdmin,
+      });
+      return report ? [report] : [];
+    });
+
     const rollupOptions = {
       termId: activeTermId,
       maxSeatsPerLted: config.maxSeatsPerLted,
     };
     const { rows, edRollups } = buildSeatRosterRows(
-      [{ ...committee, pendingCount: pendingMemberships.length }],
+      [
+        {
+          ...committee,
+          pendingCount: pendingMemberships.length + pendingExitReports.length,
+        },
+      ],
       { ...rollupOptions, includeContact },
     );
     const rollup = edRollups[0];
@@ -261,14 +275,6 @@ async function getCommitteeDetail(
             }
           : {}),
       };
-    });
-
-    const pendingExitReports = exitReportedMemberships.flatMap((m) => {
-      const report = toPendingExitReport(m, {
-        userId: session.user.id,
-        isAdmin,
-      });
-      return report ? [report] : [];
     });
 
     const history = await loadMembershipHistory({

@@ -1,6 +1,6 @@
 # 20 - Name the Exit Report parameter
 
-Status: ready-for-agent
+Status: resolved
 Merge blocking: no
 
 ## Problem
@@ -10,5 +10,5 @@ name makes privacy-sensitive display logic harder to scan.
 
 ## Acceptance criteria
 
-- [ ] Rename `r` to `report` (or an equally explicit name).
-- [ ] The helper's behavior and tests remain unchanged.
+- [x] Rename `r` to `report` (or an equally explicit name).
+- [x] The helper's behavior and tests remain unchanged.

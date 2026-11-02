@@ -59,8 +59,9 @@ export type RosterMembership = RosterMembershipCore & {
 
 /**
  * Committee input for rollups. `memberships` must be the ACTIVE memberships
- * for the term; `pendingCount` is the number of SUBMITTED memberships for the
- * term (defaults to 0 for callers that do not fetch it).
+ * for the term; `pendingCount` is the number of pending items for the term,
+ * SUBMITTED memberships plus pending Exit Reports (`pendingItemsWhere`;
+ * defaults to 0 for callers that do not fetch it).
  */
 export type RosterCommitteeCore<
   M extends RosterMembershipCore = RosterMembershipCore,

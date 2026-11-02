@@ -20,7 +20,7 @@ requests" in `PendingTab.tsx`), but it is a standalone page that doesn't look or
   depending on where they look. (Exit Reports already reuse `PendingExitReportItem` on both.)
 - **No filtering or sorting.** No filter by town / LD / kind, no oldest-first ordering across committees, no counts
   up top. The workspace grid already has the filter and URL-state machinery.
-- **Counts disagree.** The legacy `/committees/page.tsx` banner ("There are N pending committee requests") counts
+- **Counts disagree.** *(Done on `leader-exit-report`: every "N pending" count — roster grid, workspace header, committee rollup, legacy `/committees` banner — now uses `pendingItemsWhere`, SUBMITTED plus pending Exit Reports.)* The legacy `/committees/page.tsx` banner ("There are N pending committee requests") counts
   only SUBMITTED rows, not pending Exit Reports. Check the workspace header's `summary.pendingCount` for the same gap.
 
 ## Options to triage
@@ -38,4 +38,4 @@ requests" in `PendingTab.tsx`), but it is a standalone page that doesn't look or
 - An Admin reaches every pending Submission and Exit Report from the workspace and can open the committee each
   belongs to in one click.
 - Submissions use the same item component and controls everywhere.
-- Every "pending" count includes Exit Reports, or says it doesn't.
+- [x] Every "pending" count includes Exit Reports, or says it doesn't.

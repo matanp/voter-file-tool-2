@@ -907,8 +907,9 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
         ["V-REP", { kind: "RESIGNATION", reportedAt: REPORTED_AT.toISOString() }],
         ["V-PLAIN", undefined],
       ]);
-      // Still seated and counted.
+      // Still seated and counted, and counted as pending.
       expect(body.rollup.filled).toBe(2);
+      expect(body.rollup.pendingCount).toBe(1);
       const query = membershipFindManyCalls().find(
         (c) => c.where?.exitReportedAt !== undefined,
       );
@@ -918,6 +919,35 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
         status: "ACTIVE",
         exitReportedAt: { not: null },
       });
+    });
+
+    it("counts a pending Exit Report and a Submission as two pending items", async () => {
+      adminSession();
+      const reported = mockMembership({
+        id: "m-reported",
+        VRCNUM: "V-REP",
+        status: "ACTIVE",
+        seatNumber: 1,
+        exitReportedAt: REPORTED_AT,
+        exitReportedKind: "REMOVAL",
+        exitReportedById: LEADER_USER_ID,
+        removalReason: "OTHER",
+      });
+      const submitted = mockMembership({
+        id: "m-submitted",
+        VRCNUM: "V-SUB",
+        status: "SUBMITTED",
+      });
+      mockCommitteeWithMemberships(
+        mockCommittee({ memberships: [reported] }),
+        [reported, submitted],
+      );
+
+      const body = await getDetail();
+
+      expect(body.pending).toHaveLength(1);
+      expect(body.pendingExitReports).toHaveLength(1);
+      expect(body.rollup.pendingCount).toBe(2);
     });
 
     it("adds the reporter, reason, notes and resignation details for Admin", async () => {

@@ -6,17 +6,36 @@
  */
 
 import type { Prisma } from "@prisma/client";
-import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
+import {
+  ACTIVE_MEMBERSHIP_STATUS,
+  PENDING_MEMBERSHIP_STATUS,
+} from "~/app/api/lib/committeeValidation";
 import type { PendingExitReport } from "~/lib/validations/committee";
+
+/** A membership row carrying a pending Exit Report, in any term. */
+const exitReportOnRow = {
+  status: ACTIVE_MEMBERSHIP_STATUS,
+  exitReportedAt: { not: null },
+} satisfies Prisma.CommitteeMembershipWhereInput;
 
 /** Where-clause for pending Exit Reports in a term. */
 export function pendingExitReportWhere(
   termId: string,
 ): Prisma.CommitteeMembershipWhereInput {
+  return { termId, ...exitReportOnRow };
+}
+
+/**
+ * Where-clause for everything pending in a term: SUBMITTED memberships
+ * awaiting a decision, plus ACTIVE rows carrying a pending Exit Report. This is
+ * what every "N pending" count shows.
+ */
+export function pendingItemsWhere(
+  termId: string,
+): Prisma.CommitteeMembershipWhereInput {
   return {
     termId,
-    status: ACTIVE_MEMBERSHIP_STATUS,
-    exitReportedAt: { not: null },
+    OR: [{ status: PENDING_MEMBERSHIP_STATUS }, exitReportOnRow],
   };
 }
 

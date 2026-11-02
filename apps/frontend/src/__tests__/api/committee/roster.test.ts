@@ -468,7 +468,7 @@ describe("GET /api/committee/roster", () => {
           memberships: { where: { status: string; termId: string } };
           _count: {
             select: {
-              memberships: { where: { status: string; termId: string } };
+              memberships: { where: Prisma.CommitteeMembershipWhereInput };
             };
           };
         };
@@ -478,9 +478,13 @@ describe("GET /api/committee/roster", () => {
         status: "ACTIVE",
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
+      // Pending = SUBMITTED memberships plus pending Exit Reports.
       expect(scope.select._count.select.memberships.where).toEqual({
-        status: "SUBMITTED",
         termId: DEFAULT_ACTIVE_TERM_ID,
+        OR: [
+          { status: "SUBMITTED" },
+          { status: "ACTIVE", exitReportedAt: { not: null } },
+        ],
       });
     });
   });
