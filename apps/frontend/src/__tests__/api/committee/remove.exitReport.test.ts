@@ -15,7 +15,6 @@ import {
   expectAuditLogCreate,
   expectErrorResponse,
   expectMembershipExitWrite,
-  firstCallArg,
   jsonContaining,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
@@ -84,10 +83,8 @@ describe("/api/committee/remove with Exit Reports", () => {
         exitReportedKind: null,
       }),
     );
-    const { where } = firstCallArg<{ where: Record<string, unknown> }>(
-      prismaMock.committeeMembership.update as unknown as jest.Mock,
-    );
-    expect(where.exitReportedAt).toEqual(REPORTED_AT);
+    const where = prismaMock.committeeMembership.update.mock.calls[0]?.[0].where;
+    expect(where?.exitReportedAt).toEqual(REPORTED_AT);
     expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "MEMBER_RESIGNED",
@@ -154,6 +151,50 @@ describe("/api/committee/remove with Exit Reports", () => {
 
     await expectErrorResponse(response, 409, "This member changed, refresh.");
     expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("supersedes a report filed after the Admin's read instead of answering 409", async () => {
+    adminWithReportedMember();
+    // The route read the row before the Leader's report landed.
+    const beforeReport = {
+      ...createMockMembership({ seatNumber: 2 }),
+      status: "ACTIVE",
+      membershipType: null,
+      submissionMetadata: null,
+      removalReason: null,
+      resignationMethod: null,
+    } satisfies CommitteeMembership;
+    prismaMock.committeeMembership.findUnique
+      .mockResolvedValueOnce(beforeReport)
+      .mockResolvedValueOnce({
+        ...beforeReport,
+        exitReportedAt: REPORTED_AT,
+        exitReportedById: "leader-1",
+        exitReportedKind: "REMOVAL",
+      });
+    prismaMock.committeeMembership.update.mockRejectedValueOnce(recordNotFound);
+
+    const response = await POST(
+      createMockRequest(createMockRemoveCommitteeData({ removalReason: "PARTY_CHANGE" })),
+    );
+
+    expect(response.status).toBe(200);
+    const wheres = prismaMock.committeeMembership.update.mock.calls.map(
+      ([args]) => args.where.exitReportedAt,
+    );
+    expect(wheres).toEqual([null, REPORTED_AT]);
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_REMOVED",
+        metadata: jsonContaining({
+          supersededExitReport: {
+            reportedById: "leader-1",
+            reportedAt: REPORTED_AT.toISOString(),
+            kind: "REMOVAL",
+          },
+        }),
+      }),
+    );
   });
 
   it("supersedes a pending report on a direct removal and records it in the audit", async () => {

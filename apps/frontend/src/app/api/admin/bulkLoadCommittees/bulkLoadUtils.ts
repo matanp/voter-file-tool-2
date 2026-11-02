@@ -721,8 +721,8 @@ async function removeMembershipForSync(
     extra: { seatNumber: null },
   });
   if (exitResult.kind !== "written") {
-    // The committee rows are locked for the import; a member changing under it
-    // means something bypassed the lock. Roll the committee back.
+    // The helper supersedes a report filed mid-import, so this means the member
+    // left ACTIVE under the import's committee lock. Roll the committee back.
     throw new Error(
       `Membership ${membership.id} changed during bulk import synchronization`,
     );

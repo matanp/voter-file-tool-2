@@ -476,7 +476,9 @@ describe("PendingTab: reported exits", () => {
   });
 
   it("rejects with an optional note, echoing the report the Admin saw, then refreshes", async () => {
-    const fetchMock = jest.fn(async () => jsonResponse({ success: true }));
+    const fetchMock = jest.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse({ success: true }),
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
     const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
 
@@ -491,8 +493,8 @@ describe("PendingTab: reported exits", () => {
       "/api/committee/exitReport/reject",
       expect.objectContaining({ method: "POST" }),
     );
-    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toEqual({
       membershipId: "m-rep",
       exitReportedAt: REPORTED_AT,
       note: "No letter received",

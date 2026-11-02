@@ -12,6 +12,8 @@ import {
   expectAuditLogCreate,
   expectMembershipCreate,
   expectMembershipUpdate,
+  expectMembershipExitWrite,
+  jsonContaining,
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   getMembershipMock,
@@ -444,6 +446,48 @@ describe("POST /api/admin/petition-outcomes/record", () => {
         },
         { id: "existing-1" },
       ),
+    );
+  });
+
+  it("clears an incumbent loser's pending Exit Report and records it in the audit", async () => {
+    const reportedAt = new Date("2026-10-30T15:04:05.678Z");
+    getMembershipMock(prismaMock).findUnique
+      .mockResolvedValueOnce(null) // V1, the winner, is new
+      .mockResolvedValueOnce({
+        id: "incumbent",
+        voterRecordId: "V2",
+        status: "ACTIVE",
+        seatNumber: 2,
+        exitReportedAt: reportedAt,
+        exitReportedById: "leader-1",
+        exitReportedKind: "RESIGNATION",
+      });
+
+    const response = await POST(createMockRequest(createValidPayload()));
+
+    expect(response.status).toBe(200);
+    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expectMembershipExitWrite("incumbent", {
+        status: "PETITIONED_LOST",
+        seatNumber: null,
+        exitReportedAt: null,
+        exitReportedById: null,
+        exitReportedKind: null,
+      }),
+    );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "PETITION_RECORDED",
+        entityId: "incumbent",
+        metadata: jsonContaining({
+          resultingStatus: "PETITIONED_LOST",
+          supersededExitReport: {
+            reportedById: "leader-1",
+            reportedAt: reportedAt.toISOString(),
+            kind: "RESIGNATION",
+          },
+        }),
+      }),
     );
   });
 

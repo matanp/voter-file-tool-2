@@ -202,9 +202,38 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
     });
   });
 
-  it("refuses a superseding exit from a stale read without poisoning the transaction", async () => {
+  it("supersedes a report filed after a stale read, naming the report it cleared", async () => {
     const before = await readState(); // no report yet
     await fileReport();
+
+    const result = await prisma.$transaction((tx) =>
+      exits.writeMembershipExit(tx, before, {
+        status: "REMOVED",
+        resignationDateReceived: null,
+        resignationMethod: null,
+        removalReason: "OTHER",
+        removalNotes: "Removed by bulk import synchronization",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      kind: "written",
+      clearedReport: { kind: "RESIGNATION", reportedById: LEADER_ID },
+    });
+    expect(await readState()).toMatchObject({
+      status: "REMOVED",
+      exitReportedAt: null,
+      removalNotes: "Removed by bulk import synchronization",
+      resignationMethod: null,
+    });
+  });
+
+  it("refuses a write once the row left ACTIVE, without poisoning the transaction", async () => {
+    const before = await readState();
+    await prisma.committeeMembership.update({
+      where: { id: membershipId },
+      data: { status: "RESIGNED" },
+    });
 
     const result = await prisma.$transaction(async (tx) => {
       const exit = await exits.writeMembershipExit(tx, before, {
@@ -212,17 +241,16 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
         resignationDateReceived: null,
         resignationMethod: null,
         removalReason: "OTHER",
-        removalNotes: "Removed by bulk import synchronization",
+        removalNotes: null,
       });
       // P2025 is not an SQL error: the transaction can keep going.
       const count = await tx.committeeMembership.count({
-        where: { id: membershipId, status: "ACTIVE" },
+        where: { id: membershipId, status: "RESIGNED" },
       });
       return { exit, count };
     });
 
     expect(result).toEqual({ exit: { kind: "changed" }, count: 1 });
-    expect((await readState()).exitReportedKind).toBe("RESIGNATION");
   });
 
   it("rejecting clears the report and the four exit fields, leaving the member ACTIVE", async () => {

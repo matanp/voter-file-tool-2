@@ -12,7 +12,7 @@
  *   report, with the kind switchable. The endpoint refuses (409) if the report
  *   changed since the Admin loaded it.
  */
-import React, { useEffect, useId, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import {
   AlertDialog,
@@ -26,7 +26,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { formatCalendarDateForDisplay } from "~/lib/dateUtils";
+import { formatInstantDateForDisplay } from "~/lib/dateUtils";
 import { linkifyText } from "~/lib/linkify";
 import { REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import type { ExitReportKind } from "@prisma/client";
@@ -37,6 +37,7 @@ import {
   submitExitReport,
   type ExitReportAction,
   type ExitReportInput,
+  type ResignationInput,
 } from "../adapters";
 import type { CommitteeAction } from "../committeeAction";
 import { useActionSubmit } from "./drawerParts";
@@ -288,7 +289,7 @@ function ReportSummary({ report }: { report: PendingExitReport }) {
     >
       <p className="font-medium">
         {report.kind === "RESIGNATION" ? "Resignation" : "Removal"} reported{" "}
-        {formatCalendarDateForDisplay(report.reportedAt)}
+        {formatInstantDateForDisplay(report.reportedAt)}
         {report.reportedBy?.name ? ` by ${report.reportedBy.name}` : ""}
       </p>
       {report.removalReason && (
@@ -319,12 +320,18 @@ export function ConfirmExitReportForm({
   const { report } = action;
   const [kind, setKind] = useState<ExitReportKind>(report.kind);
   const confirm = { exitReportedAt: report.reportedAt };
-  const initial = {
+  // Starts from the report, then follows the Admin's edits, so switching the
+  // kind remounts the other form with what the Admin already corrected.
+  const [initial] = useState<Partial<ResignationInput>>(() => ({
     reason: report.removalReason ?? "",
     notes: report.removalNotes ?? "",
     dateReceived: dateInputValue(report.resignationDateReceived),
     method: report.resignationMethod ?? "",
-  } as const;
+  }));
+  const draft = useRef(initial);
+  const onInputChange = useCallback((input: Partial<ResignationInput>) => {
+    draft.current = { ...draft.current, ...input };
+  }, []);
 
   const intro = (
     <>
@@ -361,9 +368,10 @@ export function ConfirmExitReportForm({
       memberLabel={memberLabel}
       onCancel={onCancel}
       onSuccess={onSuccess}
-      initial={initial}
+      initial={draft.current}
       confirm={confirm}
       intro={intro}
+      onInputChange={onInputChange}
     />
   ) : (
     <RemoveMemberForm
@@ -372,9 +380,10 @@ export function ConfirmExitReportForm({
       memberLabel={memberLabel}
       onCancel={onCancel}
       onSuccess={onSuccess}
-      initial={initial}
+      initial={draft.current}
       confirm={confirm}
       intro={intro}
+      onInputChange={onInputChange}
     />
   );
 }

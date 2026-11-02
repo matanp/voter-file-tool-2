@@ -12,7 +12,7 @@
  * stays disabled until the requirements are met, and what's missing is
  * listed beside it in text.
  */
-import React, { useId, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import type { ResignationMethod } from "@prisma/client";
 
 import { Button } from "~/components/ui/button";
@@ -57,6 +57,8 @@ type MemberExitFormProps<A> = {
   confirm?: ConfirmExitReport;
   /** Shown above the form, e.g. what the Leader reported. */
   intro?: React.ReactNode;
+  /** Every edit, so a parent can carry it into another form (confirm's kind switch). */
+  onInputChange?: (input: Partial<ResignationInput>) => void;
 };
 
 const DRAWER_BODY = "flex-1 space-y-4 overflow-y-auto px-4 py-4";
@@ -180,11 +182,13 @@ export function RemoveMemberForm({
   initial,
   confirm,
   intro,
+  onInputChange,
 }: MemberExitFormProps<RemovalAction>) {
   const [input, setInput] = useState<RemovalInput>({
     reason: initial?.reason ?? "",
     notes: initial?.notes ?? "",
   });
+  useEffect(() => onInputChange?.(input), [input, onInputChange]);
   const { submitting, failure, run } = useActionSubmit(onSuccess);
   const submit = () => run(() => submitRemoval(action, input, confirm));
 
@@ -233,6 +237,7 @@ export function RecordResignationForm({
   initial,
   confirm,
   intro,
+  onInputChange,
 }: MemberExitFormProps<ResignationAction>) {
   const id = useId();
   const [input, setInput] = useState<ResignationInput>({
@@ -241,6 +246,7 @@ export function RecordResignationForm({
     reason: initial?.reason ?? "",
     notes: initial?.notes ?? "",
   });
+  useEffect(() => onInputChange?.(input), [input, onInputChange]);
   const { submitting, failure, run } = useActionSubmit(onSuccess);
   const setField = (patch: Partial<ResignationInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));

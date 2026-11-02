@@ -10,7 +10,6 @@ import {
   createMockVoterRecord,
   expectAuditLogCreate,
   expectErrorResponse,
-  firstCallArg,
   jsonContaining,
   parseJsonResponse,
 } from "../../utils/testUtils";
@@ -66,10 +65,12 @@ function resolveIncludedMembership(row: object): void {
   prismaMock.committeeMembership.findUnique.mockResolvedValue(row as never);
 }
 
-type UpdateManyArgs = {
-  where: Record<string, unknown>;
-  data: Record<string, unknown>;
-};
+/** The first conditional `updateMany` the route made, from the typed delegate. */
+function updateManyArgs() {
+  const args = prismaMock.committeeMembership.updateMany.mock.calls[0]?.[0];
+  if (!args) throw new Error("expected committeeMembership.updateMany to be called");
+  return args;
+}
 
 describe("POST /api/committee/exitReport", () => {
   beforeEach(() => {
@@ -110,9 +111,7 @@ describe("POST /api/committee/exitReport", () => {
     );
 
     expect(response.status).toBe(201);
-    const args = firstCallArg<UpdateManyArgs>(
-      prismaMock.committeeMembership.updateMany as unknown as jest.Mock,
-    );
+    const args = updateManyArgs();
     expect(args.where).toEqual({
       id: "membership-test-id-001",
       status: "ACTIVE",
@@ -148,9 +147,7 @@ describe("POST /api/committee/exitReport", () => {
     );
     expect(response.status).toBe(201);
     expect(prismaMock.userJurisdiction.findMany).not.toHaveBeenCalled();
-    const args = firstCallArg<UpdateManyArgs>(
-      prismaMock.committeeMembership.updateMany as unknown as jest.Mock,
-    );
+    const args = updateManyArgs();
     expect(args.data).toMatchObject({
       exitReportedKind: "REMOVAL",
       resignationDateReceived: null,
@@ -243,9 +240,7 @@ describe("POST /api/committee/exitReport/reject", () => {
     );
 
     expect(response.status).toBe(200);
-    const args = firstCallArg<UpdateManyArgs>(
-      prismaMock.committeeMembership.updateMany as unknown as jest.Mock,
-    );
+    const args = updateManyArgs();
     expect(args.where).toEqual({
       id: "membership-test-id-001",
       status: "ACTIVE",

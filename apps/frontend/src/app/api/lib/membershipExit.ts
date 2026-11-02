@@ -13,9 +13,9 @@
  *   `exitReportedById`, `exitReportedKind`). The DB CHECK constraints are the
  *   backstop: a path that skips this helper and leaves a report on a
  *   non-ACTIVE row fails loudly.
- * - Writes are conditional: the row must still be ACTIVE and still carry the
- *   report (or lack of one) the caller read. Otherwise nothing is written and
- *   the caller answers 409.
+ * - Writes are conditional on the row still being ACTIVE. Confirming a report
+ *   also requires it to be exactly the report the Admin saw (409 otherwise);
+ *   other exits supersede whatever report the row has when they land.
  */
 
 import type {
@@ -93,9 +93,10 @@ export const CLEARED_EXIT_FIELDS = {
 
 /**
  * The row as the caller read it. Every caller has already loaded the
- * membership (and checked it is ACTIVE), so the helper doesn't read again: the
- * conditional `where` on `exitReportedAt` proves at write time that this is
- * still the row's report state, which is what makes `clearedReport` accurate.
+ * membership (and checked it is ACTIVE), so the helper doesn't read again
+ * unless the write misses: the conditional `where` on `exitReportedAt` proves
+ * at write time that this is still the row's report state, which is what
+ * makes `clearedReport` accurate.
  */
 export type ExitReportState = {
   id: string;
@@ -139,27 +140,54 @@ function isRecordNotFound(error: unknown): boolean {
 /**
  * `update` on `{ id, status: ACTIVE, exitReportedAt: <as read> }`. Prisma
  * raises P2025 when no row matches (no SQL error, so the transaction stays
- * usable); that is the caller's 409.
+ * usable).
+ *
+ * - `exact` (confirming a report): the row must still carry the report the
+ *   Admin saw; any change is the caller's 409.
+ * - `supersede` (every other exit, decision 14): only `status = ACTIVE`
+ *   matters. If a report was filed or cleared since the caller's read, re-read
+ *   and try again, so the write still lands and `clearedReport` names the
+ *   report it actually cleared. Only a row that left ACTIVE is `changed`.
  */
+const SUPERSEDE_ATTEMPTS = 3;
+
 async function updateIfUnchanged(
   tx: Prisma.TransactionClient,
   state: ExitReportState,
   data: Prisma.CommitteeMembershipUncheckedUpdateInput,
+  mode: "exact" | "supersede",
 ): Promise<MembershipExitResult> {
-  try {
-    const membership = await tx.committeeMembership.update({
-      where: {
-        id: state.id,
-        status: ACTIVE_MEMBERSHIP_STATUS,
-        // `?? null`: an undefined filter would match any report.
-        exitReportedAt: state.exitReportedAt ?? null,
-      },
-      data: { ...data, ...CLEARED_EXIT_REPORT_FIELDS },
-    });
-    return { kind: "written", membership, clearedReport: toClearedReport(state) };
-  } catch (error) {
-    if (isRecordNotFound(error)) return { kind: "changed" };
-    throw error;
+  let current = state;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const membership = await tx.committeeMembership.update({
+        where: {
+          id: current.id,
+          status: ACTIVE_MEMBERSHIP_STATUS,
+          // `?? null`: an undefined filter would match any report.
+          exitReportedAt: current.exitReportedAt ?? null,
+        },
+        data: { ...data, ...CLEARED_EXIT_REPORT_FIELDS },
+      });
+      return {
+        kind: "written",
+        membership,
+        clearedReport: toClearedReport(current),
+      };
+    } catch (error) {
+      if (!isRecordNotFound(error)) throw error;
+      if (mode === "exact" || attempt >= SUPERSEDE_ATTEMPTS) {
+        return { kind: "changed" };
+      }
+      const reread = await tx.committeeMembership.findUnique({
+        where: { id: current.id },
+        select: { ...EXIT_REPORT_STATE_SELECT, status: true },
+      });
+      if (!reread || reread.status !== ACTIVE_MEMBERSHIP_STATUS) {
+        return { kind: "changed" };
+      }
+      current = reread;
+    }
   }
 }
 
@@ -196,15 +224,22 @@ export async function writeMembershipExit(
     return { kind: "changed" };
   }
   const at = exit.at === undefined ? new Date() : exit.at;
-  return updateIfUnchanged(tx, state, {
-    ...exit.extra,
-    status: exit.status,
-    ...(exit.status === "RESIGNED" ? { resignedAt: at } : { removedAt: at }),
-    resignationDateReceived: exit.resignationDateReceived,
-    resignationMethod: exit.resignationMethod,
-    removalReason: exit.removalReason,
-    removalNotes: exit.removalNotes,
-  });
+  const mode =
+    options.expectedExitReportedAt !== undefined ? "exact" : "supersede";
+  return updateIfUnchanged(
+    tx,
+    state,
+    {
+      ...exit.extra,
+      status: exit.status,
+      ...(exit.status === "RESIGNED" ? { resignedAt: at } : { removedAt: at }),
+      resignationDateReceived: exit.resignationDateReceived,
+      resignationMethod: exit.resignationMethod,
+      removalReason: exit.removalReason,
+      removalNotes: exit.removalNotes,
+    },
+    mode,
+  );
 }
 
 /**
@@ -223,7 +258,7 @@ export async function writeMembershipLeavingActive(
   if (data.status === "RESIGNED" || data.status === "REMOVED") {
     throw new Error("Exit statuses must be written with writeMembershipExit");
   }
-  return updateIfUnchanged(tx, state, data);
+  return updateIfUnchanged(tx, state, data, "supersede");
 }
 
 export type ExitReportInput = MembershipExitFields & {

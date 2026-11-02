@@ -16,7 +16,10 @@ import React, { useId, useState } from "react";
 
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
-import { formatCalendarDateForDisplay } from "~/lib/dateUtils";
+import {
+  formatCalendarDateForDisplay,
+  formatInstantDateForDisplay,
+} from "~/lib/dateUtils";
 import { REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import type { PendingExitReport } from "~/lib/validations/committee";
 import { rejectExitReport } from "../../adapters";
@@ -84,7 +87,7 @@ export function PendingExitReportItem({
           )}
         </p>
         <p className="text-slate-600 dark:text-slate-400">
-          {kindLabel} reported {formatCalendarDateForDisplay(report.reportedAt)}
+          {kindLabel} reported {formatInstantDateForDisplay(report.reportedAt)}
           {reportedByText(report, canDecide)}
         </p>
       </div>
