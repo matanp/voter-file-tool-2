@@ -27,6 +27,7 @@ import {
   submitResignation,
   type RemovalAction,
   type RemovalInput,
+  type ConfirmExitReport,
   type ResignationAction,
   type ResignationInput,
 } from "../adapters";
@@ -37,9 +38,7 @@ import {
   type ActionFailure,
 } from "./drawerParts";
 
-const NOTES_MAX = 1000;
-
-
+export const NOTES_MAX = 1000;
 
 type MemberExitFormProps<A> = {
   action: A;
@@ -52,12 +51,18 @@ type MemberExitFormProps<A> = {
   Footer?: React.ComponentType<{ children: React.ReactNode }>;
   /** Classes for the scrolling body. Defaults to the drawer's padding. */
   bodyClassName?: string;
+  /** Prefilled values, e.g. from a Leader's Exit Report being confirmed. */
+  initial?: Partial<ResignationInput>;
+  /** Set when confirming a Leader's Exit Report (the endpoint re-checks it). */
+  confirm?: ConfirmExitReport;
+  /** Shown above the form, e.g. what the Leader reported. */
+  intro?: React.ReactNode;
 };
 
 const DRAWER_BODY = "flex-1 space-y-4 overflow-y-auto px-4 py-4";
 
 /** Shared layout: body, failure alert, requirements hint, and footer buttons. */
-function ExitFormLayout({
+export function ExitFormLayout({
   children,
   problems,
   failure,
@@ -117,7 +122,7 @@ function ExitFormLayout({
   );
 }
 
-function ReasonAndNotes({
+export function ReasonAndNotes({
   label,
   value,
   onChange,
@@ -172,10 +177,16 @@ export function RemoveMemberForm({
   onSuccess,
   Footer,
   bodyClassName,
+  initial,
+  confirm,
+  intro,
 }: MemberExitFormProps<RemovalAction>) {
-  const [input, setInput] = useState<RemovalInput>({ reason: "", notes: "" });
+  const [input, setInput] = useState<RemovalInput>({
+    reason: initial?.reason ?? "",
+    notes: initial?.notes ?? "",
+  });
   const { submitting, failure, run } = useActionSubmit(onSuccess);
-  const submit = () => run(() => submitRemoval(action, input));
+  const submit = () => run(() => submitRemoval(action, input, confirm));
 
   return (
     <ExitFormLayout
@@ -183,13 +194,14 @@ export function RemoveMemberForm({
       failure={failure}
       failureTitle="Could not remove member"
       submitting={submitting}
-      primaryLabel="Remove member"
+      primaryLabel={confirm ? "Confirm removal" : "Remove member"}
       busyLabel="Removing…"
       onCancel={onCancel}
       onSubmit={() => void submit()}
       Footer={Footer}
       bodyClassName={bodyClassName}
     >
+      {intro}
       <p className="text-sm">
         Removing <span className="font-medium">{memberLabel}</span> from the
         committee. This is an administrative removal, not a resignation.
@@ -209,6 +221,8 @@ const METHODS: Array<[ResignationMethod, string]> = [
 ];
 
 /** Resignation: the received date, method, and a reason (notes for Other). */
+export const RESIGNATION_METHODS = METHODS;
+
 export function RecordResignationForm({
   action,
   memberLabel,
@@ -216,18 +230,21 @@ export function RecordResignationForm({
   onSuccess,
   Footer,
   bodyClassName,
+  initial,
+  confirm,
+  intro,
 }: MemberExitFormProps<ResignationAction>) {
   const id = useId();
   const [input, setInput] = useState<ResignationInput>({
-    dateReceived: "",
-    method: "",
-    reason: "",
-    notes: "",
+    dateReceived: initial?.dateReceived ?? "",
+    method: initial?.method ?? "",
+    reason: initial?.reason ?? "",
+    notes: initial?.notes ?? "",
   });
   const { submitting, failure, run } = useActionSubmit(onSuccess);
   const setField = (patch: Partial<ResignationInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
-  const submit = () => run(() => submitResignation(action, input));
+  const submit = () => run(() => submitResignation(action, input, confirm));
 
   return (
     <ExitFormLayout
@@ -235,13 +252,14 @@ export function RecordResignationForm({
       failure={failure}
       failureTitle="Could not record resignation"
       submitting={submitting}
-      primaryLabel="Record resignation"
+      primaryLabel={confirm ? "Confirm resignation" : "Record resignation"}
       busyLabel="Saving…"
       onCancel={onCancel}
       onSubmit={() => void submit()}
       Footer={Footer}
       bodyClassName={bodyClassName}
     >
+      {intro}
       <p className="text-sm">
         Recording a resignation for <span className="font-medium">{memberLabel}</span>.
       </p>

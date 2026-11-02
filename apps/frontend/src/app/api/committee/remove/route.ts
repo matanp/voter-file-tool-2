@@ -1,11 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import { blankToNull } from "~/lib/blankToNull";
 import prisma from "~/lib/prisma";
 import {
   removeCommitteeDataSchema,
   resignCommitteeDataSchema,
+  type RemoveCommitteeData,
+  type ResignCommitteeData,
 } from "~/lib/validations/committee";
-import { PrivilegeLevel, type RemovalReason } from "@prisma/client";
+import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
@@ -16,8 +19,19 @@ import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
 } from "~/lib/auditMembershipSubject";
+import {
+  supersededExitReportMetadata,
+  writeMembershipExit,
+  type MembershipExit,
+} from "~/app/api/lib/membershipExit";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 
-/** SRS 2.3 — Handle resignation: validate resign body, update membership to RESIGNED, log MEMBER_RESIGNED. */
+/**
+ * SRS 2.3 / 2.5 — Admin records a resignation (`action: "RESIGN"`) or removes a
+ * member, through the shared exit helper. With `exitReportedAt`, this confirms
+ * the Leader's pending Exit Report the Admin was looking at: 409 if the row no
+ * longer carries exactly that report.
+ */
 async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
   const isResign =
@@ -118,79 +132,77 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       seatNumber: membership.seatNumber,
     });
 
+    // Confirming a Leader's Exit Report: the Admin's form values replace the
+    // reported ones, and the row must still carry the report the Admin saw.
+    const confirmedReportAt = validation.data.exitReportedAt
+      ? new Date(validation.data.exitReportedAt)
+      : undefined;
+
+    let exit: MembershipExit;
+    let action: "MEMBER_RESIGNED" | "MEMBER_REMOVED";
+    let afterValue: Record<string, unknown>;
+    let baseMetadata: Record<string, unknown> | undefined;
     if (isResign) {
-      const resignData = validation.data as {
-        resignationReason: RemovalReason;
-        resignationDateReceived: string;
-        resignationMethod: "EMAIL" | "MAIL";
-        removalNotes?: string;
+      const resignData = validation.data as ResignCommitteeData;
+      const trimmedNotes = blankToNull(resignData.removalNotes);
+      exit = {
+        status: "RESIGNED",
+        resignationDateReceived: new Date(resignData.resignationDateReceived),
+        resignationMethod: resignData.resignationMethod,
+        removalReason: resignData.resignationReason,
+        removalNotes: trimmedNotes,
       };
-      const resignationDateReceived = new Date(
-        resignData.resignationDateReceived,
-      );
-      const trimmedNotes = resignData.removalNotes?.trim();
-
-      await prisma.$transaction(async (tx) => {
-        await tx.committeeMembership.update({
-          where: { id: membership.id },
-          data: {
-            status: "RESIGNED",
-            resignedAt: new Date(),
-            resignationDateReceived,
-            resignationMethod: resignData.resignationMethod,
-            removalReason: resignData.resignationReason,
-            ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
-          },
-        });
-
-        await logAuditEventOrThrow(
-          userId,
-          userRole,
-          "MEMBER_RESIGNED",
-          "CommitteeMembership",
-          membership.id,
-          {
-            status: ACTIVE_MEMBERSHIP_STATUS,
-            ...(membership.seatNumber != null
-              ? { seatNumber: membership.seatNumber }
-              : {}),
-          },
-          {
-            status: "RESIGNED",
-            resignationDateReceived: resignData.resignationDateReceived,
-            resignationMethod: resignData.resignationMethod,
-            resignationReason: resignData.resignationReason,
-            removalReason: resignData.resignationReason,
-            ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
-          },
-          mergeAuditMetadata(undefined, membershipSubject),
-          tx,
-        );
-      });
-
-      return NextResponse.json({ status: "success" }, { status: 200 });
+      action = "MEMBER_RESIGNED";
+      afterValue = {
+        status: "RESIGNED",
+        resignationDateReceived: resignData.resignationDateReceived,
+        resignationMethod: resignData.resignationMethod,
+        resignationReason: resignData.resignationReason,
+        removalReason: resignData.resignationReason,
+        ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
+      };
+      baseMetadata = undefined;
+    } else {
+      const removeData = validation.data as RemoveCommitteeData;
+      const trimmedNotes = blankToNull(removeData.removalNotes);
+      exit = {
+        status: "REMOVED",
+        resignationDateReceived: null,
+        resignationMethod: null,
+        removalReason: removeData.removalReason,
+        removalNotes: trimmedNotes,
+      };
+      action = "MEMBER_REMOVED";
+      afterValue = {
+        status: "REMOVED",
+        removalReason: removeData.removalReason,
+        ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
+      };
+      baseMetadata = { source: "manual" };
     }
 
-    const removeData = validation.data as {
-      removalReason: RemovalReason;
-      removalNotes?: string;
-    };
-    const trimmedNotes = removeData.removalNotes?.trim();
-    await prisma.$transaction(async (tx) => {
-      await tx.committeeMembership.update({
-        where: { id: membership.id },
-        data: {
-          status: "REMOVED",
-          removedAt: new Date(),
-          removalReason: removeData.removalReason,
-          ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
-        },
-      });
+    const outcome = await prisma.$transaction(async (tx) => {
+      const result = await writeMembershipExit(
+        tx,
+        membership,
+        exit,
+        confirmedReportAt ? { expectedExitReportedAt: confirmedReportAt } : {},
+      );
+      if (result.kind !== "written") return result.kind;
+
+      const reportMetadata =
+        confirmedReportAt && result.clearedReport
+          ? {
+              source: "exit_report",
+              reportedById: result.clearedReport.reportedById,
+              reportedAt: result.clearedReport.reportedAt,
+            }
+          : supersededExitReportMetadata(result);
 
       await logAuditEventOrThrow(
         userId,
         userRole,
-        "MEMBER_REMOVED",
+        action,
         "CommitteeMembership",
         membership.id,
         {
@@ -199,15 +211,19 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
             ? { seatNumber: membership.seatNumber }
             : {}),
         },
-        {
-          status: "REMOVED",
-          removalReason: removeData.removalReason,
-          ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
-        },
-        mergeAuditMetadata({ source: "manual" }, membershipSubject),
+        afterValue,
+        mergeAuditMetadata({ ...baseMetadata, ...reportMetadata }, membershipSubject),
         tx,
       );
+      return "written" as const;
     });
+
+    if (outcome !== "written") {
+      return NextResponse.json(
+        { status: "error", error: MEMBER_CHANGED_MESSAGE },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {

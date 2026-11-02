@@ -297,10 +297,13 @@ describe("/api/admin/eligibility-flags", () => {
     expect(response.status).toBe(200);
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "membership-2" },
+        where: { id: "membership-2", status: "ACTIVE", exitReportedAt: null },
         data: expect.objectContaining({
           status: "REMOVED",
           removalReason: "PARTY_CHANGE",
+          removalNotes: "Verified change",
+          resignationDateReceived: null,
+          resignationMethod: null,
         }) as unknown,
       }) as unknown,
     );
@@ -340,6 +343,57 @@ describe("/api/admin/eligibility-flags", () => {
             reason: "PARTY_MISMATCH",
             reviewerUserId: "test-user-id",
             actorType: "reviewer",
+          }) as unknown,
+        }) as unknown,
+      }) as unknown,
+    );
+  });
+
+  it("confirm decision supersedes a pending Exit Report and records it in the audit", async () => {
+    const reportedAt = new Date("2026-10-30T15:04:05.678Z");
+    getEligibilityFlagMock(prismaMock).findUnique.mockResolvedValue({
+      id: "flag-4",
+      reason: "ASSEMBLY_DISTRICT_MISMATCH",
+      status: "PENDING",
+      details: null,
+      membership: createReviewMembership({
+        id: "membership-4",
+        exitReportedAt: reportedAt,
+        exitReportedById: "leader-1",
+        exitReportedKind: "RESIGNATION",
+      }),
+    });
+    getEligibilityFlagMock(prismaMock).update.mockResolvedValue({});
+
+    const response = await reviewEligibilityFlag(
+      createMockRequest({ decision: "confirm" }),
+      reviewRouteContext("flag-4"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "membership-4", status: "ACTIVE", exitReportedAt: reportedAt },
+        data: expect.objectContaining({
+          status: "REMOVED",
+          removalReason: "MOVED_OUT_OF_DISTRICT",
+          removalNotes: null,
+          exitReportedAt: null,
+        }) as unknown,
+      }) as unknown,
+    );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "MEMBER_REMOVED",
+          metadata: expect.objectContaining({
+            source: "boe_flagging",
+            supersededExitReport: {
+              reportedById: "leader-1",
+              reportedAt: reportedAt.toISOString(),
+              kind: "RESIGNATION",
+            },
           }) as unknown,
         }) as unknown,
       }) as unknown,

@@ -111,6 +111,7 @@ function detail({
       missingWeightSeatNumbers: [],
     },
     pending: [],
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
   };
 }
@@ -940,5 +941,197 @@ describe("CommitteeActionDrawer: voter details", () => {
     expect(await within(drawer()).findByRole("alert")).toHaveTextContent(
       "Internal Server Error",
     );
+  });
+});
+
+// --- Exit Reports (leader-feedback-2026-11 ticket 01) ------------------------------
+
+const REPORT_EXIT: CommitteeAction = { kind: "report-exit", committee: REF, memberId: "V-SEATED" };
+const REPORTED_AT = "2026-10-30T15:04:05.678Z";
+const CONFIRM_EXIT: CommitteeAction = {
+  kind: "confirm-exit-report",
+  committee: REF,
+  memberId: "V-SEATED",
+  report: {
+    membershipId: "m-seated",
+    voterRecordId: "V-SEATED",
+    firstName: "Sam",
+    lastName: "Seated",
+    seatNumber: 1,
+    kind: "RESIGNATION",
+    reportedAt: REPORTED_AT,
+    isOwnReport: false,
+    reportedBy: { id: "leader-1", name: "Lee Leader" },
+    removalReason: "OTHER",
+    removalNotes: "Moving to Ohio",
+    resignationDateReceived: "2026-10-29T00:00:00.000Z",
+    resignationMethod: "MAIL",
+  },
+};
+
+describe("CommitteeActionDrawer: report an exit (Leader)", () => {
+  it("shows the Admin's instructions with links before sending the report", async () => {
+    const fetchMock = serve({
+      "/api/committee/exit-instructions": [
+        { body: { text: "Send the letter to stephen@example.org." } },
+      ],
+      "/api/committee/exitReport": [
+        { status: 201, body: { success: true, exitReportedAt: REPORTED_AT } },
+      ],
+    });
+    const { onComplete } = renderDrawer({ role: PrivilegeLevel.Leader, action: REPORT_EXIT });
+
+    expect(
+      within(drawer()).getByRole("heading", { level: 2, name: "Report resignation or removal" }),
+    ).toBeInTheDocument();
+    const report = within(drawer()).getByRole("button", { name: "Report" });
+    expect(report).toBeDisabled();
+
+    await userEvent.click(within(drawer()).getByLabelText("Resigned"));
+    await userEvent.selectOptions(
+      within(drawer()).getByLabelText(/Reason for resignation/),
+      "MOVED_OUT_OF_DISTRICT",
+    );
+    await userEvent.type(
+      within(drawer()).getByLabelText("Date resignation received (if known)"),
+      "2026-10-29",
+    );
+    expect(report).toBeEnabled();
+    await userEvent.click(report);
+
+    const dialog = await screen.findByRole("alertdialog");
+    const link = await within(dialog).findByRole("link", { name: "stephen@example.org" });
+    expect(link).toHaveAttribute("href", "mailto:stephen@example.org");
+    expect(callsTo(fetchMock, "/api/committee/exitReport")).toHaveLength(0);
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "I understand, send report" }));
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/exitReport")[0])).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-SEATED",
+      kind: "RESIGNATION",
+      removalReason: "MOVED_OUT_OF_DISTRICT",
+      resignationDateReceived: "2026-10-29",
+    });
+  });
+
+  it("still sends the report when no instructions are set, and Go back sends nothing", async () => {
+    const fetchMock = serve({
+      "/api/committee/exit-instructions": [{ body: { text: null } }],
+      "/api/committee/exitReport": [
+        { status: 201, body: { success: true, exitReportedAt: REPORTED_AT } },
+      ],
+    });
+    const { onComplete } = renderDrawer({ role: PrivilegeLevel.RequestAccess, action: REPORT_EXIT });
+
+    await userEvent.click(within(drawer()).getByLabelText("Should be removed"));
+    await userEvent.selectOptions(within(drawer()).getByLabelText(/^Reason/), "DECEASED");
+    // Resignation details apply only to a resignation.
+    expect(within(drawer()).queryByLabelText(/Date resignation received/)).not.toBeInTheDocument();
+
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Report" }));
+    let dialog = await screen.findByRole("alertdialog");
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "I understand, send report" })).toBeEnabled(),
+    );
+    expect(within(dialog).queryByTestId("exit-instructions")).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Go back" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(callsTo(fetchMock, "/api/committee/exitReport")).toHaveLength(0);
+
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Report" }));
+    dialog = await screen.findByRole("alertdialog");
+    const send = within(dialog).getByRole("button", { name: "I understand, send report" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await userEvent.click(send);
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    // Fetched again on reopening, so an Admin's edit is never stale.
+    expect(callsTo(fetchMock, "/api/committee/exit-instructions")).toHaveLength(2);
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/exitReport")[0])).toMatchObject({
+      kind: "REMOVAL",
+      removalReason: "DECEASED",
+    });
+  });
+
+  it("is not offered to an acting Admin, who exits members directly", () => {
+    renderDrawer({ role: PrivilegeLevel.Admin, action: REPORT_EXIT });
+    expect(drawer()).toHaveTextContent("Your role can't change this committee.");
+  });
+});
+
+describe("CommitteeActionDrawer: confirm a reported exit (Admin)", () => {
+  it("prefills the resignation form from the report and confirms the report it was shown", async () => {
+    const fetchMock = serve({ "/api/committee/remove": [{ body: { status: "success" } }] });
+    const { onComplete } = renderDrawer({ action: CONFIRM_EXIT });
+
+    expect(within(drawer()).getByTestId("exit-report-summary")).toHaveTextContent(
+      "Resignation reported",
+    );
+    expect(within(drawer()).getByLabelText("Date resignation received (required)")).toHaveValue(
+      "2026-10-29",
+    );
+    expect(within(drawer()).getByLabelText("Mail")).toBeChecked();
+    expect(within(drawer()).getByLabelText("Notes (required)")).toHaveValue("Moving to Ohio");
+
+    // The Admin's values replace the reported ones.
+    await userEvent.selectOptions(
+      within(drawer()).getByLabelText(/Reason for resignation/),
+      "MOVED_OUT_OF_DISTRICT",
+    );
+    await userEvent.clear(within(drawer()).getByLabelText("Notes (optional)"));
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Confirm resignation" }));
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0])).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-SEATED",
+      action: "RESIGN",
+      resignationDateReceived: "2026-10-29",
+      resignationMethod: "MAIL",
+      resignationReason: "MOVED_OUT_OF_DISTRICT",
+      exitReportedAt: REPORTED_AT,
+    });
+  });
+
+  it("lets the Admin record the reported resignation as a removal", async () => {
+    const fetchMock = serve({ "/api/committee/remove": [{ body: { status: "success" } }] });
+    renderDrawer({ action: CONFIRM_EXIT });
+
+    await userEvent.click(within(drawer()).getByLabelText("Removal"));
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Confirm removal" }));
+
+    await waitFor(() => expect(callsTo(fetchMock, "/api/committee/remove")).toHaveLength(1));
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/remove")[0])).toEqual({
+      cityTown: "GREECE",
+      legDistrict: 1,
+      electionDistrict: 5,
+      memberId: "V-SEATED",
+      removalReason: "OTHER",
+      removalNotes: "Moving to Ohio",
+      exitReportedAt: REPORTED_AT,
+    });
+  });
+
+  it("keeps the drawer open on a 409 when the report changed", async () => {
+    serve({
+      "/api/committee/remove": [
+        { status: 409, body: { status: "error", error: "This member changed, refresh." } },
+      ],
+    });
+    const { onComplete } = renderDrawer({ action: CONFIRM_EXIT });
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Confirm resignation" }));
+    expect(await within(drawer()).findByText(/This member changed, refresh\./)).toBeInTheDocument();
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("is not offered below Admin", () => {
+    renderDrawer({ role: PrivilegeLevel.Leader, action: CONFIRM_EXIT });
+    expect(drawer()).toHaveTextContent("Your role can't change this committee.");
   });
 });

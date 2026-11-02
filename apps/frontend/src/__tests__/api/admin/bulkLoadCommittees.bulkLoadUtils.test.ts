@@ -12,6 +12,7 @@ import {
   expectAuditLogCreate,
   expectMembershipCreate,
   expectMembershipUpdate,
+  expectMembershipExitWrite,
   firstCallArg,
   getAuditLogMock,
   getMembershipMock,
@@ -357,6 +358,178 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     expect(prismaMock.committeeList.deleteMany).not.toHaveBeenCalled();
   });
 
+  describe("a pending Exit Report", () => {
+    const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
+
+    const setupJaneInCommittee = (
+      existing: Parameters<typeof createMockMembership>[0],
+    ) => {
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({
+          VRCNUM: "VRC002",
+          firstName: "Jane",
+          middleInitial: null,
+          lastName: "Doe",
+          houseNum: 123,
+          street: "Main St",
+          apartment: null,
+          city: "Testville",
+          state: "NY",
+          zipCode: "14604",
+        }),
+      );
+      prismaMock.committeeList.upsert.mockResolvedValue(
+        createMockCommitteeListRow({ id: 102, cityTown: "TEST CITY", electionDistrict: 1 }),
+      );
+      prismaMock.$queryRaw.mockResolvedValue([]);
+      getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: "m-existing",
+          voterRecordId: "VRC002",
+          committeeListId: 102,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          membershipType: "PETITIONED",
+          ...existing,
+        }),
+      );
+      assignNextAvailableSeatMock.mockResolvedValue(2);
+    };
+
+    const entries = [
+      rosterEntry({ vrcnum: "VRC002", cityTown: "TEST CITY", name: "Jane Doe" }),
+    ];
+
+    it("stays intact when the import re-lists the ACTIVE member", async () => {
+      setupJaneInCommittee({
+        status: "ACTIVE",
+        seatNumber: 1,
+        exitReportedAt: REPORTED_AT,
+        exitReportedById: "leader-1",
+        exitReportedKind: "RESIGNATION",
+        removalReason: "OTHER",
+        removalNotes: "Moving away",
+      });
+
+      await applyRosterImport({ entries, rejected: [] });
+
+      const { data } = firstCallArg<{ data: Record<string, unknown> }>(
+        getMembershipMock(prismaMock).update,
+      );
+      expect(data).toMatchObject({ status: "ACTIVE", seatNumber: 1 });
+      for (const column of [
+        "exitReportedAt",
+        "exitReportedById",
+        "exitReportedKind",
+        "resignationDateReceived",
+        "resignationMethod",
+        "removalReason",
+        "removalNotes",
+      ]) {
+        expect(data).not.toHaveProperty(column);
+      }
+    });
+
+    it("is not involved when a REMOVED member is reactivated, whose exit fields are cleared", async () => {
+      setupJaneInCommittee({
+        status: "REMOVED",
+        seatNumber: null,
+        removalReason: "PARTY_CHANGE",
+        removalNotes: "Old removal",
+      });
+
+      await applyRosterImport({ entries, rejected: [] });
+
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          {
+            status: "ACTIVE",
+            resignationDateReceived: null,
+            resignationMethod: null,
+            removalReason: null,
+            removalNotes: null,
+          },
+          { id: "m-existing" },
+        ),
+      );
+    });
+
+    it("is superseded, and recorded in the audit, when sync removes the member", async () => {
+      prismaMock.voterRecord.findUnique.mockResolvedValue(
+        createMockVoterRecord({
+          VRCNUM: "VRC_NEW",
+          firstName: "New",
+          middleInitial: null,
+          lastName: "Member",
+          houseNum: 10,
+          street: "Main St",
+          apartment: null,
+          city: "Testville",
+          state: "NY",
+          zipCode: "14604",
+        }),
+      );
+      prismaMock.committeeList.upsert.mockResolvedValue(
+        createMockCommitteeListRow({ id: 301, cityTown: "TEST CITY", electionDistrict: 1 }),
+      );
+      prismaMock.$queryRaw.mockResolvedValue([]);
+      getMembershipMock(prismaMock)
+        .findMany.mockResolvedValueOnce([]) // initial cross-committee snapshot
+        .mockResolvedValueOnce([
+          {
+            id: "m-reported",
+            voterRecordId: "VRC_OLD",
+            exitReportedAt: REPORTED_AT,
+            exitReportedById: "leader-1",
+            exitReportedKind: "REMOVAL",
+          },
+        ]); // existing active memberships in committee
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      getMembershipMock(prismaMock).create.mockResolvedValue(
+        createMockMembership({
+          id: "m-new",
+          voterRecordId: "VRC_NEW",
+          committeeListId: 301,
+          status: "ACTIVE",
+          seatNumber: 1,
+        }),
+      );
+
+      await applyRosterImport({
+        entries: [
+          rosterEntry({
+            vrcnum: "VRC_NEW",
+            cityTown: "TEST CITY",
+            name: "New Member",
+            address1: "10 Main St",
+          }),
+        ],
+        rejected: [],
+      });
+
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipExitWrite("m-reported", {
+          status: "REMOVED",
+          removalNotes: "Removed by bulk import synchronization",
+          exitReportedAt: null,
+        }),
+      );
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_REMOVED",
+          metadata: jsonContaining({
+            source: "bulk_import_sync",
+            supersededExitReport: {
+              reportedById: "leader-1",
+              reportedAt: REPORTED_AT.toISOString(),
+              kind: "REMOVAL",
+            },
+          }),
+        }),
+      );
+    });
+  });
+
   it("flags duplicate voter assignments across committees and avoids activation", async () => {
     const entries = [
       rosterEntry({
@@ -602,10 +775,10 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     ]);
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledTimes(1);
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-      expectMembershipUpdate(
-        { status: "REMOVED", removalReason: "OTHER" },
-        { id: "m-absent" },
-      ),
+      expectMembershipExitWrite("m-absent", {
+        status: "REMOVED",
+        removalReason: "OTHER",
+      }),
     );
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledTimes(1);
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
@@ -996,7 +1169,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       }),
     );
     expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
-      expectMembershipUpdate({ status: "REMOVED" }, { id: "m-mover-old" }),
+      expectMembershipExitWrite("m-mover-old", { status: "REMOVED" }),
     );
     expect(applied.skippedActivations).toEqual([]);
     // VRC_STAYS is re-activated in place and counted too; the import does not yet
@@ -1220,10 +1393,10 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     const { applied } = await result;
 
     expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
-      expectMembershipUpdate({ status: "REMOVED" }, { id: "m-stale" }),
+      expectMembershipExitWrite("m-stale", { status: "REMOVED" }),
     );
     expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
-      expectMembershipUpdate({ status: "REMOVED" }, { id: "m-mover-old" }),
+      expectMembershipExitWrite("m-mover-old", { status: "REMOVED" }),
     );
     expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
       expectMembershipCreate({
@@ -1289,13 +1462,10 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     await applyRosterImport({ entries, rejected: [] });
 
     expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-      expectMembershipUpdate(
-        {
-          status: "REMOVED",
-          removalReason: "OTHER",
-        },
-        { id: "m-to-remove" },
-      ),
+      expectMembershipExitWrite("m-to-remove", {
+        status: "REMOVED",
+        removalReason: "OTHER",
+      }),
     );
     expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
       expectAuditLogCreate({

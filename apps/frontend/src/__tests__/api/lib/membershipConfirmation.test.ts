@@ -12,9 +12,11 @@ import {
   createMockMembership,
   expectAuditLogCreate,
   expectMembershipUpdate,
+  expectMembershipExitWrite,
   expectMembershipUpdateMany,
   getAuditLogMock,
   getMembershipMock,
+  jsonContaining,
   setupMembershipAuditSubjectMocks,
 } from "../../utils/testUtils";
 
@@ -238,10 +240,67 @@ describe("membershipConfirmation", () => {
 
       expect(result).toEqual({ kind: "accepted" });
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          { status: "REMOVED", removalReason: "OTHER" },
-          { id: "membership-target-id-002" },
-        ),
+        expectMembershipExitWrite("membership-target-id-002", {
+          status: "REMOVED",
+          removalReason: "OTHER",
+        }),
+      );
+    });
+
+    it("supersedes the replacement target's pending Exit Report and records it in the audit", async () => {
+      const reportedAt = new Date("2026-10-30T15:04:05.678Z");
+      const replacementTarget = createMockMembership({
+        id: "membership-target-id-002",
+        voterRecordId: "OLD_MEMBER_ID",
+        status: "ACTIVE",
+        seatNumber: 2,
+        exitReportedAt: reportedAt,
+        exitReportedById: "leader-1",
+        exitReportedKind: "REMOVAL",
+        removalReason: "DECEASED",
+      });
+      getMembershipMock(prismaMock).findUnique
+        .mockResolvedValueOnce(
+          createMockMembership({
+            id: MEMBERSHIP_ID,
+            status: "SUBMITTED",
+            submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
+          }),
+        )
+        .mockResolvedValueOnce(replacementTarget);
+      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+
+      const result = await confirmSubmittedMembership(prismaMock, {
+        membershipId: MEMBERSHIP_ID,
+        meetingRecordId: "meeting-001",
+        actor: ACTOR,
+        maxSeats: MAX_SEATS,
+        membershipType: "APPOINTED",
+      });
+
+      expect(result).toEqual({ kind: "accepted" });
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipExitWrite("membership-target-id-002", {
+          status: "REMOVED",
+          removalReason: "OTHER",
+          removalNotes: "Replacement request accepted",
+          exitReportedAt: null,
+          exitReportedKind: null,
+        }),
+      );
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_REMOVED",
+          entityId: "membership-target-id-002",
+          metadata: jsonContaining({
+            reason: "replacement",
+            supersededExitReport: {
+              reportedById: "leader-1",
+              reportedAt: reportedAt.toISOString(),
+              kind: "REMOVAL",
+            },
+          }),
+        }),
       );
     });
 

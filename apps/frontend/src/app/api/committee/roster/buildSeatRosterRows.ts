@@ -13,7 +13,7 @@
  *   top of the same rollups for the committees that carry voter records.
  */
 
-import type { Prisma, MembershipType } from "@prisma/client";
+import type { ExitReportKind, Prisma, MembershipType } from "@prisma/client";
 import { indexActiveMembershipsBySeat } from "@voter-file-tool/shared-prisma";
 import { computeDesignationWeightFromData } from "~/lib/designationWeight";
 // Client-safe fold (the workspace grid uses it for per-town counts); re-exported
@@ -43,9 +43,11 @@ export type RosterMembershipCore = {
   voterRecordId: string;
 };
 
-/** What seat rows additionally need (name + contact source). */
+/** What seat rows additionally need (name + contact source + Exit Report flag). */
 export type RosterMembership = RosterMembershipCore & {
   submissionMetadata: Prisma.JsonValue | null;
+  exitReportedAt: Date | null;
+  exitReportedKind: ExitReportKind | null;
   voterRecord: {
     VRCNUM: string;
     firstName: string | null;
@@ -204,6 +206,21 @@ export function buildSeatRosterRows(
       };
     };
 
+    const occupantOf = (m: RosterMembership): NonNullable<SeatRosterRow["occupant"]> => ({
+      VRCNUM: m.voterRecord.VRCNUM,
+      firstName: m.voterRecord.firstName ?? "",
+      lastName: m.voterRecord.lastName ?? "",
+      membershipType: m.membershipType,
+      ...(m.exitReportedAt && m.exitReportedKind
+        ? {
+            pendingExitReport: {
+              kind: m.exitReportedKind,
+              reportedAt: m.exitReportedAt.toISOString(),
+            },
+          }
+        : {}),
+    });
+
     const baseRow = (seatNumber: number | null) => ({
       committeeListId: committee.id,
       cityTown: committee.cityTown,
@@ -220,14 +237,7 @@ export function buildSeatRosterRows(
         ...baseRow(seat.seatNumber),
         isPetitioned: seat.isPetitioned,
         weight: serializeWeight(seat.weight),
-        occupant: occupant
-          ? {
-              VRCNUM: occupant.voterRecord.VRCNUM,
-              firstName: occupant.voterRecord.firstName ?? "",
-              lastName: occupant.voterRecord.lastName ?? "",
-              membershipType: occupant.membershipType,
-            }
-          : null,
+        occupant: occupant ? occupantOf(occupant) : null,
       };
       if (isVacant && seat.isPetitioned) row.petitionedVacant = true;
       if (includeContact && occupant) row.contact = buildContact(occupant);
@@ -241,12 +251,7 @@ export function buildSeatRosterRows(
         isPetitioned: false,
         weight: null,
         unassigned: true,
-        occupant: {
-          VRCNUM: m.voterRecord.VRCNUM,
-          firstName: m.voterRecord.firstName ?? "",
-          lastName: m.voterRecord.lastName ?? "",
-          membershipType: m.membershipType,
-        },
+        occupant: occupantOf(m),
       };
       if (includeContact) row.contact = buildContact(m);
       rows.push(row);

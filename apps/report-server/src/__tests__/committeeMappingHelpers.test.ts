@@ -293,6 +293,9 @@ describe('mapCommitteesToReportShape', () => {
             submissionMetadata: null,
             meetingRecordId: null,
             petitionSeatNumber: null,
+            exitReportedAt: null,
+            exitReportedById: null,
+            exitReportedKind: null,
             voterRecord: {
               VRCNUM: 'VRC001',
               latestRecordEntryYear: 2025,

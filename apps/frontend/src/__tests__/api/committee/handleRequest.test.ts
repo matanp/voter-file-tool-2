@@ -8,6 +8,7 @@ import {
   createMockGovernanceConfig,
   createMockMembership,
   expectMembershipUpdate,
+  expectMembershipExitWrite,
   expectMembershipUpdateMany,
   expectAuditLogCreate,
   expectAnyDate,
@@ -163,13 +164,10 @@ describe("/api/committee/handleRequest", () => {
         200,
       );
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          {
-            status: "REMOVED",
-            removalReason: "OTHER",
-          },
-          { id: "membership-target-id-002" },
-        ),
+        expectMembershipExitWrite("membership-target-id-002", {
+          status: "REMOVED",
+          removalReason: "OTHER",
+        }),
       );
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
         expectMembershipUpdate(
@@ -223,13 +221,10 @@ describe("/api/committee/handleRequest", () => {
 
       await expectErrorResponse(response, 500, "Internal server error");
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          {
-            status: "REMOVED",
-            removalReason: "OTHER",
-          },
-          { id: "membership-target-id-002" },
-        ),
+        expectMembershipExitWrite("membership-target-id-002", {
+          status: "REMOVED",
+          removalReason: "OTHER",
+        }),
       );
       expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalledWith(
         expectMembershipUpdate(
@@ -327,13 +322,10 @@ describe("/api/committee/handleRequest", () => {
       );
       // Should remove the replacement target
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
-        expectMembershipUpdate(
-          {
-            status: "REMOVED",
-            removalReason: "OTHER",
-          },
-          { id: "membership-target-id-002" },
-        ),
+        expectMembershipExitWrite("membership-target-id-002", {
+          status: "REMOVED",
+          removalReason: "OTHER",
+        }),
       );
       // Should activate the new member
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(

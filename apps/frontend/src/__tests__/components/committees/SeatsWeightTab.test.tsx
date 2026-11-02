@@ -119,6 +119,7 @@ function detailWith(overrides: DetailOverrides = {}): CommitteeDetailResponse {
       missingWeightSeatNumbers: missing,
     },
     pending: [],
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
   };
 }

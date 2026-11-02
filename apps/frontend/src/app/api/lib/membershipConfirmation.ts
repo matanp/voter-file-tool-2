@@ -18,6 +18,10 @@ import {
   assignNextAvailableSeat,
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
+import {
+  supersededExitReportMetadata,
+  writeMembershipExit,
+} from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   fetchMembershipAuditSubject,
@@ -192,16 +196,17 @@ export async function confirmSubmittedMembership(
   );
 
   if (replacementTarget) {
-    await tx.committeeMembership.update({
-      where: { id: replacementTarget.id },
-      data: {
-        status: "REMOVED",
-        removedAt: new Date(),
-        removalReason: "OTHER",
-        removalNotes: "Replacement request accepted",
-        seatNumber: null,
-      },
+    const exitResult = await writeMembershipExit(tx, replacementTarget, {
+      status: "REMOVED",
+      resignationDateReceived: null,
+      resignationMethod: null,
+      removalReason: "OTHER",
+      removalNotes: "Replacement request accepted",
+      extra: { seatNumber: null },
     });
+    if (exitResult.kind !== "written") {
+      return { kind: "replacementTargetInvalid" };
+    }
     await logAuditEventOrThrow(
       userId,
       userRole,
@@ -214,6 +219,7 @@ export async function confirmSubmittedMembership(
         {
           reason: "replacement",
           replacementMembershipId: submittedMembership.id,
+          ...supersededExitReportMetadata(exitResult),
         },
         await fetchMembershipAuditSubject(tx, {
           voterRecordId: replacementTarget.voterRecordId,

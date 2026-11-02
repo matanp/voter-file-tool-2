@@ -212,6 +212,9 @@ export type MockMembership = {
   petitionVoteCount: number | null;
   petitionPrimaryDate: Date | null;
   petitionSeatNumber: number | null;
+  exitReportedAt: Date | null;
+  exitReportedById: string | null;
+  exitReportedKind: "RESIGNATION" | "REMOVAL" | null;
 };
 
 export const createMockMembership = (
@@ -241,6 +244,9 @@ export const createMockMembership = (
   petitionVoteCount: null,
   petitionPrimaryDate: null,
   petitionSeatNumber: null,
+  exitReportedAt: null,
+  exitReportedById: null,
+  exitReportedKind: null,
   ...overrides,
 });
 
@@ -423,6 +429,20 @@ export function expectMembershipUpdateMany(
 }
 
 /**
+ * Matcher for `writeMembershipExit`'s conditional `update` (the only way a
+ * membership becomes RESIGNED / REMOVED): the row must still be ACTIVE.
+ */
+export function expectMembershipExitWrite(
+  membershipId: string,
+  data: Partial<Prisma.CommitteeMembershipUncheckedUpdateManyInput>,
+): unknown {
+  return objectContainingMatcher({
+    where: objectContainingMatcher({ id: membershipId, status: "ACTIVE" }),
+    data: objectContainingMatcher(data),
+  });
+}
+
+/**
  * Typed matcher for prisma.committeeMembership.create calls.
  * Accepts partial create input (voterRecordId, committeeListId, etc.).
  */
@@ -549,6 +569,7 @@ export const createMockGovernanceConfig = (
     maxSeatsPerLted: 4,
     requireAssemblyDistrictMatch: true,
     nonOverridableIneligibilityReasons: [],
+    exitReportInstructions: null,
     updatedAt: new Date("2024-01-01"),
     ...overrides,
   }) as CommitteeGovernanceConfig;

@@ -203,6 +203,91 @@ describe("/api/admin/governance-config", () => {
     );
   });
 
+  it("PATCH saves trimmed exit report instructions and audits the before/after text", async () => {
+    governanceConfigMock.update.mockResolvedValue(
+      createMockGovernanceConfig({
+        exitReportInstructions: "Email the letter to chair@example.org.",
+        updatedAt: new Date("2026-02-24T10:00:00.000Z"),
+      }),
+    );
+
+    const response = await PATCH(
+      createMockRequest(
+        {
+          requiredPartyCode: "DEM",
+          maxSeatsPerLted: 4,
+          requireAssemblyDistrictMatch: true,
+          nonOverridableIneligibilityReasons: [],
+          exitReportInstructions: "  Email the letter to chair@example.org.  ",
+        },
+        {},
+        { method: "PATCH" },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(governanceConfigMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          exitReportInstructions: "Email the letter to chair@example.org.",
+        }) as unknown,
+      }),
+    );
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "GOVERNANCE_CONFIG_UPDATED",
+        beforeValue: expect.objectContaining({
+          exitReportInstructions: null,
+        }) as Prisma.InputJsonValue,
+        afterValue: expect.objectContaining({
+          exitReportInstructions: "Email the letter to chair@example.org.",
+        }) as Prisma.InputJsonValue,
+      }),
+    );
+    const body = await parseJsonResponse<{ config: Record<string, unknown> }>(response);
+    expect(body.config.exitReportInstructions).toBe(
+      "Email the letter to chair@example.org.",
+    );
+  });
+
+  it("PATCH saves blank instructions as null and leaves them alone when omitted", async () => {
+    await PATCH(
+      createMockRequest(
+        {
+          requiredPartyCode: "DEM",
+          maxSeatsPerLted: 4,
+          requireAssemblyDistrictMatch: true,
+          nonOverridableIneligibilityReasons: [],
+          exitReportInstructions: "   ",
+        },
+        {},
+        { method: "PATCH" },
+      ),
+    );
+    expect(governanceConfigMock.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ exitReportInstructions: null }) as unknown,
+      }),
+    );
+
+    await PATCH(
+      createMockRequest(
+        {
+          requiredPartyCode: "DEM",
+          maxSeatsPerLted: 4,
+          requireAssemblyDistrictMatch: true,
+          nonOverridableIneligibilityReasons: [],
+        },
+        {},
+        { method: "PATCH" },
+      ),
+    );
+    const lastData = (
+      governanceConfigMock.update.mock.lastCall as [{ data: Record<string, unknown> }]
+    )[0].data;
+    expect(lastData).not.toHaveProperty("exitReportInstructions");
+  });
+
   it("PATCH does not reconcile when maxSeatsPerLted is unchanged", async () => {
     const response = await PATCH(
       createMockRequest(

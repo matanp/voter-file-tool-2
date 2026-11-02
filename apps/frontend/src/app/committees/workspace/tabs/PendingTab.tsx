@@ -1,14 +1,19 @@
 "use client";
 /**
  * Pending tab (plan §7.2): the selected committee's SUBMITTED candidates,
- * oldest first (as `detail.pending` arrives).
+ * oldest first (as `detail.pending` arrives), then its pending Exit Reports
+ * (a Leader's report that a member resigned or should be removed).
  *
  * - Acting Admin (`actingPermissions`, client visibility only): submitter,
  *   notes, eligibility status and warnings, and one-off accept/reject through
  *   the existing `handleRequest` endpoint, plus a link to the bulk queue at
  *   `/committees/requests` (an Admin-only page).
- * - Leaders: their jurisdiction's submissions read-only. The detail endpoint
- *   decides what they may see; this tab only hides the controls.
+ * - Leaders: their jurisdiction's submissions and Exit Reports read-only. The
+ *   detail endpoint decides what they may see; this tab only hides the
+ *   controls.
+ * - Exit Reports: an Admin confirms through the action drawer (`onAction`
+ *   `confirm-exit-report`, the prefilled Record resignation / Remove member
+ *   form) or rejects inline. Neither needs a meeting.
  *
  * After a decision, `onRefresh` refetches the detail and (wired in
  * `CommitteeWorkspace`) the grid row, keeping selection, tab and filters.
@@ -19,7 +24,12 @@ import { PrivilegeLevel } from "@prisma/client";
 
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
-import type { PendingMembership } from "~/lib/validations/committee";
+import type {
+  PendingExitReport,
+  PendingMembership,
+} from "~/lib/validations/committee";
+import { committeeRefFrom } from "../committeeAction";
+import { PendingExitReportItem } from "./pending/PendingExitReportItem";
 import {
   PendingSubmissionItem,
   personName,
@@ -28,7 +38,10 @@ import {
 import { useMeetingOptions } from "./pending/useMeetingOptions";
 import type { CommitteeTabProps } from "./types";
 
-export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
+/** Only when rendered outside `CommitteeTabs` (which always passes `onAction`). */
+const noop = () => undefined;
+
+export function PendingTab({ detail, onRefresh, onAction = noop }: CommitteeTabProps) {
   const { actingPermissions } = useContext(GlobalContext);
   const canDecide = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const meetings = useMeetingOptions();
@@ -44,7 +57,29 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
     [onRefresh],
   );
 
-  const { pending } = detail;
+  const onExitReportRejected = useCallback(
+    (report: PendingExitReport) => {
+      setAnnouncement(`Rejected the exit report for ${personName(report)}.`);
+      onRefresh();
+    },
+    [onRefresh],
+  );
+
+  const onConfirmExitReport = (
+    report: PendingExitReport,
+    trigger: HTMLElement | null,
+  ) =>
+    onAction(
+      {
+        kind: "confirm-exit-report",
+        committee: committeeRefFrom(detail.committee),
+        memberId: report.voterRecordId,
+        report,
+      },
+      trigger,
+    );
+
+  const { pending, pendingExitReports } = detail;
 
   return (
     <div className="space-y-3 p-4 text-sm">
@@ -76,6 +111,29 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
               meetings={meetings}
               onLoadMeetings={meetings.load}
               onDecided={onDecided}
+            />
+          ))}
+        </ul>
+      )}
+
+      <h4 className="pt-2 font-semibold">Reported exits</h4>
+      {!canDecide && pendingExitReports.length > 0 && (
+        <p className="text-slate-600 dark:text-slate-400">
+          Resignations and removals reported by Leaders. The member stays on the
+          committee until an Admin confirms.
+        </p>
+      )}
+      {pendingExitReports.length === 0 ? (
+        <p className="text-slate-500">No reported exits for this committee.</p>
+      ) : (
+        <ul className="space-y-2" aria-label="Reported exits">
+          {pendingExitReports.map((report) => (
+            <PendingExitReportItem
+              key={`${report.membershipId}-${report.reportedAt}`}
+              report={report}
+              canDecide={canDecide}
+              onConfirm={onConfirmExitReport}
+              onRejected={onExitReportRejected}
             />
           ))}
         </ul>

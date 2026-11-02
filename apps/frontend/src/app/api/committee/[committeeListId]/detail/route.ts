@@ -4,7 +4,8 @@
  * One call returns everything the workspace detail pane shows for a
  * committee in the active term: identity (id + composite key + term + AD),
  * the grid rollup, seat rows, the designation-weight summary, pending
- * submissions, Admin-only petition context, and recent membership history.
+ * submissions and Exit Reports, Admin-only petition context, and recent
+ * membership history.
  * Read-only. See docs/SRS/COMMITTEES_WORKSPACE_UI_IMPLEMENTATION_PLAN.md §5
  * "Detail" and .scratch/committees-workspace/history-inventory.md.
  *
@@ -28,6 +29,7 @@ import {
   type SessionWithUser,
 } from "~/app/api/lib/withPrivilege";
 import {
+  ACTIVE_MEMBERSHIP_STATUS,
   PENDING_MEMBERSHIP_STATUS,
   getActiveTermId,
   getGovernanceConfig,
@@ -52,6 +54,7 @@ import {
   COMMITTEE_DETAIL_HISTORY_LIMIT,
   committeeDetailParamsSchema,
   type CommitteeDetailResponse,
+  type PendingExitReport,
   type PendingMembership,
 } from "~/lib/validations/committee";
 import { z } from "zod";
@@ -137,6 +140,7 @@ async function getCommitteeDetail(
       config,
       assemblyDistrict,
       pendingMemberships,
+      exitReportedMemberships,
       allMemberships,
       petitionRows,
     ] = await Promise.all([
@@ -162,6 +166,22 @@ async function getCommitteeDetail(
             },
           },
           submittedBy: { select: { id: true, name: true } },
+        },
+      }),
+      // Pending Exit Reports live on the outgoing member's ACTIVE row.
+      prisma.committeeMembership.findMany({
+        where: {
+          committeeListId,
+          termId: activeTermId,
+          status: ACTIVE_MEMBERSHIP_STATUS,
+          exitReportedAt: { not: null },
+        },
+        orderBy: { exitReportedAt: "asc" },
+        include: {
+          voterRecord: {
+            select: { VRCNUM: true, firstName: true, lastName: true },
+          },
+          exitReportedBy: { select: { id: true, name: true } },
         },
       }),
       // Every membership row for the committee + term, any status: the
@@ -250,6 +270,34 @@ async function getCommitteeDetail(
       };
     });
 
+    const pendingExitReports: PendingExitReport[] = [];
+    for (const m of exitReportedMemberships) {
+      // The CHECK constraint keeps these set together; skip a row that isn't.
+      if (!m.exitReportedAt || !m.exitReportedKind) continue;
+      pendingExitReports.push({
+        membershipId: m.id,
+        voterRecordId: m.voterRecord.VRCNUM,
+        firstName: m.voterRecord.firstName ?? "",
+        lastName: m.voterRecord.lastName ?? "",
+        seatNumber: m.seatNumber,
+        kind: m.exitReportedKind,
+        reportedAt: m.exitReportedAt.toISOString(),
+        isOwnReport: m.exitReportedById === session.user.id,
+        ...(isAdmin
+          ? {
+              reportedBy: m.exitReportedBy
+                ? { id: m.exitReportedBy.id, name: m.exitReportedBy.name }
+                : undefined,
+              removalReason: m.removalReason,
+              removalNotes: m.removalNotes,
+              resignationDateReceived:
+                m.resignationDateReceived?.toISOString() ?? null,
+              resignationMethod: m.resignationMethod,
+            }
+          : {}),
+      });
+    }
+
     const history = await loadMembershipHistory({
       isAdmin,
       limit: COMMITTEE_DETAIL_HISTORY_LIMIT,
@@ -281,6 +329,7 @@ async function getCommitteeDetail(
         activeTermId,
       ),
       pending,
+      pendingExitReports,
       ...(petitionRows !== undefined
         ? { petitionContext: petitionRows.map(toPetitionOutcomeContext) }
         : {}),

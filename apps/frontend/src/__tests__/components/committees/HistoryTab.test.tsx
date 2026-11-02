@@ -214,6 +214,7 @@ function detail(
       missingWeightSeatNumbers: [],
     },
     pending: [],
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
     ...overrides,
   };
@@ -422,6 +423,69 @@ describe("HistoryTab", () => {
     expect(
       screen.getByText("Removed after an eligibility flag review"),
     ).toBeInTheDocument();
+  });
+
+  it("shows a reported exit, its rejection and its confirmation, with the reason Admin-only", () => {
+    const base = {
+      actor: { role: PrivilegeLevel.Leader, name: "Lee Leader" },
+      member: { name: "Rita Reported", seatNumber: 3 },
+      source: "manual" as const,
+    };
+    const events: HistoryEvent[] = [
+      {
+        ...base,
+        id: "c",
+        at: NOON("2026-10-31"),
+        kind: "resigned",
+        source: "exit_report",
+        actor: { role: PrivilegeLevel.Admin, name: "Staffer Sam" },
+      },
+      {
+        ...base,
+        id: "b",
+        at: NOON("2026-10-20"),
+        kind: "exit_report_rejected",
+        exitKind: "REMOVAL",
+        actor: { role: PrivilegeLevel.Admin, name: "Staffer Sam" },
+        rejectionNote: "No letter received",
+      },
+      {
+        ...base,
+        id: "a",
+        at: NOON("2026-10-10"),
+        kind: "exit_reported",
+        exitKind: "REMOVAL",
+        reason: "DECEASED",
+      },
+    ];
+    const body = detail({ history: { events, hasMore: false } });
+
+    renderTab(PrivilegeLevel.Admin, body);
+    expect(screen.getByText("Resigned (confirmed from a reported resignation)")).toBeInTheDocument();
+    expect(screen.getByText("Removal report rejected; the member stays")).toBeInTheDocument();
+    expect(screen.getByText("Removal reported")).toBeInTheDocument();
+    expect(screen.getByText("Reason: Deceased")).toBeInTheDocument();
+    expect(screen.getByText("Note: No letter received")).toBeInTheDocument();
+  });
+
+  it("hides a reported exit's reason from a Developer acting as Leader", () => {
+    const events: HistoryEvent[] = [
+      {
+        id: "a",
+        at: NOON("2026-10-10"),
+        kind: "exit_reported",
+        exitKind: "RESIGNATION",
+        source: "manual",
+        actor: { role: PrivilegeLevel.Leader, name: "Lee Leader" },
+        member: { name: "Rita Reported", seatNumber: 3 },
+        reason: "DECEASED",
+        notes: "Obituary",
+      },
+    ];
+    renderTab(PrivilegeLevel.Leader, detail({ history: { events, hasMore: false } }));
+    expect(screen.getByText("Resignation reported")).toBeInTheDocument();
+    expect(screen.queryByText(/Deceased/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Obituary/)).not.toBeInTheDocument();
   });
 });
 

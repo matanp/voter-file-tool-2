@@ -4,6 +4,7 @@ import {
   type DiscrepancyResolution,
   type Prisma,
 } from "@prisma/client";
+import type { MembershipExit } from "~/app/api/lib/membershipExit";
 
 export type MembershipOutcome = "created" | "reactivated" | "none";
 
@@ -161,30 +162,77 @@ export function compensatingAuditActionForStatus(
   }
 }
 
-/** Converts stored membershipBefore snapshot back to Prisma update data. */
-export function membershipBeforeToUpdateData(
+function toDateOrNull(value: string | null): Date | null {
+  return value ? new Date(value) : null;
+}
+
+/**
+ * How an undo writes a stored membershipBefore snapshot back. The snapshot was
+ * taken before any Exit Report on the row existed, so the report fields are
+ * always written back null: through `writeMembershipExit` for a saved
+ * RESIGNED / REMOVED state, and `writeMembershipLeavingActive` otherwise.
+ */
+export type MembershipRestore =
+  | { kind: "exit"; exit: MembershipExit }
+  | {
+      kind: "other";
+      data: Prisma.CommitteeMembershipUncheckedUpdateInput;
+    };
+
+/** Converts a stored membershipBefore snapshot back to the write that restores it. */
+export function membershipBeforeToRestore(
   before: MembershipBeforeSnapshot,
-): Prisma.CommitteeMembershipUpdateInput {
-  return {
-    status: before.status,
+): MembershipRestore {
+  const common = {
     membershipType: before.membershipType,
     seatNumber: before.seatNumber,
-    activatedAt: before.activatedAt ? new Date(before.activatedAt) : null,
-    confirmedAt: before.confirmedAt ? new Date(before.confirmedAt) : null,
-    resignedAt: before.resignedAt ? new Date(before.resignedAt) : null,
-    removedAt: before.removedAt ? new Date(before.removedAt) : null,
-    rejectedAt: before.rejectedAt ? new Date(before.rejectedAt) : null,
+    activatedAt: toDateOrNull(before.activatedAt),
+    confirmedAt: toDateOrNull(before.confirmedAt),
+    rejectedAt: toDateOrNull(before.rejectedAt),
     rejectionNote: before.rejectionNote,
-    resignationDateReceived: before.resignationDateReceived
-      ? new Date(before.resignationDateReceived)
-      : null,
+    petitionVoteCount: before.petitionVoteCount,
+    petitionPrimaryDate: toDateOrNull(before.petitionPrimaryDate),
+  };
+  const exitFields = {
+    resignationDateReceived: toDateOrNull(before.resignationDateReceived),
     resignationMethod: before.resignationMethod,
     removalReason: before.removalReason,
     removalNotes: before.removalNotes,
-    petitionVoteCount: before.petitionVoteCount,
-    petitionPrimaryDate: before.petitionPrimaryDate
-      ? new Date(before.petitionPrimaryDate)
-      : null,
+  };
+  const resignedAt = toDateOrNull(before.resignedAt);
+  const removedAt = toDateOrNull(before.removedAt);
+
+  if (before.status === "RESIGNED") {
+    return {
+      kind: "exit",
+      exit: {
+        status: "RESIGNED",
+        at: resignedAt,
+        ...exitFields,
+        extra: { ...common, removedAt },
+      },
+    };
+  }
+  if (before.status === "REMOVED") {
+    return {
+      kind: "exit",
+      exit: {
+        status: "REMOVED",
+        at: removedAt,
+        ...exitFields,
+        extra: { ...common, resignedAt },
+      },
+    };
+  }
+  return {
+    kind: "other",
+    data: {
+      status: before.status,
+      ...common,
+      resignedAt,
+      removedAt,
+      ...exitFields,
+    },
   };
 }
 

@@ -289,6 +289,7 @@ beforeEach(() => {
       maxSeatsPerLted: 4,
       requireAssemblyDistrictMatch: true,
       nonOverridableIneligibilityReasons: [],
+      exitReportInstructions: null,
       updatedAt: new Date("2024-01-01"),
     });
   // Pre-migration: CommitteeMembership is not yet in PrismaClient types.

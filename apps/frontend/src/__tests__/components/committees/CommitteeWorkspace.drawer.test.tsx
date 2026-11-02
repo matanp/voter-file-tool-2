@@ -215,6 +215,7 @@ function detailFor(server: Server, r: EdRollup): CommitteeDetailResponse {
       missingWeightSeatNumbers: [],
     },
     pending: [],
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
   };
 }

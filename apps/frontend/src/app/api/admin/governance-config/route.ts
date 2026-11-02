@@ -21,7 +21,11 @@ import {
 
 const DEFAULT_CONFIG_ID = "mcdc-default";
 
-type GovernanceConfigApiPayload = GovernanceConfigUpdateInput & {
+type GovernanceConfigApiPayload = Omit<
+  GovernanceConfigUpdateInput,
+  "exitReportInstructions"
+> & {
+  exitReportInstructions: string | null;
   updatedAt: string;
 };
 
@@ -42,6 +46,7 @@ function toApiPayload(config: {
   maxSeatsPerLted: number;
   requireAssemblyDistrictMatch: boolean;
   nonOverridableIneligibilityReasons: GovernanceConfigUpdateInput["nonOverridableIneligibilityReasons"];
+  exitReportInstructions: string | null;
   updatedAt: Date;
 }): GovernanceConfigApiPayload {
   return {
@@ -50,6 +55,7 @@ function toApiPayload(config: {
     requireAssemblyDistrictMatch: config.requireAssemblyDistrictMatch,
     nonOverridableIneligibilityReasons:
       config.nonOverridableIneligibilityReasons,
+    exitReportInstructions: config.exitReportInstructions,
     updatedAt: config.updatedAt.toISOString(),
   };
 }
@@ -188,6 +194,9 @@ async function patchHandler(req: NextRequest, session: SessionWithUser) {
           requireAssemblyDistrictMatch: parsed.data.requireAssemblyDistrictMatch,
           nonOverridableIneligibilityReasons:
             parsed.data.nonOverridableIneligibilityReasons,
+          ...(parsed.data.exitReportInstructions !== undefined
+            ? { exitReportInstructions: parsed.data.exitReportInstructions }
+            : {}),
         };
 
         const beforePayload = currentConfig ? toApiPayload(currentConfig) : null;

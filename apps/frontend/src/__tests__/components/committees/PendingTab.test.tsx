@@ -15,6 +15,7 @@ import { hasPermissionFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import type {
   CommitteeDetailResponse,
+  PendingExitReport,
   PendingMembership,
 } from "~/lib/validations/committee";
 
@@ -110,6 +111,7 @@ function detailWith(pending: PendingMembership[]): CommitteeDetailResponse {
       missingWeightSeatNumbers: [],
     },
     pending,
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
   };
 }
@@ -383,5 +385,161 @@ describe("PendingTab (Leader)", () => {
     expect(jane).not.toHaveTextContent("Met at the caucus");
     expect(jane).not.toHaveTextContent("Resigned from a committee recently.");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});
+
+// --- Exit Reports ------------------------------------------------------------------
+
+const REPORTED_AT = "2026-10-30T15:04:05.678Z";
+
+const ADMIN_EXIT_REPORT: PendingExitReport = {
+  membershipId: "m-rep",
+  voterRecordId: "VR100",
+  firstName: "Rita",
+  lastName: "Reported",
+  seatNumber: 3,
+  kind: "RESIGNATION",
+  reportedAt: REPORTED_AT,
+  isOwnReport: false,
+  reportedBy: { id: "u-1", name: "Lee Leader" },
+  removalReason: "OTHER",
+  removalNotes: "Moving to Ohio",
+  resignationDateReceived: "2026-10-29T00:00:00.000Z",
+  resignationMethod: "EMAIL",
+};
+
+/** What a Leader receives: the Admin-only keys are absent. */
+const LEADER_EXIT_REPORT: PendingExitReport = {
+  membershipId: "m-rep",
+  voterRecordId: "VR100",
+  firstName: "Rita",
+  lastName: "Reported",
+  seatNumber: 3,
+  kind: "RESIGNATION",
+  reportedAt: REPORTED_AT,
+  isOwnReport: true,
+};
+
+function renderWithExitReports(
+  reports: PendingExitReport[],
+  role: PrivilegeLevel = PrivilegeLevel.Admin,
+) {
+  const onRefresh = jest.fn();
+  const onAction = jest.fn();
+  render(
+    <GlobalContext.Provider
+      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
+    >
+      <PendingTab
+        committeeId={2}
+        detail={{ ...detailWith([]), pendingExitReports: reports }}
+        onRefresh={onRefresh}
+        onAction={onAction}
+      />
+    </GlobalContext.Provider>,
+  );
+  return { onRefresh, onAction };
+}
+
+describe("PendingTab: reported exits", () => {
+  it("shows an Admin the report's details, and Confirm opens the prefilled exit form", async () => {
+    serve();
+    const { onAction } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    const rita = within(screen.getByRole("list", { name: "Reported exits" })).getByRole(
+      "listitem",
+      { name: /Rita Reported/ },
+    );
+    expect(rita).toHaveTextContent("Resignation reported Oct 30, 2026 by Lee Leader");
+    expect(rita).toHaveTextContent("Reason: Other");
+    expect(rita).toHaveTextContent("Notes: Moving to Ohio");
+    expect(rita).toHaveTextContent("Received: Oct 29, 2026 by email");
+
+    await userEvent.click(
+      within(rita).getByRole("button", { name: "Confirm resignation of Rita Reported" }),
+    );
+    expect(onAction).toHaveBeenCalledWith(
+      {
+        kind: "confirm-exit-report",
+        committee: {
+          committeeListId: 2,
+          cityTown: "GREECE",
+          legDistrict: 1,
+          electionDistrict: 2,
+          assemblyDistrict: "134",
+        },
+        memberId: "VR100",
+        report: ADMIN_EXIT_REPORT,
+      },
+      expect.any(HTMLElement),
+    );
+  });
+
+  it("rejects with an optional note, echoing the report the Admin saw, then refreshes", async () => {
+    const fetchMock = jest.fn(async () => jsonResponse({ success: true }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Reject resignation report for Rita Reported" }),
+    );
+    await userEvent.type(screen.getByLabelText("Note (optional)"), "No letter received");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/committee/exitReport/reject",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      membershipId: "m-rep",
+      exitReportedAt: REPORTED_AT,
+      note: "No letter received",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Rejected the exit report for Rita Reported.",
+    );
+  });
+
+  it("shows the server's 409 when the report changed", async () => {
+    global.fetch = jest.fn(async () =>
+      jsonResponse({ success: false, error: "This member changed, refresh." }, 409),
+    ) as unknown as typeof fetch;
+    const { onRefresh } = renderWithExitReports([ADMIN_EXIT_REPORT]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Reject resignation report for Rita Reported" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not reject: This member changed, refresh.",
+    );
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("shows a Leader their jurisdiction's reports read-only", () => {
+    serve();
+    renderWithExitReports([LEADER_EXIT_REPORT], PrivilegeLevel.Leader);
+
+    const rita = screen.getByRole("listitem", { name: /Rita Reported/ });
+    expect(rita).toHaveTextContent("Resignation reported Oct 30, 2026 by you");
+    expect(within(rita).queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText(/The member stays on the committee until an Admin confirms/)).toBeInTheDocument();
+  });
+
+  it("hides the controls from a Developer acting as Leader even with Admin data", () => {
+    serve();
+    renderWithExitReports([ADMIN_EXIT_REPORT], PrivilegeLevel.Leader);
+    const rita = screen.getByRole("listitem", { name: /Rita Reported/ });
+    expect(within(rita).queryByRole("button")).not.toBeInTheDocument();
+    expect(rita).not.toHaveTextContent("Moving to Ohio");
+  });
+
+  it("says so when there are none", () => {
+    serve();
+    renderWithExitReports([]);
+    expect(screen.getByText("No reported exits for this committee.")).toBeInTheDocument();
   });
 });

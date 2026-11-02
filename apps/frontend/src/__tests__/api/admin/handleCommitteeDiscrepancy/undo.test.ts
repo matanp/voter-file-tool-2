@@ -14,6 +14,7 @@ import {
   getMembershipMock,
   getAuditLogMock,
   expectAuditLogCreate,
+  jsonContaining,
   DEFAULT_ACTIVE_TERM_ID,
   type AuthTestConfig,
 } from "../../../utils/testUtils";
@@ -106,6 +107,128 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       });
     });
 
+    describe("with a pending Exit Report on the member", () => {
+      const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
+      const reportedMember = () =>
+        createMockMembership({
+          id: "membership-new",
+          status: "ACTIVE",
+          seatNumber: 1,
+          activatedAt: new Date(activatedAt),
+          exitReportedAt: REPORTED_AT,
+          exitReportedById: "leader-1",
+          exitReportedKind: "RESIGNATION",
+          removalReason: "OTHER",
+          removalNotes: "Reported by a Leader",
+        });
+      const superseded = {
+        reportedById: "leader-1",
+        reportedAt: REPORTED_AT.toISOString(),
+        kind: "RESIGNATION",
+      };
+
+      beforeEach(() => {
+        mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+        mockHasPermission(true);
+        setupUndoMocks();
+        getMembershipMock(prismaMock).findUnique.mockResolvedValue(reportedMember());
+      });
+
+      it("undoing a created membership removes it, clearing the report and its reported details", async () => {
+        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+          createResolvedDiscrepancy() as never,
+        );
+        getMembershipMock(prismaMock).update.mockResolvedValue(
+          createMockMembership({ id: "membership-new", status: "REMOVED", seatNumber: null }),
+        );
+
+        const response = await POST(createMockRequest({ VRCNUM: "TEST123" }));
+
+        expect(response.status).toBe(200);
+        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: "membership-new", status: "ACTIVE", exitReportedAt: REPORTED_AT },
+            data: expect.objectContaining({
+              status: "REMOVED",
+              removalReason: "OTHER",
+              removalNotes: "Undo of discrepancy accept",
+              exitReportedAt: null,
+              exitReportedById: null,
+              exitReportedKind: null,
+            }) as unknown,
+          }),
+        );
+        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+          expectAuditLogCreate({
+            action: "MEMBER_REMOVED",
+            metadata: jsonContaining({
+              source: "discrepancy_undo",
+              supersededExitReport: superseded,
+            }),
+          }),
+        );
+      });
+
+      it("undoing a reactivation writes back the saved RESIGNED state with the report fields null", async () => {
+        prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+          createResolvedDiscrepancy({
+            resolutionMetadata: {
+              membershipOutcome: "reactivated",
+              membershipId: "membership-new",
+              membershipAfter: { status: "ACTIVE", seatNumber: 1, activatedAt },
+              membershipBefore: {
+                status: "RESIGNED",
+                membershipType: "APPOINTED",
+                seatNumber: null,
+                activatedAt: "2025-01-01T00:00:00.000Z",
+                confirmedAt: null,
+                resignedAt: "2025-06-01T00:00:00.000Z",
+                removedAt: null,
+                rejectedAt: null,
+                rejectionNote: null,
+                resignationDateReceived: "2025-05-30T00:00:00.000Z",
+                resignationMethod: "MAIL",
+                removalReason: "MOVED_OUT_OF_DISTRICT",
+                removalNotes: null,
+                petitionVoteCount: null,
+                petitionPrimaryDate: null,
+              },
+            },
+          }) as never,
+        );
+        getMembershipMock(prismaMock).update.mockResolvedValue(
+          createMockMembership({ id: "membership-new", status: "RESIGNED", seatNumber: null }),
+        );
+
+        const response = await POST(createMockRequest({ VRCNUM: "TEST123" }));
+
+        expect(response.status).toBe(200);
+        expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: "membership-new", status: "ACTIVE", exitReportedAt: REPORTED_AT },
+            data: expect.objectContaining({
+              status: "RESIGNED",
+              resignedAt: new Date("2025-06-01T00:00:00.000Z"),
+              resignationMethod: "MAIL",
+              removalReason: "MOVED_OUT_OF_DISTRICT",
+              removalNotes: null,
+              exitReportedAt: null,
+              exitReportedKind: null,
+            }) as unknown,
+          }),
+        );
+        expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+          expectAuditLogCreate({
+            action: "MEMBER_RESIGNED",
+            metadata: jsonContaining({
+              source: "discrepancy_undo",
+              supersededExitReport: superseded,
+            }),
+          }),
+        );
+      });
+    });
+
     it("created-membership accept undo: transitions to REMOVED and reopens row", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
       mockHasPermission(true);
@@ -134,7 +257,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
       expect(response.status).toBe(200);
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "membership-new" },
+          where: { id: "membership-new", status: "ACTIVE", exitReportedAt: null },
           data: expect.objectContaining({
             status: "REMOVED",
             seatNumber: null,

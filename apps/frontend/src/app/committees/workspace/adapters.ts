@@ -11,6 +11,7 @@
  */
 import {
   PrivilegeLevel,
+  type ExitReportKind,
   type MembershipType,
   type RemovalReason,
   type ResignationMethod,
@@ -28,11 +29,15 @@ import {
 import type { EligibilityWarning } from "~/lib/eligibility";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
 import { hasPermissionFor } from "~/lib/utils";
-import type {
-  committeeDataSchema,
-  committeeRequestDataSchema,
-  removeCommitteeDataSchema,
-  resignCommitteeDataSchema,
+import {
+  exitInstructionsResponseSchema,
+  type committeeDataSchema,
+  type committeeRequestDataSchema,
+  type PendingExitReport,
+  type rejectExitReportSchema,
+  type removeCommitteeDataSchema,
+  type reportExitDataSchema,
+  type resignCommitteeDataSchema,
 } from "~/lib/validations/committee";
 import {
   hasLegDistrict,
@@ -374,7 +379,7 @@ export function resignationProblems(input: ResignationInput): string[] {
 type RemoveBody = z.input<typeof removeCommitteeDataSchema>;
 type ResignBody = z.input<typeof resignCommitteeDataSchema>;
 
-function memberKey(action: RemovalAction | ResignationAction) {
+function memberKey(action: Pick<CommitteeAction & { memberId: string }, "committee" | "memberId">) {
   return {
     cityTown: action.committee.cityTown,
     ...legDistrictParam(action.committee),
@@ -383,16 +388,28 @@ function memberKey(action: RemovalAction | ResignationAction) {
   };
 }
 
+/**
+ * When confirming a Leader's Exit Report: the report's `exitReportedAt`, so the
+ * endpoint applies the exit only if the row still carries that report.
+ */
+export type ConfirmExitReport = { exitReportedAt: string };
+
+function confirmParam(confirm: ConfirmExitReport | undefined) {
+  return confirm ? { exitReportedAt: confirm.exitReportedAt } : {};
+}
+
 /** Administrative removal (Admin-only endpoint). Call once `removalProblems` is empty. */
 export async function submitRemoval(
-  action: RemovalAction,
+  action: Pick<RemovalAction, "committee" | "memberId">,
   input: RemovalInput,
+  confirm?: ConfirmExitReport,
 ): Promise<ActionOutcome> {
   if (input.reason === "") return { ok: false, kind: "error", message: "Choose a reason." };
   const body: RemoveBody = {
     ...memberKey(action),
     removalReason: input.reason,
     ...trimmedOrOmit("removalNotes", input.notes),
+    ...confirmParam(confirm),
   };
   const result = await postJson("/api/committee/remove", body);
   return result.ok ? { ok: true, message: "Committee member removed successfully" } : result;
@@ -400,8 +417,9 @@ export async function submitRemoval(
 
 /** Records a resignation (`action: "RESIGN"` on the remove endpoint). */
 export async function submitResignation(
-  action: ResignationAction,
+  action: Pick<ResignationAction, "committee" | "memberId">,
   input: ResignationInput,
+  confirm?: ConfirmExitReport,
 ): Promise<ActionOutcome> {
   if (input.reason === "" || input.method === "") {
     return { ok: false, kind: "error", message: resignationProblems(input).join(" ") };
@@ -413,9 +431,88 @@ export async function submitResignation(
     resignationMethod: input.method,
     resignationReason: input.reason,
     ...trimmedOrOmit("removalNotes", input.notes),
+    ...confirmParam(confirm),
   };
   const result = await postJson("/api/committee/remove", body);
   return result.ok ? { ok: true, message: "Resignation recorded successfully" } : result;
+}
+
+// --- Exit Reports (leader-feedback-2026-11 ticket 01) ---------------------------------
+
+export type ExitReportAction = Extract<CommitteeAction, { kind: "report-exit" }>;
+
+/**
+ * A Leader's Exit Report form. A resignation may carry the date received and
+ * method when the Leader knows them; both are optional.
+ */
+export type ExitReportInput = {
+  kind: ExitReportKind | "";
+  reason: RemovalReason | "";
+  notes: string;
+  dateReceived: string;
+  method: ResignationMethod | "";
+};
+
+/** What still blocks an Exit Report: a kind, a reason, and notes for Other. */
+export function exitReportProblems(input: ExitReportInput): string[] {
+  const problems: string[] = [];
+  if (input.kind === "") problems.push("Choose resignation or removal.");
+  problems.push(...removalProblems(input));
+  return problems;
+}
+
+type ReportExitBody = z.input<typeof reportExitDataSchema>;
+
+/** Files the report (RequestAccess+). Call once `exitReportProblems` is empty. */
+export async function submitExitReport(
+  action: ExitReportAction,
+  input: ExitReportInput,
+): Promise<ActionOutcome> {
+  if (input.kind === "" || input.reason === "") {
+    return { ok: false, kind: "error", message: exitReportProblems(input).join(" ") };
+  }
+  const isResignation = input.kind === "RESIGNATION";
+  const body: ReportExitBody = {
+    ...memberKey(action),
+    kind: input.kind,
+    removalReason: input.reason,
+    ...trimmedOrOmit("removalNotes", input.notes),
+    ...(isResignation ? trimmedOrOmit("resignationDateReceived", input.dateReceived) : {}),
+    ...(isResignation && input.method !== "" ? { resignationMethod: input.method } : {}),
+  };
+  const result = await postJson("/api/committee/exitReport", body);
+  return result.ok
+    ? {
+        ok: true,
+        message: "Reported for Admin review. The member stays on the committee until an Admin confirms it.",
+      }
+    : result;
+}
+
+/** Admin rejects the pending report it was shown. */
+export async function rejectExitReport(
+  report: Pick<PendingExitReport, "membershipId" | "reportedAt">,
+  note: string,
+): Promise<ActionOutcome> {
+  const body: z.input<typeof rejectExitReportSchema> = {
+    membershipId: report.membershipId,
+    exitReportedAt: report.reportedAt,
+    ...trimmedOrOmit("note", note),
+  };
+  const result = await postJson("/api/committee/exitReport/reject", body);
+  return result.ok ? { ok: true, message: "Exit report rejected" } : result;
+}
+
+/** The Admin-set instructions shown before a Leader files a report; null when none. */
+export async function fetchExitInstructions(signal?: AbortSignal): Promise<string | null> {
+  const response = await fetch("/api/committee/exit-instructions", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  const body = await readJson(response);
+  if (!response.ok) throw new Error(errorMessage(body, "Could not load the instructions"));
+  return exitInstructionsResponseSchema.parse(body).text;
 }
 
 // --- Plumbing ----------------------------------------------------------------------

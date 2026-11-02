@@ -8,6 +8,12 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import { reviewEligibilityFlagSchema } from "~/lib/validations/eligibilityFlags";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 import prisma from "~/lib/prisma";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
+import {
+  EXIT_REPORT_STATE_SELECT,
+  supersededExitReportMetadata,
+  writeMembershipExit,
+} from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
@@ -111,7 +117,7 @@ async function reviewEligibilityFlagHandler(
         include: {
           membership: {
             select: {
-              id: true,
+              ...EXIT_REPORT_STATE_SELECT,
               status: true,
               seatNumber: true,
               voterRecordId: true,
@@ -220,15 +226,17 @@ async function reviewEligibilityFlagHandler(
         seatNumber: flag.membership.seatNumber,
       });
 
-      await tx.committeeMembership.update({
-        where: { id: flag.membership.id },
-        data: {
-          status: "REMOVED",
-          removedAt: now,
-          removalReason,
-          ...(removalNotes ? { removalNotes } : {}),
-        },
+      const exitResult = await writeMembershipExit(tx, flag.membership, {
+        status: "REMOVED",
+        at: now,
+        resignationDateReceived: null,
+        resignationMethod: null,
+        removalReason,
+        removalNotes: removalNotes ?? null,
       });
+      if (exitResult.kind !== "written") {
+        return { kind: "membershipChanged" as const };
+      }
 
       await logAuditEventOrThrow(
         userId,
@@ -255,6 +263,7 @@ async function reviewEligibilityFlagHandler(
             reviewerUserId: userId,
             flagId: flag.id,
             reason: flag.reason,
+            ...supersededExitReportMetadata(exitResult),
           },
           membershipSubject,
         ),
@@ -310,6 +319,13 @@ async function reviewEligibilityFlagHandler(
     if (result.kind === "notPending") {
       return NextResponse.json(
         { error: `Eligibility flag already reviewed (${result.status})` },
+        { status: 409 },
+      );
+    }
+
+    if (result.kind === "membershipChanged") {
+      return NextResponse.json(
+        { error: MEMBER_CHANGED_MESSAGE },
         { status: 409 },
       );
     }

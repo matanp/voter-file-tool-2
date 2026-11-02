@@ -301,6 +301,7 @@ function buildCommittee(
       missingWeightSeatNumbers,
     },
     pending,
+    pendingExitReports: [],
     petitionContext: rows
       .filter((r) => r.isPetitioned && r.occupant)
       .map((r, i) => ({

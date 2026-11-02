@@ -164,6 +164,7 @@ function detailFor(server: Server, r: EdRollup): CommitteeDetailResponse {
       missingWeightSeatNumbers: [],
     },
     pending: server.pending.get(r.committeeListId) ?? [],
+    pendingExitReports: [],
     history: { events: [], hasMore: false },
   };
 }

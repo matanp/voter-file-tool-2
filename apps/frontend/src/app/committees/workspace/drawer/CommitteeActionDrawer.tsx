@@ -31,6 +31,7 @@ import { candidateSubmissionMode, type CandidateSubmissionMode } from "../adapte
 import type { CommitteeAction } from "../committeeAction";
 import { AddMemberFlow } from "./AddMemberFlow";
 import { DrawerFooter, committeeLabel, occupantLabel, occupantRow } from "./drawerParts";
+import { ConfirmExitReportForm, ReportExitForm } from "./ExitReportForms";
 import { RecordResignationForm, RemoveMemberForm } from "./MemberExitForms";
 import { VoterDetailsView } from "./VoterDetailsView";
 
@@ -66,6 +67,10 @@ function drawerTitle(
       return "Record resignation";
     case "view-voter-details":
       return "Voter details";
+    case "report-exit":
+      return "Report resignation or removal";
+    case "confirm-exit-report":
+      return "Confirm reported exit";
   }
 }
 
@@ -149,6 +154,31 @@ export function CommitteeActionDrawer({
       case "record-resignation":
         flow = isAdmin ? (
           <RecordResignationForm
+            key={generation}
+            action={current}
+            memberLabel={occupantLabel(detail, current.memberId).label}
+            onCancel={onClose}
+            onSuccess={handleSuccess}
+          />
+        ) : null;
+        break;
+      // Leader/RequestAccess file a report; Admins exit members directly.
+      case "report-exit":
+        flow =
+          hasPermissionFor(actingPermissions, PrivilegeLevel.RequestAccess) &&
+          !isAdmin ? (
+            <ReportExitForm
+              key={generation}
+              action={current}
+              memberLabel={occupantLabel(detail, current.memberId).label}
+              onCancel={onClose}
+              onSuccess={handleSuccess}
+            />
+          ) : null;
+        break;
+      case "confirm-exit-report":
+        flow = isAdmin ? (
+          <ConfirmExitReportForm
             key={generation}
             action={current}
             memberLabel={occupantLabel(detail, current.memberId).label}

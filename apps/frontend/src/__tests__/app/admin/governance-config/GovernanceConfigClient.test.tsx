@@ -9,6 +9,7 @@ const initialResponse = {
     maxSeatsPerLted: 4,
     requireAssemblyDistrictMatch: true,
     nonOverridableIneligibilityReasons: [],
+    exitReportInstructions: null,
     updatedAt: "2026-02-24T10:00:00.000Z",
   },
   partyOptions: ["DEM", "REP", "WF"],
@@ -111,12 +112,64 @@ describe("GovernanceConfigClient", () => {
         maxSeatsPerLted: 6,
         requireAssemblyDistrictMatch: true,
         nonOverridableIneligibilityReasons: [],
+        // Unset instructions go out blank; the server stores blank as null.
+        exitReportInstructions: "",
       }),
     );
 
     await waitFor(() => {
       expect(screen.getByText("No pending changes.")).toBeInTheDocument();
     });
+  });
+
+  it("edits the exit report instructions and saves them with the config", async () => {
+    const instructions = "Email the letter to chair@example.org.";
+    const patchResponse = {
+      ...initialResponse,
+      config: {
+        ...initialResponse.config,
+        exitReportInstructions: instructions,
+        updatedAt: "2026-02-24T10:05:00.000Z",
+      },
+    };
+    const fetchMock = jest.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const method = init?.method ?? "GET";
+        if (String(input) !== "/api/admin/governance-config") {
+          throw new Error(`Unexpected fetch call: ${method} ${String(input)}`);
+        }
+        return mockJsonResponse(
+          method === "PATCH" ? patchResponse : initialResponse,
+        );
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    render(<GovernanceConfigClient />);
+
+    const textarea = await screen.findByLabelText(
+      "Exit report instructions for Leaders",
+    );
+    await user.type(textarea, instructions);
+    expect(
+      screen.getByText("Exit report instructions: updated"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm save" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("No pending changes.")).toBeInTheDocument();
+    });
+    const patchCall = fetchMock.mock.calls.find(
+      (call) => call[1]?.method === "PATCH",
+    );
+    const sent = JSON.parse(String(patchCall?.[1]?.body)) as {
+      exitReportInstructions?: unknown;
+    };
+    expect(sent.exitReportInstructions).toBe(instructions);
+    expect(textarea).toHaveValue(instructions);
   });
 
   it("renders field-level validation errors when save fails", async () => {
