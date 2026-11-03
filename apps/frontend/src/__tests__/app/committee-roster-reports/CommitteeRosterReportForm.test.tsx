@@ -133,6 +133,13 @@ describe("ScopedReportForm (committeeRoster)", () => {
           cityTown: "ROCHESTER",
           legDistrict: 1,
           includeFields: [],
+          xlsxConfig: {
+            includeCompoundFields: {
+              name: true,
+              address: true,
+              mailingAddress: false,
+            },
+          },
         }),
       );
     });
@@ -153,6 +160,13 @@ describe("ScopedReportForm (committeeRoster)", () => {
           type: "committeeRoster",
           scope: "countywide",
           includeFields: [],
+          xlsxConfig: {
+            includeCompoundFields: {
+              name: true,
+              address: true,
+              mailingAddress: false,
+            },
+          },
         }),
       );
     });

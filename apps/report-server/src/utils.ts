@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import {
   createCompoundNameField,
   createCompoundAddressField,
+  createCompoundMailingAddressField,
   convertPrismaVoterRecordToAPI,
   applyCompoundFields,
   type EnrichedPartialVoterRecordAPI,
@@ -18,6 +19,7 @@ import type {
   CommitteeWithMembers,
 } from './committeeMappingHelpers';
 import type { CommitteeMember } from './components/CommitteeReport';
+import type { CommitteeRosterColumn } from './committeeRosterConfig';
 import SignInSheet from './components/SignInSheet';
 import type { SignInSheetMember } from './components/SignInSheet';
 import DesignationWeightSummaryReport, {
@@ -200,6 +202,8 @@ function transformToCommitteeMemberFormat(
             state: member.state || '',
             zip: member.zipCode || '',
             phone: member.telephone || '',
+            mailingAddress: createCompoundMailingAddressField(member),
+            email: member.email || '',
           };
         }),
       ])
@@ -209,6 +213,7 @@ function transformToCommitteeMemberFormat(
 
 export const generateCommitteeReportHTML = (
   groupedCommittees: CommitteeReportStructure[],
+  columns?: CommitteeRosterColumn[],
 ) => {
   const tailwindCSS = tailwindCssLink();
 
@@ -218,6 +223,7 @@ export const generateCommitteeReportHTML = (
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(CommitteeReport, {
       groupedCommittees: processedCommittees,
+      columns,
     }),
   );
   return `<!DOCTYPE html>

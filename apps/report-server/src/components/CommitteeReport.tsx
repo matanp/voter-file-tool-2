@@ -1,4 +1,5 @@
 import React from 'react';
+import type { CommitteeRosterColumn } from '../committeeRosterConfig';
 
 export type CommitteeMember = {
   name: string;
@@ -7,7 +8,53 @@ export type CommitteeMember = {
   state: string;
   zip: string;
   phone: string;
+  mailingAddress?: string;
+  email?: string;
 };
+
+const ROSTER_COLUMN_ORDER: readonly CommitteeRosterColumn[] = [
+  'name',
+  'address',
+  'mailingAddress',
+  'telephone',
+  'email',
+];
+
+const ROSTER_COLUMN_HEADERS: Record<CommitteeRosterColumn, string> = {
+  name: 'Name',
+  address: 'Address',
+  mailingAddress: 'Mailing Address',
+  telephone: 'Phone',
+  email: 'Email',
+};
+
+/** Relative widths; normalized over the selected columns plus ED. */
+const ED_WEIGHT = 7;
+const ROSTER_COLUMN_WEIGHTS: Record<CommitteeRosterColumn, number> = {
+  name: 18,
+  address: 30,
+  mailingAddress: 30,
+  telephone: 12,
+  email: 22,
+};
+
+function rosterCellValue(
+  member: CommitteeMember,
+  column: CommitteeRosterColumn,
+): string {
+  switch (column) {
+    case 'name':
+      return member.name;
+    case 'address':
+      return member.address;
+    case 'mailingAddress':
+      return member.mailingAddress ?? '';
+    case 'telephone':
+      return member.phone;
+    case 'email':
+      return member.email ?? '';
+  }
+}
 
 type CommitteeGroup = {
   electionDistrict: string;
@@ -30,11 +77,28 @@ type LDCommitteesArray = {
 
 interface CommitteeReportProps {
   groupedCommittees: LDCommitteesArray;
+  /**
+   * Committee Roster columns after Serve ED. When set, the table uses a fixed
+   * layout and every cell is one truncated line so pagination stays correct.
+   * When omitted (ldCommittees), the legacy columns render unchanged.
+   */
+  columns?: CommitteeRosterColumn[];
 }
 
 const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
-  ({ groupedCommittees }, ref) => {
+  ({ groupedCommittees, columns }, ref) => {
     const pages = paginateCommittees(groupedCommittees);
+    const rosterColumns = columns
+      ? ROSTER_COLUMN_ORDER.filter((column) => columns.includes(column))
+      : undefined;
+    const totalWeight = rosterColumns
+      ? rosterColumns.reduce(
+          (sum, column) => sum + ROSTER_COLUMN_WEIGHTS[column],
+          ED_WEIGHT,
+        )
+      : 0;
+    const widthOf = (weight: number) =>
+      `${((weight / totalWeight) * 100).toFixed(2)}%`;
 
     const numPages = pages.length;
 
@@ -58,55 +122,105 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                     : page.cityTown}
                 </h3>
 
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="">
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Serve ED
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Name
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Address
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        City
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        State
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Zip
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Phone
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {page.groups.map((group, groupIndex) => (
-                      <React.Fragment key={groupIndex}>
-                        {group.members.map((member, memberIndex) => (
-                          <tr key={memberIndex} className="align-top">
-                            <td className="pl-2">
-                              {group.electionDistrict
-                                .toString()
-                                .padStart(3, '0')}
-                            </td>
-                            <td className="pl-2">{member.name}</td>
-                            <td className="pl-2">{member.address}</td>
-                            <td className="pl-2">{member.city}</td>
-                            <td className="pl-2">{member.state}</td>
-                            <td className="pl-2">{member.zip}</td>
-                            <td className="pl-2">{member.phone}</td>
-                          </tr>
+                {rosterColumns ? (
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col style={{ width: widthOf(ED_WEIGHT) }} />
+                      {rosterColumns.map((column) => (
+                        <col
+                          key={column}
+                          style={{ width: widthOf(ROSTER_COLUMN_WEIGHTS[column]) }}
+                        />
+                      ))}
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th className="border border-gray-400 px-2 py-1 text-left truncate">
+                          Serve ED
+                        </th>
+                        {rosterColumns.map((column) => (
+                          <th
+                            key={column}
+                            className="border border-gray-400 px-2 py-1 text-left truncate"
+                          >
+                            {ROSTER_COLUMN_HEADERS[column]}
+                          </th>
                         ))}
-                        <tr className="h-2"></tr>
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {page.groups.map((group, groupIndex) => (
+                        <React.Fragment key={groupIndex}>
+                          {group.members.map((member, memberIndex) => (
+                            <tr key={memberIndex} className="align-top">
+                              <td className="pl-2 truncate">
+                                {group.electionDistrict
+                                  .toString()
+                                  .padStart(3, '0')}
+                              </td>
+                              {rosterColumns.map((column) => (
+                                <td key={column} className="pl-2 truncate">
+                                  {rosterCellValue(member, column)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                          <tr className="h-2"></tr>
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="">
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Serve ED
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Name
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Address
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          City
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          State
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Zip
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Phone
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {page.groups.map((group, groupIndex) => (
+                        <React.Fragment key={groupIndex}>
+                          {group.members.map((member, memberIndex) => (
+                            <tr key={memberIndex} className="align-top">
+                              <td className="pl-2">
+                                {group.electionDistrict
+                                  .toString()
+                                  .padStart(3, '0')}
+                              </td>
+                              <td className="pl-2">{member.name}</td>
+                              <td className="pl-2">{member.address}</td>
+                              <td className="pl-2">{member.city}</td>
+                              <td className="pl-2">{member.state}</td>
+                              <td className="pl-2">{member.zip}</td>
+                              <td className="pl-2">{member.phone}</td>
+                            </tr>
+                          ))}
+                          <tr className="h-2"></tr>
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
                 {page.lastPage && (
                   <div className="ml-6 font-lg font-semibold">
                     Committee Subtotal: {page.totalRecords}

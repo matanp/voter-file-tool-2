@@ -64,6 +64,11 @@ export const searchQueryFieldSchema = z.union([
   stringFieldSchema, // Has 'values' property
 ]);
 
+// Plain VoterRecord fields a Committee Roster may include, in output order.
+export const COMMITTEE_ROSTER_INCLUDE_FIELDS = ['telephone', 'email'] as const;
+export type CommitteeRosterIncludeField =
+  (typeof COMMITTEE_ROSTER_INCLUDE_FIELDS)[number];
+
 // Shared XLSX configuration schema
 export const xlsxConfigSchema = z
   .object({
@@ -72,6 +77,9 @@ export const xlsxConfigSchema = z
       .object({
         name: z.boolean().optional().default(true),
         address: z.boolean().optional().default(true),
+        // Off unless sent. No default: GenerateReportData is the output type,
+        // and a default would make this key required on every payload.
+        mailingAddress: z.boolean().optional(),
       })
       .optional()
       .default({ name: true, address: true }),
@@ -147,7 +155,12 @@ const committeeRosterReportSchema = z.object({
   name: z.string(),
   format: z.enum(['pdf', 'xlsx']),
   ...scopeFieldsBase.shape,
-  includeFields: z.array(z.string()).optional().default([]),
+  // Curated: only these plain VoterRecord fields may be picked for the roster.
+  // Name, Address, and Mailing Address come from xlsxConfig.includeCompoundFields.
+  includeFields: z
+    .array(z.enum(COMMITTEE_ROSTER_INCLUDE_FIELDS))
+    .optional()
+    .default([]),
   xlsxConfig: xlsxConfigSchema,
 });
 

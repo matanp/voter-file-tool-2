@@ -9,12 +9,14 @@ import type { VoterRecord as PrismaVoterRecord } from '@voter-file-tool/shared-p
 export interface CompoundFieldConfig {
   name?: boolean;
   address?: boolean;
+  mailingAddress?: boolean;
 }
 
 // Default compound field configuration
 export const DEFAULT_COMPOUND_FIELD_CONFIG: Required<CompoundFieldConfig> = {
   name: true,
   address: true,
+  mailingAddress: false,
 };
 
 /**
@@ -45,6 +47,7 @@ export function convertPrismaVoterRecordToAPI(
 export interface EnrichedPartialVoterRecordAPI extends PartialVoterRecordAPI {
   name?: string;
   address?: string;
+  mailingAddress?: string;
 }
 
 /**
@@ -107,6 +110,36 @@ export function createCompoundAddressField(
 }
 
 /**
+ * Creates a compound mailing address field. Each mailingAddress1-4 line is a
+ * whole address line; city/state/zip are appended like the residential address.
+ * Foreign addresses usually have only lines (city/state/zip empty), so they come
+ * out as the joined lines.
+ */
+export function createCompoundMailingAddressField(
+  record: PartialVoterRecordAPI
+): string {
+  const lines = [
+    record.mailingAddress1,
+    record.mailingAddress2,
+    record.mailingAddress3,
+    record.mailingAddress4,
+  ]
+    .map((line) => (line ?? '').trim())
+    .filter(Boolean);
+
+  const city = (record.mailingCity ?? '').trim();
+  const state = (record.mailingState ?? '').trim();
+  const zip = (record.mailingZip ?? '').trim();
+  const zipSuffix = (record.mailingZipSuffix ?? '').trim();
+
+  const locality = [city, state].filter(Boolean).join(', ');
+  const postal = zip ? (zipSuffix ? `${zip}-${zipSuffix}` : zip) : '';
+  const cityStateZip = [locality, postal].filter(Boolean).join(' ');
+
+  return [...lines, cityStateZip].filter(Boolean).join(', ');
+}
+
+/**
  * Applies compound fields to a record based on configuration
  */
 export function applyCompoundFields(
@@ -121,6 +154,10 @@ export function applyCompoundFields(
 
   if (config.address) {
     result.address = createCompoundAddressField(record);
+  }
+
+  if (config.mailingAddress) {
+    result.mailingAddress = createCompoundMailingAddressField(record);
   }
 
   return result;
@@ -142,6 +179,9 @@ export function determineColumnsToInclude(
   }
   if (includeCompoundFields.address) {
     columns.push('address');
+  }
+  if (includeCompoundFields.mailingAddress) {
+    columns.push('mailingAddress');
   }
 
   selectedFields.forEach((field) => {
@@ -173,6 +213,9 @@ export function extractFieldValue(
   }
   if (field === 'address') {
     return record.address || createCompoundAddressField(record);
+  }
+  if (field === 'mailingAddress') {
+    return record.mailingAddress || createCompoundMailingAddressField(record);
   }
 
   const value = record[field as keyof EnrichedPartialVoterRecordAPI];
@@ -269,6 +312,17 @@ function mapVoterRecordFieldsInternal(
     fieldsToInclude.add('state');
     fieldsToInclude.add('zipCode');
     fieldsToInclude.add('zipSuffix');
+  }
+
+  if (compoundFieldConfig.mailingAddress) {
+    fieldsToInclude.add('mailingAddress1');
+    fieldsToInclude.add('mailingAddress2');
+    fieldsToInclude.add('mailingAddress3');
+    fieldsToInclude.add('mailingAddress4');
+    fieldsToInclude.add('mailingCity');
+    fieldsToInclude.add('mailingState');
+    fieldsToInclude.add('mailingZip');
+    fieldsToInclude.add('mailingZipSuffix');
   }
 
   // Always include VRCNUM as it's required

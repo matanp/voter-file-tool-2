@@ -24,6 +24,7 @@ import {
   generateChangesReportXLSXAndUpload,
   generatePetitionOutcomesReportXLSXAndUpload,
 } from './xlsxGenerator';
+import { buildCommitteeRosterReportConfig } from './committeeRosterConfig';
 import { processAbsenteeReport } from './reportProcessors';
 import { processVoterImport } from './reportProcessors/voterImportProcessor';
 import { createWebhookSignature } from './webhookUtils';
@@ -236,10 +237,14 @@ async function processJob(jobData: EnrichedReportData) {
           : await fetchCommitteeData();
       const payload = mapCommitteesToReportShape(committeeData);
       console.log(`Fetched ${payload.length} committee groups from database`);
+      const rosterConfig =
+        jobData.type === 'committeeRoster'
+          ? buildCommitteeRosterReportConfig(jobData)
+          : undefined;
 
       if (jobData.format === 'xlsx') {
         console.log('Generating committee report as XLSX...');
-        const xlsxConfig = extractXLSXConfig(jobData);
+        const xlsxConfig = rosterConfig?.xlsx ?? extractXLSXConfig(jobData);
         await generateUnifiedXLSXAndUpload(
           payload,
           fileName,
@@ -248,7 +253,10 @@ async function processJob(jobData: EnrichedReportData) {
         );
       } else {
         console.log('Processing committee report as PDF...');
-        const html = generateCommitteeReportHTML(payload);
+        const html = generateCommitteeReportHTML(
+          payload,
+          rosterConfig?.pdfColumns,
+        );
         await generatePDFAndUpload(html, true, fileName);
       }
     } else if (jobData.type === 'voterList') {

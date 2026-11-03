@@ -1,6 +1,7 @@
 import {
   createCompoundNameField,
   createCompoundAddressField,
+  createCompoundMailingAddressField,
   convertPrismaVoterRecordToAPI,
   applyCompoundFields,
   determineColumnsToInclude,
@@ -159,6 +160,66 @@ describe('createCompoundAddressField', () => {
   });
 });
 
+describe('createCompoundMailingAddressField', () => {
+  it('joins every line and appends city, state, and zip with suffix', () => {
+    const record = {
+      mailingAddress1: 'PO Box 12',
+      mailingAddress2: 'c/o Jane Doe',
+      mailingAddress3: 'Suite 4',
+      mailingAddress4: 'Building B',
+      mailingCity: 'Rochester',
+      mailingState: 'NY',
+      mailingZip: '14604',
+      mailingZipSuffix: '0012',
+    };
+    expect(createCompoundMailingAddressField(record)).toBe(
+      'PO Box 12, c/o Jane Doe, Suite 4, Building B, Rochester, NY 14604-0012',
+    );
+  });
+
+  it('skips empty and null lines in a partial address', () => {
+    const record = {
+      mailingAddress1: '10 Elm St',
+      mailingAddress2: null,
+      mailingAddress3: '',
+      mailingCity: 'Pittsford',
+      mailingState: 'NY',
+      mailingZip: '14534',
+    };
+    expect(createCompoundMailingAddressField(record)).toBe(
+      '10 Elm St, Pittsford, NY 14534',
+    );
+  });
+
+  it('returns an empty string when every part is empty', () => {
+    expect(createCompoundMailingAddressField({})).toBe('');
+    expect(
+      createCompoundMailingAddressField({
+        mailingAddress1: null,
+        mailingAddress2: '',
+        mailingCity: null,
+        mailingState: '',
+        mailingZip: null,
+      }),
+    ).toBe('');
+  });
+
+  it('returns only the joined lines for a foreign address with no city, state, or zip', () => {
+    const record = {
+      mailingAddress1: '221B Baker Street',
+      mailingAddress2: 'London NW1 6XE',
+      mailingAddress3: 'United Kingdom',
+      mailingCity: '',
+      mailingState: null,
+      mailingZip: '',
+      mailingZipSuffix: '',
+    };
+    expect(createCompoundMailingAddressField(record)).toBe(
+      '221B Baker Street, London NW1 6XE, United Kingdom',
+    );
+  });
+});
+
 describe('convertPrismaVoterRecordToAPI', () => {
   it('converts Date fields to ISO strings', () => {
     const dob = new Date('1990-05-15T00:00:00.000Z');
@@ -293,6 +354,23 @@ describe('determineColumnsToInclude', () => {
     expect(result.filter((c) => c === 'email')).toHaveLength(1);
   });
 
+  it('puts mailingAddress right after address when requested', () => {
+    const result = determineColumnsToInclude(['telephone'], {
+      name: true,
+      address: true,
+      mailingAddress: true,
+    });
+    expect(result).toEqual(['name', 'address', 'mailingAddress', 'telephone']);
+  });
+
+  it('leaves mailingAddress out when the key is missing', () => {
+    const result = determineColumnsToInclude(['telephone'], {
+      name: true,
+      address: true,
+    });
+    expect(result).toEqual(['name', 'address', 'telephone']);
+  });
+
   it('appends columns not in columnOrder at the end', () => {
     const result = determineColumnsToInclude(
       ['email', 'party'],
@@ -322,6 +400,17 @@ describe('extractFieldValue', () => {
   it('returns pre-computed address when present', () => {
     const record = { address: 'Pre-computed Addr', street: 'Elm St' };
     expect(extractFieldValue(record, 'address')).toBe('Pre-computed Addr');
+  });
+
+  it('returns computed mailing address when missing', () => {
+    const record = {
+      mailingAddress1: 'PO Box 9',
+      mailingCity: 'Rochester',
+      mailingState: 'NY',
+    };
+    expect(extractFieldValue(record, 'mailingAddress')).toBe(
+      'PO Box 9, Rochester, NY',
+    );
   });
 
   it('returns scalar field value', () => {
@@ -449,6 +538,25 @@ describe('mapVoterRecordToMemberWithFields', () => {
     const result = mapVoterRecordToMemberWithFields(record);
     expect(result).toBeNull();
     spy.mockRestore();
+  });
+
+  it('pulls the mailing address parts when mailingAddress is on', () => {
+    const record = makePrismaRecord({
+      mailingAddress1: 'PO Box 1',
+      mailingCity: 'Rochester',
+      mailingZip: '14604',
+    });
+    const result = mapVoterRecordToMemberWithFields(record, [], {
+      name: false,
+      address: false,
+      mailingAddress: true,
+    });
+    expect(result).toMatchObject({
+      mailingAddress1: 'PO Box 1',
+      mailingCity: 'Rochester',
+      mailingZip: '14604',
+    });
+    expect(result).not.toHaveProperty('street');
   });
 
   it('returns member with includeFields', () => {
