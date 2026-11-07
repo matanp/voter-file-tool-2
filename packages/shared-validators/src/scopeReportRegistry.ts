@@ -30,7 +30,7 @@ export const SCOPE_REPORT_REGISTRY = {
     prismaReportType: 'SignInSheet',
     filename: 'signInSheet',
     format: { kind: 'fixed', value: 'pdf' },
-    extraFields: ['meetingDate'],
+    extraFields: ['meetingDate', 'meetingName'],
   },
   designationWeightSummary: {
     jurisdictionLabel: 'designation weight summaries',

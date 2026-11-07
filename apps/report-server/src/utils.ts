@@ -10,8 +10,6 @@ import {
   createCompoundNameField,
   createCompoundAddressField,
   createCompoundMailingAddressField,
-  convertPrismaVoterRecordToAPI,
-  applyCompoundFields,
   type EnrichedPartialVoterRecordAPI,
 } from '@voter-file-tool/shared-validators';
 import type {
@@ -21,7 +19,11 @@ import type {
 import type { CommitteeMember } from './components/CommitteeReport';
 import type { CommitteeRosterColumn } from './committeeRosterConfig';
 import SignInSheet from './components/SignInSheet';
-import type { SignInSheetMember } from './components/SignInSheet';
+import {
+  buildSignInSheets,
+  type SignInSheetCommitteeInput,
+  type SignInSheetTitleScope,
+} from './signInSheetHelpers';
 import DesignationWeightSummaryReport, {
   groupWeightSummaries,
 } from './components/DesignationWeightSummary';
@@ -123,7 +125,7 @@ export type PDFPageOptions = {
  * @param htmlContent - Rendered HTML
  * @param useLandscape - Legacy: true = Letter landscape, false = Legal portrait
  * @param fileName - Output filename
- * @param overrides - Optional: format + landscape (e.g. Letter portrait for sign-in sheets)
+ * @param overrides - Optional: format + landscape (e.g. Legal landscape for sign-in sheets)
  */
 export async function generatePDFAndUpload(
   htmlContent: string,
@@ -234,41 +236,30 @@ export const generateCommitteeReportHTML = (
       </html>`;
 };
 
-/** Transforms CommitteeWithMembers[] to SignInSheetCommittee[] for PDF rendering */
-function transformToSignInSheetCommittees(
-  committees: CommitteeWithMembers[],
-): { cityTown: string; legDistrict: number; electionDistrict: number; members: SignInSheetMember[] }[] {
-  return committees.map((c) => {
-    const members: SignInSheetMember[] = (c.memberships ?? []).map((m) => {
-      const apiRecord = convertPrismaVoterRecordToAPI(m.voterRecord);
-      const withCompound = applyCompoundFields(apiRecord);
-      const name = createCompoundNameField(withCompound) ?? withCompound.name ?? '';
-      const address = createCompoundAddressField(withCompound) ?? withCompound.address ?? '';
-      return { name, address };
-    });
-    return {
-      cityTown: c.cityTown,
-      legDistrict: c.legDistrict,
-      electionDistrict: c.electionDistrict,
-      members,
-    };
-  });
-}
+export type SignInSheetHTMLOptions = SignInSheetTitleScope & {
+  meetingName?: string;
+  meetingDate?: string;
+  contactInfoDate: string;
+};
 
 export const generateSignInSheetHTML = (
-  committees: CommitteeWithMembers[],
-  meetingDate?: string,
-  reportAuthor?: string,
+  committees: SignInSheetCommitteeInput[],
+  {
+    cityTown,
+    legDistrict,
+    meetingName,
+    meetingDate,
+    contactInfoDate,
+  }: SignInSheetHTMLOptions,
 ): string => {
   const tailwindCSS = tailwindCssLink();
 
-  const processedCommittees = transformToSignInSheetCommittees(committees);
-
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(SignInSheet, {
-      committees: processedCommittees,
+      sheets: buildSignInSheets(committees, { cityTown, legDistrict }),
+      meetingName,
       meetingDate,
-      reportAuthor: reportAuthor ?? '',
+      contactInfoDate,
     }),
   );
   return `<!DOCTYPE html>

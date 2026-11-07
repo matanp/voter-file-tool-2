@@ -3,6 +3,7 @@ import {
   fetchCommitteeData,
   fetchCommitteeRosterData,
   fetchSignInSheetData,
+  fetchLatestVoterImportCompletedAt,
   fetchDesignationWeights,
   fetchVacancyData,
   fetchChangesData,
@@ -27,6 +28,9 @@ jest.mock('../lib/prisma', () => ({
     committeeMembership: {
       findMany: jest.fn(),
     },
+    report: {
+      findFirst: jest.fn(),
+    },
   },
 }));
 
@@ -35,6 +39,7 @@ type MockPrisma = {
   committeeList: { findMany: jest.Mock };
   committeeGovernanceConfig: { findFirst: jest.Mock };
   committeeMembership: { findMany: jest.Mock };
+  report: { findFirst: jest.Mock };
 };
 
 const prismaMock = prisma as unknown as MockPrisma;
@@ -894,5 +899,76 @@ describe('getPetitionOutcomeLabel', () => {
   });
   it('returns Won when ACTIVE and multiple candidates', () => {
     expect(getPetitionOutcomeLabel('ACTIVE', 'PETITIONED', 3)).toBe('Won');
+  });
+});
+
+describe('fetchLatestVoterImportCompletedAt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should take the latest completed, non-deleted voter import', async () => {
+    const completedAt = new Date('2026-09-23T14:00:00Z');
+    prismaMock.report.findFirst.mockResolvedValue({ completedAt });
+
+    await expect(fetchLatestVoterImportCompletedAt()).resolves.toBe(completedAt);
+
+    expect(prismaMock.report.findFirst).toHaveBeenCalledWith({
+      where: {
+        ReportType: 'VoterImport',
+        status: 'COMPLETED',
+        deleted: false,
+        completedAt: { not: null },
+      },
+      orderBy: { completedAt: 'desc' },
+      select: { completedAt: true },
+    });
+  });
+
+  it('should return null when there is no completed import', async () => {
+    prismaMock.report.findFirst.mockResolvedValue(null);
+
+    await expect(fetchLatestVoterImportCompletedAt()).resolves.toBeNull();
+  });
+});
+
+describe('mapCommitteesToReportShape member contact', () => {
+  const committeeWithMember = (submissionMetadata: unknown) =>
+    ({
+      cityTown: 'BRIGHTON',
+      legDistrict: 16,
+      electionDistrict: 1,
+      memberships: [
+        {
+          submissionMetadata,
+          voterRecord: {
+            VRCNUM: 'voter-1',
+            email: 'voter@example.invalid',
+            telephone: '5855550100',
+          },
+        },
+      ],
+    }) as unknown as CommitteeWithMembers;
+
+  const firstMember = (committee: CommitteeWithMembers) =>
+    mapCommitteesToReportShape([committee])[0]?.committees['1']?.[0];
+
+  it('should replace voter record contact with Leader-entered values', () => {
+    const member = firstMember(
+      committeeWithMember({
+        email: 'leader@example.invalid',
+        phone: '5855550199',
+      }),
+    );
+
+    expect(member?.email).toBe('leader@example.invalid');
+    expect(member?.telephone).toBe('5855550199');
+  });
+
+  it('should keep voter record contact when metadata is null', () => {
+    const member = firstMember(committeeWithMember(null));
+
+    expect(member?.email).toBe('voter@example.invalid');
+    expect(member?.telephone).toBe('5855550100');
   });
 });

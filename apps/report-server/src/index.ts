@@ -29,6 +29,10 @@ import { processAbsenteeReport } from './reportProcessors';
 import { processVoterImport } from './reportProcessors/voterImportProcessor';
 import { createWebhookSignature } from './webhookUtils';
 import {
+  formatContactInfoDate,
+  resolveSignInSheetTitleScope,
+} from './signInSheetHelpers';
+import {
   enrichedReportDataSchema,
   callbackUrlSchema,
   MAX_RECORDS_FOR_EXPORT,
@@ -48,6 +52,7 @@ import {
   fetchCommitteeData,
   fetchCommitteeRosterData,
   fetchSignInSheetData,
+  fetchLatestVoterImportCompletedAt,
   fetchDesignationWeights,
   fetchVacancyData,
   fetchChangesData,
@@ -317,7 +322,7 @@ async function processJob(jobData: EnrichedReportData) {
     } else if (jobData.type === 'signInSheet') {
       // TODO: Add integration test for processJob signInSheet handler producing PDF
       fileName = generateReportFilename(jobData.name, jobData.type, 'pdf', reportAuthor);
-      const { scope, cityTown, legDistrict, meetingDate } = jobData;
+      const { scope, cityTown, legDistrict, meetingName, meetingDate } = jobData;
 
       if (scope === 'jurisdiction' && (cityTown == null || cityTown === '')) {
         throw new Error('cityTown is required when scope is jurisdiction');
@@ -326,10 +331,19 @@ async function processJob(jobData: EnrichedReportData) {
       console.log('Fetching sign-in sheet data...');
       const data = await fetchSignInSheetData(scope, cityTown, legDistrict);
       console.log(`Fetched ${data.length} committees for sign-in sheet`);
-      const html = generateSignInSheetHTML(data, meetingDate, reportAuthor);
+      const contactInfoDate = formatContactInfoDate(
+        await fetchLatestVoterImportCompletedAt(),
+        new Date(),
+      );
+      const html = generateSignInSheetHTML(data, {
+        ...resolveSignInSheetTitleScope({ scope, cityTown, legDistrict }),
+        meetingName,
+        meetingDate,
+        contactInfoDate,
+      });
       await generatePDFAndUpload(html, false, fileName, {
-        format: 'Letter',
-        landscape: false,
+        format: 'Legal',
+        landscape: true,
       });
     } else if (jobData.type === 'designationWeightSummary') {
       fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);

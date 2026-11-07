@@ -1,165 +1,150 @@
 import React from 'react';
+import {
+  formatMeetingLine,
+  paginateSignInSheetRows,
+  type SignInSheetData,
+} from '../signInSheetHelpers';
 
-/** Member row for sign-in sheet (name and address pre-filled) */
-export type SignInSheetMember = {
-  name: string;
-  address: string;
-};
+const COLUMNS = [
+  { label: 'ED', widthPercent: 4 },
+  { label: 'Member name', widthPercent: 20.8 },
+  { label: 'Email on file', widthPercent: 25.7 },
+  { label: 'Phone on file', widthPercent: 12.9 },
+  { label: 'Member signature', widthPercent: 16.8 },
+  { label: 'Proxy name (print)', widthPercent: 9.9 },
+  { label: 'Proxy signature', widthPercent: 9.9 },
+];
+const FIRST_PROXY_COLUMN = 5;
 
-/** Single committee (one ED) for a sign-in sheet page */
-type SignInSheetCommittee = {
-  cityTown: string;
-  legDistrict: number;
-  electionDistrict: number;
-  members: SignInSheetMember[];
-};
+const CELL = 'border border-gray-300 px-2';
+const VALUE_CELL = `${CELL} pt-1 align-top`;
+const PROXY_DIVIDER = 'border-l-2 border-l-[#0057a6]';
+const SECOND_LINE = 'mt-0.5 text-[13px] leading-[15px] text-gray-600';
 
-const BLANK_ROWS = 5;
-const MAX_MEMBERS_PER_PAGE = 25;
+const OnFileValue = ({ value }: { value: string | null }) =>
+  value ? (
+    <div className="break-all">{value}</div>
+  ) : (
+    <div className="italic text-red-600">None on file</div>
+  );
 
 interface SignInSheetProps {
-  committees: SignInSheetCommittee[];
+  sheets: SignInSheetData[];
+  meetingName?: string;
   meetingDate?: string;
-  reportAuthor: string;
+  contactInfoDate: string;
 }
 
 /**
- * Renders sign-in sheet pages — one page per committee (or paginated if > 25 members).
- * Portrait 8.5×11, header per committee, table with # Name Address Signature Notes.
+ * Renders one sign-in sheet per committee on Legal landscape pages. Each page
+ * div is exactly paper-sized, which is what puts every page on its own sheet.
  */
 const SignInSheet = React.forwardRef<HTMLDivElement, SignInSheetProps>(
-  ({ committees, meetingDate, reportAuthor }, ref) => {
-    const pages: { committee: SignInSheetCommittee; memberChunk: SignInSheetMember[]; pageIndex: number; totalPages: number }[] = [];
-
-    for (const committee of committees) {
-      const chunks: SignInSheetMember[][] = [];
-      for (let i = 0; i < committee.members.length; i += MAX_MEMBERS_PER_PAGE) {
-        chunks.push(committee.members.slice(i, i + MAX_MEMBERS_PER_PAGE));
-      }
-      if (chunks.length === 0) {
-        chunks.push([]);
-      }
-      const totalPages = chunks.length;
-      chunks.forEach((chunk, i) => {
-        pages.push({
-          committee,
-          memberChunk: chunk,
-          pageIndex: i,
-          totalPages,
-        });
-      });
-    }
-
-    const generationDate = new Date().toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-
-    const formatMeetingDate = (iso?: string): string => {
-      if (!iso) return '';
-      try {
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return '';
-        return d.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-      } catch {
-        return '';
-      }
-    };
+  ({ sheets, meetingName, meetingDate, contactInfoDate }, ref) => {
+    const meetingLine = formatMeetingLine(meetingName, meetingDate);
+    const reportName = meetingName
+      ? `${meetingName} Sign-In Sheet`
+      : 'Sign-In Sheet';
 
     return (
       <div ref={ref}>
-        {pages.map(({ committee, memberChunk, pageIndex, totalPages }, idx) => {
-          const headerTitle =
-            committee.cityTown === 'ROCHESTER'
-              ? `Sign-In Sheet — LD ${committee.legDistrict.toString().padStart(2, '0')} ED ${committee.electionDistrict.toString().padStart(3, '0')}`
-              : `Sign-In Sheet — ${committee.cityTown} LD ${committee.legDistrict} ED ${committee.electionDistrict.toString().padStart(3, '0')}`;
-
-          const blankCount = pageIndex === totalPages - 1 ? BLANK_ROWS : 0;
-          const memberRows = memberChunk.map((m) => ({ name: m.name, address: m.address }));
-          const blankRowCount = blankCount;
-
-          return (
+        {sheets.flatMap(({ committeeLabel, rows }, sheetIndex) =>
+          paginateSignInSheetRows(rows).map((pageRows, pageIndex) => (
             <div
-              key={idx}
-              className="w-[8.5in] h-[11in] p-8 font-sans bg-white mx-auto"
+              key={`${sheetIndex}-${pageIndex}`}
+              data-sign-in-page
+              className="w-[14in] h-[8.5in] overflow-hidden bg-white px-[0.65in] pt-[0.7in] pb-[0.35in]"
               style={{ fontFamily: 'Arial, sans-serif' }}
             >
-              <div className="flex flex-col h-full">
-                <div>
-                  <h2 className="text-center text-lg font-black pt-4">
-                    {headerTitle}
-                  </h2>
-                  {meetingDate && (
-                    <p className="text-center text-sm mt-2">
-                      Meeting: {formatMeetingDate(meetingDate)}
-                    </p>
-                  )}
-                  <table className="w-full text-sm mt-4 border-collapse">
-                    <thead>
-                      <tr>
-                        <th className="border border-gray-400 px-2 py-1 text-left w-8">
-                          #
+              <div className="flex h-full flex-col">
+                {pageIndex === 0 && (
+                  <div data-sign-in-title className="pb-2 text-center">
+                    <h1 className="text-2xl font-bold leading-7">
+                      {committeeLabel} Committee
+                    </h1>
+                    {meetingLine && (
+                      <p className="text-base font-bold leading-5 text-gray-600">
+                        {meetingLine}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <table
+                  data-sign-in-table
+                  className="w-full table-fixed border-collapse border-2 border-[#0057a6] text-[14px] leading-4"
+                >
+                  <colgroup>
+                    {COLUMNS.map(({ label, widthPercent }) => (
+                      <col key={label} style={{ width: `${widthPercent}%` }} />
+                    ))}
+                  </colgroup>
+                  <thead>
+                    <tr
+                      data-sign-in-header
+                      className="bg-[#0057a6] text-[13px] uppercase leading-4 text-white"
+                    >
+                      {COLUMNS.map(({ label }, columnIndex) => (
+                        <th
+                          key={label}
+                          className={`border border-[#0057a6] px-2 py-2 text-center align-middle font-bold ${
+                            columnIndex === FIRST_PROXY_COLUMN
+                              ? PROXY_DIVIDER
+                              : ''
+                          }`}
+                        >
+                          {label}
                         </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          Name
-                        </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          Address
-                        </th>
-                        <th className="border border-gray-400 px-3 py-1 text-left w-32">
-                          Signature
-                        </th>
-                        <th className="border border-gray-400 px-2 py-1 text-left">
-                          Notes
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {memberRows.map((row, rowIdx) => (
-                        <tr key={rowIdx} className="align-top">
-                          <td className="border border-gray-400 pl-2 py-1">
-                            {rowIdx + 1}
-                          </td>
-                          <td className="border border-gray-400 pl-2 py-1">
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageRows.map((row, rowIndex) => (
+                      <tr
+                        key={rowIndex}
+                        data-sign-in-row
+                        className="h-[0.75in]"
+                      >
+                        <td className={`${CELL} text-center align-middle`}>
+                          {row.electionDistrict}
+                        </td>
+                        <td className={VALUE_CELL}>
+                          <div className="break-words font-bold">
                             {row.name}
-                          </td>
-                          <td className="border border-gray-400 pl-2 py-1">
-                            {row.address}
-                          </td>
-                          <td className="border border-gray-400 py-1" />
-                          <td className="border border-gray-400 py-1" />
-                        </tr>
-                      ))}
-                      {Array.from({ length: blankRowCount }, (_, rowIdx) => (
-                        <tr key={`blank-${rowIdx}`} className="align-top">
-                          <td className="border border-gray-400 pl-2 py-1" />
-                          <td className="border border-gray-400 pl-2 py-1" />
-                          <td className="border border-gray-400 pl-2 py-1" />
-                          <td className="border border-gray-400 py-1" />
-                          <td className="border border-gray-400 py-1" />
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-auto pt-4 flex w-full text-xs justify-between">
-                  <span>{generationDate}</span>
-                  <span>{reportAuthor}</span>
-                  <span>
-                    Page {idx + 1} of {pages.length}
+                          </div>
+                          <div className={SECOND_LINE}>[ ] Info correct</div>
+                        </td>
+                        <td className={VALUE_CELL}>
+                          <OnFileValue value={row.email} />
+                          <div className={SECOND_LINE}>New email:</div>
+                        </td>
+                        <td className={VALUE_CELL}>
+                          <OnFileValue value={row.phone} />
+                          <div className={SECOND_LINE}>New phone:</div>
+                        </td>
+                        <td className={CELL} />
+                        <td className={`${CELL} ${PROXY_DIVIDER}`} />
+                        <td className={CELL} />
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div
+                  data-sign-in-footer
+                  className="mt-auto flex w-full justify-between gap-6 pt-1 text-[11px] text-gray-500"
+                >
+                  <span data-sign-in-footer-text className="min-w-0">
+                    {committeeLabel} Democratic Committee | {reportName} |{' '}
+                    {rows.length} eligible members | Contact info as of{' '}
+                    {contactInfoDate}
+                  </span>
+                  <span data-sign-in-page-number className="shrink-0">
+                    Page {pageIndex + 1}
                   </span>
                 </div>
               </div>
-              <div className="page-break" />
             </div>
-          );
-        })}
+          )),
+        )}
       </div>
     );
   },

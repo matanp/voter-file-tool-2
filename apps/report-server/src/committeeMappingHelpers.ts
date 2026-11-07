@@ -13,6 +13,7 @@ import {
   type SeatContribution,
 } from '@voter-file-tool/shared-prisma';
 import { prisma } from './lib/prisma';
+import { resolveMemberContact } from './memberContact';
 
 export type { CommitteeWithMembers };
 
@@ -64,7 +65,12 @@ export const mapCommitteesToReportShape = (
     }
 
     const members =
-      committee.memberships?.map((membership) => mapVoterRecordToMember(membership.voterRecord)) ?? [];
+      committee.memberships?.map((membership) =>
+        mapVoterRecordToMember({
+          ...membership.voterRecord,
+          ...resolveMemberContact(membership),
+        }),
+      ) ?? [];
     const electionDistrictKey = String(committee.electionDistrict);
 
     if (!group.committees[electionDistrictKey]) {
@@ -233,6 +239,24 @@ export async function fetchSignInSheetData(
   });
 
   return committees;
+}
+
+/**
+ * Finds when the BOE data in the app was last loaded: the `completedAt` of the
+ * latest completed, non-deleted voter import, or null if there is none.
+ */
+export async function fetchLatestVoterImportCompletedAt(): Promise<Date | null> {
+  const latestImport = await prisma.report.findFirst({
+    where: {
+      ReportType: 'VoterImport',
+      status: 'COMPLETED',
+      deleted: false,
+      completedAt: { not: null },
+    },
+    orderBy: { completedAt: 'desc' },
+    select: { completedAt: true },
+  });
+  return latestImport?.completedAt ?? null;
 }
 
 // ---------------------------------------------------------------------------

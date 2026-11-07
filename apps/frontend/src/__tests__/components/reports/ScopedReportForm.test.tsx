@@ -370,9 +370,12 @@ describe("ScopedReportForm type-specific fields", () => {
     expect(mutateMock).not.toHaveBeenCalled();
   });
 
-  it("signInSheet shows optional meeting date field", () => {
+  it("signInSheet shows optional meeting name and date fields", () => {
     renderWithPermissions(PrivilegeLevel.Admin, "signInSheet");
 
+    expect(
+      screen.getByLabelText("Meeting Name (optional)"),
+    ).toBeInTheDocument();
     expect(
       screen.getByLabelText("Meeting Date (optional)"),
     ).toBeInTheDocument();
