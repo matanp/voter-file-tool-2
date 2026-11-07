@@ -49,11 +49,11 @@ describe.each([
   ],
   ["reportExitDataSchema (removal)", reportExitDataSchema, validExitRemoval],
 ] as const)("%s: committee-member target", (_name, schema, valid) => {
-  it("accepts a valid payload", () => {
+  it("should accept the payload when all fields are valid", () => {
     expect(schema.safeParse(valid).success).toBe(true);
   });
 
-  it("trims cityTown and memberId and coerces the districts", () => {
+  it("should normalize the target fields when strings need trimming or coercion", () => {
     const result = schema.parse({
       ...valid,
       cityTown: "  Test City ",
@@ -69,25 +69,28 @@ describe.each([
     });
   });
 
-  it("keeps a number legDistrict as a number", () => {
+  it("should preserve legDistrict when it is already a number", () => {
     expect(schema.parse({ ...valid, legDistrict: 3 }).legDistrict).toBe(3);
   });
 
-  it("allows legDistrict to be omitted", () => {
+  it("should accept the payload when legDistrict is omitted", () => {
     const { legDistrict: _omit, ...rest } = valid;
     const result = schema.parse(rest);
     expect(result.legDistrict).toBeUndefined();
   });
 
-  it.each(["", "   "])("rejects a blank legDistrict (%j)", (legDistrict) => {
-    expect(firstIssue(schema, { ...valid, legDistrict })).toMatchObject({
-      path: ["legDistrict"],
-      message: "Legislative District cannot be empty when provided",
-    });
-  });
+  it.each(["", "   "])(
+    "should reject the payload when legDistrict is blank (%j)",
+    (legDistrict) => {
+      expect(firstIssue(schema, { ...valid, legDistrict })).toMatchObject({
+        path: ["legDistrict"],
+        message: "Legislative District cannot be empty when provided",
+      });
+    },
+  );
 
   it.each([0, -1, "0"])(
-    "rejects a non-positive legDistrict (%j)",
+    "should reject the payload when legDistrict is non-positive (%j)",
     (legDistrict) => {
       expect(firstIssue(schema, { ...valid, legDistrict })).toMatchObject({
         path: ["legDistrict"],
@@ -98,7 +101,7 @@ describe.each([
   );
 
   it.each(["1.5", "abc"])(
-    "rejects a legDistrict string that is not a whole number (%j)",
+    "should reject the payload when legDistrict is not a whole number (%j)",
     (legDistrict) => {
       expect(firstIssue(schema, { ...valid, legDistrict }).path).toEqual([
         "legDistrict",
@@ -107,7 +110,7 @@ describe.each([
   );
 
   it.each([null, true, false, [5], ["5"], {}])(
-    "rejects a non-string, non-number legDistrict (%j)",
+    "should reject the payload when legDistrict is neither a string nor a number (%j)",
     (legDistrict) => {
       expect(firstIssue(schema, { ...valid, legDistrict }).path).toEqual([
         "legDistrict",
@@ -115,13 +118,13 @@ describe.each([
     },
   );
 
-  it("requires electionDistrict", () => {
+  it("should reject the payload when electionDistrict is missing", () => {
     const { electionDistrict: _omit, ...rest } = valid;
     expect(firstIssue(schema, rest).path).toEqual(["electionDistrict"]);
   });
 
   it.each([0, "x", null])(
-    "rejects an invalid electionDistrict (%j)",
+    "should reject the payload when electionDistrict is invalid (%j)",
     (electionDistrict) => {
       expect(firstIssue(schema, { ...valid, electionDistrict }).path).toEqual([
         "electionDistrict",
@@ -129,15 +132,18 @@ describe.each([
     },
   );
 
-  it.each(["cityTown", "memberId"] as const)("requires %s", (field) => {
-    expect(firstIssue(schema, { ...valid, [field]: "  " }).path).toEqual([
-      field,
-    ]);
-    const { [field]: _omit, ...rest } = valid;
-    expect(firstIssue(schema, rest).path).toEqual([field]);
-  });
+  it.each(["cityTown", "memberId"] as const)(
+    "should reject the payload when %s is blank or missing",
+    (field) => {
+      expect(firstIssue(schema, { ...valid, [field]: "  " }).path).toEqual([
+        field,
+      ]);
+      const { [field]: _omit, ...rest } = valid;
+      expect(firstIssue(schema, rest).path).toEqual([field]);
+    },
+  );
 
-  it("rejects unknown keys", () => {
+  it("should reject the payload when it contains unknown keys", () => {
     expect(firstIssue(schema, { ...valid, extra: 1 }).code).toBe(
       "unrecognized_keys",
     );
@@ -145,7 +151,7 @@ describe.each([
 });
 
 describe("removeCommitteeDataSchema", () => {
-  it("requires a removal reason", () => {
+  it("should reject the payload when the removal reason is missing", () => {
     const { removalReason: _omit, ...rest } = validRemove;
     expect(firstIssue(removeCommitteeDataSchema, rest)).toMatchObject({
       path: ["removalReason"],
@@ -153,7 +159,7 @@ describe("removeCommitteeDataSchema", () => {
     });
   });
 
-  it("requires notes when the reason is Other", () => {
+  it("should require notes when the removal reason is Other", () => {
     const body = { ...validRemove, removalReason: "OTHER", removalNotes: "  " };
     expect(firstIssue(removeCommitteeDataSchema, body)).toMatchObject({
       path: ["removalNotes"],
@@ -165,7 +171,7 @@ describe("removeCommitteeDataSchema", () => {
     ).toBe(true);
   });
 
-  it("rejects resignation fields", () => {
+  it("should reject the payload when it contains resignation fields", () => {
     expect(
       firstIssue(removeCommitteeDataSchema, {
         ...validRemove,
@@ -176,7 +182,7 @@ describe("removeCommitteeDataSchema", () => {
 });
 
 describe("resignCommitteeDataSchema", () => {
-  it("requires the RESIGN action", () => {
+  it("should reject the payload when the action is not RESIGN", () => {
     expect(
       firstIssue(resignCommitteeDataSchema, {
         ...validResign,
@@ -190,14 +196,14 @@ describe("resignCommitteeDataSchema", () => {
   });
 
   it.each(["resignationDateReceived", "resignationMethod"] as const)(
-    "requires %s",
+    "should reject the payload when %s is missing",
     (field) => {
       const { [field]: _omit, ...rest } = validResign;
       expect(firstIssue(resignCommitteeDataSchema, rest).path).toEqual([field]);
     },
   );
 
-  it("rejects an invalid date received", () => {
+  it("should reject the payload when the received date is invalid", () => {
     expect(
       firstIssue(resignCommitteeDataSchema, {
         ...validResign,
@@ -209,7 +215,7 @@ describe("resignCommitteeDataSchema", () => {
     });
   });
 
-  it("rejects a removal reason", () => {
+  it("should reject the payload when it contains a removal reason", () => {
     expect(
       firstIssue(resignCommitteeDataSchema, {
         ...validResign,
@@ -220,7 +226,7 @@ describe("resignCommitteeDataSchema", () => {
 });
 
 describe("reportExitDataSchema", () => {
-  it("requires a kind", () => {
+  it("should reject the payload when the exit kind is missing", () => {
     const { kind: _omit, ...rest } = validExitRemoval;
     expect(firstIssue(reportExitDataSchema, rest)).toMatchObject({
       path: ["kind"],
@@ -228,7 +234,7 @@ describe("reportExitDataSchema", () => {
     });
   });
 
-  it("requires the date and method for a resignation", () => {
+  it("should require the date and method when the exit is a resignation", () => {
     const result = reportExitDataSchema.safeParse({
       ...target,
       kind: "RESIGNATION",
@@ -248,7 +254,7 @@ describe("reportExitDataSchema", () => {
     ]);
   });
 
-  it("rejects an invalid date received on a resignation", () => {
+  it("should reject the payload when a resignation date is invalid", () => {
     expect(
       firstIssue(reportExitDataSchema, {
         ...validExitResignation,
@@ -260,7 +266,7 @@ describe("reportExitDataSchema", () => {
     });
   });
 
-  it("accepts notes on a resignation", () => {
+  it("should accept notes when the exit is a resignation", () => {
     expect(
       reportExitDataSchema.parse({
         ...validExitResignation,
@@ -269,7 +275,7 @@ describe("reportExitDataSchema", () => {
     ).toBe("Moved away");
   });
 
-  it("rejects an unknown removal reason", () => {
+  it("should reject the payload when the removal reason is unknown", () => {
     expect(
       firstIssue(reportExitDataSchema, {
         ...validExitRemoval,
@@ -278,7 +284,7 @@ describe("reportExitDataSchema", () => {
     ).toEqual(["removalReason"]);
   });
 
-  it("rejects a reason on a resignation", () => {
+  it("should reject the payload when a resignation has a removal reason", () => {
     expect(
       firstIssue(reportExitDataSchema, {
         ...validExitResignation,
@@ -290,7 +296,7 @@ describe("reportExitDataSchema", () => {
     });
   });
 
-  it("requires a reason for a removal", () => {
+  it("should require a reason when the exit is a removal", () => {
     const { removalReason: _omit, ...rest } = validExitRemoval;
     expect(firstIssue(reportExitDataSchema, rest)).toMatchObject({
       path: ["removalReason"],
@@ -299,7 +305,7 @@ describe("reportExitDataSchema", () => {
   });
 
   it.each([undefined, "   "])(
-    "requires notes for a removal with reason Other (notes %j)",
+    "should require notes when a removal reason is Other (notes %j)",
     (removalNotes) => {
       const body = {
         ...validExitRemoval,
@@ -313,14 +319,14 @@ describe("reportExitDataSchema", () => {
     },
   );
 
-  it("accepts a removal with reason Other and notes", () => {
+  it("should accept the payload when an Other removal has notes", () => {
     const body = { ...validExitRemoval, removalReason: "OTHER" };
     expect(
       reportExitDataSchema.safeParse({ ...body, removalNotes: "Why" }).success,
     ).toBe(true);
   });
 
-  it("rejects resignation details on a removal", () => {
+  it("should reject the payload when a removal has resignation details", () => {
     expect(
       firstIssue(reportExitDataSchema, {
         ...validExitRemoval,
