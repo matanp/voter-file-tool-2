@@ -149,6 +149,21 @@ jest.mock("~/auth", () => ({
   auth: jest.fn(),
 }));
 
+// Unit tests never reach R2: every s3Utils call is a jest.fn (the real module
+// also throws at import without R2 credentials). Tests that care set results
+// with `jest.mocked(...)`, or mock the module themselves.
+jest.mock("~/lib/s3Utils", () => ({
+  uploadPdfToR2: jest.fn(async (key: string) => key),
+  getPresignedReadUrl: jest.fn(async () => "https://r2.test/read"),
+  getPresignedUploadUrl: jest.fn(async () => "https://r2.test/upload"),
+  getPresignedSizedUploadUrl: jest.fn(async () => "https://r2.test/upload"),
+  getFileMetadata: jest.fn(async () => null),
+  headObjectSize: jest.fn(async () => null),
+  readObjectPrefix: jest.fn(async () => new Uint8Array()),
+  copyObject: jest.fn(async () => undefined),
+  deleteObject: jest.fn(async () => undefined),
+}));
+
 // Mock Prisma client with jest-mock-extended for type safety
 const prismaMock = mockDeep<PrismaClient>();
 
@@ -198,6 +213,9 @@ jest.mock("@prisma/client", () => {
       OFFICE_NAME_DELETED: "OFFICE_NAME_DELETED",
       ELECTION_DATE_CREATED: "ELECTION_DATE_CREATED",
       ELECTION_DATE_DELETED: "ELECTION_DATE_DELETED",
+      MEMBER_EXIT_REPORTED: "MEMBER_EXIT_REPORTED",
+      MEMBER_EXIT_REPORT_REJECTED: "MEMBER_EXIT_REPORT_REJECTED",
+      RESIGNATION_LETTER_ATTACHED: "RESIGNATION_LETTER_ATTACHED",
     },
     DiscrepancyResolution: {
       ACCEPTED: "ACCEPTED",

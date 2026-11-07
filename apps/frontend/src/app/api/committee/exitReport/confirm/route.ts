@@ -9,7 +9,8 @@
  * since changed (confirmed, rejected, re-filed, or the member left) is a 409.
  * Audited as `MEMBER_RESIGNED` / `MEMBER_REMOVED` with
  * `{ source: "exit_report", reportedById, reportedAt }`, plus the Admin's
- * optional `confirmationNote` (like a rejection's `rejectionNote`).
+ * optional `confirmationNote` (like a rejection's `rejectionNote`). A
+ * resignation's letter is kept as the recorded one (`resignationLetterKey`).
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -24,6 +25,7 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import {
+  exitLetterMetadata,
   writeMembershipExit,
   type MembershipExit,
 } from "~/app/api/lib/membershipExit";
@@ -117,6 +119,8 @@ async function confirmExitReportHandler(
         resignationMethod,
         removalReason: null,
         removalNotes: notes,
+        // The report's letter becomes the recorded one (ticket 08).
+        letter: "keep",
       };
       afterValue = {
         status: "RESIGNED",
@@ -142,6 +146,8 @@ async function confirmExitReportHandler(
         resignationMethod: null,
         removalReason,
         removalNotes: notes,
+        // A removal report never has a letter (CHECK constraint).
+        letter: "detach",
       };
       afterValue = {
         status: "REMOVED",
@@ -175,6 +181,7 @@ async function confirmExitReportHandler(
             reportedById: membership.exitReportedById,
             reportedAt: exitReportedAt,
             ...(note ? { confirmationNote: note } : {}),
+            ...exitLetterMetadata(result),
           },
           buildMembershipAuditSubject({
             voterRecord: membership.voterRecord,

@@ -25,6 +25,7 @@ jest.mock("next/navigation", () => ({
 const REPORTED_AT = "2026-10-30T15:04:05.678Z";
 
 const REPORT: PendingExitReport = {
+  letter: null,
   membershipId: "m-rep",
   voterRecordId: "VR100",
   firstName: "Rita",

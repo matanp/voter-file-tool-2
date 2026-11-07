@@ -1,4 +1,5 @@
 import { POST } from "~/app/api/committee/add/route";
+import { copyObject, deleteObject } from "~/lib/s3Utils";
 import { PrivilegeLevel, Prisma, type MembershipStatus } from "@prisma/client";
 import {
   createMockSession,
@@ -14,6 +15,7 @@ import {
   expectMembershipCreate,
   expectMembershipUpdate,
   expectAuditLogCreate,
+  jsonContaining,
   getMembershipMock,
   getAuditLogMock,
   setupEligibilityPass,
@@ -223,6 +225,50 @@ describe("/api/committee/add", () => {
         }),
       );
       expect(getMembershipMockTyped(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("should clear a RESIGNED member's letter columns on re-add and leave the object in R2 (ticket 08)", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig(),
+      );
+      prismaMock.committeeList.upsert.mockResolvedValue(createMockCommittee());
+      setupEligibilityPassTyped(prismaMock);
+      const letterKey = "resignation-letters/membership-test-id-001/a.pdf";
+      getMembershipMockTyped(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          status: "RESIGNED",
+          resignationLetterKey: letterKey,
+          resignationLetterContentType: "application/pdf",
+          resignationLetterFileName: "a.pdf",
+        }),
+      );
+      getMembershipMockTyped(prismaMock).update.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+
+      const response = await POST(createMockRequest(createMockCommitteeData()));
+
+      expect(response.status).toBe(200);
+      expect(getMembershipMockTyped(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate({
+          status: "ACTIVE",
+          resignationLetterKey: null,
+          resignationLetterContentType: null,
+          resignationLetterFileName: null,
+        }),
+      );
+      expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          metadata: jsonContaining({ previousLetterKey: letterKey }),
+        }),
+      );
+      expect(jest.mocked(copyObject)).not.toHaveBeenCalled();
+      expect(jest.mocked(deleteObject)).not.toHaveBeenCalled();
     });
 
     it("should return 200 idempotent when member is already ACTIVE in this committee", async () => {

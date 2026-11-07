@@ -210,6 +210,10 @@ export function membershipBeforeToRestore(
         at: resignedAt,
         ...exitFields,
         extra: { ...common, removedAt },
+        // The letter the row had before the accept was cleared by it (and is
+        // in that audit row's `previousLetterKey`); a letter filed since
+        // belongs to a report this undo supersedes.
+        letter: "detach",
       },
     };
   }
@@ -221,6 +225,7 @@ export function membershipBeforeToRestore(
         at: removedAt,
         ...exitFields,
         extra: { ...common, resignedAt },
+        letter: "detach",
       },
     };
   }

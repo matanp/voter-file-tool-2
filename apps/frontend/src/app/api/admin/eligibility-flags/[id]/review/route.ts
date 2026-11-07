@@ -11,9 +11,12 @@ import prisma from "~/lib/prisma";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import {
   EXIT_REPORT_STATE_SELECT,
+  exitLetterMetadata,
   supersededExitReportMetadata,
   writeMembershipExit,
+  type ResignationLetter,
 } from "~/app/api/lib/membershipExit";
+import { relocateDetachedLetters } from "~/app/api/lib/resignationLetterStorage";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
@@ -111,6 +114,7 @@ async function reviewEligibilityFlagHandler(
   const userRole = session.user.privilegeLevel ?? PrivilegeLevel.Admin;
 
   try {
+    const detachedLetters: Array<ResignationLetter | null> = [];
     const result = await prisma.$transaction(async (tx) => {
       const flag = await tx.eligibilityFlag.findUnique({
         where: { id },
@@ -233,10 +237,12 @@ async function reviewEligibilityFlagHandler(
         resignationMethod: null,
         removalReason,
         removalNotes: removalNotes ?? null,
+        letter: "detach",
       });
       if (exitResult.kind !== "written") {
         return { kind: "membershipChanged" as const };
       }
+      detachedLetters.push(exitResult.detachedLetter);
 
       await logAuditEventOrThrow(
         userId,
@@ -264,6 +270,7 @@ async function reviewEligibilityFlagHandler(
             flagId: flag.id,
             reason: flag.reason,
             ...supersededExitReportMetadata(exitResult),
+            ...exitLetterMetadata(exitResult),
           },
           membershipSubject,
         ),
@@ -311,6 +318,7 @@ async function reviewEligibilityFlagHandler(
         status: "CONFIRMED",
       };
     });
+    await relocateDetachedLetters(detachedLetters);
 
     if (result.kind === "notFound") {
       return NextResponse.json({ error: "Eligibility flag not found" }, { status: 404 });

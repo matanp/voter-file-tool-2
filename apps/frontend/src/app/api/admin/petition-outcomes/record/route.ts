@@ -15,9 +15,14 @@ import {
 } from "~/lib/validations/committee";
 import type { Session } from "next-auth";
 import {
+  exitLetterMetadata,
+  letterClearedOnLeavingResigned,
+  previousLetterMetadata,
   supersededExitReportMetadata,
   writeMembershipLeavingActive,
+  type ResignationLetter,
 } from "~/app/api/lib/membershipExit";
+import { relocateDetachedLetters } from "~/app/api/lib/resignationLetterStorage";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
@@ -175,6 +180,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
       });
     };
 
+    const detachedLetters: Array<ResignationLetter | null> = [];
     await prisma.$transaction(async (tx) => {
       const claimedSeat = await tx.seat.updateMany({
         where: { id: seat.id, isPetitioned: false },
@@ -236,8 +242,10 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             seatNumber: existing.seatNumber,
           };
           // An incumbent who loses leaves ACTIVE: that write must clear a
-          // pending Exit Report (ADR 0002), and the audit records it.
-          let supersededExitReport: Record<string, unknown> = {};
+          // pending Exit Report and its letter (ADR 0002), and the audit
+          // records both. A RESIGNED candidate's letter columns clear, and
+          // the object stays (ticket 08 decision 15).
+          let exitMetadata: Record<string, unknown> = {};
           if (
             existing.status === ACTIVE_MEMBERSHIP_STATUS &&
             status !== ACTIVE_MEMBERSHIP_STATUS
@@ -252,12 +260,19 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
                 `Membership ${existing.id} left ACTIVE while recording the petition outcome`,
               );
             }
-            supersededExitReport = supersededExitReportMetadata(result);
+            exitMetadata = {
+              ...supersededExitReportMetadata(result),
+              ...exitLetterMetadata(result),
+            };
+            detachedLetters.push(result.detachedLetter);
           } else {
             await tx.committeeMembership.update({
               where: { id: existing.id },
-              data: baseData,
+              data: { ...baseData, ...letterClearedOnLeavingResigned(existing) },
             });
+            if (existing.status === "RESIGNED") {
+              exitMetadata = previousLetterMetadata(existing);
+            }
           }
           await logAuditEventOrThrow(
             userId,
@@ -282,7 +297,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
                 resultingStatus: status,
                 activated: isWinner,
                 exclusionReason,
-                ...supersededExitReport,
+                ...exitMetadata,
               },
               buildCandidateSubject(c.voterRecordId, finalSeatNumber),
             ),
@@ -411,6 +426,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
         tx,
       );
     });
+    await relocateDetachedLetters(detachedLetters);
 
     return NextResponse.json(
       { message: "Petition outcome recorded", seatNumber },

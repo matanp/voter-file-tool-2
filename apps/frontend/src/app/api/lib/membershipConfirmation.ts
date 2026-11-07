@@ -19,8 +19,10 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import {
+  exitLetterMetadata,
   supersededExitReportMetadata,
   writeMembershipExit,
+  type ResignationLetter,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -45,7 +47,11 @@ export type ConfirmSubmittedMembershipParams = {
 };
 
 export type ConfirmSubmittedMembershipResult =
-  | { kind: "accepted" }
+  /**
+   * `detachedLetter`: a replaced member's pending letter. Move it with
+   * `relocateDetachedLetters` once the transaction commits.
+   */
+  | { kind: "accepted"; detachedLetter: ResignationLetter | null }
   | { kind: "notFound" }
   | { kind: "notSubmitted" }
   | { kind: "anotherCommittee" }
@@ -195,6 +201,7 @@ export async function confirmSubmittedMembership(
     { tx, maxSeats },
   );
 
+  let detachedLetter: ResignationLetter | null = null;
   if (replacementTarget) {
     const exitResult = await writeMembershipExit(tx, replacementTarget, {
       status: "REMOVED",
@@ -203,10 +210,12 @@ export async function confirmSubmittedMembership(
       removalReason: "OTHER",
       removalNotes: "Replacement request accepted",
       extra: { seatNumber: null },
+      letter: "detach",
     });
     if (exitResult.kind !== "written") {
       return { kind: "replacementTargetInvalid" };
     }
+    detachedLetter = exitResult.detachedLetter;
     await logAuditEventOrThrow(
       userId,
       userRole,
@@ -220,6 +229,7 @@ export async function confirmSubmittedMembership(
           reason: "replacement",
           replacementMembershipId: submittedMembership.id,
           ...supersededExitReportMetadata(exitResult),
+          ...exitLetterMetadata(exitResult),
         },
         await fetchMembershipAuditSubject(tx, {
           voterRecordId: replacementTarget.voterRecordId,
@@ -319,7 +329,7 @@ export async function confirmSubmittedMembership(
     tx,
   );
 
-  return { kind: "accepted" };
+  return { kind: "accepted", detachedLetter };
 }
 
 /** Rejects a SUBMITTED membership with race-safe conditional update. */

@@ -20,16 +20,31 @@ import {
   mergeAuditMetadata,
 } from "~/lib/auditMembershipSubject";
 import {
+  exitLetterMetadata,
+  letterOnRow,
   supersededExitReportMetadata,
   writeMembershipExit,
+  type ExitLetterOption,
   type MembershipExit,
+  type ResignationLetter,
 } from "~/app/api/lib/membershipExit";
+import {
+  discardPromotedLetter,
+  promoteStagedLetter,
+  relocateDetachedLetters,
+} from "~/app/api/lib/resignationLetterStorage";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 
 /**
  * SRS 2.3 / 2.5 — Admin records a resignation (`action: "RESIGN"`) or removes a
  * member, through the shared exit helper. A pending Exit Report on the member
  * is superseded (confirming one goes through `/api/committee/exitReport/confirm`).
+ *
+ * Resignation Letters (ticket 08): a resignation may carry the Admin's own
+ * upload (`letter`), which replaces any pending one. Without one,
+ * `keepReportedLetter: true` carries a pending report's letter over
+ * (decision 14); otherwise it is detached. A removal always detaches. The
+ * audit records `letterCarriedOver` whenever a pending letter was in play.
  */
 async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
@@ -57,6 +72,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const userId = session.user.id;
   const userRole = session.user.privilegeLevel;
   const legDistrictForDb = toDbSentinelValue(legDistrict);
+  let promoted: ResignationLetter | null = null;
 
   try {
     const activeTermId = await getActiveTermId();
@@ -131,6 +147,9 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
       seatNumber: membership.seatNumber,
     });
 
+    // Any letter on an ACTIVE row belongs to its pending resignation report.
+    const pendingLetter = letterOnRow(membership);
+
     let exit: MembershipExit;
     let action: "MEMBER_RESIGNED" | "MEMBER_REMOVED";
     let afterValue: Record<string, unknown>;
@@ -138,12 +157,29 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     if (isResign) {
       const resignData = validation.data as ResignCommitteeData;
       const trimmedNotes = blankToNull(resignData.removalNotes);
+      if (resignData.letter) {
+        const result = await promoteStagedLetter({
+          staged: resignData.letter,
+          userId,
+          membershipId: membership.id,
+        });
+        if (!result.ok) {
+          return NextResponse.json(
+            { status: "error", error: result.error },
+            { status: result.status },
+          );
+        }
+        promoted = result.letter;
+      }
+      const letter: ExitLetterOption =
+        promoted ?? (resignData.keepReportedLetter === true ? "keep" : "detach");
       exit = {
         status: "RESIGNED",
         resignationDateReceived: new Date(resignData.resignationDateReceived),
         resignationMethod: resignData.resignationMethod,
         removalReason: null,
         removalNotes: trimmedNotes,
+        letter,
       };
       action = "MEMBER_RESIGNED";
       afterValue = {
@@ -152,7 +188,9 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         resignationMethod: resignData.resignationMethod,
         ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
       };
-      baseMetadata = undefined;
+      baseMetadata = pendingLetter
+        ? { letterCarriedOver: letter === "keep" }
+        : undefined;
     } else {
       const removeData = validation.data as RemoveCommitteeData;
       const trimmedNotes = blankToNull(removeData.removalNotes);
@@ -162,6 +200,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         resignationMethod: null,
         removalReason: removeData.removalReason,
         removalNotes: trimmedNotes,
+        letter: "detach",
       };
       action = "MEMBER_REMOVED";
       afterValue = {
@@ -169,12 +208,17 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         removalReason: removeData.removalReason,
         ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
       };
-      baseMetadata = { source: "manual" };
+      baseMetadata = {
+        source: "manual",
+        ...(pendingLetter ? { letterCarriedOver: false } : {}),
+      };
     }
 
+    let detachedLetter: ResignationLetter | null = null;
     const outcome = await prisma.$transaction(async (tx) => {
       const result = await writeMembershipExit(tx, membership, exit);
       if (result.kind !== "written") return result.kind;
+      detachedLetter = result.detachedLetter;
 
       await logAuditEventOrThrow(
         userId,
@@ -190,15 +234,21 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         },
         afterValue,
         mergeAuditMetadata(
-          { ...baseMetadata, ...supersededExitReportMetadata(result) },
+          {
+            ...baseMetadata,
+            ...supersededExitReportMetadata(result),
+            ...exitLetterMetadata(result),
+          },
           membershipSubject,
         ),
         tx,
       );
       return "written" as const;
     });
+    await relocateDetachedLetters([detachedLetter]);
 
     if (outcome !== "written") {
+      await discardPromotedLetter(promoted);
       return NextResponse.json(
         { status: "error", error: MEMBER_CHANGED_MESSAGE },
         { status: 409 },
@@ -207,6 +257,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
 
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
+    await discardPromotedLetter(promoted);
     Sentry.captureException(error, {
       tags: { operation: isResign ? "resignCommittee" : "removeCommittee" },
       extra: { cityTown, legDistrict, electionDistrict, memberId },

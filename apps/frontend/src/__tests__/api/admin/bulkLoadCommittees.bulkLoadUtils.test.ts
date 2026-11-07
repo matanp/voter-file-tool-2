@@ -507,6 +507,9 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
               exitReportedAt: REPORTED_AT,
               exitReportedById: "leader-1",
               exitReportedKind: "REMOVAL",
+              resignationLetterKey: null,
+              resignationLetterContentType: null,
+              resignationLetterFileName: null,
             },
           ]),
         ); // existing active memberships in committee

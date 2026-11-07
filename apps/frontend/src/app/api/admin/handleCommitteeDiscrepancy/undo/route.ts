@@ -20,10 +20,13 @@ import {
   type DiscrepancyDecisionMetadata,
 } from "~/app/api/lib/committeeDiscrepancyResolution";
 import {
+  exitLetterMetadata,
   supersededExitReportMetadata,
   writeMembershipExit,
   writeMembershipLeavingActive,
+  type ResignationLetter,
 } from "~/app/api/lib/membershipExit";
+import { relocateDetachedLetters } from "~/app/api/lib/resignationLetterStorage";
 
 type UndoTxResult =
   | { kind: "success"; addressRestoreSkipped: boolean }
@@ -46,6 +49,7 @@ async function undoCommitteeDiscrepancyHandler(
     const actorUserId = session.user.id;
     const actorRole = session.user.privilegeLevel ?? PrivilegeLevel.Admin;
 
+    const detachedLetters: Array<ResignationLetter | null> = [];
     const result: UndoTxResult = await prisma.$transaction(async (tx) => {
       const initialDiscrepancy = await tx.committeeUploadDiscrepancy.findUnique({
         where: { VRCNUM },
@@ -128,11 +132,13 @@ async function undoCommitteeDiscrepancyHandler(
               removalReason: "OTHER",
               removalNotes: "Undo of discrepancy accept",
               extra: { seatNumber: null },
+              letter: "detach",
             },
           );
           if (exitResult.kind !== "written") {
             return { kind: "membership_diverged" as const };
           }
+          detachedLetters.push(exitResult.detachedLetter);
           const updatedMembership = exitResult.membership;
 
           if (voterRecord) {
@@ -148,6 +154,7 @@ async function undoCommitteeDiscrepancyHandler(
                 {
                   source: "discrepancy_undo",
                   ...supersededExitReportMetadata(exitResult),
+                  ...exitLetterMetadata(exitResult),
                 },
                 buildMembershipAuditSubject({
                   voterRecord,
@@ -182,6 +189,7 @@ async function undoCommitteeDiscrepancyHandler(
           if (restoreResult.kind !== "written") {
             return { kind: "membership_diverged" as const };
           }
+          detachedLetters.push(restoreResult.detachedLetter);
           const updatedMembership = restoreResult.membership;
 
           if (voterRecord && compensatingAction != null) {
@@ -197,6 +205,7 @@ async function undoCommitteeDiscrepancyHandler(
                 {
                   source: "discrepancy_undo",
                   ...supersededExitReportMetadata(restoreResult),
+                  ...exitLetterMetadata(restoreResult),
                 },
                 buildMembershipAuditSubject({
                   voterRecord,
@@ -286,6 +295,7 @@ async function undoCommitteeDiscrepancyHandler(
 
       return { kind: "success" as const, addressRestoreSkipped };
     });
+    await relocateDetachedLetters(detachedLetters);
 
     if (result.kind === "not_found") {
       return NextResponse.json(

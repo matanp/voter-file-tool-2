@@ -900,6 +900,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
           kind: "RESIGNATION",
           reportedAt: REPORTED_AT.toISOString(),
           isOwnReport: true,
+          letter: null,
         },
       ]);
       const rows = body.rows.filter((r) => r.occupant !== null);
@@ -1319,6 +1320,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
                 "MEMBER_REMOVED",
                 "MEMBER_EXIT_REPORTED",
                 "MEMBER_EXIT_REPORT_REJECTED",
+                "RESIGNATION_LETTER_ATTACHED",
                 "PETITION_RECORDED",
               ],
             },

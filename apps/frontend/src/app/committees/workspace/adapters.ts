@@ -27,6 +27,13 @@ import {
 } from "@voter-file-tool/shared-validators";
 
 import type { EligibilityWarning } from "~/lib/eligibility";
+import {
+  LETTER_MAX_BYTES,
+  LETTER_TYPE_LABEL,
+  declaredLetterType,
+  letterUploadGrantSchema,
+  type StagedLetter,
+} from "~/lib/resignationLetter";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
 import { hasPermissionFor } from "~/lib/utils";
 import {
@@ -34,7 +41,9 @@ import {
   type committeeDataSchema,
   type committeeRequestDataSchema,
   type PendingExitReport,
+  type attachResignationLetterSchema,
   type confirmExitReportSchema,
+  type LetterUploadRequest,
   type rejectExitReportSchema,
   type removeCommitteeDataSchema,
   type reportExitDataSchema,
@@ -351,6 +360,16 @@ export type ResignationInput = {
   notes: string;
 };
 
+/**
+ * What a Record resignation does about letters (ticket 08): the Admin's own
+ * upload, and whether to keep a pending report's letter (decision 14). An
+ * upload wins over keeping.
+ */
+export type ResignationLetterChoice = {
+  letter?: StagedLetter | null;
+  keepReportedLetter?: boolean;
+};
+
 const OTHER_NEEDS_NOTES = "Notes are required when the reason is Other.";
 
 /**
@@ -409,6 +428,7 @@ export async function submitRemoval(
 export async function submitResignation(
   action: Pick<ResignationAction, "committee" | "memberId">,
   input: ResignationInput,
+  letters: ResignationLetterChoice = {},
 ): Promise<ActionOutcome> {
   if (input.method === "") {
     return { ok: false, kind: "error", message: resignationProblems(input).join(" ") };
@@ -419,6 +439,11 @@ export async function submitResignation(
     resignationDateReceived: input.dateReceived.trim(),
     resignationMethod: input.method,
     ...trimmedOrOmit("removalNotes", input.notes),
+    ...(letters.letter
+      ? { letter: letters.letter }
+      : letters.keepReportedLetter
+        ? { keepReportedLetter: true }
+        : {}),
   };
   const result = await postJson("/api/committee/remove", body);
   return result.ok ? { ok: true, message: "Resignation recorded successfully" } : result;
@@ -460,6 +485,8 @@ type ReportExitBody = z.input<typeof reportExitDataSchema>;
 export async function submitExitReport(
   action: ExitReportAction,
   input: ExitReportInput,
+  /** A resignation's uploaded letter; ignored for a removal. */
+  letter: StagedLetter | null = null,
 ): Promise<ActionOutcome> {
   const { kind, reason, method } = input;
   const problems = exitReportProblems(input);
@@ -472,6 +499,7 @@ export async function submitExitReport(
       ? {
           resignationDateReceived: input.dateReceived.trim(),
           ...(method !== "" ? { resignationMethod: method } : {}),
+          ...(letter ? { letter } : {}),
         }
       : reason !== ""
         ? { removalReason: reason }
@@ -666,4 +694,100 @@ async function postJson(
     };
   }
   return { ok: true, body: json };
+}
+
+// --- Resignation Letters (leader-feedback-2026-11 ticket 08) --------------------------
+
+/** Which membership a letter is for: a current member, or a RESIGNED membership. */
+export type LetterTarget =
+  | { kind: "member"; committee: CommitteeRef; memberId: string }
+  | { kind: "membership"; membershipId: string };
+
+/** Client-side checks before asking for an upload URL; the server re-checks the bytes. */
+export function letterFileProblem(file: { name: string; type: string; size: number }): string | null {
+  if (!declaredLetterType(file)) return `The letter must be a ${LETTER_TYPE_LABEL} file.`;
+  if (file.size === 0) return "The file is empty.";
+  if (file.size > LETTER_MAX_BYTES) return "The letter must be at most 10 MB.";
+  return null;
+}
+
+function putWithProgress(
+  url: string,
+  file: Blob,
+  contentType: string,
+  onProgress: (fraction: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    // Signed: must match the declared type exactly. Content-Length is set by the browser.
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error("The upload failed. Try again."));
+    xhr.onerror = () => reject(new Error("The upload failed. Check your connection and try again."));
+    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
+    signal?.addEventListener("abort", () => xhr.abort());
+    xhr.send(file);
+  });
+}
+
+/**
+ * Gets a presigned URL and PUTs the file to staging. Resolves with what the
+ * submit sends back; the server checks the file's real size and type then.
+ */
+export async function uploadResignationLetter(
+  target: LetterTarget,
+  file: File,
+  onProgress: (fraction: number) => void,
+  signal?: AbortSignal,
+): Promise<{ ok: true; staged: StagedLetter } | { ok: false; message: string }> {
+  const problem = letterFileProblem(file);
+  const contentType = declaredLetterType(file);
+  if (problem !== null || !contentType) {
+    return { ok: false, message: problem ?? "Unsupported file" };
+  }
+
+  const body: LetterUploadRequest =
+    target.kind === "membership"
+      ? { membershipId: target.membershipId, fileName: file.name, contentType, size: file.size }
+      : {
+          cityTown: target.committee.cityTown,
+          ...legDistrictParam(target.committee),
+          electionDistrict: target.committee.electionDistrict,
+          memberId: target.memberId,
+          fileName: file.name,
+          contentType,
+          size: file.size,
+        };
+  const result = await postJson("/api/committee/resignation-letter/upload-url", body);
+  if (!result.ok) {
+    return { ok: false, message: result.kind === "error" ? result.message : "Upload refused" };
+  }
+  const grant = letterUploadGrantSchema.safeParse(result.body);
+  if (!grant.success) return { ok: false, message: "Unexpected response from the server" };
+  try {
+    await putWithProgress(grant.data.uploadUrl, file, grant.data.contentType, onProgress, signal);
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "The upload failed" };
+  }
+  return {
+    ok: true,
+    staged: { stagingKey: grant.data.stagingKey, token: grant.data.token, fileName: file.name },
+  };
+}
+
+/** Admin attaches or replaces a RESIGNED membership's letter. */
+export async function attachResignationLetter(
+  membershipId: string,
+  letter: StagedLetter,
+): Promise<ActionOutcome> {
+  const body: z.input<typeof attachResignationLetterSchema> = { membershipId, letter };
+  const result = await postJson("/api/committee/resignation-letter/attach", body);
+  return result.ok ? { ok: true, message: "Resignation letter saved" } : result;
 }

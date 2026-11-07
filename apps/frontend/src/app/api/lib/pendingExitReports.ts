@@ -12,6 +12,7 @@ import {
   PENDING_MEMBERSHIP_STATUS,
 } from "~/app/api/lib/committeeValidation";
 import type { PendingExitReport } from "~/lib/validations/committee";
+import { letterSummaryOf } from "~/lib/resignationLetter";
 
 /** A membership row carrying a pending Exit Report, in any term. */
 const exitReportOnRow = {
@@ -75,6 +76,8 @@ export function toPendingExitReport(
     kind: m.exitReportedKind,
     reportedAt: m.exitReportedAt.toISOString(),
     isOwnReport: m.exitReportedById === viewer.userId,
+    // Everyone who sees a pending report may open its letter (ticket 08 decision 4).
+    letter: letterSummaryOf(m),
     ...(viewer.isAdmin
       ? {
           reportedBy: m.exitReportedBy

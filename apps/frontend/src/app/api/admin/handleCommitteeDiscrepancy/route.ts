@@ -25,6 +25,10 @@ import {
 } from "~/app/api/lib/seatUtils";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
+  letterClearedOnLeavingResigned,
+  previousLetterMetadata,
+} from "~/app/api/lib/membershipExit";
+import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
 } from "~/lib/auditMembershipSubject";
@@ -233,6 +237,8 @@ async function handleCommitteeDiscrepancyHandler(
                 removalNotes: null,
                 petitionVoteCount: null,
                 petitionPrimaryDate: null,
+                // A RESIGNED member's letter stays in R2 (decision 15).
+                ...letterClearedOnLeavingResigned(existingMembership),
               },
             });
 
@@ -252,6 +258,7 @@ async function handleCommitteeDiscrepancyHandler(
                 {
                   source: "discrepancy_accept",
                   discrepancyVrcnum: VRCNUM,
+                  ...previousLetterMetadata(existingMembership),
                 },
                 buildMembershipAuditSubject({
                   voterRecord,

@@ -6,6 +6,28 @@
 
 ---
 
+## Cloudflare R2: Resignation Letters
+
+Resignation Letters (leader-feedback-2026-11 ticket 08) are stored in the same R2 bucket as reports (`R2_BUCKET_NAME`), under `resignation-letters/`. Terraform doesn't manage the bucket, so set these up in the Cloudflare dashboard before shipping the feature (tracked in `.scratch/leader-feedback-2026-11/issues/21-r2-letter-lifecycle-and-privacy.md`):
+
+1. **Confirm the bucket isn't public.** R2 → the bucket → Settings: *Public access* via r2.dev must be disabled, and there must be no connected custom domain. Letters hold members' signatures and personal details, and are only meant to be reachable through 5-minute presigned URLs. If the bucket is public, stop: don't ship letters to it.
+2. **Lifecycle rules** (R2 → the bucket → Settings → Object lifecycle rules):
+   - prefix `resignation-letters/staging/`: delete objects 1 day after upload (abandoned uploads);
+   - prefix `resignation-letters/rejected/`: delete objects 90 days after upload (rejected or superseded unconfirmed letters).
+
+   Don't add a rule for the rest of `resignation-letters/`: confirmed letters are kept indefinitely.
+3. **CORS** for the browser's presigned PUT (R2 → the bucket → Settings → CORS policy): allow `PUT` from the app's origin with the `Content-Type` header, e.g.
+
+   ```json
+   [{ "AllowedOrigins": ["https://<app-domain>"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["content-type"], "MaxAgeSeconds": 3600 }]
+   ```
+
+   Skip this if the bucket already allows PUTs from the app (the Admin CSV upload uses the same mechanism).
+
+The upload token is signed with `AUTH_SECRET`, which the app already requires.
+
+---
+
 ## Manual Deployment (When Not Using Terraform)
 
 Use these steps when you deploy the report-server manually (e.g. existing server, troubleshooting, or non-Terraform setup).

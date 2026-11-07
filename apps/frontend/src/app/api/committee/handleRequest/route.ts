@@ -11,6 +11,7 @@ import {
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 import { validateEligibility } from "~/lib/eligibility";
+import { relocateDetachedLetters } from "~/app/api/lib/resignationLetterStorage";
 
 async function handleRequestHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
@@ -137,6 +138,9 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
           auditMetadata: auditMetadataWithMeeting,
         }),
       );
+      if (outcome.kind === "accepted") {
+        await relocateDetachedLetters([outcome.detachedLetter]);
+      }
 
       if (outcome.kind === "notFound") {
         return NextResponse.json(

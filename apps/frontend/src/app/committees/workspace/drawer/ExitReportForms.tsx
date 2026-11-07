@@ -12,6 +12,9 @@
  * An Admin confirms or rejects the report as filed (Pending tab); there is no
  * editing, so the report carries everything the recorded exit needs: a
  * resignation's date received and method, or a removal's reason.
+ *
+ * A resignation can carry one optional Resignation Letter (ticket 08); the
+ * instructions dialog says whether one is attached.
  */
 import React, { useEffect, useId, useState } from "react";
 
@@ -39,6 +42,13 @@ import {
   type ExitReportInput,
 } from "../adapters";
 import { useActionSubmit } from "./drawerParts";
+import {
+  EMPTY_LETTER,
+  ResignationLetterField,
+  letterFieldBusy,
+  stagedLetterOf,
+  type LetterFieldState,
+} from "./ResignationLetterField";
 import {
   ExitFormLayout,
   NotesField,
@@ -106,10 +116,16 @@ export function ExitInstructionsDialog({
   open,
   onCancel,
   onContinue,
+  letterFileName,
 }: {
   open: boolean;
   onCancel: () => void;
   onContinue: () => void;
+  /**
+   * For a resignation: the attached letter's name, or null for none, shown as
+   * a fixed line under the Admin's text (decision 8). Omit for a removal.
+   */
+  letterFileName?: string | null;
 }) {
   const [state, setState] = useState<InstructionsState>(cachedState);
 
@@ -158,6 +174,18 @@ export function ExitInstructionsDialog({
                 <p role="alert">
                   {state.message}. Go back and try again before sending the
                   report.
+                </p>
+              )}
+              {letterFileName !== undefined && (
+                <p data-testid="exit-letter-status">
+                  {letterFileName ? (
+                    <>
+                      Letter attached:{" "}
+                      <span className="font-medium">{letterFileName}</span>
+                    </>
+                  ) : (
+                    "No letter attached"
+                  )}
                 </p>
               )}
               <p>
@@ -209,19 +237,30 @@ export function ReportExitForm({
   const id = useId();
   const [input, setInput] = useState<ExitReportInput>(EMPTY_REPORT);
   const [confirming, setConfirming] = useState(false);
+  const [letter, setLetter] = useState<LetterFieldState>(EMPTY_LETTER);
   const { submitting, failure, run } = useActionSubmit(onSuccess);
   useEffect(prefetchExitInstructions, []);
   const setField = (patch: Partial<ExitReportInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
+  const isResignation = input.kind === "RESIGNATION";
+  // Only a resignation sends its letter; switching to removal keeps the file
+  // picked but never sends it.
+  const staged = isResignation ? stagedLetterOf(letter) : null;
   const send = () => {
     setConfirming(false);
-    void run(() => submitExitReport(action, input));
+    void run(() => submitExitReport(action, input, staged));
   };
+  const problems = [
+    ...exitReportProblems(input),
+    ...(isResignation && letterFieldBusy(letter)
+      ? ["Wait for the letter to finish uploading."]
+      : []),
+  ];
 
   return (
     <>
       <ExitFormLayout
-        problems={exitReportProblems(input)}
+        problems={problems}
         failure={failure}
         failureTitle="Could not send the report"
         submitting={submitting}
@@ -256,6 +295,16 @@ export function ReportExitForm({
         {input.kind === "RESIGNATION" && (
           <>
             <ResignationReceivedFields value={input} onChange={setField} />
+            <ResignationLetterField
+              target={{
+                kind: "member",
+                committee: action.committee,
+                memberId: action.memberId,
+              }}
+              value={letter}
+              onChange={setLetter}
+              disabled={submitting}
+            />
             <NotesField
               value={input.notes}
               required={false}
@@ -271,6 +320,13 @@ export function ReportExitForm({
         open={confirming}
         onCancel={() => setConfirming(false)}
         onContinue={send}
+        letterFileName={
+          isResignation
+            ? letter.status === "ready"
+              ? letter.fileName
+              : null
+            : undefined
+        }
       />
     </>
   );

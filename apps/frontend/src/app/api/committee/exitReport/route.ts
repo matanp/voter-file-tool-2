@@ -8,6 +8,11 @@
  * Refuses: committees outside a Leader's jurisdictions (403), members who
  * aren't ACTIVE (400), and members who already have a pending report (409,
  * via a conditional update so two concurrent reports can't both land).
+ *
+ * A resignation may carry a Resignation Letter (ticket 08): the staging key
+ * and token from `/api/committee/resignation-letter/upload-url`. The file's
+ * token, size and first bytes are checked here, and it is copied into the
+ * membership's prefix before the report is written (400 if it fails).
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -26,7 +31,14 @@ import {
   getActiveTermId,
 } from "~/app/api/lib/committeeValidation";
 import { leaderMayActOnCommittee } from "~/app/api/lib/exitReportAccess";
-import { fileExitReport } from "~/app/api/lib/membershipExit";
+import {
+  fileExitReport,
+  type ResignationLetter,
+} from "~/app/api/lib/membershipExit";
+import {
+  discardPromotedLetter,
+  promoteStagedLetter,
+} from "~/app/api/lib/resignationLetterStorage";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
@@ -58,9 +70,12 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
     removalNotes,
     resignationDateReceived,
     resignationMethod,
+    letter: stagedLetter,
   } = validation.data;
   const userId = session.user.id;
   const userRole = session.user.privilegeLevel;
+  // A copy made for this report; deleted again if the report doesn't land.
+  let promoted: ResignationLetter | null = null;
 
   try {
     const activeTermId = await getActiveTermId();
@@ -143,6 +158,21 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
       );
     }
 
+    if (stagedLetter) {
+      const result = await promoteStagedLetter({
+        staged: stagedLetter,
+        userId,
+        membershipId: membership.id,
+      });
+      if (!result.ok) {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: result.status },
+        );
+      }
+      promoted = result.letter;
+    }
+
     const notes = blankToNull(removalNotes);
     const isResignation = kind === "RESIGNATION";
     const reported = {
@@ -155,6 +185,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
       resignationMethod: isResignation ? (resignationMethod ?? null) : null,
       removalReason: isResignation ? null : (removalReason ?? null),
       removalNotes: notes,
+      letter: isResignation ? promoted : null,
     };
 
     const reportedAt = await prisma.$transaction(async (tx) => {
@@ -184,7 +215,12 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
             : {}),
         },
         mergeAuditMetadata(
-          undefined,
+          promoted
+            ? {
+                resignationLetterKey: promoted.key,
+                resignationLetterFileName: promoted.fileName,
+              }
+            : undefined,
           buildMembershipAuditSubject({
             voterRecord: membership.voterRecord,
             committee,
@@ -198,6 +234,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
     });
 
     if (reportedAt === null) {
+      await discardPromotedLetter(promoted);
       // Lost a race: another report landed, or the member left, since the read.
       return NextResponse.json(
         {
@@ -214,6 +251,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
       { status: 201 },
     );
   } catch (error) {
+    await discardPromotedLetter(promoted);
     Sentry.captureException(error, {
       tags: { operation: "reportExit" },
       extra: { cityTown, legDistrict, electionDistrict, memberId },

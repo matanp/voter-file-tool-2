@@ -13,6 +13,12 @@ import {
   ResignationMethod,
 } from "@prisma/client";
 import type { EligibilityWarning } from "~/lib/eligibility";
+import {
+  LETTER_CONTENT_TYPES,
+  LETTER_MAX_BYTES,
+  letterSummarySchema,
+  stagedLetterSchema,
+} from "~/lib/resignationLetter";
 
 /** Typed shape of CommitteeMembership.submissionMetadata (leader request context). */
 export type CommitteeMembershipSubmissionMetadata = {
@@ -277,8 +283,19 @@ export const resignCommitteeDataSchema = committeeMemberTargetSchema
     resignationDateReceived: isoDateString,
     resignationMethod: z.nativeEnum(ResignationMethod),
     removalNotes: z.string().trim().max(1000).optional(),
+    /** Optional (ticket 08): the Admin's own upload. Replaces a pending report's letter. */
+    letter: stagedLetterSchema.optional(),
+    /**
+     * Ticket 08 decision 14: keep the letter a pending resignation report
+     * carries. Only `true` keeps it; omitted or false detaches it.
+     */
+    keepReportedLetter: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine((d) => !(d.letter && d.keepReportedLetter), {
+    message: "Keep the Leader's letter or attach a new one, not both",
+    path: ["keepReportedLetter"],
+  });
 
 // Handle committee membership request data validation schema (SRS 1.2 — uses CommitteeMembership)
 export const handleCommitteeRequestDataSchema = z
@@ -485,9 +502,18 @@ export const reportExitDataSchema = committeeMemberTargetSchema
     removalNotes: z.string().trim().max(1000).optional(),
     resignationDateReceived: isoDateString.optional(),
     resignationMethod: z.nativeEnum(ResignationMethod).optional(),
+    /** Optional, resignations only (ticket 08): a letter PUT to staging. */
+    letter: stagedLetterSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
+    if (data.kind === "REMOVAL" && data.letter !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Only a resignation can have a letter attached",
+        path: ["letter"],
+      });
+    }
     if (data.kind === "RESIGNATION") {
       if (data.resignationDateReceived === undefined) {
         ctx.addIssue({
@@ -1009,9 +1035,53 @@ export const pendingExitReportSchema = detailVoterSchema.extend({
   resignationDateReceived: z.string().nullable().optional(),
   /** Admin only. */
   resignationMethod: z.nativeEnum(ResignationMethod).nullable().optional(),
+  /**
+   * The attached Resignation Letter, or null. Everyone who sees the report
+   * may open it while it is pending (ticket 08 decision 4).
+   */
+  letter: letterSummarySchema.nullable(),
 });
 
 export type PendingExitReport = z.infer<typeof pendingExitReportSchema>;
+
+// --- Resignation Letters (leader-feedback-2026-11 ticket 08) ---------------------
+
+/** The file a letter upload declares; the server checks the real bytes at submit. */
+const letterFileFields = {
+  fileName: z.string().trim().min(1, "File name is required").max(255),
+  contentType: z.enum(LETTER_CONTENT_TYPES, {
+    errorMap: () => ({
+      message: "The letter must be a PDF, JPEG, PNG or HEIC file.",
+    }),
+  }),
+  size: z
+    .number()
+    .int()
+    .positive("The file is empty")
+    .max(LETTER_MAX_BYTES, "The letter must be at most 10 MB."),
+};
+
+/** A letter upload for a membership by id (a RESIGNED member's late attach). */
+export const letterUploadByIdSchema = z
+  .object({ membershipId: z.string().trim().min(1), ...letterFileFields })
+  .strict();
+
+/** A letter upload for a current member, keyed like the roster's actions. */
+export const letterUploadByMemberSchema = committeeMemberTargetSchema
+  .extend(letterFileFields)
+  .strict();
+
+export type LetterUploadRequest =
+  | z.input<typeof letterUploadByIdSchema>
+  | z.input<typeof letterUploadByMemberSchema>;
+
+/** Admin attaches or replaces the letter on a RESIGNED membership. */
+export const attachResignationLetterSchema = z
+  .object({
+    membershipId: z.string().trim().min(1, "membershipId is required"),
+    letter: stagedLetterSchema,
+  })
+  .strict();
 
 /** SRS 2.6 — one petition candidate as `/api/admin/petition-outcomes` lists it (Admin-only). */
 export const petitionOutcomeContextSchema = z.object({
@@ -1131,6 +1201,14 @@ export const historyEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("resigned"),
     /** `resignationDateReceived`, ISO. */
     effectiveDate: z.string().optional(),
+    /**
+     * Admin only, on the newest resignation of a membership that is still
+     * RESIGNED: which membership the letter actions target, and its current
+     * Resignation Letter (null when none is attached).
+     */
+    letterTarget: z
+      .object({ membershipId: z.string(), letter: letterSummarySchema.nullable() })
+      .optional(),
     /** Admin only. */
     method: z.nativeEnum(ResignationMethod).optional(),
     /** Admin only. */
@@ -1165,6 +1243,13 @@ export const historyEventSchema = z.discriminatedUnion("kind", [
     exitKind: z.nativeEnum(ExitReportKind).optional(),
     /** Admin only. */
     rejectionNote: z.string().optional(),
+  }),
+  /** Admin only — an Admin attached or replaced a recorded resignation's letter. */
+  z.object({
+    ...historyEventBase,
+    kind: z.literal("letter_attached"),
+    fileName: z.string().optional(),
+    replaced: z.boolean(),
   }),
   /** Admin only — the whole event is omitted for non-Admins. */
   z.object({

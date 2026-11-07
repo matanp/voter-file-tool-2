@@ -2,7 +2,9 @@
  * POST /api/committee/exitReport/reject — an Admin rejects a Leader's pending
  * Exit Report. Clears the report and the four exit fields; the member stays
  * ACTIVE. The rejection lives only in the audit log
- * (`MEMBER_EXIT_REPORT_REJECTED`).
+ * (`MEMBER_EXIT_REPORT_REJECTED`). An attached letter is detached and moved
+ * under `resignation-letters/rejected/` after commit; its new key is in the
+ * audit metadata (`detachedResignationLetter`) for 90 days' recovery.
  *
  * The body echoes the `exitReportedAt` the Admin saw; a row whose report has
  * since changed (confirmed, rejected, re-filed, or the member left) is a 409.
@@ -19,7 +21,12 @@ import {
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
-import { clearRejectedExitReport } from "~/app/api/lib/membershipExit";
+import {
+  clearRejectedExitReport,
+  detachedLetterAudit,
+  type ResignationLetter,
+} from "~/app/api/lib/membershipExit";
+import { relocateDetachedLetters } from "~/app/api/lib/resignationLetterStorage";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
@@ -80,9 +87,11 @@ async function rejectExitReportHandler(
       );
     }
 
+    let detachedLetter: ResignationLetter | null = null;
     const outcome = await prisma.$transaction(async (tx) => {
-      const cleared = await clearRejectedExitReport(tx, membershipId, expectedAt);
-      if (!cleared) return "changed" as const;
+      const cleared = await clearRejectedExitReport(tx, membership, expectedAt);
+      if (cleared.kind === "changed") return "changed" as const;
+      detachedLetter = cleared.detachedLetter;
 
       await logAuditEventOrThrow(
         userId,
@@ -102,6 +111,13 @@ async function rejectExitReportHandler(
             reportedById: membership.exitReportedById,
             reportedAt: exitReportedAt,
             ...(note ? { rejectionNote: note } : {}),
+            ...(cleared.detachedLetter
+              ? {
+                  detachedResignationLetter: detachedLetterAudit(
+                    cleared.detachedLetter,
+                  ),
+                }
+              : {}),
           },
           buildMembershipAuditSubject({
             voterRecord: membership.voterRecord,
@@ -114,6 +130,7 @@ async function rejectExitReportHandler(
       );
       return "rejected" as const;
     });
+    await relocateDetachedLetters([detachedLetter]);
 
     if (outcome === "changed") {
       return NextResponse.json(

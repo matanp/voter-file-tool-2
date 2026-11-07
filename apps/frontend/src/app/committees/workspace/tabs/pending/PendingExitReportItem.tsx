@@ -16,6 +16,10 @@
  *
  * Both echo the report's `reportedAt`, so a report that changed since the
  * detail loaded is refused with "This member changed, refresh."
+ *
+ * A resignation's Resignation Letter (ticket 08) shows as "View letter" for
+ * everyone who sees the report, and again in the Confirm step so the Admin
+ * can read it first. Confirming keeps it; rejecting detaches it.
  */
 import React, { useId, useRef, useState } from "react";
 
@@ -38,7 +42,9 @@ import {
 } from "~/lib/dateUtils";
 import { REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import type { PendingExitReport } from "~/lib/validations/committee";
+import { letterViewHref } from "~/lib/resignationLetter";
 import { confirmExitReport, rejectExitReport } from "../../adapters";
+import { ViewLetterLink } from "../../drawer/ResignationLetterField";
 import { personName, type PendingDecision } from "./PendingSubmissionItem";
 
 export type PendingExitReportItemProps = {
@@ -145,6 +151,22 @@ export function PendingExitReportItem({
         </div>
       </div>
 
+      {report.kind === "RESIGNATION" && (
+        <p data-testid="pending-exit-letter">
+          {report.letter ? (
+            <>
+              <span className="font-medium">Letter:</span> {report.letter.fileName}{" "}
+              <ViewLetterLink
+                href={letterViewHref(report.membershipId)}
+                fileName={report.letter.fileName}
+              />
+            </>
+          ) : (
+            <span className="text-slate-600 dark:text-slate-400">No letter attached</span>
+          )}
+        </p>
+      )}
+
       {canDecide && (
         <div className="space-y-0.5">
           {report.removalReason && (
@@ -227,6 +249,24 @@ export function PendingExitReportItem({
                 : `Record this ${kindWord} exactly as reported? To change anything, reject it so the Leader can report it again.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {report.kind === "RESIGNATION" && (
+            <p className="text-sm">
+              {report.letter ? (
+                <>
+                  {dialogStep === "reject"
+                    ? "The attached letter is removed with the report: "
+                    : "Letter attached: "}
+                  <span className="font-medium">{report.letter.fileName}</span>{" "}
+                  <ViewLetterLink
+                    href={letterViewHref(report.membershipId)}
+                    fileName={report.letter.fileName}
+                  />
+                </>
+              ) : (
+                "No letter attached."
+              )}
+            </p>
+          )}
           <div className="grid gap-1">
             <Label htmlFor={`${ids}-note`}>Note (optional)</Label>
             <Textarea

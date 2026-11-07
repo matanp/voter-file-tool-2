@@ -16,6 +16,14 @@
  * - Writes are conditional on the row still being ACTIVE. Confirming a report
  *   also requires it to be exactly the report the Admin saw (409 otherwise);
  *   other exits supersede whatever report the row has when they land.
+ * - The Resignation Letter columns follow the exit fields (ticket 08). Every
+ *   exit says what happens to a pending letter (`letter`, required): keep it,
+ *   detach it, or attach a new one. A detached letter is returned so the
+ *   caller can move its object to `resignation-letters/rejected/` **after**
+ *   the transaction commits (`relocateDetachedLetters`). Leaving ACTIVE for a
+ *   non-exit status always detaches. Reactivating a RESIGNED row clears the
+ *   columns and leaves the object where it is (`CLEARED_LETTER_FIELDS`,
+ *   `previousLetterMetadata`).
  */
 
 import type {
@@ -26,6 +34,87 @@ import type {
   ResignationMethod,
 } from "@prisma/client";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
+import {
+  isLetterContentType,
+  rejectedLetterKey,
+  type LetterContentType,
+} from "~/lib/resignationLetter";
+
+/** A letter on a membership row: its R2 key, sniffed type, and display name. */
+export type ResignationLetter = {
+  key: string;
+  contentType: LetterContentType;
+  fileName: string;
+};
+
+/**
+ * What an exit does with the row's pending letter:
+ *
+ * - `"keep"`: the pending resignation report's letter becomes the recorded
+ *   one (confirm; an Admin's Record resignation with carry-over ticked).
+ * - `"detach"`: the columns are cleared and the letter is returned as
+ *   `detachedLetter` (reject, removals, every other superseding exit).
+ * - a `ResignationLetter`: a newly uploaded letter; any pending one it
+ *   replaces is detached.
+ */
+export type ExitLetterOption = "keep" | "detach" | ResignationLetter;
+
+type LetterColumns = {
+  resignationLetterKey: string | null;
+  resignationLetterContentType: string | null;
+  resignationLetterFileName: string | null;
+};
+
+export const CLEARED_LETTER_FIELDS = {
+  resignationLetterKey: null,
+  resignationLetterContentType: null,
+  resignationLetterFileName: null,
+} as const satisfies LetterColumns;
+
+/** The row's letter, or null. */
+export function letterOnRow(row: LetterColumns): ResignationLetter | null {
+  const { resignationLetterKey: key, resignationLetterContentType: type } = row;
+  if (!key || !isLetterContentType(type)) return null;
+  return {
+    key,
+    contentType: type,
+    fileName: row.resignationLetterFileName ?? "letter",
+  };
+}
+
+function letterColumns(letter: ResignationLetter): LetterColumns {
+  return {
+    resignationLetterKey: letter.key,
+    resignationLetterContentType: letter.contentType,
+    resignationLetterFileName: letter.fileName,
+  };
+}
+
+/**
+ * Audit metadata for a write that moves a RESIGNED row to another status
+ * (reactivation, resubmission): `{ previousLetterKey }` when it had a letter.
+ * Pair it with `CLEARED_LETTER_FIELDS` in the write. The object stays in
+ * `resignation-letters/<membershipId>/`: a confirmed letter is never moved to
+ * the 90-day prefix (decision 15).
+ */
+export function previousLetterMetadata(row: LetterColumns): {
+  previousLetterKey?: string;
+} {
+  return row.resignationLetterKey
+    ? { previousLetterKey: row.resignationLetterKey }
+    : {};
+}
+
+/**
+ * What a write that leaves RESIGNED for a non-exit status adds to its data:
+ * the cleared letter columns, only when the row is RESIGNED (an ACTIVE row's
+ * pending letter belongs to its report and is left alone).
+ */
+export function letterClearedOnLeavingResigned(row: {
+  status: string;
+}): Partial<typeof CLEARED_LETTER_FIELDS> {
+  return row.status === "RESIGNED" ? CLEARED_LETTER_FIELDS : {};
+}
 
 export type MembershipExitFields = {
   resignationDateReceived: Date | null;
@@ -40,6 +129,7 @@ export type MembershipExitFields = {
  */
 type ExitOwnedColumn =
   | keyof MembershipExitFields
+  | keyof LetterColumns
   | "status"
   | "exitReportedAt"
   | "exitReportedById"
@@ -54,6 +144,11 @@ export type MembershipExit = MembershipExitFields & {
   at?: Date | null;
   /** Other columns the path writes in the same update, e.g. `seatNumber: null`. */
   extra?: Omit<Prisma.CommitteeMembershipUncheckedUpdateInput, ExitOwnedColumn>;
+  /**
+   * Required, so no path can drop a letter silently. A removal can only
+   * detach: letters belong to resignations.
+   */
+  letter: ExitLetterOption;
 };
 
 /** The report fields as they were on the row before a write cleared them. */
@@ -71,6 +166,13 @@ export type MembershipExitResult =
       membership: CommitteeMembership;
       /** The pending report this write cleared, if there was one. */
       clearedReport: ClearedExitReport | null;
+      /**
+       * The pending letter this write took off the row, if any. Move it with
+       * `relocateDetachedLetters` once the transaction commits.
+       */
+      detachedLetter: ResignationLetter | null;
+      /** The letter the row has after the write (kept, newly attached, or none). */
+      letter: ResignationLetter | null;
     }
   /**
    * Nothing written: the row is no longer ACTIVE, its report changed since it
@@ -97,7 +199,7 @@ export const CLEARED_EXIT_FIELDS = {
  * writing so superseding exits do not depend on how often the report state
  * changed before the lock was acquired.
  */
-export type ExitReportState = {
+export type ExitReportState = LetterColumns & {
   id: string;
   exitReportedAt: Date | null;
   exitReportedById: string | null;
@@ -110,7 +212,37 @@ export const EXIT_REPORT_STATE_SELECT = {
   exitReportedAt: true,
   exitReportedById: true,
   exitReportedKind: true,
+  resignationLetterKey: true,
+  resignationLetterContentType: true,
+  resignationLetterFileName: true,
 } as const satisfies Prisma.CommitteeMembershipSelect;
+
+/** The write's data for the row as it is when written, plus the letter it detaches. */
+type BuildWrite = (row: ExitReportState) => {
+  data: Prisma.CommitteeMembershipUncheckedUpdateInput;
+  detachedLetter: ResignationLetter | null;
+  letter: ResignationLetter | null;
+};
+
+function letterWrite(
+  option: ExitLetterOption,
+  row: ExitReportState,
+): {
+  data: Partial<LetterColumns>;
+  detachedLetter: ResignationLetter | null;
+  letter: ResignationLetter | null;
+} {
+  const pending = letterOnRow(row);
+  if (option === "keep") return { data: {}, detachedLetter: null, letter: pending };
+  if (option === "detach") {
+    return { data: CLEARED_LETTER_FIELDS, detachedLetter: pending, letter: null };
+  }
+  return {
+    data: letterColumns(option),
+    detachedLetter: pending && pending.key !== option.key ? pending : null,
+    letter: option,
+  };
+}
 
 function toClearedReport(state: ExitReportState): ClearedExitReport | null {
   if (state.exitReportedAt == null || state.exitReportedKind == null) {
@@ -145,10 +277,13 @@ function isRecordNotFound(error: unknown): boolean {
 async function updateIfUnchanged(
   tx: Prisma.TransactionClient,
   state: ExitReportState,
-  data: Prisma.CommitteeMembershipUncheckedUpdateInput,
+  build: BuildWrite,
   mode: "exact" | "supersede",
 ): Promise<MembershipExitResult> {
   try {
+    // The letter is filed with the report and cleared with it, so a row whose
+    // `exitReportedAt` still matches still has the letter the caller read.
+    const { data, detachedLetter, letter } = build(state);
     const membership = await tx.committeeMembership.update({
       where: {
         id: state.id,
@@ -162,6 +297,8 @@ async function updateIfUnchanged(
       kind: "written",
       membership,
       clearedReport: toClearedReport(state),
+      detachedLetter,
+      letter,
     };
   } catch (error) {
     if (!isRecordNotFound(error)) throw error;
@@ -183,6 +320,7 @@ async function updateIfUnchanged(
   }
 
   try {
+    const { data, detachedLetter, letter } = build(current);
     const membership = await tx.committeeMembership.update({
       where: { id: current.id, status: ACTIVE_MEMBERSHIP_STATUS },
       data: { ...data, ...CLEARED_EXIT_REPORT_FIELDS },
@@ -191,6 +329,8 @@ async function updateIfUnchanged(
       kind: "written",
       membership,
       clearedReport: toClearedReport(current),
+      detachedLetter,
+      letter,
     };
   } catch (error) {
     if (!isRecordNotFound(error)) throw error;
@@ -208,6 +348,43 @@ export function supersededExitReportMetadata(
   return result.clearedReport
     ? { supersededExitReport: result.clearedReport }
     : {};
+}
+
+/** How an audit row names a detached letter, which is moved after commit. */
+export type DetachedLetterAudit = {
+  /** Where the object is moved: under the 90-day `rejected/` prefix. */
+  key: string;
+  /** Where it was when detached (and stays, if the move fails). */
+  originalKey: string;
+  fileName: string;
+};
+
+export function detachedLetterAudit(
+  letter: ResignationLetter,
+): DetachedLetterAudit {
+  return {
+    key: rejectedLetterKey(letter.key),
+    originalKey: letter.key,
+    fileName: letter.fileName,
+  };
+}
+
+/**
+ * Audit metadata for an exit's letter: `{ detachedResignationLetter }` when it
+ * detached one, and `{ resignationLetterKey }` when the row now has one.
+ */
+export function exitLetterMetadata(
+  result: Extract<MembershipExitResult, { kind: "written" }>,
+): {
+  detachedResignationLetter?: DetachedLetterAudit;
+  resignationLetterKey?: string;
+} {
+  return {
+    ...(result.detachedLetter
+      ? { detachedResignationLetter: detachedLetterAudit(result.detachedLetter) }
+      : {}),
+    ...(result.letter ? { resignationLetterKey: result.letter.key } : {}),
+  };
 }
 
 /**
@@ -230,20 +407,35 @@ export async function writeMembershipExit(
   ) {
     return { kind: "changed" };
   }
+  if (exit.status === "REMOVED" && exit.letter !== "detach") {
+    throw new Error("A removal can only detach a resignation letter");
+  }
   const at = exit.at === undefined ? new Date() : exit.at;
   const mode =
     options.expectedExitReportedAt !== undefined ? "exact" : "supersede";
   return updateIfUnchanged(
     tx,
     state,
-    {
-      ...exit.extra,
-      status: exit.status,
-      ...(exit.status === "RESIGNED" ? { resignedAt: at } : { removedAt: at }),
-      resignationDateReceived: exit.resignationDateReceived,
-      resignationMethod: exit.resignationMethod,
-      removalReason: exit.removalReason,
-      removalNotes: exit.removalNotes,
+    (row) => {
+      // "keep" keeps only a pending *resignation* report's letter; there is
+      // never one on any other row (CHECK constraint).
+      const letter = letterWrite(exit.letter, row);
+      return {
+        data: {
+          ...exit.extra,
+          status: exit.status,
+          ...(exit.status === "RESIGNED"
+            ? { resignedAt: at }
+            : { removedAt: at }),
+          resignationDateReceived: exit.resignationDateReceived,
+          resignationMethod: exit.resignationMethod,
+          removalReason: exit.removalReason,
+          removalNotes: exit.removalNotes,
+          ...letter.data,
+        },
+        detachedLetter: letter.detachedLetter,
+        letter: letter.letter,
+      };
     },
     mode,
   );
@@ -251,26 +443,40 @@ export async function writeMembershipExit(
 
 /**
  * Moves an ACTIVE membership to a status that isn't an exit (a discrepancy
- * undo restoring SUBMITTED, REJECTED, …), clearing any pending report in the
- * same write.
+ * undo restoring SUBMITTED, REJECTED, …), clearing any pending report, and
+ * detaching its letter, in the same write.
  */
 export async function writeMembershipLeavingActive(
   tx: Prisma.TransactionClient,
   state: ExitReportState,
   data: Omit<
     Prisma.CommitteeMembershipUncheckedUpdateInput,
-    "exitReportedAt" | "exitReportedById" | "exitReportedKind"
+    "exitReportedAt" | "exitReportedById" | "exitReportedKind" | keyof LetterColumns
   >,
 ): Promise<MembershipExitResult> {
   if (data.status === "RESIGNED" || data.status === "REMOVED") {
     throw new Error("Exit statuses must be written with writeMembershipExit");
   }
-  return updateIfUnchanged(tx, state, data, "supersede");
+  return updateIfUnchanged(
+    tx,
+    state,
+    (row) => {
+      const letter = letterWrite("detach", row);
+      return {
+        data: { ...data, ...letter.data },
+        detachedLetter: letter.detachedLetter,
+        letter: null,
+      };
+    },
+    "supersede",
+  );
 }
 
 export type ExitReportInput = MembershipExitFields & {
   kind: ExitReportKind;
   reportedById: string;
+  /** A resignation's uploaded letter, already checked and copied; null for none. */
+  letter: ResignationLetter | null;
 };
 
 /**
@@ -283,6 +489,9 @@ export async function fileExitReport(
   membershipId: string,
   report: ExitReportInput,
 ): Promise<Date | null> {
+  if (report.letter && report.kind !== "RESIGNATION") {
+    throw new Error("Only a resignation report can carry a letter");
+  }
   const reportedAt = new Date();
   const { count } = await tx.committeeMembership.updateMany({
     where: {
@@ -298,27 +507,60 @@ export async function fileExitReport(
       resignationMethod: report.resignationMethod,
       removalReason: report.removalReason,
       removalNotes: report.removalNotes,
+      ...(report.letter ? letterColumns(report.letter) : CLEARED_LETTER_FIELDS),
     },
   });
   return count === 0 ? null : reportedAt;
 }
 
 /**
- * Rejects the pending report the Admin saw: clears the report and the four
- * exit fields, leaving the member ACTIVE. False when the row changed.
+ * Rejects the pending report the Admin saw: clears the report, the four exit
+ * fields and the letter, leaving the member ACTIVE. `row` is the read the
+ * Admin's request was checked against; the write applies only while its
+ * `exitReportedAt` still matches, so its letter is the one detached.
  */
 export async function clearRejectedExitReport(
   tx: Prisma.TransactionClient,
-  membershipId: string,
+  row: LetterColumns & { id: string },
   expectedExitReportedAt: Date,
-): Promise<boolean> {
+): Promise<
+  | { kind: "cleared"; detachedLetter: ResignationLetter | null }
+  | { kind: "changed" }
+> {
   const { count } = await tx.committeeMembership.updateMany({
     where: {
-      id: membershipId,
+      id: row.id,
       status: ACTIVE_MEMBERSHIP_STATUS,
       exitReportedAt: expectedExitReportedAt,
     },
-    data: { ...CLEARED_EXIT_REPORT_FIELDS, ...CLEARED_EXIT_FIELDS },
+    data: {
+      ...CLEARED_EXIT_REPORT_FIELDS,
+      ...CLEARED_EXIT_FIELDS,
+      ...CLEARED_LETTER_FIELDS,
+    },
+  });
+  if (count === 0) return { kind: "changed" };
+  return { kind: "cleared", detachedLetter: letterOnRow(row) };
+}
+
+/**
+ * An Admin attaches or replaces the letter on a RESIGNED row (decision 12).
+ * The exit fields are untouched. Applies only while the row is still RESIGNED
+ * with the letter the caller read; false when it changed. A replaced object
+ * stays in R2 (decision 15): record its key as `previousLetterKey`.
+ */
+export async function attachRecordedLetter(
+  tx: Prisma.TransactionClient,
+  row: LetterColumns & { id: string },
+  letter: ResignationLetter,
+): Promise<boolean> {
+  const { count } = await tx.committeeMembership.updateMany({
+    where: {
+      id: row.id,
+      status: "RESIGNED",
+      resignationLetterKey: row.resignationLetterKey ?? null,
+    },
+    data: letterColumns(letter),
   });
   return count > 0;
 }
