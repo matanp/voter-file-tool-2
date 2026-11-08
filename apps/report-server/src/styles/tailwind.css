@@ -1,3 +1,17 @@
 @tailwind base;
+/* Preflight leaves the browser's default 1px cell padding, which breaks
+   row-count pagination budgets. Cells set their own padding. */
+@layer base {
+  td,
+  th {
+    padding: 0;
+  }
+}
 @tailwind components;
+/* Report pages end with <div className="page-break" />. */
+@layer components {
+  .page-break {
+    break-after: page;
+  }
+}
 @tailwind utilities;
