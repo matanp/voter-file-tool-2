@@ -61,7 +61,7 @@ pnpm run terraform:recreate
 
 ## Step 3: SSL Certificate
 
-Certbot is attempted **automatically** during `07-start-services.sh` when Terraform provisions the instance, using `certbot_email` from `terraform.tfvars` (required when `use_ssl = true` with a `domain_name` and no self-signed cert; `terraform plan` fails without it). The script first waits up to ~5 minutes for the domain to resolve to the instance's public IP (the static IP is attached after the instance boots), then tries certbot up to 3 times. If it still fails, the user-data log shows `⚠️  HTTPS NOT CONFIGURED` and the setup summary says it finished with warnings. Check `/var/log/user-data.log` and `/tmp/certbot.log`, then SSH in and run manually:
+Certbot is attempted **automatically** during `07-start-services.sh` when Terraform provisions the instance, using `certbot_email` from `terraform.tfvars` (required when `use_ssl = true` with a `domain_name` and no self-signed cert; `terraform plan` fails without it). The script first waits up to ~5 minutes for the domain to resolve to the instance's public IP (the static IP is attached after the instance boots), then tries certbot up to 3 times. If it still fails, the user-data log shows `⚠️  HTTPS NOT CONFIGURED` and the setup summary says it finished with warnings. Check `/var/log/user-data.log` and `/var/log/voter-file-tool/certbot.log` (root-only, read with `sudo`; certbot's fuller log is `/var/log/letsencrypt/letsencrypt.log`), then SSH in and run manually:
 
 ```bash
 # SSH user varies by image (bitnami, ubuntu, etc.); use whoami after login if unsure
@@ -103,3 +103,16 @@ After setup, verify:
 - Check pm2: `pm2 status`
 - Check logs: `pm2 logs report-server`
 - Check nginx: `sudo nginx -t` and `sudo systemctl status nginx`
+
+### Server hung / out of memory?
+The instance is a 1 GB `micro_3_0`. Provisioning adds `/swapfile-voter-file-tool` so total swap is at least 2 GB (the provisioning log prints `💾 Swap: <N> MB`). A cold `pnpm install` or a report render can still exhaust memory.
+
+- If SSH doesn't respond, reboot from your machine:
+  `aws lightsail reboot-instance --instance-name nodejs-report-server --region us-west-2`
+  (`pnpm run terraform:recreate` also works, but it destroys the disk and runs the full install again.)
+- Once in: `free -h`, `sudo swapon --show`, and `sudo dmesg -T | grep -i -E "oom|killed process"` to see what was killed.
+- Before `scripts/deploy-lightsail.sh`, check the pnpm store matches. As the SSH user, from `/opt/voter-file-tool`,
+  `pnpm store path` must equal `storeDir` in `node_modules/.modules.yaml`, and
+  `sudo find ~/.local/share/pnpm ~/.cache/pnpm -maxdepth 3 ! -user $(whoami)` must print nothing.
+  Otherwise pnpm 8 silently deletes `node_modules` and reinstalls everything from scratch, even with `CI=true`. Provisioning and deployment both install through `scripts/pnpm-install-low-memory.sh`, which runs `scripts/check-pnpm-store.sh` first. The check compares the store paths (not ownership) and aborts on a mismatch; deployment also runs it before stopping the service. Fix the store configuration or ownership before retrying.
+- `scripts/deploy-lightsail.sh` stops `report-server` before installing and restarts it at the end. If a step fails or the deploy is killed partway (Ctrl-C, dropped SSH), it restarts `report-server` itself. That restart is best-effort: after a failed install it runs on a half-updated `node_modules` and may crash-loop, so check `pm2 status report-server` and re-run the deploy. A `kill -9` or a frozen box skips it, so run the deploy inside `tmux` and `pm2 restart report-server` if needed.

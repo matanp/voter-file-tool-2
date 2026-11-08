@@ -126,12 +126,15 @@ EOF
 
     # Retry with backoff. Capped at 3 attempts to stay under Let's Encrypt's
     # failed-validation limit (5 per hour per hostname).
-    : > /tmp/certbot.log
+    # Keep the log at a fixed, findable path, but in a root-only directory rather than world-writable /tmp.
+    CERTBOT_LOG=/var/log/voter-file-tool/certbot.log
+    sudo install -d -o root -g root -m 750 /var/log/voter-file-tool
+    sudo install -o root -g root -m 640 /dev/null "$CERTBOT_LOG"
     CERTBOT_EXIT_CODE=1
     for CERTBOT_ATTEMPT in 1 2 3; do
       echo "   certbot attempt $CERTBOT_ATTEMPT/3..."
       set +e
-      sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --email "$CERTBOT_EMAIL" --redirect 2>&1 | tee -a /tmp/certbot.log
+      sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --email "$CERTBOT_EMAIL" --redirect 2>&1 | sudo tee -a "$CERTBOT_LOG"
       CERTBOT_EXIT_CODE=${PIPESTATUS[0]}
       set -e
       [ "$CERTBOT_EXIT_CODE" -eq 0 ] && break
@@ -154,11 +157,12 @@ EOF
       echo "   - DNS not fully propagated (wait a few minutes and try again)"
       echo "   - Port 80 not accessible from internet"
       echo "   - Domain not pointing to this server"
-      echo "   Full output: /tmp/certbot.log"
+      echo "   Full output: $CERTBOT_LOG (sudo to read)"
+      echo "   certbot's own log: /var/log/letsencrypt/letsencrypt.log"
       echo ""
       echo "   To retry manually:"
       echo "   sudo certbot --nginx -d $DOMAIN_NAME --non-interactive --agree-tos --email $CERTBOT_EMAIL --redirect"
-      SETUP_WARNINGS+=("HTTPS not configured for $DOMAIN_NAME (certbot failed, see /tmp/certbot.log)")
+      SETUP_WARNINGS+=("HTTPS not configured for $DOMAIN_NAME (certbot failed, see $CERTBOT_LOG)")
 
       # If certbot failed, nginx might not be running with SSL config
       # Try to start it anyway (will work if HTTP-only config is in place)

@@ -14,9 +14,28 @@ cd /opt/voter-file-tool
 echo "📥 Pulling latest changes..."
 git pull origin main
 
-# Install dependencies
+# Abort a store mismatch before stopping the service or allowing pnpm to purge modules.
+bash scripts/check-pnpm-store.sh
+
+# Stop the report server first: an install next to a running Chrome can run the 1 GB box out of memory.
+echo "⏸️  Stopping report-server..."
+pm2 stop report-server || true
+# From here on, if a step fails or the deploy is killed (Ctrl-C, dropped SSH), bring the server back up
+# rather than leaving it stopped. Best-effort: after a failed install it restarts on whatever is in
+# node_modules and may crash-loop. Restart first and ignore HUP/PIPE, since the terminal may be gone.
+restart_after_abort() {
+  trap '' HUP PIPE
+  if pm2 restart report-server > /dev/null 2>&1; then
+    echo "⚠️  Deploy aborted. report-server was restarted; check it with: pm2 status report-server" || true
+  else
+    echo "❌ Deploy aborted and report-server did not restart; run: pm2 restart report-server" || true
+  fi
+  exit 1
+}
+trap restart_after_abort ERR INT HUP TERM
+
 echo "📦 Installing dependencies..."
-pnpm install --frozen-lockfile
+bash scripts/pnpm-install-low-memory.sh
 
 # Build all packages
 echo "🔨 Building workspace packages..."
@@ -29,10 +48,9 @@ cd apps/report-server
 echo "🔧 Generating Prisma client..."
 pnpm exec prisma generate
 
+trap - ERR INT HUP TERM
+echo "▶️  Restarting report-server..."
+pm2 restart report-server
+pm2 status report-server
+
 echo "✅ Deployment complete!"
-echo ""
-echo "To start the server:"
-echo "  pnpm start"
-echo ""
-echo "Or with PM2:"
-echo "  pm2 restart report-server"

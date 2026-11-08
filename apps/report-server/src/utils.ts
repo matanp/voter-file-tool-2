@@ -147,33 +147,29 @@ export async function generatePDFAndUpload(
 
   console.log('generating pdf');
   const browser = await puppeteer.launch(puppeteerOptions);
-  const page = await browser.newPage();
+  try {
+    const page = await browser.newPage();
 
-  page.setDefaultTimeout(120 * 1000);
-  await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    page.setDefaultTimeout(120 * 1000);
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
-  console.log('page content set');
-  const pdfStream = (await page.createPDFStream({
-    format,
-    landscape,
-    printBackground: true,
-  })) as unknown as Readable;
-  console.log('started upload via stream');
+    console.log('page content set');
+    const pdfStream = (await page.createPDFStream({
+      format,
+      landscape,
+      printBackground: true,
+    })) as unknown as Readable;
+    console.log('started upload via stream');
 
-  const successfulUpload = await uploadFileToR2(pdfStream, fileName, 'pdf');
+    const successfulUpload = await uploadFileToR2(pdfStream, fileName, 'pdf');
 
-  if (!successfulUpload) {
-    throw new Error('failed to upload pdf to file storage');
+    if (!successfulUpload) {
+      throw new Error('failed to upload pdf to file storage');
+    }
+  } finally {
+    // Always close Chrome, or a failed report leaves it running and eats the 1 GB box's memory.
+    await browser.close();
   }
-
-  // const buffer = Buffer.from(pdfBuffer);
-
-  // for debugging with the puppeetteer launched
-  // await sleep(999999);
-  // setTimeout(() => {
-  //   browser.close();
-  // }, 10000);
-  await browser.close();
 }
 
 /** Transformed committee structure with simplified member fields for report rendering */
