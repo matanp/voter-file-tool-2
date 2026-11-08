@@ -14,14 +14,17 @@ cd /opt/voter-file-tool
 echo "📥 Pulling latest changes..."
 git pull origin main
 
+# Abort a store mismatch before stopping the service or allowing pnpm to purge modules.
+bash scripts/check-pnpm-store.sh
+
 # Stop the report server first: an install next to a running Chrome can run the 1 GB box out of memory.
 echo "⏸️  Stopping report-server..."
 pm2 stop report-server || true
 trap 'echo "⚠️  Deploy failed. report-server is stopped; start it with: pm2 restart report-server"' ERR
 
 # Install dependencies.
-# CI=true makes pnpm abort instead of silently wiping node_modules if the store doesn't match
-# node_modules/.modules.yaml (that wipe turns into a full cold install). Low concurrency keeps memory down.
+# The explicit store check above prevents a mismatch from triggering a cold reinstall.
+# CI=true suppresses prompts; low concurrency keeps memory down.
 echo "📦 Installing dependencies..."
 CI=true pnpm install --frozen-lockfile --network-concurrency=4 --child-concurrency=1
 

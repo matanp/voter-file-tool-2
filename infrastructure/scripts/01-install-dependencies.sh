@@ -5,19 +5,8 @@ set -e
 
 # The 1 GB Lightsail bundle can't fit a cold pnpm install, or a report render next to an install, in RAM.
 # Make sure there is at least 2 GB of swap in total (the Bitnami image ships ~650 MB). Skips if already enough.
-MIN_SWAP_MB=2048
-SWAPFILE=/swapfile
-CURRENT_SWAP_MB=$(free -m | awk '/^Swap:/ {print $2}')
-if [ "${CURRENT_SWAP_MB:-0}" -lt "$MIN_SWAP_MB" ] && ! sudo swapon --show=NAME --noheadings | grep -qx "$SWAPFILE"; then
-  ADD_SWAP_MB=$((MIN_SWAP_MB - ${CURRENT_SWAP_MB:-0}))
-  echo "💾 Swap is ${CURRENT_SWAP_MB:-0} MB, adding a ${ADD_SWAP_MB} MB swap file at $SWAPFILE..."
-  sudo fallocate -l "${ADD_SWAP_MB}M" "$SWAPFILE" || sudo dd if=/dev/zero of="$SWAPFILE" bs=1M count="$ADD_SWAP_MB"
-  sudo chmod 600 "$SWAPFILE"
-  sudo mkswap "$SWAPFILE"
-  sudo swapon "$SWAPFILE"
-  grep -q "^$SWAPFILE " /etc/fstab || echo "$SWAPFILE none swap sw 0 0" | sudo tee -a /etc/fstab > /dev/null
-fi
-echo "💾 Swap: $(free -m | awk '/^Swap:/ {print $2}') MB"
+source "$(dirname "${BASH_SOURCE[0]}")/lib/ensure-swap.sh"
+ensure_swap 2048 /swapfile /etc/fstab
 
 echo "📦 Installing system dependencies..."
 

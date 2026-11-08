@@ -105,7 +105,7 @@ After setup, verify:
 - Check nginx: `sudo nginx -t` and `sudo systemctl status nginx`
 
 ### Server hung / out of memory?
-The instance is a 1 GB `micro_3_0`. Provisioning adds a swap file so total swap is at least 2 GB, but a cold `pnpm install` or a report render can still exhaust memory.
+The instance is a 1 GB `micro_3_0`. Provisioning adds swap so total usable swap is at least 2 GB, using a supplemental file if `/swapfile` already exists. It also repairs persistence for active swap files managed by this setup. A cold `pnpm install` or a report render can still exhaust memory.
 
 - If SSH doesn't respond, reboot from your machine:
   `aws lightsail reboot-instance --instance-name nodejs-report-server --region us-west-2`
@@ -114,5 +114,5 @@ The instance is a 1 GB `micro_3_0`. Provisioning adds a swap file so total swap 
 - Before `scripts/deploy-lightsail.sh`, check the pnpm store matches. As the SSH user, from `/opt/voter-file-tool`,
   `pnpm store path` must equal `storeDir` in `node_modules/.modules.yaml`, and
   `sudo find ~/.local/share/pnpm ~/.cache/pnpm -maxdepth 3 ! -user $(whoami)` must print nothing.
-  Otherwise pnpm reinstalls everything from scratch. The deploy script runs pnpm with `CI=true`, so it should abort instead of doing that.
+  Otherwise pnpm can reinstall everything from scratch. Both provisioning and deployment explicitly check the store before installing; deployment aborts a mismatch before stopping the service. Fix the store configuration/ownership before retrying. `CI=true` only suppresses prompts and does **not** prevent pnpm 8 from recreating modules.
 - `scripts/deploy-lightsail.sh` stops `report-server` before installing and restarts it at the end. If it fails partway, run `pm2 restart report-server`.
