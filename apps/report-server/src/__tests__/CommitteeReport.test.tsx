@@ -40,6 +40,15 @@ function bodyCells(html: string): string[] {
 }
 
 describe('CommitteeReport', () => {
+  // The footer prints today's date; freeze it so snapshots match in any time zone.
+  beforeAll(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-15T12:00:00Z'));
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   it('renders the legacy columns when columns is omitted', () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(CommitteeReport, { groupedCommittees }),
