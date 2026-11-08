@@ -4,28 +4,86 @@ import {
   paginateSignInSheetRows,
   type SignInSheetData,
 } from '../signInSheetHelpers';
+import {
+  CELL_BORDER_PX,
+  CELL_PADDING_X_PX,
+  FIRST_PROXY_COLUMN,
+  PAGE_HEIGHT_IN,
+  PAGE_PADDING_BOTTOM_IN,
+  PAGE_PADDING_TOP_IN,
+  PAGE_PADDING_X_IN,
+  PAGE_WIDTH_IN,
+  PROXY_DIVIDER_PX,
+  SIGN_IN_SHEET_COLUMNS,
+  TABLE_BORDER_PX,
+  type SignInSheetColumnKey,
+} from '../signInSheetLayout';
+import {
+  fitEmailSize,
+  fitMemberNameSize,
+  fitPhoneSize,
+  type SignInTextSize,
+} from '../signInSheetTextFit';
 
-const COLUMNS = [
-  { label: 'ED', widthPercent: 4 },
-  { label: 'Member name', widthPercent: 20.8 },
-  { label: 'Email on file', widthPercent: 25.7 },
-  { label: 'Phone on file', widthPercent: 12.9 },
-  { label: 'Member signature', widthPercent: 16.8 },
-  { label: 'Proxy name (print)', widthPercent: 9.9 },
-  { label: 'Proxy signature', widthPercent: 9.9 },
-];
-const FIRST_PROXY_COLUMN = 5;
+/** Line heights keep the ratios of the earlier 14/16, 13/15, 24/28, 16/20 and 13/16 px type. */
+const VALUE_TEXT: Record<SignInTextSize, string> = {
+  15.5: 'text-[15.5px] leading-[1.143]',
+  13: 'text-[13px] leading-[1.143]',
+  11: 'text-[11px] leading-[1.143]',
+};
+const SECOND_LINE = 'mt-0.5 text-[15.5px] leading-[1.154] text-gray-600';
 
-const CELL = 'border border-gray-300 px-2';
+const CELL = 'border-gray-300';
 const VALUE_CELL = `${CELL} pt-1 align-top`;
-const PROXY_DIVIDER = 'border-l-2 border-l-[#0057a6]';
-const SECOND_LINE = 'mt-0.5 text-[13px] leading-[15px] text-gray-600';
 
-const OnFileValue = ({ value }: { value: string | null }) =>
+const cellStyle = (key: SignInSheetColumnKey): React.CSSProperties => ({
+  borderWidth: CELL_BORDER_PX,
+  borderLeftWidth: key === FIRST_PROXY_COLUMN ? PROXY_DIVIDER_PX : undefined,
+  borderLeftColor: key === FIRST_PROXY_COLUMN ? '#0057a6' : undefined,
+  paddingLeft: CELL_PADDING_X_PX,
+  paddingRight: CELL_PADDING_X_PX,
+});
+
+const PAGE_STYLE: React.CSSProperties = {
+  width: `${PAGE_WIDTH_IN}in`,
+  height: `${PAGE_HEIGHT_IN}in`,
+  paddingLeft: `${PAGE_PADDING_X_IN}in`,
+  paddingRight: `${PAGE_PADDING_X_IN}in`,
+  paddingTop: `${PAGE_PADDING_TOP_IN}in`,
+  paddingBottom: `${PAGE_PADDING_BOTTOM_IN}in`,
+  fontFamily: 'Arial, sans-serif',
+};
+
+const FittedValue = ({
+  value,
+  size,
+  className = '',
+}: {
+  value: string;
+  size: SignInTextSize;
+  className?: string;
+}) => (
+  <div
+    data-sign-in-text-size={size}
+    className={`${VALUE_TEXT[size]} ${className}`}
+  >
+    {value}
+  </div>
+);
+
+const OnFileValue = ({
+  value,
+  fit,
+}: {
+  value: string | null;
+  fit: (value: string) => SignInTextSize;
+}) =>
   value ? (
-    <div className="break-all">{value}</div>
+    <FittedValue value={value} size={fit(value)} className="break-all" />
   ) : (
-    <div className="italic text-red-600">None on file</div>
+    <div className={`${VALUE_TEXT[15.5]} italic text-red-600`}>
+      None on file
+    </div>
   );
 
 interface SignInSheetProps {
@@ -53,17 +111,17 @@ const SignInSheet = React.forwardRef<HTMLDivElement, SignInSheetProps>(
             <div
               key={`${sheetIndex}-${pageIndex}`}
               data-sign-in-page
-              className="w-[14in] h-[8.5in] overflow-hidden bg-white px-[0.65in] pt-[0.7in] pb-[0.35in]"
-              style={{ fontFamily: 'Arial, sans-serif' }}
+              className="overflow-hidden bg-white"
+              style={PAGE_STYLE}
             >
               <div className="flex h-full flex-col">
                 {pageIndex === 0 && (
                   <div data-sign-in-title className="pb-2 text-center">
-                    <h1 className="text-2xl font-bold leading-7">
+                    <h1 className="text-[26px] font-bold leading-[1.167]">
                       {committeeLabel} Committee
                     </h1>
                     {meetingLine && (
-                      <p className="text-base font-bold leading-5 text-gray-600">
+                      <p className="text-[19px] font-bold leading-[1.25] text-gray-600">
                         {meetingLine}
                       </p>
                     )}
@@ -71,26 +129,24 @@ const SignInSheet = React.forwardRef<HTMLDivElement, SignInSheetProps>(
                 )}
                 <table
                   data-sign-in-table
-                  className="w-full table-fixed border-collapse border-2 border-[#0057a6] text-[14px] leading-4"
+                  className="w-full table-fixed border-collapse border-[#0057a6] text-[15.5px] leading-[1.143]"
+                  style={{ borderWidth: TABLE_BORDER_PX }}
                 >
                   <colgroup>
-                    {COLUMNS.map(({ label, widthPercent }) => (
-                      <col key={label} style={{ width: `${widthPercent}%` }} />
+                    {SIGN_IN_SHEET_COLUMNS.map(({ key, widthPercent }) => (
+                      <col key={key} style={{ width: `${widthPercent}%` }} />
                     ))}
                   </colgroup>
                   <thead>
                     <tr
                       data-sign-in-header
-                      className="bg-[#0057a6] text-[13px] uppercase leading-4 text-white"
+                      className="bg-[#0057a6] text-[15px] uppercase leading-[1.231] text-white"
                     >
-                      {COLUMNS.map(({ label }, columnIndex) => (
+                      {SIGN_IN_SHEET_COLUMNS.map(({ key, label }) => (
                         <th
-                          key={label}
-                          className={`border border-[#0057a6] px-2 py-2 text-center align-middle font-bold ${
-                            columnIndex === FIRST_PROXY_COLUMN
-                              ? PROXY_DIVIDER
-                              : ''
-                          }`}
+                          key={key}
+                          className="border-[#0057a6] py-2 text-center align-middle font-bold"
+                          style={cellStyle(key)}
                         >
                           {label}
                         </th>
@@ -104,33 +160,41 @@ const SignInSheet = React.forwardRef<HTMLDivElement, SignInSheetProps>(
                         data-sign-in-row
                         className="h-[0.75in]"
                       >
-                        <td className={`${CELL} text-center align-middle`}>
+                        <td
+                          className={`${CELL} text-center align-middle`}
+                          style={cellStyle('ed')}
+                        >
                           {row.electionDistrict}
                         </td>
-                        <td className={VALUE_CELL}>
-                          <div className="break-words font-bold">
-                            {row.name}
-                          </div>
+                        <td className={VALUE_CELL} style={cellStyle('name')}>
+                          <FittedValue
+                            value={row.name}
+                            size={fitMemberNameSize(row.name)}
+                            className="break-words font-bold"
+                          />
                           <div className={SECOND_LINE}>[ ] Info correct</div>
                         </td>
-                        <td className={VALUE_CELL}>
-                          <OnFileValue value={row.email} />
+                        <td className={VALUE_CELL} style={cellStyle('email')}>
+                          <OnFileValue value={row.email} fit={fitEmailSize} />
                           <div className={SECOND_LINE}>New email:</div>
                         </td>
-                        <td className={VALUE_CELL}>
-                          <OnFileValue value={row.phone} />
+                        <td className={VALUE_CELL} style={cellStyle('phone')}>
+                          <OnFileValue value={row.phone} fit={fitPhoneSize} />
                           <div className={SECOND_LINE}>New phone:</div>
                         </td>
-                        <td className={CELL} />
-                        <td className={`${CELL} ${PROXY_DIVIDER}`} />
-                        <td className={CELL} />
+                        <td className={CELL} style={cellStyle('signature')} />
+                        <td className={CELL} style={cellStyle('proxyName')} />
+                        <td
+                          className={CELL}
+                          style={cellStyle('proxySignature')}
+                        />
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <div
                   data-sign-in-footer
-                  className="mt-auto flex w-full justify-between gap-6 pt-1 text-[11px] text-gray-500"
+                  className="mt-auto flex w-full justify-between gap-6 pt-1 text-[12px] text-gray-500"
                 >
                   <span data-sign-in-footer-text className="min-w-0">
                     {committeeLabel} Democratic Committee | {reportName} |{' '}

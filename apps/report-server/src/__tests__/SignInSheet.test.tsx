@@ -252,3 +252,101 @@ describe('SignInSheet footer', () => {
     expect(pageNumbers(html)).toEqual(['Page 1']);
   });
 });
+
+describe('SignInSheet text fitting', () => {
+  const sizeOf = (html: string, value: string): string | undefined =>
+    new RegExp(`data-sign-in-text-size="([\\d.]+)"[^>]*>${value}</div>`).exec(
+      html,
+    )?.[1];
+
+  const nameSize = (name: string): string | undefined =>
+    sizeOf(
+      render([{ committeeLabel: 'Brighton', rows: [row({ name })] }]),
+      name,
+    );
+
+  const emailSize = (email: string): string | undefined =>
+    sizeOf(
+      render([{ committeeLabel: 'Brighton', rows: [row({ email })] }]),
+      email,
+    );
+
+  it('should print a short name at full size', () => {
+    expect(nameSize('DOE, JANE')).toBe('15.5');
+  });
+
+  it('should step down to 13 px for a name that needs 3 lines at full size', () => {
+    expect(nameSize('MONTGOMERY-WILLIAMSON, ALEXANDRA ELIZABETH JR')).toBe(
+      '13',
+    );
+  });
+
+  it('should step down to 11 px for a very long name', () => {
+    expect(
+      nameSize(
+        'VANDERBILT-MONTGOMERY-WILLIAMSON, ALEXANDRA CHRISTINA ELIZABETH M III',
+      ),
+    ).toBe('11');
+  });
+
+  it('should step down when a name wraps to 3 lines though its total width is under 2', () => {
+    // Each surname part fills most of a line, so the first name can't join the second line.
+    expect(nameSize('BARTHOLOMEW HOLLINGSWORTHMANS, AL')).toBe('13');
+  });
+
+  it('should break names after a hyphen when fitting', () => {
+    // Chrome puts `O-` alone on the first line, so the long part needs 2 more at full size.
+    expect(nameSize('O-WOLFESCHLEGELSTEINHAUSENBERG, AL')).not.toBe('15.5');
+    expect(nameSize('SMITH-JONES, MARY ANN')).toBe('15.5');
+  });
+
+  it('should step down for a long email', () => {
+    expect(emailSize('jane@example.invalid')).toBe('15.5');
+    expect(
+      emailSize(
+        'member2001abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz@example.invalid',
+      ),
+    ).toBe('13');
+    expect(emailSize(`member3001${'a'.repeat(64)}@example.invalid`)).toBe('11');
+  });
+
+  it('should step down sooner for characters outside the width tables', () => {
+    expect(nameSize('M'.repeat(30))).toBe('15.5');
+    expect(nameSize('😀'.repeat(30))).not.toBe('15.5');
+    expect(emailSize(`${'a'.repeat(40)}@example.invalid`)).toBe('15.5');
+    expect(emailSize(`${'山'.repeat(40)}@example.invalid`)).not.toBe('15.5');
+  });
+
+  it('should fit a raw phone like an email', () => {
+    const phone = `extension-${'1234567890'.repeat(2)}1234`;
+    const html = render([
+      { committeeLabel: 'Brighton', rows: [row({ phone })] },
+    ]);
+
+    expect(sizeOf(html, phone)).toBe('13');
+    expect(sizeOf(html, 'DOE, JANE')).toBe('15.5');
+  });
+
+  it('should never fit the second lines', () => {
+    const html = render([
+      {
+        committeeLabel: 'Brighton',
+        rows: [
+          row({
+            name: 'VANDERBILT-MONTGOMERY-WILLIAMSON, ALEXANDRA CHRISTINA ELIZABETH M III',
+            email: `member3001${'a'.repeat(64)}@example.invalid`,
+          }),
+        ],
+      },
+    ]);
+
+    for (const label of ['[ ] Info correct', 'New email:', 'New phone:']) {
+      const element =
+        new RegExp(`<div([^>]*)>${label.replace(/[[\]]/g, '\\$&')}</div>`).exec(
+          html,
+        )?.[1] ?? '';
+      expect(element).toContain('text-[15.5px]');
+      expect(element).not.toContain('data-sign-in-text-size');
+    }
+  });
+});
