@@ -39,14 +39,8 @@ bash scripts/pnpm-install-low-memory.sh
 
 # Build all packages
 echo "🔨 Building workspace packages..."
+# shared-prisma's build runs prisma generate, so no separate generation step is needed.
 pnpm run build:packages
-
-# Navigate to report-server
-cd apps/report-server
-
-# Generate Prisma client
-echo "🔧 Generating Prisma client..."
-pnpm exec prisma generate
 
 trap - ERR INT HUP TERM
 echo "▶️  Restarting report-server..."
