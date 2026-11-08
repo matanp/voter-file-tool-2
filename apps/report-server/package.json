@@ -8,7 +8,7 @@
     "start:prod": "node dist/index.js",
     "dev": "nodemon",
     "clean": "rm -rf dist",
-    "build": "pnpm run clean && tsc -p tsconfig.build.json && pnpm run build:css",
+    "build": "bash ./build.sh",
     "test": "jest",
     "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/tailwind.css --",
     "prestart": "pnpm --filter '@voter-file-tool/voter-import-processor' run build && pnpm --filter '@voter-file-tool/shared-validators' run build && pnpm --filter '@voter-file-tool/shared-prisma' run build"

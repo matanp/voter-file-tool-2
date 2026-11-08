@@ -48,7 +48,8 @@ Changes:
 - New `apps/report-server/tsconfig.build.json`: compiles `src/**/*.ts` and `src/**/*.tsx` and leaves out `__tests__`.
 - `ecosystem.config.js`: `script: 'dist/index.js'`, `interpreter: process.execPath` (the nvm node that runs
   `pm2 start`; PM2 stores the absolute path). `cwd` is unchanged, so dotenv still reads `.env` from it.
-- Deleted `start.sh` and its Tailwind ownership workaround, plus the `chmod +x start.sh` block in `06-setup-pm2.sh`.
+- Kept `start.sh` as a compatibility entry point for the first deploy: until PM2 is re-registered, an aborted deploy still needs the old script to restart. The normal PM2 path runs compiled JavaScript directly. Removed the `chmod +x start.sh` block in `06-setup-pm2.sh`.
+- `build.sh` compiles into `dist.next`, builds CSS, then replaces `dist`. A failed build retains the last runnable `dist` and cleans up staging output.
 - `03-build-packages.sh`: builds the report-server after the shared packages and checks that `dist/index.js` and
   `public/tailwind.css` exist.
 - `deploy-lightsail.sh`: builds the report-server after `build:packages`, inside the abort trap. Then it runs
@@ -82,6 +83,5 @@ Still needs the real box:
 - Idle RSS under 120Mi (compare with tickets 04/08).
 - PDF + xlsx with styles and fonts after a fresh recreate (`00-setup-all.sh` path).
 - The first deploy of this change: `pm2 save` should replace the dump's `start.sh` entry, so check that a reboot
-  resurrects `dist/index.js`. If that first deploy aborts before the build, the trap's `pm2 restart` will fail
-  because `start.sh` is gone. Recover with `pm2 delete report-server && pm2 start apps/report-server/ecosystem.config.js`
-  after a build.
+  resurrects `dist/index.js`. If the deploy aborts before re-registration, the existing PM2 entry can still use
+  `start.sh` to restart the old application.
