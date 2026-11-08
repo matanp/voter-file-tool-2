@@ -23,8 +23,9 @@ const ROSTER_COLUMN_HEADERS: Record<CommitteeRosterColumn, string> = {
   email: 'Email',
 };
 
-/** Relative widths; normalized over the selected columns plus ED. */
-const ED_WEIGHT = 7;
+/** Serve ED gets a fixed width so its header never truncates. */
+const ED_COLUMN_WIDTH = '80px';
+/** Relative widths of the remaining columns; normalized over the selection. */
 const ROSTER_COLUMN_WEIGHTS: Record<CommitteeRosterColumn, number> = {
   name: 18,
   address: 30,
@@ -90,7 +91,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
     const totalWeight = rosterColumns
       ? rosterColumns.reduce(
           (sum, column) => sum + ROSTER_COLUMN_WEIGHTS[column],
-          ED_WEIGHT,
+          0,
         )
       : 0;
     const widthOf = (weight: number) =>
@@ -110,12 +111,17 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
           <div
             key={pageIndex}
             {...hook('page')}
-            className="w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto shadow"
+            className={`w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto shadow${
+              rosterColumns ? ' overflow-hidden break-after-page' : ''
+            }`}
             style={{ fontFamily: 'Arial, sans-serif' }}
           >
             <div className="flex flex-col h-full">
               <div>
-                <h2 {...hook('title')} className="text-center text-xl font-black pt-4">
+                <h2
+                  {...hook('title')}
+                  className={`text-center text-xl font-black${rosterColumns ? '' : ' pt-4'}`}
+                >
                   Monroe County Democratic Committee List as of May 15, 2025
                 </h2>
 
@@ -131,7 +137,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                     className="w-full text-sm table-fixed"
                   >
                     <colgroup>
-                      <col style={{ width: widthOf(ED_WEIGHT) }} />
+                      <col style={{ width: ED_COLUMN_WIDTH }} />
                       {rosterColumns.map((column) => (
                         <col
                           key={column}
@@ -163,13 +169,16 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                               data-committee-row=""
                               className="align-top"
                             >
-                              <td className="pl-2 truncate">
+                              <td className="pl-2 py-0 h-5 leading-5 truncate">
                                 {group.electionDistrict
                                   .toString()
                                   .padStart(3, '0')}
                               </td>
                               {rosterColumns.map((column) => (
-                                <td key={column} className="pl-2 truncate">
+                                <td
+                                  key={column}
+                                  className="pl-2 py-0 h-5 leading-5 truncate"
+                                >
                                   {rosterCellValue(member, column)}
                                 </td>
                               ))}

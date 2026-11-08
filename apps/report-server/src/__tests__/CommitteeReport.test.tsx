@@ -126,7 +126,7 @@ describe('CommitteeReport', () => {
     );
 
     expect(html).not.toMatch(/undefined|null/);
-    expect(html).toContain('<td class="pl-2 truncate"></td>');
+    expect(html).toContain('<td class="pl-2 py-0 h-5 leading-5 truncate"></td>');
   });
 
   it('should match the legacy layout snapshot when columns is omitted', () => {
