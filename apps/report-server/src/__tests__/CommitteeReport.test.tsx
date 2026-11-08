@@ -27,11 +27,13 @@ const groupedCommittees = [
   },
 ];
 
+/** Text of each header cell, in order. */
 function headerCells(html: string): string[] {
   const thead = html.match(/<thead>(.*?)<\/thead>/)?.[1] ?? '';
   return [...thead.matchAll(/<th[^>]*>(.*?)<\/th>/g)].map((m) => m[1]!);
 }
 
+/** Opening tag of each body cell, so tests can check its classes. */
 function bodyCells(html: string): string[] {
   const tbody = html.match(/<tbody>(.*?)<\/tbody>/)?.[1] ?? '';
   return [...tbody.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
@@ -116,5 +118,24 @@ describe('CommitteeReport', () => {
 
     expect(html).not.toMatch(/undefined|null/);
     expect(html).toContain('<td class="pl-2 truncate"></td>');
+  });
+
+  it('should match the legacy layout snapshot when columns is omitted', () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(CommitteeReport, { groupedCommittees }),
+    );
+
+    expect(html).toMatchSnapshot();
+  });
+
+  it('should match the roster layout snapshot when every column is selected', () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(CommitteeReport, {
+        groupedCommittees,
+        columns: ['name', 'address', 'mailingAddress', 'telephone', 'email'],
+      }),
+    );
+
+    expect(html).toMatchSnapshot();
   });
 });

@@ -18,6 +18,7 @@ import { useApiMutation } from "~/hooks/useApiMutation";
 import { hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import {
+  COMMITTEE_ROSTER_INCLUDE_FIELDS,
   SCOPE_REPORT_REGISTRY,
   type GenerateReportData,
   type ScopeReportType,
@@ -203,6 +204,7 @@ export function ScopedReportForm({
     return Object.keys(newErrors).length === 0;
   }
 
+  /** Switches format and resets Phone to that format's default; other picks carry over. */
   const handleFormatChange = (next: ReportFormat) => {
     setFormat(next);
     setRosterFields((prev) => ({
@@ -265,7 +267,7 @@ export function ScopedReportForm({
           ...base,
           type: "committeeRoster",
           format,
-          includeFields: (["telephone", "email"] as const).filter(
+          includeFields: COMMITTEE_ROSTER_INCLUDE_FIELDS.filter(
             (field) => rosterFields[field],
           ),
           xlsxConfig: {

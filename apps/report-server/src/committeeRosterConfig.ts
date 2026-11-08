@@ -12,7 +12,8 @@ export type CommitteeRosterColumn =
   | 'telephone'
   | 'email';
 
-const COLUMN_ORDER: readonly CommitteeRosterColumn[] = [
+/** Fixed output order of the roster columns after ED. */
+export const COMMITTEE_ROSTER_COLUMN_ORDER: readonly CommitteeRosterColumn[] = [
   'name',
   'address',
   'mailingAddress',
@@ -44,7 +45,7 @@ export function buildCommitteeRosterReportConfig(
     email: picked.has('email'),
   };
 
-  const pdfColumns = COLUMN_ORDER.filter((column) => enabled[column]);
+  const pdfColumns = COMMITTEE_ROSTER_COLUMN_ORDER.filter((column) => enabled[column]);
   const plainFields = pdfColumns.filter(
     (column): column is 'telephone' | 'email' =>
       column === 'telephone' || column === 'email',
@@ -60,7 +61,7 @@ export function buildCommitteeRosterReportConfig(
         address: enabled.address,
         mailingAddress: enabled.mailingAddress,
       },
-      columnOrder: ['electionDistrict', ...COLUMN_ORDER],
+      columnOrder: ['electionDistrict', ...COMMITTEE_ROSTER_COLUMN_ORDER],
     },
     pdfColumns,
   };

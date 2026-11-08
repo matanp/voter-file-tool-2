@@ -14,6 +14,7 @@ import {
 } from "~/components/reports/scopeReportFormSpecs";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
+import { firstCallArg } from "../../utils/testUtils";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
@@ -414,11 +415,11 @@ describe("ScopedReportForm committeeRoster field picker", () => {
     });
   });
 
+  /** Clicks Generate Report and returns the payload sent to the mutation. */
   async function submitAndGetPayload(): Promise<Record<string, unknown>> {
     fireEvent.click(screen.getByRole("button", { name: "Generate Report" }));
     await waitFor(() => expect(mutateMock).toHaveBeenCalledTimes(1));
-    const [payload] = mutateMock.mock.calls[0] as [Record<string, unknown>];
-    return payload;
+    return firstCallArg<Record<string, unknown>>(mutateMock);
   }
 
   it("shows Name checked and disabled with the XLSX defaults", () => {

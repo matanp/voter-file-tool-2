@@ -68,6 +68,20 @@ export function createCompoundNameField(record: PartialVoterRecordAPI): string {
 }
 
 /**
+ * Formats the "City, ST 12345-6789" tail of an address; any empty part is dropped.
+ */
+function formatCityStateZip(
+  city: string,
+  state: string,
+  zip: string,
+  zipSuffix: string
+): string {
+  const locality = [city, state].filter(Boolean).join(', ');
+  const postal = zip ? (zipSuffix ? `${zip}-${zipSuffix}` : zip) : '';
+  return [locality, postal].filter(Boolean).join(' ');
+}
+
+/**
  * Creates a compound address field from individual address components
  */
 export function createCompoundAddressField(
@@ -92,20 +106,8 @@ export function createCompoundAddressField(
   if (resAddrLine2) addressParts.push(resAddrLine2);
   if (resAddrLine3) addressParts.push(resAddrLine3);
 
-  // const address = addressParts.join(' ').trim();
-  // const cityStateZip = [city, state, zipCode, zipSuffix]
-  //   .filter(Boolean)
-  //   .join(' ');
-
-  // return [address, cityStateZip].filter(Boolean).join(', ').trim();
   const address = addressParts.join(' ').trim();
-  const locality = [city, state].filter(Boolean).join(', ');
-  const postal = zipCode
-    ? zipSuffix
-      ? `${zipCode}-${zipSuffix}`
-      : zipCode
-    : '';
-  const cityStateZip = [locality, postal].filter(Boolean).join(' ');
+  const cityStateZip = formatCityStateZip(city, state, zipCode, zipSuffix);
   return [address, cityStateZip].filter(Boolean).join(', ').trim();
 }
 
@@ -132,9 +134,7 @@ export function createCompoundMailingAddressField(
   const zip = (record.mailingZip ?? '').trim();
   const zipSuffix = (record.mailingZipSuffix ?? '').trim();
 
-  const locality = [city, state].filter(Boolean).join(', ');
-  const postal = zip ? (zipSuffix ? `${zip}-${zipSuffix}` : zip) : '';
-  const cityStateZip = [locality, postal].filter(Boolean).join(' ');
+  const cityStateZip = formatCityStateZip(city, state, zip, zipSuffix);
 
   return [...lines, cityStateZip].filter(Boolean).join(', ');
 }

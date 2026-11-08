@@ -1,5 +1,8 @@
 import React from 'react';
-import type { CommitteeRosterColumn } from '../committeeRosterConfig';
+import {
+  COMMITTEE_ROSTER_COLUMN_ORDER,
+  type CommitteeRosterColumn,
+} from '../committeeRosterConfig';
 
 export type CommitteeMember = {
   name: string;
@@ -11,14 +14,6 @@ export type CommitteeMember = {
   mailingAddress?: string;
   email?: string;
 };
-
-const ROSTER_COLUMN_ORDER: readonly CommitteeRosterColumn[] = [
-  'name',
-  'address',
-  'mailingAddress',
-  'telephone',
-  'email',
-];
 
 const ROSTER_COLUMN_HEADERS: Record<CommitteeRosterColumn, string> = {
   name: 'Name',
@@ -38,6 +33,7 @@ const ROSTER_COLUMN_WEIGHTS: Record<CommitteeRosterColumn, number> = {
   email: 22,
 };
 
+/** The text a member shows in one roster column; missing values are blank. */
 function rosterCellValue(
   member: CommitteeMember,
   column: CommitteeRosterColumn,
@@ -89,7 +85,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
   ({ groupedCommittees, columns }, ref) => {
     const pages = paginateCommittees(groupedCommittees);
     const rosterColumns = columns
-      ? ROSTER_COLUMN_ORDER.filter((column) => columns.includes(column))
+      ? COMMITTEE_ROSTER_COLUMN_ORDER.filter((column) => columns.includes(column))
       : undefined;
     const totalWeight = rosterColumns
       ? rosterColumns.reduce(
