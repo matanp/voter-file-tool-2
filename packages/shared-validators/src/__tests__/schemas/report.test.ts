@@ -103,6 +103,55 @@ describe('generateReportSchema - committeeRoster', () => {
   });
 });
 
+describe('generateReportSchema - committeeRoster includeFields', () => {
+  const roster = {
+    type: 'committeeRoster',
+    name: 'Roster',
+    format: 'xlsx',
+    scope: 'countywide',
+  };
+
+  it('accepts telephone and email', () => {
+    const result = generateReportSchema.parse({
+      ...roster,
+      includeFields: ['telephone', 'email'],
+      xlsxConfig: {
+        includeCompoundFields: { name: true, address: true, mailingAddress: true },
+      },
+    });
+    expect(result).toMatchObject({
+      includeFields: ['telephone', 'email'],
+      xlsxConfig: {
+        includeCompoundFields: { mailingAddress: true },
+      },
+    });
+  });
+
+  it('defaults includeFields to an empty array', () => {
+    const result = generateReportSchema.parse(roster);
+    expect(result).toMatchObject({ includeFields: [] });
+  });
+
+  it.each(['DOB', 'VRCNUM', 'party', 'mailingAddress'])(
+    'rejects %s in includeFields',
+    (field) => {
+      expect(
+        generateReportSchema.safeParse({ ...roster, includeFields: [field] })
+          .success,
+      ).toBe(false);
+    },
+  );
+
+  it('still accepts any field for ldCommittees', () => {
+    const result = generateReportSchema.safeParse({
+      type: 'ldCommittees',
+      format: 'xlsx',
+      includeFields: ['DOB', 'VRCNUM', 'party'],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
 describe('enrichedReportDataSchema - signInSheet', () => {
   it('parses enriched signInSheet payload', () => {
     const valid = {

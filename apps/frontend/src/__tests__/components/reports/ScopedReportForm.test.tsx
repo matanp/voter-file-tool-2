@@ -14,6 +14,7 @@ import {
 } from "~/components/reports/scopeReportFormSpecs";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
+import { firstCallArg } from "../../utils/testUtils";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
@@ -96,6 +97,10 @@ const ROCHESTER_LD_22: Assignment = { cityTown: "ROCHESTER", legDistrict: 22 };
 const ROCHESTER_LD_23: Assignment = { cityTown: "ROCHESTER", legDistrict: 23 };
 const BRIGHTON_TOWN_WIDE: Assignment = { cityTown: "BRIGHTON", legDistrict: null };
 
+const ROSTER_XLSX_DEFAULT = {
+  includeCompoundFields: { name: true, address: true, mailingAddress: false },
+};
+
 function leaderPayload(
   type: ScopeReportType,
   jurisdiction: { cityTown: string; legDistrict?: number },
@@ -109,7 +114,7 @@ function leaderPayload(
 
   switch (type) {
     case "committeeRoster":
-      return { ...base, includeFields: [] };
+      return { ...base, includeFields: [], xlsxConfig: ROSTER_XLSX_DEFAULT };
     case "vacancyReport":
       return { ...base, vacancyFilter: "vacantOnly" };
     case "changesReport": {
@@ -130,7 +135,7 @@ function adminCountywidePayload(type: ScopeReportType): Record<string, unknown> 
 
   switch (type) {
     case "committeeRoster":
-      return { ...base, includeFields: [] };
+      return { ...base, includeFields: [], xlsxConfig: ROSTER_XLSX_DEFAULT };
     case "vacancyReport":
       return { ...base, vacancyFilter: "vacantOnly" };
     case "changesReport": {
@@ -389,5 +394,165 @@ describe("ScopedReportForm type-specific fields", () => {
     expect(screen.getByLabelText("Report Name")).toHaveDisplayValue(
       /Petition Outcomes/,
     );
+  });
+});
+
+describe("ScopedReportForm committeeRoster field picker", () => {
+  const PDF_NOTE =
+    "Long values may be cut off in the PDF. Choose Excel (XLSX) for complete data.";
+
+  beforeEach(() => {
+    mutateMock.mockClear();
+    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+      const order = [
+        PrivilegeLevel.Developer,
+        PrivilegeLevel.Admin,
+        PrivilegeLevel.Leader,
+        PrivilegeLevel.RequestAccess,
+        PrivilegeLevel.ReadAccess,
+      ];
+      return order.indexOf(user) <= order.indexOf(required);
+    });
+  });
+
+  /** Clicks Generate Report and returns the payload sent to the mutation. */
+  async function submitAndGetPayload(): Promise<Record<string, unknown>> {
+    fireEvent.click(screen.getByRole("button", { name: "Generate Report" }));
+    await waitFor(() => expect(mutateMock).toHaveBeenCalledTimes(1));
+    return firstCallArg<Record<string, unknown>>(mutateMock);
+  }
+
+  it("shows Name checked and disabled with the XLSX defaults", () => {
+    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+
+    expect(screen.getByLabelText("Format")).toHaveValue("xlsx");
+    const nameBox = screen.getByLabelText("Name");
+    expect(nameBox).toBeChecked();
+    expect(nameBox).toBeDisabled();
+    expect(screen.getByLabelText("Address")).toBeChecked();
+    expect(screen.getByLabelText("Mailing Address")).not.toBeChecked();
+    expect(screen.getByLabelText("Phone")).not.toBeChecked();
+    expect(screen.getByLabelText("Email")).not.toBeChecked();
+  });
+
+  it("sends the XLSX default selection", async () => {
+    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+
+    const payload = await submitAndGetPayload();
+    expect(payload).toMatchObject({
+      format: "xlsx",
+      includeFields: [],
+      xlsxConfig: ROSTER_XLSX_DEFAULT,
+    });
+    expect(payload.xlsxConfig).not.toHaveProperty("columnOrder");
+    expect(payload.xlsxConfig).not.toHaveProperty("columnHeaders");
+  });
+
+  it("sends the PDF default selection with Phone checked", async () => {
+    const user = userEvent.setup();
+    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+
+    await user.selectOptions(screen.getByLabelText("Format"), "pdf");
+    expect(screen.getByLabelText("Phone")).toBeChecked();
+
+    const payload = await submitAndGetPayload();
+    expect(payload).toMatchObject({
+      format: "pdf",
+      includeFields: ["telephone"],
+      xlsxConfig: ROSTER_XLSX_DEFAULT,
+    });
+  });
+
+  it("sends every field in order when all are checked", async () => {
+    const user = userEvent.setup();
+    renderWithPermissions(PrivilegeLevel.Leader, "committeeRoster", {
+      leaderAssignments: [ROCHESTER_LD_22],
+    });
+
+    await user.click(screen.getByLabelText("Email"));
+    await user.click(screen.getByLabelText("Mailing Address"));
+    await user.click(screen.getByLabelText("Phone"));
+
+    const payload = await submitAndGetPayload();
+    expect(payload).toMatchObject({
+      format: "xlsx",
+      includeFields: ["telephone", "email"],
+      xlsxConfig: {
+        includeCompoundFields: {
+          name: true,
+          address: true,
+          mailingAddress: true,
+        },
+      },
+    });
+  });
+
+  it("sends address: false when Address is unchecked", async () => {
+    const user = userEvent.setup();
+    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+
+    await user.click(screen.getByLabelText("Address"));
+
+    const payload = await submitAndGetPayload();
+    expect(payload).toMatchObject({
+      xlsxConfig: {
+        includeCompoundFields: {
+          name: true,
+          address: false,
+          mailingAddress: false,
+        },
+      },
+    });
+  });
+
+  it("resets Phone to the format's default when the format changes", async () => {
+    const user = userEvent.setup();
+    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+    const format = screen.getByLabelText("Format");
+    const phone = screen.getByLabelText("Phone");
+
+    await user.click(phone);
+    expect(phone).toBeChecked();
+
+    await user.selectOptions(format, "pdf");
+    expect(phone).toBeChecked();
+
+    await user.click(phone);
+    expect(phone).not.toBeChecked();
+
+    await user.selectOptions(format, "xlsx");
+    expect(phone).not.toBeChecked();
+
+    await user.selectOptions(format, "pdf");
+    expect(phone).toBeChecked();
+  });
+
+  it("shows the PDF cut-off note only for PDF with Mailing Address or Email", async () => {
+    const user = userEvent.setup();
+    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+    const format = screen.getByLabelText("Format");
+
+    await user.click(screen.getByLabelText("Email"));
+    expect(screen.queryByText(PDF_NOTE)).not.toBeInTheDocument();
+
+    await user.selectOptions(format, "pdf");
+    expect(screen.getByText(PDF_NOTE)).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Email"));
+    expect(screen.queryByText(PDF_NOTE)).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Mailing Address"));
+    expect(screen.getByText(PDF_NOTE)).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Phone"));
+    await user.click(screen.getByLabelText("Address"));
+    expect(screen.getByText(PDF_NOTE)).toBeInTheDocument();
+  });
+
+  it("does not show the picker on other report types", () => {
+    renderWithPermissions(PrivilegeLevel.Admin, "vacancyReport");
+
+    expect(screen.queryByText("Include")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Mailing Address")).not.toBeInTheDocument();
   });
 });

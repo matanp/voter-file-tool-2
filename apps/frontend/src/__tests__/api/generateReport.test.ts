@@ -496,6 +496,33 @@ describe("/api/generateReport", () => {
       expect(prismaMock.report.create).not.toHaveBeenCalled();
     });
 
+    it.each([["DOB"], ["VRCNUM"], ["party"]])(
+      "should return 400 when committeeRoster includeFields contains %s",
+      async (field) => {
+        mockAuthSession(
+          createMockSession({
+            user: { id: "admin-1", privilegeLevel: PrivilegeLevel.Admin },
+          }),
+        );
+        mockHasPermission(true);
+
+        const request = createMockRequest({
+          type: "committeeRoster",
+          name: "Roster",
+          format: "xlsx",
+          scope: "countywide",
+          includeFields: ["telephone", field],
+        });
+
+        const response = await POST(request);
+
+        expect(response.status).toBe(400);
+        const json = await parseJsonResponse<ErrorResponseBody>(response);
+        expect(json.error).toBe("Validation failed");
+        expect(prismaMock.report.create).not.toHaveBeenCalled();
+      },
+    );
+
     it("should allow Leader committeeRoster generation for assigned jurisdiction", async () => {
       mockAuthSession(
         createMockSession({

@@ -4,7 +4,7 @@ Consolidated reference for all report types (SRS 3.4).
 
 | Report Type | Formats | Scope Options | Extra Params | Leader Access | Admin Access |
 |-------------|---------|---------------|--------------|---------------|--------------|
-| Committee Roster (`committeeRoster`) | PDF, XLSX | Jurisdiction, Countywide | Optional LD filter within city/town scope | Jurisdiction only | Both |
+| Committee Roster (`committeeRoster`) | PDF, XLSX | Jurisdiction, Countywide | Optional LD filter within city/town scope; field picker (Name always, Address, Mailing Address, Phone, Email — ED is always the first column) | Jurisdiction only | Both |
 | Legacy Committee Report (`ldCommittees`) | PDF, XLSX | Countywide | Field selection, column order | No | Yes (admin-only legacy flow) |
 | Voter List | XLSX | N/A (search-based) | Search query, field selection | No | Yes |
 | Designated Petition | PDF | N/A (payload-based) | Candidates, party, appointments | No | Yes (admin-only) |

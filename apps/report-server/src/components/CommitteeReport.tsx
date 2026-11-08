@@ -1,4 +1,8 @@
 import React from 'react';
+import {
+  COMMITTEE_ROSTER_COLUMN_ORDER,
+  type CommitteeRosterColumn,
+} from '../committeeRosterConfig';
 
 export type CommitteeMember = {
   name: string;
@@ -7,7 +11,66 @@ export type CommitteeMember = {
   state: string;
   zip: string;
   phone: string;
+  mailingAddress?: string;
+  email?: string;
 };
+
+const ROSTER_COLUMN_HEADERS: Record<CommitteeRosterColumn, string> = {
+  name: 'Name',
+  address: 'Address',
+  mailingAddress: 'Mailing Address',
+  telephone: 'Phone',
+  email: 'Email',
+};
+
+/** Serve ED gets a fixed width so its header never truncates. */
+const ED_COLUMN_WIDTH = '80px';
+/**
+ * Phone gets a fixed width so a formatted number like `(585)247-0123`
+ * (~92px at text-sm Arial, plus cell padding) never truncates.
+ */
+const PHONE_COLUMN_WIDTH = '110px';
+/**
+ * Relative widths of the other columns; normalized over the selection, they
+ * share whatever width Serve ED and Phone leave.
+ */
+const ROSTER_COLUMN_WEIGHTS: Record<
+  Exclude<CommitteeRosterColumn, 'telephone'>,
+  number
+> = {
+  name: 18,
+  address: 30,
+  mailingAddress: 30,
+  email: 22,
+};
+
+/** The `<col>` width for one roster column: fixed, or its share of the weight. */
+function rosterColumnWidth(
+  column: CommitteeRosterColumn,
+  totalWeight: number,
+): string {
+  if (column === 'telephone') return PHONE_COLUMN_WIDTH;
+  return `${((ROSTER_COLUMN_WEIGHTS[column] / totalWeight) * 100).toFixed(2)}%`;
+}
+
+/** The text a member shows in one roster column; missing values are blank. */
+function rosterCellValue(
+  member: CommitteeMember,
+  column: CommitteeRosterColumn,
+): string {
+  switch (column) {
+    case 'name':
+      return member.name;
+    case 'address':
+      return member.address;
+    case 'mailingAddress':
+      return member.mailingAddress ?? '';
+    case 'telephone':
+      return member.phone;
+    case 'email':
+      return member.email ?? '';
+  }
+}
 
 type CommitteeGroup = {
   electionDistrict: string;
@@ -30,11 +93,33 @@ type LDCommitteesArray = {
 
 interface CommitteeReportProps {
   groupedCommittees: LDCommitteesArray;
+  /**
+   * Committee Roster columns after Serve ED. When set, the table uses a fixed
+   * layout and every cell is one truncated line so pagination stays correct.
+   * When omitted (ldCommittees), the legacy columns render unchanged.
+   */
+  columns?: CommitteeRosterColumn[];
 }
 
 const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
-  ({ groupedCommittees }, ref) => {
+  ({ groupedCommittees, columns }, ref) => {
     const pages = paginateCommittees(groupedCommittees);
+    const rosterColumns = columns
+      ? COMMITTEE_ROSTER_COLUMN_ORDER.filter((column) => columns.includes(column))
+      : undefined;
+    const totalWeight = rosterColumns
+      ? rosterColumns.reduce(
+          (sum, column) =>
+            column === 'telephone' ? sum : sum + ROSTER_COLUMN_WEIGHTS[column],
+          0,
+        )
+      : 0;
+    /**
+     * Layout-verification hooks, roster only so the ldCommittees markup stays
+     * unchanged.
+     */
+    const hook = (name: string) =>
+      rosterColumns ? { [`data-committee-${name}`]: '' } : {};
 
     const numPages = pages.length;
 
@@ -43,12 +128,18 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
         {pages.map((page, pageIndex) => (
           <div
             key={pageIndex}
-            className="w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto shadow"
+            {...hook('page')}
+            className={`w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto shadow${
+              rosterColumns ? ' overflow-hidden break-after-page' : ''
+            }`}
             style={{ fontFamily: 'Arial, sans-serif' }}
           >
             <div className="flex flex-col h-full">
               <div>
-                <h2 className="text-center text-xl font-black pt-4">
+                <h2
+                  {...hook('title')}
+                  className={`text-center text-xl font-black${rosterColumns ? '' : ' pt-4'}`}
+                >
                   Monroe County Democratic Committee List as of May 15, 2025
                 </h2>
 
@@ -58,63 +149,126 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                     : page.cityTown}
                 </h3>
 
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="">
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Serve ED
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Name
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Address
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        City
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        State
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Zip
-                      </th>
-                      <th className="border border-gray-400 px-2 py-1 text-left">
-                        Phone
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {page.groups.map((group, groupIndex) => (
-                      <React.Fragment key={groupIndex}>
-                        {group.members.map((member, memberIndex) => (
-                          <tr key={memberIndex} className="align-top">
-                            <td className="pl-2">
-                              {group.electionDistrict
-                                .toString()
-                                .padStart(3, '0')}
-                            </td>
-                            <td className="pl-2">{member.name}</td>
-                            <td className="pl-2">{member.address}</td>
-                            <td className="pl-2">{member.city}</td>
-                            <td className="pl-2">{member.state}</td>
-                            <td className="pl-2">{member.zip}</td>
-                            <td className="pl-2">{member.phone}</td>
-                          </tr>
+                {rosterColumns ? (
+                  <table
+                    data-committee-table=""
+                    className="w-full text-sm table-fixed"
+                  >
+                    <colgroup>
+                      <col style={{ width: ED_COLUMN_WIDTH }} />
+                      {rosterColumns.map((column) => (
+                        <col
+                          key={column}
+                          style={{ width: rosterColumnWidth(column, totalWeight) }}
+                        />
+                      ))}
+                    </colgroup>
+                    <thead>
+                      <tr data-committee-header="">
+                        <th className="border border-gray-400 px-2 py-1 text-left truncate">
+                          Serve ED
+                        </th>
+                        {rosterColumns.map((column) => (
+                          <th
+                            key={column}
+                            className="border border-gray-400 px-2 py-1 text-left truncate"
+                          >
+                            {ROSTER_COLUMN_HEADERS[column]}
+                          </th>
                         ))}
-                        <tr className="h-2"></tr>
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {page.groups.map((group, groupIndex) => (
+                        <React.Fragment key={groupIndex}>
+                          {group.members.map((member, memberIndex) => (
+                            <tr
+                              key={memberIndex}
+                              data-committee-row=""
+                              className="align-top"
+                            >
+                              <td className="pl-2 py-0 h-5 leading-5 truncate">
+                                {group.electionDistrict
+                                  .toString()
+                                  .padStart(3, '0')}
+                              </td>
+                              {rosterColumns.map((column) => (
+                                <td
+                                  key={column}
+                                  className="pl-2 py-0 h-5 leading-5 truncate"
+                                >
+                                  {rosterCellValue(member, column)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                          <tr className="h-2"></tr>
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="">
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Serve ED
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Name
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Address
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          City
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          State
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Zip
+                        </th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">
+                          Phone
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {page.groups.map((group, groupIndex) => (
+                        <React.Fragment key={groupIndex}>
+                          {group.members.map((member, memberIndex) => (
+                            <tr key={memberIndex} className="align-top">
+                              <td className="pl-2">
+                                {group.electionDistrict
+                                  .toString()
+                                  .padStart(3, '0')}
+                              </td>
+                              <td className="pl-2">{member.name}</td>
+                              <td className="pl-2">{member.address}</td>
+                              <td className="pl-2">{member.city}</td>
+                              <td className="pl-2">{member.state}</td>
+                              <td className="pl-2">{member.zip}</td>
+                              <td className="pl-2">{member.phone}</td>
+                            </tr>
+                          ))}
+                          <tr className="h-2"></tr>
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
                 {page.lastPage && (
                   <div className="ml-6 font-lg font-semibold">
                     Committee Subtotal: {page.totalRecords}
                   </div>
                 )}
               </div>
-              <div className="mt-auto mb-4 flex w-full text-sm">
-                <p className="ml-4">
+              <div
+                {...hook('footer')}
+                className="mt-auto mb-4 flex w-full text-sm"
+              >
+                <p {...hook('footer-text')} className="ml-4">
                   {new Date(Date.now()).toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',
@@ -122,7 +276,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                     day: 'numeric',
                   })}
                 </p>
-                <p className="ml-auto mr-4">
+                <p {...hook('page-number')} className="ml-auto mr-4">
                   Page {pageIndex + 1} of {numPages}
                 </p>
               </div>

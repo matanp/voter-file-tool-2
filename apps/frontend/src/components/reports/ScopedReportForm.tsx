@@ -18,6 +18,7 @@ import { useApiMutation } from "~/hooks/useApiMutation";
 import { hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import {
+  COMMITTEE_ROSTER_INCLUDE_FIELDS,
   SCOPE_REPORT_REGISTRY,
   type GenerateReportData,
   type ScopeReportType,
@@ -46,6 +47,30 @@ const NO_ASSIGNMENT_MESSAGE =
 type Scope = "jurisdiction" | "countywide";
 type ReportFormat = "pdf" | "xlsx";
 type VacancyFilter = "all" | "vacantOnly";
+
+/** Committee Roster columns the user can turn on or off (Name is always on). */
+type RosterField = "address" | "mailingAddress" | "telephone" | "email";
+type RosterFields = Record<RosterField, boolean>;
+
+const ROSTER_FIELD_OPTIONS: { key: RosterField; label: string }[] = [
+  { key: "address", label: "Address" },
+  { key: "mailingAddress", label: "Mailing Address" },
+  { key: "telephone", label: "Phone" },
+  { key: "email", label: "Email" },
+];
+
+const ROSTER_PDF_CUTOFF_NOTE =
+  "Long values may be cut off in the PDF. Choose Excel (XLSX) for complete data.";
+
+/** The roster PDF has always had a Phone column, so Phone defaults on for PDF only. */
+function defaultRosterFields(format: ReportFormat): RosterFields {
+  return {
+    address: true,
+    mailingAddress: false,
+    telephone: format === "pdf",
+    email: false,
+  };
+}
 
 function getDefaultFormat(type: ScopeReportType): ReportFormat {
   const formatDef = SCOPE_REPORT_REGISTRY[type].format;
@@ -89,6 +114,9 @@ export function ScopedReportForm({
   const [meetingDate, setMeetingDate] = useState("");
   const [vacancyFilter, setVacancyFilter] =
     useState<VacancyFilter>("vacantOnly");
+  const [rosterFields, setRosterFields] = useState<RosterFields>(() =>
+    defaultRosterFields(getDefaultFormat(type)),
+  );
   const [dateFrom, setDateFrom] = useState(defaultRange.from);
   const [dateTo, setDateTo] = useState(defaultRange.to);
   const [reportId, setReportId] = useState<string | null>(null);
@@ -176,6 +204,20 @@ export function ScopedReportForm({
     return Object.keys(newErrors).length === 0;
   }
 
+  /** Switches format and resets Phone to that format's default; other picks carry over. */
+  const handleFormatChange = (next: ReportFormat) => {
+    setFormat(next);
+    setRosterFields((prev) => ({
+      ...prev,
+      telephone: defaultRosterFields(next).telephone,
+    }));
+  };
+
+  const showRosterPdfNote =
+    type === "committeeRoster" &&
+    format === "pdf" &&
+    (rosterFields.mailingAddress || rosterFields.email);
+
   const handleCityChange = (value: string) => {
     setCityTown(value);
     setLegDistrict(undefined);
@@ -225,7 +267,16 @@ export function ScopedReportForm({
           ...base,
           type: "committeeRoster",
           format,
-          includeFields: [],
+          includeFields: COMMITTEE_ROSTER_INCLUDE_FIELDS.filter(
+            (field) => rosterFields[field],
+          ),
+          xlsxConfig: {
+            includeCompoundFields: {
+              name: true,
+              address: rosterFields.address,
+              mailingAddress: rosterFields.mailingAddress,
+            },
+          },
         };
       case "designationWeightSummary":
         return {
@@ -294,7 +345,7 @@ export function ScopedReportForm({
           <select
             id="reportFormat"
             value={format}
-            onChange={(e) => setFormat(e.target.value as ReportFormat)}
+            onChange={(e) => handleFormatChange(e.target.value as ReportFormat)}
             className="border rounded px-3 py-2 w-full max-w-[120px]"
           >
             {formatDef.options.map((option) => (
@@ -406,6 +457,47 @@ export function ScopedReportForm({
             }
           />
         </div>
+      )}
+
+      {type === "committeeRoster" && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium leading-none">Include</legend>
+          <div className="flex flex-wrap gap-4 pt-2">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked
+                disabled
+                className="accent-primary"
+              />
+              <span className="text-sm">Name</span>
+            </label>
+            {ROSTER_FIELD_OPTIONS.map(({ key, label }) => (
+              <label
+                key={key}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={rosterFields[key]}
+                  onChange={(e) =>
+                    setRosterFields((prev) => ({
+                      ...prev,
+                      [key]: e.target.checked,
+                    }))
+                  }
+                  className="accent-primary"
+                />
+                <span className="text-sm">{label}</span>
+              </label>
+            ))}
+          </div>
+          {showRosterPdfNote && (
+            <p className="text-sm text-muted-foreground">
+              {ROSTER_PDF_CUTOFF_NOTE}
+            </p>
+          )}
+        </fieldset>
       )}
 
       {type === "signInSheet" && (
