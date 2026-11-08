@@ -99,7 +99,7 @@ describe('CommitteeReport', () => {
       'Phone',
       'Email',
     ]);
-    expect(html).toMatch(/<table class="[^"]*\btable-fixed\b/);
+    expect(html).toMatch(/<table [^>]*class="[^"]*\btable-fixed\b/);
     const cells = bodyCells(html);
     expect(cells).toHaveLength(6);
     cells.forEach((cell) => expect(cell).toMatch(/\btruncate\b/));

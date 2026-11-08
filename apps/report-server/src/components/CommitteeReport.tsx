@@ -95,6 +95,12 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
       : 0;
     const widthOf = (weight: number) =>
       `${((weight / totalWeight) * 100).toFixed(2)}%`;
+    /**
+     * Layout-verification hooks, roster only so the ldCommittees markup stays
+     * unchanged.
+     */
+    const hook = (name: string) =>
+      rosterColumns ? { [`data-committee-${name}`]: '' } : {};
 
     const numPages = pages.length;
 
@@ -103,12 +109,13 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
         {pages.map((page, pageIndex) => (
           <div
             key={pageIndex}
+            {...hook('page')}
             className="w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto shadow"
             style={{ fontFamily: 'Arial, sans-serif' }}
           >
             <div className="flex flex-col h-full">
               <div>
-                <h2 className="text-center text-xl font-black pt-4">
+                <h2 {...hook('title')} className="text-center text-xl font-black pt-4">
                   Monroe County Democratic Committee List as of May 15, 2025
                 </h2>
 
@@ -119,7 +126,10 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                 </h3>
 
                 {rosterColumns ? (
-                  <table className="w-full text-sm table-fixed">
+                  <table
+                    data-committee-table=""
+                    className="w-full text-sm table-fixed"
+                  >
                     <colgroup>
                       <col style={{ width: widthOf(ED_WEIGHT) }} />
                       {rosterColumns.map((column) => (
@@ -130,7 +140,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                       ))}
                     </colgroup>
                     <thead>
-                      <tr>
+                      <tr data-committee-header="">
                         <th className="border border-gray-400 px-2 py-1 text-left truncate">
                           Serve ED
                         </th>
@@ -148,7 +158,11 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                       {page.groups.map((group, groupIndex) => (
                         <React.Fragment key={groupIndex}>
                           {group.members.map((member, memberIndex) => (
-                            <tr key={memberIndex} className="align-top">
+                            <tr
+                              key={memberIndex}
+                              data-committee-row=""
+                              className="align-top"
+                            >
                               <td className="pl-2 truncate">
                                 {group.electionDistrict
                                   .toString()
@@ -223,8 +237,11 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                   </div>
                 )}
               </div>
-              <div className="mt-auto mb-4 flex w-full text-sm">
-                <p className="ml-4">
+              <div
+                {...hook('footer')}
+                className="mt-auto mb-4 flex w-full text-sm"
+              >
+                <p {...hook('footer-text')} className="ml-4">
                   {new Date(Date.now()).toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',
@@ -232,7 +249,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                     day: 'numeric',
                   })}
                 </p>
-                <p className="ml-auto mr-4">
+                <p {...hook('page-number')} className="ml-auto mr-4">
                   Page {pageIndex + 1} of {numPages}
                 </p>
               </div>
