@@ -42,9 +42,17 @@ echo "🔨 Building workspace packages..."
 # shared-prisma's build runs prisma generate, so no separate generation step is needed.
 pnpm run build:packages
 
+# PM2 runs the compiled server, so build it (TypeScript and Tailwind) before the restart.
+echo "🔨 Building report-server..."
+pnpm --filter node-pdf-generation run build
+
 trap - ERR INT HUP TERM
 echo "▶️  Restarting report-server..."
-pm2 restart report-server
+# Re-register from ecosystem.config.js instead of `pm2 restart`, which would reuse the stored
+# script and interpreter and miss changes to the config. Save so a reboot resurrects this one.
+pm2 delete report-server > /dev/null 2>&1 || true
+pm2 start apps/report-server/ecosystem.config.js
+pm2 save
 pm2 status report-server
 
 echo "✅ Deployment complete!"
