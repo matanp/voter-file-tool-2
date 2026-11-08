@@ -12,7 +12,7 @@ Use these steps when you deploy the report-server manually (e.g. existing server
 
 ### Problem
 
-The `@voter-file-tool/voter-import-processor` and other workspace packages need to be built before the report-server can run in production. TypeScript declaration files (`.d.ts`) are generated during the build step and are required for ts-node to work properly.
+The `@voter-file-tool/voter-import-processor` and other workspace packages need to be built before the report-server can run in production: the report-server imports them from their `dist/`. The report-server itself runs as compiled JavaScript (`apps/report-server/dist/index.js`) under plain node, so it has to be built too.
 
 ### Solution
 
@@ -24,7 +24,11 @@ Packages must be built in dependency order. From the project root:
 pnpm run build:packages
 ```
 
-This builds: `shared-prisma` → `shared-validators` → `voter-import-processor` → (other packages). The `prestart` script in report-server builds a minimal subset when you run `pnpm start`; for a clean deploy, run `pnpm run build:packages` from root first.
+This builds: `shared-prisma` → `shared-validators` → `voter-import-processor` → (other packages). Then build the report-server (TypeScript to `dist/` and the Tailwind CSS to `public/tailwind.css`):
+
+```bash
+pnpm --filter node-pdf-generation run build
+```
 
 ### Manual Deployment Steps for AWS Lightsail
 
@@ -58,12 +62,18 @@ This builds: `shared-prisma` → `shared-validators` → `voter-import-processor
    pnpm run build:packages
    ```
 
-   This generates TypeScript declaration files (`.d.ts`) required for the report-server.
+   This builds the workspace packages the report-server imports.
 
-6. **Start the report server**
+6. **Build the report server** ⚠️ **REQUIRED** ⚠️
+
+   ```bash
+   pnpm --filter node-pdf-generation run build
+   ```
+
+7. **Start the report server**
    ```bash
    cd apps/report-server
-   pnpm start
+   pnpm run start:prod   # node dist/index.js; reads .env from this directory
    ```
 
 ### Using PM2 for Production

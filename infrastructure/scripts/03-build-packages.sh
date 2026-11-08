@@ -109,6 +109,18 @@ pnpm --filter @voter-file-tool/xlsx-tester run build || {
 }
 echo "✅ xlsx-tester built successfully"
 
+# PM2 runs the compiled server (dist/index.js) and the Tailwind output, so build them now, not at start.
+echo "Building report-server..."
+pnpm --filter node-pdf-generation run build || {
+  echo "❌ Failed to build report-server"
+  exit 1
+}
+test -f apps/report-server/dist/index.js && test -f apps/report-server/public/tailwind.css || {
+  echo "❌ report-server build output missing!"
+  exit 1
+}
+echo "✅ report-server built successfully"
+
 # Install Puppeteer Chrome
 echo "📦 Installing Puppeteer Chrome..."
 cd apps/report-server || {

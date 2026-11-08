@@ -1,5 +1,6 @@
 #!/bin/bash
-# Wrapper script to start report-server with nvm loaded
+# Compatibility entry point for the first deploy from the old PM2 configuration.
+# After PM2 is re-registered, it runs dist/index.js directly.
 # This ensures node and pnpm are available in PM2 context
 
 set -e

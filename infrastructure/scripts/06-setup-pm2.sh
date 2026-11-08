@@ -46,14 +46,6 @@ if [ "$(whoami)" = "root" ] && [ -n "$SSH_USER" ] && [ "$SSH_USER" != "root" ]; 
   chown -R "$SSH_USER:$SSH_USER" /opt/voter-file-tool/apps/report-server/logs
 fi
 
-# Ensure start.sh wrapper script is executable
-if [ -f /opt/voter-file-tool/apps/report-server/start.sh ]; then
-  chmod +x /opt/voter-file-tool/apps/report-server/start.sh
-  echo "✅ start.sh wrapper script is executable"
-else
-  echo "⚠️  start.sh wrapper script not found (will be created from repo)"
-fi
-
 # Save pm2 process list (as the SSH user if we're root)
 if [ "$(whoami)" = "root" ] && [ -n "$SSH_USER" ] && [ "$SSH_USER" != "root" ]; then
   sudo -u "$SSH_USER" bash -c "export HOME='$SSH_USER_HOME' && export NVM_DIR='$SSH_USER_HOME/.nvm' && [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\" && nvm use default && pm2 save" || true
