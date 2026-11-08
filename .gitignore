@@ -37,3 +37,7 @@ committee-diff.json
 
 # scripts/dev.sh server logs
 /logs/
+
+# Python bytecode (infrastructure/tests)
+__pycache__/
+*.pyc

@@ -20,13 +20,11 @@ bash scripts/check-pnpm-store.sh
 # Stop the report server first: an install next to a running Chrome can run the 1 GB box out of memory.
 echo "⏸️  Stopping report-server..."
 pm2 stop report-server || true
-trap 'echo "⚠️  Deploy failed. report-server is stopped; start it with: pm2 restart report-server"' ERR
+# If any later step fails, bring the server back up rather than leaving it down.
+trap 'echo "⚠️  Deploy failed. Restarting report-server..."; pm2 restart report-server || echo "❌ Restart failed; run: pm2 restart report-server"' ERR
 
-# Install dependencies.
-# The explicit store check above prevents a mismatch from triggering a cold reinstall.
-# CI=true suppresses prompts; low concurrency keeps memory down.
 echo "📦 Installing dependencies..."
-CI=true pnpm install --frozen-lockfile --network-concurrency=4 --child-concurrency=1
+bash scripts/pnpm-install-low-memory.sh
 
 # Build all packages
 echo "🔨 Building workspace packages..."

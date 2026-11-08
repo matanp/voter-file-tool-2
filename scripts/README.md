@@ -9,6 +9,7 @@ Scripts live in two places:
 | Location | Purpose | Examples |
 |----------|---------|----------|
 | **`scripts/`** (repo root) | Shared dev/deploy scripts | `dev.sh`, `setup-dev-db.sh`, `sync-prisma-models.js`, `deploy-lightsail.sh` |
+| **`scripts/`** (report server) | Install guards used by provisioning and `deploy-lightsail.sh` | `pnpm-install-low-memory.sh` (store check + low-concurrency `pnpm install`), `check-pnpm-store.sh` (aborts if the pnpm store moved) |
 | **`scripts/review/`** | Whole-app review tooling | `pnpm review:freeze`, `review:scans`, `review:gate`, `review:doctor` |
 | **`apps/frontend/scripts/`** | App-specific one-off scripts | `seedLtedCrosswalk.ts` (LTED crosswalk from Excel) |
 | **`apps/frontend/prisma/`** | Prisma seed (standard location) | `seed.ts` |

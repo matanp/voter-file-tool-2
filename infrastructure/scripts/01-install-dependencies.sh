@@ -4,16 +4,27 @@
 set -e
 
 # The 1 GB Lightsail bundle can't fit a cold pnpm install, or a report render next to an install, in RAM.
-# Top total swap up to 2 GB with /swapfile (the Bitnami image ships ~650 MB). Skips if already enough.
-SWAP_MB=$(free -m | awk '/^Swap:/ {print $2}')
-if [ "$SWAP_MB" -lt 2048 ] && [ ! -e /swapfile ]; then
-  echo "💾 Swap is ${SWAP_MB} MB, adding /swapfile to reach 2 GB..."
-  sudo fallocate -l "$((2049 - SWAP_MB))M" /swapfile # +1 MB covers the mkswap header
-  sudo chmod 600 /swapfile
-  sudo mkswap /swapfile
-  sudo swapon /swapfile
-  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab > /dev/null
+# Top total swap up to 2 GB with our own swap file (the Bitnami image ships ~650 MB of its own).
+# A dedicated name can't collide with the image's swap; re-runs fix a half-made file and never duplicate fstab.
+SWAPFILE=/swapfile-voter-file-tool
+swap_total_mb() {
+  local mb
+  mb=$(free -m | awk '/^Swap:/ {print $2}')
+  echo "${mb:-0}"
+}
+SWAP_MB=$(swap_total_mb)
+if [ "$SWAP_MB" -lt 2048 ] && ! swapon --show=NAME --noheadings | grep -qxF "$SWAPFILE"; then
+  echo "💾 Swap is ${SWAP_MB} MB, adding $SWAPFILE to reach 2 GB..."
+  sudo rm -f "$SWAPFILE" # Not active, so any existing file is a leftover from a failed run.
+  sudo fallocate -l "$((2049 - SWAP_MB))M" "$SWAPFILE" # +1 MB covers the mkswap header
+  sudo chmod 600 "$SWAPFILE"
+  sudo mkswap "$SWAPFILE"
+  sudo swapon "$SWAPFILE"
 fi
+if [ -e "$SWAPFILE" ] && ! grep -qF "$SWAPFILE " /etc/fstab; then
+  echo "$SWAPFILE none swap sw 0 0" | sudo tee -a /etc/fstab > /dev/null
+fi
+echo "💾 Swap: $(swap_total_mb) MB"
 
 echo "📦 Installing system dependencies..."
 

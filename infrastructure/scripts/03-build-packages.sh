@@ -35,10 +35,7 @@ cd "$PROJECT_DIR" || {
 
 # Step 1: Install ALL dependencies at root level (skip all scripts including dependency postinstalls)
 echo "📦 Installing all dependencies (skipping all scripts)..."
-# CI=true permits module recreation in pnpm 8, so check the store explicitly first.
-# Low concurrency keeps the install inside the 1 GB instance's memory.
-bash scripts/check-pnpm-store.sh
-CI=true PRISMA_SKIP_POSTINSTALL_GENERATE=true pnpm install --frozen-lockfile --ignore-scripts --network-concurrency=4 --child-concurrency=1 || {
+PRISMA_SKIP_POSTINSTALL_GENERATE=true bash scripts/pnpm-install-low-memory.sh --ignore-scripts || {
   echo "❌ Failed to install dependencies"
   exit 1
 }
