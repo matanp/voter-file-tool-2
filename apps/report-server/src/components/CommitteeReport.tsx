@@ -25,14 +25,33 @@ const ROSTER_COLUMN_HEADERS: Record<CommitteeRosterColumn, string> = {
 
 /** Serve ED gets a fixed width so its header never truncates. */
 const ED_COLUMN_WIDTH = '80px';
-/** Relative widths of the remaining columns; normalized over the selection. */
-const ROSTER_COLUMN_WEIGHTS: Record<CommitteeRosterColumn, number> = {
+/**
+ * Phone gets a fixed width so a formatted number like `(585)247-0123`
+ * (~92px at text-sm Arial, plus cell padding) never truncates.
+ */
+const PHONE_COLUMN_WIDTH = '110px';
+/**
+ * Relative widths of the other columns; normalized over the selection, they
+ * share whatever width Serve ED and Phone leave.
+ */
+const ROSTER_COLUMN_WEIGHTS: Record<
+  Exclude<CommitteeRosterColumn, 'telephone'>,
+  number
+> = {
   name: 18,
   address: 30,
   mailingAddress: 30,
-  telephone: 12,
   email: 22,
 };
+
+/** The `<col>` width for one roster column: fixed, or its share of the weight. */
+function rosterColumnWidth(
+  column: CommitteeRosterColumn,
+  totalWeight: number,
+): string {
+  if (column === 'telephone') return PHONE_COLUMN_WIDTH;
+  return `${((ROSTER_COLUMN_WEIGHTS[column] / totalWeight) * 100).toFixed(2)}%`;
+}
 
 /** The text a member shows in one roster column; missing values are blank. */
 function rosterCellValue(
@@ -90,12 +109,11 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
       : undefined;
     const totalWeight = rosterColumns
       ? rosterColumns.reduce(
-          (sum, column) => sum + ROSTER_COLUMN_WEIGHTS[column],
+          (sum, column) =>
+            column === 'telephone' ? sum : sum + ROSTER_COLUMN_WEIGHTS[column],
           0,
         )
       : 0;
-    const widthOf = (weight: number) =>
-      `${((weight / totalWeight) * 100).toFixed(2)}%`;
     /**
      * Layout-verification hooks, roster only so the ldCommittees markup stays
      * unchanged.
@@ -141,7 +159,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                       {rosterColumns.map((column) => (
                         <col
                           key={column}
-                          style={{ width: widthOf(ROSTER_COLUMN_WEIGHTS[column]) }}
+                          style={{ width: rosterColumnWidth(column, totalWeight) }}
                         />
                       ))}
                     </colgroup>
