@@ -1,5 +1,5 @@
 import { POST } from "~/app/api/committee/requestAdd/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type Prisma } from "@prisma/client";
 import {
   createMockSession,
   createMockCommittee,
@@ -16,6 +16,10 @@ import {
   getAuditLogMock,
   parseJsonResponse,
   setupEligibilityPass,
+  setupMembershipAuditSubjectMocks,
+  stubMembershipRows,
+  expectAuditLogCreate,
+  jsonContaining,
   validationTestCases,
   createAuthTestSuite,
   DEFAULT_ACTIVE_TERM_ID,
@@ -94,36 +98,6 @@ describe("/api/committee/requestAdd", () => {
           committeeListId: 1,
           termId: DEFAULT_ACTIVE_TERM_ID,
           status: "SUBMITTED",
-        }),
-      );
-    });
-
-    it("should store removeMemberId in submissionMetadata when provided with addMemberId", async () => {
-      const mockRequestData = createMockRequestData({
-        addMemberId: "NEW_MEMBER",
-        removeMemberId: "OLD_MEMBER",
-        requestNotes: "Replacement request",
-      });
-      mockAuthSession(
-        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
-      );
-      mockHasPermission(true);
-      setupHappyPath();
-
-      const response = await POST(createMockRequest(mockRequestData));
-
-      await expectSuccessResponse(
-        response,
-        { success: true, message: "Request created" },
-        201,
-      );
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
-        expectMembershipCreate({
-          voterRecordId: "NEW_MEMBER",
-          submissionMetadata: {
-            removeMemberId: "OLD_MEMBER",
-            requestNotes: "Replacement request",
-          },
         }),
       );
     });
@@ -303,9 +277,7 @@ describe("/api/committee/requestAdd", () => {
           return Promise.resolve(createMockCommittee()) as never;
         },
       );
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
-        createMockMembership({ status: "SUBMITTED" }),
-      );
+      stubMembershipRows(prismaMock, [createMockMembership({ status: "SUBMITTED" })]);
 
       const response = await POST(createMockRequest(mockRequestData));
 
@@ -459,8 +431,7 @@ describe("/api/committee/requestAdd", () => {
 
     it("should resubmit an existing REMOVED membership and update submissionMetadata", async () => {
       const mockRequestData = createMockRequestData({
-        removeMemberId: "OLD_MEMBER",
-        requestNotes: "Replacement after removal",
+        requestNotes: "Back after removal",
       });
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
@@ -502,8 +473,7 @@ describe("/api/committee/requestAdd", () => {
           {
             status: "SUBMITTED",
             submissionMetadata: {
-              requestNotes: "Replacement after removal",
-              removeMemberId: "OLD_MEMBER",
+              requestNotes: "Back after removal",
             },
           },
           { id: "membership-removed-1" },
@@ -731,6 +701,385 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(createMockRequest(mockRequestData));
 
       await expectErrorResponse(response, 422, "Invalid request data");
+    });
+  });
+  describe("replacements (ticket 09)", () => {
+    const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
+    const CANDIDATE_ID = "membership-candidate-1";
+    const OUTGOING_ID = "membership-outgoing-1";
+
+    const replacementBody = (overrides: Record<string, unknown> = {}) => ({
+      cityTown: "Test City",
+      legDistrict: "1",
+      electionDistrict: 1,
+      addMemberId: "NEW_MEMBER",
+      removeMemberId: "OLD_MEMBER",
+      requestNotes: "Replacement request",
+      exitReport: {
+        kind: "RESIGNATION",
+        resignationDateReceived: "2026-10-28",
+        resignationMethod: "EMAIL",
+        removalNotes: "Moving to Ohio",
+      },
+      ...overrides,
+    });
+
+    const outgoingRow = (overrides: Record<string, unknown> = {}) => ({
+      ...createMockMembership({
+        id: OUTGOING_ID,
+        voterRecordId: "OLD_MEMBER",
+        status: "ACTIVE",
+        seatNumber: 2,
+        ...overrides,
+      }),
+      voterRecord: { VRCNUM: "OLD_MEMBER", firstName: "Olive", middleInitial: null, lastName: "Out" },
+    });
+
+    const setup = (rows: ReturnType<typeof outgoingRow>[]) => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
+      setupMembershipAuditSubjectMocks(prismaMock);
+      prismaMock.committeeList.findUnique.mockImplementation(
+        (args: { where: { id?: number } }) => {
+          if (args.where.id !== undefined) {
+            return Promise.resolve({
+              cityTown: "Test City",
+              legDistrict: 1,
+              electionDistrict: 1,
+            }) as never;
+          }
+          return Promise.resolve(createMockCommittee()) as never;
+        },
+      );
+      stubMembershipRows(prismaMock, rows);
+      getMembershipMock(prismaMock).create.mockResolvedValue(
+        createMockMembership({ id: CANDIDATE_ID, voterRecordId: "NEW_MEMBER" }),
+      );
+      getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
+    };
+
+    type UpdateManyArgs = {
+      where: Prisma.CommitteeMembershipWhereInput;
+      data: Prisma.CommitteeMembershipUncheckedUpdateManyInput;
+    };
+    const outgoingUpdateMany = (): UpdateManyArgs[] =>
+      (getMembershipMock(prismaMock).updateMany.mock.calls as Array<[UpdateManyArgs]>)
+        .map(([args]) => args)
+        .filter((args) => args.where.id === OUTGOING_ID);
+
+    it("files the outgoing member's Exit Report paired with the new Submission", async () => {
+      setup([outgoingRow()]);
+
+      const response = await POST(createMockRequest(replacementBody()));
+
+      expect(response.status).toBe(201);
+      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+        expectMembershipCreate({
+          voterRecordId: "NEW_MEMBER",
+          status: "SUBMITTED",
+          // The outgoing member is no longer on the Submission.
+          submissionMetadata: { requestNotes: "Replacement request" },
+        }),
+      );
+      expect(outgoingUpdateMany()).toEqual([
+        {
+          where: { id: OUTGOING_ID, status: "ACTIVE", exitReportedAt: null },
+          data: {
+            exitReportedAt: expect.any(Date),
+            exitReportedById: "test-user-id",
+            exitReportedKind: "RESIGNATION",
+            resignationDateReceived: new Date("2026-10-28"),
+            resignationMethod: "EMAIL",
+            removalReason: null,
+            removalNotes: "Moving to Ohio",
+            replacementMembershipId: CANDIDATE_ID,
+          },
+        },
+      ]);
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_SUBMITTED",
+          entityId: CANDIDATE_ID,
+          metadata: jsonContaining({ removeMemberId: "OLD_MEMBER" }),
+        }),
+      );
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_EXIT_REPORTED",
+          entityId: OUTGOING_ID,
+          afterValue: jsonContaining({
+            exitReportedKind: "RESIGNATION",
+            resignationMethod: "EMAIL",
+            resignationDateReceived: "2026-10-28",
+          }),
+          metadata: jsonContaining({
+            reason: "replacement",
+            replacementMembershipId: CANDIDATE_ID,
+          }),
+        }),
+      );
+    });
+
+    it("refuses a replacement without the outgoing member's exit", async () => {
+      setup([outgoingRow()]);
+
+      const response = await POST(
+        createMockRequest(replacementBody({ exitReport: undefined })),
+      );
+
+      expect(response.status).toBe(422);
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("refuses an exit report on a plain add", async () => {
+      setup([outgoingRow()]);
+
+      const response = await POST(
+        createMockRequest(replacementBody({ removeMemberId: undefined })),
+      );
+
+      expect(response.status).toBe(422);
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("refuses a removal without a reason, as a standalone report would", async () => {
+      setup([outgoingRow()]);
+
+      const response = await POST(
+        createMockRequest(replacementBody({ exitReport: { kind: "REMOVAL" } })),
+      );
+
+      expect(response.status).toBe(422);
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("refuses a member who isn't ACTIVE in the committee", async () => {
+      setup([outgoingRow({ status: "REMOVED" })]);
+
+      const response = await POST(createMockRequest(replacementBody()));
+
+      await expectErrorResponse(
+        response,
+        422,
+        "The member being replaced is not an active member of this committee",
+      );
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("refuses a candidate replacing themselves", async () => {
+      setup([outgoingRow()]);
+
+      const response = await POST(
+        createMockRequest(replacementBody({ addMemberId: "OLD_MEMBER" })),
+      );
+
+      expect(response.status).toBe(422);
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("refuses to file a second report when one is already pending (409)", async () => {
+      setup([
+        outgoingRow({
+          exitReportedAt: REPORTED_AT,
+          exitReportedKind: "REMOVAL",
+          removalReason: "DECEASED",
+        }),
+      ]);
+
+      const response = await POST(createMockRequest(replacementBody()));
+
+      expect(response.status).toBe(409);
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).updateMany).not.toHaveBeenCalled();
+    });
+
+    it("pairs with the pending report the Leader saw, without duplicating it", async () => {
+      setup([
+        outgoingRow({
+          exitReportedAt: REPORTED_AT,
+          exitReportedKind: "REMOVAL",
+          removalReason: "DECEASED",
+        }),
+      ]);
+
+      const response = await POST(
+        createMockRequest(
+          replacementBody({
+            exitReport: undefined,
+            existingExitReportedAt: REPORTED_AT.toISOString(),
+          }),
+        ),
+      );
+
+      expect(response.status).toBe(201);
+      expect(outgoingUpdateMany()).toEqual([
+        {
+          where: {
+            id: OUTGOING_ID,
+            status: "ACTIVE",
+            exitReportedAt: REPORTED_AT,
+            replacementMembershipId: null,
+          },
+          data: { replacementMembershipId: CANDIDATE_ID },
+        },
+      ]);
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalledWith(
+        expectAuditLogCreate({ action: "MEMBER_EXIT_REPORTED" }),
+      );
+    });
+
+    it("rewrites every field of the pending report when the Leader updates it, and audits it", async () => {
+      setup([
+        outgoingRow({
+          exitReportedAt: REPORTED_AT,
+          exitReportedKind: "REMOVAL",
+          removalReason: "DECEASED",
+          removalNotes: "Old note",
+        }),
+      ]);
+
+      const response = await POST(
+        createMockRequest(
+          replacementBody({ existingExitReportedAt: REPORTED_AT.toISOString() }),
+        ),
+      );
+
+      expect(response.status).toBe(201);
+      const [write] = outgoingUpdateMany();
+      expect(write?.where).toEqual({
+        id: OUTGOING_ID,
+        status: "ACTIVE",
+        exitReportedAt: REPORTED_AT,
+        replacementMembershipId: null,
+      });
+      expect(write?.data).toEqual({
+        exitReportedAt: expect.any(Date),
+        exitReportedById: "test-user-id",
+        exitReportedKind: "RESIGNATION",
+        resignationDateReceived: new Date("2026-10-28"),
+        resignationMethod: "EMAIL",
+        removalReason: null,
+        removalNotes: "Moving to Ohio",
+        replacementMembershipId: CANDIDATE_ID,
+      });
+      // A new report instant, so an Admin looking at the old one can't confirm it.
+      expect(write?.data.exitReportedAt).not.toEqual(REPORTED_AT);
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_EXIT_REPORTED",
+          entityId: OUTGOING_ID,
+          beforeValue: jsonContaining({
+            exitReportedAt: REPORTED_AT.toISOString(),
+            exitReportedKind: "REMOVAL",
+            removalReason: "DECEASED",
+          }),
+          metadata: jsonContaining({ updatedReport: true }),
+        }),
+      );
+    });
+
+    it("refuses a pending report that changed since the Leader saw it (409)", async () => {
+      setup([
+        outgoingRow({
+          exitReportedAt: REPORTED_AT,
+          exitReportedKind: "REMOVAL",
+          removalReason: "DECEASED",
+        }),
+      ]);
+
+      const response = await POST(
+        createMockRequest(
+          replacementBody({
+            exitReport: undefined,
+            existingExitReportedAt: "2026-10-01T00:00:00.000Z",
+          }),
+        ),
+      );
+
+      expect(response.status).toBe(409);
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("refuses a member already paired with another pending candidate (409)", async () => {
+      setup([
+        outgoingRow({
+          exitReportedAt: REPORTED_AT,
+          exitReportedKind: "REMOVAL",
+          removalReason: "DECEASED",
+          replacementMembershipId: "someone-else",
+        }),
+      ]);
+
+      const response = await POST(
+        createMockRequest(
+          replacementBody({
+            exitReport: undefined,
+            existingExitReportedAt: REPORTED_AT.toISOString(),
+          }),
+        ),
+      );
+
+      expect(response.status).toBe(409);
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("returns 409 when the conditional write on the outgoing member loses a race", async () => {
+      setup([outgoingRow()]);
+      getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 0 });
+
+      const response = await POST(createMockRequest(replacementBody()));
+
+      await expectErrorResponse(response, 409, "This member changed, refresh.");
+    });
+
+    it("unpairs a stale pairing before reusing a candidate's old row", async () => {
+      setup([
+        outgoingRow(),
+        {
+          ...createMockMembership({
+            id: "membership-rejected-9",
+            voterRecordId: "NEW_MEMBER",
+            status: "REJECTED",
+          }),
+          voterRecord: { VRCNUM: "NEW_MEMBER", firstName: "Nia", middleInitial: null, lastName: "New" },
+        },
+      ]);
+      getMembershipMock(prismaMock).update.mockResolvedValue(
+        createMockMembership({ id: "membership-rejected-9", status: "SUBMITTED" }),
+      );
+
+      const response = await POST(createMockRequest(replacementBody()));
+
+      expect(response.status).toBe(201);
+      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith({
+        where: { replacementMembershipId: "membership-rejected-9" },
+        data: { replacementMembershipId: null },
+      });
+      expect(outgoingUpdateMany()[0]?.data).toMatchObject({
+        replacementMembershipId: "membership-rejected-9",
+      });
+    });
+
+    it("refuses to turn a candidate already pending as a plain add into a replacement (409)", async () => {
+      setup([
+        outgoingRow(),
+        {
+          ...createMockMembership({
+            id: "membership-pending-7",
+            voterRecordId: "NEW_MEMBER",
+            status: "SUBMITTED",
+          }),
+          voterRecord: { VRCNUM: "NEW_MEMBER", firstName: "Nia", middleInitial: null, lastName: "New" },
+        },
+      ]);
+
+      const response = await POST(createMockRequest(replacementBody()));
+
+      expect(response.status).toBe(409);
+      expect(getMembershipMock(prismaMock).updateMany).not.toHaveBeenCalled();
     });
   });
 });

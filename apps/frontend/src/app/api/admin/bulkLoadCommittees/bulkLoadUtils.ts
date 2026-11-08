@@ -31,6 +31,7 @@ import {
 } from "~/app/api/lib/seatUtils";
 import {
   CLEARED_EXIT_FIELDS,
+  unpairReplacement,
   EXIT_REPORT_STATE_SELECT,
   type ExitReportState,
   supersededExitReportMetadata,
@@ -894,6 +895,9 @@ async function activateMember(
     // an already-ACTIVE row keeps its exit and Exit Report fields (a pending
     // report stays pending). Only reactivation from another status clears them.
     const reactivating = existingMembership.status !== ACTIVE_MEMBERSHIP_STATUS;
+    // A pending replacement candidate activated by the file is an add: the
+    // outgoing member's report stays pending, unpaired.
+    if (reactivating) await unpairReplacement(tx, existingMembership.id);
     try {
       await tx.committeeMembership.update({
         where: { id: existingMembership.id },

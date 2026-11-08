@@ -301,6 +301,7 @@ describe('mapCommitteesToReportShape', () => {
             exitReportedAt: new Date('2026-10-30T15:04:05.678Z'),
             exitReportedById: 'leader-1',
             exitReportedKind: 'RESIGNATION',
+            replacementMembershipId: null,
             voterRecord: {
               VRCNUM: 'VRC001',
               latestRecordEntryYear: 2025,

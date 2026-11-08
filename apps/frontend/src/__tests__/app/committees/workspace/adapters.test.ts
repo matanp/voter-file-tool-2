@@ -439,19 +439,86 @@ describe("submitCandidate", () => {
     expect(outcome).toEqual({ ok: true, message: "Submitted your request for approval" });
   });
 
-  it("carries the replacement target for replace-member", async () => {
+  it("carries the replacement target and the outgoing member's exit for replace-member", async () => {
     respond({
       success: true,
       message: "ok",
       warnings: [{ code: "POSSIBLY_INACTIVE", message: "Possibly inactive." }],
     });
-    const outcome = await submitCandidate(REPLACE, "submit", details);
-    expect(sent().body).toMatchObject({ addMemberId: "V-NEW", removeMemberId: "V-OLD" });
+    const outcome = await submitCandidate(REPLACE, "submit", {
+      ...details,
+      replacementExit: {
+        kind: "new",
+        input: {
+          kind: "REMOVAL",
+          reason: "MOVED_OUT_OF_DISTRICT",
+          notes: " Moved ",
+          dateReceived: "2026-10-01",
+          method: "EMAIL",
+        },
+      },
+    });
+    expect(sent().body).toMatchObject({
+      addMemberId: "V-NEW",
+      removeMemberId: "V-OLD",
+      // Only the chosen kind's fields.
+      exitReport: {
+        kind: "REMOVAL",
+        removalReason: "MOVED_OUT_OF_DISTRICT",
+        removalNotes: "Moved",
+      },
+    });
+    expect(sent().body).not.toHaveProperty("existingExitReportedAt");
     expect(committeeRequestDataSchema.safeParse(sent().body).success).toBe(true);
     expect(outcome).toEqual({
       ok: true,
-      message: "Submitted your request for approval. Possibly inactive.",
+      message:
+        "Submitted the replacement for approval. The member being replaced stays on the committee until an Admin accepts it. Possibly inactive.",
     });
+  });
+
+  it("pairs a replacement with the outgoing member's pending report, as it is", async () => {
+    respond({ success: true, message: "ok" });
+    await submitCandidate(REPLACE, "submit", {
+      ...details,
+      replacementExit: { kind: "keep", reportedAt: "2026-10-30T15:04:05.678Z" },
+    });
+    expect(sent().body).toMatchObject({
+      removeMemberId: "V-OLD",
+      existingExitReportedAt: "2026-10-30T15:04:05.678Z",
+    });
+    expect(sent().body).not.toHaveProperty("exitReport");
+    expect(committeeRequestDataSchema.safeParse(sent().body).success).toBe(true);
+  });
+
+  it("pairs with the pending report and rewrites it on update", async () => {
+    respond({ success: true, message: "ok" });
+    await submitCandidate(REPLACE, "submit", {
+      ...details,
+      replacementExit: {
+        kind: "update",
+        reportedAt: "2026-10-30T15:04:05.678Z",
+        input: {
+          kind: "RESIGNATION",
+          reason: "OTHER",
+          notes: "",
+          dateReceived: "2026-10-28",
+          method: "MAIL",
+        },
+      },
+    });
+    expect(sent().body).toMatchObject({
+      existingExitReportedAt: "2026-10-30T15:04:05.678Z",
+      exitReport: {
+        kind: "RESIGNATION",
+        resignationDateReceived: "2026-10-28",
+        resignationMethod: "MAIL",
+      },
+    });
+    expect(
+      (sent().body as { exitReport: Record<string, unknown> }).exitReport,
+    ).not.toHaveProperty("removalReason");
+    expect(committeeRequestDataSchema.safeParse(sent().body).success).toBe(true);
   });
 
   it("returns server hard stops as an ineligible outcome", async () => {

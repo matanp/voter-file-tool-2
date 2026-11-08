@@ -37,6 +37,7 @@ import {
   type confirmExitReportSchema,
   type rejectExitReportSchema,
   type removeCommitteeDataSchema,
+  type replacementExitReportSchema,
   type reportExitDataSchema,
   type resignCommitteeDataSchema,
 } from "~/lib/validations/committee";
@@ -258,7 +259,19 @@ export type CandidateDetails = {
   notes?: string;
   /** Admin add only: sent with `forceAdd` when non-blank. */
   overrideReason?: string;
+  /** Replace only: the outgoing member's exit (ticket 09). */
+  replacementExit?: ReplacementExit;
 };
+
+/**
+ * A replacement's outgoing half (ticket 09): file a report for the member
+ * being replaced, or pair with the one already pending for them (the Leader
+ * saw it at `reportedAt`), as it is or with its fields rewritten.
+ */
+export type ReplacementExit =
+  | { kind: "new"; input: ExitReportInput }
+  | { kind: "keep"; reportedAt: string }
+  | { kind: "update"; reportedAt: string; input: ExitReportInput };
 
 export type ActionOutcome =
   /** `message` is the success toast's description. */
@@ -293,7 +306,12 @@ function requestAddBody(
     ...legDistrictParam(action.committee),
     electionDistrict: action.committee.electionDistrict,
     addMemberId: details.candidateId,
-    ...(action.kind === "replace-member" ? { removeMemberId: action.memberId } : {}),
+    ...(action.kind === "replace-member"
+      ? {
+          removeMemberId: action.memberId,
+          ...replacementExitBody(details.replacementExit),
+        }
+      : {}),
     ...trimmedOrOmit("requestNotes", details.notes),
     ...trimmedOrOmit("email", details.email),
     ...trimmedOrOmit("phone", details.phone),
@@ -334,7 +352,36 @@ export async function submitCandidate(
         : withWarnings("Committee member added successfully"),
     };
   }
+  if (action.kind === "replace-member") {
+    return {
+      ok: true,
+      message: withWarnings(
+        "Submitted the replacement for approval. The member being replaced stays on the committee until an Admin accepts it",
+      ),
+    };
+  }
   return { ok: true, message: withWarnings("Submitted your request for approval") };
+}
+
+function replacementExitBody(
+  exit: ReplacementExit | undefined,
+): Pick<RequestAddBody, "exitReport" | "existingExitReportedAt"> {
+  if (!exit) return {};
+  return {
+    ...(exit.kind !== "new" ? { existingExitReportedAt: exit.reportedAt } : {}),
+    ...(exit.kind !== "keep" ? exitReportFieldsBody(exit.input) : {}),
+  };
+}
+
+/**
+ * The `exitReport` a replacement sends, or nothing while the form is
+ * incomplete (the server then refuses the replacement).
+ */
+function exitReportFieldsBody(
+  input: ExitReportInput,
+): Pick<RequestAddBody, "exitReport"> {
+  const fields = exitReportFields(input);
+  return fields ? { exitReport: fields } : {};
 }
 
 // --- Removal and resignation (ticket 14) ---------------------------------------------
@@ -455,19 +502,17 @@ export function exitReportProblems(input: ExitReportInput): string[] {
 }
 
 type ReportExitBody = z.input<typeof reportExitDataSchema>;
+type ExitReportFieldsBody = z.input<typeof replacementExitReportSchema>;
 
-/** Files the report (RequestAccess+). Call once `exitReportProblems` is empty. */
-export async function submitExitReport(
-  action: ExitReportAction,
-  input: ExitReportInput,
-): Promise<ActionOutcome> {
+/**
+ * The report's fields as the endpoints take them, or null while
+ * `exitReportProblems` isn't empty. Only the chosen kind's fields; the schema
+ * refuses the other kind's.
+ */
+function exitReportFields(input: ExitReportInput): ExitReportFieldsBody | null {
   const { kind, reason, method } = input;
-  const problems = exitReportProblems(input);
-  if (problems.length > 0 || kind === "") {
-    return { ok: false, kind: "error", message: problems.join(" ") };
-  }
-  // Only the chosen kind's fields; the schema refuses the other kind's.
-  const byKind: Partial<ReportExitBody> =
+  if (exitReportProblems(input).length > 0 || kind === "") return null;
+  const byKind: Partial<ExitReportFieldsBody> =
     kind === "RESIGNATION"
       ? {
           resignationDateReceived: input.dateReceived.trim(),
@@ -476,12 +521,19 @@ export async function submitExitReport(
       : reason !== ""
         ? { removalReason: reason }
         : {};
-  const body: ReportExitBody = {
-    ...memberKey(action),
-    kind,
-    ...byKind,
-    ...trimmedOrOmit("removalNotes", input.notes),
-  };
+  return { kind, ...byKind, ...trimmedOrOmit("removalNotes", input.notes) };
+}
+
+/** Files the report (RequestAccess+). Call once `exitReportProblems` is empty. */
+export async function submitExitReport(
+  action: ExitReportAction,
+  input: ExitReportInput,
+): Promise<ActionOutcome> {
+  const fields = exitReportFields(input);
+  if (!fields) {
+    return { ok: false, kind: "error", message: exitReportProblems(input).join(" ") };
+  }
+  const body: ReportExitBody = { ...memberKey(action), ...fields };
   const result = await postJson("/api/committee/exitReport", body);
   return result.ok
     ? {

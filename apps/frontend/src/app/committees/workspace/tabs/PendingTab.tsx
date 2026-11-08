@@ -13,6 +13,9 @@
  *   controls.
  * - Exit Reports: an Admin confirms one exactly as reported, or rejects it,
  *   inline. Neither needs a meeting.
+ * - A replacement (ticket 09) is one item under submissions: the candidate,
+ *   with the outgoing member's paired report nested in it. That report isn't
+ *   listed again under Reported exits.
  *
  * After a decision, `onRefresh` refetches the detail and (wired in
  * `CommitteeWorkspace`) the grid row, keeping selection, tab and filters.
@@ -69,7 +72,15 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
     [onRefresh],
   );
 
-  const { pending, pendingExitReports } = detail;
+  const { pending } = detail;
+  const pairedReportIds = new Set(
+    pending.flatMap((s) =>
+      s.replacementExitReport ? [s.replacementExitReport.membershipId] : [],
+    ),
+  );
+  const pendingExitReports = detail.pendingExitReports.filter(
+    (r) => !pairedReportIds.has(r.membershipId),
+  );
 
   return (
     <div className="space-y-3 p-4 text-sm">
@@ -101,6 +112,8 @@ export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
               meetings={meetings}
               onLoadMeetings={meetings.load}
               onDecided={onDecided}
+              onExitReportDecided={onExitReportDecided}
+              focusAfterExitDecision={focusExitsHeading}
             />
           ))}
         </ul>

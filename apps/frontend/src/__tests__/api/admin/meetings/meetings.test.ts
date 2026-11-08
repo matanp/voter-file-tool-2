@@ -22,6 +22,7 @@ import {
   getAuditLogMock,
   getMeetingRecordMock,
   setupEligibilityPass,
+  stubMembershipRows,
 } from "../../../utils/testUtils";
 import {
   mockAuthSession,
@@ -247,9 +248,9 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
       createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
     );
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+    stubMembershipRows(prismaMock, [
       createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
-    );
+    ]);
     getMembershipMock(prismaMock).update.mockResolvedValue({});
     getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
@@ -410,28 +411,21 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
   });
 
   it("confirms replacement request when committee is at capacity", async () => {
+    // The outgoing half: an Exit Report paired with the candidate (ticket 09).
     const replacementTarget = createMockMembership({
       id: "membership-target-id-002",
       voterRecordId: "OLD_MEMBER_ID",
       status: "ACTIVE",
       seatNumber: 2,
+      exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+      exitReportedKind: "REMOVAL",
+      removalReason: "OTHER",
+      replacementMembershipId: MEMBERSHIP_ID,
     });
-    getMembershipMock(prismaMock).findUnique
-      .mockResolvedValueOnce(
-        createMockMembership({
-          id: MEMBERSHIP_ID,
-          status: "SUBMITTED",
-          submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
-        }),
-      )
-      .mockResolvedValueOnce(
-        createMockMembership({
-          id: MEMBERSHIP_ID,
-          status: "SUBMITTED",
-          submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
-        }),
-      )
-      .mockResolvedValueOnce(replacementTarget);
+    stubMembershipRows(prismaMock, [
+      createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
+      replacementTarget,
+    ]);
     getMembershipMock(prismaMock).count.mockImplementation(async () => {
       const callCount = getMembershipMock(prismaMock).count.mock.calls.length;
       return callCount <= 1 ? 2 : 4;
@@ -534,13 +528,10 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
 
   it("handles mixed confirm and reject in single batch", async () => {
     const MEMBERSHIP_ID_2 = "membership-test-id-002";
-    getMembershipMock(prismaMock)
-      .findUnique.mockResolvedValueOnce(
-        createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
-      )
-      .mockResolvedValueOnce(
-        createMockMembership({ id: MEMBERSHIP_ID_2, status: "SUBMITTED" }),
-      );
+    stubMembershipRows(prismaMock, [
+      createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
+      createMockMembership({ id: MEMBERSHIP_ID_2, status: "SUBMITTED" }),
+    ]);
 
     const body = {
       decisions: [

@@ -26,4 +26,18 @@ Before 2026-02-18, pending changes lived in `CommitteeRequest`, with optional `a
 - Report, confirm and reject are conditional updates (`status = 'ACTIVE'` plus the `exitReportedAt` the writer saw). A concurrent write returns 409, and a report rejected and filed again can't be confirmed by an Admin who was looking at the old one.
 - Superseding exits only require `status = 'ACTIVE'`. If a Leader files a report between the exit's read and its write, the helper re-reads and supersedes it, so a bulk import isn't aborted by an ordinary report.
 - A bulk import that re-lists an `ACTIVE` member with a pending report leaves the report alone: the import says the member is on the file, not that they haven't resigned.
-- Replacements still use `submissionMetadata.removeMemberId`; moving them onto Exit Reports is ticket 09.
+- A replacement is a Submission paired with an Exit Report (ticket 09, below).
+
+## Replacements: a Submission paired with an Exit Report
+
+Ticket 09 (`.scratch/leader-feedback-2026-11/issues/09-replacements-use-exit-reports.md`) moved replacements onto the same rule: who is leaving lives on the leaving member's row. Before it, a replacement candidate's `submissionMetadata.removeMemberId` named the outgoing member, and accepting it always recorded `REMOVED` / `OTHER`.
+
+Now **Replace member** files the candidate's Submission and an Exit Report on the outgoing member in one transaction. The outgoing ACTIVE row's `replacementMembershipId` points at the candidate's SUBMITTED row (unique: one outgoing member per candidate). If the member already has a pending report, the replacement pairs with it, conditional on the report the Leader saw, and can rewrite all of its fields with a new `exitReportedAt` (so an Admin looking at the old report can't confirm the new one).
+
+- The pairing is part of the report. `CLEARED_EXIT_REPORT_FIELDS` includes it, so every write that clears a report (any exit, a reject, leaving ACTIVE) clears the pairing too. A third CHECK constraint is the backstop: `replacementMembershipId` may be set only while `status = 'ACTIVE'` and `exitReportedAt` is set.
+- Accepting the candidate records the outgoing member's exit exactly as reported, through `writeMembershipExit` with the report's `exitReportedAt` (the same exact-match rule as the Admin's confirm), in the same transaction and with the same capacity math as before.
+- Rejecting the candidate (by hand, at a meeting, or the capacity auto-reject) rejects the paired report by the reject rule: report, exit fields and pairing cleared, audited as `MEMBER_EXIT_REPORT_REJECTED` with `reason: "replacement_rejected"`.
+- Confirming or rejecting the outgoing report on its own is allowed; it clears the pairing, and the candidate stays pending as an ordinary add.
+- A candidate that leaves SUBMITTED some other way (an Admin's direct add, a discrepancy resolution, a bulk import) or whose old row is reused for a new submission is unpaired (`unpairReplacement`); the report stays pending.
+- A replacement counts as one pending item (`pendingItemsWhere` skips paired reports), and the Pending tab shows it as one item: the candidate, with the outgoing member's report nested in it.
+- Committee History still names the member a submission would replace. It reads `removeMemberId` from the `MEMBER_SUBMITTED` audit row's metadata now; the migration copied it there from `submissionMetadata` for existing submissions.

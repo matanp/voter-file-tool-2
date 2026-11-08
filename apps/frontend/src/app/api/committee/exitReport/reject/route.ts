@@ -6,6 +6,9 @@
  *
  * The body echoes the `exitReportedAt` the Admin saw; a row whose report has
  * since changed (confirmed, rejected, re-filed, or the member left) is a 409.
+ *
+ * Rejecting the outgoing half of a replacement on its own clears the pairing
+ * too; the candidate stays pending as an ordinary add.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -95,6 +98,9 @@ async function rejectExitReportHandler(
           exitReportedAt,
           exitReportedKind: membership.exitReportedKind,
           removalReason: membership.removalReason,
+          ...(membership.replacementMembershipId
+            ? { replacementMembershipId: membership.replacementMembershipId }
+            : {}),
         },
         { status: ACTIVE_MEMBERSHIP_STATUS },
         mergeAuditMetadata(

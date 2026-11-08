@@ -166,6 +166,10 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         );
       }
 
+      if (outcome.kind === "replacementExitIncomplete") {
+        return NextResponse.json({ error: outcome.message }, { status: 422 });
+      }
+
       if (outcome.kind === "atCapacity") {
         return NextResponse.json(
           { error: "INELIGIBLE", reasons: ["CAPACITY"] },

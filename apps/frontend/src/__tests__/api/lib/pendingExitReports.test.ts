@@ -21,6 +21,7 @@ const row = (
   }),
   voterRecord: { VRCNUM: "V123", firstName: "Ada", lastName: null },
   exitReportedBy: { id: "leader-1", name: "Leader One" },
+  replacementMembership: null,
   ...overrides,
 });
 
@@ -37,6 +38,7 @@ describe("toPendingExitReport", () => {
       kind: "REMOVAL",
       reportedAt: reportedAt.toISOString(),
       isOwnReport: false,
+      replacement: null,
       reportedBy: { id: "leader-1", name: "Leader One" },
       removalReason: "OTHER",
       removalNotes: "Moved away",
@@ -53,6 +55,41 @@ describe("toPendingExitReport", () => {
     expect(report).toMatchObject({ isOwnReport: true, kind: "REMOVAL" });
     expect(report).not.toHaveProperty("reportedBy");
     expect(report).not.toHaveProperty("removalNotes");
+  });
+
+  it("names the candidate of a replacement it is paired with", () => {
+    const report = toPendingExitReport(
+      row({
+        replacementMembershipId: "cand-1",
+        replacementMembership: {
+          id: "cand-1",
+          status: "SUBMITTED",
+          voterRecord: { VRCNUM: "V999", firstName: "Bea", lastName: "Cole" },
+        },
+      }),
+      { userId: "leader-2", isAdmin: false },
+    );
+    expect(report?.replacement).toEqual({
+      membershipId: "cand-1",
+      voterRecordId: "V999",
+      firstName: "Bea",
+      lastName: "Cole",
+    });
+  });
+
+  it("does not show a pairing whose candidate is no longer pending", () => {
+    const report = toPendingExitReport(
+      row({
+        replacementMembershipId: "cand-1",
+        replacementMembership: {
+          id: "cand-1",
+          status: "ACTIVE",
+          voterRecord: { VRCNUM: "V999", firstName: "Bea", lastName: "Cole" },
+        },
+      }),
+      { userId: "admin-1", isAdmin: true },
+    );
+    expect(report?.replacement).toBeNull();
   });
 
   it("skips a row whose report fields are not set together", () => {

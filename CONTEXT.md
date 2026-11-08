@@ -110,7 +110,7 @@ The part of a committee's LTED Weight that counts toward designation: the weight
 _Avoid_: total weight, vote weight
 
 **Submission**:
-A candidate a Leader proposes for a committee, waiting for an Admin to accept or reject it. The candidate is not a member until accepted. A replacement submission also names the member the candidate would replace.
+A candidate a Leader proposes for a committee, waiting for an Admin to accept or reject it. The candidate is not a member until accepted. A replacement is a Submission paired with an Exit Report on the member being replaced.
 _Avoid_: request, committee change request
 
 **Exit Report**:

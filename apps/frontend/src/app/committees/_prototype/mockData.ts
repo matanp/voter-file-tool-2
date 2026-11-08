@@ -211,6 +211,7 @@ function buildCommittee(
             lastName: replacing.occupant.lastName,
           }
         : null,
+      replacementExitReport: null,
       submittedBy: { id: "u-leader", name: rand() < 0.5 ? "Dana Whitfield" : "Sam Okafor" },
       requestNotes: rand() < 0.5 ? "Active volunteer, petitioned last cycle." : undefined,
     });

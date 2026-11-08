@@ -241,6 +241,19 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
         electionDistrict: electionDistrict,
         addMemberId: requestAddMember?.VRCNUM,
         removeMemberId: requestRemoveMember?.VRCNUM,
+        // A replacement files an Exit Report for the outgoing member (ticket
+        // 09). This legacy form doesn't ask why they're leaving, so it reports
+        // what accepting a replacement always recorded before: removal, Other.
+        // The workspace's Replace member asks.
+        ...(requestRemoveMember
+          ? {
+              exitReport: {
+                kind: "REMOVAL" as const,
+                removalReason: "OTHER" as const,
+                removalNotes: "Replacement request",
+              },
+            }
+          : {}),
         requestNotes: requestNotes,
         email: contactEmail.trim() || undefined,
         phone: contactPhone.trim() || undefined,

@@ -13,6 +13,7 @@ import {
   isCommitteeAtCapacity,
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
+import { unpairReplacement } from "~/app/api/lib/membershipExit";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
@@ -226,6 +227,9 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
 
       // Create CommitteeMembership with status=ACTIVE (admin direct-add)
       if (existingMembership) {
+        // A pending replacement candidate added directly is an add: the
+        // outgoing member's report stays pending, unpaired.
+        await unpairReplacement(tx, existingMembership.id);
         // Re-activate a previously non-active membership.
         await tx.committeeMembership.update({
           where: { id: existingMembership.id },

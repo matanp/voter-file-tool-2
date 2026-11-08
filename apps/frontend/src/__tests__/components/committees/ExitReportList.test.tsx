@@ -33,6 +33,7 @@ const REPORT: PendingExitReport = {
   kind: "REMOVAL",
   reportedAt: REPORTED_AT,
   isOwnReport: false,
+  replacement: null,
   reportedBy: { id: "u-1", name: "Lee Leader" },
   removalReason: "DECEASED",
   removalNotes: null,

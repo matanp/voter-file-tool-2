@@ -5,7 +5,7 @@
  * `/committees/requests` (every committee).
  */
 
-import type { Prisma } from "@prisma/client";
+import { MembershipStatus, type Prisma } from "@prisma/client";
 import {
   ACTIVE_MEMBERSHIP_STATUS,
   PENDING_MEMBERSHIP_STATUS,
@@ -27,15 +27,20 @@ export function pendingExitReportWhere(
 
 /**
  * Where-clause for everything pending in a term: SUBMITTED memberships
- * awaiting a decision, plus ACTIVE rows carrying a pending Exit Report. This is
- * what every "N pending" count shows.
+ * awaiting a decision, plus ACTIVE rows carrying a standalone Exit Report. A
+ * replacement is one item, counted by its candidate: its paired report
+ * (`replacementMembershipId` set) isn't counted again. This is what every
+ * "N pending" count shows.
  */
 export function pendingItemsWhere(
   termId: string,
 ): Prisma.CommitteeMembershipWhereInput {
   return {
     termId,
-    OR: [{ status: PENDING_MEMBERSHIP_STATUS }, exitReportOnRow],
+    OR: [
+      { status: PENDING_MEMBERSHIP_STATUS },
+      { ...exitReportOnRow, replacementMembershipId: null },
+    ],
   };
 }
 
@@ -44,6 +49,16 @@ export const PENDING_EXIT_REPORT_INCLUDE = {
     select: { VRCNUM: true, firstName: true, lastName: true },
   },
   exitReportedBy: { select: { id: true, name: true } },
+  // A replacement's candidate (ticket 09).
+  replacementMembership: {
+    select: {
+      id: true,
+      status: true,
+      voterRecord: {
+        select: { VRCNUM: true, firstName: true, lastName: true },
+      },
+    },
+  },
 } satisfies Prisma.CommitteeMembershipInclude;
 
 export type PendingExitReportRow = Prisma.CommitteeMembershipGetPayload<{
@@ -60,6 +75,12 @@ export function toPendingExitReport(
   viewer: { userId: string; isAdmin: boolean },
 ): PendingExitReport | null {
   if (!m.exitReportedAt || !m.exitReportedKind) return null;
+  // Every path that moves a candidate out of SUBMITTED unpairs it; the status
+  // check keeps a missed one from showing as a replacement.
+  const candidate =
+    m.replacementMembership?.status === MembershipStatus.SUBMITTED
+      ? m.replacementMembership
+      : null;
   return {
     membershipId: m.id,
     voterRecordId: m.voterRecord.VRCNUM,
@@ -69,6 +90,14 @@ export function toPendingExitReport(
     kind: m.exitReportedKind,
     reportedAt: m.exitReportedAt.toISOString(),
     isOwnReport: m.exitReportedById === viewer.userId,
+    replacement: candidate
+      ? {
+          membershipId: candidate.id,
+          voterRecordId: candidate.voterRecord.VRCNUM,
+          firstName: candidate.voterRecord.firstName ?? "",
+          lastName: candidate.voterRecord.lastName ?? "",
+        }
+      : null,
     ...(viewer.isAdmin
       ? {
           reportedBy: m.exitReportedBy

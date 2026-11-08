@@ -478,12 +478,17 @@ describe("GET /api/committee/roster", () => {
         status: "ACTIVE",
         termId: DEFAULT_ACTIVE_TERM_ID,
       });
-      // Pending = SUBMITTED memberships plus pending Exit Reports.
+      // Pending = SUBMITTED memberships plus standalone Exit Reports; a
+      // replacement's paired report is counted once, by its candidate.
       expect(scope.select._count.select.memberships.where).toEqual({
         termId: DEFAULT_ACTIVE_TERM_ID,
         OR: [
           { status: "SUBMITTED" },
-          { status: "ACTIVE", exitReportedAt: { not: null } },
+          {
+            status: "ACTIVE",
+            exitReportedAt: { not: null },
+            replacementMembershipId: null,
+          },
         ],
       });
     });

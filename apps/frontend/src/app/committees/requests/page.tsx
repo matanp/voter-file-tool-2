@@ -36,6 +36,11 @@ export type MembershipRequestWithDetails = {
   committeeList: CommitteeList;
   voterRecord: VoterRecord;
   submissionMetadata: unknown;
+  /**
+   * A replacement's outgoing member: the ACTIVE row whose Exit Report is
+   * paired with this Submission (ticket 09). Null for a plain add.
+   */
+  replaces: { voterRecordId: string; name: string } | null;
 };
 
 const getCommitteeName = (committeeList: CommitteeList) => {
@@ -80,6 +85,13 @@ const CommitteeRequests: React.FC = async () => {
       include: {
         committeeList: true,
         voterRecord: true,
+        replacing: {
+          select: {
+            voterRecord: {
+              select: { VRCNUM: true, firstName: true, lastName: true },
+            },
+          },
+        },
       },
     }),
     prisma.committeeMembership.findMany({
@@ -107,6 +119,14 @@ const CommitteeRequests: React.FC = async () => {
       committeeList: m.committeeList,
       voterRecord: m.voterRecord,
       submissionMetadata: m.submissionMetadata,
+      replaces: m.replacing
+        ? {
+            voterRecordId: m.replacing.voterRecord.VRCNUM,
+            name:
+              `${m.replacing.voterRecord.firstName ?? ""} ${m.replacing.voterRecord.lastName ?? ""}`.trim() ||
+              m.replacing.voterRecord.VRCNUM,
+          }
+        : null,
     });
   }
 

@@ -9,6 +9,10 @@
  *   report is sent once the Leader acknowledges them. The member stays on the
  *   committee until an Admin confirms.
  *
+ * - `ExitReportFields`: the kind and that kind's fields, shared with the
+ *   Replace member flow, which files the same report for the member being
+ *   replaced (ticket 09).
+ *
  * An Admin confirms or rejects the report as filed (Pending tab); there is no
  * editing, so the report carries everything the recorded exit needs: a
  * resignation's date received and method, or a removal's reason.
@@ -106,10 +110,12 @@ export function ExitInstructionsDialog({
   open,
   onCancel,
   onContinue,
+  continueLabel = "I understand, send report",
 }: {
   open: boolean;
   onCancel: () => void;
   onContinue: () => void;
+  continueLabel?: string;
 }) {
   const [state, setState] = useState<InstructionsState>(cachedState);
 
@@ -173,7 +179,7 @@ export function ExitInstructionsDialog({
             disabled={state.status !== "ready"}
             onClick={onContinue}
           >
-            I understand, send report
+            {continueLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -181,7 +187,7 @@ export function ExitInstructionsDialog({
   );
 }
 
-const EMPTY_REPORT: ExitReportInput = {
+export const EMPTY_EXIT_REPORT: ExitReportInput = {
   kind: "",
   reason: "",
   notes: "",
@@ -206,8 +212,7 @@ export function ReportExitForm({
   onCancel: () => void;
   onSuccess: (message: string) => void;
 }) {
-  const id = useId();
-  const [input, setInput] = useState<ExitReportInput>(EMPTY_REPORT);
+  const [input, setInput] = useState<ExitReportInput>(EMPTY_EXIT_REPORT);
   const [confirming, setConfirming] = useState(false);
   const { submitting, failure, run } = useActionSubmit(onSuccess);
   useEffect(prefetchExitInstructions, []);
@@ -235,43 +240,64 @@ export function ReportExitForm({
           leaving the committee. An Admin confirms or rejects the report; until
           then the member stays on the committee.
         </p>
-        <div className="grid gap-2">
-          <Label id={`${id}-kind`}>What happened (required)</Label>
-          <RadioGroup
-            aria-labelledby={`${id}-kind`}
-            value={input.kind}
-            onValueChange={(kind) => setField({ kind: kind as ExitReportKind })}
-          >
-            {KINDS.map(({ value, label, hint }) => (
-              <RadioCard
-                key={value}
-                id={`${id}-kind-${value}`}
-                value={value}
-                label={label}
-                hint={hint}
-              />
-            ))}
-          </RadioGroup>
-        </div>
-        {input.kind === "RESIGNATION" && (
-          <>
-            <ResignationReceivedFields value={input} onChange={setField} />
-            <NotesField
-              value={input.notes}
-              required={false}
-              onChange={(notes) => setField({ notes })}
-            />
-          </>
-        )}
-        {input.kind === "REMOVAL" && (
-          <ReasonAndNotes value={input} onChange={setField} />
-        )}
+        <ExitReportFields value={input} onChange={setField} />
       </ExitFormLayout>
       <ExitInstructionsDialog
         open={confirming}
         onCancel={() => setConfirming(false)}
         onContinue={send}
       />
+    </>
+  );
+}
+
+/**
+ * What happened (resigned / should be removed), then that kind's fields. A
+ * resignation takes the date received and method (no reason); a removal takes
+ * a reason (notes for Other). Switching kinds keeps what was typed, but only
+ * the chosen kind's fields are sent.
+ */
+export function ExitReportFields({
+  value,
+  onChange,
+}: {
+  value: ExitReportInput;
+  onChange: (patch: Partial<ExitReportInput>) => void;
+}) {
+  const id = useId();
+  return (
+    <>
+      <div className="grid gap-2">
+        <Label id={`${id}-kind`}>What happened (required)</Label>
+        <RadioGroup
+          aria-labelledby={`${id}-kind`}
+          value={value.kind}
+          onValueChange={(kind) => onChange({ kind: kind as ExitReportKind })}
+        >
+          {KINDS.map(({ value: kind, label, hint }) => (
+            <RadioCard
+              key={kind}
+              id={`${id}-kind-${kind}`}
+              value={kind}
+              label={label}
+              hint={hint}
+            />
+          ))}
+        </RadioGroup>
+      </div>
+      {value.kind === "RESIGNATION" && (
+        <>
+          <ResignationReceivedFields value={value} onChange={onChange} />
+          <NotesField
+            value={value.notes}
+            required={false}
+            onChange={(notes) => onChange({ notes })}
+          />
+        </>
+      )}
+      {value.kind === "REMOVAL" && (
+        <ReasonAndNotes value={value} onChange={onChange} />
+      )}
     </>
   );
 }
