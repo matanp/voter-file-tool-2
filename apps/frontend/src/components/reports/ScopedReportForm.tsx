@@ -112,6 +112,7 @@ export function ScopedReportForm({
   const [legDistrict, setLegDistrict] = useState<number | undefined>(undefined);
   const [assignmentIndex, setAssignmentIndex] = useState(0);
   const [meetingDate, setMeetingDate] = useState("");
+  const [meetingName, setMeetingName] = useState("");
   const [vacancyFilter, setVacancyFilter] =
     useState<VacancyFilter>("vacantOnly");
   const [rosterFields, setRosterFields] = useState<RosterFields>(() =>
@@ -261,6 +262,7 @@ export function ScopedReportForm({
           type: "signInSheet",
           format: "pdf",
           ...(meetingDate ? { meetingDate } : {}),
+          ...(meetingName.trim() ? { meetingName: meetingName.trim() } : {}),
         };
       case "committeeRoster":
         return {
@@ -501,15 +503,27 @@ export function ScopedReportForm({
       )}
 
       {type === "signInSheet" && (
-        <div className="space-y-2">
-          <Label htmlFor="meetingDate">Meeting Date (optional)</Label>
-          <Input
-            id="meetingDate"
-            type="date"
-            value={meetingDate}
-            onChange={(e) => setMeetingDate(e.target.value)}
-          />
-        </div>
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="meetingName">Meeting Name (optional)</Label>
+            <Input
+              id="meetingName"
+              type="text"
+              maxLength={100}
+              value={meetingName}
+              onChange={(e) => setMeetingName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="meetingDate">Meeting Date (optional)</Label>
+            <Input
+              id="meetingDate"
+              type="date"
+              value={meetingDate}
+              onChange={(e) => setMeetingDate(e.target.value)}
+            />
+          </div>
+        </>
       )}
 
       {type === "vacancyReport" && (

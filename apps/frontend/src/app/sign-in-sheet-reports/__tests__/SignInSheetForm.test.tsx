@@ -221,6 +221,55 @@ describe("ScopedReportForm (signInSheet)", () => {
     expect(body.name).toContain("Sign-In Sheet");
   });
 
+  const submitAndReadBody = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole("button", { name: "Generate PDF" }));
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    const [, options] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      { body?: string },
+    ];
+    return JSON.parse(options.body ?? "{}") as Record<string, unknown>;
+  };
+
+  it("should send a trimmed meeting name in the payload", async () => {
+    const user = userEvent.setup();
+    render(
+      <ScopedReportForm
+        type="signInSheet"
+        committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
+        userPrivilegeLevel={PrivilegeLevel.Admin}
+      />,
+    );
+
+    await user.type(
+      screen.getByLabelText("Meeting Name (optional)"),
+      "  Reorganization Meeting  ",
+    );
+
+    const body = await submitAndReadBody(user);
+    expect(body.meetingName).toBe("Reorganization Meeting");
+  });
+
+  it("should leave a blank meeting name out of the payload", async () => {
+    const user = userEvent.setup();
+    render(
+      <ScopedReportForm
+        type="signInSheet"
+        committeeLists={MOCK_COMMITTEE_LISTS}
+        leaderAssignments={[]}
+        userPrivilegeLevel={PrivilegeLevel.Admin}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Meeting Name (optional)"), "   ");
+
+    const body = await submitAndReadBody(user);
+    expect(body).not.toHaveProperty("meetingName");
+  });
+
   it("shows ReportStatusTracker after successful submission", async () => {
     const user = userEvent.setup();
 

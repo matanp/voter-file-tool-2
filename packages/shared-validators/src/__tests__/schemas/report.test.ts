@@ -152,6 +152,40 @@ describe('generateReportSchema - committeeRoster includeFields', () => {
   });
 });
 
+describe('generateReportSchema - signInSheet meetingName', () => {
+  const payload = (meetingName: string) => ({
+    type: 'signInSheet',
+    name: 'Test',
+    format: 'pdf',
+    scope: 'countywide',
+    meetingName,
+  });
+
+  it('should accept and trim a meeting name', () => {
+    const result = generateReportSchema.parse(
+      payload('  MCDC Reorganization Meeting  '),
+    );
+    expect(result).toMatchObject({ meetingName: 'MCDC Reorganization Meeting' });
+  });
+
+  it('should accept a 100-character meeting name', () => {
+    expect(
+      generateReportSchema.safeParse(payload('x'.repeat(100))).success,
+    ).toBe(true);
+  });
+
+  it('should reject a meeting name over 100 characters', () => {
+    expect(
+      generateReportSchema.safeParse(payload('x'.repeat(101))).success,
+    ).toBe(false);
+  });
+
+  it('should omit a blank meeting name', () => {
+    const result = generateReportSchema.parse(payload('   '));
+    expect(result).not.toHaveProperty('meetingName', expect.anything());
+  });
+});
+
 describe('enrichedReportDataSchema - signInSheet', () => {
   it('parses enriched signInSheet payload', () => {
     const valid = {

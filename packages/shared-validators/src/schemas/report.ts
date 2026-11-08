@@ -171,6 +171,12 @@ const signInSheetReportSchema = z.object({
   format: z.literal('pdf'),
   ...scopeFieldsBase.shape,
   meetingDate: z.string().optional(),
+  meetingName: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .transform((value) => value || undefined),
 });
 
 const designationWeightSummaryReportSchema = z.object({

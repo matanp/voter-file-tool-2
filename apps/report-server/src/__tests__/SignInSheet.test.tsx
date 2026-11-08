@@ -1,60 +1,352 @@
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import SignInSheet from '../components/SignInSheet';
+import {
+  buildSignInSheets,
+  resolveSignInSheetTitleScope,
+  type SignInSheetData,
+  type SignInSheetRow,
+} from '../signInSheetHelpers';
 
-describe('SignInSheet', () => {
-  it('renders header, member rows, blank rows, and footer', () => {
-    const committees = [
-      {
-        cityTown: 'ROCHESTER',
-        legDistrict: 1,
-        electionDistrict: 42,
-        members: [
-          { name: 'Jane Doe', address: '123 Main St' },
-          { name: 'John Smith', address: '456 Oak Ave' },
-        ],
-      },
-    ];
+const row = (overrides: Partial<SignInSheetRow> = {}): SignInSheetRow => ({
+  electionDistrict: 1,
+  name: 'DOE, JANE',
+  email: 'jane@example.invalid',
+  phone: '(585) 555-0100',
+  ...overrides,
+});
 
-    const html = ReactDOMServer.renderToStaticMarkup(
-      React.createElement(SignInSheet, {
-        committees,
-        reportAuthor: 'Test Author',
-      }),
-    );
+const rows = (count: number): SignInSheetRow[] =>
+  Array.from({ length: count }, (_, i) =>
+    row({ name: `MEMBER${String(i + 1).padStart(4, '0')}, TEST` }),
+  );
 
-    expect(html).toContain('Sign-In Sheet');
-    expect(html).toContain('LD 01');
-    expect(html).toContain('ED 042');
-    expect(html).toContain('Jane Doe');
-    expect(html).toContain('123 Main St');
-    expect(html).toContain('John Smith');
-    expect(html).toContain('Signature');
-    expect(html).toContain('Notes');
-    expect(html).toContain('Test Author');
-    expect(html).toContain('<tr'); // table rows including blank rows
+const render = (
+  sheets: SignInSheetData[],
+  options: { meetingName?: string; meetingDate?: string } = {},
+): string =>
+  ReactDOMServer.renderToStaticMarkup(
+    <SignInSheet sheets={sheets} contactInfoDate="9/23/2026" {...options} />,
+  );
+
+const count = (html: string, text: string): number =>
+  html.split(text).length - 1;
+
+const titleOf = (html: string): string =>
+  /data-sign-in-title="true"[^>]*>(.*?)<\/div>/.exec(html)?.[1] ?? '';
+
+const pageNumbers = (html: string): string[] =>
+  [...html.matchAll(/data-sign-in-page-number="true"[^>]*>(.*?)<\/span>/g)].map(
+    (match) => (match[1] ?? '').replace(/<!-- -->/g, ''),
+  );
+
+describe('SignInSheet rows', () => {
+  it('should render the columns and member contact', () => {
+    const html = render([
+      { committeeLabel: 'Brighton', rows: [row({ electionDistrict: 21 })] },
+    ]);
+
+    for (const label of [
+      'ED',
+      'Member name',
+      'Email on file',
+      'Phone on file',
+      'Member signature',
+      'Proxy name (print)',
+      'Proxy signature',
+    ]) {
+      expect(html).toContain(`>${label}</th>`);
+    }
+    expect(html).toContain('>21</td>');
+    expect(html).toContain('DOE, JANE');
+    expect(html).toContain('[ ] Info correct');
+    expect(html).toContain('jane@example.invalid');
+    expect(html).toContain('New email:');
+    expect(html).toContain('(585) 555-0100');
+    expect(html).toContain('New phone:');
   });
 
-  it('includes meeting date when provided', () => {
-    const committees = [
+  it('should print None on file for missing email and phone', () => {
+    const html = render([
       {
-        cityTown: 'BRIGHTON',
-        legDistrict: 1,
-        electionDistrict: 1,
-        members: [],
+        committeeLabel: 'Brighton',
+        rows: [row({ email: null, phone: null })],
       },
-    ];
+    ]);
 
-    const html = ReactDOMServer.renderToStaticMarkup(
-      React.createElement(SignInSheet, {
-        committees,
-        meetingDate: '2025-03-15',
-        reportAuthor: 'Author',
-      }),
+    expect(count(html, 'None on file')).toBe(2);
+  });
+
+  it('should print an alphabetical sheet across EDs with an unpadded ED', () => {
+    const voter = {
+      VRCNUM: 'V',
+      firstName: 'TEST',
+      middleInitial: null,
+      suffixName: 'JR',
+      email: null,
+      telephone: null,
+    };
+    const html = render(
+      buildSignInSheets([
+        {
+          cityTown: 'BRIGHTON',
+          legDistrict: 16,
+          electionDistrict: 2,
+          memberships: [
+            {
+              submissionMetadata: null,
+              voterRecord: { ...voter, lastName: 'ZIMMER' },
+            },
+          ],
+        },
+        {
+          cityTown: 'BRIGHTON',
+          legDistrict: 16,
+          electionDistrict: 21,
+          memberships: [
+            {
+              submissionMetadata: null,
+              voterRecord: { ...voter, lastName: 'ADAMS' },
+            },
+          ],
+        },
+      ]),
     );
 
-    expect(html).toContain('Meeting:');
-    expect(html).toContain('March');
-    expect(html).toContain('2025');
+    expect(html.indexOf('ADAMS, TEST JR')).toBeLessThan(
+      html.indexOf('ZIMMER, TEST JR'),
+    );
+    expect(html).toContain('>21</td>');
+    expect(html).not.toContain('021');
+  });
+
+  it('should print one row per member and no blank rows', () => {
+    const html = render([{ committeeLabel: 'Brighton', rows: rows(3) }]);
+
+    expect(count(html, 'data-sign-in-row')).toBe(3);
+  });
+});
+
+describe('SignInSheet pagination', () => {
+  it('should split 17 members 7/8/2 with the title on the first page', () => {
+    const html = render([{ committeeLabel: 'Brighton', rows: rows(17) }]);
+
+    expect(count(html, 'data-sign-in-page="true"')).toBe(3);
+    expect(count(html, 'data-sign-in-header')).toBe(3);
+    expect(count(html, 'data-sign-in-title')).toBe(1);
+    expect(count(html, 'data-sign-in-row')).toBe(17);
+    expect(
+      html
+        .split('data-sign-in-page="true"')
+        .slice(1)
+        .map((page) => count(page, 'data-sign-in-row')),
+    ).toEqual([7, 8, 2]);
+    expect(pageNumbers(html)).toEqual(['Page 1', 'Page 2', 'Page 3']);
+  });
+
+  it('should restart page numbers on each sheet', () => {
+    const html = render([
+      { committeeLabel: 'Brighton', rows: rows(8) },
+      { committeeLabel: 'Rochester LD 26', rows: rows(1) },
+    ]);
+
+    expect(pageNumbers(html)).toEqual(['Page 1', 'Page 2', 'Page 1']);
+    expect(count(html, 'data-sign-in-title')).toBe(2);
+  });
+
+  it('should not print a page total or a report author', () => {
+    const html = render([{ committeeLabel: 'Brighton', rows: rows(9) }]);
+
+    expect(html).not.toMatch(/Page\s*(<!-- -->)?\d+(<!-- -->)?\s*of/);
+    expect(html).not.toContain('Author');
+  });
+});
+
+describe('SignInSheet title', () => {
+  const sheet = [{ committeeLabel: 'Brighton', rows: rows(1) }];
+
+  it.each([
+    [
+      'name and date',
+      { meetingName: 'Reorganization', meetingDate: '2026-03-15' },
+      'Reorganization — March 15, 2026',
+    ],
+    ['name only', { meetingName: 'Reorganization' }, 'Reorganization'],
+    ['date only', { meetingDate: '2026-03-15' }, 'March 15, 2026'],
+  ])('should print the meeting line with %s', (_, options, expected) => {
+    expect(titleOf(render(sheet, options))).toContain(`>${expected}</p>`);
+  });
+
+  it('should print no meeting line with neither', () => {
+    const title = titleOf(render(sheet));
+
+    expect(title).toContain('Brighton');
+    expect(title).not.toContain('<p');
+  });
+
+  it('should title a town narrowed to one LD', () => {
+    const committees = [
+      { cityTown: 'EAST ROCHESTER', legDistrict: 26, electionDistrict: 1 },
+    ];
+    const titleScope = resolveSignInSheetTitleScope({
+      scope: 'jurisdiction',
+      cityTown: 'EAST ROCHESTER',
+      legDistrict: 26,
+    });
+
+    const html = render(buildSignInSheets(committees, titleScope));
+
+    expect(titleOf(html).replace(/<!-- -->/g, '')).toContain(
+      'East Rochester LD 26 Committee',
+    );
+  });
+
+  it('should ignore a stray legDistrict on a countywide job', () => {
+    const committees = [
+      { cityTown: 'BRIGHTON', legDistrict: 16, electionDistrict: 1 },
+    ];
+    const titleScope = resolveSignInSheetTitleScope({
+      scope: 'countywide',
+      cityTown: 'BRIGHTON',
+      legDistrict: 16,
+    });
+
+    const html = render(buildSignInSheets(committees, titleScope));
+
+    expect(titleOf(html).replace(/<!-- -->/g, '')).toContain(
+      'Brighton Committee',
+    );
+    expect(html).not.toContain('LD 16');
+  });
+});
+
+describe('SignInSheet footer', () => {
+  const footerOf = (html: string): string =>
+    (
+      /data-sign-in-footer-text="true"[^>]*>(.*?)<\/span>/.exec(html)?.[1] ?? ''
+    ).replace(/<!-- -->/g, '');
+
+  it('should name the meeting, member count and contact date', () => {
+    const html = render([{ committeeLabel: 'Brighton', rows: rows(3) }], {
+      meetingName: '2026 Reorganization',
+    });
+
+    expect(footerOf(html)).toBe(
+      'Brighton Democratic Committee | 2026 Reorganization Sign-In Sheet | 3 eligible members | Contact info as of 9/23/2026',
+    );
+  });
+
+  it('should fall back to Sign-In Sheet with no meeting name', () => {
+    const html = render([{ committeeLabel: 'Brighton', rows: rows(3) }]);
+
+    expect(footerOf(html)).toContain('Committee | Sign-In Sheet | 3 eligible');
+  });
+
+  it('should print a header-only sheet for a committee with no members', () => {
+    const html = render([{ committeeLabel: 'Brighton', rows: [] }]);
+
+    expect(count(html, 'data-sign-in-page="true"')).toBe(1);
+    expect(count(html, 'data-sign-in-header')).toBe(1);
+    expect(count(html, 'data-sign-in-row')).toBe(0);
+    expect(footerOf(html)).toContain('0 eligible members');
+    expect(pageNumbers(html)).toEqual(['Page 1']);
+  });
+});
+
+describe('SignInSheet text fitting', () => {
+  const sizeOf = (html: string, value: string): string | undefined =>
+    new RegExp(`data-sign-in-text-size="([\\d.]+)"[^>]*>${value}</div>`).exec(
+      html,
+    )?.[1];
+
+  const nameSize = (name: string): string | undefined =>
+    sizeOf(
+      render([{ committeeLabel: 'Brighton', rows: [row({ name })] }]),
+      name,
+    );
+
+  const emailSize = (email: string): string | undefined =>
+    sizeOf(
+      render([{ committeeLabel: 'Brighton', rows: [row({ email })] }]),
+      email,
+    );
+
+  it('should print a short name at full size', () => {
+    expect(nameSize('DOE, JANE')).toBe('15.5');
+  });
+
+  it('should step down to 13 px for a name that needs 3 lines at full size', () => {
+    expect(nameSize('MONTGOMERY-WILLIAMSON, ALEXANDRA ELIZABETH JR')).toBe(
+      '13',
+    );
+  });
+
+  it('should step down to 11 px for a very long name', () => {
+    expect(
+      nameSize(
+        'VANDERBILT-MONTGOMERY-WILLIAMSON, ALEXANDRA CHRISTINA ELIZABETH M III',
+      ),
+    ).toBe('11');
+  });
+
+  it('should step down when a name wraps to 3 lines though its total width is under 2', () => {
+    // Each surname part fills most of a line, so the first name can't join the second line.
+    expect(nameSize('BARTHOLOMEW HOLLINGSWORTHMANS, AL')).toBe('13');
+  });
+
+  it('should break names after a hyphen when fitting', () => {
+    // Chrome puts `O-` alone on the first line, so the long part needs 2 more at full size.
+    expect(nameSize('O-WOLFESCHLEGELSTEINHAUSENBERG, AL')).not.toBe('15.5');
+    expect(nameSize('SMITH-JONES, MARY ANN')).toBe('15.5');
+  });
+
+  it('should step down for a long email', () => {
+    expect(emailSize('jane@example.invalid')).toBe('15.5');
+    expect(
+      emailSize(
+        'member2001abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz@example.invalid',
+      ),
+    ).toBe('13');
+    expect(emailSize(`member3001${'a'.repeat(64)}@example.invalid`)).toBe('11');
+  });
+
+  it('should step down sooner for characters outside the width tables', () => {
+    expect(nameSize('M'.repeat(30))).toBe('15.5');
+    expect(nameSize('😀'.repeat(30))).not.toBe('15.5');
+    expect(emailSize(`${'a'.repeat(40)}@example.invalid`)).toBe('15.5');
+    expect(emailSize(`${'山'.repeat(40)}@example.invalid`)).not.toBe('15.5');
+  });
+
+  it('should fit a raw phone like an email', () => {
+    const phone = `extension-${'1234567890'.repeat(2)}1234`;
+    const html = render([
+      { committeeLabel: 'Brighton', rows: [row({ phone })] },
+    ]);
+
+    expect(sizeOf(html, phone)).toBe('13');
+    expect(sizeOf(html, 'DOE, JANE')).toBe('15.5');
+  });
+
+  it('should never fit the second lines', () => {
+    const html = render([
+      {
+        committeeLabel: 'Brighton',
+        rows: [
+          row({
+            name: 'VANDERBILT-MONTGOMERY-WILLIAMSON, ALEXANDRA CHRISTINA ELIZABETH M III',
+            email: `member3001${'a'.repeat(64)}@example.invalid`,
+          }),
+        ],
+      },
+    ]);
+
+    for (const label of ['[ ] Info correct', 'New email:', 'New phone:']) {
+      const element =
+        new RegExp(`<div([^>]*)>${label.replace(/[[\]]/g, '\\$&')}</div>`).exec(
+          html,
+        )?.[1] ?? '';
+      expect(element).toContain('text-[15.5px]');
+      expect(element).not.toContain('data-sign-in-text-size');
+    }
   });
 });
