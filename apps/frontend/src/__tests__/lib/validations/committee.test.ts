@@ -31,6 +31,7 @@ const validExitRemoval = {
   removalReason: "MOVED_OUT_OF_DISTRICT",
 };
 
+/** Parses body expecting a rejection and returns the first Zod issue; throws if it parses. */
 function firstIssue(schema: ZodTypeAny, body: unknown) {
   const result = schema.safeParse(body);
   if (result.success) throw new Error("expected the payload to be rejected");
