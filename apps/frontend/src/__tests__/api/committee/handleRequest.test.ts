@@ -1,5 +1,10 @@
 import { POST } from "~/app/api/committee/handleRequest/route";
-import { Prisma, PrivilegeLevel, type MembershipStatus } from "@prisma/client";
+import {
+  Prisma,
+  PrivilegeLevel,
+  type CommitteeMembership,
+  type MembershipStatus,
+} from "@prisma/client";
 import {
   createMockSession,
   createMockRequest,
@@ -18,6 +23,8 @@ import {
   getMeetingRecordMock,
   setupEligibilityPass,
   setupMembershipAuditSubjectMocks,
+  stubMembershipRows,
+  resolvesTo,
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../../utils/testUtils";
@@ -25,6 +32,7 @@ import {
   mockAuthSession,
   mockHasPermission,
   prismaMock,
+  rawQueryMock,
 } from "../../utils/mocks";
 
 const createMockHandleRequestData = (overrides = {}) => ({
@@ -52,9 +60,9 @@ describe("/api/committee/handleRequest", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubMembershipRows(prismaMock, [
         createMockMembership({ status: "SUBMITTED" }),
-      );
+      ]);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -95,9 +103,9 @@ describe("/api/committee/handleRequest", () => {
       );
       mockHasPermission(true);
       setupMembershipAuditSubjectMocks(prismaMock);
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubMembershipRows(prismaMock, [
         createMockMembership({ status: "SUBMITTED" }),
-      );
+      ]);
       getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -122,20 +130,26 @@ describe("/api/committee/handleRequest", () => {
       ).not.toHaveBeenCalled();
     });
 
-    it("should remove replacement target when accepting a request with removeMemberId", async () => {
+    it("should record the paired Exit Report's exit when accepting a replacement", async () => {
       const mockRequestData = createMockHandleRequestData({
         acceptOrReject: "accept",
       });
       const submittedMembership = createMockMembership({
         id: "membership-test-id-001",
         status: "SUBMITTED",
-        submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
       });
+      // The outgoing half: an Exit Report paired with the candidate (ticket 09).
       const replacementTargetMembership = createMockMembership({
         id: "membership-target-id-002",
         voterRecordId: "OLD_MEMBER_ID",
         status: "ACTIVE",
         seatNumber: 2,
+        exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+        exitReportedById: "leader-1",
+        exitReportedKind: "REMOVAL",
+        removalReason: "OTHER",
+        removalNotes: "Replacement request",
+        replacementMembershipId: "membership-test-id-001",
       });
 
       mockAuthSession(
@@ -143,10 +157,10 @@ describe("/api/committee/handleRequest", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      getMembershipMock(prismaMock).findUnique
-        .mockResolvedValueOnce(submittedMembership)
-        .mockResolvedValueOnce(submittedMembership)
-        .mockResolvedValueOnce(replacementTargetMembership);
+      stubMembershipRows(prismaMock, [
+        submittedMembership,
+        replacementTargetMembership,
+      ]);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -187,13 +201,19 @@ describe("/api/committee/handleRequest", () => {
       const submittedMembership = createMockMembership({
         id: "membership-test-id-001",
         status: "SUBMITTED",
-        submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
       });
+      // The outgoing half: an Exit Report paired with the candidate (ticket 09).
       const replacementTargetMembership = createMockMembership({
         id: "membership-target-id-002",
         voterRecordId: "OLD_MEMBER_ID",
         status: "ACTIVE",
         seatNumber: 2,
+        exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+        exitReportedById: "leader-1",
+        exitReportedKind: "REMOVAL",
+        removalReason: "OTHER",
+        removalNotes: "Replacement request",
+        replacementMembershipId: "membership-test-id-001",
       });
 
       mockAuthSession(
@@ -201,10 +221,10 @@ describe("/api/committee/handleRequest", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      getMembershipMock(prismaMock).findUnique
-        .mockResolvedValueOnce(submittedMembership)
-        .mockResolvedValueOnce(submittedMembership)
-        .mockResolvedValueOnce(replacementTargetMembership);
+      stubMembershipRows(prismaMock, [
+        submittedMembership,
+        replacementTargetMembership,
+      ]);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -243,7 +263,6 @@ describe("/api/committee/handleRequest", () => {
       const submittedMembership = createMockMembership({
         id: "membership-test-id-001",
         status: "SUBMITTED",
-        submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
       });
 
       mockAuthSession(
@@ -251,10 +270,24 @@ describe("/api/committee/handleRequest", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      getMembershipMock(prismaMock).findUnique
-        .mockResolvedValueOnce(submittedMembership)
-        .mockResolvedValueOnce(submittedMembership)
-        .mockResolvedValueOnce(null);
+      // The paired report was rejected or rewritten after the pairing was read.
+      stubMembershipRows(prismaMock, [
+        submittedMembership,
+        createMockMembership({
+          id: "membership-target-id-002",
+          voterRecordId: "OLD_MEMBER_ID",
+          status: "ACTIVE",
+          exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+          exitReportedKind: "REMOVAL",
+          removalReason: "OTHER",
+          replacementMembershipId: "membership-test-id-001",
+        }),
+      ]);
+      prismaMock.committeeMembership.update.mockRejectedValueOnce(
+        Object.assign(new Error("Record to update not found."), {
+          code: "P2025",
+        }),
+      );
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -283,13 +316,19 @@ describe("/api/committee/handleRequest", () => {
       const submittedMembership = createMockMembership({
         id: "membership-test-id-001",
         status: "SUBMITTED",
-        submissionMetadata: { removeMemberId: "OLD_MEMBER_ID" },
       });
+      // The outgoing half: an Exit Report paired with the candidate (ticket 09).
       const replacementTargetMembership = createMockMembership({
         id: "membership-target-id-002",
         voterRecordId: "OLD_MEMBER_ID",
         status: "ACTIVE",
         seatNumber: 2,
+        exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
+        exitReportedById: "leader-1",
+        exitReportedKind: "REMOVAL",
+        removalReason: "OTHER",
+        removalNotes: "Replacement request",
+        replacementMembershipId: "membership-test-id-001",
       });
 
       mockAuthSession(
@@ -300,10 +339,10 @@ describe("/api/committee/handleRequest", () => {
       getMembershipMock(prismaMock).count
         .mockResolvedValueOnce(3) // validateEligibility: under capacity
         .mockResolvedValue(4); // tx: at capacity (replacement frees one)
-      getMembershipMock(prismaMock).findUnique
-        .mockResolvedValueOnce(submittedMembership)
-        .mockResolvedValueOnce(submittedMembership)
-        .mockResolvedValueOnce(replacementTargetMembership);
+      stubMembershipRows(prismaMock, [
+        submittedMembership,
+        replacementTargetMembership,
+      ]);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -365,9 +404,9 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubMembershipRows(prismaMock, [
         createMockMembership({ status: "ACTIVE" }),
-      );
+      ]);
 
       const response = await POST(createMockRequest(mockRequestData));
 
@@ -388,9 +427,9 @@ describe("/api/committee/handleRequest", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubMembershipRows(prismaMock, [
         createMockMembership({ status: "SUBMITTED" }),
-      );
+      ]);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(
         createMockMembership({ committeeListId: 999, status: "ACTIVE" }),
       );
@@ -412,15 +451,15 @@ describe("/api/committee/handleRequest", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubMembershipRows(prismaMock, [
         createMockMembership({ status: "SUBMITTED" }),
-      );
+      ]);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
       );
       getMembershipMock(prismaMock).count.mockResolvedValue(0);
-      prismaMock.$queryRaw.mockResolvedValue([] as never);
+      rawQueryMock("$queryRaw").mockResolvedValue([]);
       getMembershipMock(prismaMock).update.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint", {
           code: "P2002",
@@ -445,9 +484,9 @@ describe("/api/committee/handleRequest", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubMembershipRows(prismaMock, [
         createMockMembership({ status: "SUBMITTED" }),
-      );
+      ]);
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -471,7 +510,7 @@ describe("/api/committee/handleRequest", () => {
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
       );
-      prismaMock.$queryRaw.mockResolvedValue([] as never);
+      rawQueryMock("$queryRaw").mockResolvedValue([]);
 
       const membershipIds = ["m-conc-1", "m-conc-2", "m-conc-3", "m-conc-4"];
       const membershipStore = new Map(
@@ -507,31 +546,23 @@ describe("/api/committee/handleRequest", () => {
         },
       );
 
-      getMembershipMock(prismaMock).findUnique.mockImplementation(
-        async (args: {
-          where:
-            | { id: string }
-            | {
-                voterRecordId_committeeListId_termId: {
-                  voterRecordId: string;
-                  committeeListId: number;
-                  termId: string;
-                };
-              };
-        }) => {
-          if ("id" in args.where) {
-            return membershipStore.get(args.where.id) ?? null;
-          }
-
-          const composite = args.where.voterRecordId_committeeListId_termId;
-          return (
-            Array.from(membershipStore.values()).find(
-              (membership) =>
-                membership.voterRecordId === composite.voterRecordId &&
-                membership.committeeListId === composite.committeeListId &&
-                membership.termId === composite.termId,
-            ) ?? null
-          );
+      prismaMock.committeeMembership.findUnique.mockImplementation(
+        (args: Prisma.CommitteeMembershipFindUniqueArgs) => {
+          const { id, voterRecordId_committeeListId_termId: composite } =
+            args.where;
+          // No replacement pairings in this scenario.
+          const found =
+            id !== undefined
+              ? membershipStore.get(id)
+              : composite === undefined
+                ? undefined
+                : Array.from(membershipStore.values()).find(
+                    (membership) =>
+                      membership.voterRecordId === composite.voterRecordId &&
+                      membership.committeeListId === composite.committeeListId &&
+                      membership.termId === composite.termId,
+                  );
+          return resolvesTo<CommitteeMembership | null>(found ?? null);
         },
       );
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
@@ -649,9 +680,9 @@ describe("/api/committee/handleRequest", () => {
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
       mockHasPermission(true);
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubMembershipRows(prismaMock, [
         createMockMembership({ status: "SUBMITTED" }),
-      );
+      ]);
       getMeetingRecordMock(prismaMock).findUnique.mockResolvedValue(null);
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -670,9 +701,9 @@ describe("/api/committee/handleRequest", () => {
         );
         mockHasPermission(true);
         setupEligibilityPass(prismaMock);
-        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        stubMembershipRows(prismaMock, [
           createMockMembership({ status: "SUBMITTED" }),
-        );
+        ]);
         getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
         prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
           createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -707,9 +738,9 @@ describe("/api/committee/handleRequest", () => {
         );
         mockHasPermission(true);
         setupMembershipAuditSubjectMocks(prismaMock);
-        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        stubMembershipRows(prismaMock, [
           createMockMembership({ status: "SUBMITTED" }),
-        );
+        ]);
         getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
 
         await POST(createMockRequest(mockRequestData));
@@ -734,9 +765,9 @@ describe("/api/committee/handleRequest", () => {
         );
         mockHasPermission(true);
         setupEligibilityPass(prismaMock);
-        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        stubMembershipRows(prismaMock, [
           createMockMembership({ status: "SUBMITTED" }),
-        );
+        ]);
         getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
         prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
           createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -795,9 +826,9 @@ describe("/api/committee/handleRequest", () => {
 
       const setupMocks = () => {
         setupMembershipAuditSubjectMocks(prismaMock);
-        getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        stubMembershipRows(prismaMock, [
           createMockMembership({ status: "SUBMITTED" }),
-        );
+        ]);
         getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
       };
 

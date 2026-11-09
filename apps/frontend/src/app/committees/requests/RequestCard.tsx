@@ -31,9 +31,6 @@ function getSubmissionMetadata(
       ? m.eligibilityWarnings
       : undefined;
     return {
-      ...(typeof m.removeMemberId === "string" && {
-        removeMemberId: m.removeMemberId,
-      }),
       ...(typeof m.requestNotes === "string" && { requestNotes: m.requestNotes }),
       ...(eligibilityWarnings?.length ? { eligibilityWarnings } : {}),
     };
@@ -94,9 +91,11 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
           Add{" "}
           {`${request.voterRecord.firstName ?? ""} ${request.voterRecord.lastName ?? ""}`.trim()}
         </h1>
-        {submissionMeta?.removeMemberId && (
+        {request.replaces && (
           <p className="text-sm text-muted-foreground">
-            Intended replacement for member ID: {submissionMeta.removeMemberId}
+            Replaces {request.replaces.name} (member ID{" "}
+            {request.replaces.voterRecordId}). Their reported exit is listed
+            under Reported exits; rejecting this candidate rejects it too.
           </p>
         )}
         {submissionMeta?.eligibilityWarnings &&

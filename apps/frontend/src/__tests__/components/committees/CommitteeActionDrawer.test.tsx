@@ -804,6 +804,9 @@ describe("CommitteeActionDrawer: submission roles", () => {
     const fetchMock = serve({
       "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
       "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/exit-instructions": [
+        { body: { text: "Send the letter to stephen@example.org." } },
+      ],
       "/api/committee/requestAdd": [{ body: { success: true, message: "ok" } }],
     });
     const { onComplete } = renderDrawer({
@@ -828,11 +831,34 @@ describe("CommitteeActionDrawer: submission roles", () => {
     await within(drawer()).findByText("Eligibility Snapshot");
     await userEvent.click(continueButton());
     await userEvent.click(continueButton());
+
+    // Step 4 of 5: why the outgoing member is leaving (ticket 09).
     expect(
-      within(drawer()).getByRole("list", { name: "Summary" }),
-    ).toHaveTextContent("Sam Seated (V-SEATED), seat 1");
+      within(drawer()).getByRole("heading", { name: /Why they're leaving/ }),
+    ).toBeInTheDocument();
+    expect(continueButton()).toBeDisabled();
+    await userEvent.click(within(drawer()).getByLabelText("Should be removed"));
+    await chooseSelectOption(
+      within(drawer()).getByLabelText(/^Reason/),
+      "Deceased",
+    );
+    await userEvent.click(continueButton());
+
+    const summary = within(drawer()).getByRole("list", { name: "Summary" });
+    expect(summary).toHaveTextContent("Sam Seated (V-SEATED), seat 1");
+    expect(summary).toHaveTextContent("Should be removed");
     await userEvent.click(
       within(drawer()).getByRole("button", { name: "Submit candidate" }),
+    );
+
+    // The same instructions as a standalone report, before anything is sent.
+    const dialog = await screen.findByRole("alertdialog");
+    await within(dialog).findByRole("link", { name: "stephen@example.org" });
+    expect(callsTo(fetchMock, "/api/committee/requestAdd")).toHaveLength(0);
+    await userEvent.click(
+      within(dialog).getByRole("button", {
+        name: "I understand, submit replacement",
+      }),
     );
 
     await waitFor(() => expect(onComplete).toHaveBeenCalled());
@@ -841,7 +867,110 @@ describe("CommitteeActionDrawer: submission roles", () => {
     ).toMatchObject({
       addMemberId: "V-JANE",
       removeMemberId: "V-SEATED",
+      exitReport: { kind: "REMOVAL", removalReason: "DECEASED" },
     });
+  });
+
+  it("pairs a replacement with the member's pending report instead of filing another", async () => {
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/exit-instructions": [{ body: { text: null } }],
+      "/api/committee/requestAdd": [{ body: { success: true, message: "ok" } }],
+    });
+    const { onComplete } = renderDrawer({
+      role: PrivilegeLevel.Leader,
+      action: { kind: "replace-member", committee: REF, memberId: "V-SEATED" },
+      committeeDetail: {
+        ...detail(),
+        pendingExitReports: [
+          {
+            membershipId: "m-seated",
+            voterRecordId: "V-SEATED",
+            firstName: "Sam",
+            lastName: "Seated",
+            seatNumber: 1,
+            kind: "RESIGNATION",
+            reportedAt: "2026-10-30T15:04:05.678Z",
+            isOwnReport: true,
+            replacement: null,
+          },
+        ],
+      },
+    });
+
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+    await userEvent.click(continueButton());
+
+    expect(drawer()).toHaveTextContent(/You already reported the resignation of Sam Seated/);
+    // Kept as reported by default: nothing to fill in.
+    expect(within(drawer()).queryByLabelText("Should be removed")).not.toBeInTheDocument();
+    await userEvent.click(continueButton());
+    expect(
+      within(drawer()).getByRole("list", { name: "Summary" }),
+    ).toHaveTextContent("Resigned (as already reported)");
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Submit candidate" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(
+      await within(dialog).findByRole("button", {
+        name: "I understand, submit replacement",
+      }),
+    );
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalled());
+    const body = bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0]);
+    expect(body).toMatchObject({
+      removeMemberId: "V-SEATED",
+      existingExitReportedAt: "2026-10-30T15:04:05.678Z",
+    });
+    expect(body).not.toHaveProperty("exitReport");
+  });
+
+  it("blocks a second replacement for a member already being replaced", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/exit-instructions": [{ body: { text: null } }],
+    });
+    renderDrawer({
+      role: PrivilegeLevel.Leader,
+      action: { kind: "replace-member", committee: REF, memberId: "V-SEATED" },
+      committeeDetail: {
+        ...detail(),
+        pendingExitReports: [
+          {
+            membershipId: "m-seated",
+            voterRecordId: "V-SEATED",
+            firstName: "Sam",
+            lastName: "Seated",
+            seatNumber: 1,
+            kind: "REMOVAL",
+            reportedAt: "2026-10-30T15:04:05.678Z",
+            isOwnReport: false,
+            replacement: {
+              membershipId: "m-other",
+              voterRecordId: "V-OTHER",
+              firstName: "Oscar",
+              lastName: "Other",
+            },
+          },
+        ],
+      },
+    });
+
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+    await userEvent.click(continueButton());
+
+    expect(within(drawer()).getByRole("alert")).toHaveTextContent(
+      "Sam Seated is already being replaced by Oscar Other",
+    );
+    expect(continueButton()).toBeDisabled();
   });
 
   it("offers no action to ReadAccess", () => {

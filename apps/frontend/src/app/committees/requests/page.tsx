@@ -27,6 +27,7 @@ import {
   toPendingExitReport,
 } from "~/app/api/lib/pendingExitReports";
 import type { PendingExitReport } from "~/lib/validations/committee";
+import { personName, VOTER_NAME_SELECT } from "~/lib/personName";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,11 @@ export type MembershipRequestWithDetails = {
   committeeList: CommitteeList;
   voterRecord: VoterRecord;
   submissionMetadata: unknown;
+  /**
+   * A replacement's outgoing member: the ACTIVE row whose Exit Report is
+   * paired with this Submission (ticket 09). Null for a plain add.
+   */
+  replaces: { voterRecordId: string; name: string } | null;
 };
 
 const getCommitteeName = (committeeList: CommitteeList) => {
@@ -80,6 +86,11 @@ const CommitteeRequests: React.FC = async () => {
       include: {
         committeeList: true,
         voterRecord: true,
+        replacing: {
+          select: {
+            voterRecord: { select: VOTER_NAME_SELECT },
+          },
+        },
       },
     }),
     prisma.committeeMembership.findMany({
@@ -107,6 +118,12 @@ const CommitteeRequests: React.FC = async () => {
       committeeList: m.committeeList,
       voterRecord: m.voterRecord,
       submissionMetadata: m.submissionMetadata,
+      replaces: m.replacing
+        ? {
+            voterRecordId: m.replacing.voterRecord.VRCNUM,
+            name: personName(m.replacing.voterRecord, m.replacing.voterRecord.VRCNUM),
+          }
+        : null,
     });
   }
 

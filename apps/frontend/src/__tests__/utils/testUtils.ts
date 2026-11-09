@@ -13,7 +13,7 @@ import {
 } from "@prisma/client";
 import type { Session } from "next-auth";
 import type { z } from "zod";
-import { mockAuthSession, mockHasPermission } from "./mocks";
+import { mockAuthSession, mockHasPermission, type prismaMock } from "./mocks";
 import {
   committeeDataSchema,
   type CommitteeData,
@@ -219,8 +219,40 @@ export const createMockMembership = (
   exitReportedAt: null,
   exitReportedById: null,
   exitReportedKind: null,
+  replacementMembershipId: null,
   ...overrides,
 });
+
+/**
+ * Routes `committeeMembership.findUnique` by its where clause over `rows`: by
+ * `id`, by `replacementMembershipId` (a replacement's outgoing half, ticket
+ * 09), or by the voter/committee/term key.
+ */
+export function stubMembershipRows(
+  mock: typeof prismaMock,
+  rows: MockMembership[],
+): void {
+  mock.committeeMembership.findUnique.mockImplementation(
+    (args: Prisma.CommitteeMembershipFindUniqueArgs) => {
+      const {
+        id,
+        replacementMembershipId,
+        voterRecordId_committeeListId_termId: key,
+      } = args.where;
+      const found = rows.find((r) =>
+        id !== undefined
+          ? r.id === id
+          : replacementMembershipId !== undefined
+            ? r.replacementMembershipId === replacementMembershipId
+            : key !== undefined &&
+              r.voterRecordId === key.voterRecordId &&
+              r.committeeListId === key.committeeListId &&
+              r.termId === key.termId,
+      );
+      return resolvesTo<MockMembership | null>(found ?? null);
+    },
+  );
+}
 
 /** Typed mock model accessor for committeeMembership (pre-migration cast helper). */
 type MockMembershipModel = {

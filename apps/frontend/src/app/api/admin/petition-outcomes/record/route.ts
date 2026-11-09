@@ -15,6 +15,7 @@ import {
 } from "~/lib/validations/committee";
 import type { Session } from "next-auth";
 import {
+  activateMembership,
   supersededExitReportMetadata,
   writeMembershipLeavingActive,
 } from "~/app/api/lib/membershipExit";
@@ -253,6 +254,14 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               );
             }
             supersededExitReport = supersededExitReportMetadata(result);
+          } else if (
+            status === ACTIVE_MEMBERSHIP_STATUS &&
+            existing.status !== ACTIVE_MEMBERSHIP_STATUS
+          ) {
+            // A pending replacement candidate who wins is an add: the
+            // outgoing member's report stays pending, unpaired.
+            const { status: _active, ...activation } = baseData;
+            await activateMembership(tx, existing, activation);
           } else {
             await tx.committeeMembership.update({
               where: { id: existing.id },

@@ -133,6 +133,8 @@ function mockMembership(overrides: {
   removalNotes?: string | null;
   resignationDateReceived?: Date | null;
   resignationMethod?: string | null;
+  /** A replacement's candidate, paired with this row's Exit Report. */
+  replacement?: { id: string; status: string; VRCNUM: string; firstName: string; lastName: string };
 }) {
   return {
     id: overrides.id,
@@ -166,6 +168,18 @@ function mockMembership(overrides: {
     removalNotes: overrides.removalNotes ?? null,
     resignationDateReceived: overrides.resignationDateReceived ?? null,
     resignationMethod: overrides.resignationMethod ?? null,
+    replacementMembershipId: overrides.replacement?.id ?? null,
+    replacementMembership: overrides.replacement
+      ? {
+          id: overrides.replacement.id,
+          status: overrides.replacement.status,
+          voterRecord: {
+            VRCNUM: overrides.replacement.VRCNUM,
+            firstName: overrides.replacement.firstName,
+            lastName: overrides.replacement.lastName,
+          },
+        }
+      : null,
     voterRecord: mockVoter(overrides),
   };
 }
@@ -398,6 +412,19 @@ function seedRichCommittee() {
     email: "alice@example.com",
     telephone: "585-555-0100",
     submissionMetadata: { email: "leader@example.com" },
+    // The outgoing half of a replacement: an Exit Report paired with m-pending.
+    exitReportedAt: new Date("2025-03-01T12:00:00.000Z"),
+    exitReportedKind: "REMOVAL",
+    exitReportedById: LEADER_USER_ID,
+    removalReason: "OTHER",
+    removalNotes: "Replacement request",
+    replacement: {
+      id: "m-pending",
+      status: "SUBMITTED",
+      VRCNUM: "V-PENDING",
+      firstName: "Pat",
+      lastName: "Pending",
+    },
   });
   const removed = mockMembership({
     id: "m-removed",
@@ -416,7 +443,6 @@ function seedRichCommittee() {
     submittedById: LEADER_USER_ID,
     submittedByName: "Staff Member",
     submissionMetadata: {
-      removeMemberId: "V-ACTIVE",
       requestNotes: "Please seat her quickly",
       eligibilityWarnings: [{ code: "INACTIVE_STATUS" }],
     },
@@ -814,8 +840,25 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
             firstName: "Alice",
             lastName: "Active",
           },
+          replacementExitReport: {
+            membershipId: "m-active",
+            voterRecordId: "V-ACTIVE",
+            firstName: "Alice",
+            lastName: "Active",
+            seatNumber: 1,
+            kind: "REMOVAL",
+            reportedAt: "2025-03-01T12:00:00.000Z",
+            isOwnReport: true,
+            replacement: {
+              membershipId: "m-pending",
+              voterRecordId: "V-PENDING",
+              firstName: "Pat",
+              lastName: "Pending",
+            },
+          },
         },
       ]);
+      // One replacement, one pending item: the paired report isn't counted again.
       expect(body.rollup.pendingCount).toBe(1);
       const pendingQuery = membershipFindManyCalls().find(
         (c) => c.where?.status === "SUBMITTED",
@@ -840,6 +883,24 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
         eligibilityWarnings: [{ code: "INACTIVE_STATUS" }],
         contact: { email: null, phone: "585-555-0199" },
       });
+    });
+
+    it("ignores a leftover submissionMetadata.removeMemberId", async () => {
+      adminSession();
+      const active = mockMembership({ id: "m-a", VRCNUM: "V-A", seatNumber: 1 });
+      const pending = mockMembership({
+        id: "m-p",
+        VRCNUM: "V-P",
+        status: "SUBMITTED",
+        submissionMetadata: { removeMemberId: "V-A" },
+      });
+      mockCommitteeWithMemberships(
+        mockCommittee({ memberships: [active, pending] }),
+        [active, pending],
+      );
+      const body = await getDetail();
+      expect(body.pending[0]?.replacementFor).toBeNull();
+      expect(body.pending[0]?.replacementExitReport).toBeNull();
     });
 
     it("returns replacementFor null for a plain add", async () => {
@@ -900,6 +961,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
           kind: "RESIGNATION",
           reportedAt: REPORTED_AT.toISOString(),
           isOwnReport: true,
+          replacement: null,
         },
       ]);
       const rows = body.rows.filter((r) => r.occupant !== null);
@@ -1280,6 +1342,61 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
   // History
   // -------------------------------------------------------------------------
   describe("history", () => {
+    it("reads a replacement's outgoing member from the submission's audit row, and names the incoming member on a resignation (ticket 09)", async () => {
+      adminSession();
+      const incoming = mockMembership({
+        id: "m-in",
+        VRCNUM: "V-IN",
+        seatNumber: 1,
+        firstName: "Ivy",
+        lastName: "In",
+        // Left over on a decided submission; nothing reads it any more.
+        submissionMetadata: { removeMemberId: "V-STALE" },
+      });
+      const outgoing = mockMembership({
+        id: "m-out",
+        VRCNUM: "V-OUT",
+        status: "RESIGNED",
+        firstName: "Olive",
+        lastName: "Out",
+      });
+      const stale = mockMembership({ id: "m-stale", VRCNUM: "V-STALE", seatNumber: 2 });
+      const all = [incoming, outgoing, stale];
+      mockCommitteeWithMemberships(mockCommittee({ memberships: all }), all);
+      getAuditLogMock(prismaMock).findMany.mockResolvedValue([
+        mockAuditRow({
+          id: "a-2",
+          action: "MEMBER_RESIGNED",
+          entityId: outgoing.id,
+          timestamp: new Date("2026-11-05T00:00:00.000Z"),
+          afterValue: {
+            status: "RESIGNED",
+            resignationDateReceived: "2026-10-28",
+            resignationMethod: "EMAIL",
+          },
+          metadata: { reason: "replacement", replacementMembershipId: incoming.id },
+        }),
+        mockAuditRow({
+          id: "a-1",
+          action: "MEMBER_SUBMITTED",
+          entityId: incoming.id,
+          timestamp: new Date("2026-11-01T00:00:00.000Z"),
+          afterValue: { status: "SUBMITTED" },
+          metadata: { removeMemberId: "V-OUT" },
+        }),
+      ]);
+
+      const body = await getDetail();
+
+      const [submitted] = eventsOfKind(body, "submitted");
+      expect(submitted?.replacementFor).toMatchObject({
+        name: "Olive Out",
+        voterRecordId: "V-OUT",
+      });
+      const [resigned] = eventsOfKind(body, "resigned");
+      expect(resigned?.replacedBy).toMatchObject({ name: "Ivy In", voterRecordId: "V-IN" });
+    });
+
     const member = (
       id: string,
       VRCNUM: string,
@@ -1383,7 +1500,6 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
         lastName: "Lost",
       });
       incoming.submissionMetadata = {
-        removeMemberId: "V-OUT",
         requestNotes: "Replacement please",
       };
       const all = [incoming, outgoing, resigned, loser];
@@ -1501,7 +1617,9 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
           userName: "Lee Leader",
           afterValue: { status: "SUBMITTED" },
           // Pre-2026-06-20 row: no metadata.subject — name comes from the current row.
-          metadata: null,
+          // The outgoing member is on the audit row (backfilled by the ticket 09
+          // migration from the submission's old submissionMetadata.removeMemberId).
+          metadata: { removeMemberId: "V-OUT" },
         }),
       ]);
       getMeetingRecordMock(prismaMock).findMany.mockResolvedValue([

@@ -13,6 +13,7 @@ import {
   isCommitteeAtCapacity,
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
+import { activateMembership } from "~/app/api/lib/membershipExit";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
@@ -226,27 +227,25 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
 
       // Create CommitteeMembership with status=ACTIVE (admin direct-add)
       if (existingMembership) {
-        // Re-activate a previously non-active membership.
-        await tx.committeeMembership.update({
-          where: { id: existingMembership.id },
-          data: {
-            status: ACTIVE_MEMBERSHIP_STATUS,
-            activatedAt: new Date(),
-            membershipType,
-            seatNumber,
-            confirmedAt: null,
-            resignedAt: null,
-            removedAt: null,
-            rejectedAt: null,
-            rejectionNote: null,
-            resignationDateReceived: null,
-            resignationMethod: null,
-            removalReason: null,
-            removalNotes: null,
-            petitionVoteCount: null,
-            petitionPrimaryDate: null,
-            submissionMetadata: metadataForDbOrUndefined,
-          },
+        // Re-activate a previously non-active membership. A pending
+        // replacement candidate added directly is an add: the outgoing
+        // member's report stays pending, unpaired.
+        await activateMembership(tx, existingMembership, {
+          activatedAt: new Date(),
+          membershipType,
+          seatNumber,
+          confirmedAt: null,
+          resignedAt: null,
+          removedAt: null,
+          rejectedAt: null,
+          rejectionNote: null,
+          resignationDateReceived: null,
+          resignationMethod: null,
+          removalReason: null,
+          removalNotes: null,
+          petitionVoteCount: null,
+          petitionPrimaryDate: null,
+          submissionMetadata: metadataForDbOrUndefined,
         });
         const auditMetadataWithSubject = mergeAuditMetadata(
           auditMetadataWithWarnings as Record<string, unknown> | undefined,

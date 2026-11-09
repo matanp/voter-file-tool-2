@@ -154,6 +154,7 @@ export function describeHistoryEvent(
       }
     }
     case "resigned": {
+      if (admin && event.replacedBy) details.push(`Replaced by ${describeMember(event.replacedBy)}`);
       if (event.effectiveDate) {
         details.push(
           `Resignation received ${formatCalendarDateForDisplay(event.effectiveDate)}${

@@ -1,3 +1,16 @@
+/**
+ * POST /api/committee/requestAdd — a Leader (RequestAccess and above) submits
+ * a candidate for Admin review: a SUBMITTED membership.
+ *
+ * With `removeMemberId` it is a replacement (ticket 09): the Submission plus an
+ * Exit Report on the member being replaced, filed in one transaction, with the
+ * outgoing row's `replacementMembershipId` pointing at the candidate. The
+ * outgoing member's exit comes in `exitReport`. If they already have a pending
+ * report, the request names it (`existingExitReportedAt`, the report the
+ * Leader saw) and the replacement pairs with it rather than filing a second;
+ * `exitReport` alongside rewrites its fields. Both writes are conditional on
+ * the report the Leader saw (409 otherwise).
+ */
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import { type Prisma, PrivilegeLevel } from "@prisma/client";
@@ -17,6 +30,28 @@ import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
 } from "~/lib/auditMembershipSubject";
+import { unpairReplacement } from "~/app/api/lib/membershipExit";
+import {
+  fileOutgoingExit,
+  findOutgoingMember,
+  outgoingMemberProblem,
+} from "~/app/api/lib/replacementExitReport";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
+
+/** A conditional write on the outgoing member lost a race; rolls the transaction back. */
+class OutgoingMemberChanged extends Error {}
+
+function conflict(error: string) {
+  return NextResponse.json({ success: false, error }, { status: 409 });
+}
+
+/** The same request again: idempotent. */
+function alreadySubmitted() {
+  return NextResponse.json(
+    { success: true, message: "Request already submitted" },
+    { status: 200 },
+  );
+}
 
 async function requestAddHandler(req: NextRequest, session: Session) {
   let body: unknown;
@@ -46,6 +81,8 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     addMemberId,
     removeMemberId,
     requestNotes,
+    exitReport,
+    existingExitReportedAt,
     forceAdd,
     overrideReason,
     email,
@@ -94,6 +131,13 @@ async function requestAddHandler(req: NextRequest, session: Session) {
   }
 
   const sanitizedAddMemberId = addMemberId.trim();
+  const outgoingVoterId = removeMemberId?.trim();
+  if (outgoingVoterId === sanitizedAddMemberId) {
+    return NextResponse.json(
+      { success: false, error: "A member can't replace themselves" },
+      { status: 422 },
+    );
+  }
 
   try {
     const activeTermId = await getActiveTermId();
@@ -173,21 +217,6 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
-    // SRS §2.2 — Persist warning snapshot and include in audit
-    const eligibilityWarnings = eligibility.warnings;
-    const requestMetadata = {
-      ...(removeMemberId ? { removeMemberId: removeMemberId.trim() } : {}),
-      ...(requestNotes ? { requestNotes } : {}),
-      ...(email?.trim() ? { email: email.trim() } : {}),
-      ...(phone?.trim() ? { phone: phone.trim() } : {}),
-      ...(eligibilityWarnings.length > 0
-        ? {
-            eligibilityWarnings:
-              eligibilityWarnings as unknown as Prisma.InputJsonValue,
-          }
-        : {}),
-    } as Prisma.InputJsonValue;
-
     // Check for existing membership (idempotent/transition)
     const existing = await prisma.committeeMembership.findUnique({
       where: {
@@ -199,10 +228,74 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       },
     });
 
+    // A replacement's outgoing member, ACTIVE here.
+    const outgoing = outgoingVoterId
+      ? await findOutgoingMember(
+          outgoingVoterId,
+          committeeRequested.id,
+          activeTermId,
+        )
+      : null;
+
+    // A retry of a replacement that went through: the candidate is pending and
+    // the outgoing member's report is paired with it. Checked before the
+    // report checks, which the first attempt's own write would now fail.
+    if (
+      existing?.status === "SUBMITTED" &&
+      outgoing &&
+      outgoing.replacementMembershipId === existing.id
+    ) {
+      return alreadySubmitted();
+    }
+
+    if (outgoingVoterId) {
+      const problem = outgoingMemberProblem(outgoing, {
+        exitReport,
+        existingExitReportedAt,
+      });
+      if (problem) {
+        return NextResponse.json(
+          { success: false, error: problem.error },
+          { status: problem.status },
+        );
+      }
+    }
+
+    // SRS §2.2 — Persist warning snapshot and include in audit
+    const eligibilityWarnings = eligibility.warnings;
+    const requestMetadata = {
+      ...(requestNotes ? { requestNotes } : {}),
+      ...(email?.trim() ? { email: email.trim() } : {}),
+      ...(phone?.trim() ? { phone: phone.trim() } : {}),
+      ...(eligibilityWarnings.length > 0
+        ? {
+            eligibilityWarnings:
+              eligibilityWarnings as unknown as Prisma.InputJsonValue,
+          }
+        : {}),
+    } as Prisma.InputJsonValue;
+
     if (existing?.status === "SUBMITTED") {
-      return NextResponse.json(
-        { success: true, message: "Request already submitted" },
-        { status: 200 },
+      // Idempotent for the same plain add (a replacement retry returned
+      // above); a replacement can't be bolted onto a candidate already pending
+      // as something else.
+      const sameRequest =
+        !outgoing &&
+        !(await prisma.committeeMembership.findUnique({
+          where: { replacementMembershipId: existing.id },
+          select: { id: true },
+        }));
+      if (!sameRequest) {
+        return conflict(
+          "This candidate already has a pending submission for this committee",
+        );
+      }
+      return alreadySubmitted();
+    }
+
+    if (outgoing && outgoing.replacementMembershipId !== null) {
+      return conflict(
+        "The member being replaced is already paired with another pending candidate",
       );
     }
 
@@ -220,10 +313,13 @@ async function requestAddHandler(req: NextRequest, session: Session) {
             overrideReason: eligibilityOptions.overrideReason,
           } as Record<string, unknown>)
         : undefined;
-    const auditMetadataWithWarnings =
-      eligibilityWarnings.length > 0
-        ? { ...auditMetadata, eligibilityWarnings }
-        : auditMetadata;
+    const auditMetadataWithWarnings = {
+      ...auditMetadata,
+      ...(eligibilityWarnings.length > 0 ? { eligibilityWarnings } : {}),
+      // Committee History names the member a submission would replace from
+      // here (the Submission itself no longer carries it).
+      ...(outgoing ? { removeMemberId: outgoing.voterRecordId } : {}),
+    };
 
     const voterRecord = await prisma.voterRecord.findUnique({
       where: { VRCNUM: sanitizedAddMemberId },
@@ -249,12 +345,33 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       seatNumber: null,
     });
     const auditMetadataWithSubject = mergeAuditMetadata(
-      auditMetadataWithWarnings,
+      Object.keys(auditMetadataWithWarnings).length > 0
+        ? auditMetadataWithWarnings
+        : undefined,
       membershipSubject,
     );
 
+    /** The outgoing half, in the Submission's transaction; a lost race rolls it back. */
+    const replaceOutgoing = async (
+      tx: Prisma.TransactionClient,
+      candidateId: string,
+    ) => {
+      if (!outgoing) return;
+      const result = await fileOutgoingExit(tx, {
+        outgoing,
+        candidateId,
+        exitReport,
+        actor: { userId, privilegeLevel: userRole },
+        committee: committeeRequested,
+      });
+      if (result === "changed") throw new OutgoingMemberChanged();
+    };
+
     if (existing) {
       await prisma.$transaction(async (tx) => {
+        // The row is reused; a pairing left from its last submission must not
+        // attach to this one.
+        await unpairReplacement(tx, existing.id);
         const resubmitted = await tx.committeeMembership.update({
           where: { id: existing.id },
           data: {
@@ -291,6 +408,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
           auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
           tx,
         );
+        await replaceOutgoing(tx, resubmitted.id);
       });
 
       return NextResponse.json(
@@ -313,7 +431,6 @@ async function requestAddHandler(req: NextRequest, session: Session) {
           termId: activeTermId,
           status: "SUBMITTED",
           submittedById: userId,
-          // Store intended replacement target and notes for admin review.
           submissionMetadata: requestMetadata,
         },
       });
@@ -329,6 +446,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
         tx,
       );
+      await replaceOutgoing(tx, newMembership.id);
     });
 
     return NextResponse.json(
@@ -340,6 +458,9 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof OutgoingMemberChanged) {
+      return conflict(MEMBER_CHANGED_MESSAGE);
+    }
     console.error(error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },

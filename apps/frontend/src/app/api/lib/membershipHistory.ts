@@ -84,6 +84,12 @@ const auditMetadataSchema = z
     reason: optionalString,
     meetingRecordId: optionalNullableString,
     replacementMembershipId: optionalString,
+    /**
+     * MEMBER_SUBMITTED: a replacement's outgoing member (VRCNUM). Written by
+     * requestAdd since ticket 09, and backfilled onto earlier submissions from
+     * the `submissionMetadata.removeMemberId` they used to carry.
+     */
+    removeMemberId: optionalString,
     overrideReason: optionalString,
     eligibilityWarnings: z.array(z.unknown()).optional().catch(undefined),
     /** PETITION_RECORDED (per candidate) */
@@ -174,7 +180,6 @@ export type BuildHistoryOptions = {
 
 const submissionMetadataSchema = z
   .object({
-    removeMemberId: optionalString,
     requestNotes: optionalString,
   })
   .catch({});
@@ -304,8 +309,8 @@ export function buildHistoryEvents(
         const submission = submissionMetadataSchema.parse(
           membership?.submissionMetadata ?? {},
         );
-        const target = submission.removeMemberId
-          ? membershipsByVoterRecordId.get(submission.removeMemberId)
+        const target = metadata.removeMemberId
+          ? membershipsByVoterRecordId.get(metadata.removeMemberId)
           : undefined;
         events.push({
           ...base,
@@ -361,7 +366,10 @@ export function buildHistoryEvents(
           eligibilityWarnings: adminOnly(isAdmin, metadata.eligibilityWarnings),
         });
         break;
-      case "MEMBER_RESIGNED":
+      case "MEMBER_RESIGNED": {
+        const incoming = metadata.replacementMembershipId
+          ? membershipsById.get(metadata.replacementMembershipId)
+          : undefined;
         events.push({
           ...base,
           kind: "resigned",
@@ -372,8 +380,13 @@ export function buildHistoryEvents(
             after.removalReason ?? after.resignationReason,
           ),
           notes: adminOnly(isAdmin, after.removalNotes),
+          replacedBy: adminOnly(
+            isAdmin,
+            incoming ? memberFor(incoming, {}, incoming.seatNumber) : undefined,
+          ),
         });
         break;
+      }
       case "MEMBER_REMOVED": {
         const incoming = metadata.replacementMembershipId
           ? membershipsById.get(metadata.replacementMembershipId)

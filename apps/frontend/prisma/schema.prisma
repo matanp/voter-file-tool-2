@@ -466,7 +466,8 @@ model CommitteeMembership {
 
   submittedById   String?
   submittedBy     User?            @relation("SubmittedMemberships", fields: [submittedById], references: [id])
-  // submissionMetadata.removeMemberId stores the intended replacement target for leader requests
+  // Leader request context: notes, contact, eligibility warnings. A replacement's outgoing
+  // member is not here: it is the row whose replacementMembershipId points at this one.
   submissionMetadata Json?
 
   meetingRecord   MeetingRecord? @relation(fields: [meetingRecordId], references: [id])
@@ -493,6 +494,15 @@ model CommitteeMembership {
   exitReportedById String?
   exitReportedBy   User?           @relation("ExitReportedMemberships", fields: [exitReportedById], references: [id])
   exitReportedKind ExitReportKind?
+
+  // A replacement: set on the outgoing member's row, alongside its Exit Report, pointing at
+  // the candidate's SUBMITTED row. Cleared with the report fields (writeMembershipExit and
+  // friends). NOTE: a CHECK constraint in
+  // prisma/migrations/20261108000000_replacements_use_exit_reports/migration.sql allows it
+  // only while status = 'ACTIVE' and exitReportedAt is set.
+  replacementMembershipId String?              @unique
+  replacementMembership   CommitteeMembership? @relation("ReplacementOf", fields: [replacementMembershipId], references: [id], onDelete: SetNull)
+  replacing               CommitteeMembership? @relation("ReplacementOf")
 
   petitionVoteCount   Int?
   petitionPrimaryDate DateTime?

@@ -34,9 +34,9 @@ type DecisionResult = {
 };
 
 function confirmErrorMessage(
-  kind: Exclude<ConfirmSubmittedMembershipResult["kind"], "accepted">,
+  outcome: Exclude<ConfirmSubmittedMembershipResult, { kind: "accepted" }>,
 ): string {
-  switch (kind) {
+  switch (outcome.kind) {
     case "notFound":
       return "Membership not found";
     case "notSubmitted":
@@ -45,6 +45,8 @@ function confirmErrorMessage(
       return ALREADY_IN_ANOTHER_COMMITTEE_ERROR;
     case "replacementTargetInvalid":
       return "Replacement target not found or no longer active";
+    case "replacementExitIncomplete":
+      return outcome.message;
     case "atCapacity":
       return "Committee is at capacity";
   }
@@ -159,7 +161,7 @@ async function bulkDecisionsHandler(
                 membershipId,
                 decision,
                 success: false,
-                error: confirmErrorMessage(outcome.kind),
+                error: confirmErrorMessage(outcome),
               });
             }
           } catch (error) {

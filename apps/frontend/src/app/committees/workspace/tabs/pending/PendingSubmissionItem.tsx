@@ -9,6 +9,11 @@
  * exactly as `/committees/requests` and Meetings do: reject needs only the
  * membership id; accept needs the meeting record it was decided at, and the
  * server re-runs eligibility (hard stops come back as `INELIGIBLE` + reasons).
+ *
+ * A replacement (ticket 09) is one item: the candidate in, and the outgoing
+ * member's paired Exit Report out, nested with its own confirm / reject.
+ * Accepting the candidate records that exit as reported; rejecting the
+ * candidate rejects the report too.
  */
 import React, { useId, useState } from "react";
 import Link from "next/link";
@@ -18,7 +23,12 @@ import { Button } from "~/components/ui/button";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { formatCalendarDateForDisplay } from "~/lib/dateUtils";
 import { getIneligibilityMessages } from "~/lib/eligibilityMessages";
-import type { PendingMembership } from "~/lib/validations/committee";
+import { personName as sharedPersonName } from "~/lib/personName";
+import type {
+  PendingExitReport,
+  PendingMembership,
+} from "~/lib/validations/committee";
+import { PendingExitReportItem } from "./PendingExitReportItem";
 import type { MeetingOptionsState } from "./useMeetingOptions";
 
 export type PendingDecision = "accept" | "reject";
@@ -41,10 +51,15 @@ export type PendingSubmissionItemProps = {
   onLoadMeetings: () => void;
   /** Called after the server accepted the decision. */
   onDecided: (submission: PendingMembership, decision: PendingDecision) => void;
+  /** After a decision on the nested Exit Report of a replacement. */
+  onExitReportDecided?: (report: PendingExitReport, decision: PendingDecision) => void;
+  /** Where focus lands after a nested Exit Report decision. */
+  focusAfterExitDecision?: () => HTMLElement | null;
 };
 
+/** A pending item names a voter with no name "Unnamed voter". */
 export function personName(p: { firstName: string; lastName: string }): string {
-  return `${p.firstName} ${p.lastName}`.trim() || "Unnamed voter";
+  return sharedPersonName(p, "Unnamed voter");
 }
 
 /** `eligibilityWarnings` entries are untyped snapshots; show their message. */
@@ -78,6 +93,8 @@ export function PendingSubmissionItem({
   meetings,
   onLoadMeetings,
   onDecided,
+  onExitReportDecided,
+  focusAfterExitDecision,
 }: PendingSubmissionItemProps) {
   const name = personName(submission);
   const ids = useId();
@@ -144,6 +161,25 @@ export function PendingSubmissionItem({
           </p>
         )}
       </div>
+
+      {submission.replacementExitReport && (
+        <section aria-label={`Leaving: ${personName(submission.replacementExitReport)}`} className="space-y-1">
+          <p className="font-medium">Leaving</p>
+          <PendingExitReportItem
+            as="div"
+            report={submission.replacementExitReport}
+            canDecide={canDecide}
+            onDecided={(report, decision) => onExitReportDecided?.(report, decision)}
+            focusAfterDecision={focusAfterExitDecision}
+          />
+          {canDecide && (
+            <p className="text-slate-600 dark:text-slate-400">
+              Accepting {name} records this exit as reported. Rejecting {name}{" "}
+              rejects the report too, and {personName(submission.replacementExitReport)} stays.
+            </p>
+          )}
+        </section>
+      )}
 
       {canDecide && submission.requestNotes && (
         <p>

@@ -16,7 +16,6 @@ import type { EligibilityWarning } from "~/lib/eligibility";
 
 /** Typed shape of CommitteeMembership.submissionMetadata (leader request context). */
 export type CommitteeMembershipSubmissionMetadata = {
-  removeMemberId?: string;
   requestNotes?: string;
   /** SRS 2.1a — optional contact at time of submission; never written to VoterRecord. */
   email?: string;
@@ -115,77 +114,6 @@ export const committeeDataSchema = z
     email: data.email === "" ? undefined : data.email,
     phone: data.phone === "" ? undefined : data.phone,
   }));
-
-// Committee request data validation schema
-export const committeeRequestDataSchema = z
-  .object({
-    cityTown: z.string().trim().min(1, "City/Town is required"),
-    legDistrict: z.coerce
-      .number()
-      .int()
-      .optional()
-      .refine((val) => val === undefined || val > 0, {
-        message:
-          "Legislative District must be a positive integer when provided",
-      }),
-    electionDistrict: z.coerce
-      .number()
-      .int()
-      .positive("Election District must be a positive integer"),
-    addMemberId: z
-      .string()
-      .trim()
-      .nullable()
-      .optional()
-      .transform((v) => (v == null || v === "" ? undefined : v)),
-    removeMemberId: z
-      .string()
-      .trim()
-      .nullable()
-      .optional()
-      .transform((v) => (v == null || v === "" ? undefined : v)),
-    requestNotes: z
-      .string()
-      .trim()
-      .max(1000, "Notes must be 1000 characters or fewer")
-      .optional(),
-    // SRS §2.1 — Admin override (honored only when user is Admin)
-    forceAdd: z.boolean().optional(),
-    overrideReason: z.string().trim().max(500).optional(),
-    // SRS 2.1a — optional contact for this submission; stored in submissionMetadata only
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email format")
-      .optional()
-      .or(z.literal("")),
-    phone: z.string().trim().optional(),
-  })
-  .strict()
-  .transform((data) => ({
-    ...data,
-    email: data.email === "" ? undefined : data.email,
-    phone: data.phone === "" ? undefined : data.phone,
-  }))
-  .refine(
-    (data) => {
-      const hasAddMember = data.addMemberId && data.addMemberId.trim() !== "";
-      const hasRemoveMember =
-        data.removeMemberId && data.removeMemberId.trim() !== "";
-      return Boolean(hasAddMember) || Boolean(hasRemoveMember);
-    },
-    {
-      message:
-        "At least one action is required: either addMemberId or removeMemberId must be provided",
-    },
-  )
-  .refine(
-    (data) => Boolean(data.addMemberId?.trim()),
-    {
-      message:
-        "addMemberId is required; remove-only requests should contact an administrator",
-    },
-  );
 
 /**
  * An Exit Report's `exitReportedAt`, echoed back by the Admin's confirm or
@@ -476,68 +404,188 @@ export type CommitteeRequestResponse =
  * - a resignation: the date received and the method (SRS §6.5), and no reason;
  * - a removal: a reason, notes for Other, and no resignation details.
  */
-export const reportExitDataSchema = committeeMemberTargetSchema
-  .extend({
-    kind: z.nativeEnum(ExitReportKind, {
-      errorMap: () => ({ message: "Choose resignation or removal" }),
-    }),
-    removalReason: z.nativeEnum(RemovalReason).optional(),
-    removalNotes: z.string().trim().max(1000).optional(),
-    resignationDateReceived: isoDateString.optional(),
-    resignationMethod: z.nativeEnum(ResignationMethod).optional(),
-  })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (data.kind === "RESIGNATION") {
-      if (data.resignationDateReceived === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Resignation date received is required",
-          path: ["resignationDateReceived"],
-        });
-      }
-      if (data.resignationMethod === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "How the resignation was received is required",
-          path: ["resignationMethod"],
-        });
-      }
-      if (data.removalReason !== undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "A resignation has no reason; use notes instead",
-          path: ["removalReason"],
-        });
-      }
-      return;
-    }
-    if (data.removalReason === undefined) {
+const exitReportFieldsShape = {
+  kind: z.nativeEnum(ExitReportKind, {
+    errorMap: () => ({ message: "Choose resignation or removal" }),
+  }),
+  removalReason: z.nativeEnum(RemovalReason).optional(),
+  removalNotes: z.string().trim().max(1000).optional(),
+  resignationDateReceived: isoDateString.optional(),
+  resignationMethod: z.nativeEnum(ResignationMethod).optional(),
+};
+
+type ExitReportFields = z.infer<z.ZodObject<typeof exitReportFieldsShape>>;
+
+function refineExitReportFields(data: ExitReportFields, ctx: z.RefinementCtx) {
+  if (data.kind === "RESIGNATION") {
+    if (data.resignationDateReceived === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Reason is required",
+        message: "Resignation date received is required",
+        path: ["resignationDateReceived"],
+      });
+    }
+    if (data.resignationMethod === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "How the resignation was received is required",
+        path: ["resignationMethod"],
+      });
+    }
+    if (data.removalReason !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A resignation has no reason; use notes instead",
         path: ["removalReason"],
       });
-    } else if (data.removalReason === "OTHER" && (data.removalNotes ?? "") === "") {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Notes are required when reason is Other",
-        path: ["removalNotes"],
-      });
     }
-    if (
-      data.resignationDateReceived !== undefined ||
-      data.resignationMethod !== undefined
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Date received and method apply only to a resignation",
-        path: ["kind"],
-      });
-    }
-  });
+    return;
+  }
+  if (data.removalReason === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Reason is required",
+      path: ["removalReason"],
+    });
+  } else if (data.removalReason === "OTHER" && (data.removalNotes ?? "") === "") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Notes are required when reason is Other",
+      path: ["removalNotes"],
+    });
+  }
+  if (
+    data.resignationDateReceived !== undefined ||
+    data.resignationMethod !== undefined
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Date received and method apply only to a resignation",
+      path: ["kind"],
+    });
+  }
+}
+
+export const reportExitDataSchema = committeeMemberTargetSchema
+  .extend(exitReportFieldsShape)
+  .strict()
+  .superRefine(refineExitReportFields);
+
+/**
+ * The outgoing member's exit on a replacement request (ticket 09): the same
+ * fields and rules as a standalone report, without the target (the request's
+ * `removeMemberId` names the member).
+ */
+export const replacementExitReportSchema = z
+  .object(exitReportFieldsShape)
+  .strict()
+  .superRefine(refineExitReportFields);
 
 export type ReportExitData = z.infer<typeof reportExitDataSchema>;
+
+// Leader request (SRS 1.2 — a Submission; with removeMemberId, a replacement).
+export const committeeRequestDataSchema = z
+  .object({
+    cityTown: z.string().trim().min(1, "City/Town is required"),
+    legDistrict: z.coerce
+      .number()
+      .int()
+      .optional()
+      .refine((val) => val === undefined || val > 0, {
+        message:
+          "Legislative District must be a positive integer when provided",
+      }),
+    electionDistrict: z.coerce
+      .number()
+      .int()
+      .positive("Election District must be a positive integer"),
+    addMemberId: z
+      .string()
+      .trim()
+      .nullable()
+      .optional()
+      .transform((v) => (v == null || v === "" ? undefined : v)),
+    removeMemberId: z
+      .string()
+      .trim()
+      .nullable()
+      .optional()
+      .transform((v) => (v == null || v === "" ? undefined : v)),
+    requestNotes: z
+      .string()
+      .trim()
+      .max(1000, "Notes must be 1000 characters or fewer")
+      .optional(),
+    // SRS §2.1 — Admin override (honored only when user is Admin)
+    forceAdd: z.boolean().optional(),
+    overrideReason: z.string().trim().max(500).optional(),
+    // SRS 2.1a — optional contact for this submission; stored in submissionMetadata only
+    email: z
+      .string()
+      .trim()
+      .email("Invalid email format")
+      .optional()
+      .or(z.literal("")),
+    phone: z.string().trim().optional(),
+    /**
+     * Replacement only (ticket 09): the outgoing member's exit, filed as an
+     * Exit Report paired with this Submission.
+     */
+    exitReport: replacementExitReportSchema.optional(),
+    /**
+     * Replacement only: the outgoing member's pending report the requester
+     * saw. The replacement pairs with it instead of filing a second one; with
+     * `exitReport`, it also rewrites that report's fields.
+     */
+    existingExitReportedAt: exitReportedAtToken.optional(),
+  })
+  .strict()
+  .transform((data) => ({
+    ...data,
+    email: data.email === "" ? undefined : data.email,
+    phone: data.phone === "" ? undefined : data.phone,
+  }))
+  .refine(
+    (data) => {
+      const hasAddMember = data.addMemberId && data.addMemberId.trim() !== "";
+      const hasRemoveMember =
+        data.removeMemberId && data.removeMemberId.trim() !== "";
+      return Boolean(hasAddMember) || Boolean(hasRemoveMember);
+    },
+    {
+      message:
+        "At least one action is required: either addMemberId or removeMemberId must be provided",
+    },
+  )
+  .refine(
+    (data) => Boolean(data.addMemberId?.trim()),
+    {
+      message:
+        "addMemberId is required; remove-only requests should contact an administrator",
+    },
+  )
+  .refine(
+    (data) =>
+      data.removeMemberId !== undefined ||
+      (data.exitReport === undefined &&
+        data.existingExitReportedAt === undefined),
+    {
+      message: "An exit report is only for a replacement",
+      path: ["exitReport"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.removeMemberId === undefined ||
+      data.exitReport !== undefined ||
+      data.existingExitReportedAt !== undefined,
+    {
+      message:
+        "A replacement needs the outgoing member's exit: whether they resigned or should be removed",
+      path: ["exitReport"],
+    },
+  );
+
 
 /** Admin rejects the pending Exit Report they saw; the note is optional. */
 export const rejectExitReportSchema = z
@@ -959,30 +1007,6 @@ const detailVoterSchema = z.object({
 });
 
 /**
- * A SUBMITTED membership awaiting review. Leaders in jurisdiction see who was
- * submitted, when, and whom they would replace; the submitter's identity,
- * request notes, eligibility warnings and contact are Admin-only.
- */
-export const pendingMembershipSchema = detailVoterSchema.extend({
-  membershipId: z.string(),
-  submittedAt: z.string(),
-  /** true when the caller is the submitter (Leaders can recognise their own requests). */
-  isOwnSubmission: z.boolean(),
-  /** From `submissionMetadata.removeMemberId`; null when the request is a plain add. */
-  replacementFor: detailVoterSchema.nullable(),
-  /** Admin only. */
-  submittedBy: z.object({ id: z.string(), name: z.string().nullable() }).optional(),
-  /** Admin only — free text entered by the requester. */
-  requestNotes: z.string().optional(),
-  /** Admin only — SRS §2.2 warning snapshot at submission time. */
-  eligibilityWarnings: z.array(z.unknown()).optional(),
-  /** Admin only — `submissionMetadata` contact, falling back to the voter record. */
-  contact: rosterContactSchema.optional(),
-});
-
-export type PendingMembership = z.infer<typeof pendingMembershipSchema>;
-
-/**
  * A Leader's pending Exit Report on an ACTIVE member. Leaders in jurisdiction
  * see whom it is about, the kind, and when; the reporter's identity, the
  * reason, notes, and resignation details are Admin-only (like a Submission's
@@ -999,6 +1023,14 @@ export const pendingExitReportSchema = detailVoterSchema.extend({
   reportedAt: z.string(),
   /** true when the caller filed it. */
   isOwnReport: z.boolean(),
+  /**
+   * The pending candidate this report is the outgoing half of (a
+   * replacement), or null for a standalone report. Leader-visible, like a
+   * Submission's `replacementFor`.
+   */
+  replacement: detailVoterSchema
+    .extend({ membershipId: z.string() })
+    .nullable(),
   /** Admin only. */
   reportedBy: z.object({ id: z.string(), name: z.string().nullable() }).optional(),
   /** Admin only. */
@@ -1012,6 +1044,39 @@ export const pendingExitReportSchema = detailVoterSchema.extend({
 });
 
 export type PendingExitReport = z.infer<typeof pendingExitReportSchema>;
+
+/**
+ * A SUBMITTED membership awaiting review. Leaders in jurisdiction see who was
+ * submitted, when, and whom they would replace; the submitter's identity,
+ * request notes, eligibility warnings and contact are Admin-only.
+ */
+export const pendingMembershipSchema = detailVoterSchema.extend({
+  membershipId: z.string(),
+  submittedAt: z.string(),
+  /** true when the caller is the submitter (Leaders can recognise their own requests). */
+  isOwnSubmission: z.boolean(),
+  /**
+   * The member a replacement takes the place of: the ACTIVE row whose Exit
+   * Report is paired with this Submission. Null for a plain add.
+   */
+  replacementFor: detailVoterSchema.nullable(),
+  /**
+   * The paired Exit Report on `replacementFor` (ticket 09), so the Pending tab
+   * shows a replacement as one item. The report also appears in
+   * `pendingExitReports`, with `replacement` naming this Submission.
+   */
+  replacementExitReport: pendingExitReportSchema.nullable(),
+  /** Admin only. */
+  submittedBy: z.object({ id: z.string(), name: z.string().nullable() }).optional(),
+  /** Admin only — free text entered by the requester. */
+  requestNotes: z.string().optional(),
+  /** Admin only — SRS §2.2 warning snapshot at submission time. */
+  eligibilityWarnings: z.array(z.unknown()).optional(),
+  /** Admin only — `submissionMetadata` contact, falling back to the voter record. */
+  contact: rosterContactSchema.optional(),
+});
+
+export type PendingMembership = z.infer<typeof pendingMembershipSchema>;
 
 /** SRS 2.6 — one petition candidate as `/api/admin/petition-outcomes` lists it (Admin-only). */
 export const petitionOutcomeContextSchema = z.object({
@@ -1137,6 +1202,8 @@ export const historyEventSchema = z.discriminatedUnion("kind", [
     reason: z.nativeEnum(RemovalReason).optional(),
     /** Admin only. */
     notes: z.string().optional(),
+    /** Admin only — the candidate accepted in their place (a replacement). */
+    replacedBy: historyMemberSchema.optional(),
   }),
   z.object({
     ...historyEventBase,

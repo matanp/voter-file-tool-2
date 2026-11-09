@@ -308,6 +308,7 @@ describe("POST /api/committee/exitReport/reject", () => {
       exitReportedAt: null,
       exitReportedById: null,
       exitReportedKind: null,
+      replacementMembershipId: null,
       resignationDateReceived: null,
       resignationMethod: null,
       removalReason: null,

@@ -1032,6 +1032,7 @@ describe("membership type through discrepancy resolution", () => {
         exitReportedAt: null,
         exitReportedById: null,
         exitReportedKind: null,
+        replacementMembershipId: null,
       });
     });
   });

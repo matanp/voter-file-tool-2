@@ -44,6 +44,7 @@ const ADMIN_SUBMISSION: PendingMembership = {
     firstName: "Old",
     lastName: "Member",
   },
+  replacementExitReport: null,
   submittedBy: { id: "u-1", name: "Lee Leader" },
   requestNotes: "Met at the caucus",
   eligibilityWarnings: [
@@ -63,6 +64,7 @@ const SECOND_SUBMISSION: PendingMembership = {
   submittedAt: "2026-04-10T15:00:00.000Z",
   isOwnSubmission: false,
   replacementFor: null,
+  replacementExitReport: null,
   submittedBy: { id: "u-2", name: null },
   eligibilityWarnings: [],
   contact: { email: null, phone: null },
@@ -77,6 +79,7 @@ const LEADER_SUBMISSION: PendingMembership = {
   submittedAt: "2026-03-02T15:00:00.000Z",
   isOwnSubmission: true,
   replacementFor: null,
+  replacementExitReport: null,
 };
 
 function detailWith(pending: PendingMembership[]): CommitteeDetailResponse {
@@ -401,6 +404,7 @@ const ADMIN_EXIT_REPORT: PendingExitReport = {
   kind: "RESIGNATION",
   reportedAt: REPORTED_AT,
   isOwnReport: false,
+  replacement: null,
   reportedBy: { id: "u-1", name: "Lee Leader" },
   removalReason: null,
   removalNotes: "Moving to Ohio",
@@ -418,6 +422,7 @@ const LEADER_EXIT_REPORT: PendingExitReport = {
   kind: "RESIGNATION",
   reportedAt: REPORTED_AT,
   isOwnReport: true,
+  replacement: null,
 };
 
 function renderWithExitReports(reports: PendingExitReport[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
@@ -685,3 +690,89 @@ describe("PendingTab: reported exits", () => {
     expect(screen.getByText("No reported exits for this committee.")).toBeInTheDocument();
   });
 });
+
+describe("PendingTab: a replacement (ticket 09)", () => {
+  const PAIRED_REPORT: PendingExitReport = {
+    ...ADMIN_EXIT_REPORT,
+    membershipId: "m-old",
+    voterRecordId: "VR009",
+    firstName: "Old",
+    lastName: "Member",
+    kind: "REMOVAL",
+    removalReason: "DECEASED",
+    removalNotes: null,
+    resignationDateReceived: null,
+    resignationMethod: null,
+    replacement: {
+      membershipId: "m-1",
+      voterRecordId: "VR001",
+      firstName: "Jane",
+      lastName: "Doe",
+    },
+  };
+  const REPLACEMENT: PendingMembership = {
+    ...ADMIN_SUBMISSION,
+    replacementExitReport: PAIRED_REPORT,
+  };
+
+  function renderReplacement() {
+    const onRefresh = jest.fn();
+    render(
+      <GlobalContext.Provider
+        value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+      >
+        <PendingTab
+          committeeId={2}
+          detail={{
+            ...detailWith([REPLACEMENT]),
+            pendingExitReports: [PAIRED_REPORT, ADMIN_EXIT_REPORT],
+          }}
+          onRefresh={onRefresh}
+        />
+      </GlobalContext.Provider>,
+    );
+    return { onRefresh };
+  }
+
+  it("shows one item: the candidate in and the outgoing member's reported exit out", () => {
+    serve();
+    renderReplacement();
+
+    const submissions = screen.getByRole("list", { name: "Pending submissions" });
+    const jane = within(submissions).getByRole("listitem", { name: /Jane Doe/ });
+    const leaving = within(jane).getByRole("region", { name: "Leaving: Old Member" });
+    expect(leaving).toHaveTextContent("Removal");
+    expect(leaving).toHaveTextContent("Reason: Deceased");
+    expect(jane).toHaveTextContent(/Rejecting Jane Doe rejects the report too/);
+
+    // Listed once: the standalone report stays under Reported exits, the paired one doesn't.
+    const exits = screen.getByRole("list", { name: "Reported exits" });
+    expect(within(exits).queryByText(/Old Member/)).not.toBeInTheDocument();
+    expect(within(exits).getByRole("listitem", { name: /Rita Reported/ })).toBeInTheDocument();
+  });
+
+  it("confirms the outgoing exit alone, saying the candidate stays pending as an add", async () => {
+    const fetchMock = installFetchMock(async () => jsonResponse({ success: true }));
+    const { onRefresh } = renderReplacement();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirm removal of Old Member" }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent(
+      "Jane Doe stays pending as an ordinary add, no longer replacing Old Member.",
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm removal" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/committee/exitReport/confirm",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      membershipId: "m-old",
+      exitReportedAt: REPORTED_AT,
+    });
+  });
+});
+

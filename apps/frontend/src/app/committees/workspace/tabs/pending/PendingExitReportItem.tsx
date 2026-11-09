@@ -16,6 +16,10 @@
  *
  * Both echo the report's `reportedAt`, so a report that changed since the
  * detail loaded is refused with "This member changed, refresh."
+ *
+ * A replacement's outgoing half (ticket 09) names its candidate. Deciding it
+ * alone leaves the candidate pending as an ordinary add. The workspace's
+ * Pending tab renders it inside the candidate's item (`as="div"`).
  */
 import React, { useId, useRef, useState } from "react";
 
@@ -55,6 +59,8 @@ export type PendingExitReportItemProps = {
    * line.
    */
   focusAfterDecision?: () => HTMLElement | null;
+  /** `div` when nested inside a replacement's submission item. */
+  as?: "li" | "div";
 };
 
 function reportedByText(
@@ -74,6 +80,7 @@ export function PendingExitReportItem({
   canDecide,
   onDecided,
   focusAfterDecision,
+  as: Container = "li",
 }: PendingExitReportItemProps) {
   const ids = useId();
   const name = personName(report);
@@ -117,9 +124,10 @@ export function PendingExitReportItem({
   };
 
   const dialogStep = step === "idle" ? null : step;
+  const candidateName = report.replacement ? personName(report.replacement) : null;
 
   return (
-    <li
+    <Container
       className="space-y-2 rounded-md border p-3"
       aria-labelledby={`${ids}-name`}
       aria-busy={busy}
@@ -143,6 +151,11 @@ export function PendingExitReportItem({
             {reportedByText(report, canDecide)}
           </span>
         </div>
+        {candidateName && (
+          <p className="mt-1 text-slate-600 dark:text-slate-400">
+            Replaced by {candidateName} if their submission is accepted
+          </p>
+        )}
       </div>
 
       {canDecide && (
@@ -225,6 +238,8 @@ export function PendingExitReportItem({
               {dialogStep === "reject"
                 ? `The member stays on the committee and the Leader can report the ${kindWord} again.`
                 : `Record this ${kindWord} exactly as reported? To change anything, reject it so the Leader can report it again.`}
+              {candidateName &&
+                ` ${candidateName} stays pending as an ordinary add, no longer replacing ${name}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="grid gap-1">
@@ -260,6 +275,6 @@ export function PendingExitReportItem({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </li>
+    </Container>
   );
 }

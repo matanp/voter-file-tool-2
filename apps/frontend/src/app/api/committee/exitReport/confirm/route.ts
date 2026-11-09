@@ -10,6 +10,9 @@
  * Audited as `MEMBER_RESIGNED` / `MEMBER_REMOVED` with
  * `{ source: "exit_report", reportedById, reportedAt }`, plus the Admin's
  * optional `confirmationNote` (like a rejection's `rejectionNote`).
+ *
+ * Confirming the outgoing half of a replacement on its own is allowed: the
+ * exit clears the pairing, and the candidate stays pending as an ordinary add.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -24,8 +27,8 @@ import { validateRequest } from "~/app/api/lib/validateRequest";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import {
+  reportedExit,
   writeMembershipExit,
-  type MembershipExit,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -33,11 +36,6 @@ import {
   mergeAuditMetadata,
 } from "~/lib/auditMembershipSubject";
 import { confirmExitReportSchema } from "~/lib/validations/committee";
-
-/** "YYYY-MM-DD", as the Admin's Record resignation audit stores it. */
-function calendarDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 async function confirmExitReportHandler(
   req: NextRequest,
@@ -95,60 +93,16 @@ async function confirmExitReportHandler(
       );
     }
 
-    const notes = membership.removalNotes;
-    let exit: MembershipExit;
-    let afterValue: Record<string, unknown>;
-    if (membership.exitReportedKind === "RESIGNATION") {
-      const { resignationDateReceived, resignationMethod } = membership;
-      // Reports filed before both became required may lack them (SRS §6.5).
-      if (!resignationDateReceived || !resignationMethod) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "This report is missing the date received or the method. Reject it so the Leader can report it again.",
-          },
-          { status: 422 },
-        );
-      }
-      exit = {
-        status: "RESIGNED",
-        resignationDateReceived,
-        resignationMethod,
-        removalReason: null,
-        removalNotes: notes,
-      };
-      afterValue = {
-        status: "RESIGNED",
-        resignationDateReceived: calendarDate(resignationDateReceived),
-        resignationMethod,
-        ...(notes ? { removalNotes: notes } : {}),
-      };
-    } else {
-      const { removalReason } = membership;
-      if (!removalReason) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "This report has no reason. Reject it so the Leader can report it again.",
-          },
-          { status: 422 },
-        );
-      }
-      exit = {
-        status: "REMOVED",
-        resignationDateReceived: null,
-        resignationMethod: null,
-        removalReason,
-        removalNotes: notes,
-      };
-      afterValue = {
-        status: "REMOVED",
-        removalReason,
-        ...(notes ? { removalNotes: notes } : {}),
-      };
+    // Reports filed before the kind's details were required may lack them
+    // (SRS §6.5); those can only be rejected.
+    const recorded = reportedExit(membership);
+    if (recorded.kind === "incomplete") {
+      return NextResponse.json(
+        { success: false, error: recorded.message },
+        { status: 422 },
+      );
     }
+    const { exit, afterValue } = recorded;
 
     const outcome = await prisma.$transaction(async (tx) => {
       const result = await writeMembershipExit(tx, membership, exit, {

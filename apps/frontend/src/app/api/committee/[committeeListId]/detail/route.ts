@@ -74,7 +74,6 @@ async function resolveRouteParams(context: unknown): Promise<unknown> {
 /** The parts of `submissionMetadata` the pending list reads. */
 const pendingSubmissionMetadataSchema = z
   .object({
-    removeMemberId: z.string().optional().catch(undefined),
     requestNotes: z.string().optional().catch(undefined),
     email: z.string().optional().catch(undefined),
     phone: z.string().optional().catch(undefined),
@@ -214,6 +213,12 @@ async function getCommitteeDetail(
       });
       return report ? [report] : [];
     });
+    // A replacement's outgoing half, by candidate (ticket 09).
+    const exitReportByCandidateId = new Map(
+      pendingExitReports.flatMap((r) =>
+        r.replacement ? [[r.replacement.membershipId, r] as const] : [],
+      ),
+    );
 
     const rollupOptions = {
       termId: activeTermId,
@@ -223,7 +228,10 @@ async function getCommitteeDetail(
       [
         {
           ...committee,
-          pendingCount: pendingMemberships.length + pendingExitReports.length,
+          // A replacement counts once, by its candidate (`pendingItemsWhere`).
+          pendingCount:
+            pendingMemberships.length +
+            pendingExitReports.filter((r) => !r.replacement).length,
         },
       ],
       { ...rollupOptions, includeContact },
@@ -236,17 +244,12 @@ async function getCommitteeDetail(
     }
 
     const memberships: HistoryMembershipRow[] = allMemberships;
-    const membershipsByVoterRecordId = new Map(
-      memberships.map((m) => [m.voterRecordId, m]),
-    );
 
     const pending: PendingMembership[] = pendingMemberships.map((m) => {
       const meta = pendingSubmissionMetadataSchema.parse(
         m.submissionMetadata ?? {},
       );
-      const target = meta.removeMemberId
-        ? membershipsByVoterRecordId.get(meta.removeMemberId)
-        : undefined;
+      const outgoing = exitReportByCandidateId.get(m.id) ?? null;
       return {
         membershipId: m.id,
         voterRecordId: m.voterRecord.VRCNUM,
@@ -254,13 +257,14 @@ async function getCommitteeDetail(
         lastName: m.voterRecord.lastName ?? "",
         submittedAt: m.submittedAt.toISOString(),
         isOwnSubmission: m.submittedById === session.user.id,
-        replacementFor: target
+        replacementFor: outgoing
           ? {
-              voterRecordId: target.voterRecordId,
-              firstName: target.voterRecord.firstName ?? "",
-              lastName: target.voterRecord.lastName ?? "",
+              voterRecordId: outgoing.voterRecordId,
+              firstName: outgoing.firstName,
+              lastName: outgoing.lastName,
             }
           : null,
+        replacementExitReport: outgoing,
         ...(isAdmin
           ? {
               submittedBy: m.submittedBy

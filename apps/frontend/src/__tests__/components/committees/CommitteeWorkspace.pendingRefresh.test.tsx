@@ -103,6 +103,7 @@ function submission(membershipId: string, firstName: string): PendingMembership 
     submittedAt: "2026-03-02T15:00:00.000Z",
     isOwnSubmission: false,
     replacementFor: null,
+    replacementExitReport: null,
     submittedBy: { id: "u-1", name: "Lee Leader" },
     eligibilityWarnings: [],
     contact: { email: null, phone: null },

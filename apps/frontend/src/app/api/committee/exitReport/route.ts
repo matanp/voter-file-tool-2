@@ -14,7 +14,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { PrivilegeLevel } from "@prisma/client";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
-import { blankToNull } from "~/lib/blankToNull";
 import prisma from "~/lib/prisma";
 import {
   withPrivilege,
@@ -27,6 +26,10 @@ import {
 } from "~/app/api/lib/committeeValidation";
 import { leaderMayActOnCommittee } from "~/app/api/lib/exitReportAccess";
 import { fileExitReport } from "~/app/api/lib/membershipExit";
+import {
+  exitReportedAuditValue,
+  toExitReportInput,
+} from "~/app/api/lib/exitReportInput";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
   buildMembershipAuditSubject,
@@ -48,17 +51,8 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
   const validation = validateRequest(body, reportExitDataSchema);
   if (!validation.success) return validation.response;
 
-  const {
-    cityTown,
-    legDistrict,
-    electionDistrict,
-    memberId,
-    kind,
-    removalReason,
-    removalNotes,
-    resignationDateReceived,
-    resignationMethod,
-  } = validation.data;
+  const { cityTown, legDistrict, electionDistrict, memberId, ...fields } =
+    validation.data;
   const userId = session.user.id;
   const userRole = session.user.privilegeLevel;
 
@@ -143,19 +137,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
       );
     }
 
-    const notes = blankToNull(removalNotes);
-    const isResignation = kind === "RESIGNATION";
-    const reported = {
-      kind,
-      reportedById: userId,
-      resignationDateReceived:
-        isResignation && resignationDateReceived
-          ? new Date(resignationDateReceived)
-          : null,
-      resignationMethod: isResignation ? (resignationMethod ?? null) : null,
-      removalReason: isResignation ? null : (removalReason ?? null),
-      removalNotes: notes,
-    };
+    const reported = toExitReportInput(fields, userId);
 
     const reportedAt = await prisma.$transaction(async (tx) => {
       const at = await fileExitReport(tx, membership.id, reported);
@@ -168,21 +150,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
         "CommitteeMembership",
         membership.id,
         { status: ACTIVE_MEMBERSHIP_STATUS },
-        {
-          status: ACTIVE_MEMBERSHIP_STATUS,
-          exitReportedAt: at.toISOString(),
-          exitReportedKind: kind,
-          ...(reported.removalReason
-            ? { removalReason: reported.removalReason }
-            : {}),
-          ...(notes ? { removalNotes: notes } : {}),
-          ...(reported.resignationDateReceived && resignationDateReceived
-            ? { resignationDateReceived }
-            : {}),
-          ...(reported.resignationMethod
-            ? { resignationMethod: reported.resignationMethod }
-            : {}),
-        },
+        exitReportedAuditValue(at, reported),
         mergeAuditMetadata(
           undefined,
           buildMembershipAuditSubject({
