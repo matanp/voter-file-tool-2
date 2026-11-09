@@ -1,5 +1,10 @@
 import { POST } from "~/app/api/committee/handleRequest/route";
-import { Prisma, PrivilegeLevel, type MembershipStatus } from "@prisma/client";
+import {
+  Prisma,
+  PrivilegeLevel,
+  type CommitteeMembership,
+  type MembershipStatus,
+} from "@prisma/client";
 import {
   createMockSession,
   createMockRequest,
@@ -19,6 +24,7 @@ import {
   setupEligibilityPass,
   setupMembershipAuditSubjectMocks,
   stubMembershipRows,
+  resolvesTo,
   createAuthTestSuite,
   type AuthTestConfig,
 } from "../../utils/testUtils";
@@ -26,6 +32,7 @@ import {
   mockAuthSession,
   mockHasPermission,
   prismaMock,
+  rawQueryMock,
 } from "../../utils/mocks";
 
 const createMockHandleRequestData = (overrides = {}) => ({
@@ -276,7 +283,7 @@ describe("/api/committee/handleRequest", () => {
           replacementMembershipId: "membership-test-id-001",
         }),
       ]);
-      getMembershipMock(prismaMock).update.mockRejectedValueOnce(
+      prismaMock.committeeMembership.update.mockRejectedValueOnce(
         Object.assign(new Error("Record to update not found."), {
           code: "P2025",
         }),
@@ -452,7 +459,7 @@ describe("/api/committee/handleRequest", () => {
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
       );
       getMembershipMock(prismaMock).count.mockResolvedValue(0);
-      prismaMock.$queryRaw.mockResolvedValue([] as never);
+      rawQueryMock("$queryRaw").mockResolvedValue([]);
       getMembershipMock(prismaMock).update.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint", {
           code: "P2002",
@@ -503,7 +510,7 @@ describe("/api/committee/handleRequest", () => {
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
       );
-      prismaMock.$queryRaw.mockResolvedValue([] as never);
+      rawQueryMock("$queryRaw").mockResolvedValue([]);
 
       const membershipIds = ["m-conc-1", "m-conc-2", "m-conc-3", "m-conc-4"];
       const membershipStore = new Map(
@@ -539,33 +546,23 @@ describe("/api/committee/handleRequest", () => {
         },
       );
 
-      getMembershipMock(prismaMock).findUnique.mockImplementation(
-        async (args: {
-          where:
-            | { id: string }
-            | { replacementMembershipId: string }
-            | {
-                voterRecordId_committeeListId_termId: {
-                  voterRecordId: string;
-                  committeeListId: number;
-                  termId: string;
-                };
-              };
-        }) => {
-          if ("id" in args.where) {
-            return membershipStore.get(args.where.id) ?? null;
-          }
-          if ("replacementMembershipId" in args.where) return null;
-
-          const composite = args.where.voterRecordId_committeeListId_termId;
-          return (
-            Array.from(membershipStore.values()).find(
-              (membership) =>
-                membership.voterRecordId === composite.voterRecordId &&
-                membership.committeeListId === composite.committeeListId &&
-                membership.termId === composite.termId,
-            ) ?? null
-          );
+      prismaMock.committeeMembership.findUnique.mockImplementation(
+        (args: Prisma.CommitteeMembershipFindUniqueArgs) => {
+          const { id, voterRecordId_committeeListId_termId: composite } =
+            args.where;
+          // No replacement pairings in this scenario.
+          const found =
+            id !== undefined
+              ? membershipStore.get(id)
+              : composite === undefined
+                ? undefined
+                : Array.from(membershipStore.values()).find(
+                    (membership) =>
+                      membership.voterRecordId === composite.voterRecordId &&
+                      membership.committeeListId === composite.committeeListId &&
+                      membership.termId === composite.termId,
+                  );
+          return resolvesTo<CommitteeMembership | null>(found ?? null);
         },
       );
       getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);

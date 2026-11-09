@@ -25,7 +25,7 @@ import {
   type CandidateSearchResult,
 } from "../adapters";
 import type { CandidateCommitteeRef } from "../committeeAction";
-import { personName } from "./drawerParts";
+import { personName } from "~/lib/personName";
 
 /** Search form and results, kept by the flow so Back returns to them. */
 export type CandidateSearchState = {

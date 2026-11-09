@@ -150,7 +150,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
         "CommitteeMembership",
         membership.id,
         { status: ACTIVE_MEMBERSHIP_STATUS },
-        exitReportedAuditValue(at, fields, reported),
+        exitReportedAuditValue(at, reported),
         mergeAuditMetadata(
           undefined,
           buildMembershipAuditSubject({

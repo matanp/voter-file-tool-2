@@ -8,6 +8,7 @@
 import type { ExitReportKind, RemovalReason, ResignationMethod } from "@prisma/client";
 import { blankToNull } from "~/lib/blankToNull";
 import type { ExitReportInput } from "~/app/api/lib/membershipExit";
+import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 
 /** The fields `reportExitDataSchema` / `replacementExitReportSchema` accept. */
 export type ExitReportFieldsData = {
@@ -40,20 +41,47 @@ export function toExitReportInput(
 /** `afterValue` of a `MEMBER_EXIT_REPORTED` row. */
 export function exitReportedAuditValue(
   reportedAt: Date,
-  fields: ExitReportFieldsData,
   input: ExitReportInput,
 ): Record<string, unknown> {
   return {
-    status: "ACTIVE",
+    status: ACTIVE_MEMBERSHIP_STATUS,
     exitReportedAt: reportedAt.toISOString(),
     exitReportedKind: input.kind,
     ...(input.removalReason ? { removalReason: input.removalReason } : {}),
     ...(input.removalNotes ? { removalNotes: input.removalNotes } : {}),
-    ...(input.resignationDateReceived && fields.resignationDateReceived
-      ? { resignationDateReceived: fields.resignationDateReceived }
+    // "YYYY-MM-DD": `toExitReportInput` parses it as UTC midnight, so this
+    // round-trips to what the Leader sent.
+    ...(input.resignationDateReceived
+      ? {
+          resignationDateReceived: input.resignationDateReceived
+            .toISOString()
+            .slice(0, 10),
+        }
       : {}),
     ...(input.resignationMethod
       ? { resignationMethod: input.resignationMethod }
+      : {}),
+  };
+}
+
+/**
+ * A pending report as audit rows record it before a write changes it: the
+ * `beforeValue` of `MEMBER_EXIT_REPORT_REJECTED`, and of a
+ * `MEMBER_EXIT_REPORTED` that rewrites an existing report.
+ */
+export function pendingExitReportAuditValue(row: {
+  exitReportedAt: Date;
+  exitReportedKind: ExitReportKind | null;
+  removalReason: RemovalReason | null;
+  replacementMembershipId: string | null;
+}): Record<string, unknown> {
+  return {
+    status: ACTIVE_MEMBERSHIP_STATUS,
+    exitReportedAt: row.exitReportedAt.toISOString(),
+    exitReportedKind: row.exitReportedKind,
+    removalReason: row.removalReason,
+    ...(row.replacementMembershipId
+      ? { replacementMembershipId: row.replacementMembershipId }
       : {}),
   };
 }

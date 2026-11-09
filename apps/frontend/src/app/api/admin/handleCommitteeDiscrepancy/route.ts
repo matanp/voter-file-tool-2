@@ -19,7 +19,7 @@ import {
   isCommitteeAtCapacity,
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
-import { unpairReplacement } from "~/app/api/lib/membershipExit";
+import { activateMembership } from "~/app/api/lib/membershipExit";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
@@ -218,11 +218,10 @@ async function handleCommitteeDiscrepancyHandler(
 
             // A pending replacement candidate activated here is an add: the
             // outgoing member's report stays pending, unpaired.
-            await unpairReplacement(tx, existingMembership.id);
-            const updatedMembership = await tx.committeeMembership.update({
-              where: { id: existingMembership.id },
-              data: {
-                status: ACTIVE_MEMBERSHIP_STATUS,
+            const updatedMembership = await activateMembership(
+              tx,
+              existingMembership,
+              {
                 activatedAt: new Date(),
                 membershipType,
                 seatNumber,
@@ -238,7 +237,7 @@ async function handleCommitteeDiscrepancyHandler(
                 petitionVoteCount: null,
                 petitionPrimaryDate: null,
               },
-            });
+            );
 
             resolutionMetadata.membershipId = updatedMembership.id;
             resolutionMetadata.membershipAfter =

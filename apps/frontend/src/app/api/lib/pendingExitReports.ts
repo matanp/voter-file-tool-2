@@ -11,6 +11,7 @@ import {
   PENDING_MEMBERSHIP_STATUS,
 } from "~/app/api/lib/committeeValidation";
 import type { PendingExitReport } from "~/lib/validations/committee";
+import { VOTER_NAME_SELECT } from "~/lib/personName";
 
 /** A membership row carrying a pending Exit Report, in any term. */
 const exitReportOnRow = {
@@ -46,7 +47,7 @@ export function pendingItemsWhere(
 
 export const PENDING_EXIT_REPORT_INCLUDE = {
   voterRecord: {
-    select: { VRCNUM: true, firstName: true, lastName: true },
+    select: VOTER_NAME_SELECT,
   },
   exitReportedBy: { select: { id: true, name: true } },
   // A replacement's candidate (ticket 09).
@@ -55,7 +56,7 @@ export const PENDING_EXIT_REPORT_INCLUDE = {
       id: true,
       status: true,
       voterRecord: {
-        select: { VRCNUM: true, firstName: true, lastName: true },
+        select: VOTER_NAME_SELECT,
       },
     },
   },

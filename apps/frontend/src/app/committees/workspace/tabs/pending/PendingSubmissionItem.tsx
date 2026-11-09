@@ -23,6 +23,7 @@ import { Button } from "~/components/ui/button";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { formatCalendarDateForDisplay } from "~/lib/dateUtils";
 import { getIneligibilityMessages } from "~/lib/eligibilityMessages";
+import { personName as sharedPersonName } from "~/lib/personName";
 import type {
   PendingExitReport,
   PendingMembership,
@@ -56,8 +57,9 @@ export type PendingSubmissionItemProps = {
   focusAfterExitDecision?: () => HTMLElement | null;
 };
 
+/** A pending item names a voter with no name "Unnamed voter". */
 export function personName(p: { firstName: string; lastName: string }): string {
-  return `${p.firstName} ${p.lastName}`.trim() || "Unnamed voter";
+  return sharedPersonName(p, "Unnamed voter");
 }
 
 /** `eligibilityWarnings` entries are untyped snapshots; show their message. */

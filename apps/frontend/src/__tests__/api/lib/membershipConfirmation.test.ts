@@ -2,12 +2,16 @@
  * Tests for SUBMITTED → ACTIVE / REJECTED membership confirmation service.
  */
 
-import { PrivilegeLevel, type CommitteeMembership } from "@prisma/client";
+import {
+  PrivilegeLevel,
+  type CommitteeMembership,
+  type Prisma,
+} from "@prisma/client";
 import {
   confirmSubmittedMembership,
   rejectSubmittedMembership,
 } from "~/app/api/lib/membershipConfirmation";
-import { prismaMock } from "../../utils/mocks";
+import { prismaMock, rawQueryMock } from "../../utils/mocks";
 import {
   createMockMembership,
   expectAuditLogCreate,
@@ -15,7 +19,6 @@ import {
   expectMembershipExitWrite,
   expectMembershipUpdateMany,
   getAuditLogMock,
-  getMembershipMock,
   jsonContaining,
   setupMembershipAuditSubjectMocks,
   stubMembershipRows,
@@ -66,11 +69,11 @@ describe("membershipConfirmation", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setupMembershipAuditSubjectMocks(prismaMock);
-    prismaMock.$queryRaw.mockResolvedValue([] as never);
-    getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
-    getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
-    getMembershipMock(prismaMock).update.mockResolvedValue({});
-    getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
+    rawQueryMock("$queryRaw").mockResolvedValue([]);
+    prismaMock.committeeMembership.findFirst.mockResolvedValue(null);
+    prismaMock.committeeMembership.findMany.mockResolvedValue([]);
+    prismaMock.committeeMembership.update.mockResolvedValue(createMockMembership());
+    prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 1 });
     getAuditLogMock(prismaMock).create.mockResolvedValue({});
     (prismaMock.seat as { count: jest.Mock }).count = jest
       .fn()
@@ -88,7 +91,7 @@ describe("membershipConfirmation", () => {
   describe("confirmSubmittedMembership", () => {
     it("returns accepted and logs MEMBER_CONFIRMED + MEMBER_ACTIVATED", async () => {
       stubMemberships([candidate()]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+      prismaMock.committeeMembership.count.mockResolvedValue(2);
 
       const result = await confirmSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,
@@ -100,7 +103,7 @@ describe("membershipConfirmation", () => {
 
       expect(result).toEqual({ kind: "accepted" });
       expect(prismaMock.$queryRaw).toHaveBeenCalled();
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipUpdate(
           {
             status: "ACTIVE",
@@ -120,7 +123,7 @@ describe("membershipConfirmation", () => {
 
     it("uses caller-resolved membershipType in update and audit snapshots", async () => {
       stubMemberships([candidate({ membershipType: "PETITIONED" })]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(0);
+      prismaMock.committeeMembership.count.mockResolvedValue(0);
 
       await confirmSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,
@@ -130,7 +133,7 @@ describe("membershipConfirmation", () => {
         membershipType: "PETITIONED",
       });
 
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipUpdate(
           { status: "ACTIVE", membershipType: "PETITIONED" },
           { id: MEMBERSHIP_ID },
@@ -139,7 +142,7 @@ describe("membershipConfirmation", () => {
     });
 
     it("returns notFound when membership is missing", async () => {
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(null);
 
       const result = await confirmSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,
@@ -153,7 +156,7 @@ describe("membershipConfirmation", () => {
     });
 
     it("returns notSubmitted when status is not SUBMITTED", async () => {
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({ id: MEMBERSHIP_ID, status: "ACTIVE" }),
       );
 
@@ -170,9 +173,9 @@ describe("membershipConfirmation", () => {
 
     it("returns anotherCommittee when voter is ACTIVE elsewhere", async () => {
       stubMemberships([candidate()]);
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue({
-        id: "other-membership",
-      });
+      prismaMock.committeeMembership.findFirst.mockResolvedValue(
+        createMockMembership({ id: "other-membership" }),
+      );
 
       const result = await confirmSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,
@@ -194,17 +197,17 @@ describe("membershipConfirmation", () => {
           status: "ACTIVE",
         }),
       ]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+      prismaMock.committeeMembership.count.mockResolvedValue(2);
 
       expect(await confirm()).toEqual({ kind: "accepted" });
-      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).not.toHaveBeenCalledWith(
         expectMembershipExitWrite(OUTGOING_ID, {}),
       );
     });
 
     it("returns atCapacity and auto-rejects with MEMBER_REJECTED audit", async () => {
       stubMemberships([candidate()]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(4);
+      prismaMock.committeeMembership.count.mockResolvedValue(4);
 
       const result = await confirmSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,
@@ -215,7 +218,7 @@ describe("membershipConfirmation", () => {
       });
 
       expect(result).toEqual({ kind: "atCapacity" });
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipUpdate(
           {
             status: "REJECTED",
@@ -231,23 +234,22 @@ describe("membershipConfirmation", () => {
 
     it("accepts replacement at capacity when replacement frees a seat (1.R.14)", async () => {
       stubMemberships([candidate(), pairedOutgoing()]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(4);
+      prismaMock.committeeMembership.count.mockResolvedValue(4);
 
       expect(await confirm()).toEqual({ kind: "accepted" });
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipExitWrite(OUTGOING_ID, { status: "REMOVED" }),
       );
     });
 
     it("records the paired report's removal as reported, on exactly that report", async () => {
       stubMemberships([candidate(), pairedOutgoing()]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+      prismaMock.committeeMembership.count.mockResolvedValue(2);
 
       expect(await confirm()).toEqual({ kind: "accepted" });
-      const updates = getMembershipMock(prismaMock).update.mock.calls as Array<
-        [{ where: { id: string } }]
-      >;
-      const exitWrite = updates.find(([args]) => args.where.id === OUTGOING_ID)?.[0];
+      const exitWrite = prismaMock.committeeMembership.update.mock.calls
+        .map(([args]: [Prisma.CommitteeMembershipUpdateArgs]) => args)
+        .find((args) => args.where.id === OUTGOING_ID);
       expect(exitWrite).toEqual({
         where: { id: OUTGOING_ID, status: "ACTIVE", exitReportedAt: REPORTED_AT },
         data: expect.objectContaining({
@@ -292,10 +294,10 @@ describe("membershipConfirmation", () => {
           resignationMethod: "EMAIL",
         }),
       ]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+      prismaMock.committeeMembership.count.mockResolvedValue(2);
 
       expect(await confirm()).toEqual({ kind: "accepted" });
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipExitWrite(OUTGOING_ID, {
           status: "RESIGNED",
           resignationDateReceived: new Date("2026-10-28T00:00:00.000Z"),
@@ -329,18 +331,18 @@ describe("membershipConfirmation", () => {
           resignationMethod: null,
         }),
       ]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+      prismaMock.committeeMembership.count.mockResolvedValue(2);
 
       const result = await confirm();
       expect(result).toMatchObject({ kind: "replacementExitIncomplete" });
-      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
       expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
     it("returns replacementTargetInvalid when the paired report changed before the write", async () => {
       stubMemberships([candidate(), pairedOutgoing()]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(2);
-      getMembershipMock(prismaMock).update.mockRejectedValueOnce(
+      prismaMock.committeeMembership.count.mockResolvedValue(2);
+      prismaMock.committeeMembership.update.mockRejectedValueOnce(
         Object.assign(new Error("Record to update not found."), { code: "P2025" }),
       );
 
@@ -350,32 +352,49 @@ describe("membershipConfirmation", () => {
       );
     });
 
-    it("rejects the paired report too when capacity auto-rejects the candidate", async () => {
+    it("keeps the paired report pending, unpaired, when capacity auto-rejects the candidate", async () => {
       stubMemberships([candidate(), pairedOutgoing()]);
       // Overfull: even with the outgoing seat counted free, no room.
-      getMembershipMock(prismaMock).count.mockResolvedValue(6);
+      prismaMock.committeeMembership.count.mockResolvedValue(6);
 
       expect(await confirm()).toEqual({ kind: "atCapacity" });
-      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith({
-        where: { id: OUTGOING_ID, status: "ACTIVE", exitReportedAt: REPORTED_AT },
-        data: expect.objectContaining({
-          exitReportedAt: null,
-          removalReason: null,
-          replacementMembershipId: null,
-        }),
+      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledWith({
+        where: { replacementMembershipId: MEMBERSHIP_ID },
+        data: { replacementMembershipId: null },
       });
+      // Only the candidate is written; the outgoing member is untouched.
+      expect(
+        prismaMock.committeeMembership.update.mock.calls.map(
+          ([args]: [Prisma.CommitteeMembershipUpdateArgs]) => args.where.id,
+        ),
+      ).toEqual([MEMBERSHIP_ID]);
       expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
         expectAuditLogCreate({
-          action: "MEMBER_EXIT_REPORT_REJECTED",
-          entityId: OUTGOING_ID,
-          metadata: jsonContaining({ reason: "replacement_rejected" }),
+          action: "MEMBER_REJECTED",
+          entityId: MEMBERSHIP_ID,
+          metadata: jsonContaining({
+            reason: "capacity",
+            unpairedExitReportMembershipId: OUTGOING_ID,
+          }),
         }),
       );
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalledWith(
+        expectAuditLogCreate({ action: "MEMBER_EXIT_REPORT_REJECTED" }),
+      );
+    });
+
+    it("unpairs nothing when capacity auto-rejects a plain add", async () => {
+      stubMemberships([candidate()]);
+      prismaMock.committeeMembership.count.mockResolvedValue(4);
+
+      expect(await confirm()).toEqual({ kind: "atCapacity" });
+      expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
     });
 
     it("throws when audit write fails (OrThrow contract)", async () => {
       stubMemberships([candidate()]);
-      getMembershipMock(prismaMock).count.mockResolvedValue(2);
+      prismaMock.committeeMembership.count.mockResolvedValue(2);
       getAuditLogMock(prismaMock).create.mockRejectedValue(
         new Error("Audit write failed"),
       );
@@ -404,7 +423,7 @@ describe("membershipConfirmation", () => {
       });
 
       expect(result).toEqual({ kind: "rejected" });
-      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledWith(
         expectMembershipUpdateMany(
           {
             status: "REJECTED",
@@ -430,7 +449,7 @@ describe("membershipConfirmation", () => {
       });
 
       expect(result).toEqual({ kind: "rejected" });
-      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith({
+      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledWith({
         where: { id: OUTGOING_ID, status: "ACTIVE", exitReportedAt: REPORTED_AT },
         data: {
           exitReportedAt: null,
@@ -467,7 +486,7 @@ describe("membershipConfirmation", () => {
         actor: ACTOR,
       });
 
-      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledTimes(1);
       expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalledWith(
         expectAuditLogCreate({ action: "MEMBER_EXIT_REPORT_REJECTED" }),
       );
@@ -475,7 +494,7 @@ describe("membershipConfirmation", () => {
 
     it("returns notSubmitted when updateMany affects zero rows", async () => {
       stubMemberships([candidate()]);
-      getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 0 });
+      prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 0 });
 
       const result = await rejectSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,
@@ -487,7 +506,7 @@ describe("membershipConfirmation", () => {
     });
 
     it("returns notFound when membership is missing", async () => {
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(null);
 
       const result = await rejectSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,

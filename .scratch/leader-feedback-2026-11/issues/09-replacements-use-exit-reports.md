@@ -106,13 +106,14 @@ Submission for the candidate, paired with an Exit Report on the member being rep
 
 Decisions made while building, beyond the ticket text:
 
-- **Defaults kept.** Rejecting the candidate rejects the paired report (`MEMBER_EXIT_REPORT_REJECTED`, `reason: "replacement_rejected"`). The capacity auto-reject does the same.
+- **Defaults kept.** Rejecting the candidate rejects the paired report (`MEMBER_EXIT_REPORT_REJECTED`, `reason: "replacement_rejected"`). The capacity auto-reject only unpairs (review fix, 2026-11-08): the outgoing report stays pending as a standalone report, so a reported resignation isn't lost because the committee is full.
 - **Pairing is unique** (one outgoing member per candidate) and is a self-FK with `ON DELETE SET NULL`. It lives in `CLEARED_EXIT_REPORT_FIELDS`, so every path that clears a report clears it.
 - **Updating a pending report bumps `exitReportedAt`**, so an Admin who saw the old report can't confirm the new fields (decision 14's rule). It's audited as `MEMBER_EXIT_REPORTED` with the old fields in `beforeValue` and `updatedReport: true`. Pairing with a report as it is writes no extra audit row; the Submission's audit names the outgoing member.
 - **One pending item.** `pendingItemsWhere` and the detail rollup count a replacement once, by its candidate. The workspace Pending tab nests the paired report in the candidate's item and leaves it out of Reported exits. The Admin requests page keeps both lists, and each one names the other.
 - **Other paths that take a candidate out of SUBMITTED** (Admin direct add, discrepancy accept, bulk import) unpair it and leave the report pending. Resubmitting a reused row also unpairs it first.
-- **Migration.** Migrated reports get `removalNotes = NULL`, so acceptance records the same thing as before (REMOVED, Other, no notes). When two pending candidates name the same member, the earlier one is paired. `removeMemberId` is copied onto each membership's *latest* `MEMBER_SUBMITTED` audit row (any status), because History now reads it there. It is cleared from `submissionMetadata` only on SUBMITTED rows; decided rows keep it, and nothing reads it. `requestNotes` is still read and stays.
+- **Migration.** Migrated reports get `removalNotes = 'Replacement request'` (Other needs notes), so acceptance records REMOVED, Other, as before. When two pending candidates name the same member, the earlier one is paired. `removeMemberId` is copied onto every `MEMBER_SUBMITTED` audit row of the membership that lacks it (any status), matching what History showed before, because History now reads it there. It is cleared from `submissionMetadata` only on SUBMITTED rows; decided rows keep it, and nothing reads it. `requestNotes` is still read and stays.
 - **History.** A resignation that was the outgoing half of an accepted replacement now shows "Replaced by", like a removal.
 - **Legacy `CommitteeRequestForm`** (shown when `COMMITTEES_WORKSPACE` is off) doesn't ask why the member is leaving. It sends REMOVAL / OTHER, which is what acceptance recorded before.
 - **Ticket 08's letter upload isn't reused.** 08 isn't built yet (`ready-for-human`).
-
+- **Legacy form pairs with an existing report** (review fix). At submit time it reads the committee's pending reports. If the member being replaced already has one, it sends `existingExitReportedAt` and pairs with that report as it is.
+- **Every move to ACTIVE goes through `activateMembership`** (review fix), which unpairs the row first: Admin direct add, discrepancy accept, bulk import, petition win and Admin confirm.

@@ -5,8 +5,9 @@
  * A replacement is a Submission paired with an Exit Report on the member being
  * replaced: the outgoing ACTIVE row's `replacementMembershipId` points at the
  * candidate (ticket 09). Accepting the candidate records the outgoing member's
- * exit as reported, in the same transaction; rejecting it rejects the paired
- * report too, as the Admin's reject of a report would.
+ * exit as reported, in the same transaction; an Admin rejecting it rejects
+ * the paired report too, as the Admin's reject of a report would. A capacity
+ * auto-reject only unpairs: the reported exit stays pending on its own.
  */
 
 import {
@@ -24,8 +25,10 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import {
-  clearRejectedExitReport,
+  activateMembership,
+  rejectExitReport,
   reportedExit,
+  unpairReplacement,
   writeMembershipExit,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
@@ -89,39 +92,22 @@ async function rejectPairedExitReport(
     where: { replacementMembershipId: candidateId },
   });
   if (!outgoing?.exitReportedAt) return;
-  const reportedAt = outgoing.exitReportedAt;
-  if (!(await clearRejectedExitReport(tx, outgoing.id, reportedAt))) return;
 
-  await logAuditEventOrThrow(
-    actor.userId,
-    actor.userRole,
-    "MEMBER_EXIT_REPORT_REJECTED",
-    "CommitteeMembership",
-    outgoing.id,
+  await rejectExitReport(
+    tx,
+    { ...outgoing, exitReportedAt: outgoing.exitReportedAt },
+    actor,
     {
-      status: ACTIVE_MEMBERSHIP_STATUS,
-      exitReportedAt: reportedAt.toISOString(),
-      exitReportedKind: outgoing.exitReportedKind,
-      removalReason: outgoing.removalReason,
+      ...auditMetadata,
+      reason: "replacement_rejected",
       replacementMembershipId: candidateId,
     },
-    { status: ACTIVE_MEMBERSHIP_STATUS },
-    mergeAuditMetadata(
-      {
-        ...auditMetadata,
-        reason: "replacement_rejected",
-        replacementMembershipId: candidateId,
-        reportedById: outgoing.exitReportedById,
-        reportedAt: reportedAt.toISOString(),
-      },
-      await fetchMembershipAuditSubject(tx, {
-        voterRecordId: outgoing.voterRecordId,
-        committeeListId: outgoing.committeeListId,
-        termId: outgoing.termId,
-        seatNumber: outgoing.seatNumber,
-      }),
-    ),
-    tx,
+    await fetchMembershipAuditSubject(tx, {
+      voterRecordId: outgoing.voterRecordId,
+      committeeListId: outgoing.committeeListId,
+      termId: outgoing.termId,
+      seatNumber: outgoing.seatNumber,
+    }),
   );
 }
 
@@ -209,6 +195,10 @@ export async function confirmSubmittedMembership(
       committeeListId: submittedMembership.committeeListId,
       termId: submittedMembership.termId,
     });
+    // A full committee says nothing about whether the outgoing member left:
+    // their report stays pending on its own, unpaired, for the Admin to
+    // confirm or reject. The rejection's audit row names the report it let go.
+    if (replacementTarget) await unpairReplacement(tx, membershipId);
     await tx.committeeMembership.update({
       where: { id: membershipId },
       data: {
@@ -225,10 +215,17 @@ export async function confirmSubmittedMembership(
       membershipId,
       { status: "SUBMITTED" },
       { status: "REJECTED", rejectionNote: "Committee already full" },
-      mergeAuditMetadata({ reason: "capacity" }, capacityRejectSubject),
+      mergeAuditMetadata(
+        {
+          reason: "capacity",
+          ...(replacementTarget
+            ? { unpairedExitReportMembershipId: replacementTarget.id }
+            : {}),
+        },
+        capacityRejectSubject,
+      ),
       tx,
     );
-    await rejectPairedExitReport(tx, membershipId, actor, { reason: "capacity" });
 
     return { kind: "atCapacity" };
   }
@@ -303,20 +300,16 @@ export async function confirmSubmittedMembership(
       ? { ...existingMeta, eligibilityWarnings }
       : existingMeta;
 
-  await tx.committeeMembership.update({
-    where: { id: membershipId },
-    data: {
-      status: ACTIVE_MEMBERSHIP_STATUS,
-      confirmedAt: now,
-      activatedAt: now,
-      meetingRecordId,
-      membershipType,
-      seatNumber,
-      submissionMetadata:
-        Object.keys(updatedSubmissionMetadata).length > 0
-          ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
-          : undefined,
-    },
+  await activateMembership(tx, submittedMembership, {
+    confirmedAt: now,
+    activatedAt: now,
+    meetingRecordId,
+    membershipType,
+    seatNumber,
+    submissionMetadata:
+      Object.keys(updatedSubmissionMetadata).length > 0
+        ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
+        : undefined,
   });
 
   const confirmedSnapshot = {

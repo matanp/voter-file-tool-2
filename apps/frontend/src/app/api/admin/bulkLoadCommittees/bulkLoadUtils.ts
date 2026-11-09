@@ -30,8 +30,8 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import {
+  activateMembership,
   CLEARED_EXIT_FIELDS,
-  unpairReplacement,
   EXIT_REPORT_STATE_SELECT,
   type ExitReportState,
   supersededExitReportMetadata,
@@ -897,24 +897,19 @@ async function activateMember(
     const reactivating = existingMembership.status !== ACTIVE_MEMBERSHIP_STATUS;
     // A pending replacement candidate activated by the file is an add: the
     // outgoing member's report stays pending, unpaired.
-    if (reactivating) await unpairReplacement(tx, existingMembership.id);
     try {
-      await tx.committeeMembership.update({
-        where: { id: existingMembership.id },
-        data: {
-          status: ACTIVE_MEMBERSHIP_STATUS,
-          activatedAt: existingMembership.activatedAt ?? new Date(),
-          membershipType,
-          seatNumber,
-          confirmedAt: null,
-          resignedAt: null,
-          removedAt: null,
-          rejectedAt: null,
-          rejectionNote: null,
-          ...(reactivating ? CLEARED_EXIT_FIELDS : {}),
-          petitionVoteCount: null,
-          petitionPrimaryDate: null,
-        },
+      await activateMembership(tx, existingMembership, {
+        activatedAt: existingMembership.activatedAt ?? new Date(),
+        membershipType,
+        seatNumber,
+        confirmedAt: null,
+        resignedAt: null,
+        removedAt: null,
+        rejectedAt: null,
+        rejectionNote: null,
+        ...(reactivating ? CLEARED_EXIT_FIELDS : {}),
+        petitionVoteCount: null,
+        petitionPrimaryDate: null,
       });
     } catch (error) {
       throwActivationConflict(

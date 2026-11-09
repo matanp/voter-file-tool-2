@@ -11,6 +11,7 @@
 
 import type { MembershipStatus, Prisma } from "@prisma/client";
 import type { PetitionOutcomeContext } from "~/lib/validations/committee";
+import { VOTER_NAME_SELECT } from "~/lib/personName";
 
 export function petitionOutcomeWhere(filters: {
   termId?: string;
@@ -29,7 +30,7 @@ export function petitionOutcomeWhere(filters: {
 
 /** Candidate name projection; both routes include it. */
 export const PETITION_OUTCOME_VOTER_SELECT = {
-  select: { VRCNUM: true, firstName: true, lastName: true },
+  select: VOTER_NAME_SELECT,
 } satisfies Prisma.VoterRecordDefaultArgs;
 
 /** Seat order, then most recent primary first. */

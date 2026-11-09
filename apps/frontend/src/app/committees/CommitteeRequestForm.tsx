@@ -17,9 +17,10 @@ import { toast } from "~/components/ui/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { useApiMutation } from "~/hooks/useApiMutation";
-import type {
-  CommitteeRequestData,
-  CommitteeRequestResponse,
+import {
+  type CommitteeRequestData,
+  type CommitteeRequestResponse,
+  committeeDetailResponseSchema,
 } from "~/lib/validations/committee";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
 import {
@@ -45,6 +46,66 @@ type CommitteeRequestFormProps = {
 type ApiEligibilityError = Error & {
   apiErrorBody?: { error?: string; reasons?: string[] };
 };
+
+const pendingExitReportsResponseSchema = committeeDetailResponseSchema.pick({
+  pendingExitReports: true,
+});
+
+/**
+ * The outgoing member's pending Exit Report (`exitReportedAt`), read from the
+ * committee detail at submit time, or null when there is none or it can't be
+ * read (the server then refuses a second report with a 409).
+ */
+async function fetchPendingExitReportedAt(
+  committeeListId: number,
+  voterRecordId: string,
+): Promise<string | null> {
+  try {
+    const response = await fetch(`/api/committee/${committeeListId}/detail`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const parsed = pendingExitReportsResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) return null;
+    return (
+      parsed.data.pendingExitReports.find(
+        (report) => report.voterRecordId === voterRecordId,
+      )?.reportedAt ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A replacement's outgoing half (ticket 09). With a pending report on the
+ * outgoing member, the replacement pairs with it as reported. Otherwise it
+ * files one: this legacy form doesn't ask why they're leaving, so it reports
+ * what accepting a replacement always recorded before, removal, Other. The
+ * workspace's Replace member asks.
+ */
+async function replacementExitBody(
+  committeeListId: number | null,
+  outgoingVoterId: string,
+): Promise<
+  Pick<CommitteeRequestData, "exitReport" | "existingExitReportedAt">
+> {
+  const existingExitReportedAt =
+    committeeListId == null
+      ? null
+      : await fetchPendingExitReportedAt(committeeListId, outgoingVoterId);
+  if (existingExitReportedAt) return { existingExitReportedAt };
+  return {
+    exitReport: {
+      kind: "REMOVAL",
+      removalReason: "OTHER",
+      removalNotes: "Replacement request",
+    },
+  };
+}
 
 export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
   city,
@@ -235,25 +296,16 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     }
 
     try {
+      const outgoingExit = requestRemoveMember
+        ? await replacementExitBody(committeeListId, requestRemoveMember.VRCNUM)
+        : {};
       await requestMutation.mutate({
         cityTown: city,
         legDistrict: legDistrict === "" ? undefined : Number(legDistrict),
         electionDistrict: electionDistrict,
         addMemberId: requestAddMember?.VRCNUM,
         removeMemberId: requestRemoveMember?.VRCNUM,
-        // A replacement files an Exit Report for the outgoing member (ticket
-        // 09). This legacy form doesn't ask why they're leaving, so it reports
-        // what accepting a replacement always recorded before: removal, Other.
-        // The workspace's Replace member asks.
-        ...(requestRemoveMember
-          ? {
-              exitReport: {
-                kind: "REMOVAL" as const,
-                removalReason: "OTHER" as const,
-                removalNotes: "Replacement request",
-              },
-            }
-          : {}),
+        ...outgoingExit,
         requestNotes: requestNotes,
         email: contactEmail.trim() || undefined,
         phone: contactPhone.trim() || undefined,

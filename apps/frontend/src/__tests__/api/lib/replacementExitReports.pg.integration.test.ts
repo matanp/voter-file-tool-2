@@ -205,18 +205,25 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
       // A stale instant is refused.
       expect(
         await prisma.$transaction((tx) =>
-          exits.pairExitReportWithReplacement(tx, outgoing.id, new Date(0), candidate.id),
+          exits.pairExitReportWithReplacement(tx, outgoing.id, {
+            expectedExitReportedAt: new Date(0),
+            replacementMembershipId: candidate.id,
+          }),
         ),
       ).toBeNull();
 
       const rewrittenAt = await prisma.$transaction((tx) =>
-        exits.pairExitReportWithReplacement(tx, outgoing.id, reportedAt!, candidate.id, {
-          ...REPORT,
-          kind: "RESIGNATION",
-          resignationDateReceived: new Date("2026-10-28"),
-          resignationMethod: "MAIL",
-          removalReason: null,
-          removalNotes: null,
+        exits.pairExitReportWithReplacement(tx, outgoing.id, {
+          expectedExitReportedAt: reportedAt!,
+          replacementMembershipId: candidate.id,
+          report: {
+            ...REPORT,
+            kind: "RESIGNATION",
+            resignationDateReceived: new Date("2026-10-28"),
+            resignationMethod: "MAIL",
+            removalReason: null,
+            removalNotes: null,
+          },
         }),
       );
       expect(rewrittenAt).not.toBeNull();
@@ -233,7 +240,10 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
       const another = await member({ status: "SUBMITTED" });
       expect(
         await prisma.$transaction((tx) =>
-          exits.pairExitReportWithReplacement(tx, outgoing.id, rewrittenAt!, another.id),
+          exits.pairExitReportWithReplacement(tx, outgoing.id, {
+            expectedExitReportedAt: rewrittenAt!,
+            replacementMembershipId: another.id,
+          }),
         ),
       ).toBeNull();
     });
@@ -350,8 +360,10 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
         submittedAt: new Date("2026-09-02T00:00:00.000Z"),
         submissionMetadata: { removeMemberId: "OUT4" },
       });
-      // 5. A decided submission keeps its metadata; its latest submission
-      //    audit row gets the outgoing member for History.
+      // 5. A decided, resubmitted submission keeps its metadata; every
+      //    MEMBER_SUBMITTED row lacking the key gets the outgoing member for
+      //    History (main showed the current metadata on each of them). A row
+      //    that already names one keeps it.
       const cand5 = await member({
         voter: "CAND5",
         status: "ACTIVE",
@@ -387,6 +399,24 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
             entityId: cand5.id,
             timestamp: new Date("2026-02-01T00:00:00.000Z"),
           },
+          {
+            id: "audit-cand5-named",
+            userId: LEADER_ID,
+            userRole: PrivilegeLevel.Leader,
+            action: "MEMBER_SUBMITTED",
+            entityType: "CommitteeMembership",
+            entityId: cand5.id,
+            timestamp: new Date("2025-12-01T00:00:00.000Z"),
+            metadata: { removeMemberId: "OUT2" },
+          },
+          {
+            id: "audit-cand5-other-action",
+            userId: ADMIN_ID,
+            userRole: PrivilegeLevel.Admin,
+            action: "MEMBER_ACTIVATED",
+            entityType: "CommitteeMembership",
+            entityId: cand5.id,
+          },
         ],
       });
 
@@ -398,7 +428,7 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
         exitReportedById: LEADER_ID,
         exitReportedKind: "REMOVAL",
         removalReason: "OTHER",
-        removalNotes: null,
+        removalNotes: "Replacement request",
         replacementMembershipId: cand1.id,
       });
       expect((await read(cand1.id)).submissionMetadata).toEqual({ requestNotes: "Keep me" });
@@ -406,6 +436,7 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
       expect(await read(out2.id)).toMatchObject({
         exitReportedAt: out2ReportedAt,
         removalReason: "DECEASED",
+        removalNotes: null,
         replacementMembershipId: cand2.id,
       });
       expect((await read(cand2.id)).submissionMetadata).toEqual({});
@@ -434,7 +465,9 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
         removeMemberId: "OUT1",
       });
       expect(metadataOf("audit-cand5-new")).toEqual({ removeMemberId: "OUT1" });
-      expect(metadataOf("audit-cand5-old")).toBeNull();
+      expect(metadataOf("audit-cand5-old")).toEqual({ removeMemberId: "OUT1" });
+      expect(metadataOf("audit-cand5-named")).toEqual({ removeMemberId: "OUT2" });
+      expect(metadataOf("audit-cand5-other-action")).toBeNull();
 
       // No submissionMetadata.removeMemberId is left on a pending row.
       const leftovers = await prisma.$queryRaw<Array<{ n: bigint }>>`
@@ -468,6 +501,7 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
       expect(await read(out.id)).toMatchObject({
         status: "REMOVED",
         removalReason: "OTHER",
+        removalNotes: "Replacement request",
         seatNumber: null,
       });
       expect(await read(cand.id)).toMatchObject({ status: "ACTIVE" });

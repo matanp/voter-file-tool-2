@@ -20,14 +20,9 @@ import {
   type SessionWithUser,
 } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
-import { clearRejectedExitReport } from "~/app/api/lib/membershipExit";
-import { logAuditEventOrThrow } from "~/lib/auditLog";
-import {
-  buildMembershipAuditSubject,
-  mergeAuditMetadata,
-} from "~/lib/auditMembershipSubject";
+import { rejectExitReport } from "~/app/api/lib/membershipExit";
+import { buildMembershipAuditSubject } from "~/lib/auditMembershipSubject";
 import { rejectExitReportSchema } from "~/lib/validations/committee";
 
 async function rejectExitReportHandler(
@@ -84,41 +79,20 @@ async function rejectExitReportHandler(
     }
 
     const outcome = await prisma.$transaction(async (tx) => {
-      const cleared = await clearRejectedExitReport(tx, membershipId, expectedAt);
-      if (!cleared) return "changed" as const;
-
-      await logAuditEventOrThrow(
-        userId,
-        userRole,
-        "MEMBER_EXIT_REPORT_REJECTED",
-        "CommitteeMembership",
-        membershipId,
-        {
-          status: ACTIVE_MEMBERSHIP_STATUS,
-          exitReportedAt,
-          exitReportedKind: membership.exitReportedKind,
-          removalReason: membership.removalReason,
-          ...(membership.replacementMembershipId
-            ? { replacementMembershipId: membership.replacementMembershipId }
-            : {}),
-        },
-        { status: ACTIVE_MEMBERSHIP_STATUS },
-        mergeAuditMetadata(
-          {
-            reportedById: membership.exitReportedById,
-            reportedAt: exitReportedAt,
-            ...(note ? { rejectionNote: note } : {}),
-          },
-          buildMembershipAuditSubject({
-            voterRecord: membership.voterRecord,
-            committee: membership.committeeList,
-            term: membership.term,
-            seatNumber: membership.seatNumber,
-          }),
-        ),
+      const rejected = await rejectExitReport(
         tx,
+        // The same instant as the row's, checked above.
+        { ...membership, exitReportedAt: expectedAt },
+        { userId, userRole },
+        note ? { rejectionNote: note } : {},
+        buildMembershipAuditSubject({
+          voterRecord: membership.voterRecord,
+          committee: membership.committeeList,
+          term: membership.term,
+          seatNumber: membership.seatNumber,
+        }),
       );
-      return "rejected" as const;
+      return rejected ? ("rejected" as const) : ("changed" as const);
     });
 
     if (outcome === "changed") {

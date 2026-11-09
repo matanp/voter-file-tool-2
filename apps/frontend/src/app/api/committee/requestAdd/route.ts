@@ -19,7 +19,6 @@ import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { toDbSentinelValue } from "@voter-file-tool/shared-validators";
 import {
-  ACTIVE_MEMBERSHIP_STATUS,
   getActiveTermId,
   getUserJurisdictions,
   committeeMatchesJurisdictions,
@@ -31,15 +30,12 @@ import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
 } from "~/lib/auditMembershipSubject";
+import { unpairReplacement } from "~/app/api/lib/membershipExit";
 import {
-  fileExitReport,
-  pairExitReportWithReplacement,
-  unpairReplacement,
-} from "~/app/api/lib/membershipExit";
-import {
-  exitReportedAuditValue,
-  toExitReportInput,
-} from "~/app/api/lib/exitReportInput";
+  fileOutgoingExit,
+  findOutgoingMember,
+  outgoingMemberProblem,
+} from "~/app/api/lib/replacementExitReport";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 
 /** A conditional write on the outgoing member lost a race; rolls the transaction back. */
@@ -47,6 +43,14 @@ class OutgoingMemberChanged extends Error {}
 
 function conflict(error: string) {
   return NextResponse.json({ success: false, error }, { status: 409 });
+}
+
+/** The same request again: idempotent. */
+function alreadySubmitted() {
+  return NextResponse.json(
+    { success: true, message: "Request already submitted" },
+    { status: 200 },
+  );
 }
 
 async function requestAddHandler(req: NextRequest, session: Session) {
@@ -213,51 +217,47 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       );
     }
 
-    // A replacement's outgoing member: ACTIVE here, and its pending report
-    // (if any) the one the Leader saw and not already paired.
-    let outgoing: Awaited<ReturnType<typeof findOutgoing>> = null;
+    // Check for existing membership (idempotent/transition)
+    const existing = await prisma.committeeMembership.findUnique({
+      where: {
+        voterRecordId_committeeListId_termId: {
+          voterRecordId: sanitizedAddMemberId,
+          committeeListId: committeeRequested.id,
+          termId: activeTermId,
+        },
+      },
+    });
+
+    // A replacement's outgoing member, ACTIVE here.
+    const outgoing = outgoingVoterId
+      ? await findOutgoingMember(
+          outgoingVoterId,
+          committeeRequested.id,
+          activeTermId,
+        )
+      : null;
+
+    // A retry of a replacement that went through: the candidate is pending and
+    // the outgoing member's report is paired with it. Checked before the
+    // report checks, which the first attempt's own write would now fail.
+    if (
+      existing?.status === "SUBMITTED" &&
+      outgoing &&
+      outgoing.replacementMembershipId === existing.id
+    ) {
+      return alreadySubmitted();
+    }
+
     if (outgoingVoterId) {
-      outgoing = await findOutgoing(
-        outgoingVoterId,
-        committeeRequested.id,
-        activeTermId,
-      );
-      if (!outgoing || outgoing.status !== ACTIVE_MEMBERSHIP_STATUS) {
+      const problem = outgoingMemberProblem(outgoing, {
+        exitReport,
+        existingExitReportedAt,
+      });
+      if (problem) {
         return NextResponse.json(
-          {
-            success: false,
-            error:
-              "The member being replaced is not an active member of this committee",
-          },
-          { status: 422 },
+          { success: false, error: problem.error },
+          { status: problem.status },
         );
-      }
-      if (outgoing.exitReportedAt === null) {
-        if (existingExitReportedAt !== undefined) {
-          return conflict(MEMBER_CHANGED_MESSAGE);
-        }
-        if (exitReport === undefined) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Say whether the member being replaced resigned or should be removed",
-            },
-            { status: 422 },
-          );
-        }
-      } else {
-        if (existingExitReportedAt === undefined) {
-          return conflict(
-            "An exit has already been reported for the member being replaced. Refresh to see it.",
-          );
-        }
-        if (
-          outgoing.exitReportedAt.getTime() !==
-          new Date(existingExitReportedAt).getTime()
-        ) {
-          return conflict(MEMBER_CHANGED_MESSAGE);
-        }
       }
     }
 
@@ -275,35 +275,22 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         : {}),
     } as Prisma.InputJsonValue;
 
-    // Check for existing membership (idempotent/transition)
-    const existing = await prisma.committeeMembership.findUnique({
-      where: {
-        voterRecordId_committeeListId_termId: {
-          voterRecordId: sanitizedAddMemberId,
-          committeeListId: committeeRequested.id,
-          termId: activeTermId,
-        },
-      },
-    });
-
     if (existing?.status === "SUBMITTED") {
-      // Idempotent for the same request; a replacement can't be bolted onto
-      // a candidate already pending as something else.
-      const sameRequest = outgoing
-        ? outgoing.replacementMembershipId === existing.id
-        : !(await prisma.committeeMembership.findUnique({
-            where: { replacementMembershipId: existing.id },
-            select: { id: true },
-          }));
+      // Idempotent for the same plain add (a replacement retry returned
+      // above); a replacement can't be bolted onto a candidate already pending
+      // as something else.
+      const sameRequest =
+        !outgoing &&
+        !(await prisma.committeeMembership.findUnique({
+          where: { replacementMembershipId: existing.id },
+          select: { id: true },
+        }));
       if (!sameRequest) {
         return conflict(
           "This candidate already has a pending submission for this committee",
         );
       }
-      return NextResponse.json(
-        { success: true, message: "Request already submitted" },
-        { status: 200 },
-      );
+      return alreadySubmitted();
     }
 
     if (outgoing && outgoing.replacementMembershipId !== null) {
@@ -364,62 +351,20 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       membershipSubject,
     );
 
-    /** The outgoing half, in the Submission's transaction. */
-    const fileOutgoingExit = async (
+    /** The outgoing half, in the Submission's transaction; a lost race rolls it back. */
+    const replaceOutgoing = async (
       tx: Prisma.TransactionClient,
       candidateId: string,
     ) => {
       if (!outgoing) return;
-      const reported = exitReport
-        ? toExitReportInput(exitReport, userId)
-        : undefined;
-      const before = outgoing.exitReportedAt;
-      const at =
-        before === null
-          ? reported &&
-            (await fileExitReport(tx, outgoing.id, reported, {
-              replacementMembershipId: candidateId,
-            }))
-          : await pairExitReportWithReplacement(
-              tx,
-              outgoing.id,
-              before,
-              candidateId,
-              reported,
-            );
-      if (!at) throw new OutgoingMemberChanged();
-      if (!reported || !exitReport) return; // paired as reported; nothing new to audit
-
-      await logAuditEventOrThrow(
-        userId,
-        userRole,
-        "MEMBER_EXIT_REPORTED",
-        "CommitteeMembership",
-        outgoing.id,
-        before === null
-          ? { status: ACTIVE_MEMBERSHIP_STATUS }
-          : {
-              status: ACTIVE_MEMBERSHIP_STATUS,
-              exitReportedAt: before.toISOString(),
-              exitReportedKind: outgoing.exitReportedKind,
-              removalReason: outgoing.removalReason,
-            },
-        exitReportedAuditValue(at, exitReport, reported),
-        mergeAuditMetadata(
-          {
-            reason: "replacement",
-            replacementMembershipId: candidateId,
-            ...(before !== null ? { updatedReport: true } : {}),
-          },
-          buildMembershipAuditSubject({
-            voterRecord: outgoing.voterRecord,
-            committee: committeeRequested,
-            term: committeeRequested.term,
-            seatNumber: outgoing.seatNumber,
-          }),
-        ),
-        tx,
-      );
+      const result = await fileOutgoingExit(tx, {
+        outgoing,
+        candidateId,
+        exitReport,
+        actor: { userId, privilegeLevel: userRole },
+        committee: committeeRequested,
+      });
+      if (result === "changed") throw new OutgoingMemberChanged();
     };
 
     if (existing) {
@@ -463,7 +408,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
           auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
           tx,
         );
-        await fileOutgoingExit(tx, resubmitted.id);
+        await replaceOutgoing(tx, resubmitted.id);
       });
 
       return NextResponse.json(
@@ -501,7 +446,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
         tx,
       );
-      await fileOutgoingExit(tx, newMembership.id);
+      await replaceOutgoing(tx, newMembership.id);
     });
 
     return NextResponse.json(
@@ -522,32 +467,6 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       { status: 500 },
     );
   }
-}
-
-function findOutgoing(
-  voterRecordId: string,
-  committeeListId: number,
-  termId: string,
-) {
-  return prisma.committeeMembership.findUnique({
-    where: {
-      voterRecordId_committeeListId_termId: {
-        voterRecordId,
-        committeeListId,
-        termId,
-      },
-    },
-    include: {
-      voterRecord: {
-        select: {
-          VRCNUM: true,
-          firstName: true,
-          middleInitial: true,
-          lastName: true,
-        },
-      },
-    },
-  });
 }
 
 export const POST = withPrivilege(

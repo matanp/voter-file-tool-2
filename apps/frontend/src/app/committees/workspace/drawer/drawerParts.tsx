@@ -7,6 +7,7 @@ import {
   ELIGIBILITY_ESCALATION_MESSAGE,
   getIneligibilityMessages,
 } from "~/lib/eligibilityMessages";
+import { personName } from "~/lib/personName";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import type { ActionOutcome } from "../adapters";
 import { hasLegDistrict, type CommitteeRef } from "../committeeAction";
@@ -18,16 +19,6 @@ export function committeeLabel(committee: CommitteeRef): string {
     ...(hasLegDistrict(committee) ? [`LD ${committee.legDistrict}`] : []),
     `ED ${committee.electionDistrict}`,
   ].join(" · ");
-}
-
-export function personName(person: {
-  firstName?: string | null;
-  middleInitial?: string | null;
-  lastName?: string | null;
-}): string {
-  return [person.firstName, person.middleInitial, person.lastName]
-    .filter((part) => part?.trim())
-    .join(" ");
 }
 
 /** The roster row for a current member, if they're on it. */

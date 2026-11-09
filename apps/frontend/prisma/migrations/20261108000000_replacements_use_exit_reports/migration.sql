@@ -53,8 +53,9 @@ WHERE candidate."status" = 'SUBMITTED'
   AND btrim(candidate."submissionMetadata" ->> 'removeMemberId') <> ''
 ORDER BY outgoing."id", candidate."submittedAt", candidate."id";
 
--- No report yet: file the one acceptance used to record (REMOVED / OTHER), as reported by the
--- submitter when they submitted.
+-- No report yet: file the one acceptance used to record (REMOVED / OTHER, notes
+-- "Replacement request accepted" on accept), as reported by the submitter when they submitted.
+-- Other needs notes, so the report says where it came from.
 UPDATE "CommitteeMembership" m
 SET
   "exitReportedAt" = p.submitted_at,
@@ -63,7 +64,7 @@ SET
   "resignationDateReceived" = NULL,
   "resignationMethod" = NULL,
   "removalReason" = 'OTHER',
-  "removalNotes" = NULL,
+  "removalNotes" = 'Replacement request',
   "replacementMembershipId" = p.candidate_id
 FROM "_replacement_pairs" p
 WHERE m."id" = p.outgoing_id
@@ -77,11 +78,11 @@ WHERE m."id" = p.outgoing_id
   AND p.outgoing_reported_at IS NOT NULL;
 
 -- Committee History names the member a submission would replace. It read that from the
--- candidate's submissionMetadata; it now reads the submission's audit row, where new
--- submissions record it. Copy it onto each membership's latest MEMBER_SUBMITTED row (the one
--- the current submissionMetadata belongs to, since a resubmission rebuilds it), so History
--- reads the same before and after. Every status, not only SUBMITTED: accepted and rejected
--- submissions show it too.
+-- candidate's current submissionMetadata and showed it on every MEMBER_SUBMITTED event for the
+-- membership (a resubmission included); it now reads each submission's audit row, where new
+-- submissions record it. Copy it onto every MEMBER_SUBMITTED row of such a membership that
+-- lacks it, so History reads the same before and after. Every status, not only SUBMITTED:
+-- accepted and rejected submissions show it too.
 UPDATE "AuditLog" a
 SET "metadata" = COALESCE(a."metadata", '{}'::jsonb)
   || jsonb_build_object('removeMemberId', btrim(m."submissionMetadata" ->> 'removeMemberId'))
@@ -92,16 +93,7 @@ WHERE a."entityType" = 'CommitteeMembership'
   AND jsonb_typeof(m."submissionMetadata") = 'object'
   AND jsonb_typeof(m."submissionMetadata" -> 'removeMemberId') = 'string'
   AND btrim(m."submissionMetadata" ->> 'removeMemberId') <> ''
-  AND (a."metadata" IS NULL OR NOT (a."metadata" ? 'removeMemberId'))
-  AND a."id" = (
-    SELECT latest."id"
-    FROM "AuditLog" latest
-    WHERE latest."entityType" = 'CommitteeMembership'
-      AND latest."entityId" = m."id"
-      AND latest."action" = 'MEMBER_SUBMITTED'
-    ORDER BY latest."timestamp" DESC, latest."id" DESC
-    LIMIT 1
-  );
+  AND (a."metadata" IS NULL OR NOT (a."metadata" ? 'removeMemberId'));
 
 -- Pending submissions no longer carry removeMemberId: paired ones are on the outgoing row,
 -- and the rest are plain adds. Other keys (requestNotes, contact, eligibilityWarnings) are

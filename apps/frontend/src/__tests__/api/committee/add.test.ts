@@ -225,6 +225,37 @@ describe("/api/committee/add", () => {
       expect(getMembershipMockTyped(prismaMock).create).not.toHaveBeenCalled();
     });
 
+    it("unpairs a pending replacement candidate it adds directly, before activating it", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
+        createMockGovernanceConfig(),
+      );
+      prismaMock.committeeList.upsert.mockResolvedValue(createMockCommittee());
+      setupEligibilityPassTyped(prismaMock);
+      const candidate = createMockMembership({ status: "SUBMITTED" });
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(candidate);
+      prismaMock.committeeMembership.update.mockResolvedValue(
+        createMockMembership({ status: "ACTIVE" }),
+      );
+
+      const response = await POST(createMockRequest(createMockCommitteeData()));
+
+      expect(response.status).toBe(200);
+      // The outgoing member's report stays pending, as an ordinary report.
+      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledWith({
+        where: { replacementMembershipId: candidate.id },
+        data: { replacementMembershipId: null },
+      });
+      expect(
+        prismaMock.committeeMembership.updateMany.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        prismaMock.committeeMembership.update.mock.invocationCallOrder[0]!,
+      );
+    });
+
     it("should return 200 idempotent when member is already ACTIVE in this committee", async () => {
       const mockCommitteeData = createMockCommitteeData();
       const mockSession = createMockSession({

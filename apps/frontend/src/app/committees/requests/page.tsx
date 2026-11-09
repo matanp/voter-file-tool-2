@@ -27,6 +27,7 @@ import {
   toPendingExitReport,
 } from "~/app/api/lib/pendingExitReports";
 import type { PendingExitReport } from "~/lib/validations/committee";
+import { personName, VOTER_NAME_SELECT } from "~/lib/personName";
 
 export const dynamic = "force-dynamic";
 
@@ -87,9 +88,7 @@ const CommitteeRequests: React.FC = async () => {
         voterRecord: true,
         replacing: {
           select: {
-            voterRecord: {
-              select: { VRCNUM: true, firstName: true, lastName: true },
-            },
+            voterRecord: { select: VOTER_NAME_SELECT },
           },
         },
       },
@@ -122,9 +121,7 @@ const CommitteeRequests: React.FC = async () => {
       replaces: m.replacing
         ? {
             voterRecordId: m.replacing.voterRecord.VRCNUM,
-            name:
-              `${m.replacing.voterRecord.firstName ?? ""} ${m.replacing.voterRecord.lastName ?? ""}`.trim() ||
-              m.replacing.voterRecord.VRCNUM,
+            name: personName(m.replacing.voterRecord, m.replacing.voterRecord.VRCNUM),
           }
         : null,
     });

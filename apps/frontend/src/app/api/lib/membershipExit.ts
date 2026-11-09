@@ -26,10 +26,17 @@ import type {
   CommitteeMembership,
   ExitReportKind,
   Prisma,
+  PrivilegeLevel,
   RemovalReason,
   ResignationMethod,
 } from "@prisma/client";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
+import { pendingExitReportAuditValue } from "~/app/api/lib/exitReportInput";
+import { logAuditEventOrThrow } from "~/lib/auditLog";
+import {
+  type AuditMembershipSubject,
+  mergeAuditMetadata,
+} from "~/lib/auditMembershipSubject";
 
 export type MembershipExitFields = {
   resignationDateReceived: Date | null;
@@ -334,9 +341,15 @@ export async function fileExitReport(
 export async function pairExitReportWithReplacement(
   tx: Prisma.TransactionClient,
   membershipId: string,
-  expectedExitReportedAt: Date,
-  replacementMembershipId: string,
-  report?: ExitReportInput,
+  {
+    expectedExitReportedAt,
+    replacementMembershipId,
+    report,
+  }: {
+    expectedExitReportedAt: Date;
+    replacementMembershipId: string;
+    report?: ExitReportInput;
+  },
 ): Promise<Date | null> {
   const reportedAt = report ? new Date() : expectedExitReportedAt;
   const { count } = await tx.committeeMembership.updateMany({
@@ -357,8 +370,8 @@ export async function pairExitReportWithReplacement(
 /**
  * Unpairs whatever report points at `candidateId`, leaving the report itself
  * pending. For a candidate that left SUBMITTED some other way (an Admin's
- * direct add) or whose row is being reused for a new submission, so a stale
- * pairing can't attach to it.
+ * direct add, a capacity auto-reject) or whose row is being reused for a new
+ * submission, so a stale pairing can't attach to it.
  */
 export async function unpairReplacement(
   tx: Prisma.TransactionClient,
@@ -367,6 +380,35 @@ export async function unpairReplacement(
   await tx.committeeMembership.updateMany({
     where: { replacementMembershipId: candidateId },
     data: { replacementMembershipId: null },
+  });
+}
+
+/**
+ * Moves an existing membership row to ACTIVE; every path that does so goes
+ * through here. A row coming from another status (a pending replacement
+ * candidate, a rejected or departed member) is unpaired first, so the outgoing
+ * member's report stays pending as an ordinary report. (When the candidate is
+ * accepted, the outgoing member's exit has already cleared the pairing.)
+ * Returns the row after the write.
+ */
+export async function activateMembership(
+  tx: Prisma.TransactionClient,
+  row: { id: string; status: CommitteeMembership["status"] },
+  data: Omit<
+    Prisma.CommitteeMembershipUncheckedUpdateInput,
+    | "status"
+    | "exitReportedAt"
+    | "exitReportedById"
+    | "exitReportedKind"
+    | "replacementMembershipId"
+  >,
+): Promise<CommitteeMembership> {
+  if (row.status !== ACTIVE_MEMBERSHIP_STATUS) {
+    await unpairReplacement(tx, row.id);
+  }
+  return tx.committeeMembership.update({
+    where: { id: row.id },
+    data: { status: ACTIVE_MEMBERSHIP_STATUS, ...data },
   });
 }
 
@@ -389,6 +431,55 @@ export async function clearRejectedExitReport(
     data: { ...CLEARED_EXIT_REPORT_FIELDS, ...CLEARED_EXIT_FIELDS },
   });
   return count > 0;
+}
+
+/** The pending report as read, which the rejection's audit row records. */
+export type PendingExitReportRow = {
+  id: string;
+  exitReportedAt: Date;
+  exitReportedById: string | null;
+  exitReportedKind: ExitReportKind | null;
+  removalReason: RemovalReason | null;
+  replacementMembershipId: string | null;
+};
+
+/**
+ * Rejects exactly the pending report `row` was read with
+ * (`clearRejectedExitReport`) and audits it as `MEMBER_EXIT_REPORT_REJECTED`:
+ * the Admin's reject, and a replacement candidate's reject taking its paired
+ * report with it. `metadata` is the path's own (reason, note, …); the
+ * reporter and report time are added here. False, with nothing audited, when
+ * the row changed.
+ */
+export async function rejectExitReport(
+  tx: Prisma.TransactionClient,
+  row: PendingExitReportRow,
+  actor: { userId: string; userRole: PrivilegeLevel },
+  metadata: Record<string, unknown>,
+  subject: AuditMembershipSubject,
+): Promise<boolean> {
+  if (!(await clearRejectedExitReport(tx, row.id, row.exitReportedAt))) {
+    return false;
+  }
+  await logAuditEventOrThrow(
+    actor.userId,
+    actor.userRole,
+    "MEMBER_EXIT_REPORT_REJECTED",
+    "CommitteeMembership",
+    row.id,
+    pendingExitReportAuditValue(row),
+    { status: ACTIVE_MEMBERSHIP_STATUS },
+    mergeAuditMetadata(
+      {
+        ...metadata,
+        reportedById: row.exitReportedById,
+        reportedAt: row.exitReportedAt.toISOString(),
+      },
+      subject,
+    ),
+    tx,
+  );
+  return true;
 }
 
 type ReportedExitRow = MembershipExitFields & {

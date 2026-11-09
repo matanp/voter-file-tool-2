@@ -47,7 +47,7 @@ import {
   RecordResignationForm,
   RemoveMemberForm,
 } from "./workspace/drawer/MemberExitForms";
-import { personName } from "./workspace/drawer/drawerParts";
+import { personName } from "~/lib/personName";
 import { SHOW_MEMBERSHIP_TYPE } from "./workspace/tabs/roster/seatPetitionDisplay";
 
 interface CommitteeSelectorProps {

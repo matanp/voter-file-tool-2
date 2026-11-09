@@ -51,9 +51,9 @@ import {
   StepHeading,
   committeeLabel,
   occupantLabel,
-  personName,
   useActionSubmit,
 } from "./drawerParts";
+import { personName } from "~/lib/personName";
 import { useCandidateEligibility } from "./useCandidateEligibility";
 import {
   EMPTY_EXIT_REPORT,

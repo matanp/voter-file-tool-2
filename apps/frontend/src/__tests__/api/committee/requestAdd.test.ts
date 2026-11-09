@@ -1,5 +1,9 @@
 import { POST } from "~/app/api/committee/requestAdd/route";
-import { PrivilegeLevel, type Prisma } from "@prisma/client";
+import {
+  PrivilegeLevel,
+  type CommitteeList,
+  type Prisma,
+} from "@prisma/client";
 import {
   createMockSession,
   createMockCommittee,
@@ -12,12 +16,14 @@ import {
   createMockMembership,
   expectMembershipCreate,
   expectMembershipUpdate,
-  getMembershipMock,
   getAuditLogMock,
   parseJsonResponse,
   setupEligibilityPass,
   setupMembershipAuditSubjectMocks,
   stubMembershipRows,
+  resolvesTo,
+  firstCallArg,
+  type MockMembership,
   expectAuditLogCreate,
   jsonContaining,
   validationTestCases,
@@ -31,6 +37,32 @@ import {
   mockHasPermission,
   prismaMock,
 } from "../../utils/mocks";
+
+/** What `validateEligibility` reads when it looks the committee up by id. */
+type EligibilityCommitteeRow = Pick<
+  CommitteeList,
+  "cityTown" | "legDistrict" | "electionDistrict"
+>;
+type RequestedCommitteeRow = ReturnType<typeof createMockCommittee>;
+
+/**
+ * The route looks the committee up by composite key (with its term);
+ * `validateEligibility` looks it up by id. Answers both.
+ */
+function stubCommitteeLookups(committeeId = 1): void {
+  prismaMock.committeeList.findUnique.mockImplementation(
+    (args: Prisma.CommitteeListFindUniqueArgs) =>
+      args.where.id !== undefined
+        ? resolvesTo<EligibilityCommitteeRow>({
+            cityTown: "Test City",
+            legDistrict: 1,
+            electionDistrict: 1,
+          })
+        : resolvesTo<RequestedCommitteeRow>(
+            createMockCommittee({ id: committeeId }),
+          ),
+  );
+}
 
 describe("/api/committee/requestAdd", () => {
   beforeEach(() => {
@@ -52,20 +84,9 @@ describe("/api/committee/requestAdd", () => {
     const setupHappyPath = (committeeId = 1) => {
       setupEligibilityPass(prismaMock);
       // Route looks up by composite key; validateEligibility by id. Support both.
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee({ id: committeeId })) as never;
-        },
-      );
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
-      getMembershipMock(prismaMock).create.mockResolvedValue(
+      stubCommitteeLookups(committeeId);
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(null);
+      prismaMock.committeeMembership.create.mockResolvedValue(
         createMockMembership(),
       );
     };
@@ -92,7 +113,7 @@ describe("/api/committee/requestAdd", () => {
           electionDistrict: Number(mockRequestData.electionDistrict),
         }),
       );
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
         expectMembershipCreate({
           voterRecordId: "TEST123456",
           committeeListId: 1,
@@ -121,7 +142,7 @@ describe("/api/committee/requestAdd", () => {
         { success: true, message: "Request created" },
         201,
       );
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
         expectMembershipCreate({
           voterRecordId: "NEW_MEMBER",
           submissionMetadata: {
@@ -140,10 +161,12 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       setupHappyPath();
-      (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
-        latestRecordEntryYear: 2024,
-        latestRecordEntryNumber: 2,
-      });
+      prismaMock.voterRecord.findFirst.mockResolvedValue(
+        createMockVoterRecord({
+          latestRecordEntryYear: 2024,
+          latestRecordEntryNumber: 2,
+        }),
+      );
 
       const response = await POST(createMockRequest(mockRequestData));
 
@@ -161,10 +184,11 @@ describe("/api/committee/requestAdd", () => {
       expect(firstWarning?.code).toBe("POSSIBLY_INACTIVE");
       expect(firstWarning?.message).toContain("most recent voter file import");
 
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledTimes(1);
+      expect(prismaMock.committeeMembership.create).toHaveBeenCalledTimes(1);
       type CreateArg = { data: { submissionMetadata?: { eligibilityWarnings?: Array<{ code: string; message: string }> } } };
-      const createCalls = getMembershipMock(prismaMock).create.mock.calls as Array<[CreateArg]>;
-      const createCallArg = createCalls[0]?.[0]?.data;
+      const createCallArg = firstCallArg<CreateArg>(
+        prismaMock.committeeMembership.create,
+      ).data;
       expect(createCallArg?.submissionMetadata?.eligibilityWarnings).toBeDefined();
       const storedWarnings =
         createCallArg?.submissionMetadata?.eligibilityWarnings ?? [];
@@ -215,7 +239,7 @@ describe("/api/committee/requestAdd", () => {
         { success: true, message: "Request created" },
         201,
       );
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
         expectMembershipCreate({ voterRecordId: "TEST123456" }),
       );
     });
@@ -235,7 +259,7 @@ describe("/api/committee/requestAdd", () => {
         { success: true, message: "Request created" },
         201,
       );
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
         expectMembershipCreate({
           submissionMetadata: {}, // no notes, no removeMemberId
         }),
@@ -255,7 +279,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(createMockRequest(mockRequestData));
 
       await expectErrorResponse(response, 422);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should return 200 when request already SUBMITTED (idempotent)", async () => {
@@ -265,18 +289,7 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee()) as never;
-        },
-      );
+      stubCommitteeLookups();
       stubMembershipRows(prismaMock, [createMockMembership({ status: "SUBMITTED" })]);
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -286,7 +299,7 @@ describe("/api/committee/requestAdd", () => {
         { success: true, message: "Request already submitted" },
         200,
       );
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should return 400 when member is already ACTIVE in this committee", async () => {
@@ -296,19 +309,8 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee()) as never;
-        },
-      );
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubCommitteeLookups();
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({ status: "ACTIVE" }),
       );
 
@@ -319,7 +321,7 @@ describe("/api/committee/requestAdd", () => {
         400,
         "Member is already active in this committee",
       );
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should resubmit an existing REJECTED membership by updating to SUBMITTED", async () => {
@@ -331,26 +333,15 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee()) as never;
-        },
-      );
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubCommitteeLookups();
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({
           id: "membership-rejected-1",
           status: "REJECTED",
           submissionMetadata: { requestNotes: "Original notes" },
         }),
       );
-      getMembershipMock(prismaMock).update.mockResolvedValue(
+      prismaMock.committeeMembership.update.mockResolvedValue(
         createMockMembership({ id: "membership-rejected-1", status: "SUBMITTED" }),
       );
 
@@ -361,7 +352,7 @@ describe("/api/committee/requestAdd", () => {
         { success: true, message: "Request created" },
         201,
       );
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipUpdate(
           {
             status: "SUBMITTED",
@@ -370,7 +361,7 @@ describe("/api/committee/requestAdd", () => {
           { id: "membership-rejected-1" },
         ),
       );
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should clear stale removeMemberId on add-only resubmission", async () => {
@@ -383,19 +374,8 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee()) as never;
-        },
-      );
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubCommitteeLookups();
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({
           id: "membership-rejected-2",
           status: "REJECTED",
@@ -405,7 +385,7 @@ describe("/api/committee/requestAdd", () => {
           },
         }),
       );
-      getMembershipMock(prismaMock).update.mockResolvedValue(
+      prismaMock.committeeMembership.update.mockResolvedValue(
         createMockMembership({ id: "membership-rejected-2", status: "SUBMITTED" }),
       );
 
@@ -416,7 +396,7 @@ describe("/api/committee/requestAdd", () => {
         { success: true, message: "Request created" },
         201,
       );
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipUpdate(
           {
             status: "SUBMITTED",
@@ -438,26 +418,15 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee()) as never;
-        },
-      );
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      stubCommitteeLookups();
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({
           id: "membership-removed-1",
           status: "REMOVED",
           submissionMetadata: { requestNotes: "Old note" },
         }),
       );
-      getMembershipMock(prismaMock).update.mockResolvedValue(
+      prismaMock.committeeMembership.update.mockResolvedValue(
         createMockMembership({ id: "membership-removed-1", status: "SUBMITTED" }),
       );
 
@@ -468,7 +437,7 @@ describe("/api/committee/requestAdd", () => {
         { success: true, message: "Request created" },
         201,
       );
-      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipUpdate(
           {
             status: "SUBMITTED",
@@ -479,7 +448,7 @@ describe("/api/committee/requestAdd", () => {
           { id: "membership-removed-1" },
         ),
       );
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should return 422 INELIGIBLE when add member is ACTIVE in another committee", async () => {
@@ -489,19 +458,8 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee({ id: 1 })) as never;
-        },
-      );
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(
+      stubCommitteeLookups();
+      prismaMock.committeeMembership.findFirst.mockResolvedValue(
         createMockMembership({ committeeListId: 999, status: "ACTIVE" }),
       );
 
@@ -510,7 +468,7 @@ describe("/api/committee/requestAdd", () => {
       await expectErrorResponse(response, 422, "INELIGIBLE");
       const body = (await response.json()) as { reasons?: string[] };
       expect(body.reasons).toContain("ALREADY_IN_ANOTHER_COMMITTEE");
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should not create CommitteeMembership row when hard-stop eligibility fails", async () => {
@@ -529,28 +487,17 @@ describe("/api/committee/requestAdd", () => {
       prismaMock.voterRecord.findUnique.mockResolvedValue(
         createMockVoterRecord({ party: "DEM" }),
       );
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee({ id: 1 })) as never;
-        },
-      );
-      getMembershipMock(prismaMock).count.mockResolvedValue(1);
-      getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
+      stubCommitteeLookups();
+      prismaMock.committeeMembership.count.mockResolvedValue(1);
+      prismaMock.committeeMembership.findFirst.mockResolvedValue(null);
 
       const response = await POST(createMockRequest(mockRequestData));
 
       await expectErrorResponse(response, 422, "INELIGIBLE");
       const body = (await response.json()) as { reasons?: string[] };
       expect(body.reasons).toContain("CAPACITY");
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
-      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
     });
 
     it("should return 404 when committee is not found", async () => {
@@ -568,7 +515,7 @@ describe("/api/committee/requestAdd", () => {
         404,
         "Committee not found. Ensure you are submitting to the active term.",
       );
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should return 500 for database error during committee lookup", async () => {
@@ -593,7 +540,7 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       setupHappyPath();
-      getMembershipMock(prismaMock).create.mockRejectedValue(
+      prismaMock.committeeMembership.create.mockRejectedValue(
         new Error("FK constraint violation"),
       );
 
@@ -617,7 +564,7 @@ describe("/api/committee/requestAdd", () => {
 
       await expectErrorResponse(response, 500, "Internal server error");
       expect(prismaMock.$transaction).toHaveBeenCalled();
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).toHaveBeenCalled();
     });
 
     // Authentication tests
@@ -724,7 +671,7 @@ describe("/api/committee/requestAdd", () => {
       ...overrides,
     });
 
-    const outgoingRow = (overrides: Record<string, unknown> = {}) => ({
+    const outgoingRow = (overrides: Partial<MockMembership> = {}) => ({
       ...createMockMembership({
         id: OUTGOING_ID,
         voterRecordId: "OLD_MEMBER",
@@ -742,33 +689,18 @@ describe("/api/committee/requestAdd", () => {
       mockHasPermission(true);
       setupEligibilityPass(prismaMock);
       setupMembershipAuditSubjectMocks(prismaMock);
-      prismaMock.committeeList.findUnique.mockImplementation(
-        (args: { where: { id?: number } }) => {
-          if (args.where.id !== undefined) {
-            return Promise.resolve({
-              cityTown: "Test City",
-              legDistrict: 1,
-              electionDistrict: 1,
-            }) as never;
-          }
-          return Promise.resolve(createMockCommittee()) as never;
-        },
-      );
+      stubCommitteeLookups();
       stubMembershipRows(prismaMock, rows);
-      getMembershipMock(prismaMock).create.mockResolvedValue(
+      prismaMock.committeeMembership.create.mockResolvedValue(
         createMockMembership({ id: CANDIDATE_ID, voterRecordId: "NEW_MEMBER" }),
       );
-      getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 1 });
     };
 
-    type UpdateManyArgs = {
-      where: Prisma.CommitteeMembershipWhereInput;
-      data: Prisma.CommitteeMembershipUncheckedUpdateManyInput;
-    };
-    const outgoingUpdateMany = (): UpdateManyArgs[] =>
-      (getMembershipMock(prismaMock).updateMany.mock.calls as Array<[UpdateManyArgs]>)
+    const outgoingUpdateMany = (): Prisma.CommitteeMembershipUpdateManyArgs[] =>
+      prismaMock.committeeMembership.updateMany.mock.calls
         .map(([args]) => args)
-        .filter((args) => args.where.id === OUTGOING_ID);
+        .filter((args) => args.where?.id === OUTGOING_ID);
 
     it("files the outgoing member's Exit Report paired with the new Submission", async () => {
       setup([outgoingRow()]);
@@ -776,7 +708,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(createMockRequest(replacementBody()));
 
       expect(response.status).toBe(201);
-      expect(getMembershipMock(prismaMock).create).toHaveBeenCalledWith(
+      expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith(
         expectMembershipCreate({
           voterRecordId: "NEW_MEMBER",
           status: "SUBMITTED",
@@ -831,7 +763,7 @@ describe("/api/committee/requestAdd", () => {
       );
 
       expect(response.status).toBe(422);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("refuses an exit report on a plain add", async () => {
@@ -842,7 +774,7 @@ describe("/api/committee/requestAdd", () => {
       );
 
       expect(response.status).toBe(422);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("refuses a removal without a reason, as a standalone report would", async () => {
@@ -853,7 +785,7 @@ describe("/api/committee/requestAdd", () => {
       );
 
       expect(response.status).toBe(422);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("refuses a member who isn't ACTIVE in the committee", async () => {
@@ -866,7 +798,7 @@ describe("/api/committee/requestAdd", () => {
         422,
         "The member being replaced is not an active member of this committee",
       );
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("refuses a candidate replacing themselves", async () => {
@@ -877,7 +809,7 @@ describe("/api/committee/requestAdd", () => {
       );
 
       expect(response.status).toBe(422);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("refuses to file a second report when one is already pending (409)", async () => {
@@ -892,8 +824,8 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(createMockRequest(replacementBody()));
 
       expect(response.status).toBe(409);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
-      expect(getMembershipMock(prismaMock).updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
     });
 
     it("pairs with the pending report the Leader saw, without duplicating it", async () => {
@@ -1000,7 +932,7 @@ describe("/api/committee/requestAdd", () => {
       );
 
       expect(response.status).toBe(409);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("refuses a member already paired with another pending candidate (409)", async () => {
@@ -1023,12 +955,12 @@ describe("/api/committee/requestAdd", () => {
       );
 
       expect(response.status).toBe(409);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("returns 409 when the conditional write on the outgoing member loses a race", async () => {
       setup([outgoingRow()]);
-      getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 0 });
+      prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 0 });
 
       const response = await POST(createMockRequest(replacementBody()));
 
@@ -1047,19 +979,85 @@ describe("/api/committee/requestAdd", () => {
           voterRecord: { VRCNUM: "NEW_MEMBER", firstName: "Nia", middleInitial: null, lastName: "New" },
         },
       ]);
-      getMembershipMock(prismaMock).update.mockResolvedValue(
+      prismaMock.committeeMembership.update.mockResolvedValue(
         createMockMembership({ id: "membership-rejected-9", status: "SUBMITTED" }),
       );
 
       const response = await POST(createMockRequest(replacementBody()));
 
       expect(response.status).toBe(201);
-      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith({
+      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledWith({
         where: { replacementMembershipId: "membership-rejected-9" },
         data: { replacementMembershipId: null },
       });
       expect(outgoingUpdateMany()[0]?.data).toMatchObject({
         replacementMembershipId: "membership-rejected-9",
+      });
+    });
+
+    describe("an identical retry after the replacement went through", () => {
+      /** The state the first attempt left: candidate pending, report paired with it. */
+      const setupAfterFirstAttempt = (reportedAt: Date) =>
+        setup([
+          outgoingRow({
+            exitReportedAt: reportedAt,
+            exitReportedKind: "RESIGNATION",
+            replacementMembershipId: CANDIDATE_ID,
+          }),
+          {
+            ...createMockMembership({
+              id: CANDIDATE_ID,
+              voterRecordId: "NEW_MEMBER",
+              status: "SUBMITTED",
+            }),
+            voterRecord: { VRCNUM: "NEW_MEMBER", firstName: "Nia", middleInitial: null, lastName: "New" },
+          },
+        ]);
+
+      const expectIdempotent = async (response: Response) => {
+        await expectSuccessResponse(
+          response,
+          { success: true, message: "Request already submitted" },
+          200,
+        );
+        expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
+        expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
+        expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
+        expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+      };
+
+      it("returns 200 after the first attempt filed a new report", async () => {
+        setupAfterFirstAttempt(new Date("2026-11-02T09:00:00.000Z"));
+
+        await expectIdempotent(await POST(createMockRequest(replacementBody())));
+      });
+
+      it("returns 200 after the first attempt rewrote the pending report", async () => {
+        // The rewrite gave the report a new instant; the retry still names the old one.
+        setupAfterFirstAttempt(new Date("2026-11-02T09:00:00.000Z"));
+
+        await expectIdempotent(
+          await POST(
+            createMockRequest(
+              replacementBody({ existingExitReportedAt: REPORTED_AT.toISOString() }),
+            ),
+          ),
+        );
+      });
+
+      it("returns 200 after the first attempt paired with the pending report as is", async () => {
+        setupAfterFirstAttempt(REPORTED_AT);
+
+        await expectIdempotent(
+          await POST(
+            createMockRequest(
+              replacementBody({
+                exitReport: undefined,
+                existingExitReportedAt: REPORTED_AT.toISOString(),
+              }),
+            ),
+          ),
+        );
       });
     });
 
@@ -1079,7 +1077,7 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(createMockRequest(replacementBody()));
 
       expect(response.status).toBe(409);
-      expect(getMembershipMock(prismaMock).updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
     });
   });
 });
