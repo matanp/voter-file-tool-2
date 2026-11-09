@@ -16,15 +16,15 @@ module.exports = {
       watch: false,
       // Memory limits for the 1 GB box. The numbers come from 20,000-row (MAX_RECORDS_FOR_EXPORT)
       // voter-list xlsx exports with every field filled, under node 22 on Linux. That export
-      // needs ~275 MB of heap and peaks at ~535 MB RSS (see ticket 11 in
+      // needs ~300 MB of heap and peaks at ~520-585 MiB RSS in a synthetic test (ticket 11 in
       // .scratch/report-server-provisioning).
       // The heap cap is the real-time guard: past it node aborts, and autorestart brings it back,
       // instead of node growing until the box swaps itself unresponsive. 256 MB fails that export.
       node_args: ['--max-old-space-size=384'],
       // PM2 checks RSS every 30 s. That catches growth outside the JS heap (Buffers, native
-      // memory) that the heap cap can't see. It sits above the export's ~535 MB peak, so a
+      // memory) that the heap cap can't see. It sits ~20% above the export's RSS peak, so a
       // legitimate export isn't restarted mid-job. Chrome's processes aren't counted.
-      max_memory_restart: '600M',
+      max_memory_restart: '700M',
       env: {
         NODE_ENV: 'production',
       },

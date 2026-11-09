@@ -270,10 +270,13 @@ async function processJob(jobData: EnrichedReportData) {
       const xlsxConfig = extractXLSXConfig(jobData);
 
       console.log('Fetching voter records using search query...');
-      const voterRecords = await fetchVoterRecords(jobData.searchQuery);
-      console.log(`Found ${voterRecords.length} voter records`);
-
-      const apiRecords = voterRecords.map(convertPrismaVoterRecordToAPI);
+      // Don't hold the Prisma rows in a variable: they'd stay alive next to the converted copies
+      // for the whole export, and a 20,000-row export has to fit under the heap cap in
+      // ecosystem.config.js.
+      const apiRecords = (await fetchVoterRecords(jobData.searchQuery)).map(
+        convertPrismaVoterRecordToAPI
+      );
+      console.log(`Found ${apiRecords.length} voter records`);
 
       await generateUnifiedXLSXAndUpload(
         apiRecords,

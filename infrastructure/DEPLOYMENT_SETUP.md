@@ -112,7 +112,7 @@ The instance is a 1 GB `micro_3_0`. Provisioning adds `/swapfile-voter-file-tool
   (`pnpm run terraform:recreate` also works, but it destroys the disk and runs the full install again.)
 - Once in: `free -h`, `sudo swapon --show`, and `sudo dmesg -T | grep -i -E "oom|killed process"` to see what was killed.
 - The report server's memory is capped in `apps/report-server/ecosystem.config.js`: `--max-old-space-size=384` and
-  PM2's `max_memory_restart: '600M'`. If node goes past either one, it's restarted instead of growing until the box
+  PM2's `max_memory_restart: '700M'`. If node goes past either one, it's restarted instead of growing until the box
   swaps itself unresponsive. A rising `↺` count in `pm2 status` usually means one of them fired. `pm2 logs report-server --err`
   shows `Reached heap limit` for the heap cap, and `~/.pm2/pm2.log` shows `exceeds --max-memory-restart value` for the
   RSS limit. Any job in progress at that point is lost.
