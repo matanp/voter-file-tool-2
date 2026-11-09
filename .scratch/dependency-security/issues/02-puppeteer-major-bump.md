@@ -9,8 +9,8 @@ Type: task
 the packages behind the remaining alerts:
 
 - `extract-zip@2.0.1`: 2 high (symlink path traversal / arbitrary file write). No fixed release exists.
-- `basic-ftp@5.3.1`: 1 high still open (needs 6.2.1, a major version; pnpm overrides already raised it within 5.x).
-- `tar-fs`, `ws`: fixed by overrides in the security-bumps PR, but only through overrides.
+- `basic-ftp@5.3.1`: 1 high still open (needs 6.2.1, a major version; the security-bumps PR already raised
+  it within 5.x).
 
 Real exposure is low. That code runs only when puppeteer downloads Chrome at install time, never on a
 request path. Even so, these alerts will stay open until puppeteer moves. Current
@@ -28,8 +28,6 @@ of `modern-tar`. That removes the whole cluster.
    whatever `page.pdf()` options are used there.
 3. Check the Chrome download/cache location still works on the Lightsail instance. Puppeteer's default
    cache moved between majors in the past, and `pnpm install` downloads Chrome there in the postinstall step.
-4. Once the dependency is gone, remove the `tar-fs@^3`, `basic-ftp@^5` and `ws@^8` entries from root
-   `pnpm.overrides` if nothing else needs them (`pnpm why -r <pkg>`).
 
 ## Verification
 

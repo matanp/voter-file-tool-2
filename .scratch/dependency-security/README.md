@@ -10,9 +10,14 @@ On 2026-11-08 there were 221 open Dependabot alerts. Most were one advisory repo
   session reads now fail closed on a configuration error. Before, `auth()` returned the error object, which is
   truthy. Also covers the email normalizer homoglyph fix and OAuth check cookies bound to their provider.
 - Report server `express` 4.21.2 → 4.22.3 (body-parser, qs, path-to-regexp, proxy-addr).
-- Root `pnpm.overrides` entries that raise floors within the same major version for vulnerable transitive
-  packages (fast-uri, brace-expansion, picomatch, ws, js-yaml, handlebars, …). pnpm 8's
-  `update --depth Infinity` did not move these.
+- Vulnerable transitive packages (fast-uri, brace-expansion, picomatch, ws, js-yaml, handlebars, …)
+  re-resolved to fixed versions inside their parents' existing ranges. pnpm 8's `update --depth Infinity`
+  doesn't do this on its own.
+- In-range `@aws-sdk/*` refresh (3.884 → 3.1164): newer `@aws-sdk/core` no longer depends on the exact-pinned
+  `fast-xml-parser@5.2.5`.
+- Only two overrides, each scoped to the parent that pins the exact version: `next>postcss` (Next pins
+  8.4.31) and `@sentry/nextjs>rollup` (Sentry 8.55.x pins 3.29.5). Both are build-time tools. Remove them when
+  Next / Sentry ship fixed pins.
 
 ## Left open (29 alerts)
 

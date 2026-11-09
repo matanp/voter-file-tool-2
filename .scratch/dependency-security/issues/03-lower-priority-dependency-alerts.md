@@ -40,8 +40,8 @@ glob 14 / minimatch 11) that Sentry's build plugin pulls in.
 
 ## D. Cross-major transitive alerts with no in-range fix
 
-- `uuid@9.0.1` (1 medium, needs 11): comes from `@aws-sdk/client-s3`. A routine in-range bump of the
-  `@aws-sdk/*` packages should drop it. Check with `pnpm why -r uuid` after.
+- `uuid@9.0.1` (1 medium, needs 11): comes from `@sentry/webpack-plugin` (via `@sentry/nextjs` 8). It goes
+  away with the Sentry upgrade in C.
 - `basic-ftp@5` (1 high, needs 6): goes away with [02](02-puppeteer-major-bump.md).
 
 ## E. Dev-only, never shipped: dismiss
@@ -55,9 +55,13 @@ glob 14 / minimatch 11) that Sentry's build plugin pulls in.
 - Close the stale Dependabot PRs the security-bumps PR replaces: #15 (nanoid), #16 (cross-spawn),
   #86/#87 (next-auth beta.30), #88/#92 (next 15.5.7/15.5.9), #96 (webpack). Dependabot will reopen fresh ones if
   still needed.
-- The root `pnpm.overrides` block added in the security-bumps PR raises transitive floors within each
-  major version. Prune entries once parents ship fixed ranges: for each one, temporarily remove it,
-  `pnpm install`, and check the alert stays closed. Revisit whenever `next`, `@sentry/nextjs`, `jest` or
-  `puppeteer` get a major bump.
+- Root `pnpm.overrides` has two security entries: `next>postcss` and `@sentry/nextjs>rollup`. Each forces a
+  build-time dependency past an exact pin in its parent. Drop `next>postcss` once a Next 15.5.x release ships
+  postcss ≥ 8.5.23 (check `npm view next@15.5 dependencies.postcss`), and `@sentry/nextjs>rollup` with the
+  Sentry upgrade in C.
+- If transitive alerts pile up again: pnpm 8's `pnpm update --depth Infinity <pkg>` does not re-resolve
+  locked transitive versions. What worked was a temporary same-major override → `pnpm install` → remove the
+  override → `pnpm install`. pnpm then keeps the fixed version wherever the parent's range allows it, so only
+  real exact pins need a permanent override.
 - Consider a Dependabot `groups:` config (one grouped PR per ecosystem per week) so alerts don't pile up
   as dozens of single-package PRs again.
