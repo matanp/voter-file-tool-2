@@ -37,6 +37,11 @@ trap restart_after_abort ERR INT HUP TERM
 echo "📦 Installing dependencies..."
 bash scripts/pnpm-install-low-memory.sh
 
+# The report server launches chrome-headless-shell (headless: 'shell'). Install it before the new build
+# replaces the old one, so a failed download leaves the old build running. A no-op when it is already there.
+echo "📦 Installing Puppeteer chrome-headless-shell..."
+(cd apps/report-server && npx puppeteer browsers install chrome-headless-shell)
+
 # Build all packages
 echo "🔨 Building workspace packages..."
 # shared-prisma's build runs prisma generate, so no separate generation step is needed.
