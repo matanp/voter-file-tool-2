@@ -134,7 +134,9 @@ export async function generatePDFAndUpload(
   overrides?: PDFPageOptions,
 ): Promise<void> {
   const puppeteerOptions = {
-    headless: true,
+    // chrome-headless-shell: the headless-only build without the browser UI, lighter on the 1 GB box.
+    // 03-build-packages.sh installs it; full Chrome is not installed in production.
+    headless: 'shell' as const,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
