@@ -135,7 +135,7 @@ export async function generatePDFAndUpload(
 ): Promise<void> {
   const puppeteerOptions = {
     // chrome-headless-shell: the headless-only build without the browser UI, lighter on the 1 GB box.
-    // 03-build-packages.sh installs it; full Chrome is not installed in production.
+    // 03-build-packages.sh and deploy-lightsail.sh install it; nothing launches full Chrome.
     // Keep --single-process: without it chrome-headless-shell peaks higher than full Chrome with it.
     headless: 'shell' as const,
     args: [
@@ -191,15 +191,35 @@ async function closeBrowser(browser: Browser): Promise<void> {
   });
   try {
     const result = await Promise.race([
-      browser.close().then(() => 'closed' as const),
+      browser.close().then(
+        () => 'closed' as const,
+        (error: unknown) => {
+          // Don't let a close failure replace the report's own error; kill Chrome instead.
+          console.error('Chrome failed to close; killing it', error);
+          return 'failed' as const;
+        },
+      ),
       timedOut,
     ]);
     if (result === 'timeout') {
       console.error('Chrome did not close in time; killing it');
-      browser.process()?.kill('SIGKILL');
+    }
+    if (result !== 'closed') {
+      killBrowserProcessGroup(browser);
     }
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/** Puppeteer launches Chrome as its own process group, so kill the group, as Puppeteer itself does. */
+function killBrowserProcessGroup(browser: Browser): void {
+  const chrome = browser.process();
+  if (!chrome?.pid) return;
+  try {
+    process.kill(-chrome.pid, 'SIGKILL');
+  } catch {
+    chrome.kill('SIGKILL');
   }
 }
 
