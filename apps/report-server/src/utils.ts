@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import PetitionForm from './components/DesignatingPetition';
 import CommitteeReport from './components/CommitteeReport';
-import puppeteer from 'puppeteer';
+import puppeteer, { type Browser } from 'puppeteer';
 import { uploadFileToR2 } from './s3Utils';
 import { Readable } from 'stream';
 import { randomUUID } from 'crypto';
@@ -136,6 +136,7 @@ export async function generatePDFAndUpload(
   const puppeteerOptions = {
     // chrome-headless-shell: the headless-only build without the browser UI, lighter on the 1 GB box.
     // 03-build-packages.sh installs it; full Chrome is not installed in production.
+    // Keep --single-process: without it chrome-headless-shell peaks higher than full Chrome with it.
     headless: 'shell' as const,
     args: [
       '--no-sandbox',
@@ -172,7 +173,33 @@ export async function generatePDFAndUpload(
     }
   } finally {
     // Always close Chrome, or a failed report leaves it running and eats the 1 GB box's memory.
-    await browser.close();
+    await closeBrowser(browser);
+  }
+}
+
+const BROWSER_CLOSE_TIMEOUT_MS = 10 * 1000;
+
+/**
+ * Closes Chrome, and kills it if it has not exited in time. chrome-headless-shell with --single-process
+ * deadlocks in close() when no page was opened (e.g. newPage() failed), and close() has no timeout of
+ * its own, so without the kill the report would never finish.
+ */
+async function closeBrowser(browser: Browser): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const timedOut = new Promise<'timeout'>((resolve) => {
+    timer = setTimeout(() => resolve('timeout'), BROWSER_CLOSE_TIMEOUT_MS);
+  });
+  try {
+    const result = await Promise.race([
+      browser.close().then(() => 'closed' as const),
+      timedOut,
+    ]);
+    if (result === 'timeout') {
+      console.error('Chrome did not close in time; killing it');
+      browser.process()?.kill('SIGKILL');
+    }
+  } finally {
+    clearTimeout(timer);
   }
 }
 
