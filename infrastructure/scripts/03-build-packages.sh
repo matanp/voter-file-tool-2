@@ -121,14 +121,15 @@ test -f apps/report-server/dist/index.js && test -f apps/report-server/public/ta
 }
 echo "✅ report-server built successfully"
 
-# Install Puppeteer Chrome
-echo "📦 Installing Puppeteer Chrome..."
+# Install the browser the report server launches (headless: 'shell' in src/utils.ts).
+# Full Chrome is not needed: nothing else on the box launches it.
+echo "📦 Installing Puppeteer chrome-headless-shell..."
 cd apps/report-server || {
   echo "❌ Failed to navigate to report-server directory"
   exit 1
 }
-npx puppeteer browsers install chrome || {
-  echo "❌ Failed to install Puppeteer Chrome"
+npx puppeteer browsers install chrome-headless-shell || {
+  echo "❌ Failed to install Puppeteer chrome-headless-shell"
   exit 1
 }
 
