@@ -17,6 +17,12 @@ export const ADMIN_CONTACT_INFO = `For exports larger than ${MAX_RECORDS_FOR_EXP
 export const LEG_DISTRICT_SENTINEL = -1;
 
 /**
+ * Display label for the BOE `CC_WD_Village` field: a village, ward or Rochester
+ * quadrant code within the town ("00" when the voter isn't in one).
+ */
+export const VILLAGE_WARD_LABEL = 'Village / Ward';
+
+/**
  * Fields that are not searchable (computed or internal fields)
  */
 const NON_SEARCHABLE_FIELDS = [

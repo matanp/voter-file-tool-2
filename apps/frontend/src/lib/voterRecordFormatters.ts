@@ -1,5 +1,8 @@
 import type { VoterRecord } from "@prisma/client";
 
+import { normalizeTownCode } from "~/lib/lted/digitParsing";
+import { lookupCityTown } from "~/lib/lted/monroeTownCodes";
+
 /** Formats a voter record street address, optionally using committee address override. */
 export const getAddress = (record: VoterRecord, committee?: boolean) => {
   if (record.addressForCommittee && committee) {
@@ -17,4 +20,25 @@ export const getName = (
     .map((part) => (part === record.middleInitial && part ? `${part}` : part));
 
   return nameParts.join(" ").trim();
+};
+
+/**
+ * Formats the voter's town from townCode, e.g. "WEBSTER (095)". The `city`
+ * field is the postal city and can name a different town.
+ */
+export const getTown = (record: Pick<VoterRecord, "townCode">) => {
+  const code = normalizeTownCode(record.townCode);
+  if (!code) return null;
+  const name = lookupCityTown(code, "strict");
+  return name ? `${name} (${code})` : code;
+};
+
+/**
+ * Returns the BOE village/ward/quadrant code (CC_WD_Village), or null when the
+ * voter isn't in one. The BOE file uses "00" for "none".
+ */
+export const getVillageWard = (record: Pick<VoterRecord, "CC_WD_Village">) => {
+  const value = record.CC_WD_Village?.trim();
+  if (!value || /^0+$/.test(value)) return null;
+  return value;
 };
