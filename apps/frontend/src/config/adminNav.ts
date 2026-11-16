@@ -82,6 +82,13 @@ export const adminSidebarGroups: AdminNavGroup[] = [
         href: "/admin/eligibility-flags",
         enabled: true,
       },
+      {
+        // Lives outside /admin; the sidebar appends the live count.
+        id: "pending-requests",
+        label: "Pending requests",
+        href: "/committees/requests",
+        enabled: true,
+      },
     ],
   },
   {
@@ -118,6 +125,18 @@ export const adminSidebarGroups: AdminNavGroup[] = [
 ];
 
 /** Flat view of every nav item across all groups, in display order. */
+/** Live counts shown after a nav item's label, keyed by item id. */
+export type AdminNavCounts = Partial<Record<AdminNavItem["id"], number>>;
+
+/** "Label (N)" when a count is known, otherwise the bare label. */
+export function adminNavItemLabel(
+  item: AdminNavItem,
+  counts: AdminNavCounts | undefined,
+): string {
+  const count = counts?.[item.id];
+  return count === undefined ? item.label : `${item.label} (${count})`;
+}
+
 export const adminSidebarConfig: AdminNavItem[] = adminSidebarGroups.flatMap(
   (group) => group.items,
 );

@@ -14,8 +14,10 @@ import {
   SheetTrigger,
 } from "~/components/ui/sheet";
 import {
+  adminNavItemLabel,
   adminSidebarConfig,
   adminSidebarGroups,
+  type AdminNavCounts,
   type AdminNavItem,
 } from "~/config/adminNav";
 import { cn } from "~/lib/utils";
@@ -25,7 +27,13 @@ function isActive(item: AdminNavItem, pathname: string | null): boolean {
   return pathname.startsWith(item.href);
 }
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarNav({
+  counts,
+  onNavigate,
+}: {
+  counts?: AdminNavCounts;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
@@ -49,7 +57,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                       : "hover:bg-muted",
                   )}
                 >
-                  {item.label}
+                  {adminNavItemLabel(item, counts)}
                 </Link>
               ) : (
                 <span
@@ -74,7 +82,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AdminSidebar() {
+export function AdminSidebar({ counts }: { counts?: AdminNavCounts }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -105,7 +113,7 @@ export function AdminSidebar() {
               <SheetTitle>Admin</SheetTitle>
             </SheetHeader>
             <div className="mt-4">
-              <SidebarNav onNavigate={() => setOpen(false)} />
+              <SidebarNav counts={counts} onNavigate={() => setOpen(false)} />
             </div>
           </SheetContent>
         </Sheet>
@@ -114,7 +122,7 @@ export function AdminSidebar() {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30 p-4 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">Admin</h2>
-        <SidebarNav />
+        <SidebarNav counts={counts} />
       </aside>
     </>
   );
