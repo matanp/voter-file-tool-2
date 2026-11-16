@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import VoterRecordSearch from "./VoterRecordSearch";
 import { type DropdownLists, type VoterRecord } from "@prisma/client";
 import { VoterRecordTable } from "./VoterRecordTable";
+import { VoterRecordCardList } from "./VoterRecordCardList";
 import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
 import { Button } from "~/components/ui/button";
 import { useToast } from "~/components/ui/use-toast";
@@ -177,8 +178,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         <h2 className="primary-header">Voter Records</h2>
       </div>
       {hasSearched && totalRecords > 0 && canExport && (
-        <div className="w-full flex flex-col items-center pt-4 space-y-4">
-          <div className="flex items-center gap-4">
+        <div className="w-full flex flex-col items-center px-4 pt-4 space-y-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Button
               onClick={handleExport}
               disabled={totalRecords > MAX_RECORDS_FOR_EXPORT}
@@ -197,7 +198,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
                   onClick={() => setIsHoveringInfo(!isHoveringInfo)}
                 />
                 {isHoveringInfo && (
-                  <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 w-96 p-4 bg-amber-50 border border-amber-200 rounded-md shadow-lg">
+                  <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 w-96 max-w-[calc(100vw-2rem)] p-4 bg-amber-50 border border-amber-200 rounded-md shadow-lg">
                     <p className="text-sm text-amber-800 font-medium text-center">
                       Large Export Request
                     </p>
@@ -211,7 +212,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           </div>
         </div>
       )}
-      <div className="m-10">
+      <div className="mx-4 my-6 md:m-10">
         {searchMutation.loading && (
           <VoterRecordTableSkeleton
             fieldsList={fieldsList}
@@ -220,18 +221,31 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         )}
 
         {records.length > 0 && !searchMutation.loading && (
-          <VoterRecordTable
-            records={records}
-            fieldsList={fieldsList}
-            paginated={true}
-            loadMore={handleLoadMore}
-            totalRecords={totalRecords}
-          />
+          <>
+            {/* Cards on phones, the table from md up. */}
+            <div className="md:hidden">
+              <VoterRecordCardList
+                records={records}
+                fieldsList={fieldsList}
+                loadMore={handleLoadMore}
+                totalRecords={totalRecords}
+              />
+            </div>
+            <div className="hidden md:block">
+              <VoterRecordTable
+                records={records}
+                fieldsList={fieldsList}
+                paginated={true}
+                loadMore={handleLoadMore}
+                totalRecords={totalRecords}
+              />
+            </div>
+          </>
         )}
       </div>
 
       {!records.length && !searchMutation.loading && (
-        <p className="ml-10">
+        <p className="mx-4 md:ml-10">
           {hasSearched
             ? "No results found."
             : status === "authenticated"

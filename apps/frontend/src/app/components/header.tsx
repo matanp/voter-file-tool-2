@@ -18,13 +18,16 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
 
   const showDataTab = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
 
+  // Phones: a two-column grid of shorter tabs. From sm up: the original fixed-size tabs.
   const sharedTabStyle =
-    "h-16 text-xl font-semibold w-42 flex items-center justify-center";
+    "h-12 w-full text-base font-semibold flex items-center justify-center sm:h-16 sm:w-42 sm:text-xl";
+  const tabLinkStyle = "block min-w-0";
   const tabStyleActive = "bg-primary";
   const tabStyleInactive = "bg-muted-foreground";
   return (
-    <div className="overflow-x-auto bg-accent border-b-2 border-solid">
-      <div className="flex items-center justify-between p-1 min-w-full">
+    <div className="bg-accent border-b-2 border-solid">
+      {/* Wraps instead of scrolling sideways, so every tab can be reached at 375px. */}
+      <div className="flex flex-wrap items-center justify-between p-1 min-w-full">
         {/* Left slot - DB badge in dev; an empty spacer on large screens in prod */}
         <div
           className={
@@ -36,24 +39,27 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
           {dbBadge}
         </div>
 
-        {/* Navigation tabs - centered on large screens, left-aligned on small screens */}
-        <div className="flex items-center justify-center lg:justify-center gap-2 py-2 flex-1 lg:flex-none">
+        {/* Navigation tabs: own full-width row below sm, centered from lg up */}
+        <nav
+          aria-label="Main"
+          className="order-last grid w-full grid-cols-2 gap-2 py-2 sm:order-none sm:flex sm:w-auto sm:flex-1 sm:flex-wrap sm:items-center sm:justify-center lg:flex-none"
+        >
           {/* <ThemeToggle className="mr-auto" /> */}
-          <Link href="/recordsearch">
+          <Link href="/recordsearch" className={tabLinkStyle}>
             <Button
               className={`${sharedTabStyle} ${pathname?.includes("record") ? tabStyleActive : tabStyleInactive}`}
             >
               Record Search
             </Button>
           </Link>
-          <Link href="/committees">
+          <Link href="/committees" className={tabLinkStyle}>
             <Button
               className={`${sharedTabStyle} ${pathname?.startsWith("/committees") ? tabStyleActive : tabStyleInactive}`}
             >
               Committee List
             </Button>
           </Link>
-          <Link href="/reports">
+          <Link href="/reports" className={tabLinkStyle}>
             <Button
               className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/committee-roster-reports", "/voter-list-reports", "/petitions", "/sign-in-sheet-reports", "/weight-summary-reports", "/vacancy-reports", "/changes-reports", "/petition-outcomes-reports"].some((p) => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
             >
@@ -61,7 +67,7 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
             </Button>
           </Link>
           {showDataTab && (
-            <Link href="/admin">
+            <Link href="/admin" className={tabLinkStyle}>
               <Button
                 className={`${sharedTabStyle} ${pathname?.startsWith("/admin") ? tabStyleActive : tabStyleInactive}`}
               >
@@ -69,7 +75,7 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
               </Button>
             </Link>
           )}
-        </div>
+        </nav>
 
         {/* Right spacer - hidden on small screens when content overflows */}
         <div className="hidden lg:flex w-[150px] items-center justify-center">
@@ -77,7 +83,7 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
         </div>
 
         {/* Sign in button for small screens */}
-        <div className="lg:hidden flex items-center gap-2 py-2">
+        <div className="lg:hidden ml-auto flex items-center gap-2 py-2">
           <SignInButton />
         </div>
       </div>

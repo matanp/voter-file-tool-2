@@ -41,7 +41,7 @@ export const VoterCard = ({
           </Badge>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm text-gray-600 [&>*>p>span]:font-light">
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 text-sm sm:grid-cols-2 text-gray-600 [&>*>p>span]:font-light">
         <div>
           <p>
             <span>Party:</span> {record.party}

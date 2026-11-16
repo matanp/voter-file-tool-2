@@ -45,12 +45,13 @@ export const SearchRow: React.FC<SearchRowComponentProps> = ({
 
   return (
     <div
-      className="flex gap-4 shadow-md p-4 bg-background"
+      className="flex items-start gap-2 bg-background p-4 shadow-md sm:items-stretch sm:gap-4"
       role="group"
       aria-label={SEARCH_CONFIG.ariaLabels.searchCriteria(index)}
     >
-      <div className="m-2">
-        <div className="flex gap-4">
+      <div className="m-0 min-w-0 flex-1 sm:m-2">
+        {/* Below sm the field picker and its value input stack; side by side from sm up. */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
           {/* Field selector */}
           <div className="flex flex-row items-center">
             <label htmlFor={`field-selector-${index}`} className="sr-only">
@@ -67,7 +68,7 @@ export const SearchRow: React.FC<SearchRowComponentProps> = ({
           </div>
 
           {/* Value input */}
-          <div>
+          <div className="min-w-0">
             {!row.compoundType && row.name !== "empty" && (
               <FieldRenderer
                 field={row}

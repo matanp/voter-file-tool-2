@@ -1,3 +1,4 @@
+import React from "react";
 import { type VoterRecord } from "@prisma/client";
 import { Skeleton } from "~/components/ui/skeleton";
 import { TableCell } from "~/components/ui/table";
@@ -461,3 +462,17 @@ export const fields: FieldConfig[] = [
 
 // Export the type for field names
 export type FieldName = (typeof fields)[number]["name"];
+
+/**
+ * A field's value for one record, as its table cell shows it. Every `cell` wraps the value in a
+ * single TableCell, so this unwraps it for layouts that aren't a table (the phone result cards).
+ */
+export function fieldValue(
+  field: FieldConfig,
+  record: VoterRecord,
+): React.ReactNode {
+  const cell = field.cell(record);
+  return React.isValidElement<{ children?: React.ReactNode }>(cell)
+    ? cell.props.children
+    : cell;
+}

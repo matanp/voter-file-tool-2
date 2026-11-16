@@ -32,7 +32,7 @@ export const VoterRecordTableSkeleton: React.FC<VoterRecordTableProps> = ({
     <div id={scrollId}>
       <Table
         id="voter-record-table"
-        className={`${!fullWidth && "max-w-[80vw] min-w-[800px]"}`}
+        className={`${!fullWidth && "max-w-[80vw] md:min-w-[800px]"}`}
       >
         <TableHeader>
           <TableRow>

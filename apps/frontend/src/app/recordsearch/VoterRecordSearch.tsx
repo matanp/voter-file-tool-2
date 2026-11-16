@@ -13,6 +13,9 @@ import {
 } from "~/lib/searchEventHandlers";
 
 import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { mergeQuickNameIntoRows, type QuickName } from "~/lib/quickNameSearch";
+import { useCallback, useState } from "react";
 
 interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
@@ -22,36 +25,91 @@ interface VoterRecordSearchProps {
 
 const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   const searchState = useSearchState();
+  const [quickName, setQuickName] = useState<QuickName>({
+    firstName: "",
+    lastName: "",
+  });
+  const { handleSubmit, isAuthenticated } = props;
+  const { submitSearchWithContext } = searchState;
 
   const fieldHandlers = useFieldChangeHandlers(searchState);
 
+  // The quick name box and the criteria builder run as one search: the name box's values are
+  // merged into the builder's rows (see mergeQuickNameIntoRows). The name box is plain text
+  // inputs, so whatever is typed is used on the first Submit, with no chip-on-blur step.
+  const submitRows = useCallback(
+    async (filteredRows: SearchField[]) => {
+      await handleSubmit(
+        submitSearchWithContext(
+          mergeQuickNameIntoRows(filteredRows, quickName),
+        ),
+      );
+    },
+    [handleSubmit, submitSearchWithContext, quickName],
+  );
+
   const keyboardHandlers = useKeyboardHandlers(
     searchState,
-    props.handleSubmit,
-    props.isAuthenticated,
+    submitRows,
+    isAuthenticated,
   );
 
   useKeyboardShortcuts(keyboardHandlers);
 
   const { handleFormSubmit } = useFormSubmission(
-    async (filteredRows) => {
-      await props.handleSubmit(
-        searchState.submitSearchWithContext(filteredRows),
-      );
-    },
+    submitRows,
     searchState,
-    props.isAuthenticated,
+    isAuthenticated,
   );
 
   return (
-    <div className="flex justify-center">
+    <div className="flex justify-center px-4">
       <form
         onSubmit={handleFormSubmit}
-        className="w-max flex flex-col items-center gap-4"
+        className="flex w-full min-w-0 flex-col items-stretch gap-4 sm:w-max sm:max-w-full sm:items-center"
         role="search"
         aria-label={SEARCH_CONFIG.ariaLabels.searchForm}
       >
-        <fieldset className="border-0 p-0 m-0">
+        <div
+          className="grid w-full grid-cols-1 gap-3 bg-background p-4 shadow-md sm:grid-cols-2"
+          role="group"
+          aria-label="Search by name"
+        >
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor="quick-first-name" className="text-sm font-medium">
+              First name
+            </label>
+            <Input
+              id="quick-first-name"
+              type="text"
+              autoComplete="off"
+              autoCapitalize="words"
+              enterKeyHint="search"
+              value={quickName.firstName}
+              onChange={(e) =>
+                setQuickName((prev) => ({ ...prev, firstName: e.target.value }))
+              }
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor="quick-last-name" className="text-sm font-medium">
+              Last name
+            </label>
+            <Input
+              id="quick-last-name"
+              type="text"
+              autoComplete="off"
+              autoCapitalize="words"
+              enterKeyHint="search"
+              value={quickName.lastName}
+              onChange={(e) =>
+                setQuickName((prev) => ({ ...prev, lastName: e.target.value }))
+              }
+            />
+          </div>
+        </div>
+
+        <fieldset className="m-0 min-w-0 border-0 p-0">
           <legend className="sr-only">Search criteria</legend>
           {searchState.searchRows.map((row, index) => {
             const availableFields = getAvailableFields(
@@ -78,7 +136,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         </fieldset>
 
         <div
-          className="flex items-center gap-4 pb-8"
+          className="flex flex-wrap items-center justify-center gap-4 pb-8"
           role="group"
           aria-label={SEARCH_CONFIG.ariaLabels.searchActions}
         >
@@ -94,12 +152,12 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           <div className="py-2">
             <Button
               type="submit"
-              disabled={!props.isAuthenticated}
+              disabled={!isAuthenticated}
               className="hover:bg-primary-700 w-full rounded-md border border-transparent bg-primary px-4 py-2 text-primary-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label={SEARCH_CONFIG.ariaLabels.submitSearch(
-                props.isAuthenticated,
+                isAuthenticated,
               )}
-              title={SEARCH_CONFIG.titles.submitSearch(props.isAuthenticated)}
+              title={SEARCH_CONFIG.titles.submitSearch(isAuthenticated)}
             >
               Submit
             </Button>
