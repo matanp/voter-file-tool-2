@@ -1,8 +1,16 @@
+/** Nav items that show a live count after their label. */
+export type AdminNavCountKey = "pendingReview";
+
+/** Live counts shown after a nav item's label, keyed by the item's `countKey`. */
+export type AdminNavCounts = Partial<Record<AdminNavCountKey, number>>;
+
 export interface AdminNavItem {
   id: string;
   label: string;
   href: string;
   enabled: boolean;
+  /** Set when the sidebar appends a live count to this item's label. */
+  countKey?: AdminNavCountKey;
 }
 
 export interface AdminNavGroup {
@@ -83,11 +91,12 @@ export const adminSidebarGroups: AdminNavGroup[] = [
         enabled: true,
       },
       {
-        // Lives outside /admin; the sidebar appends the live count.
-        id: "pending-requests",
-        label: "Pending requests",
+        // Submissions and Exit Reports awaiting a decision. Lives outside /admin.
+        id: "pending-review",
+        label: "Pending review",
         href: "/committees/requests",
         enabled: true,
+        countKey: "pendingReview",
       },
     ],
   },
@@ -125,9 +134,6 @@ export const adminSidebarGroups: AdminNavGroup[] = [
 ];
 
 /** Flat view of every nav item across all groups, in display order. */
-/** Live counts shown after a nav item's label, keyed by item id. */
-export type AdminNavCounts = Partial<Record<AdminNavItem["id"], number>>;
-
 export const adminSidebarConfig: AdminNavItem[] = adminSidebarGroups.flatMap(
   (group) => group.items,
 );

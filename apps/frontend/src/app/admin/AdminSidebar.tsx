@@ -16,6 +16,7 @@ import {
 import {
   adminSidebarConfig,
   adminSidebarGroups,
+  type AdminNavCountKey,
   type AdminNavCounts,
   type AdminNavItem,
 } from "~/config/adminNav";
@@ -29,12 +30,12 @@ function isActive(item: AdminNavItem, pathname: string | null): boolean {
 /** " (N)" after an item's label once its count arrives; nothing if it has none. */
 function NavItemCount({
   countsPromise,
-  itemId,
+  countKey,
 }: {
   countsPromise: Promise<AdminNavCounts>;
-  itemId: string;
+  countKey: AdminNavCountKey;
 }) {
-  const count = use(countsPromise)[itemId];
+  const count = use(countsPromise)[countKey];
   return count === undefined ? null : <> ({count})</>;
 }
 
@@ -69,11 +70,11 @@ function SidebarNav({
                   )}
                 >
                   {item.label}
-                  {countsPromise && (
+                  {countsPromise && item.countKey && (
                     <Suspense fallback={null}>
                       <NavItemCount
                         countsPromise={countsPromise}
-                        itemId={item.id}
+                        countKey={item.countKey}
                       />
                     </Suspense>
                   )}

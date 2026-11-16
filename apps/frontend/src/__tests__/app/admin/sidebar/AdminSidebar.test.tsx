@@ -7,30 +7,30 @@ jest.mock("next/navigation", () => ({
 }));
 
 describe("AdminSidebar", () => {
-  it("links to the pending requests queue with its count", async () => {
+  it("links to the pending review queue with its count", async () => {
     render(
-      <AdminSidebar
-        countsPromise={Promise.resolve({ "pending-requests": 4 })}
-      />,
+      <AdminSidebar countsPromise={Promise.resolve({ pendingReview: 4 })} />,
     );
 
     const link = await screen.findByRole("link", {
-      name: "Pending requests (4)",
+      name: "Pending review (4)",
     });
     // The mobile sheet renders its nav only when opened.
     expect(screen.getByRole("complementary")).toContainElement(link);
     expect(link).toHaveAttribute("href", "/committees/requests");
+    // Items without a countKey keep their bare label.
+    expect(
+      screen.getByRole("link", { name: "Discrepancies" }),
+    ).toBeInTheDocument();
   });
 
   it("shows a zero count", async () => {
     render(
-      <AdminSidebar
-        countsPromise={Promise.resolve({ "pending-requests": 0 })}
-      />,
+      <AdminSidebar countsPromise={Promise.resolve({ pendingReview: 0 })} />,
     );
 
     expect(
-      await screen.findByRole("link", { name: "Pending requests (0)" }),
+      await screen.findByRole("link", { name: "Pending review (0)" }),
     ).toBeInTheDocument();
   });
 
@@ -38,7 +38,7 @@ describe("AdminSidebar", () => {
     render(<AdminSidebar countsPromise={new Promise(() => undefined)} />);
 
     expect(
-      screen.getByRole("link", { name: "Pending requests" }),
+      screen.getByRole("link", { name: "Pending review" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Discrepancies" }),
@@ -51,7 +51,7 @@ describe("AdminSidebar", () => {
     await act(() => countsPromise);
 
     expect(
-      screen.getByRole("link", { name: "Pending requests" }),
+      screen.getByRole("link", { name: "Pending review" }),
     ).toBeInTheDocument();
   });
 });
