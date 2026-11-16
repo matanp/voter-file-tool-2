@@ -128,15 +128,6 @@ export const adminSidebarGroups: AdminNavGroup[] = [
 /** Live counts shown after a nav item's label, keyed by item id. */
 export type AdminNavCounts = Partial<Record<AdminNavItem["id"], number>>;
 
-/** "Label (N)" when a count is known, otherwise the bare label. */
-export function adminNavItemLabel(
-  item: AdminNavItem,
-  counts: AdminNavCounts | undefined,
-): string {
-  const count = counts?.[item.id];
-  return count === undefined ? item.label : `${item.label} (${count})`;
-}
-
 export const adminSidebarConfig: AdminNavItem[] = adminSidebarGroups.flatMap(
   (group) => group.items,
 );

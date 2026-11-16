@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, use, useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -14,7 +14,6 @@ import {
   SheetTrigger,
 } from "~/components/ui/sheet";
 import {
-  adminNavItemLabel,
   adminSidebarConfig,
   adminSidebarGroups,
   type AdminNavCounts,
@@ -27,11 +26,23 @@ function isActive(item: AdminNavItem, pathname: string | null): boolean {
   return pathname.startsWith(item.href);
 }
 
+/** " (N)" after an item's label once its count arrives; nothing if it has none. */
+function NavItemCount({
+  countsPromise,
+  itemId,
+}: {
+  countsPromise: Promise<AdminNavCounts>;
+  itemId: string;
+}) {
+  const count = use(countsPromise)[itemId];
+  return count === undefined ? null : <> ({count})</>;
+}
+
 function SidebarNav({
-  counts,
+  countsPromise,
   onNavigate,
 }: {
-  counts?: AdminNavCounts;
+  countsPromise?: Promise<AdminNavCounts>;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -57,7 +68,15 @@ function SidebarNav({
                       : "hover:bg-muted",
                   )}
                 >
-                  {adminNavItemLabel(item, counts)}
+                  {item.label}
+                  {countsPromise && (
+                    <Suspense fallback={null}>
+                      <NavItemCount
+                        countsPromise={countsPromise}
+                        itemId={item.id}
+                      />
+                    </Suspense>
+                  )}
                 </Link>
               ) : (
                 <span
@@ -82,7 +101,15 @@ function SidebarNav({
   );
 }
 
-export function AdminSidebar({ counts }: { counts?: AdminNavCounts }) {
+/**
+ * `countsPromise` resolves after the page renders, so the sidebar shows bare
+ * labels first and fills in counts without holding up the layout.
+ */
+export function AdminSidebar({
+  countsPromise,
+}: {
+  countsPromise?: Promise<AdminNavCounts>;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -113,7 +140,10 @@ export function AdminSidebar({ counts }: { counts?: AdminNavCounts }) {
               <SheetTitle>Admin</SheetTitle>
             </SheetHeader>
             <div className="mt-4">
-              <SidebarNav counts={counts} onNavigate={() => setOpen(false)} />
+              <SidebarNav
+                countsPromise={countsPromise}
+                onNavigate={() => setOpen(false)}
+              />
             </div>
           </SheetContent>
         </Sheet>
@@ -122,7 +152,7 @@ export function AdminSidebar({ counts }: { counts?: AdminNavCounts }) {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30 p-4 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">Admin</h2>
-        <SidebarNav counts={counts} />
+        <SidebarNav countsPromise={countsPromise} />
       </aside>
     </>
   );
