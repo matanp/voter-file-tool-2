@@ -1,6 +1,8 @@
 import { type VoterRecord } from "@prisma/client";
 import { Skeleton } from "~/components/ui/skeleton";
 import { TableCell } from "~/components/ui/table";
+import { VILLAGE_WARD_LABEL } from "@voter-file-tool/shared-validators";
+import { getVillageWard } from "~/lib/voterRecordFormatters";
 
 // Define the field configuration that can be shared between table and skeleton
 export interface FieldConfig {
@@ -328,11 +330,11 @@ export const fields: FieldConfig[] = [
   },
   {
     name: "CC_WD_Village",
-    head: "Village / Ward",
+    head: VILLAGE_WARD_LABEL,
     size: "w-[20ch]",
     cell: (record: VoterRecord) => (
       <TableCell key={`${record.VRCNUM}-CC_WD_Village`}>
-        {record.CC_WD_Village}
+        {getVillageWard(record) ?? ""}
       </TableCell>
     ),
     skeletonCell: (index: number) => (

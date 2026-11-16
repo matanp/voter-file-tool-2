@@ -1,5 +1,8 @@
 import type { VoterRecordField } from "@voter-file-tool/shared-validators";
-import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
+import {
+  searchableFieldEnum,
+  VILLAGE_WARD_LABEL,
+} from "@voter-file-tool/shared-validators";
 
 // Available VoterRecord fields for selection
 export const AVAILABLE_FIELDS: {
@@ -174,7 +177,7 @@ export const AVAILABLE_FIELDS: {
   },
   {
     key: searchableFieldEnum.enum.CC_WD_Village,
-    label: "Village / Ward",
+    label: VILLAGE_WARD_LABEL,
     category: "Districts",
   },
   {

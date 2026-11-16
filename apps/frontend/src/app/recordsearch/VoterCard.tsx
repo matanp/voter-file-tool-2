@@ -1,6 +1,8 @@
 import React from "react";
 import type { MembershipType, VoterRecord } from "@prisma/client";
 
+import { VILLAGE_WARD_LABEL } from "@voter-file-tool/shared-validators";
+
 import { Badge } from "~/components/ui/badge";
 import {
   getAddress,
@@ -80,7 +82,7 @@ export const VoterCard = ({
           </p>
           {villageWard && (
             <p>
-              <span>Village / Ward:</span> {villageWard}
+              <span>{VILLAGE_WARD_LABEL}:</span> {villageWard}
             </p>
           )}
           <p>

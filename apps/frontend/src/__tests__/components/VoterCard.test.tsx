@@ -81,14 +81,14 @@ describe("VoterCard", () => {
     );
   });
 
-  it("shows an unknown town code as-is and a dash when missing", () => {
-    const { unmount } = render(
-      <VoterCard record={createMockVoterRecord({ townCode: "999" })} />,
-    );
+  it("shows an unknown town code as-is", () => {
+    render(<VoterCard record={createMockVoterRecord({ townCode: "999" })} />);
     expect(screen.getByText("Town:").parentElement).toHaveTextContent(
       "Town: 999",
     );
-    unmount();
+  });
+
+  it("shows a dash when the town code is missing", () => {
     render(<VoterCard record={createMockVoterRecord({ townCode: null })} />);
     expect(screen.getByText("Town:").parentElement).toHaveTextContent(
       "Town: -",
