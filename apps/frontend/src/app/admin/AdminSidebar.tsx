@@ -120,9 +120,14 @@ export function AdminSidebar({
   }, [pathname]);
 
   // Eager prefetch all admin routes when sidebar mounts so navigation feels instant.
+  // Only /admin routes: router.prefetch() is a full prefetch that Next reuses for
+  // up to 5 minutes, so prefetching an outside queue like /committees/requests
+  // would run its queries on every visit and could show a stale queue.
   useEffect(() => {
     for (const item of adminSidebarConfig) {
-      if (item.enabled) router.prefetch(item.href);
+      if (item.enabled && item.href.startsWith("/admin/")) {
+        router.prefetch(item.href);
+      }
     }
   }, [router]);
 

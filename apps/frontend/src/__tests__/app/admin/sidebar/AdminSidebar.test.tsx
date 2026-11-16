@@ -1,12 +1,23 @@
 import { act, render, screen } from "@testing-library/react";
 import { AdminSidebar } from "~/app/admin/AdminSidebar";
 
+const mockPrefetch = jest.fn();
+
 jest.mock("next/navigation", () => ({
   usePathname: () => "/admin/audit",
-  useRouter: () => ({ prefetch: jest.fn() }),
+  useRouter: () => ({ prefetch: mockPrefetch }),
 }));
 
 describe("AdminSidebar", () => {
+  beforeEach(() => mockPrefetch.mockClear());
+
+  it("prefetches only /admin routes", () => {
+    render(<AdminSidebar countsPromise={new Promise(() => undefined)} />);
+
+    expect(mockPrefetch).toHaveBeenCalledWith("/admin/discrepancies");
+    expect(mockPrefetch).not.toHaveBeenCalledWith("/committees/requests");
+  });
+
   it("links to the pending review queue with its count", async () => {
     render(
       <AdminSidebar countsPromise={Promise.resolve({ pendingReview: 4 })} />,
