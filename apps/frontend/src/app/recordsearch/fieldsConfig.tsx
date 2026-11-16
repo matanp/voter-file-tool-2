@@ -328,7 +328,7 @@ export const fields: FieldConfig[] = [
   },
   {
     name: "CC_WD_Village",
-    head: "CC WD Village",
+    head: "Village / Ward",
     size: "w-[20ch]",
     cell: (record: VoterRecord) => (
       <TableCell key={`${record.VRCNUM}-CC_WD_Village`}>

@@ -174,7 +174,7 @@ export const AVAILABLE_FIELDS: {
   },
   {
     key: searchableFieldEnum.enum.CC_WD_Village,
-    label: "CC_WD_Village",
+    label: "Village / Ward",
     category: "Districts",
   },
   {
