@@ -162,3 +162,7 @@ match, and the only difference is the new name box. Retake with
 Tests: `src/__tests__/lib/quickNameSearch.test.ts`,
 `src/__tests__/components/recordsearch/{QuickNameSearch,VoterRecordCardList}.test.tsx`. Full frontend
 jest: 136 suites, 2024 tests passing. `tsc` and `eslint` are clean.
+
+**2026-11-15, PR.** https://github.com/matanp/voter-file-tool-2/pull/151. Its screenshots use made-up voters
+(`steps/record-search-synthetic.mjs` mocks `/api/fetchFilteredData`). They're on the `pr-assets` branch under
+`mobile-record-search/`, because an existing `pr-assets` branch rules out a `pr-assets/mobile-record-search` branch.

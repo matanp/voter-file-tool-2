@@ -1,6 +1,6 @@
 # 09 - Open the PR for 06 with synthetic-data screenshots
 
-Status: ready-for-agent
+Status: done
 
 The user has asked for this PR, which authorizes committing, pushing the branch and opening it. Don't merge.
 
@@ -47,7 +47,7 @@ server.
 
 ## Done when
 
-- [ ] PR open against `main` from `mobile-record-search`, containing only 06's files.
-- [ ] The PR body summarizes 06 and has embedded before/after screenshots, all with synthetic data.
-- [ ] No real voter data in any commit, branch or PR text.
-- [ ] Link to the PR added under 06's Comments.
+- [x] PR open against `main` from `mobile-record-search`, containing only 06's files.
+- [x] The PR body summarizes 06 and has embedded before/after screenshots, all with synthetic data.
+- [x] No real voter data in any commit, branch or PR text.
+- [x] Link to the PR added under 06's Comments.
