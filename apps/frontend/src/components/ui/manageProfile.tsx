@@ -23,9 +23,9 @@ type ProfileSheetProps = {
   session: Session;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** A `SheetTrigger` that opens the sheet; leave out when something else sets `open`. */
+  /** A `ViewProfileTrigger` (in any wrapper) that opens the sheet. */
   trigger?: React.ReactNode;
-  /** Where focus goes when the sheet closes; needed without a trigger, which focus would return to. */
+  /** Overrides where focus goes on close, which is the trigger by default. */
   onCloseAutoFocus?: (event: Event) => void;
 };
 

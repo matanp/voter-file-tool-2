@@ -3,7 +3,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { useContext, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { Menu } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { SignInButton } from "~/components/ui/signInButton";
@@ -131,12 +131,12 @@ const MainNav: React.FC<{
 const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   const pathname = usePathname() ?? "";
   const { actingPermissions } = useContext(GlobalContext);
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  // Set while the menu closes to hand off to the profile sheet, so focus isn't sent back to the hamburger.
-  const openingProfileRef = useRef(false);
-  // Whether the profile sheet was opened from the phone menu, which is gone by the time it closes.
+  // Set while the profile sheet is open from the phone menu. The menu doesn't pull focus back to the
+  // hamburger as it closes, and the sheet sends focus there when it closes: its own trigger is the
+  // bar's View Profile button, which is hidden below md.
   const profileFromMenuRef = useRef(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -174,7 +174,7 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
 
         <div className="flex shrink-0 items-center justify-end gap-2 py-2 pr-1 lg:w-[150px] lg:justify-center lg:pr-0">
           {/* Signed in: the one profile sheet. Its View Profile trigger is in the bar from md; below
-              md, the menu's View Profile row opens it. */}
+              md, the menu's View Profile row opens it. Signed out: Sign In at every width. */}
           {session ? (
             <ProfileSheet
               session={session}
@@ -182,33 +182,18 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
               onOpenChange={setProfileOpen}
               trigger={
                 <div className="hidden md:block">
-                  <ViewProfileTrigger
-                    onClick={() => {
-                      profileFromMenuRef.current = false;
-                    }}
-                  />
+                  <ViewProfileTrigger />
                 </div>
               }
               onCloseAutoFocus={(event) => {
-                // Opened from the menu: it has closed, so send focus to the hamburger that opened it.
                 if (!profileFromMenuRef.current) return;
+                profileFromMenuRef.current = false;
                 event.preventDefault();
                 menuButtonRef.current?.focus();
               }}
             />
           ) : (
-            <div className="hidden md:block">
-              <SignInButton />
-            </div>
-          )}
-          {/* Below md, signed out: keep Sign In in the bar, since it's the one thing to do */}
-          {status === "unauthenticated" && (
-            <Button
-              className="md:hidden"
-              onClick={() => signIn(undefined, { callbackUrl: "/" })}
-            >
-              Sign In
-            </Button>
+            <SignInButton />
           )}
 
           {/* Below md: hamburger that drops a vertical menu down from the top */}
@@ -228,10 +213,7 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
               side="top"
               className="p-0 md:hidden"
               onCloseAutoFocus={(event) => {
-                if (openingProfileRef.current) {
-                  openingProfileRef.current = false;
-                  event.preventDefault();
-                }
+                if (profileFromMenuRef.current) event.preventDefault();
               }}
             >
               <div className="border-b px-4 py-4 pr-12">
@@ -252,7 +234,6 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
                     type="button"
                     className={cn(MENU_ROW_STYLE, "hover:bg-muted")}
                     onClick={() => {
-                      openingProfileRef.current = true;
                       profileFromMenuRef.current = true;
                       setMenuOpen(false);
                       setProfileOpen(true);
