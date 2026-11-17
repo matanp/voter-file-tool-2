@@ -24,7 +24,7 @@ managed by Terraform, so three settings have to be made by hand in the Cloudflar
 
 ## Acceptance criteria
 
-- [ ] The bucket has no public access (confirmed in the dashboard, noted in a comment here).
+- [x] The bucket has no public access (confirmed in the dashboard, noted in a comment here).
 - [x] Both lifecycle rules exist with the prefixes and ages above.
 - [ ] A Leader can upload a letter from the deployed app (the browser PUT isn't blocked by CORS).
 
@@ -32,6 +32,6 @@ managed by Terraform, so three settings have to be made by hand in the Cloudflar
 
 - 2026-11-07: Written while building 08; these can't be done or checked from the repo.
 - 2026-11-16: Done on the production bucket `opensourcepolitics` (`infrastructure/terraform.tfvars`). The dashboard
-  shows Public Access **Disabled** (r2.dev off). Still to confirm: Settings → Custom Domains is empty. Matan added
+  shows Public Access **Disabled** (r2.dev off). Matan confirmed no custom domain is connected. Matan added
   both lifecycle rules. A CORS preflight for `PUT` + `content-type` succeeds from `https://opensourcepolitics.online`
   and `http://localhost:3000` (`www.` redirects to the apex). The deployed upload check waits for PR #154 to ship.
