@@ -117,6 +117,9 @@ The full-stack human path was not exercised when this skill was written.
   first Submit click is used up by the blur and you need a second one (`steps/record-search-name.mjs` does
   this). The quick name box above the builder has no chips: `steps/record-search-quick-name.mjs` uses it
   and handles both the phone cards/sheet (< 768) and the table/popover.
+- **Below 768 the main nav is inside the hamburger menu,** so `getByRole('navigation')` finds nothing
+  until you click `button "Open menu"`; the links are then in `dialog "Menu"`. `steps/header-menu.mjs`
+  shoots the bar and the open menu.
 - **The results skeleton reuses `#voter-record-table`.** Waiting for its rows returns while still loading,
   so wait for `See more details` instead. Below 768 the results are cards (`list "Voter records"`) and
   the table is `display:none`.

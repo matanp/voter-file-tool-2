@@ -141,9 +141,11 @@ app header for this ticket.
 - **The builder still starts with a Name row**, so on phones it sits right under the name box. It was kept
   for "builder unchanged" and the existing tests. Dropping it from record search's initial rows is a
   one-line follow-up if the duplication bothers people.
-- **Header:** tabs wrap. Below `sm` they're a 2-column grid of shorter tabs. From `sm` to `lg` they wrap
-  onto a second row only when they don't fit (Developer/Admin at 768 puts Admin on its own row). At `lg`
-  and up the header is unchanged.
+- **Header:** below `md` the tabs are hidden behind a hamburger next to View Profile. It opens a
+  top sheet (`Sheet side="top"`) with the pages as full-width rows and the current page highlighted;
+  picking one or pressing Escape closes it. From `md` to `lg` the tabs are one row of compact tabs sized to
+  their text (Developer/Admin with 4 tabs and the DB badge fits at 768). At `lg` and up the header is
+  unchanged. (The first version used a 2-column tab grid on phones; replaced on 2026-11-16 at review.)
 - **Results:** below `md`, `VoterRecordCardList` (cards showing the table's fields, a full-height sheet with
   `VoterCard`, Load More / Jump to Top / count). The table renders from `md` up, unchanged. Both are in the
   DOM and CSS picks one. The loading skeleton's `min-w-[800px]` now applies only from `md` up.
