@@ -15,9 +15,7 @@ import {
   createMockMembership,
   expectMembershipUpdate,
   expectMembershipExitWrite,
-  expectMembershipUpdateMany,
   expectAuditLogCreate,
-  expectAnyDate,
   expectAnyDateForUpdate,
   getMembershipMock,
   getAuditLogMock,
@@ -145,7 +143,6 @@ describe("/api/committee/handleRequest", () => {
       stubMembershipRows(prismaMock, [
         createMockMembership({ status: "SUBMITTED" }),
       ]);
-      getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
 
       const response = await POST(createMockRequest(mockRequestData));
 
@@ -154,11 +151,11 @@ describe("/api/committee/handleRequest", () => {
         { message: "Request rejected" },
         200,
       );
-      expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith(
-        expectMembershipUpdateMany(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
           {
             status: "REJECTED",
-            rejectedAt: expectAnyDate(),
+            rejectedAt: expectAnyDateForUpdate(),
           },
           { id: "membership-test-id-001", status: "SUBMITTED" },
         ),

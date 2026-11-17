@@ -21,7 +21,6 @@ import {
   expectAuditLogCreate,
   expectMembershipUpdate,
   expectMembershipExitWrite,
-  expectMembershipUpdateMany,
   getAuditLogMock,
   jsonContaining,
   resolvesTo,
@@ -427,8 +426,8 @@ describe("membershipConfirmation", () => {
       });
 
       expect(result).toEqual({ kind: "rejected" });
-      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledWith(
-        expectMembershipUpdateMany(
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
           {
             status: "REJECTED",
             rejectionNote: "Not eligible",
@@ -513,15 +512,17 @@ describe("membershipConfirmation", () => {
         actor: ACTOR,
       });
 
-      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
       expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalledWith(
         expectAuditLogCreate({ action: "MEMBER_EXIT_REPORT_REJECTED" }),
       );
     });
 
-    it("returns notSubmitted when updateMany affects zero rows", async () => {
+    it("returns notSubmitted when the row is no longer SUBMITTED", async () => {
       stubMemberships([candidate()]);
-      prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 0 });
+      prismaMock.committeeMembership.update.mockRejectedValueOnce(
+        Object.assign(new Error("Record to update not found."), { code: "P2025" }),
+      );
 
       const result = await rejectSubmittedMembership(prismaMock, {
         membershipId: MEMBERSHIP_ID,

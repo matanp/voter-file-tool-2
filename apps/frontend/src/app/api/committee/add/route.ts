@@ -13,7 +13,7 @@ import {
   isCommitteeAtCapacity,
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
-import { activateMembership } from "~/app/api/lib/membershipExit";
+import { writeMembershipLeavingSubmitted } from "~/app/api/lib/membershipExit";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
@@ -230,7 +230,8 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         // Re-activate a previously non-active membership. A pending
         // replacement candidate added directly is an add: the outgoing
         // member's report stays pending, unpaired.
-        await activateMembership(tx, existingMembership, {
+        await writeMembershipLeavingSubmitted(tx, existingMembership, {
+          status: ACTIVE_MEMBERSHIP_STATUS,
           activatedAt: new Date(),
           membershipType,
           seatNumber,

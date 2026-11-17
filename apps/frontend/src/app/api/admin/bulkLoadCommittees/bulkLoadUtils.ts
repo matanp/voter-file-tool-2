@@ -30,12 +30,12 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import {
-  activateMembership,
   CLEARED_EXIT_FIELDS,
   EXIT_REPORT_STATE_SELECT,
   type ExitReportState,
   supersededExitReportMetadata,
   writeMembershipExit,
+  writeMembershipLeavingSubmitted,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow, SYSTEM_USER_ID } from "~/lib/auditLog";
 import {
@@ -898,7 +898,8 @@ async function activateMember(
     // A pending replacement candidate activated by the file is an add: the
     // outgoing member's report stays pending, unpaired.
     try {
-      await activateMembership(tx, existingMembership, {
+      await writeMembershipLeavingSubmitted(tx, existingMembership, {
+        status: ACTIVE_MEMBERSHIP_STATUS,
         activatedAt: existingMembership.activatedAt ?? new Date(),
         membershipType,
         seatNumber,

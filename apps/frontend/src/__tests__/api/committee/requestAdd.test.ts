@@ -1061,7 +1061,7 @@ describe("/api/committee/requestAdd", () => {
       await expectErrorResponse(response, 409, "This member changed, refresh.");
     });
 
-    it("unpairs a stale pairing before reusing a candidate's old row", async () => {
+    it("pairs the outgoing report with a reused candidate row", async () => {
       setup([
         outgoingRow(),
         {
@@ -1077,10 +1077,6 @@ describe("/api/committee/requestAdd", () => {
       const response = await POST(createMockRequest(replacementBody()));
 
       expect(response.status).toBe(201);
-      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledWith({
-        where: { replacementMembershipId: "membership-rejected-9" },
-        data: { replacementMembershipId: null },
-      });
       expect(outgoingUpdateMany()[0]?.data).toMatchObject({
         replacementMembershipId: "membership-rejected-9",
       });

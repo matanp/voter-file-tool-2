@@ -11,6 +11,7 @@
  */
 
 import {
+  type CommitteeMembership,
   type MembershipType,
   type Prisma,
   type PrivilegeLevel,
@@ -28,11 +29,10 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import {
-  activateMembership,
   rejectExitReport,
   reportedExit,
-  unpairReplacement,
   writeMembershipExit,
+  writeMembershipLeavingSubmitted,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -93,23 +93,22 @@ export type RejectSubmittedMembershipResult =
   | { kind: "notFound" };
 
 /**
- * Rejects the Exit Report paired with `candidateId`, if any: clears the report,
- * its exit fields and the pairing (the Admin's reject rule), leaving the
- * outgoing member ACTIVE. Audited as `MEMBER_EXIT_REPORT_REJECTED` with
+ * Rejects the Exit Report that was paired with `candidateId` (`outgoing`, as
+ * read before the candidate's rejection unpaired it): clears the report and
+ * its exit fields (the Admin's reject rule), leaving the outgoing member
+ * ACTIVE. Audited as `MEMBER_EXIT_REPORT_REJECTED` with
  * `reason: "replacement_rejected"`. Throws `PairedExitReportChanged` when the
  * report changed before the clear, so the caller's transaction rolls the
  * candidate rejection back.
  */
 async function rejectPairedExitReport(
   tx: Prisma.TransactionClient,
+  outgoing: CommitteeMembership,
   candidateId: string,
   actor: ConfirmMembershipActor,
   auditMetadata: Record<string, unknown> | undefined,
 ): Promise<void> {
-  const outgoing = await tx.committeeMembership.findUnique({
-    where: { replacementMembershipId: candidateId },
-  });
-  if (!outgoing?.exitReportedAt) return;
+  if (!outgoing.exitReportedAt) return;
 
   const cleared = await rejectExitReport(
     tx,
@@ -212,15 +211,15 @@ export async function confirmSubmittedMembership(
     // A full committee says nothing about whether the outgoing member left:
     // their report stays pending on its own, unpaired, for the Admin to
     // confirm or reject. The rejection's audit row names the report it let go.
-    if (replacementTarget) await unpairReplacement(tx, membershipId);
-    await tx.committeeMembership.update({
-      where: { id: membershipId },
-      data: {
+    const { unpairedReport } = await writeMembershipLeavingSubmitted(
+      tx,
+      submittedMembership,
+      {
         status: "REJECTED",
         rejectedAt: new Date(),
         rejectionNote: "Committee already full",
       },
-    });
+    );
     await logAuditEventOrThrow(
       userId,
       userRole,
@@ -232,8 +231,8 @@ export async function confirmSubmittedMembership(
       mergeAuditMetadata(
         {
           reason: "capacity",
-          ...(replacementTarget
-            ? { unpairedExitReportMembershipId: replacementTarget.id }
+          ...(unpairedReport
+            ? { unpairedExitReportMembershipId: unpairedReport.id }
             : {}),
         },
         capacityRejectSubject,
@@ -309,7 +308,8 @@ export async function confirmSubmittedMembership(
       ? { ...existingMeta, eligibilityWarnings }
       : existingMeta;
 
-  await activateMembership(tx, submittedMembership, {
+  await writeMembershipLeavingSubmitted(tx, submittedMembership, {
+    status: ACTIVE_MEMBERSHIP_STATUS,
     confirmedAt: now,
     activatedAt: now,
     meetingRecordId,
@@ -403,21 +403,31 @@ export async function rejectSubmittedMembership(
     meetingRecordId: membership.meetingRecordId,
   };
 
-  const updated = await tx.committeeMembership.updateMany({
-    where: { id: membershipId, status: "SUBMITTED" },
-    data: {
+  const left = await writeMembershipLeavingSubmitted(
+    tx,
+    membership,
+    {
       status: "REJECTED",
       rejectedAt: new Date(),
       ...(meetingRecordId !== undefined ? { meetingRecordId } : {}),
       ...(rejectionNote !== undefined ? { rejectionNote } : {}),
     },
-  });
+    { onlyIfSubmitted: true },
+  );
 
-  if (updated.count === 0) {
+  if (!left) {
     return { kind: "notSubmitted" };
   }
 
-  await rejectPairedExitReport(tx, membershipId, actor, auditMetadata);
+  if (left.unpairedReport) {
+    await rejectPairedExitReport(
+      tx,
+      left.unpairedReport,
+      membershipId,
+      actor,
+      auditMetadata,
+    );
+  }
 
   const now = new Date();
   const rejectSubject = await fetchMembershipAuditSubject(tx, {

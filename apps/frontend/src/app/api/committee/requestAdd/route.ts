@@ -34,7 +34,6 @@ import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
 } from "~/lib/auditMembershipSubject";
-import { unpairReplacement } from "~/app/api/lib/membershipExit";
 import {
   OutgoingMemberChanged,
   fileOutgoingExit,
@@ -411,10 +410,10 @@ async function requestAddHandler(req: NextRequest, session: Session) {
             submissionMetadata: requestMetadata,
           },
         });
+        // No pairing can point at the reused row: it isn't SUBMITTED, and
+        // every write out of SUBMITTED unpaired it
+        // (`writeMembershipLeavingSubmitted`).
         if (count === 0) throw new CandidateChanged();
-        // The row is reused; a pairing left from its last submission must not
-        // attach to this one.
-        await unpairReplacement(tx, existing.id);
 
         await logAuditEventOrThrow(
           userId,

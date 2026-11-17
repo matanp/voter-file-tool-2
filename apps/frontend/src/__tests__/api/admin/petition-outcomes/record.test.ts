@@ -448,7 +448,14 @@ describe("POST /api/admin/petition-outcomes/record", () => {
             voterRecordId: "V2",
             status: "SUBMITTED",
           }),
-        );
+        )
+        .mockResolvedValueOnce(
+          createMockMembership({
+            id: "outgoing",
+            status: "ACTIVE",
+            replacementMembershipId: "candidate",
+          }),
+        ); // the report paired with the candidate
       prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 1 });
 
       const response = await POST(

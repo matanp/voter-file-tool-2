@@ -76,8 +76,9 @@ export function toPendingExitReport(
   viewer: { userId: string; isAdmin: boolean },
 ): PendingExitReport | null {
   if (!m.exitReportedAt || !m.exitReportedKind) return null;
-  // Every path that moves a candidate out of SUBMITTED unpairs it; the status
-  // check keeps a missed one from showing as a replacement.
+  // Every write out of SUBMITTED unpairs the row
+  // (`writeMembershipLeavingSubmitted`); the status check keeps a write that
+  // bypassed it (raw SQL, a script) from showing as a replacement.
   const candidate =
     m.replacementMembership?.status === MembershipStatus.SUBMITTED
       ? m.replacementMembership

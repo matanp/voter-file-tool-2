@@ -15,10 +15,9 @@ import {
 } from "~/lib/validations/committee";
 import type { Session } from "next-auth";
 import {
-  activateMembership,
   supersededExitReportMetadata,
-  unpairReplacement,
   writeMembershipLeavingActive,
+  writeMembershipLeavingSubmitted,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -255,21 +254,13 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
               );
             }
             supersededExitReport = supersededExitReportMetadata(result);
-          } else if (
-            status === ACTIVE_MEMBERSHIP_STATUS &&
-            existing.status !== ACTIVE_MEMBERSHIP_STATUS
-          ) {
-            // A pending replacement candidate who wins is an add: the
-            // outgoing member's report stays pending, unpaired.
-            const { status: _active, ...activation } = baseData;
-            await activateMembership(tx, existing, activation);
+          } else if (existing.status !== ACTIVE_MEMBERSHIP_STATUS) {
+            // A pending replacement candidate who wins, loses or ties is
+            // unpaired: the outgoing member's report stays pending as an
+            // ordinary report (ticket 09).
+            await writeMembershipLeavingSubmitted(tx, existing, baseData);
           } else {
-            // A pending replacement candidate who loses or ties leaves
-            // SUBMITTED: unpair it, so the outgoing member's report stays
-            // pending as an ordinary report (ticket 09), like a win does.
-            if (existing.status !== ACTIVE_MEMBERSHIP_STATUS) {
-              await unpairReplacement(tx, existing.id);
-            }
+            // A re-recorded winner stays ACTIVE.
             await tx.committeeMembership.update({
               where: { id: existing.id },
               data: baseData,

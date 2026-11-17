@@ -249,26 +249,46 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
     });
   });
 
-  describe("activateMembership", () => {
-    it("unpairs the candidate even when the caller read a stale status", async () => {
+  describe("writeMembershipLeavingSubmitted", () => {
+    it("unpairs the candidate whatever status the caller read", async () => {
       const { outgoing, candidate, reportedAt } = await pairedReplacement();
 
-      // The caller read the row as ACTIVE (or any status) before a Leader
-      // resubmitted it as a replacement; activation must still unpair it.
-      const activated = await prisma.$transaction((tx) =>
-        exits.activateMembership(
+      // The caller read the row as REJECTED (or any status) before a Leader
+      // resubmitted it as a replacement; the write must still unpair it.
+      const left = await prisma.$transaction((tx) =>
+        exits.writeMembershipLeavingSubmitted(
           tx,
-          { id: candidate.id, status: "ACTIVE" },
-          { activatedAt: new Date(), seatNumber: 2 },
+          { id: candidate.id },
+          { status: "ACTIVE", activatedAt: new Date(), seatNumber: 2 },
         ),
       );
 
-      expect(activated.status).toBe("ACTIVE");
+      expect(left.membership.status).toBe("ACTIVE");
+      expect(left.unpairedReport).toMatchObject({
+        id: outgoing.id,
+        replacementMembershipId: candidate.id,
+      });
       expect(await read(outgoing.id)).toMatchObject({
         status: "ACTIVE",
         exitReportedAt: reportedAt,
         replacementMembershipId: null,
       });
+    });
+
+    it("with onlyIfSubmitted, writes nothing to a row that left SUBMITTED", async () => {
+      const rejected = await member({ status: "REJECTED" });
+
+      const left = await prisma.$transaction((tx) =>
+        exits.writeMembershipLeavingSubmitted(
+          tx,
+          rejected,
+          { status: "REJECTED", rejectionNote: "again" },
+          { onlyIfSubmitted: true },
+        ),
+      );
+
+      expect(left).toBeNull();
+      expect(await read(rejected.id)).toMatchObject({ rejectionNote: null });
     });
   });
 

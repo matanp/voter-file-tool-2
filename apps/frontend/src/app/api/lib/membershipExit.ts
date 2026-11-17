@@ -1,6 +1,6 @@
 /**
- * Every write that moves a CommitteeMembership out of ACTIVE into RESIGNED or
- * REMOVED, plus the Exit Report writes (file, reject) that live on the same
+ * Every write that moves a CommitteeMembership out of ACTIVE or out of
+ * SUBMITTED, plus the Exit Report writes (file, reject) that live on the same
  * columns. See docs/adr/0002-exit-reports-on-the-membership-row.md.
  *
  * The rules this module holds in one place:
@@ -20,11 +20,15 @@
  *   report through `replacementMembershipId` on the outgoing row (ticket 09).
  *   It is part of the report: every write that clears the report clears it,
  *   and a CHECK constraint allows it only while the report is pending.
+ * - Every write that moves a row out of SUBMITTED goes through
+ *   `writeMembershipLeavingSubmitted`, which unpairs it, so the pairing only
+ *   ever points at a SUBMITTED candidate.
  */
 
 import type {
   CommitteeMembership,
   ExitReportKind,
+  MembershipStatus,
   Prisma,
   PrivilegeLevel,
   RemovalReason,
@@ -367,53 +371,89 @@ export async function pairExitReportWithReplacement(
   return count === 0 ? null : reportedAt;
 }
 
-/**
- * Unpairs whatever report points at `candidateId`, leaving the report itself
- * pending. For a candidate that left SUBMITTED some other way (an Admin's
- * direct add, a capacity auto-reject) or whose row is being reused for a new
- * submission, so a stale pairing can't attach to it.
- */
-export async function unpairReplacement(
-  tx: Prisma.TransactionClient,
-  candidateId: string,
-): Promise<void> {
-  await tx.committeeMembership.updateMany({
-    where: { replacementMembershipId: candidateId },
-    data: { replacementMembershipId: null },
-  });
-}
+/** Statuses a row can leave SUBMITTED for. RESIGNED and REMOVED are exits from ACTIVE. */
+export type StatusLeavingSubmitted = Exclude<
+  MembershipStatus,
+  "SUBMITTED" | "RESIGNED" | "REMOVED"
+>;
+
+export type LeftSubmitted = {
+  /** The row after the write. */
+  membership: CommitteeMembership;
+  /**
+   * The outgoing member's row whose Exit Report was paired with this one, as
+   * read before it was unpaired; its report is still pending. Null when the
+   * row wasn't a replacement candidate.
+   */
+  unpairedReport: CommitteeMembership | null;
+};
+
+type LeavingSubmittedData = Omit<
+  Prisma.CommitteeMembershipUncheckedUpdateInput,
+  | "status"
+  | "exitReportedAt"
+  | "exitReportedById"
+  | "exitReportedKind"
+  | "replacementMembershipId"
+> & { status: StatusLeavingSubmitted };
 
 /**
- * Moves an existing membership row to ACTIVE; every path that does so goes
- * through here. Whatever report is paired with the row (a pending replacement
- * candidate activated some other way) is unpaired, so the outgoing member's
- * report stays pending as an ordinary report. (When the candidate is accepted,
- * the outgoing member's exit has already cleared the pairing.)
+ * Moves a membership row out of SUBMITTED: an accept or activation (ACTIVE), a
+ * reject, a lost or tied petition. Every such write goes through here, so a
+ * replacement candidate is always unpaired: whatever report points at the row
+ * loses its `replacementMembershipId` and stays pending as an ordinary report.
+ * (When the candidate is accepted, the outgoing member's exit has already
+ * cleared the pairing.) The pairing therefore only ever points at a SUBMITTED
+ * row.
  *
- * Callers read `row` without the committee lock, so its status may be stale.
- * The unpair therefore always runs, and after the activation: the activation
- * locks the row, so a concurrent resubmit that pairs it either lands first
- * (and is cleared here) or waits and then misses its conditional write.
- * Returns the row after the write.
+ * Callers that read `row` without a lock pass whatever they read, which may
+ * not be SUBMITTED (a REJECTED row reactivated by a bulk import) or may be
+ * stale. The write is unconditional, and the unpair always runs after it: the
+ * write locks the row, so a concurrent resubmit that pairs it either lands
+ * first (and is unpaired here) or waits and then misses its conditional
+ * write. With `onlyIfSubmitted`, the write requires the row to still be
+ * SUBMITTED and returns null, writing nothing, when it isn't.
  */
-export async function activateMembership(
+export async function writeMembershipLeavingSubmitted(
   tx: Prisma.TransactionClient,
-  row: { id: string; status: CommitteeMembership["status"] },
-  data: Omit<
-    Prisma.CommitteeMembershipUncheckedUpdateInput,
-    | "status"
-    | "exitReportedAt"
-    | "exitReportedById"
-    | "exitReportedKind"
-    | "replacementMembershipId"
-  >,
-): Promise<CommitteeMembership> {
-  const activated = await tx.committeeMembership.update({
-    where: { id: row.id },
-    data: { status: ACTIVE_MEMBERSHIP_STATUS, ...data },
+  row: { id: string },
+  data: LeavingSubmittedData,
+): Promise<LeftSubmitted>;
+export async function writeMembershipLeavingSubmitted(
+  tx: Prisma.TransactionClient,
+  row: { id: string },
+  data: LeavingSubmittedData,
+  options: { onlyIfSubmitted: true },
+): Promise<LeftSubmitted | null>;
+export async function writeMembershipLeavingSubmitted(
+  tx: Prisma.TransactionClient,
+  row: { id: string },
+  data: LeavingSubmittedData,
+  options: { onlyIfSubmitted?: boolean } = {},
+): Promise<LeftSubmitted | null> {
+  let membership: CommitteeMembership;
+  try {
+    membership = await tx.committeeMembership.update({
+      where: {
+        id: row.id,
+        ...(options.onlyIfSubmitted ? { status: "SUBMITTED" as const } : {}),
+      },
+      data,
+    });
+  } catch (error) {
+    if (options.onlyIfSubmitted && isRecordNotFound(error)) return null;
+    throw error;
+  }
+  const unpairedReport = await tx.committeeMembership.findUnique({
+    where: { replacementMembershipId: row.id },
   });
-  await unpairReplacement(tx, row.id);
-  return activated;
+  if (unpairedReport) {
+    await tx.committeeMembership.updateMany({
+      where: { replacementMembershipId: row.id },
+      data: { replacementMembershipId: null },
+    });
+  }
+  return { membership, unpairedReport };
 }
 
 /**

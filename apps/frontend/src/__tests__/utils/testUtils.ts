@@ -10,6 +10,7 @@ import {
   type CommitteeRequest,
   type CommitteeGovernanceConfig,
   type EligibilityFlag,
+  type MembershipStatus,
 } from "@prisma/client";
 import type { Session } from "next-auth";
 import type { z } from "zod";
@@ -405,7 +406,7 @@ export function firstCallArg<Args>(mockFn: jest.Mock, callIndex = 0): Args {
 export function expectMembershipUpdate(
   data: Partial<Prisma.CommitteeMembershipUpdateInput> &
     Record<string, unknown>,
-  where?: { id: string },
+  where?: { id: string; status?: MembershipStatus },
 ): unknown {
   if (where) {
     return objectContainingMatcher({

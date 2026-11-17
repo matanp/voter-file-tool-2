@@ -18,7 +18,7 @@ import {
   expectErrorResponse,
   expectAuditLogCreate,
   expectAnyDate,
-  expectMembershipUpdateMany,
+  expectMembershipUpdate,
   getMembershipMock,
   getAuditLogMock,
   getMeetingRecordMock,
@@ -343,8 +343,8 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     expect(json.results[0]!.success).toBe(true);
     expect(json.results[0]!.decision).toBe("reject");
 
-    expect(getMembershipMock(prismaMock).updateMany).toHaveBeenCalledWith(
-      expectMembershipUpdateMany(
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+      expectMembershipUpdate(
         {
           status: "REJECTED",
           rejectionNote: "Not eligible",
@@ -518,7 +518,9 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     getMembershipMock(prismaMock).findUnique.mockResolvedValue(
       createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
     );
-    getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.committeeMembership.update.mockRejectedValueOnce(
+      Object.assign(new Error("Record to update not found."), { code: "P2025" }),
+    );
 
     const body = {
       decisions: [{ membershipId: MEMBERSHIP_ID, decision: "reject" }],
