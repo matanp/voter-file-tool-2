@@ -190,6 +190,10 @@ get their own deadline after the invocation timer stops.
   `attemptedKeys` before using it. This covers a PDF uploaded by a render that then timed out. Remote objects
   stay in R2 until `verify` has downloaded and hash-checked all of them. `verify` then deletes
   exactly the manifest-listed objects (`--keep-remote` keeps them).
+- If a render has no verified local PDF (including an upload that succeeded before the box failed
+  to download it), automatic cleanup keeps the run's remote evidence. Use explicit `cleanup` to
+  discard that evidence. Failed cleanup attempts are retried by the next `verify`; only successful
+  cleanup results are reused without contacting storage.
 - SIGINT or SIGTERM during `render` kills the current worker and its Chrome group, marks the
   manifest `interrupted`, and still uploads the log and manifest when it can. A second signal exits
   immediately.

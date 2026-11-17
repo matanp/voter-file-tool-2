@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { MANIFEST_NAME, assertKeyInRun, assertRunId, errorMessage, runPrefix } from './common';
+import { MANIFEST_NAME, assertKeyInRun, assertRunId, errorMessage, readJson, runPrefix, writeJson } from './common';
 import type { RunManifest } from './manifest';
 import { Storage, loadStorageConfig } from './storage';
 
@@ -9,7 +9,7 @@ import { Storage, loadStorageConfig } from './storage';
  * so an interrupted run still lists it), its manifest's objects, and the manifest itself.
  * Each must be inside pdf-validation/<run-id>/.
  */
-export function listedKeys(runId: string, sources: { journalFile?: string; manifests: (RunManifest | null)[] }): string[] {
+export function listedKeys(runId: string, sources: { journalFile?: string; manifests: (Pick<RunManifest, 'objects' | 'attemptedKeys'> | null)[] }): string[] {
   const keys = new Set<string>([`${runPrefix(runId)}${MANIFEST_NAME}`]);
   if (sources.journalFile && fs.existsSync(sources.journalFile)) {
     for (const line of fs.readFileSync(sources.journalFile, 'utf8').split('\n').filter(Boolean)) keys.add((JSON.parse(line) as { key: string }).key);
@@ -25,7 +25,7 @@ export function listedKeys(runId: string, sources: { journalFile?: string; manif
 export type CleanupResult = { deleted: string[]; errors: string[]; unlisted: string[] };
 
 /** Deletes only listed keys. Anything else under the run prefix is reported, never deleted. */
-export async function deleteListed(storage: Storage, runId: string, keys: string[]): Promise<CleanupResult> {
+export async function deleteListed(storage: Pick<Storage, 'delete' | 'list'>, runId: string, keys: string[]): Promise<CleanupResult> {
   const result: CleanupResult = { deleted: [], errors: [], unlisted: [] };
   for (const key of keys) {
     assertKeyInRun(key, runId);
@@ -43,6 +43,33 @@ export async function deleteListed(storage: Storage, runId: string, keys: string
   } catch (error) {
     result.errors.push(`listing ${runPrefix(runId)}: ${errorMessage(error)}`);
   }
+  return result;
+}
+
+/** Automatic cleanup requires a verified local copy of every object and attempted render. */
+export async function cleanupVerifiedRun(
+  storage: Pick<Storage, 'delete' | 'list'>,
+  opts: {
+    runId: string;
+    runDir: string;
+    keepRemote: boolean;
+    manifest: Pick<RunManifest, 'objects' | 'attemptedKeys'> & { renders: { key: string }[] };
+    downloadedKeys: ReadonlySet<string>;
+  },
+): Promise<CleanupResult | { skipped: string }> {
+  const stateFile = path.join(opts.runDir, 'remote-cleanup.json');
+  if (fs.existsSync(stateFile)) {
+    const previous = readJson<CleanupResult>(stateFile);
+    // A failed delete/list must be retried, including after an explicit cleanup succeeded.
+    if (!previous.errors.length && !previous.unlisted.length) return previous;
+  }
+  if (opts.keepRemote) return { skipped: '--keep-remote' };
+  const evidence = [...opts.manifest.objects, ...opts.manifest.renders];
+  if (!evidence.every(({ key }) => opts.downloadedKeys.has(key))) {
+    return { skipped: 'not every object and render downloaded and matched its hash; remote evidence kept (use cleanup for explicit deletion)' };
+  }
+  const result = await deleteListed(storage, opts.runId, listedKeys(opts.runId, { manifests: [opts.manifest] }));
+  writeJson(stateFile, result);
   return result;
 }
 

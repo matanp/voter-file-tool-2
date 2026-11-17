@@ -27,7 +27,7 @@ import {
   type Check,
   type Status,
 } from './common';
-import { deleteListed, listedKeys, type CleanupResult } from './cleanup';
+import { cleanupVerifiedRun, type CleanupResult } from './cleanup';
 import { gitRevision, isUnavailable, treeHash } from './diagnostics';
 import { evaluateItem, type ItemResult, type Reference } from './evaluate';
 import { ALL_FIXTURES, FIXTURE_MANIFEST_VERSION, jobTypesCovered } from './fixtures';
@@ -131,7 +131,6 @@ export async function verify(opts: VerifyOptions): Promise<number> {
       downloaded.set(object.key, { ok: false, detail: `download failed: ${errorMessage(error)}`, file });
     }
   }
-  const allDownloaded = [...downloaded.values()].every((d) => d.ok) && downloaded.size === manifest.objects.length;
 
   // ------------------------------------------------------------ references
   const approvals = loadApprovals();
@@ -232,18 +231,13 @@ export async function verify(opts: VerifyOptions): Promise<number> {
   runChecks.push(...runLevelChecks(manifest, llm));
 
   // ------------------------------------------------------------ remote cleanup
-  const cleanupState = path.join(runDir, 'remote-cleanup.json');
-  let cleanupResult: VerifyResults['cleanup'];
-  if (fs.existsSync(cleanupState)) {
-    cleanupResult = readJson<CleanupResult>(cleanupState);
-  } else if (opts.keepRemote) {
-    cleanupResult = { skipped: '--keep-remote' };
-  } else if (!allDownloaded) {
-    cleanupResult = { skipped: 'not every object downloaded and matched its hash; remote evidence kept' };
-  } else {
-    cleanupResult = await deleteListed(storage, opts.runId, listedKeys(opts.runId, { manifests: [manifest] }));
-    writeJson(cleanupState, cleanupResult);
-  }
+  const cleanupResult = await cleanupVerifiedRun(storage, {
+    runId: opts.runId,
+    runDir,
+    keepRemote: opts.keepRemote,
+    manifest,
+    downloadedKeys: new Set([...downloaded].filter(([, d]) => d.ok).map(([key]) => key)),
+  });
   if ('skipped' in cleanupResult) runChecks.push(pass('remote-cleanup', `skipped: ${cleanupResult.skipped}`));
   else if (cleanupResult.errors.length || cleanupResult.unlisted.length) {
     runChecks.push(fail('remote-cleanup', [...cleanupResult.errors, ...cleanupResult.unlisted.map((k) => `not listed, not deleted: ${k}`)].join('; ')));
@@ -336,4 +330,3 @@ export function runLevelChecks(manifest: RunManifest, llm: LoadedReview): Check[
 
   return checks;
 }
-
