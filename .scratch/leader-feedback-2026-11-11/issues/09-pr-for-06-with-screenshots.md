@@ -51,3 +51,10 @@ server.
 - [x] The PR body summarizes 06 and has embedded before/after screenshots, all with synthetic data.
 - [x] No real voter data in any commit, branch or PR text.
 - [x] Link to the PR added under 06's Comments.
+
+## Comments
+
+**2026-11-16.** The PR adds the whole `apps/frontend/.claude/skills/run-frontend/` folder, not only
+`SKILL.md` and `steps/record-search-quick-name.mjs`. The folder didn't exist on `main`, and the
+screenshot steps need the server, session and driver scripts it contains. The other step files are part
+of the same tool. This is on purpose, not a stray change.

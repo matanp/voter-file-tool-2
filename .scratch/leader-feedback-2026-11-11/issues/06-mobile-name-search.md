@@ -168,3 +168,19 @@ jest: 136 suites, 2024 tests passing. `tsc` and `eslint` are clean.
 **2026-11-15, PR.** https://github.com/matanp/voter-file-tool-2/pull/151. Its screenshots use made-up voters
 (`steps/record-search-synthetic.mjs` mocks `/api/fetchFilteredData`). They're on the `pr-assets` branch under
 `mobile-record-search/`, because an existing `pr-assets` branch rules out a `pr-assets/mobile-record-search` branch.
+
+**2026-11-16, review fixes (PR #151).**
+
+- **The name box now narrows.** A name typed in the box replaces the builder's names for that field
+  (first or last), instead of being added as another accepted name. So builder first name "Jane" plus box
+  first name "John" searches John, not Jane-or-John. A field left blank in the box keeps the builder's
+  names. Narrowing in the strict sense (both must match) can't be sent as one `in` filter, and an empty
+  match would drop the filter and widen the search, so the box takes precedence for that field.
+- **One Submit from the builder, too.** The two taps came from a layout shift. Blurring the input added
+  the chip, the chip pushed Submit down 34px, and the click ended off the button. Pressing Submit now
+  keeps focus in the input, so nothing moves. The submit handler then blurs the input to add its chip
+  and searches once the chip is in the rows (`useSubmitHandler`, `lib/pendingChip.ts`). Ctrl/Cmd+Enter
+  takes the same path. Checked in headless Chromium at 375 and 1280: one click sends one search.
+- **Criteria rows below `sm`:** the field picker and the remove button share the first line, and the
+  value inputs are full width under them (Street included). Dropdown and date values keep their
+  fixed width.
