@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 import { type VoterRecord } from "@prisma/client";
-import { Button } from "~/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -9,7 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "~/components/ui/sheet";
-import { scrollToElement } from "~/lib/scrollUtils";
+import { ResultsPager } from "./ResultsPager";
 import { VoterCard } from "./VoterCard";
 import { fields, type FieldName } from "./fieldsConfig";
 
@@ -71,24 +70,13 @@ export const VoterRecordCardList: React.FC<VoterRecordCardListProps> = ({
         ))}
       </ul>
 
-      <div className="mt-4 flex flex-col gap-3">
-        <p className="text-sm font-light">
-          Showing {records.length} records of {totalRecords} total
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {records.length < totalRecords && (
-            <Button onClick={loadMore}>Load More</Button>
-          )}
-          {records.length > 10 && (
-            <Button
-              onClick={() => scrollToElement(VOTER_RECORD_CARD_LIST_ID, 300)}
-              variant="outline"
-            >
-              Jump to Top
-            </Button>
-          )}
-        </div>
-      </div>
+      <ResultsPager
+        shown={records.length}
+        total={totalRecords}
+        loadMore={loadMore}
+        topElementId={VOTER_RECORD_CARD_LIST_ID}
+        className="mt-4 text-sm"
+      />
 
       <Sheet
         open={selected !== null}
