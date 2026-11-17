@@ -8,7 +8,10 @@ import {
 } from "./MultiValueInputBase";
 import { cn } from "~/lib/utils";
 import { useDebouncedValue } from "~/hooks/useDebouncedValue";
-import { SEARCH_BADGE_CONTAINER_MAX_WIDTH } from "~/lib/constants/sizing";
+import {
+  SEARCH_BADGE_CONTAINER_MAX_WIDTH,
+  SEARCH_DROPDOWN_WIDTH_FROM_SM,
+} from "~/lib/constants/sizing";
 
 export interface MultiStreetSearchProps {
   streets: string[];
@@ -154,9 +157,9 @@ export function MultiStreetSearch({
         value={value}
         onChange={onChange}
         inputClassName={cn(
-          // Full width in a stacked criteria row below sm, like the other text inputs; from sm,
-          // SEARCH_DROPDOWN_WIDTH (written out so Tailwind sees the class).
-          "w-full sm:w-[185px]",
+          // Full width in a stacked criteria row below sm, like the other text inputs.
+          "w-full",
+          SEARCH_DROPDOWN_WIDTH_FROM_SM,
           debouncedSearch !== "" &&
             matches.length === 0 &&
             inputValue !== "" &&

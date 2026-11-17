@@ -6,6 +6,8 @@
 // Input and dropdown widths
 export const SEARCH_INPUT_WIDTH = "w-[200px]";
 export const SEARCH_DROPDOWN_WIDTH = "w-[185px]";
+/** SEARCH_DROPDOWN_WIDTH from sm up; keep the two in step. */
+export const SEARCH_DROPDOWN_WIDTH_FROM_SM = "sm:w-[185px]";
 export const SEARCH_POPOVER_WIDTH = "w-[200px]";
 
 // Badge container constraints
