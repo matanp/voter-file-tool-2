@@ -1,7 +1,7 @@
 import React, { Suspense } from "react";
 
 import prisma from "~/lib/prisma";
-import { pendingItemsWhere } from "~/app/api/lib/pendingExitReports";
+import { countPendingItems } from "~/app/api/lib/pendingExitReports";
 import { hasPermissionFor } from "~/lib/utils";
 import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
@@ -98,9 +98,7 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
   // Reports, which /committees/requests also lists) instead of CommitteeRequests
   let pendingRequestCount = 0;
   if (isAdminUser) {
-    pendingRequestCount = await prisma.committeeMembership.count({
-      where: pendingItemsWhere(activeTermId),
-    });
+    pendingRequestCount = await countPendingItems(activeTermId);
   }
 
   if (!committeeLists || !dropdownLists) {
