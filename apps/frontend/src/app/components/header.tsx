@@ -7,7 +7,10 @@ import { signIn, useSession } from "next-auth/react";
 import { Menu } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { SignInButton } from "~/components/ui/signInButton";
-import { ManageProfileButton } from "~/components/ui/manageProfile";
+import {
+  ProfileSheet,
+  ViewProfileTrigger,
+} from "~/components/ui/manageProfile";
 import {
   Sheet,
   SheetClose,
@@ -68,6 +71,63 @@ const ADMIN_NAV_ITEM: NavItem = {
   isActive: (p) => p.startsWith("/admin"),
 };
 
+// From md: one row of compact tabs sized to their text; from lg: the original fixed-size tabs.
+const TAB_STYLE =
+  "h-12 px-3 text-base font-semibold lg:h-16 lg:w-42 lg:px-4 lg:text-xl";
+const MENU_ROW_STYLE =
+  "flex min-h-12 w-full items-center rounded-md px-4 text-left text-lg font-semibold";
+
+/**
+ * The main nav links, as bar tabs (from md) or as the phone menu's full-width rows, which close
+ * the menu when picked.
+ */
+const MainNav: React.FC<{
+  items: NavItem[];
+  activeItem: NavItem | undefined;
+  variant: "tabs" | "menu";
+  className?: string;
+}> = ({ items, activeItem, variant, className }) => (
+  <nav aria-label="Main" className={className}>
+    {items.map((item) => {
+      const active = item === activeItem;
+      const link = (
+        <Link
+          href={item.href}
+          aria-current={active ? "page" : undefined}
+          className={
+            variant === "menu"
+              ? cn(
+                  MENU_ROW_STYLE,
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted",
+                )
+              : undefined
+          }
+        >
+          {item.label}
+        </Link>
+      );
+      return variant === "tabs" ? (
+        <Button
+          key={item.href}
+          asChild
+          className={cn(
+            TAB_STYLE,
+            active ? "bg-primary" : "bg-muted-foreground",
+          )}
+        >
+          {link}
+        </Button>
+      ) : (
+        <SheetClose asChild key={item.href}>
+          {link}
+        </SheetClose>
+      );
+    })}
+  </nav>
+);
+
 const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   const pathname = usePathname() ?? "";
   const { actingPermissions } = useContext(GlobalContext);
@@ -76,6 +136,8 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   const [profileOpen, setProfileOpen] = useState(false);
   // Set while the menu closes to hand off to the profile sheet, so focus isn't sent back to the hamburger.
   const openingProfileRef = useRef(false);
+  // Whether the profile sheet was opened from the phone menu, which is gone by the time it closes.
+  const profileFromMenuRef = useRef(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   const showAdminTab = hasPermissionFor(
@@ -84,12 +146,6 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   );
   const navItems = showAdminTab ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
   const activeItem = navItems.find((item) => item.isActive(pathname));
-
-  // From md: one row of compact tabs sized to their text; from lg: the original fixed-size tabs.
-  const tabStyle =
-    "h-12 px-3 text-base font-semibold lg:h-16 lg:w-42 lg:px-4 lg:text-xl";
-  const menuRowStyle =
-    "flex min-h-12 w-full items-center rounded-md px-4 text-left text-lg font-semibold";
 
   return (
     <div className="bg-accent border-b-2 border-solid">
@@ -109,37 +165,42 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
         <div className="flex-1 md:hidden" />
 
         {/* From md: one row of tabs */}
-        <nav
-          aria-label="Main"
+        <MainNav
+          items={navItems}
+          activeItem={activeItem}
+          variant="tabs"
           className="hidden md:flex md:flex-1 md:items-center md:justify-center md:gap-2 md:py-2"
-        >
-          {navItems.map((item) => {
-            const active = item === activeItem;
-            return (
-              <Button
-                key={item.href}
-                asChild
-                className={cn(
-                  tabStyle,
-                  active ? "bg-primary" : "bg-muted-foreground",
-                )}
-              >
-                <Link
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {item.label}
-                </Link>
-              </Button>
-            );
-          })}
-        </nav>
+        />
 
         <div className="flex shrink-0 items-center justify-end gap-2 py-2 pr-1 lg:w-[150px] lg:justify-center lg:pr-0">
-          {/* From md: Sign In / View Profile in the bar. Below md, View Profile is in the menu. */}
-          <div className="hidden md:block">
-            <SignInButton />
-          </div>
+          {/* Signed in: the one profile sheet. Its View Profile trigger is in the bar from md; below
+              md, the menu's View Profile row opens it. */}
+          {session ? (
+            <ProfileSheet
+              session={session}
+              open={profileOpen}
+              onOpenChange={setProfileOpen}
+              trigger={
+                <div className="hidden md:block">
+                  <ViewProfileTrigger
+                    onClick={() => {
+                      profileFromMenuRef.current = false;
+                    }}
+                  />
+                </div>
+              }
+              onCloseAutoFocus={(event) => {
+                // Opened from the menu: it has closed, so send focus to the hamburger that opened it.
+                if (!profileFromMenuRef.current) return;
+                event.preventDefault();
+                menuButtonRef.current?.focus();
+              }}
+            />
+          ) : (
+            <div className="hidden md:block">
+              <SignInButton />
+            </div>
+          )}
           {/* Below md, signed out: keep Sign In in the bar, since it's the one thing to do */}
           {status === "unauthenticated" && (
             <Button
@@ -179,34 +240,20 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
                   Go to another page
                 </SheetDescription>
               </div>
-              <nav aria-label="Main" className="flex flex-col p-2">
-                {navItems.map((item) => {
-                  const active = item === activeItem;
-                  return (
-                    <SheetClose asChild key={item.href}>
-                      <Link
-                        href={item.href}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          menuRowStyle,
-                          active
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted",
-                        )}
-                      >
-                        {item.label}
-                      </Link>
-                    </SheetClose>
-                  );
-                })}
-              </nav>
+              <MainNav
+                items={navItems}
+                activeItem={activeItem}
+                variant="menu"
+                className="flex flex-col p-2"
+              />
               {session && (
                 <div className="border-t p-2">
                   <button
                     type="button"
-                    className={cn(menuRowStyle, "hover:bg-muted")}
+                    className={cn(MENU_ROW_STYLE, "hover:bg-muted")}
                     onClick={() => {
                       openingProfileRef.current = true;
+                      profileFromMenuRef.current = true;
                       setMenuOpen(false);
                       setProfileOpen(true);
                     }}
@@ -217,19 +264,6 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
               )}
             </SheetContent>
           </Sheet>
-          {/* The profile sheet the menu opens; outside the menu so it survives the menu closing */}
-          {session && (
-            <ManageProfileButton
-              session={session}
-              hideTrigger
-              open={profileOpen}
-              onOpenChange={setProfileOpen}
-              onCloseAutoFocus={(event) => {
-                event.preventDefault();
-                menuButtonRef.current?.focus();
-              }}
-            />
-          )}
         </div>
       </div>
     </div>
