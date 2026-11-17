@@ -1,9 +1,16 @@
 /**
- * Record search simple/advanced toggle: simple mode is the name box alone, advanced adds the
- * criteria builder, and the browser remembers the last mode used.
+ * Record search simple/advanced toggle: simple mode is the name box alone, advanced is the
+ * criteria builder alone, and the browser remembers the last mode used.
  */
 import React from "react";
-import { screen, act, renderHook, within } from "@testing-library/react";
+import {
+  screen,
+  act,
+  render,
+  renderHook,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import VoterRecordSearch from "~/app/recordsearch/VoterRecordSearch";
@@ -64,8 +71,12 @@ describe("Record search simple/advanced toggle", () => {
     expect(
       screen.queryByRole("button", { name: /Add another search criteria/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Submit/i })).toHaveTextContent(
+    expect(screen.getByRole("button", { name: /^Search$/ })).toHaveTextContent(
       "Search",
+    );
+    expect(screen.getByRole("button", { name: /^Search$/ })).toHaveAttribute(
+      "title",
+      "Search (Ctrl+Enter)",
     );
   });
 
@@ -136,7 +147,7 @@ describe("Record search simple/advanced toggle", () => {
     expect(screen.getByLabelText("First name")).toHaveValue("");
 
     await user.type(screen.getByLabelText("Last name"), "Smith");
-    await user.click(screen.getByRole("button", { name: /Submit/i }));
+    await user.click(screen.getByRole("button", { name: /^Search$/ }));
 
     expect(handleSubmit).toHaveBeenCalledTimes(1);
     expect(submittedRows().map((r) => r.name)).toEqual(["name"]);
@@ -148,6 +159,23 @@ describe("Record search simple/advanced toggle", () => {
     expect(within(rows).getByText("Ann")).toBeInTheDocument();
     expect(within(rows).getByText("Smith")).toBeInTheDocument();
   });
+
+  it("carries a builder name that was typed but not yet a chip", async () => {
+    const { user } = renderWithMode("advanced");
+
+    await user.type(
+      within(builder()!).getByPlaceholderText("Enter First Name(s)"),
+      "John",
+    );
+    await user.click(screen.getByRole("button", { name: "← Simple search" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("First name")).toHaveValue("John"),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Advanced search →" }));
+    expect(within(builder()!).getByText("John")).toBeInTheDocument();
+  });
 });
 
 describe("useSearchModePreference", () => {
@@ -155,12 +183,31 @@ describe("useSearchModePreference", () => {
 
   it("defaults to simple", () => {
     const { result } = renderHook(() => useSearchModePreference());
+    expect(result.current.ready).toBe(true);
     expect(result.current.mode).toBe("simple");
+  });
+
+  it("does not reveal a stored advanced mode as simple", () => {
+    window.localStorage.setItem(SEARCH_MODE_STORAGE_KEY, "advanced");
+    const seen: { mode: SearchMode; ready: boolean }[] = [];
+    const Probe = () => {
+      const { mode, ready } = useSearchModePreference();
+      seen.push({ mode, ready });
+      return null;
+    };
+    render(<Probe />);
+
+    expect(seen[0]).toEqual({ mode: "simple", ready: false });
+    expect(seen.at(-1)).toEqual({ mode: "advanced", ready: true });
+    expect(
+      seen.filter((entry) => entry.ready && entry.mode === "simple"),
+    ).toEqual([]);
   });
 
   it("restores and saves the last mode", () => {
     window.localStorage.setItem(SEARCH_MODE_STORAGE_KEY, "advanced");
     const { result } = renderHook(() => useSearchModePreference());
+    expect(result.current.ready).toBe(true);
     expect(result.current.mode).toBe("advanced");
 
     act(() => result.current.setMode("simple"));
@@ -171,6 +218,7 @@ describe("useSearchModePreference", () => {
   it("ignores an unrecognised stored value", () => {
     window.localStorage.setItem(SEARCH_MODE_STORAGE_KEY, "bogus");
     const { result } = renderHook(() => useSearchModePreference());
+    expect(result.current.ready).toBe(true);
     expect(result.current.mode).toBe("simple");
   });
 

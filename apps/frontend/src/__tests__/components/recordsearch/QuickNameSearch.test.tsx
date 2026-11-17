@@ -46,7 +46,7 @@ describe("Record search quick name box", () => {
 
     await user.type(screen.getByLabelText("First name"), "John");
     await user.type(screen.getByLabelText("Last name"), "Smith");
-    await user.click(screen.getByRole("button", { name: /Submit/i }));
+    await user.click(screen.getByRole("button", { name: /^Search$/ }));
 
     expect(handleSubmit).toHaveBeenCalledTimes(1);
     expect(submittedRows().filter((r) => r.name === "name")).toHaveLength(1);

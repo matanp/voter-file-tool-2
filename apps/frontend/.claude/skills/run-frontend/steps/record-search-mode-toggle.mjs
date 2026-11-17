@@ -3,10 +3,11 @@
 // Shots: simple (empty), simple with fake results, advanced (name carried over), advanced after reload.
 import synthetic from './record-search-synthetic.mjs';
 
+// Waits until the search submit button is enabled, once the session has loaded.
 const searchReady = (page) =>
   page.waitForFunction(() => {
     const btn = document.querySelector('form[role="search"] button[type="submit"]');
-    return btn && !btn.disabled; // enabled once the session has loaded
+    return btn && !btn.disabled;
   });
 
 export default async function (page, ctx) {

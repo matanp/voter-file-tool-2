@@ -21,8 +21,11 @@ import {
   quickNameFromRows,
   type QuickName,
 } from "~/lib/quickNameSearch";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SearchMode } from "~/lib/useSearchModePreference";
+
+/** How long to wait when blur does not change the rows, matching the submit handler. */
+const PENDING_CHIP_WAIT_MS = 100;
 
 interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
@@ -43,6 +46,10 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   const isSimple = mode === "simple";
   const { submitSearchWithContext, searchRows, setSearchRowsDirect } =
     searchState;
+  const searchRowsRef = useRef(searchRows);
+  searchRowsRef.current = searchRows;
+  const quickNameRef = useRef(quickName);
+  quickNameRef.current = quickName;
 
   const fieldHandlers = useFieldChangeHandlers(searchState);
 
@@ -61,18 +68,48 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
     [handleSubmit, submitSearchWithContext, quickName, isSimple],
   );
 
-  // Carry the name across the switch: box → builder's Name row, and back when it fits the box.
-  const switchMode = useCallback(
-    (next: SearchMode) => {
+  // Moves the name between the box and the builder, then reports the new mode.
+  const applyModeChange = useCallback(
+    (next: SearchMode, rows: SearchField[]) => {
       if (next === "advanced") {
-        setSearchRowsDirect(moveQuickNameIntoRows(searchRows, quickName));
+        setSearchRowsDirect(moveQuickNameIntoRows(rows, quickNameRef.current));
       } else {
-        setQuickName(quickNameFromRows(searchRows));
+        setQuickName(quickNameFromRows(rows));
       }
       onModeChange(next);
     },
-    [onModeChange, quickName, searchRows, setSearchRowsDirect],
+    [onModeChange, setSearchRowsDirect],
   );
+  const applyModeChangeRef = useRef(applyModeChange);
+  applyModeChangeRef.current = applyModeChange;
+
+  // Set while a switch to simple is waiting for a typed builder chip to reach the rows.
+  const pendingSimpleSwitchRef = useRef(false);
+
+  // Applies a deferred switch once the blurred input's chip is in the rows. The builder
+  // unmounts on that switch, so this has to run before the chip's own effect is dropped.
+  useEffect(() => {
+    if (!pendingSimpleSwitchRef.current) return;
+    pendingSimpleSwitchRef.current = false;
+    applyModeChangeRef.current("simple", searchRows);
+  }, [searchRows]);
+
+  // Carry the name across the switch. A typed builder chip is committed first: the box is
+  // plain text, so simple → advanced applies immediately.
+  const handleModeChange = useCallback((next: SearchMode) => {
+    const pending = next === "simple" ? focusedInputWithPendingChip() : null;
+    if (pending) {
+      pendingSimpleSwitchRef.current = true;
+      pending.blur();
+      window.setTimeout(() => {
+        if (!pendingSimpleSwitchRef.current) return;
+        pendingSimpleSwitchRef.current = false;
+        applyModeChangeRef.current("simple", searchRowsRef.current);
+      }, PENDING_CHIP_WAIT_MS);
+      return;
+    }
+    applyModeChangeRef.current(next, searchRowsRef.current);
+  }, []);
 
   const keyboardHandlers = useKeyboardHandlers(
     searchState,
@@ -144,10 +181,16 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             <Button
               type="submit"
               disabled={!isAuthenticated}
-              aria-label={SEARCH_CONFIG.ariaLabels.submitSearch(
-                isAuthenticated,
-              )}
-              title={SEARCH_CONFIG.titles.submitSearch(isAuthenticated)}
+              aria-label={
+                isAuthenticated
+                  ? undefined
+                  : SEARCH_CONFIG.ariaLabels.submitSearch(isAuthenticated)
+              }
+              title={
+                isAuthenticated
+                  ? "Search (Ctrl+Enter)"
+                  : SEARCH_CONFIG.titles.submitSearch(isAuthenticated)
+              }
             >
               Search
             </Button>
@@ -220,7 +263,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
 
         {/* Below the search and its buttons in both modes, on its own line. */}
         <div className="flex justify-center pb-8">
-          <ModeToggle mode={mode} onModeChange={switchMode} />
+          <ModeToggle mode={mode} onModeChange={handleModeChange} />
         </div>
       </form>
 
@@ -237,6 +280,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   );
 };
 
+/** Link that switches record search between the name box and the criteria builder. */
 const ModeToggle: React.FC<{
   mode: SearchMode;
   onModeChange: (mode: SearchMode) => void;
@@ -244,6 +288,11 @@ const ModeToggle: React.FC<{
   <button
     type="button"
     className="rounded-sm text-sm text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    // Keep focus in a builder input with typed text so the click can commit that chip
+    // before the builder unmounts. Blurring here would clear the input first.
+    onMouseDown={(event) => {
+      if (focusedInputWithPendingChip()) event.preventDefault();
+    }}
     onClick={() => onModeChange(mode === "simple" ? "advanced" : "simple")}
   >
     {mode === "simple" ? "Advanced search →" : "← Simple search"}
