@@ -17,7 +17,7 @@ ALTER TABLE "CommitteeMembership"
   CHECK (
     "resignationLetterKey" IS NULL
     OR "status" = 'RESIGNED'
-    OR ("status" = 'ACTIVE' AND "exitReportedKind" = 'RESIGNATION')
+    OR ("status" = 'ACTIVE' AND "exitReportedKind" IS NOT DISTINCT FROM 'RESIGNATION')
   );
 
 ALTER TABLE "CommitteeMembership"
