@@ -420,6 +420,52 @@ describe("POST /api/admin/petition-outcomes/record", () => {
     );
   });
 
+  it.each([
+    {
+      label: "loses",
+      candidates: [
+        { voterRecordId: "V1", voteCount: 10, outcome: "WON_PRIMARY" as const },
+        { voterRecordId: "V2", voteCount: 5, outcome: "LOST_PRIMARY" as const },
+      ],
+      status: "PETITIONED_LOST" as const,
+    },
+    {
+      label: "ties",
+      candidates: [
+        { voterRecordId: "V1", voteCount: 7, outcome: "TIE" as const },
+        { voterRecordId: "V2", voteCount: 7, outcome: "TIE" as const },
+      ],
+      status: "PETITIONED_TIE" as const,
+    },
+  ])(
+    "unpairs a replacement candidate who $label, leaving the outgoing report pending",
+    async ({ candidates, status }) => {
+      prismaMock.committeeMembership.findUnique
+        .mockResolvedValueOnce(null) // V1 is new
+        .mockResolvedValueOnce(
+          createMockMembership({
+            id: "candidate",
+            voterRecordId: "V2",
+            status: "SUBMITTED",
+          }),
+        );
+      prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 1 });
+
+      const response = await POST(
+        createMockRequest(createValidPayload({ candidates })),
+      );
+
+      expect(response.status).toBe(200);
+      expect(prismaMock.committeeMembership.updateMany).toHaveBeenCalledWith({
+        where: { replacementMembershipId: "candidate" },
+        data: { replacementMembershipId: null },
+      });
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+        expectMembershipUpdate({ status, seatNumber: null }, { id: "candidate" }),
+      );
+    },
+  );
+
   it("clears an incumbent loser's pending Exit Report and records it in the audit", async () => {
     const reportedAt = new Date("2026-10-30T15:04:05.678Z");
     const incumbent = createMockMembership({

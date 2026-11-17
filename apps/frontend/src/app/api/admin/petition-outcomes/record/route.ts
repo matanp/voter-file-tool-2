@@ -17,6 +17,7 @@ import type { Session } from "next-auth";
 import {
   activateMembership,
   supersededExitReportMetadata,
+  unpairReplacement,
   writeMembershipLeavingActive,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
@@ -263,6 +264,12 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
             const { status: _active, ...activation } = baseData;
             await activateMembership(tx, existing, activation);
           } else {
+            // A pending replacement candidate who loses or ties leaves
+            // SUBMITTED: unpair it, so the outgoing member's report stays
+            // pending as an ordinary report (ticket 09), like a win does.
+            if (existing.status !== ACTIVE_MEMBERSHIP_STATUS) {
+              await unpairReplacement(tx, existing.id);
+            }
             await tx.committeeMembership.update({
               where: { id: existing.id },
               data: baseData,
