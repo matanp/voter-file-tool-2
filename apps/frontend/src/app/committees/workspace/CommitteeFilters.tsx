@@ -7,6 +7,7 @@ import {
   formatTownName,
   type CommitteeGridFilters,
 } from "./gridModel";
+import { MemberSearchInput } from "./CommitteeMemberSearch";
 
 export type CommitteeFiltersProps = {
   /** Towns in the caller's scope. */
@@ -29,6 +30,8 @@ export type CommitteeFiltersProps = {
   onCollapse?: () => void;
   /** DOM id for the collapse toggle, so focus can return to it on expand. */
   collapseButtonId?: string;
+  /** Member name search (Leader and up); the input renders when given. */
+  memberSearch?: { value: string; onChange: (value: string) => void };
 };
 
 const QUICK_FILTERS = [
@@ -46,6 +49,7 @@ export function CommitteeFilters({
   onLocalChange,
   onCollapse,
   collapseButtonId,
+  memberSearch,
 }: CommitteeFiltersProps) {
   const id = useId();
   const selectClass =
@@ -53,6 +57,7 @@ export function CommitteeFilters({
 
   return (
     <div className="space-y-2 border-b p-3" role="search">
+      {memberSearch && <MemberSearchInput {...memberSearch} />}
       <div className="flex gap-2">
         <label htmlFor={`${id}-town`} className="sr-only">
           Town

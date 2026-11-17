@@ -1225,3 +1225,64 @@ export const committeeDetailResponseSchema = z.object({
 export type CommitteeDetailResponse = z.infer<
   typeof committeeDetailResponseSchema
 >;
+
+// ---------------------------------------------------------------------------
+// Committee member name search (GET /api/committee/memberSearch)
+// Leader and up; scope is decided on the server from the real session role.
+// ---------------------------------------------------------------------------
+
+/** Shortest query the endpoint runs; shorter ones are rejected with 400. */
+export const MEMBER_SEARCH_MIN_LENGTH = 2;
+/** Longest query accepted, so a pasted paragraph is not turned into a query. */
+export const MEMBER_SEARCH_MAX_LENGTH = 60;
+/** Most hits returned; `truncated` says when there were more. */
+export const MEMBER_SEARCH_LIMIT = 25;
+
+export const memberSearchQuerySchema = z.object({
+  q: z
+    .string({ required_error: "q is required" })
+    .trim()
+    .min(MEMBER_SEARCH_MIN_LENGTH, {
+      message: `q must be at least ${String(MEMBER_SEARCH_MIN_LENGTH)} characters`,
+    })
+    .max(MEMBER_SEARCH_MAX_LENGTH, {
+      message: `q must be at most ${String(MEMBER_SEARCH_MAX_LENGTH)} characters`,
+    }),
+});
+
+/**
+ * Splits a name query into words; each word must match the first or the last
+ * name. "jane doe", "doe jane" and "doe, jane" all find Jane Doe. Capped at
+ * four words.
+ */
+export function memberSearchTerms(q: string): string[] {
+  return q
+    .split(/[\s,]+/)
+    .filter((t) => t !== "")
+    .slice(0, 4);
+}
+
+/** `active` is ACTIVE; `pending` is SUBMITTED or CONFIRMED. */
+export const memberSearchStatusSchema = z.enum(["active", "pending"]);
+export type MemberSearchStatus = z.infer<typeof memberSearchStatusSchema>;
+
+export const memberSearchHitSchema = z.object({
+  membershipId: z.string(),
+  committeeListId: z.number().int(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  status: memberSearchStatusSchema,
+  cityTown: z.string(),
+  legDistrict: z.number().int(),
+  electionDistrict: z.number().int(),
+});
+
+export type MemberSearchHit = z.infer<typeof memberSearchHitSchema>;
+
+export const memberSearchResponseSchema = z.object({
+  hits: z.array(memberSearchHitSchema),
+  /** True when more than `MEMBER_SEARCH_LIMIT` members matched. */
+  truncated: z.boolean(),
+});
+
+export type MemberSearchResponse = z.infer<typeof memberSearchResponseSchema>;

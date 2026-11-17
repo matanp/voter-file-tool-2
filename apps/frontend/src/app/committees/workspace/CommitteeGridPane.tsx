@@ -5,6 +5,9 @@ import { Button } from "~/components/ui/button";
 import { CommitteeFilters, type CommitteeFiltersProps } from "./CommitteeFilters";
 import { CommitteeGrid } from "./CommitteeGrid";
 import type { CommitteeTownGroup } from "./gridModel";
+import { MemberSearchResults } from "./CommitteeMemberSearch";
+import type { MemberSearchHit } from "~/lib/validations/committee";
+import type { MemberSearchState } from "./useMemberSearch";
 import type { CommitteeGridStatus } from "./useCommitteeGridData";
 
 export type CommitteeGridPaneProps = {
@@ -15,6 +18,12 @@ export type CommitteeGridPaneProps = {
   status: CommitteeGridStatus;
   error: string | null;
   onRetry: () => void;
+  /** Member name search (Leader and up). Hits replace the grid while `query` is non-empty. */
+  memberSearch?: {
+    query: string;
+    state: MemberSearchState;
+    onOpen: (hit: MemberSearchHit) => void;
+  };
 };
 
 export function CommitteeGridPane({
@@ -25,8 +34,24 @@ export function CommitteeGridPane({
   status,
   error,
   onRetry,
+  memberSearch,
 }: CommitteeGridPaneProps) {
   const hasRows = groups.length > 0;
+  if (memberSearch && memberSearch.query.trim() !== "") {
+    return (
+      <>
+        <CommitteeFilters {...filters} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <MemberSearchResults
+            query={memberSearch.query}
+            state={memberSearch.state}
+            selectedCommitteeId={selectedCommitteeId}
+            onOpen={memberSearch.onOpen}
+          />
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <CommitteeFilters {...filters} />
