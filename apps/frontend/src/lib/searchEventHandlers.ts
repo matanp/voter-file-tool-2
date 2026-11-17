@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   SearchField,
   SearchFieldValue,
@@ -8,15 +14,42 @@ import type {
 import { SEARCH_CONFIG } from "./searchConfiguration";
 import { SearchFieldProcessor } from "./searchFieldProcessor";
 import type { SearchState } from "./useSearchState";
+import { focusedInputWithPendingChip } from "~/lib/pendingChip";
 
 /**
  * Hook for creating submit handlers for search functionality.
+ *
+ * Text typed in a criteria builder input only joins the rows as a chip when the input loses focus.
+ * If a submit arrives while such text is pending, the input is blurred first and the search runs
+ * once the chip is in the rows, so one Submit (or Ctrl/Cmd+Enter) searches what's typed.
  */
 export const useSubmitHandler = (
   searchState: SearchState,
   onSubmit: (filteredRows: SearchField[]) => Promise<void>,
   isAuthenticated: boolean,
 ) => {
+  const submitNow = useCallback(() => {
+    const filteredRows = searchState.submitSearch(searchState.searchRows);
+    onSubmit(filteredRows).catch((error) => {
+      console.error("Error submitting search:", error);
+    });
+  }, [searchState, onSubmit]);
+
+  const latestSubmit = useRef(submitNow);
+  useLayoutEffect(() => {
+    latestSubmit.current = submitNow;
+  }, [submitNow]);
+
+  const waitingForChip = useRef(false);
+  const submitIfWaiting = useCallback(() => {
+    if (!waitingForChip.current) return;
+    waitingForChip.current = false;
+    latestSubmit.current();
+  }, []);
+
+  // Runs the waiting submit once the blurred input's chip has reached the rows.
+  useEffect(submitIfWaiting, [searchState.searchRows, submitIfWaiting]);
+
   return useCallback(
     (event?: React.FormEvent<HTMLFormElement>) => {
       event?.preventDefault();
@@ -25,12 +58,17 @@ export const useSubmitHandler = (
         return;
       }
 
-      const filteredRows = searchState.submitSearch(searchState.searchRows);
-      onSubmit(filteredRows).catch((error) => {
-        console.error("Error submitting search:", error);
-      });
+      const pending = focusedInputWithPendingChip();
+      if (pending) {
+        waitingForChip.current = true;
+        pending.blur();
+        // Blurring adds nothing when the text repeats an existing chip, so the rows don't change.
+        window.setTimeout(submitIfWaiting, 100);
+        return;
+      }
+      submitNow();
     },
-    [searchState, onSubmit, isAuthenticated],
+    [isAuthenticated, submitNow, submitIfWaiting],
   );
 };
 

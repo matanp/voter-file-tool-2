@@ -4,9 +4,7 @@ export default async function (page, { snap }) {
   const [first, ...rest] = (process.env.NAME ?? 'John Smith').split(' ');
   await page.getByPlaceholder('Enter First Name(s)').fill(first);
   await page.getByPlaceholder('Enter Last Name(s)').fill(rest.join(' '));
-  // Typed text only becomes a search chip on blur, so the first Submit click is eaten by the blur.
-  await page.getByRole('button', { name: /submit/i }).first().click();
-  await page.waitForTimeout(500);
+  // Submit adds the typed text as chips and searches in one click.
   await page.getByRole('button', { name: /submit/i }).first().click();
   // The loading skeleton reuses #voter-record-table; wait for a real row's button instead.
   await page.getByText('See more details').first().waitFor({ timeout: 90000 });

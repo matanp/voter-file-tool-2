@@ -14,6 +14,7 @@ import {
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { focusedInputWithPendingChip } from "~/lib/pendingChip";
 import { mergeQuickNameIntoRows, type QuickName } from "~/lib/quickNameSearch";
 import { useCallback, useState } from "react";
 
@@ -153,6 +154,11 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             <Button
               type="submit"
               disabled={!isAuthenticated}
+              // Keep focus in a builder input with typed text: blurring it here would add its chip,
+              // move this button down, and lose the click. The submit handler adds the chip instead.
+              onMouseDown={(event) => {
+                if (focusedInputWithPendingChip()) event.preventDefault();
+              }}
               className="hover:bg-primary-700 w-full rounded-md border border-transparent bg-primary px-4 py-2 text-primary-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label={SEARCH_CONFIG.ariaLabels.submitSearch(
                 isAuthenticated,

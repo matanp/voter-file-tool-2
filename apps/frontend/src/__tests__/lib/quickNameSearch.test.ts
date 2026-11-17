@@ -1,36 +1,32 @@
 import { mergeQuickNameIntoRows } from "~/lib/quickNameSearch";
 import type { SearchField } from "~/types/searchFields";
 
+const nameSubField = (
+  name: "firstName" | "lastName",
+  displayName: string,
+  value: string[] | undefined,
+) =>
+  value
+    ? [
+        {
+          name,
+          displayName,
+          compoundType: false as const,
+          type: "String" as const,
+          allowMultiple: true,
+          value,
+        },
+      ]
+    : [];
+
 const nameRow = (firstName?: string[], lastName?: string[]): SearchField => ({
   name: "name",
   displayName: "Name",
   compoundType: true,
   id: "name-row",
   fields: [
-    ...(firstName
-      ? [
-          {
-            name: "firstName" as const,
-            displayName: "First Name",
-            compoundType: false as const,
-            type: "String" as const,
-            allowMultiple: true,
-            value: firstName,
-          },
-        ]
-      : []),
-    ...(lastName
-      ? [
-          {
-            name: "lastName" as const,
-            displayName: "Last Name",
-            compoundType: false as const,
-            type: "String" as const,
-            allowMultiple: true,
-            value: lastName,
-          },
-        ]
-      : []),
+    ...nameSubField("firstName", "First Name", firstName),
+    ...nameSubField("lastName", "Last Name", lastName),
   ],
 });
 
@@ -79,21 +75,22 @@ describe("mergeQuickNameIntoRows", () => {
 
   it("joins the builder's Name row instead of adding a second one", () => {
     const rows = mergeQuickNameIntoRows([nameRow(["Jane"]), zipRow], {
-      firstName: "John",
+      firstName: "",
       lastName: "Smith",
     });
     expect(rows.filter((r) => r.name === "name")).toHaveLength(1);
     expect(rows[0]?.id).toBe("name-row");
-    expect(valuesOf(rows, "firstName")).toEqual(["Jane", "John"]);
+    expect(valuesOf(rows, "firstName")).toEqual(["Jane"]);
     expect(valuesOf(rows, "lastName")).toEqual(["Smith"]);
+    expect(rows[1]).toBe(zipRow);
   });
 
-  it("doesn't repeat a name the builder already has, ignoring case", () => {
-    const rows = mergeQuickNameIntoRows([nameRow(["JOHN"], ["Smith"])], {
-      firstName: "john",
+  it("narrows to the name box's name when the builder has names for the same field", () => {
+    const rows = mergeQuickNameIntoRows([nameRow(["Jane", "Joan"], ["Doe"])], {
+      firstName: "John",
       lastName: "",
     });
-    expect(valuesOf(rows, "firstName")).toEqual(["JOHN"]);
-    expect(valuesOf(rows, "lastName")).toEqual(["Smith"]);
+    expect(valuesOf(rows, "firstName")).toEqual(["John"]);
+    expect(valuesOf(rows, "lastName")).toEqual(["Doe"]);
   });
 });

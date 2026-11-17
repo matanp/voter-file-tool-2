@@ -38,7 +38,8 @@ export default async function (page, { width, snap }) {
     await page.getByLabel('Last name', { exact: true }).fill(rest.join(' '));
     await page.getByRole('button', { name: /submit/i }).first().click();
   } else {
-    // Criteria builder: typed text becomes a chip on blur, so the first Submit click is eaten.
+    // Criteria builder before the quick name box (for "before" shots). That code needs a second
+    // Submit click: the first one's blur turned the typed text into a chip and moved the button.
     await page.getByPlaceholder('Enter First Name(s)').fill(first);
     await page.getByPlaceholder('Enter Last Name(s)').fill(rest.join(' '));
     await page.getByRole('button', { name: /submit/i }).first().click();
