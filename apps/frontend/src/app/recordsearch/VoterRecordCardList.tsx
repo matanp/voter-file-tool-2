@@ -11,7 +11,7 @@ import {
 } from "~/components/ui/sheet";
 import { scrollToElement } from "~/lib/scrollUtils";
 import { VoterCard } from "./VoterCard";
-import { fieldValue, fields, type FieldName } from "./fieldsConfig";
+import { fields, type FieldName } from "./fieldsConfig";
 
 export const VOTER_RECORD_CARD_LIST_ID = "voter-record-card-list";
 
@@ -60,7 +60,7 @@ export const VoterRecordCardList: React.FC<VoterRecordCardListProps> = ({
                   <React.Fragment key={field.name}>
                     <dt className="font-light">{field.head}</dt>
                     <dd className="min-w-0 break-words">
-                      {fieldValue(field, record) ?? ""}
+                      {field.value(record) ?? ""}
                     </dd>
                   </React.Fragment>
                 ))}

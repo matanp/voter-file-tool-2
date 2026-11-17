@@ -86,7 +86,9 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
                 if (!field) {
                   return null;
                 }
-                return field.cell(record);
+                return (
+                  <TableCell key={field.name}>{field.value(record)}</TableCell>
+                );
               })}
               {extraContent && <TableCell>{extraContent(record)}</TableCell>}
               <TableCell className="text-right">
