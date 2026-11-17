@@ -15,7 +15,12 @@ import {
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { focusedInputWithPendingChip } from "~/lib/pendingChip";
-import { mergeQuickNameIntoRows, type QuickName } from "~/lib/quickNameSearch";
+import {
+  mergeQuickNameIntoRows,
+  moveQuickNameIntoRows,
+  quickNameFromRows,
+  type QuickName,
+} from "~/lib/quickNameSearch";
 import { useCallback, useState } from "react";
 import type { SearchMode } from "~/lib/useSearchModePreference";
 
@@ -23,7 +28,7 @@ interface VoterRecordSearchProps {
   handleSubmit: (searchQuery: SearchField[]) => Promise<void>;
   dropdownList: DropdownLists;
   isAuthenticated: boolean;
-  /** "simple" shows only the name box; "advanced" adds the criteria builder. */
+  /** "simple" shows only the name box; "advanced" shows only the criteria builder. */
   mode: SearchMode;
   onModeChange: (mode: SearchMode) => void;
 }
@@ -36,24 +41,37 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
   });
   const { handleSubmit, isAuthenticated, mode, onModeChange } = props;
   const isSimple = mode === "simple";
-  const { submitSearchWithContext } = searchState;
+  const { submitSearchWithContext, searchRows, setSearchRowsDirect } =
+    searchState;
 
   const fieldHandlers = useFieldChangeHandlers(searchState);
 
-  // The quick name box and the criteria builder run as one search: the name box's values are
-  // merged into the builder's rows (see mergeQuickNameIntoRows). The name box is plain text
-  // inputs, so whatever is typed is used on the first Submit, with no chip-on-blur step.
-  // Simple mode searches the name box alone: the builder's rows stay in state, hidden, for when
-  // the user switches back to advanced, but never filter a simple search.
+  // Simple mode is the name box alone; advanced mode is the criteria builder alone. The name box
+  // is plain text inputs, so whatever is typed is used on the first Search, with no chip-on-blur
+  // step. The builder's rows stay in state while hidden, for when the user switches back to
+  // advanced, but never filter a simple search.
   const submitRows = useCallback(
     async (filteredRows: SearchField[]) => {
       await handleSubmit(
         submitSearchWithContext(
-          mergeQuickNameIntoRows(isSimple ? [] : filteredRows, quickName),
+          isSimple ? mergeQuickNameIntoRows([], quickName) : filteredRows,
         ),
       );
     },
     [handleSubmit, submitSearchWithContext, quickName, isSimple],
+  );
+
+  // Carry the name across the switch: box → builder's Name row, and back when it fits the box.
+  const switchMode = useCallback(
+    (next: SearchMode) => {
+      if (next === "advanced") {
+        setSearchRowsDirect(moveQuickNameIntoRows(searchRows, quickName));
+      } else {
+        setQuickName(quickNameFromRows(searchRows));
+      }
+      onModeChange(next);
+    },
+    [onModeChange, quickName, searchRows, setSearchRowsDirect],
   );
 
   const keyboardHandlers = useKeyboardHandlers(
@@ -79,48 +97,50 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
         role="search"
         aria-label={SEARCH_CONFIG.ariaLabels.searchForm}
       >
-        <div
-          className={`grid w-full grid-cols-1 gap-3 bg-background p-4 shadow-md ${
-            isSimple
-              ? "sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-              : "sm:grid-cols-2"
-          }`}
-          role="group"
-          aria-label="Search by name"
-        >
-          <div className="flex min-w-0 flex-col gap-1">
-            <label htmlFor="quick-first-name" className="text-sm font-medium">
-              First name
-            </label>
-            <Input
-              id="quick-first-name"
-              type="text"
-              autoComplete="off"
-              autoCapitalize="words"
-              enterKeyHint="search"
-              value={quickName.firstName}
-              onChange={(e) =>
-                setQuickName((prev) => ({ ...prev, firstName: e.target.value }))
-              }
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <label htmlFor="quick-last-name" className="text-sm font-medium">
-              Last name
-            </label>
-            <Input
-              id="quick-last-name"
-              type="text"
-              autoComplete="off"
-              autoCapitalize="words"
-              enterKeyHint="search"
-              value={quickName.lastName}
-              onChange={(e) =>
-                setQuickName((prev) => ({ ...prev, lastName: e.target.value }))
-              }
-            />
-          </div>
-          {isSimple && (
+        {isSimple && (
+          <div
+            className="grid w-full grid-cols-1 gap-3 bg-background p-4 shadow-md sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+            role="group"
+            aria-label="Search by name"
+          >
+            <div className="flex min-w-0 flex-col gap-1">
+              <label htmlFor="quick-first-name" className="text-sm font-medium">
+                First name
+              </label>
+              <Input
+                id="quick-first-name"
+                type="text"
+                autoComplete="off"
+                autoCapitalize="words"
+                enterKeyHint="search"
+                value={quickName.firstName}
+                onChange={(e) =>
+                  setQuickName((prev) => ({
+                    ...prev,
+                    firstName: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <label htmlFor="quick-last-name" className="text-sm font-medium">
+                Last name
+              </label>
+              <Input
+                id="quick-last-name"
+                type="text"
+                autoComplete="off"
+                autoCapitalize="words"
+                enterKeyHint="search"
+                value={quickName.lastName}
+                onChange={(e) =>
+                  setQuickName((prev) => ({
+                    ...prev,
+                    lastName: e.target.value,
+                  }))
+                }
+              />
+            </div>
             <Button
               type="submit"
               disabled={!isAuthenticated}
@@ -131,12 +151,12 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             >
               Search
             </Button>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Same spot in both modes, so switching doesn't move it out from under the pointer. */}
+        {/* Right under the search box in both modes, so it's easy to find again. */}
         <div className={`flex justify-center ${isSimple ? "pb-8" : ""}`}>
-          <ModeToggle mode={mode} onModeChange={onModeChange} />
+          <ModeToggle mode={mode} onModeChange={switchMode} />
         </div>
 
         {!isSimple && (

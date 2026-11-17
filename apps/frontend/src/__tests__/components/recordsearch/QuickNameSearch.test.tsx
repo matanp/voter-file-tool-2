@@ -1,7 +1,7 @@
 /**
- * Record search quick name box (leader feedback 2026-11-11 #06): a first/last name box above the
- * criteria builder that runs as part of the same search. Also covers one-Submit searches from the
- * builder's own name inputs, whose typed text only becomes a chip on blur.
+ * Record search quick name box (leader feedback 2026-11-11 #06): the first/last name box that is
+ * simple mode's whole search. Also covers one-Submit searches from the advanced criteria builder's
+ * own name inputs, whose typed text only becomes a chip on blur.
  */
 import React from "react";
 import { screen, waitFor, within } from "@testing-library/react";
@@ -15,6 +15,7 @@ import {
 } from "~/__tests__/utils/searchTestUtils";
 import { firstCallArg } from "~/__tests__/utils/testUtils";
 import type { SearchField } from "~/types/searchFields";
+import type { SearchMode } from "~/lib/useSearchModePreference";
 
 const nameValues = (rows: SearchField[]) => {
   const row = rows.find((r) => r.compoundType && r.name === "name");
@@ -22,14 +23,14 @@ const nameValues = (rows: SearchField[]) => {
   return Object.fromEntries(row.fields.map((f) => [f.name, f.value]));
 };
 
-const renderSearch = () => {
+const renderSearch = (mode: SearchMode = "advanced") => {
   const user = userEvent.setup();
   const handleSubmit = jest
     .fn<Promise<void>, [SearchField[]]>()
     .mockResolvedValue(undefined);
   renderWithVoterSearchProvider(
     <VoterRecordSearch
-      {...createMockVoterRecordSearchProps({ handleSubmit })}
+      {...createMockVoterRecordSearchProps({ handleSubmit, mode })}
     />,
   );
   const submittedRows = () => firstCallArg<SearchField[]>(handleSubmit);
@@ -41,7 +42,7 @@ describe("Record search quick name box", () => {
   beforeEach(() => cleanupMocks());
 
   it("searches the typed name with one Submit, no chip step", async () => {
-    const { user, handleSubmit, submittedRows } = renderSearch();
+    const { user, handleSubmit, submittedRows } = renderSearch("simple");
 
     await user.type(screen.getByLabelText("First name"), "John");
     await user.type(screen.getByLabelText("Last name"), "Smith");
@@ -56,45 +57,12 @@ describe("Record search quick name box", () => {
   });
 
   it("submits on Enter from the name box", async () => {
-    const { user, handleSubmit, submittedRows } = renderSearch();
+    const { user, handleSubmit, submittedRows } = renderSearch("simple");
 
     await user.type(screen.getByLabelText("Last name"), "Smith{Enter}");
 
     expect(handleSubmit).toHaveBeenCalledTimes(1);
     expect(nameValues(submittedRows())).toEqual({ lastName: ["Smith"] });
-  });
-
-  it("combines with the criteria builder into one search", async () => {
-    const { user, handleSubmit, submittedRows, builder } = renderSearch();
-
-    // Quick box: last name. Builder's Name row: first name.
-    await user.type(screen.getByLabelText("Last name"), "Smith");
-    await user.type(
-      within(builder()).getByPlaceholderText("Enter First Name(s)"),
-      "Jane",
-    );
-    await user.click(screen.getByRole("button", { name: /Submit/i }));
-
-    await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1));
-    expect(submittedRows().filter((r) => r.name === "name")).toHaveLength(1);
-    expect(nameValues(submittedRows())).toEqual({
-      firstName: ["Jane"],
-      lastName: ["Smith"],
-    });
-  });
-
-  it("narrows to the name box's first name when the builder has a different one", async () => {
-    const { user, handleSubmit, submittedRows, builder } = renderSearch();
-
-    await user.type(
-      within(builder()).getByPlaceholderText("Enter First Name(s)"),
-      "Jane{Enter}",
-    );
-    await user.type(screen.getByLabelText("First name"), "John");
-    await user.click(screen.getByRole("button", { name: /Submit/i }));
-
-    expect(handleSubmit).toHaveBeenCalledTimes(1);
-    expect(nameValues(submittedRows())).toEqual({ firstName: ["John"] });
   });
 });
 

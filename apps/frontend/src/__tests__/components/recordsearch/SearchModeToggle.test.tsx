@@ -3,7 +3,7 @@
  * criteria builder, and the browser remembers the last mode used.
  */
 import React from "react";
-import { screen, act, renderHook } from "@testing-library/react";
+import { screen, act, renderHook, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import VoterRecordSearch from "~/app/recordsearch/VoterRecordSearch";
@@ -83,28 +83,57 @@ describe("Record search simple/advanced toggle", () => {
     });
   });
 
-  it("keeps the typed name when switching modes", async () => {
+  it("shows only the criteria builder in advanced mode", () => {
+    renderWithMode("advanced");
+
+    expect(builder()).toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", { name: "Search by name" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("moves the typed name into the builder's Name row and back", async () => {
     const { user } = renderWithMode("simple");
 
     await user.type(screen.getByLabelText("First name"), "John");
+    await user.type(screen.getByLabelText("Last name"), "Smith");
     await user.click(screen.getByRole("button", { name: "Advanced search →" }));
 
-    expect(builder()).toBeInTheDocument();
-    expect(screen.getByLabelText("First name")).toHaveValue("John");
+    const rows = builder()!;
+    expect(within(rows).getByText("John")).toBeInTheDocument();
+    expect(within(rows).getByText("Smith")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "← Simple search" }));
-    expect(builder()).not.toBeInTheDocument();
     expect(screen.getByLabelText("First name")).toHaveValue("John");
+    expect(screen.getByLabelText("Last name")).toHaveValue("Smith");
   });
 
-  it("ignores hidden advanced criteria in simple mode, and restores them in advanced", async () => {
+  it("clears a builder name that was emptied in simple mode", async () => {
+    const { user } = renderWithMode("advanced");
+
+    await user.type(
+      within(builder()!).getByPlaceholderText("Enter First Name(s)"),
+      "Jane{Enter}",
+    );
+    await user.click(screen.getByRole("button", { name: "← Simple search" }));
+    expect(screen.getByLabelText("First name")).toHaveValue("Jane");
+
+    await user.clear(screen.getByLabelText("First name"));
+    await user.click(screen.getByRole("button", { name: "Advanced search →" }));
+    expect(within(builder()!).queryByText("Jane")).not.toBeInTheDocument();
+  });
+
+  it("searches by the box alone in simple mode, keeping hidden builder criteria for advanced", async () => {
     const { user, handleSubmit, submittedRows } = renderWithMode("advanced");
 
-    // A chip in the builder's own Name row, hidden while in simple mode.
-    await user.type(screen.getByPlaceholderText("Enter First Name(s)"), "Jane");
-    await user.tab(); // blur adds the chip
-    expect(screen.getByText("Jane")).toBeInTheDocument();
+    // Two first names in the builder: too many for the simple box to show.
+    const firstNames = within(builder()!).getByPlaceholderText(
+      "Enter First Name(s)",
+    );
+    await user.type(firstNames, "Jane{Enter}");
+    await user.type(firstNames, "Ann{Enter}");
     await user.click(screen.getByRole("button", { name: "← Simple search" }));
+    expect(screen.getByLabelText("First name")).toHaveValue("");
 
     await user.type(screen.getByLabelText("Last name"), "Smith");
     await user.click(screen.getByRole("button", { name: /Submit/i }));
@@ -114,7 +143,10 @@ describe("Record search simple/advanced toggle", () => {
     expect(nameValues(submittedRows())).toEqual({ lastName: ["Smith"] });
 
     await user.click(screen.getByRole("button", { name: "Advanced search →" }));
-    expect(screen.getByText("Jane")).toBeInTheDocument();
+    const rows = builder()!;
+    expect(within(rows).getByText("Jane")).toBeInTheDocument();
+    expect(within(rows).getByText("Ann")).toBeInTheDocument();
+    expect(within(rows).getByText("Smith")).toBeInTheDocument();
   });
 });
 

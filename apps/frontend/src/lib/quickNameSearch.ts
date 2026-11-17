@@ -24,7 +24,8 @@ const toValues = (value: BaseSearchField["value"]): string[] =>
       : [];
 
 /**
- * Adds the record search quick name box to the builder's rows, so both run as one search.
+ * Adds the record search quick name box to search rows. Simple mode calls it with no rows, so the
+ * box becomes the whole search; the merging rules below apply when rows are passed.
  *
  * The backend builds one `in` filter per field and a later entry for the same field replaces an
  * earlier one, so the quick name can't just be appended as a second Name row. Instead it goes into
@@ -63,6 +64,63 @@ export function mergeQuickNameIntoRows(
   });
   const otherFields = base.fields.filter((f) => !isQuickNameField(f.name));
   const nameRow: SearchField = { ...base, fields: [...fields, ...otherFields] };
+
+  return existing
+    ? rows.map((row) => (row === existing ? nameRow : row))
+    : [nameRow, ...rows];
+}
+
+/**
+ * The name box's values when switching to simple mode, taken from the builder's Name row. The
+ * box is one plain text input per field, so a field with several names in the builder comes back
+ * blank rather than showing only some of them.
+ */
+export function quickNameFromRows(rows: SearchField[]): QuickName {
+  const row = rows.find((r) => r.compoundType && r.name === NAME_ROW);
+  const single = (name: keyof QuickName) => {
+    if (!row?.compoundType) return "";
+    const values = toValues(row.fields.find((f) => f.name === name)?.value);
+    return values.length === 1 ? values[0]! : "";
+  };
+  return { firstName: single("firstName"), lastName: single("lastName") };
+}
+
+/**
+ * The builder's rows when switching to advanced mode, with the name box moved into the Name row.
+ * A name in the box replaces that field's names. A blank box clears a field it was showing (one
+ * name or none) but keeps a list of several names, which the box couldn't show. Both sub-fields
+ * stay on the row, filled or not, so the builder renders the whole Name row. With no Name row and
+ * nothing typed, the rows come back unchanged.
+ */
+export function moveQuickNameIntoRows(
+  rows: SearchField[],
+  quickName: QuickName,
+): SearchField[] {
+  const typed: QuickName = {
+    firstName: quickName.firstName.trim(),
+    lastName: quickName.lastName.trim(),
+  };
+  const existing = rows.find(
+    (row) => row.compoundType && row.name === NAME_ROW,
+  );
+  if (!existing && !typed.firstName && !typed.lastName) return rows;
+
+  const template = SEARCH_FIELDS.find(
+    (field): field is CompoundSearchField =>
+      field.compoundType && field.name === NAME_ROW,
+  );
+  const base = existing ?? (template ? addIdsIfMissing(template) : undefined);
+  if (!base?.compoundType) return rows;
+
+  const fields: BaseSearchField[] = base.fields.map((field) => {
+    if (!isQuickNameField(field.name)) return field;
+    const value = typed[field.name];
+    if (value) return { ...field, value: [value] };
+    return toValues(field.value).length > 1
+      ? field
+      : { ...field, value: undefined };
+  });
+  const nameRow: SearchField = { ...base, fields };
 
   return existing
     ? rows.map((row) => (row === existing ? nameRow : row))
