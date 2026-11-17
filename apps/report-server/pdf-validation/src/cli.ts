@@ -20,7 +20,7 @@ const USAGE = `usage:
   pdf-validation verify  --run-id <id> [--keep-remote] [--platform linux/amd64] [--reinspect] [--download-timeout-ms N]
   pdf-validation cleanup --run-id <id>
   pdf-validation approve --run-id <id> --reviewer <name> [--baselines] [--page-counts] [--fixtures a,b] [--browser chrome|shell]
-  pdf-validation accept  --run-id <id> --reviewer <name> --kind visual-change|layout-finding --item <fixture>.<browser> --page <n> --reason <text>
+  pdf-validation accept  --run-id <id> --reviewer <name> --kind visual-change|layout-finding --item <fixture>.<browser> --page <n> --reason <text> [--finding <text>]
 common: [--runs-dir DIR] [--env-file FILE] [--deployed-dist DIR]`;
 
 const options = {
@@ -42,6 +42,7 @@ const options = {
   item: { type: 'string' },
   page: { type: 'string' },
   reason: { type: 'string' },
+  finding: { type: 'string' },
   'runs-dir': { type: 'string' },
   'env-file': { type: 'string' },
   'deployed-dist': { type: 'string' },
@@ -118,7 +119,7 @@ async function main(argv: string[]): Promise<number> {
     case 'accept': {
       const kind = values.kind as Acceptance['kind'];
       if (kind !== 'visual-change' && kind !== 'layout-finding') throw new Error('--kind visual-change|layout-finding is required');
-      return accept({ runId: runId(), runsDir, reviewer: values.reviewer ?? '', kind, item: values.item ?? '', page: Number(values.page), reason: values.reason ?? '' });
+      return accept({ runId: runId(), runsDir, reviewer: values.reviewer ?? '', kind, item: values.item ?? '', page: Number(values.page), reason: values.reason ?? '', finding: values.finding ?? null });
     }
     default:
       console.error(USAGE);

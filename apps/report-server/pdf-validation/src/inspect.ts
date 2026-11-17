@@ -24,6 +24,11 @@ export type PdfFacts = {
   pageSizes: { widthPt: number; heightPt: number }[];
   fonts: { name: string; type: string; embedded: boolean }[];
   normalizedPages: string[];
+  /**
+   * The same text in content-stream order (pdftotext -raw). A wrapped table cell's words stay
+   * together here, while -layout interleaves them with neighbouring cells' lines.
+   */
+  normalizedRawOrderPages: string[];
 };
 
 export type PageResult = {
@@ -60,7 +65,7 @@ export function toolVersions(): ToolVersions {
 }
 
 function facts(pdf: string, rawTextOut: string | null): PdfFacts {
-  const empty: PdfFacts = { readable: false, pages: 0, pageSizes: [], fonts: [], normalizedPages: [] };
+  const empty: PdfFacts = { readable: false, pages: 0, pageSizes: [], fonts: [], normalizedPages: [], normalizedRawOrderPages: [] };
   if (!fs.existsSync(pdf)) return { ...empty, error: `missing: ${pdf}` };
   const info = tool('pdfinfo', [pdf]);
   const pages = Number(/^Pages:\s+(\d+)/m.exec(info.out)?.[1] ?? NaN);
@@ -83,7 +88,16 @@ function facts(pdf: string, rawTextOut: string | null): PdfFacts {
     fs.mkdirSync(rawTextOut, { recursive: true });
     rawPages.forEach((t, i) => fs.writeFileSync(path.join(rawTextOut, `page-${String(i + 1).padStart(3, '0')}.txt`), t));
   }
-  return { readable: true, pages, pageSizes, fonts, normalizedPages: rawPages.map(normalizePageText) };
+  const rawOrder = tool('pdftotext', ['-raw', '-enc', 'UTF-8', pdf, '-']);
+  if (rawOrder.status !== 0) return { ...empty, pages, pageSizes, fonts, error: `pdftotext -raw failed: ${rawOrder.err.trim()}` };
+  return {
+    readable: true,
+    pages,
+    pageSizes,
+    fonts,
+    normalizedPages: rawPages.map(normalizePageText),
+    normalizedRawOrderPages: splitPages(rawOrder.out, pages).map(normalizePageText),
+  };
 }
 
 function rasterize(pdf: string, page: number, tmpPrefix: string): Rgb {
@@ -159,7 +173,7 @@ if (require.main === module) {
     } catch (error) {
       inspection = {
         id: item.id,
-        candidate: { readable: false, error: error instanceof Error ? error.message : String(error), pages: 0, pageSizes: [], fonts: [], normalizedPages: [] },
+        candidate: { readable: false, error: error instanceof Error ? error.message : String(error), pages: 0, pageSizes: [], fonts: [], normalizedPages: [], normalizedRawOrderPages: [] },
         reference: null,
         pages: [],
         colorSamples: [],

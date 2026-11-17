@@ -104,6 +104,10 @@ export function writeLlmRequest(runDir: string, manifest: RunManifest, items: It
     lines.push('');
     if (fixture) lines.push(`${fixture.purpose}. Paper: ${fixture.expect.paper.name}.`);
     for (const note of item.reviewNotes) lines.push(`- Note: ${note}`);
+    const truncation = fixture?.expect.allowedTruncation;
+    if (fixture && (fixture.input.jobType === 'committeeRoster')) {
+      lines.push(`- Allowed truncation: ${truncation?.length ? truncation.join(', ') : 'none: any ellipsis or clipped cell is a defect'}`);
+    }
     lines.push('');
     for (const p of insp.pages) {
       const diff = p.diff?.png ? `; diff \`${path.join(runDir, 'inspect', item.id, p.diff.png)}\` (${(p.diff.changedRatio * 100).toFixed(2)}% changed)` : '';

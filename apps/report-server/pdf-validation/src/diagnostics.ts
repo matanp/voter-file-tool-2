@@ -173,13 +173,15 @@ export function serviceState(name = 'report-server'): Maybe<ServiceState> {
 export function oomEvents(since: Date): Maybe<{ source: string; lines: string[] }> {
   const pattern = /out of memory|oom-kill|oom_reaper|killed process/i;
   const j = run('journalctl', ['-k', '--no-pager', '-q', '-o', 'short-iso', `--since=@${Math.floor(since.getTime() / 1000)}`]);
-  if (j.ok) return { source: 'journalctl -k', lines: j.out.split('\n').filter((l) => pattern.test(l)) };
+  // Unprivileged journalctl can exit 0 having read nothing; that's unavailable, not "no OOM".
+  const denied = /insufficient permissions|not seeing messages|no journal files were (found|opened)/i;
+  if (j.ok && !denied.test(`${j.out}\n${j.err}`)) return { source: 'journalctl -k', lines: j.out.split('\n').filter((l) => pattern.test(l)) };
   const d = run('dmesg', ['--time-format', 'iso']);
-  if (d.ok) {
+  if (d.ok && d.out) {
     const lines = d.out.split('\n').filter((l) => pattern.test(l) && new Date(l.slice(0, 25)).getTime() >= since.getTime());
     return { source: 'dmesg', lines };
   }
-  return { unavailable: `journalctl: ${j.err || 'failed'}; dmesg: ${d.err || 'failed'}` };
+  return { unavailable: `journalctl: ${denied.test(`${j.out}\n${j.err}`) ? 'insufficient permissions' : j.err || 'failed'}; dmesg: ${d.err || 'no output'}` };
 }
 
 /** Reads PM2's out log from a byte offset, so the harness can see jobs the live service ran meanwhile. */
@@ -222,18 +224,30 @@ export function processTable(): ProcessInfo[] {
     .split('\n')
     .map((line) => /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(line))
     .filter((m): m is RegExpExecArray => m !== null)
-    .map((m) => ({ pid: Number(m[1]), ppid: Number(m[2]), pgid: Number(m[3]), rssKb: Number(m[4]), command: m[5]!.slice(0, 160) }));
+    .map((m) => ({ pid: Number(m[1]), ppid: Number(m[2]), pgid: Number(m[3]), rssKb: Number(m[4]), command: m[5]! }));
 }
 
 const isChrome = (p: ProcessInfo) => /chrome|headless_shell|Chromium/i.test(p.command) && !/crashpad/i.test(p.command);
 
+/** For the manifest: the command line shortened, since Chrome's runs to kilobytes. */
+export const brief = (p: ProcessInfo): ProcessInfo => ({ ...p, command: p.command.slice(0, 160) });
+
 /** Chrome processes that the harness did not start: the live service's, or anything else's. */
 export function foreignChrome(ownedPgids: Set<number>): ProcessInfo[] {
-  return processTable().filter((p) => isChrome(p) && !ownedPgids.has(p.pgid) && p.pid !== process.pid);
+  return processTable()
+    .filter((p) => isChrome(p) && !ownedPgids.has(p.pgid) && p.pid !== process.pid && !p.command.includes('pdf-validation/runs/'))
+    .map(brief);
 }
 
 /** Processes still alive in a process group the harness owns (Puppeteer starts Chrome as a group leader). */
 export const processesInGroup = (pgid: number): ProcessInfo[] => processTable().filter((p) => p.pgid === pgid);
+
+/**
+ * Processes whose command line mentions `marker`: each render gives its worker its own TMPDIR,
+ * Puppeteer puts Chrome's profile there, so this finds the render's Chrome even if the worker
+ * died before reporting its pid, and never matches the service's Chrome.
+ */
+export const processesMentioning = (marker: string): ProcessInfo[] => processTable().filter((p) => p.command.includes(marker) && p.pid !== process.pid);
 
 export async function httpOk(url: string, timeoutMs = 5_000): Promise<Maybe<{ status: number }>> {
   try {

@@ -32,7 +32,9 @@ import {
   instanceResources,
   isUnavailable,
   oomEvents,
+  brief,
   processesInGroup,
+  processesMentioning,
   serviceState,
   treeHash,
 } from './diagnostics';
@@ -94,6 +96,7 @@ export async function render(opts: RenderOptions): Promise<number> {
   const prefix = runPrefix(runId);
   const journal = (key: string) => {
     assertKeyInRun(key, runId);
+    manifest.attemptedKeys.push(key);
     fs.appendFileSync(journalFile, `${JSON.stringify({ key, at: new Date().toISOString() })}\n`);
   };
   log.line(`run ${runId}: render ${opts.mode}, browser ${opts.browser}; evidence in ${runDir}`);
@@ -133,6 +136,7 @@ export async function render(opts: RenderOptions): Promise<number> {
     fixtures: selected.map((f) => ({ id: f.id, hash: f.hash, family: f.family, jobType: f.input.jobType, tier: f.tier })),
     renders: [],
     objects: [],
+    attemptedKeys: [],
   };
   const save = () => writeJson(path.join(runDir, MANIFEST_NAME), manifest);
   const fail = (reason: string) => {
@@ -203,7 +207,9 @@ export async function render(opts: RenderOptions): Promise<number> {
       headless: resolved.headless,
       executablePath: resolved.executablePath,
     };
-    const outcome = await runWorker(job, record, (child, pgid) => {
+    const caseTmp = path.join(runDir, 'tmp', `${step.fixture.id}.${step.browser}`);
+    fs.mkdirSync(caseTmp, { recursive: true });
+    const outcome = await runWorker(job, record, caseTmp, (child, pgid) => {
       current = { child, chromePgid: pgid };
     });
     current = null;
@@ -215,12 +221,15 @@ export async function render(opts: RenderOptions): Promise<number> {
     const cssOk = record.cssRequests.some((r) => r.path === '/tailwind.css' && r.status === 200);
     record.checks.push({ id: 'stylesheet-loaded', ok: cssOk, detail: `${record.cssRequests.length} request(s) to the harness CSS endpoint` });
 
-    // Chrome runs as its own process group; anything left in it after the worker exits is ours.
-    if (record.chromePid) {
-      await new Promise((r) => setTimeout(r, 300));
-      record.leftoverProcesses = processesInGroup(record.chromePid);
-      if (record.leftoverProcesses.length) killGroup(record.chromePid);
-    }
+    // Ours after the worker exits: anything still in Chrome's process group, and anything whose
+    // command line mentions this render's TMPDIR (where Puppeteer put Chrome's profile).
+    await new Promise((r) => setTimeout(r, 300));
+    const leftovers = [...(record.chromePid ? processesInGroup(record.chromePid) : []), ...processesMentioning(caseTmp)].filter(
+      (p, i, all) => all.findIndex((q) => q.pid === p.pid) === i,
+    );
+    for (const p of leftovers) killPid(p.pid);
+    record.leftoverProcesses = leftovers.map(brief);
+    fs.rmSync(caseTmp, { recursive: true, force: true });
     record.checks.push({ id: 'no-leftover-chrome', ok: record.leftoverProcesses.length === 0, detail: `${record.leftoverProcesses.length} process(es) left in Chrome's group` });
 
     record.interference = {
@@ -246,11 +255,11 @@ export async function render(opts: RenderOptions): Promise<number> {
     return record;
   }
 
-  function runWorker(job: WorkerJob, record: RenderRecord, track: (child: ChildProcess, chromePgid: number | null) => void): Promise<{ ok: boolean; detail: string }> {
+  function runWorker(job: WorkerJob, record: RenderRecord, caseTmp: string, track: (child: ChildProcess, chromePgid: number | null) => void): Promise<{ ok: boolean; detail: string }> {
     return new Promise((resolve) => {
       const child = fork(path.join(__dirname, 'worker.js'), [], {
         cwd: runDir, // dotenv in dist/s3Utils finds no .env here; the worker's env is all it gets
-        env: workerEnv,
+        env: { ...workerEnv, TMPDIR: caseTmp },
         execArgv: [],
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       });
@@ -331,7 +340,7 @@ export async function render(opts: RenderOptions): Promise<number> {
     const config = loadStorageConfig(opts.envFile);
     manifest.storage = { bucket: config.r2.R2_BUCKET_NAME, prefix, source: config.source };
     log.line(`storage: bucket ${config.r2.R2_BUCKET_NAME} (${config.source}), prefix ${prefix}`);
-    storage = new Storage(config.r2);
+    storage = new Storage(config.r2, opts.caseTimeoutMs);
 
     for (const mod of ['utils.js', 'committeeMappingHelpers.js', 'committeeRosterConfig.js', 'signInSheetHelpers.js']) {
       if (!fs.existsSync(path.join(opts.deployedDistDir, mod))) fail(`preflight: deployed ${mod} missing from ${opts.deployedDistDir}`);
@@ -402,11 +411,16 @@ export async function render(opts: RenderOptions): Promise<number> {
       manifest.css.unchangedAtEnd = now === manifest.css.sha256;
       if (!manifest.css.unchangedAtEnd) fail('deployed tailwind.css changed during the run');
     }
-    await finishDiagnostics();
+    // The invocation timer is cleared by now; bound the remaining work on its own.
+    if ((await withDeadline(finishDiagnostics(), opts.caseTimeoutMs)) === 'timeout') fail('end-of-run diagnostics timed out');
     manifest.status = halt.reason && halt.reason.startsWith('SIG') ? 'interrupted' : manifest.failures.length ? 'failed' : 'ok';
     manifest.finishedAt = new Date().toISOString();
     save();
-    if (storage) await uploadEvidence(storage);
+    if (storage && (await withDeadline(uploadEvidence(storage), opts.caseTimeoutMs * 2)) === 'timeout') {
+      manifest.status = 'failed';
+      manifest.failures.push('uploading the log and manifest timed out');
+      save();
+    }
     process.off('SIGINT', onSigint);
     process.off('SIGTERM', onSigterm);
   }
@@ -423,6 +437,27 @@ function killGroup(pgid: number) {
     process.kill(-pgid, 'SIGKILL');
   } catch {
     // already gone
+  }
+}
+
+function killPid(pid: number) {
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch {
+    // already gone
+  }
+}
+
+/** Resolves 'timeout' if `work` hasn't settled in time; the work itself is left to finish or fail. */
+async function withDeadline(work: Promise<unknown>, ms: number): Promise<'done' | 'timeout'> {
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<'timeout'>((resolve) => {
+    timer = setTimeout(() => resolve('timeout'), ms);
+  });
+  try {
+    return await Promise.race([work.then(() => 'done' as const), deadline]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

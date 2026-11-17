@@ -4,7 +4,7 @@ import type { ManifestFixture } from './fixtures';
 import type { Inspection } from './inspect';
 import type { LlmFinding, LoadedReview } from './llmReview';
 import type { RenderRecord } from './manifest';
-import { countOccurrences, normalizePageText } from './text';
+import { countOccurrences, includesWhole, normalizePageText } from './text';
 
 /** Where an item's comparison reference came from. Only approved references can pass. */
 export type Reference =
@@ -30,10 +30,26 @@ const review = (id: string, detail: string): Check => ({ id, status: 'needs-revi
 const list = (items: string[], max = 8) => (items.length > max ? `${items.slice(0, max).join(', ')}, … (${items.length} total)` : items.join(', '));
 
 /** Content checks against the fixture's independent expectations. Text is already normalized per page. */
-export function contentChecks(fixture: ManifestFixture, pages: string[], approvals: Approvals, pageSizes: { widthPt: number; heightPt: number }[], colorSamples: Inspection['colorSamples']): Check[] {
+export function contentChecks(
+  fixture: ManifestFixture,
+  pages: string[],
+  approvals: Approvals,
+  pageSizes: { widthPt: number; heightPt: number }[],
+  colorSamples: Inspection['colorSamples'],
+  rawOrderPages: string[] = pages,
+): Check[] {
   const e = fixture.expect;
   const checks: Check[] = [];
   const doc = pages.join('\n');
+  const rawDoc = rawOrderPages.join('\n');
+  // Required strings may come from either extraction: -layout keeps rows on one line, -raw keeps
+  // a wrapped cell's words together. Tokens, order and page placement use -layout only.
+  const hasText = (text: string, page?: number) => {
+    const needle = normalizePageText(text);
+    return page === undefined
+      ? includesWhole(doc, needle) || includesWhole(rawDoc, needle)
+      : includesWhole(pages[page - 1] ?? '', needle) || includesWhole(rawOrderPages[page - 1] ?? '', needle);
+  };
 
   // Page count: from the fixture, else from an approved full-Chrome reference. Never from the candidate.
   let expectedPages: number | null = null;
@@ -90,11 +106,11 @@ export function contentChecks(fixture: ManifestFixture, pages: string[], approva
     checks.push(misplaced.length === 0 ? pass('page-tokens', 'every row on its expected page, in order') : fail('page-tokens', `missing or out of order: ${list(misplaced)}`));
   }
 
-  const missingText = e.required.filter((t) => !doc.includes(normalizePageText(t)));
+  const missingText = e.required.filter((t) => !hasText(t));
   checks.push(missingText.length === 0 ? pass('required-text', `${e.required.length} string(s) present`) : fail('required-text', `missing: ${list(missingText.map((t) => JSON.stringify(t)))}`));
 
   if (e.requiredOnPage?.length) {
-    const missingOnPage = e.requiredOnPage.filter(({ page, text }) => !(pages[page - 1] ?? '').includes(normalizePageText(text)));
+    const missingOnPage = e.requiredOnPage.filter(({ page, text }) => !hasText(text, page));
     checks.push(
       missingOnPage.length === 0
         ? pass('page-text', `${e.requiredOnPage.length} per-page string(s) present`)
@@ -102,7 +118,7 @@ export function contentChecks(fixture: ManifestFixture, pages: string[], approva
     );
   }
 
-  const present = (e.forbidden ?? []).filter((t) => doc.includes(t));
+  const present = (e.forbidden ?? []).filter((t) => includesWhole(doc, t) || includesWhole(rawDoc, t));
   if (e.forbidden?.length) checks.push(present.length === 0 ? pass('forbidden-text', `${e.forbidden.length} string(s) absent`) : fail('forbidden-text', `present: ${list(present.map((t) => JSON.stringify(t)))}`));
 
   if (e.colorSamples?.length) {
@@ -161,7 +177,12 @@ export function evaluateItem(input: EvaluateInput): ItemResult {
       : fail('fixture-hash', `rendered from fixture ${record.fixtureHash.slice(0, 12)}, this harness has ${fixture.hash.slice(0, 12)}: render and verify with the same harness revision`),
   );
   checks.push(input.downloaded.ok ? pass('sha256', input.downloaded.detail) : fail('sha256', input.downloaded.detail));
-  if (record.status !== 'ok' || !input.downloaded.ok || !inspection) return result();
+  if (record.status !== 'ok' || !input.downloaded.ok) return result();
+  if (!inspection) {
+    // An uninspected PDF had none of the page, text or visual checks; it can't count as passing.
+    checks.push(fail('inspection', 'not inspected (see the comparison-image run check)'));
+    return result();
+  }
 
   const c = inspection.candidate;
   if (!c.readable) {
@@ -170,7 +191,7 @@ export function evaluateItem(input: EvaluateInput): ItemResult {
   }
   checks.push(pass('readable', `${c.pages} page(s); fonts ${[...new Set(c.fonts.map((f) => `${f.name}${f.embedded ? '' : ' (NOT embedded)'}`))].join(', ') || 'none'}`));
   if (c.fonts.some((f) => !f.embedded)) checks.push(review('fonts-embedded', 'a font is not embedded'));
-  checks.push(...contentChecks(fixture, c.normalizedPages, approvals, c.pageSizes, inspection.colorSamples));
+  checks.push(...contentChecks(fixture, c.normalizedPages, approvals, c.pageSizes, inspection.colorSamples, c.normalizedRawOrderPages));
 
   // ------------------------------------------------------------ baseline comparison
   if (reference.kind === 'none') {
@@ -210,7 +231,7 @@ export function evaluateItem(input: EvaluateInput): ItemResult {
     const unreviewed = Array.from({ length: c.pages }, (_, i) => i + 1).filter((p) => !mine.some((f) => f.page === p));
     if (unreviewed.length) checks.push(review('llm-coverage', `pages not reviewed: ${list(unreviewed.map(String))}`));
     const accepted = (f: LlmFinding) =>
-      isAccepted(approvals, 'layout-finding', { fixtureId: record.fixtureId, browser: record.browser, page: f.page, candidateSha256: record.sha256 ?? '', referenceSha256: null });
+      isAccepted(approvals, 'layout-finding', { fixtureId: record.fixtureId, browser: record.browser, page: f.page, candidateSha256: record.sha256 ?? '', referenceSha256: null, finding: f.finding });
     const defects = mine.filter((f) => f.severity === 'defect' && !accepted(f));
     const questions = mine.filter((f) => f.severity === 'question' && !accepted(f));
     if (defects.length) checks.push(fail('llm-defects', defects.map((f) => `p${f.page}: ${f.finding}`).join(' | ')));

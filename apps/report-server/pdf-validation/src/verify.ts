@@ -28,7 +28,7 @@ import {
   type Status,
 } from './common';
 import { deleteListed, listedKeys, type CleanupResult } from './cleanup';
-import { gitRevision, isUnavailable } from './diagnostics';
+import { gitRevision, isUnavailable, treeHash } from './diagnostics';
 import { evaluateItem, type ItemResult, type Reference } from './evaluate';
 import { ALL_FIXTURES, FIXTURE_MANIFEST_VERSION, jobTypesCovered } from './fixtures';
 import { PDF_JOB_TYPES } from './fixtures/types';
@@ -95,7 +95,7 @@ export async function verify(opts: VerifyOptions): Promise<number> {
   const runChecks: Check[] = [];
   const prefix = runPrefix(opts.runId);
   const config = loadStorageConfig(opts.envFile);
-  const storage = new Storage(config.r2);
+  const storage = new Storage(config.r2, opts.downloadTimeoutMs);
 
   // ------------------------------------------------------------ manifest and downloads
   const manifestFile = path.join(downloadDir, MANIFEST_NAME);
@@ -304,6 +304,14 @@ export function runLevelChecks(manifest: RunManifest, llm: LoadedReview): Check[
     const dirty = rev.dirty.filter((l) => !l.includes('pdf-validation/'));
     checks.push(dirty.length === 0 ? pass('deployed-revision', `${rev.commit.slice(0, 12)} (${rev.branch}), clean`) : review('deployed-revision', `${rev.commit.slice(0, 12)} with local changes: ${dirty.slice(0, 5).join('; ')}`));
   }
+  // Same fixtures are enforced by fixture hashes; this catches other harness edits on the box (callShapes, worker).
+  const boxHarness = manifest.harness.srcTree;
+  const here = treeHash(path.join(HARNESS_DIR, 'src'));
+  const boxDirty = isUnavailable(manifest.harness.revision) ? [] : manifest.harness.revision.dirty.filter((l) => l.includes('pdf-validation/src'));
+  if (isUnavailable(boxHarness) || isUnavailable(here)) checks.push(review('harness-revision', 'harness source hash unavailable'));
+  else if (boxHarness.sha256 !== here.sha256 || boxDirty.length) {
+    checks.push(review('harness-revision', `box harness src ${boxHarness.sha256.slice(0, 12)}${boxDirty.length ? ` (local edits: ${boxDirty.join('; ')})` : ''}, verify harness ${here.sha256.slice(0, 12)}`));
+  } else checks.push(pass('harness-revision', `same harness source on both machines (${here.sha256.slice(0, 12)})`));
   const newer = manifest.deployed.build.sourcesNewerThanDist;
   checks.push(newer.length === 0 ? pass('deployed-build', `dist built ${manifest.deployed.build.distBuiltAt}`) : review('deployed-build', `dist may not match the checkout: ${newer.length} source file(s) are newer (${newer.slice(0, 3).join(', ')})`));
 

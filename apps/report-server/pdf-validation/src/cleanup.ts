@@ -14,7 +14,10 @@ export function listedKeys(runId: string, sources: { journalFile?: string; manif
   if (sources.journalFile && fs.existsSync(sources.journalFile)) {
     for (const line of fs.readFileSync(sources.journalFile, 'utf8').split('\n').filter(Boolean)) keys.add((JSON.parse(line) as { key: string }).key);
   }
-  for (const m of sources.manifests) for (const o of m?.objects ?? []) keys.add(o.key);
+  for (const m of sources.manifests) {
+    for (const o of m?.objects ?? []) keys.add(o.key);
+    for (const k of m?.attemptedKeys ?? []) keys.add(k);
+  }
   for (const key of keys) assertKeyInRun(key, runId);
   return [...keys].sort();
 }
@@ -46,7 +49,7 @@ export async function deleteListed(storage: Storage, runId: string, keys: string
 /** `cleanup --run-id <id>`: for interrupted or abandoned runs. Works on the box or the operator machine. */
 export async function cleanup(opts: { runId: string; runsDir: string; envFile: string }): Promise<number> {
   assertRunId(opts.runId);
-  const storage = new Storage(loadStorageConfig(opts.envFile).r2);
+  const storage = new Storage(loadStorageConfig(opts.envFile).r2, 60_000);
   const runDir = path.join(opts.runsDir, opts.runId);
   const readLocal = (file: string): RunManifest | null => (fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf8')) as RunManifest) : null);
   let remote: RunManifest | null = null;

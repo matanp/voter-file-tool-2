@@ -49,6 +49,8 @@ export type Acceptance = {
   page: number;
   candidateSha256: string;
   referenceSha256: string | null;
+  /** For a layout finding: the exact finding text accepted, so later findings on the page stay open. */
+  finding: string | null;
   reason: string;
   reviewer: string;
   runId: string;
@@ -84,7 +86,7 @@ export const findPageCount = (a: Approvals, fixtureId: string, fixtureHash: stri
 export function isAccepted(
   a: Approvals,
   kind: Acceptance['kind'],
-  q: { fixtureId: string; browser: BrowserName; page: number; candidateSha256: string; referenceSha256: string | null },
+  q: { fixtureId: string; browser: BrowserName; page: number; candidateSha256: string; referenceSha256: string | null; finding?: string },
 ): Acceptance | null {
   return (
     a.acceptances.find(
@@ -94,7 +96,7 @@ export function isAccepted(
         x.browser === q.browser &&
         x.page === q.page &&
         x.candidateSha256 === q.candidateSha256 &&
-        (kind === 'layout-finding' || x.referenceSha256 === q.referenceSha256),
+        (kind === 'layout-finding' ? x.finding === q.finding : x.referenceSha256 === q.referenceSha256),
     ) ?? null
   );
 }

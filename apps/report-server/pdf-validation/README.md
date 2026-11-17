@@ -23,6 +23,9 @@ pnpm -s run pdf-validation <command> [options]   # builds the harness (tsc), the
 
 - Validated: the deployed HTML generators, CSS, `generatePDFAndUpload`, the selected browser, upload
   to R2, and the PDFs' content, pagination, page sizes and rendering.
+- Checked: Committee Roster cells must appear in full, except in the columns a fixture explicitly
+  allows to truncate (`allowedTruncation`). This is checked on rosters of up to 60 members;
+  larger rosters check row tokens only.
 - Not validated: the frontend, the job queue, database queries and completion callbacks. The worker
   never loads `dist/index.js`, enqueues jobs, queries the database (its database URL can't connect)
   or sends callbacks.
@@ -59,8 +62,14 @@ R2_SECRET_ACCESS_KEY=
 ```
 
 Without `R2_BUCKET_NAME` in this file, the harness falls back to the service's bucket from
-`apps/report-server/.env`. Every key is still under `pdf-validation/<run-id>/`, and approved
-baselines go under `pdf-validation/baselines/`. The service's `.env` is never edited. Preflight
+`apps/report-server/.env`. Every run's keys are under `pdf-validation/<run-id>/`, and the service's
+`.env` is never edited.
+
+**Baselines are the one exception to the run prefix, by design.** `approve` copies approved PDFs to
+`pdf-validation/baselines/<sha256>.pdf`: they must outlive the run's cleanup, and they're
+content-addressed so `approvals.json` pins exact bytes. Nothing deletes them automatically. To
+retire one, remove its entry from `approvals.json`, then delete the object by hand once no entry
+references that hash. Preflight
 checks put, get, list and delete with a probe object.
 
 ### Browsers (box)
@@ -127,6 +136,13 @@ the run directory, the baseline cache and the compiled harness. Homebrew Poppler
      --item petition-10-long.shell --page 3 --reason "one word wraps differently; same lines"
    pnpm -s run pdf-validation approve --run-id <id> --reviewer "Your Name" --baselines --browser shell
    ```
+   To accept an LLM `defect` or `question` as intended layout, name the finding.
+   `--finding` must match exactly one finding on that page, and its full text is recorded, so a
+   later finding on the same page stays open:
+   ```bash
+   pnpm -s run pdf-validation accept --run-id <id> --reviewer "Your Name" --kind layout-finding \
+     --item changes-200.chrome --page 1 --finding "right 2.5in empty" --reason "portrait container; tracked separately"
+   ```
    If evidence was contaminated or checks failed, render again.
 
 ## Statuses
@@ -156,13 +172,22 @@ Fail takes precedence over needs-review, which takes precedence over pass. `summ
 | One download | 180 s | `verify --download-timeout-ms` |
 | A whole `render` | 60 min | `render --timeout-ms` |
 
-A timeout is a failed check. The harness kills only the worker it started and the Chrome process
-group that worker launched (Puppeteer starts Chrome as a group leader). It keeps the evidence. After
-each render it also checks that group for leftover processes.
+A timeout is a failed check, and the evidence is kept. The harness kills only processes it can
+attribute to the render:
+- the worker it started;
+- the Chrome process group that worker launched (Puppeteer starts Chrome as a group leader);
+- any process whose command line mentions the render's own `TMPDIR`. Puppeteer puts Chrome's
+  profile there, so this catches a Chrome that started before the worker could report its pid. The
+  service's Chrome never matches.
+
+After each render it checks for leftovers the same way. Any leftover fails the render.
+Every R2 request has the same per-case timeout. The end-of-run diagnostics and the evidence upload
+get their own deadline after the invocation timer stops.
 
 ## Cleanup and interrupted runs
 
-- `render` writes each R2 key to `runs/<run-id>/remote-keys.jsonl` before using it. Remote objects
+- `render` writes each R2 key to `runs/<run-id>/remote-keys.jsonl` and to the manifest's
+  `attemptedKeys` before using it. This covers a PDF uploaded by a render that then timed out. Remote objects
   stay in R2 until `verify` has downloaded and hash-checked all of them. `verify` then deletes
   exactly the manifest-listed objects (`--keep-remote` keeps them).
 - SIGINT or SIGTERM during `render` kills the current worker and its Chrome group, marks the
@@ -174,7 +199,7 @@ each render it also checks that group for leftover processes.
   pnpm -s run pdf-validation cleanup --run-id <run-id>
   pgrep -af 'chrome|headless_shell'   # anything left from the harness? The service's own Chrome only runs during jobs.
   ```
-  `cleanup` deletes only keys listed by that run's journal or manifests, all inside
+  `cleanup` deletes only keys listed by that run's journal or manifests (`objects` and `attemptedKeys`), all inside
   `pdf-validation/<run-id>/`. It reports anything else under that prefix without deleting it.
 - Local evidence is never deleted. Remove `pdf-validation/runs/<run-id>` by hand when done.
 

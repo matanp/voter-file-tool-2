@@ -1,5 +1,5 @@
 import { PAPER } from '../common';
-import { FIXED_DATE_LONG, edsOf, memberPhone, memberToken, members, range } from './shared';
+import { FIXED_DATE_LONG, edsOf, memberEmail, memberMailing, memberPhone, memberToken, members, range } from './shared';
 import type { CommitteeSpec, Expectations, Fixture, FixtureFamily, MemberSpec } from './types';
 
 /**
@@ -20,6 +20,12 @@ const HEADER: Record<RosterColumn, string> = {
 };
 const ALL: RosterColumn[] = ['name', 'address', 'mailingAddress', 'telephone', 'email'];
 const DEFAULT_PDF: RosterColumn[] = ['name', 'address', 'telephone'];
+/**
+ * With all five columns on Letter landscape, even an ordinary address, mailing address or email
+ * doesn't fit its one-line cell and ends in an ellipsis (observed in full Chrome and the shell).
+ * The phone column is fixed-width and must stay whole.
+ */
+const ALL_COLUMNS_TRUNCATE: RosterColumn[] = ['name', 'address', 'mailingAddress', 'email'];
 
 /** The job payload that turns exactly `columns` on (Name is always on). */
 function rosterSelection(columns: RosterColumn[]) {
@@ -78,6 +84,29 @@ export function expectedCommitteePages(committees: CommitteeSpec[]): ExpectedPag
   return pages;
 }
 
+/** A member's cell text per roster column, written out independently of the compound-field helpers. */
+function cellValue(m: MemberSpec, column: RosterColumn): string {
+  switch (column) {
+    case 'name':
+      return memberToken(m.n);
+    case 'address':
+      return `${m.houseNum ?? m.n} ${m.street ?? 'MAIN ST'}, ROCHESTER, NY 14604`;
+    case 'telephone':
+      return memberPhone(m) ?? '';
+    case 'email':
+      return memberEmail(m) ?? '';
+    case 'mailingAddress': {
+      const ml = memberMailing(m);
+      if (!ml) return '';
+      const tail = [[ml.city, ml.state].filter(Boolean).join(', '), ml.zip].filter(Boolean).join(' ');
+      return [...ml.lines, tail].filter(Boolean).join(', ');
+    }
+  }
+}
+
+/** Small rosters: every non-blank cell in a column that may not truncate must appear in full. */
+const FULL_VALUE_LIMIT = 60;
+
 function committeeExpectations(
   committees: CommitteeSpec[],
   opts: { columns?: RosterColumn[]; extraRequired?: string[]; forbidden?: string[]; allowedTruncation?: RosterColumn[]; reviewNotes?: string[] },
@@ -86,13 +115,22 @@ function committeeExpectations(
   const tokens = pages.flatMap((p) => p.tokens);
   const headers = opts.columns ? ['Serve ED', ...opts.columns.map((c) => HEADER[c])] : ['Serve ED', 'Name', 'Address', 'City', 'State', 'Zip', 'Phone'];
   const forbiddenHeaders = opts.columns ? ALL.filter((c) => !opts.columns!.includes(c)).map((c) => HEADER[c]) : [];
+  const allMembers = committees.flatMap((c) => c.members);
+  const fullValues =
+    opts.columns && allMembers.length <= FULL_VALUE_LIMIT
+      ? opts.columns
+          // Name cells start with the row token, which token-counts already asserts exactly once.
+          .filter((c) => c !== 'name' && !(opts.allowedTruncation ?? []).includes(c))
+          .flatMap((c) => allMembers.map((m) => cellValue(m, c)))
+          .filter(Boolean)
+      : [];
   return {
     paper: PAPER.letterLandscape,
     pages: pages.length,
     pageTokens: pages.map((p) => p.tokens),
     tokenCounts: Object.fromEntries(tokens.map((t) => [t, 1])),
     orderedTokens: tokens,
-    required: [TITLE, FIXED_DATE_LONG, ...(opts.extraRequired ?? [])],
+    required: [TITLE, FIXED_DATE_LONG, ...fullValues, ...(opts.extraRequired ?? [])],
     requiredOnPage: pages.flatMap((p, i) => [
       { page: i + 1, text: p.label },
       { page: i + 1, text: headers.join(' ') },
@@ -117,12 +155,13 @@ function rosterFixture(
   committees: CommitteeSpec[],
   opts: Parameters<typeof committeeExpectations>[1] = {},
 ): Fixture {
+  const allowedTruncation = opts.allowedTruncation ?? (columns.length === ALL.length ? ALL_COLUMNS_TRUNCATE : undefined);
   return {
     id,
     tier,
     purpose,
     input: { jobType: 'committeeRoster', committees, ...rosterSelection(columns) },
-    expect: committeeExpectations(committees, { ...opts, columns }),
+    expect: committeeExpectations(committees, { ...opts, columns, allowedTruncation }),
   };
 }
 

@@ -3,15 +3,16 @@
  * after reading the run's summary, images, diffs and LLM findings; the harness never approves.
  *
  *   approve --run-id <id> --reviewer <name> --baselines [--page-counts] [--fixtures a,b] [--browser chrome]
- *   accept  --run-id <id> --reviewer <name> --kind visual-change|layout-finding --item <fixture>.<browser> --page <n> --reason <text>
+ *   accept  --run-id <id> --reviewer <name> --kind visual-change|layout-finding --item <fixture>.<browser> --page <n> --reason <text> [--finding <text>]
  */
 import fs from 'fs';
 import path from 'path';
 import { loadApprovals, saveApprovals, type Acceptance, type BaselineEntry } from './approvals';
-import { baselineKey, readJson, runPrefix, sha256File, type BrowserName } from './common';
+import { CHECKLIST_FILE, baselineKey, readJson, runPrefix, sha256File, type BrowserName } from './common';
 import { isUnavailable } from './diagnostics';
 import { fixtureById } from './fixtures';
 import type { Inspection } from './inspect';
+import { loadReview } from './llmReview';
 import type { RunManifest } from './manifest';
 import { Storage, loadStorageConfig } from './storage';
 import type { VerifyResults } from './verify';
@@ -104,15 +105,27 @@ export async function approve(opts: {
   return 0;
 }
 
-export function accept(opts: { runId: string; runsDir: string; reviewer: string; kind: Acceptance['kind']; item: string; page: number; reason: string }): number {
+export function accept(opts: { runId: string; runsDir: string; reviewer: string; kind: Acceptance['kind']; item: string; page: number; reason: string; finding: string | null }): number {
   if (!opts.reviewer.trim() || !opts.reason.trim()) throw new Error('--reviewer and --reason are required');
-  const { results } = load(opts.runsDir, opts.runId);
+  const { runDir, results } = load(opts.runsDir, opts.runId);
   const item = results.items.find((i) => i.id === opts.item);
   if (!item?.candidateSha256) throw new Error(`No verified render ${opts.item} in ${opts.runId}`);
   if (!Number.isInteger(opts.page) || opts.page < 1 || opts.page > item.pages) throw new Error(`${opts.item} has pages 1-${item.pages}`);
   if (opts.kind === 'visual-change' && !item.reference.sha256) throw new Error(`${opts.item} has no reference to accept a visual change against`);
   const contentFailures = item.checks.filter((c) => c.status === 'fail' && !['llm-defects', ...SUPERSEDED_BY_APPROVAL].includes(c.id));
   if (contentFailures.length) throw new Error(`${opts.item} fails ${contentFailures.map((c) => c.id).join(', ')}: missing or duplicated content can't be waived`);
+  let finding: string | null = null;
+  if (opts.kind === 'layout-finding') {
+    // Tie the acceptance to one finding's exact text, so a new finding on the same page stays open.
+    const review = loadReview(path.join(runDir, 'llm-review.json'), opts.runId, CHECKLIST_FILE);
+    if (review.state !== 'ok') throw new Error(`llm-review.json is ${review.state}`);
+    const onPage = review.review.findings.filter((f) => f.fixture === item.fixtureId && f.browser === item.browser && f.page === opts.page && f.severity !== 'none');
+    const matches = opts.finding ? onPage.filter((f) => f.finding.includes(opts.finding!)) : onPage;
+    if (matches.length !== 1) {
+      throw new Error(`--finding must pick exactly one finding on that page; candidates:\n${onPage.map((f) => `  [${f.severity}] ${f.finding}`).join('\n') || '  (none)'}`);
+    }
+    finding = matches[0]!.finding;
+  }
   const approvals = loadApprovals();
   approvals.acceptances.push({
     kind: opts.kind,
@@ -121,6 +134,7 @@ export function accept(opts: { runId: string; runsDir: string; reviewer: string;
     page: opts.page,
     candidateSha256: item.candidateSha256,
     referenceSha256: opts.kind === 'visual-change' ? item.reference.sha256 : null,
+    finding,
     reason: opts.reason,
     reviewer: opts.reviewer,
     runId: opts.runId,

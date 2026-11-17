@@ -48,7 +48,8 @@ export class Storage {
   private readonly client: S3Client;
   readonly bucket: string;
 
-  constructor(r2: R2Config) {
+  /** Every request is bounded, so a stalled R2 call can't hang render, verify or cleanup. */
+  constructor(r2: R2Config, private readonly timeoutMs = 180_000) {
     this.bucket = r2.R2_BUCKET_NAME;
     this.client = new S3Client({
       region: 'auto',
@@ -59,7 +60,7 @@ export class Storage {
   }
 
   async put(key: string, body: Buffer | string, contentType: string): Promise<void> {
-    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }));
+    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }), this.signal());
   }
 
   async get(key: string, timeoutMs: number): Promise<Buffer> {
@@ -80,7 +81,7 @@ export class Storage {
     const keys: string[] = [];
     let token: string | undefined;
     do {
-      const page = await this.client.send(new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: token }));
+      const page = await this.client.send(new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: token }), this.signal());
       for (const o of page.Contents ?? []) if (o.Key) keys.push(o.Key);
       token = page.IsTruncated ? page.NextContinuationToken : undefined;
     } while (token);
@@ -88,6 +89,10 @@ export class Storage {
   }
 
   async delete(key: string): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }), this.signal());
+  }
+
+  private signal() {
+    return { abortSignal: AbortSignal.timeout(this.timeoutMs) };
   }
 }

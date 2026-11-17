@@ -94,7 +94,14 @@ describe('contentChecks', () => {
 describe('evaluateItem', () => {
   const fixture = fixtureById('roster-quick');
   const pages = idealPages(fixture);
-  const facts: PdfFacts = { readable: true, pages: 1, pageSizes: sizes(fixture, 1), fonts: [{ name: 'ArialMT', type: 'CID TrueType', embedded: true }], normalizedPages: pages };
+  const facts: PdfFacts = {
+    readable: true,
+    pages: 1,
+    pageSizes: sizes(fixture, 1),
+    fonts: [{ name: 'ArialMT', type: 'CID TrueType', embedded: true }],
+    normalizedPages: pages,
+    normalizedRawOrderPages: pages,
+  };
   const record: RenderRecord = {
     fixtureId: fixture.id,
     fixtureHash: fixture.hash,
@@ -163,17 +170,20 @@ describe('evaluateItem', () => {
     expect(evaluateItem(input({ llm })).status).toBe('fail');
     const approvals: Approvals = {
       ...EMPTY_APPROVALS,
-      acceptances: [{ kind: 'layout-finding', fixtureId: fixture.id, browser: 'shell', page: 1, candidateSha256: 'cand', referenceSha256: null, reason: 'known', reviewer: 'a', runId: 'r', acceptedAt: 't' }],
+      acceptances: [{ kind: 'layout-finding', fixtureId: fixture.id, browser: 'shell', page: 1, candidateSha256: 'cand', referenceSha256: null, finding: 'footer overlaps', reason: 'known', reviewer: 'a', runId: 'r', acceptedAt: 't' }],
     };
     expect(evaluateItem(input({ llm, approvals })).status).toBe('pass');
     expect(evaluateItem(input({ llm, approvals, record: { ...record, sha256: 'other' } })).status).toBe('fail');
+    // A different finding on the same page is not covered by that acceptance.
+    const another = cleanReview([{ fixture: fixture.id, browser: 'shell', page: 1, severity: 'defect', finding: 'row clipped' }]);
+    expect(evaluateItem(input({ llm: another, approvals })).status).toBe('fail');
   });
 
   it('needs review for visual changes until a reviewer accepts them for this candidate and reference', () => {
     expect(evaluateItem(input({ inspection: inspection(5) })).status).toBe('needs-review');
     const approvals: Approvals = {
       ...EMPTY_APPROVALS,
-      acceptances: [{ kind: 'visual-change', fixtureId: fixture.id, browser: 'shell', page: 1, candidateSha256: 'cand', referenceSha256: 'ref', reason: 'glyph advances', reviewer: 'a', runId: 'r', acceptedAt: 't' }],
+      acceptances: [{ kind: 'visual-change', fixtureId: fixture.id, browser: 'shell', page: 1, candidateSha256: 'cand', referenceSha256: 'ref', finding: null, reason: 'glyph advances', reviewer: 'a', runId: 'r', acceptedAt: 't' }],
     };
     expect(evaluateItem(input({ inspection: inspection(5), approvals })).status).toBe('pass');
   });
@@ -194,8 +204,30 @@ describe('evaluateItem', () => {
     expect(evaluateItem(input({ record: { ...record, status: 'failed', checks: [{ id: 'completed', ok: false, detail: 'timeout' }] } })).status).toBe('fail');
   });
 
+  it('fails a render that was never inspected', () => {
+    expect(evaluateItem(input({ inspection: null })).checks.find((c) => c.id === 'inspection')?.status).toBe('fail');
+  });
+
   it('needs review without any baseline', () => {
     expect(evaluateItem(input({ reference: { kind: 'none' } })).status).toBe('needs-review');
+  });
+});
+
+describe('required text across extractions', () => {
+  const changes = fixtureById('changes-quick');
+
+  it('finds a wrapped cell in raw-order text when -layout interleaves it', () => {
+    const layout = idealPages(changes).map((p) => p.replace('Feb 23, 2026', 'Feb CHG00004 23, BRIGHTON 2026'));
+    const raw = idealPages(changes);
+    expect(byId(contentChecks(changes, layout, EMPTY_APPROVALS, sizes(changes, 1), []), 'required-text')?.status).toBe('fail');
+    expect(byId(contentChecks(changes, layout, EMPTY_APPROVALS, sizes(changes, 1), [], raw), 'required-text')?.status).toBe('pass');
+  });
+
+  it('does not match "Sheet No. 1" inside "Sheet No. 10"', () => {
+    const petition = fixtureById('petition-10-long');
+    const pages = idealPages(petition);
+    pages[0] = pages[0]!.replace('Sheet No. 1', 'Sheet No. 10');
+    expect(byId(contentChecks(petition, pages, EMPTY_APPROVALS, sizes(petition, 10), []), 'page-text')?.status).toBe('fail');
   });
 });
 

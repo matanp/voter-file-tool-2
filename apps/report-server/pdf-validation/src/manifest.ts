@@ -63,6 +63,11 @@ export type RunManifest = {
   fixtures: { id: string; hash: string; family: string; jobType: string; tier: string }[];
   renders: RenderRecord[];
   objects: RemoteObject[];
+  /**
+   * Every key render wrote or started to write, verified or not (e.g. a PDF uploaded by a render
+   * that then timed out in browser.close()). Cleanup deletes these too.
+   */
+  attemptedKeys: string[];
 };
 
 export type { R2Config };
