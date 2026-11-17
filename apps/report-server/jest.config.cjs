@@ -8,5 +8,5 @@ module.exports = {
     "^.+\\.(ts|tsx)$": "ts-jest",
   },
   moduleNameMapper: {},
-  roots: ["<rootDir>/src"],
+  roots: ["<rootDir>/src", "<rootDir>/pdf-validation/src"],
 };
