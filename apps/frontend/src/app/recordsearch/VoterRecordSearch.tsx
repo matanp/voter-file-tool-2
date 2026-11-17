@@ -154,11 +154,6 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
           </div>
         )}
 
-        {/* Right under the search box in both modes, so it's easy to find again. */}
-        <div className={`flex justify-center ${isSimple ? "pb-8" : ""}`}>
-          <ModeToggle mode={mode} onModeChange={switchMode} />
-        </div>
-
         {!isSimple && (
           <>
             <fieldset className="m-0 min-w-0 border-0 p-0">
@@ -188,7 +183,7 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             </fieldset>
 
             <div
-              className="flex flex-wrap items-center justify-center gap-4 pb-8"
+              className="flex flex-wrap items-center justify-center gap-4"
               role="group"
               aria-label={SEARCH_CONFIG.ariaLabels.searchActions}
             >
@@ -222,6 +217,11 @@ const VoterRecordSearch: React.FC<VoterRecordSearchProps> = (props) => {
             </div>
           </>
         )}
+
+        {/* Below the search and its buttons in both modes, on its own line. */}
+        <div className="flex justify-center pb-8">
+          <ModeToggle mode={mode} onModeChange={switchMode} />
+        </div>
       </form>
 
       {/* Screen reader announcements */}
