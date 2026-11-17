@@ -345,13 +345,6 @@ export const mockSearchFields = {
     id: "mock-city-1",
   },
 
-  // Hidden fields
-  CC_WD_Village: {
-    ...findBaseSearchFieldInCompound("cityTown", "CC_WD_Village")!,
-    value: undefined,
-    id: "mock-ccwdvillage-1",
-  },
-
   // Empty field
   empty: {
     ...EMPTY_FIELD,
@@ -374,7 +367,7 @@ export const mockCompoundFields = {
   },
   cityTown: {
     ...findCompoundSearchFieldByName("cityTown")!,
-    fields: [mockSearchFields.city, mockSearchFields.CC_WD_Village],
+    fields: [mockSearchFields.city],
     id: "mock-compound-citytown-1",
   },
   district: {

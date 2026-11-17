@@ -1,8 +1,16 @@
+/** Nav items that show a live count after their label. */
+export type AdminNavCountKey = "pendingReview";
+
+/** Live counts shown after a nav item's label, keyed by the item's `countKey`. */
+export type AdminNavCounts = Partial<Record<AdminNavCountKey, number>>;
+
 export interface AdminNavItem {
   id: string;
   label: string;
   href: string;
   enabled: boolean;
+  /** Set when the sidebar appends a live count to this item's label. */
+  countKey?: AdminNavCountKey;
 }
 
 export interface AdminNavGroup {
@@ -81,6 +89,14 @@ export const adminSidebarGroups: AdminNavGroup[] = [
         label: "Eligibility Flags",
         href: "/admin/eligibility-flags",
         enabled: true,
+      },
+      {
+        // Submissions and Exit Reports awaiting a decision. Lives outside /admin.
+        id: "pending-review",
+        label: "Pending review",
+        href: "/committees/requests",
+        enabled: true,
+        countKey: "pendingReview",
       },
     ],
   },

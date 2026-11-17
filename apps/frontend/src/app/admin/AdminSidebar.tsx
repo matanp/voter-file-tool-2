@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, use, useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -16,6 +16,8 @@ import {
 import {
   adminSidebarConfig,
   adminSidebarGroups,
+  type AdminNavCountKey,
+  type AdminNavCounts,
   type AdminNavItem,
 } from "~/config/adminNav";
 import { cn } from "~/lib/utils";
@@ -25,7 +27,25 @@ function isActive(item: AdminNavItem, pathname: string | null): boolean {
   return pathname.startsWith(item.href);
 }
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+/** " (N)" after an item's label once its count arrives; nothing if it has none. */
+function NavItemCount({
+  countsPromise,
+  countKey,
+}: {
+  countsPromise: Promise<AdminNavCounts>;
+  countKey: AdminNavCountKey;
+}) {
+  const count = use(countsPromise)[countKey];
+  return count === undefined ? null : <> ({count})</>;
+}
+
+function SidebarNav({
+  countsPromise,
+  onNavigate,
+}: {
+  countsPromise?: Promise<AdminNavCounts>;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
@@ -50,6 +70,14 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   )}
                 >
                   {item.label}
+                  {countsPromise && item.countKey && (
+                    <Suspense fallback={null}>
+                      <NavItemCount
+                        countsPromise={countsPromise}
+                        countKey={item.countKey}
+                      />
+                    </Suspense>
+                  )}
                 </Link>
               ) : (
                 <span
@@ -74,7 +102,15 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AdminSidebar() {
+/**
+ * `countsPromise` resolves after the page renders, so the sidebar shows bare
+ * labels first and fills in counts without holding up the layout.
+ */
+export function AdminSidebar({
+  countsPromise,
+}: {
+  countsPromise?: Promise<AdminNavCounts>;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -84,9 +120,14 @@ export function AdminSidebar() {
   }, [pathname]);
 
   // Eager prefetch all admin routes when sidebar mounts so navigation feels instant.
+  // Only /admin routes: router.prefetch() is a full prefetch that Next reuses for
+  // up to 5 minutes, so prefetching an outside queue like /committees/requests
+  // would run its queries on every visit and could show a stale queue.
   useEffect(() => {
     for (const item of adminSidebarConfig) {
-      if (item.enabled) router.prefetch(item.href);
+      if (item.enabled && item.href.startsWith("/admin/")) {
+        router.prefetch(item.href);
+      }
     }
   }, [router]);
 
@@ -105,7 +146,10 @@ export function AdminSidebar() {
               <SheetTitle>Admin</SheetTitle>
             </SheetHeader>
             <div className="mt-4">
-              <SidebarNav onNavigate={() => setOpen(false)} />
+              <SidebarNav
+                countsPromise={countsPromise}
+                onNavigate={() => setOpen(false)}
+              />
             </div>
           </SheetContent>
         </Sheet>
@@ -114,7 +158,7 @@ export function AdminSidebar() {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30 p-4 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">Admin</h2>
-        <SidebarNav />
+        <SidebarNav countsPromise={countsPromise} />
       </aside>
     </>
   );

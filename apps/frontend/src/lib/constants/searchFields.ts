@@ -81,12 +81,6 @@ export const SEARCH_FIELDS: SearchField[] = [
         type: "CityTown",
         allowMultiple: false,
       },
-      {
-        name: "CC_WD_Village",
-        displayName: "CC WD Village",
-        compoundType: false,
-        type: "Hidden",
-      },
     ],
   },
 

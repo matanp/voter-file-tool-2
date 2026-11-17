@@ -7,6 +7,7 @@ import {
   extractFieldValue,
   applyCompoundFields,
   type CompoundFieldConfig,
+  VILLAGE_WARD_LABEL,
 } from '@voter-file-tool/shared-validators';
 import {
   uploadXLSXBuffer,
@@ -86,6 +87,7 @@ const DEFAULT_COLUMN_HEADERS: Record<string, string> = {
   street: 'Street',
   apartment: 'Apartment',
   city: 'City',
+  CC_WD_Village: VILLAGE_WARD_LABEL,
   state: 'State',
   zipCode: 'ZIP Code',
   telephone: 'Phone',
@@ -100,6 +102,20 @@ const DEFAULT_COLUMN_HEADERS: Record<string, string> = {
   originalRegDate: 'Original Registration Date',
   addressForCommittee: 'Address for Committee',
 };
+
+/**
+ * Merges the leader's custom headers over the defaults, field by field. A
+ * field the leader left blank keeps its default instead of the raw field name.
+ */
+export function resolveColumnHeaders(
+  custom: ColumnHeaders = {}
+): ColumnHeaders {
+  const headers: ColumnHeaders = { ...DEFAULT_COLUMN_HEADERS };
+  for (const [field, header] of Object.entries(custom)) {
+    if (header.trim()) headers[field] = header;
+  }
+  return headers;
+}
 
 // Field width configuration
 const FIELD_WIDTHS: FieldWidths = {
@@ -164,8 +180,9 @@ export async function generateUnifiedXLSXAndUpload(
     selectedFields = [],
     includeCompoundFields = { name: true, address: true },
     columnOrder = DEFAULT_COLUMN_ORDER,
-    columnHeaders = DEFAULT_COLUMN_HEADERS,
+    columnHeaders: customColumnHeaders,
   } = config;
+  const columnHeaders = resolveColumnHeaders(customColumnHeaders);
 
   const workbook = createWorkbook();
 

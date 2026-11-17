@@ -25,13 +25,6 @@ export const SearchRow: React.FC<SearchRowComponentProps> = (props) => {
           allowMultiple: false,
           value: undefined,
         },
-        {
-          name: "CC_WD_Village",
-          displayName: "CC WD Village",
-          compoundType: false,
-          type: "Hidden",
-          value: undefined,
-        },
       ],
     };
     setCurrentRow(newRow);

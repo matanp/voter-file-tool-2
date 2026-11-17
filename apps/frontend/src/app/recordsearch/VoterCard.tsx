@@ -1,8 +1,14 @@
 import React from "react";
 import type { MembershipType, VoterRecord } from "@prisma/client";
 
+import { VILLAGE_WARD_LABEL } from "@voter-file-tool/shared-validators";
+
 import { Badge } from "~/components/ui/badge";
-import { getAddress } from "~/lib/voterRecordFormatters";
+import {
+  getAddress,
+  getTown,
+  getVillageWard,
+} from "~/lib/voterRecordFormatters";
 
 /** SRS 2.1a — optional submission contact overrides (prefer over voter record when displaying committee member). */
 export type SubmissionContactOverrides = {
@@ -28,6 +34,7 @@ export const VoterCard = ({
   // SRS 2.1a: Prefer submission contact over voter record (BOE imports overwrite VoterRecord; submission preserves leader-provided contact).
   const displayEmail = submissionMetadata?.email ?? record.email;
   const displayPhone = submissionMetadata?.phone ?? record.telephone;
+  const villageWard = getVillageWard(record);
 
   return (
     <div className="max-w-lg mx-auto bg-white rounded-lg p-4">
@@ -71,8 +78,13 @@ export const VoterCard = ({
             <span>City:</span> {record.city}
           </p>
           <p>
-            <span>Town:</span> {record.CC_WD_Village ?? "-"}
+            <span>Town:</span> {getTown(record) ?? "-"}
           </p>
+          {villageWard && (
+            <p>
+              <span>{VILLAGE_WARD_LABEL}:</span> {villageWard}
+            </p>
+          )}
           <p>
             <span>State:</span> {record.state}
           </p>

@@ -6,6 +6,7 @@
  */
 
 import type { Prisma } from "@prisma/client";
+import prisma from "~/lib/prisma";
 import {
   ACTIVE_MEMBERSHIP_STATUS,
   PENDING_MEMBERSHIP_STATUS,
@@ -37,6 +38,11 @@ export function pendingItemsWhere(
     termId,
     OR: [{ status: PENDING_MEMBERSHIP_STATUS }, exitReportOnRow],
   };
+}
+
+/** How many items are pending in a term (`pendingItemsWhere`). */
+export function countPendingItems(termId: string): Promise<number> {
+  return prisma.committeeMembership.count({ where: pendingItemsWhere(termId) });
 }
 
 export const PENDING_EXIT_REPORT_INCLUDE = {

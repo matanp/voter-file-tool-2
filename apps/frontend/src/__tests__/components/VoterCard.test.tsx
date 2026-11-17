@@ -51,4 +51,47 @@ describe("VoterCard", () => {
       screen.getByText("Election District:").parentElement,
     ).toHaveTextContent("Election District: -");
   });
+
+  it("shows the town name and code from townCode, not the village code", () => {
+    render(
+      <VoterCard
+        record={createMockVoterRecord({
+          townCode: "095",
+          CC_WD_Village: "00",
+        })}
+      />,
+    );
+    expect(screen.getByText("Town:").parentElement).toHaveTextContent(
+      "Town: WEBSTER (095)",
+    );
+    expect(screen.queryByText("Village / Ward:")).not.toBeInTheDocument();
+  });
+
+  it("shows the village or ward when the voter is in one", () => {
+    render(
+      <VoterCard
+        record={createMockVoterRecord({
+          townCode: "095",
+          CC_WD_Village: "WE",
+        })}
+      />,
+    );
+    expect(screen.getByText("Village / Ward:").parentElement).toHaveTextContent(
+      "Village / Ward: WE",
+    );
+  });
+
+  it("shows an unknown town code as-is", () => {
+    render(<VoterCard record={createMockVoterRecord({ townCode: "999" })} />);
+    expect(screen.getByText("Town:").parentElement).toHaveTextContent(
+      "Town: 999",
+    );
+  });
+
+  it("shows a dash when the town code is missing", () => {
+    render(<VoterCard record={createMockVoterRecord({ townCode: null })} />);
+    expect(screen.getByText("Town:").parentElement).toHaveTextContent(
+      "Town: -",
+    );
+  });
 });
