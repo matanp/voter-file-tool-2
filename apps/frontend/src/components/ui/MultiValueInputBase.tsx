@@ -9,6 +9,7 @@ import {
   SEARCH_INPUT_MIN_WIDTH,
   SEARCH_BADGE_MAX_WIDTH,
 } from "~/lib/constants/sizing";
+import { ADDS_CHIP_ON_BLUR_ATTR } from "~/lib/pendingChip";
 
 interface MultiValueInputBaseProps
   extends Omit<
@@ -166,6 +167,7 @@ export const MultiValueInputBase = React.forwardRef<
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             className={cn(SEARCH_INPUT_MIN_WIDTH, inputClassName)}
+            {...(autoAddOnBlur ? { [ADDS_CHIP_ON_BLUR_ATTR]: "" } : {})}
             {...inputProps}
           />
           {children}

@@ -17,9 +17,16 @@ import { Badge } from "./badge";
 import { Button } from "./button";
 import Link from "next/link";
 import { jurisdictionLabel } from "~/lib/invites/display";
+import { cn } from "~/lib/utils";
 
-type ManageProfileButtonProps = {
+type ProfileSheetProps = {
   session: Session;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** A `ViewProfileTrigger` (in any wrapper) that opens the sheet. */
+  trigger?: React.ReactNode;
+  /** Overrides where focus goes on close, which is the trigger by default. */
+  onCloseAutoFocus?: (event: Event) => void;
 };
 
 type PendingInvite = {
@@ -33,12 +40,52 @@ type PendingInvite = {
   }>;
 };
 
-export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
+/** The "View Profile" button that opens a `ProfileSheet`. Use inside the sheet's `trigger`. */
+export const ViewProfileTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement>
+>(({ className, ...props }, ref) => (
+  <SheetTrigger asChild>
+    <button
+      ref={ref}
+      type="button"
+      className={cn(
+        "bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center",
+        className,
+      )}
+      {...props}
+    >
+      View Profile
+    </button>
+  </SheetTrigger>
+));
+ViewProfileTrigger.displayName = "ViewProfileTrigger";
+
+/** A "View Profile" button with its own profile sheet. */
+export const ManageProfileButton: React.FC<{ session: Session }> = ({
   session,
+}) => {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <ProfileSheet
+      session={session}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={<ViewProfileTrigger />}
+    />
+  );
+};
+
+/** The signed-in user's profile, invite and sign-out sheet, opened and closed by its owner. */
+export const ProfileSheet: React.FC<ProfileSheetProps> = ({
+  session,
+  open,
+  onOpenChange,
+  trigger,
+  onCloseAutoFocus,
 }) => {
   const { actingPermissions, setActingPermissions } =
     React.useContext(GlobalContext);
-  const [open, setOpen] = React.useState(false);
   const [pendingInvite, setPendingInvite] =
     React.useState<PendingInvite | null>(null);
   const [pendingInviteLoading, setPendingInviteLoading] = React.useState(false);
@@ -72,14 +119,9 @@ export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
   const textStyles = "text-lg py-1";
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger>
-        <h1 className="bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center align-items">
-          View Profile
-        </h1>
-        {/* <Button variant={"outline"}>View Profile</Button> */}
-      </SheetTrigger>
-      <SheetContent>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      {trigger}
+      <SheetContent onCloseAutoFocus={onCloseAutoFocus}>
         <div className="flex items-center justify-between absolute top-4 left-6 right-16">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
             Open Source Politics

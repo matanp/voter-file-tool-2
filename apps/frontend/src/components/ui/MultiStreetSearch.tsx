@@ -9,8 +9,8 @@ import {
 import { cn } from "~/lib/utils";
 import { useDebouncedValue } from "~/hooks/useDebouncedValue";
 import {
-  SEARCH_DROPDOWN_WIDTH,
   SEARCH_BADGE_CONTAINER_MAX_WIDTH,
+  SEARCH_DROPDOWN_WIDTH_FROM_SM,
 } from "~/lib/constants/sizing";
 
 export interface MultiStreetSearchProps {
@@ -157,7 +157,9 @@ export function MultiStreetSearch({
         value={value}
         onChange={onChange}
         inputClassName={cn(
-          SEARCH_DROPDOWN_WIDTH,
+          // Full width in a stacked criteria row below sm, like the other text inputs.
+          "w-full",
+          SEARCH_DROPDOWN_WIDTH_FROM_SM,
           debouncedSearch !== "" &&
             matches.length === 0 &&
             inputValue !== "" &&

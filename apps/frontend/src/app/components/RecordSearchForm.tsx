@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
-import { useWindowSize } from "~/hooks/useWindowSize";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import { useToast } from "~/components/ui/use-toast";
 import {
@@ -37,7 +36,6 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
   optionalExtraSearchUnavailableReason,
   useFormElement = true,
 }) => {
-  const { width } = useWindowSize();
   const { toast } = useToast();
   const [voterId, setVoterId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
@@ -125,10 +123,11 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
     <>
       {headerText && <h1 className="primary-header">{headerText}</h1>}
       <ContainerElement
-        className="lg:w-max w-4/5 bg-primary-foreground p-4"
+        className="w-full max-w-full bg-primary-foreground p-4 sm:w-4/5 lg:w-max"
         {...containerProps}
       >
-        <div className="flex gap-4 items-center">
+        {/* Stacked below sm; one row from sm up. */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           <label className="sr-only" htmlFor="voter-id">
             Voter ID
           </label>
@@ -136,7 +135,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             id="voter-id"
             type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-            placeholder={width > 760 ? `Enter Voter ID` : "Voter ID"}
+            placeholder="Voter ID"
             autoComplete="off"
             inputMode="numeric"
             pattern="[0-9]*"
@@ -149,7 +148,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             id="first-name"
             type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-            placeholder={width > 760 ? `Enter First Name` : "First Name"}
+            placeholder="First Name"
             autoComplete="given-name"
             onChange={(e) => setFirstName(e.target.value)}
           />
@@ -160,7 +159,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
             id="last-name"
             type="text"
             className="form-control h-10 p-2 ring-ring focus:ring-1 focus:ring-inset"
-            placeholder={width > 760 ? `Enter Last Name` : "Last Name"}
+            placeholder="Last Name"
             autoComplete="family-name"
             onChange={(e) => setLastName(e.target.value)}
           />

@@ -9,7 +9,8 @@ export interface FieldConfig {
   name: string;
   head: string;
   size: string;
-  cell: (record: VoterRecord) => React.ReactNode;
+  /** What the field shows for one record, in a table cell (from md) or on a result card (below md). */
+  value: (record: VoterRecord) => React.ReactNode;
   skeletonCell: (index: number) => React.ReactNode;
 }
 
@@ -18,11 +19,7 @@ export const fields: FieldConfig[] = [
   //   name: "VRCNUM",
   //   head: "Voter ID",
   //   size: "w-[15ch]",
-  //   cell: (record: VoterRecord) => (
-  //     <TableCell key={`${record.VRCNUM}-vrcnum`}>
-  //       {record.VRCNUM}
-  //     </TableCell>
-  //   ),
+  //   value: (record: VoterRecord) => record.VRCNUM,
   //   skeletonCell: (index: number) => (
   //     <TableCell key={`skeleton-vrcnum-${index}`}>
   //       <Skeleton className="h-[1rem] w-[10ch]" />
@@ -33,11 +30,7 @@ export const fields: FieldConfig[] = [
   //   name: "firstName",
   //   head: "First Name",
   //   size: "w-[20ch]",
-  //   cell: (record: VoterRecord) => (
-  //     <TableCell key={`${record.VRCNUM}-firstName`}>
-  //       {record.firstName}
-  //     </TableCell>
-  //   ),
+  //   value: (record: VoterRecord) => record.firstName,
   //   skeletonCell: (index: number) => (
   //     <TableCell key={`skeleton-firstName-${index}`}>
   //       <Skeleton className="h-[1rem] w-[12ch]" />
@@ -48,11 +41,7 @@ export const fields: FieldConfig[] = [
   //   name: "lastName",
   //   head: "Last Name",
   //   size: "w-[20ch]",
-  //   cell: (record: VoterRecord) => (
-  //     <TableCell key={`${record.VRCNUM}-lastName`}>
-  //       {record.lastName}
-  //     </TableCell>
-  //   ),
+  //   value: (record: VoterRecord) => record.lastName,
   //   skeletonCell: (index: number) => (
   //     <TableCell key={`skeleton-lastName-${index}`}>
   //       <Skeleton className="h-[1rem] w-[12ch]" />
@@ -63,11 +52,7 @@ export const fields: FieldConfig[] = [
   //   name: "middleInitial",
   //   head: "Middle Initial",
   //   size: "w-[15ch]",
-  //   cell: (record: VoterRecord) => (
-  //     <TableCell key={`${record.VRCNUM}-middleInitial`}>
-  //       {record.middleInitial}
-  //     </TableCell>
-  //   ),
+  //   value: (record: VoterRecord) => record.middleInitial,
   //   skeletonCell: (index: number) => (
   //     <TableCell key={`skeleton-middleInitial-${index}`}>
   //       <Skeleton className="h-[1rem] w-[8ch]" />
@@ -78,11 +63,7 @@ export const fields: FieldConfig[] = [
   //   name: "suffixName",
   //   head: "Suffix Name",
   //   size: "w-[15ch]",
-  //   cell: (record: VoterRecord) => (
-  //     <TableCell key={`${record.VRCNUM}-suffixName`}>
-  //       {record.suffixName}
-  //     </TableCell>
-  //   ),
+  //   value: (record: VoterRecord) => record.suffixName,
   //   skeletonCell: (index: number) => (
   //     <TableCell key={`skeleton-suffixName-${index}`}>
   //       <Skeleton className="h-[1rem] w-[8ch]" />
@@ -93,9 +74,7 @@ export const fields: FieldConfig[] = [
     name: "houseNum",
     head: "House Number",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-houseNum`}>{record.houseNum}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.houseNum,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-houseNum-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -106,9 +85,7 @@ export const fields: FieldConfig[] = [
     name: "street",
     head: "Street",
     size: "w-[25ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-street`}>{record.street}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.street,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-street-${index}`}>
         <Skeleton className="h-[1rem] w-[20ch]" />
@@ -119,11 +96,7 @@ export const fields: FieldConfig[] = [
     name: "apartment",
     head: "Apartment",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-apartment`}>
-        {record.apartment}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.apartment,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-apartment-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -134,11 +107,7 @@ export const fields: FieldConfig[] = [
     name: "halfAddress",
     head: "Half Address",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-halfAddress`}>
-        {record.halfAddress}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.halfAddress,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-halfAddress-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -149,9 +118,7 @@ export const fields: FieldConfig[] = [
     name: "city",
     head: "City",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-city`}>{record.city}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.city,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-city-${index}`}>
         <Skeleton className="h-[1rem] w-[12ch]" />
@@ -162,9 +129,7 @@ export const fields: FieldConfig[] = [
     name: "state",
     head: "State",
     size: "w-[10ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-state`}>{record.state}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.state,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-state-${index}`}>
         <Skeleton className="h-[1rem] w-[6ch]" />
@@ -175,9 +140,7 @@ export const fields: FieldConfig[] = [
     name: "zipCode",
     head: "Zip Code",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-zipCode`}>{record.zipCode}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.zipCode,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-zipCode-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -188,11 +151,7 @@ export const fields: FieldConfig[] = [
     name: "zipSuffix",
     head: "Zip Suffix",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-zipSuffix`}>
-        {record.zipSuffix}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.zipSuffix,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-zipSuffix-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -203,11 +162,7 @@ export const fields: FieldConfig[] = [
     name: "telephone",
     head: "Telephone",
     size: "w-[18ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-telephone`}>
-        {record.telephone}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.telephone,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-telephone-${index}`}>
         <Skeleton className="h-[1rem] w-[10ch]" />
@@ -218,9 +173,7 @@ export const fields: FieldConfig[] = [
     name: "email",
     head: "Email",
     size: "w-[30ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-email`}>{record.email}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.email,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-email-${index}`}>
         <Skeleton className="h-[1rem] w-[25ch]" />
@@ -231,9 +184,7 @@ export const fields: FieldConfig[] = [
     name: "party",
     head: "Party",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-party`}>{record.party}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.party,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-party-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -244,9 +195,7 @@ export const fields: FieldConfig[] = [
     name: "gender",
     head: "Gender",
     size: "w-[10ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-gender`}>{record.gender}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.gender,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-gender-${index}`}>
         <Skeleton className="h-[1rem] w-[6ch]" />
@@ -257,11 +206,8 @@ export const fields: FieldConfig[] = [
     name: "DOB",
     head: "DOB",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-dob`}>
-        {record.DOB ? new Date(record.DOB).toLocaleDateString() : ""}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) =>
+      record.DOB ? new Date(record.DOB).toLocaleDateString() : "",
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-dob-${index}`}>
         <Skeleton className="h-[1rem] w-[10ch]" />
@@ -272,11 +218,7 @@ export const fields: FieldConfig[] = [
     name: "countyLegDistrict",
     head: "County Leg District",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-countyLegDistrict`}>
-        {record.countyLegDistrict}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.countyLegDistrict,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-countyLegDistrict-${index}`}>
         <Skeleton className="h-[1rem] w-[12ch]" />
@@ -287,11 +229,7 @@ export const fields: FieldConfig[] = [
     name: "stateAssmblyDistrict",
     head: "State Assembly District",
     size: "w-[25ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-stateAssmblyDistrict`}>
-        {record.stateAssmblyDistrict}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.stateAssmblyDistrict,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-stateAssmblyDistrict-${index}`}>
         <Skeleton className="h-[1rem] w-[15ch]" />
@@ -302,11 +240,7 @@ export const fields: FieldConfig[] = [
     name: "stateSenateDistrict",
     head: "State Senate District",
     size: "w-[25ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-stateSenateDistrict`}>
-        {record.stateSenateDistrict}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.stateSenateDistrict,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-stateSenateDistrict-${index}`}>
         <Skeleton className="h-[1rem] w-[15ch]" />
@@ -317,11 +251,7 @@ export const fields: FieldConfig[] = [
     name: "congressionalDistrict",
     head: "Congressional District",
     size: "w-[25ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-congressionalDistrict`}>
-        {record.congressionalDistrict}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.congressionalDistrict,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-congressionalDistrict-${index}`}>
         <Skeleton className="h-[1rem] w-[15ch]" />
@@ -332,11 +262,7 @@ export const fields: FieldConfig[] = [
     name: "CC_WD_Village",
     head: VILLAGE_WARD_LABEL,
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-CC_WD_Village`}>
-        {getVillageWard(record) ?? ""}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => getVillageWard(record) ?? "",
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-CC_WD_Village-${index}`}>
         <Skeleton className="h-[1rem] w-[12ch]" />
@@ -347,11 +273,7 @@ export const fields: FieldConfig[] = [
     name: "electionDistrict",
     head: "Election District",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-electionDistrict`}>
-        {record.electionDistrict}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => record.electionDistrict,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-electionDistrict-${index}`}>
         <Skeleton className="h-[1rem] w-[12ch]" />
@@ -362,9 +284,7 @@ export const fields: FieldConfig[] = [
     name: "townCode",
     head: "Town Code",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-townCode`}>{record.townCode}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.townCode,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-townCode-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -375,9 +295,7 @@ export const fields: FieldConfig[] = [
     name: "statevid",
     head: "Statevid",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-statevid`}>{record.statevid}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.statevid,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-statevid-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -388,9 +306,7 @@ export const fields: FieldConfig[] = [
     name: "L_T",
     head: "L_T",
     size: "w-[10ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-L_T`}>{record.L_T}</TableCell>
-    ),
+    value: (record: VoterRecord) => record.L_T,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-L_T-${index}`}>
         <Skeleton className="h-[1rem] w-[6ch]" />
@@ -401,11 +317,7 @@ export const fields: FieldConfig[] = [
   //   name: "lastUpdate",
   //   head: "Last Update",
   //   size: "w-[20ch]",
-  //   cell: (record: VoterRecord) => (
-  //     <TableCell key={`${record.VRCNUM}-lastUpdate`}>
-  //       {record.lastUpdate ? new Date(record.lastUpdate).toLocaleDateString() : ""}
-  //     </TableCell>
-  //   ),
+  //   value: (record: VoterRecord) => record.lastUpdate ? new Date(record.lastUpdate).toLocaleDateString() : "",
   //   skeletonCell: (index: number) => (
   //     <TableCell key={`skeleton-lastUpdate-${index}`}>
   //       <Skeleton className="h-[1rem] w-[10ch]" />
@@ -416,13 +328,10 @@ export const fields: FieldConfig[] = [
     name: "originalRegDate",
     head: "Original Reg Date",
     size: "w-[20ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-originalRegDate`}>
-        {record.originalRegDate
-          ? new Date(record.originalRegDate).toLocaleDateString()
-          : ""}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) =>
+      record.originalRegDate
+        ? new Date(record.originalRegDate).toLocaleDateString()
+        : "",
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-originalRegDate-${index}`}>
         <Skeleton className="h-[1rem] w-[10ch]" />
@@ -433,11 +342,7 @@ export const fields: FieldConfig[] = [
     name: "hasDiscrepancy",
     head: "Has Discrepancy",
     size: "w-[15ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-hasDiscrepancy`}>
-        {record.hasDiscrepancy ? "Yes" : "No"}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => (record.hasDiscrepancy ? "Yes" : "No"),
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-hasDiscrepancy-${index}`}>
         <Skeleton className="h-[1rem] w-[8ch]" />
@@ -448,11 +353,7 @@ export const fields: FieldConfig[] = [
     name: "Address",
     head: "Address",
     size: "w-[35ch]",
-    cell: (record: VoterRecord) => (
-      <TableCell key={`${record.VRCNUM}-address`}>
-        {`${record.houseNum} ${record.street}`}
-      </TableCell>
-    ),
+    value: (record: VoterRecord) => `${record.houseNum} ${record.street}`,
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-address-${index}`}>
         <Skeleton className="h-[1rem] w-[35ch]" />

@@ -17,7 +17,7 @@ import {
 import { VoterCard } from "./VoterCard";
 import { EllipsisVertical } from "~/components/icons/ellipsisVertical";
 import { fields, type FieldName } from "./fieldsConfig";
-import { scrollToElement } from "~/lib/scrollUtils";
+import { ResultsPager } from "./ResultsPager";
 
 interface BaseVoterRecordTableProps {
   records: VoterRecord[];
@@ -50,6 +50,11 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
   ...paginationProps
 }) => {
   const { totalRecords, loadMore } = paginationProps as PaginationProps;
+  const shownFields = fieldsList.filter((fieldName) =>
+    fields.some((field) => field.name === fieldName),
+  );
+  // Name + field columns + extra columns + the details button column.
+  const columnCount = 1 + shownFields.length + (extraHeaders?.length ?? 0) + 1;
 
   return (
     <div>
@@ -86,7 +91,9 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
                 if (!field) {
                   return null;
                 }
-                return field.cell(record);
+                return (
+                  <TableCell key={field.name}>{field.value(record)}</TableCell>
+                );
               })}
               {extraContent && <TableCell>{extraContent(record)}</TableCell>}
               <TableCell className="text-right">
@@ -113,25 +120,13 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
         {paginated && (
           <TableFooter id="table-footer">
             <TableRow>
-              <TableCell>
-                <div className="flex gap-2">
-                  {records.length < totalRecords && (
-                    <Button onClick={loadMore}>Load More</Button>
-                  )}
-                  {records.length > 10 && (
-                    <Button
-                      onClick={() => {
-                        scrollToElement("voter-record-table", 300);
-                      }}
-                      variant={"outline"}
-                    >
-                      Jump to Top
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className="text-right pr-6 font-light" colSpan={3}>
-                Showing {records.length} records of {totalRecords} total
+              <TableCell colSpan={columnCount} className="pr-6">
+                <ResultsPager
+                  shown={records.length}
+                  total={totalRecords}
+                  loadMore={loadMore}
+                  topElementId="voter-record-table"
+                />
               </TableCell>
             </TableRow>
           </TableFooter>

@@ -11,7 +11,9 @@ const renderCell = (CC_WD_Village: string | null) =>
   render(
     <table>
       <tbody>
-        <tr>{column.cell(createMockVoterRecord({ CC_WD_Village }))}</tr>
+        <tr>
+          <td>{column.value(createMockVoterRecord({ CC_WD_Village }))}</td>
+        </tr>
       </tbody>
     </table>,
   ).container.querySelector("td");

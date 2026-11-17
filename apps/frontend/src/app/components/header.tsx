@@ -1,84 +1,250 @@
 "use client";
 import { PrivilegeLevel } from "@prisma/client";
-import { useContext, type ReactNode } from "react";
+import { useContext, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { Menu } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { SignInButton } from "~/components/ui/signInButton";
-import { hasPermissionFor } from "~/lib/utils";
+import {
+  ProfileSheet,
+  ViewProfileTrigger,
+} from "~/components/ui/manageProfile";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "~/components/ui/sheet";
+import { cn, hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
+
 type HeaderProps = {
   /** Rendered in the top-left slot; the layout passes the DB badge here. */
   dbBadge?: ReactNode;
 };
 
+type NavItem = {
+  href: string;
+  label: string;
+  isActive: (pathname: string) => boolean;
+};
+
+const REPORT_PATH_PREFIXES = [
+  "/reports",
+  "/committee-reports",
+  "/committee-roster-reports",
+  "/voter-list-reports",
+  "/petitions",
+  "/sign-in-sheet-reports",
+  "/weight-summary-reports",
+  "/vacancy-reports",
+  "/changes-reports",
+  "/petition-outcomes-reports",
+];
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    href: "/recordsearch",
+    label: "Record Search",
+    isActive: (p) => p.includes("record"),
+  },
+  {
+    href: "/committees",
+    label: "Committee List",
+    isActive: (p) => p.startsWith("/committees"),
+  },
+  {
+    href: "/reports",
+    label: "Reports",
+    isActive: (p) =>
+      REPORT_PATH_PREFIXES.some((prefix) => p.startsWith(prefix)),
+  },
+];
+
+const ADMIN_NAV_ITEM: NavItem = {
+  href: "/admin",
+  label: "Admin",
+  isActive: (p) => p.startsWith("/admin"),
+};
+
+// From md: one row of compact tabs sized to their text; from lg: the original fixed-size tabs.
+const TAB_STYLE =
+  "h-12 px-3 text-base font-semibold lg:h-16 lg:w-42 lg:px-4 lg:text-xl";
+const MENU_ROW_STYLE =
+  "flex min-h-12 w-full items-center rounded-md px-4 text-left text-lg font-semibold";
+
+/**
+ * The main nav links, as bar tabs (from md) or as the phone menu's full-width rows, which close
+ * the menu when picked.
+ */
+const MainNav: React.FC<{
+  items: NavItem[];
+  activeItem: NavItem | undefined;
+  variant: "tabs" | "menu";
+  className?: string;
+}> = ({ items, activeItem, variant, className }) => (
+  <nav aria-label="Main" className={className}>
+    {items.map((item) => {
+      const active = item === activeItem;
+      const link = (
+        <Link
+          href={item.href}
+          aria-current={active ? "page" : undefined}
+          className={
+            variant === "menu"
+              ? cn(
+                  MENU_ROW_STYLE,
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted",
+                )
+              : undefined
+          }
+        >
+          {item.label}
+        </Link>
+      );
+      return variant === "tabs" ? (
+        <Button
+          key={item.href}
+          asChild
+          className={cn(
+            TAB_STYLE,
+            active ? "bg-primary" : "bg-muted-foreground",
+          )}
+        >
+          {link}
+        </Button>
+      ) : (
+        <SheetClose asChild key={item.href}>
+          {link}
+        </SheetClose>
+      );
+    })}
+  </nav>
+);
+
 const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const { actingPermissions } = useContext(GlobalContext);
+  const { data: session } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  // Set while the profile sheet is open from the phone menu. The menu doesn't pull focus back to the
+  // hamburger as it closes, and the sheet sends focus there when it closes: its own trigger is the
+  // bar's View Profile button, which is hidden below md.
+  const profileFromMenuRef = useRef(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
-  const showDataTab = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const showAdminTab = hasPermissionFor(
+    actingPermissions,
+    PrivilegeLevel.Admin,
+  );
+  const navItems = showAdminTab ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
+  const activeItem = navItems.find((item) => item.isActive(pathname));
 
-  const sharedTabStyle =
-    "h-16 text-xl font-semibold w-42 flex items-center justify-center";
-  const tabStyleActive = "bg-primary";
-  const tabStyleInactive = "bg-muted-foreground";
   return (
-    <div className="overflow-x-auto bg-accent border-b-2 border-solid">
-      <div className="flex items-center justify-between p-1 min-w-full">
-        {/* Left slot - DB badge in dev; an empty spacer on large screens in prod */}
+    <div className="bg-accent border-b-2 border-solid">
+      <div className="flex items-center gap-2 p-1">
+        {/* Left slot: DB badge in dev; an empty spacer from lg up in prod, so the tabs stay centered */}
         <div
           className={
             dbBadge
               ? "flex shrink-0 items-center px-2 lg:w-[150px]"
-              : "hidden lg:block w-[150px]"
+              : "hidden lg:block lg:w-[150px]"
           }
         >
           {dbBadge}
         </div>
 
-        {/* Navigation tabs - centered on large screens, left-aligned on small screens */}
-        <div className="flex items-center justify-center lg:justify-center gap-2 py-2 flex-1 lg:flex-none">
-          {/* <ThemeToggle className="mr-auto" /> */}
-          <Link href="/recordsearch">
-            <Button
-              className={`${sharedTabStyle} ${pathname?.includes("record") ? tabStyleActive : tabStyleInactive}`}
-            >
-              Record Search
-            </Button>
-          </Link>
-          <Link href="/committees">
-            <Button
-              className={`${sharedTabStyle} ${pathname?.startsWith("/committees") ? tabStyleActive : tabStyleInactive}`}
-            >
-              Committee List
-            </Button>
-          </Link>
-          <Link href="/reports">
-            <Button
-              className={`${sharedTabStyle} ${["/reports", "/committee-reports", "/committee-roster-reports", "/voter-list-reports", "/petitions", "/sign-in-sheet-reports", "/weight-summary-reports", "/vacancy-reports", "/changes-reports", "/petition-outcomes-reports"].some((p) => pathname?.startsWith(p)) ? tabStyleActive : tabStyleInactive}`}
-            >
-              Reports
-            </Button>
-          </Link>
-          {showDataTab && (
-            <Link href="/admin">
-              <Button
-                className={`${sharedTabStyle} ${pathname?.startsWith("/admin") ? tabStyleActive : tabStyleInactive}`}
-              >
-                Admin
-              </Button>
-            </Link>
+        {/* Below md: pushes the hamburger to the right */}
+        <div className="flex-1 md:hidden" />
+
+        {/* From md: one row of tabs */}
+        <MainNav
+          items={navItems}
+          activeItem={activeItem}
+          variant="tabs"
+          className="hidden md:flex md:flex-1 md:items-center md:justify-center md:gap-2 md:py-2"
+        />
+
+        <div className="flex shrink-0 items-center justify-end gap-2 py-2 pr-1 lg:w-[150px] lg:justify-center lg:pr-0">
+          {/* Signed in: the one profile sheet. Its View Profile trigger is in the bar from md; below
+              md, the menu's View Profile row opens it. Signed out: Sign In at every width. */}
+          {session ? (
+            <ProfileSheet
+              session={session}
+              open={profileOpen}
+              onOpenChange={setProfileOpen}
+              trigger={
+                <div className="hidden md:block">
+                  <ViewProfileTrigger />
+                </div>
+              }
+              onCloseAutoFocus={(event) => {
+                if (!profileFromMenuRef.current) return;
+                profileFromMenuRef.current = false;
+                event.preventDefault();
+                menuButtonRef.current?.focus();
+              }}
+            />
+          ) : (
+            <SignInButton />
           )}
-        </div>
 
-        {/* Right spacer - hidden on small screens when content overflows */}
-        <div className="hidden lg:flex w-[150px] items-center justify-center">
-          <SignInButton />
-        </div>
-
-        {/* Sign in button for small screens */}
-        <div className="lg:hidden flex items-center gap-2 py-2">
-          <SignInButton />
+          {/* Below md: hamburger that drops a vertical menu down from the top */}
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                ref={menuButtonRef}
+                className="h-11 w-11 md:hidden"
+                aria-label="Open menu"
+              >
+                <Menu className="h-6 w-6" aria-hidden="true" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="top"
+              className="p-0 md:hidden"
+              onCloseAutoFocus={(event) => {
+                if (profileFromMenuRef.current) event.preventDefault();
+              }}
+            >
+              <div className="border-b px-4 py-4 pr-12">
+                <SheetTitle>Menu</SheetTitle>
+                <SheetDescription className="sr-only">
+                  Go to another page
+                </SheetDescription>
+              </div>
+              <MainNav
+                items={navItems}
+                activeItem={activeItem}
+                variant="menu"
+                className="flex flex-col p-2"
+              />
+              {session && (
+                <div className="border-t p-2">
+                  <button
+                    type="button"
+                    className={cn(MENU_ROW_STYLE, "hover:bg-muted")}
+                    onClick={() => {
+                      profileFromMenuRef.current = true;
+                      setMenuOpen(false);
+                      setProfileOpen(true);
+                    }}
+                  >
+                    View Profile
+                  </button>
+                </div>
+              )}
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </div>
