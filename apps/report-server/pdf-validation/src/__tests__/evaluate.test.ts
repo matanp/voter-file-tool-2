@@ -216,6 +216,19 @@ describe('evaluateItem', () => {
 describe('required text across extractions', () => {
   const changes = fixtureById('changes-quick');
 
+  it('rejects a house number embedded in a larger number in both extractions', () => {
+    const roster = fixtureById('roster-quick');
+    const correct = idealPages(roster);
+    const incorrect = correct.map((page) => page.replace('1 MAIN ST', '11 MAIN ST'));
+    const check = (layout: string[], raw: string[]) =>
+      byId(contentChecks(roster, layout, EMPTY_APPROVALS, sizes(roster, 1), [], raw), 'required-text');
+
+    expect(check(correct, correct)?.status).toBe('pass');
+    expect(check(incorrect, incorrect)?.status).toBe('fail');
+    expect(check(incorrect, correct)?.status).toBe('pass');
+    expect(check(correct, incorrect)?.status).toBe('pass');
+  });
+
   it('finds a wrapped cell in raw-order text when -layout interleaves it', () => {
     const layout = idealPages(changes).map((p) => p.replace('Feb 23, 2026', 'Feb CHG00004 23, BRIGHTON 2026'));
     const raw = idealPages(changes);

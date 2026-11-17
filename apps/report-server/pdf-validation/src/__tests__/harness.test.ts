@@ -5,7 +5,7 @@ import { fixtureById } from '../fixtures';
 import { classifyColor, diffImages, encodePng, readPpm, type Rgb } from '../image';
 import { validateReview } from '../llmReview';
 import { boxChecks, renderPlan } from '../render';
-import { countOccurrences, normalizePageText, splitPages } from '../text';
+import { countOccurrences, includesWhole, normalizePageText, splitPages } from '../text';
 import { withFrozenClock } from '../worker';
 
 const RUN = '20261116T153000Z-ab12cd';
@@ -56,6 +56,18 @@ describe('render', () => {
 });
 
 describe('text', () => {
+  it.each([
+    ['11 MAIN ST', '1 MAIN ST', false],
+    ['1 MAIN ST', '1 MAIN ST', true],
+    ['11 MAIN ST; 1 MAIN ST', '1 MAIN ST', true],
+    ['Sheet No. 10', 'Sheet No. 1', false],
+    ['123', '23', false],
+    ['123', '12', false],
+    ['123', '123', true],
+  ])('matches numeric boundaries in %s for %s', (text, needle, expected) => {
+    expect(includesWhole(text, needle)).toBe(expected);
+  });
+
   it('normalizes NFC and whitespace within a page, keeping case, digits and punctuation', () => {
     expect(normalizePageText('  Café   LD 01,\n  Page 1 of 2 ')).toBe('Café LD 01, Page 1 of 2');
   });
