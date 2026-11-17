@@ -1,4 +1,8 @@
-import { mergeQuickNameIntoRows } from "~/lib/quickNameSearch";
+import {
+  mergeQuickNameIntoRows,
+  moveQuickNameIntoRows,
+  quickNameFromRows,
+} from "~/lib/quickNameSearch";
 import type { SearchField } from "~/types/searchFields";
 
 const nameSubField = (
@@ -92,5 +96,79 @@ describe("mergeQuickNameIntoRows", () => {
     });
     expect(valuesOf(rows, "firstName")).toEqual(["John"]);
     expect(valuesOf(rows, "lastName")).toEqual(["Doe"]);
+  });
+});
+
+describe("quickNameFromRows", () => {
+  it("is blank with no Name row", () => {
+    expect(quickNameFromRows([zipRow])).toEqual({
+      firstName: "",
+      lastName: "",
+    });
+  });
+
+  it("fills each field that has exactly one name", () => {
+    expect(quickNameFromRows([nameRow(["Jane"], ["Doe"])])).toEqual({
+      firstName: "Jane",
+      lastName: "Doe",
+    });
+  });
+
+  it("leaves a field blank when the builder has several names for it", () => {
+    expect(quickNameFromRows([nameRow(["Jane", "Joan"], ["Doe"])])).toEqual({
+      firstName: "",
+      lastName: "Doe",
+    });
+  });
+});
+
+describe("moveQuickNameIntoRows", () => {
+  it("returns the rows unchanged with no Name row and a blank box", () => {
+    const rows = [zipRow];
+    expect(moveQuickNameIntoRows(rows, { firstName: " ", lastName: "" })).toBe(
+      rows,
+    );
+  });
+
+  it("adds a whole Name row first when the builder has none", () => {
+    const rows = moveQuickNameIntoRows([zipRow], {
+      firstName: "John",
+      lastName: "",
+    });
+    expect(rows.map((r) => r.name)).toEqual(["name", "zipCode"]);
+    const row = rows[0];
+    expect(row?.compoundType && row.fields.map((f) => f.name)).toEqual([
+      "firstName",
+      "lastName",
+    ]);
+    expect(valuesOf(rows, "firstName")).toEqual(["John"]);
+    expect(valuesOf(rows, "lastName")).toBeUndefined();
+  });
+
+  it("replaces the builder's names with the box's", () => {
+    const rows = moveQuickNameIntoRows([nameRow(["Jane", "Joan"], ["Doe"])], {
+      firstName: "John",
+      lastName: "Smith",
+    });
+    expect(valuesOf(rows, "firstName")).toEqual(["John"]);
+    expect(valuesOf(rows, "lastName")).toEqual(["Smith"]);
+  });
+
+  it("clears a single name the box was showing and left blank", () => {
+    const rows = moveQuickNameIntoRows([nameRow(["Jane"], ["Doe"])], {
+      firstName: "",
+      lastName: "Doe",
+    });
+    expect(valuesOf(rows, "firstName")).toBeUndefined();
+    expect(valuesOf(rows, "lastName")).toEqual(["Doe"]);
+  });
+
+  it("keeps a list of several names the box couldn't show", () => {
+    const rows = moveQuickNameIntoRows([nameRow(["Jane", "Joan"], ["Doe"])], {
+      firstName: "",
+      lastName: "",
+    });
+    expect(valuesOf(rows, "firstName")).toEqual(["Jane", "Joan"]);
+    expect(valuesOf(rows, "lastName")).toBeUndefined();
   });
 });

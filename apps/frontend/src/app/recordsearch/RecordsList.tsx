@@ -25,6 +25,7 @@ import { useContext } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { PrivilegeLevel } from "@prisma/client";
 import { hasPermissionFor } from "~/lib/utils";
+import { useSearchModePreference } from "~/lib/useSearchModePreference";
 
 const LOADING_SECTION_ID = "loading-section";
 
@@ -50,6 +51,11 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const [pageSize, setPageSize] = React.useState(100);
   const [hasSearched, setHasSearched] = React.useState(false);
   const [isHoveringInfo, setIsHoveringInfo] = React.useState(false);
+  const {
+    mode: searchMode,
+    setMode: setSearchMode,
+    ready: searchModeReady,
+  } = useSearchModePreference();
 
   // API mutation hooks
   const searchMutation = useApiMutation<
@@ -167,11 +173,15 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
           <h1 className="primary-header">Record Search</h1>
         </div>
         <div className="border-grey-400 border-b-2">
-          <VoterRecordSearch
-            handleSubmit={handleSubmit}
-            dropdownList={dropdownList}
-            isAuthenticated={status === "authenticated"}
-          />
+          {searchModeReady && (
+            <VoterRecordSearch
+              handleSubmit={handleSubmit}
+              dropdownList={dropdownList}
+              isAuthenticated={status === "authenticated"}
+              mode={searchMode}
+              onModeChange={setSearchMode}
+            />
+          )}
         </div>
       </div>
       <div className="w-full flex justify-center pt-2">

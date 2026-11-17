@@ -1,3 +1,4 @@
+import type { SearchMode } from "~/lib/useSearchModePreference";
 import React, { type ReactElement } from "react";
 import { render, type RenderOptions } from "@testing-library/react";
 import type {
@@ -115,11 +116,16 @@ export const createMockVoterRecordSearchProps = (
     handleSubmit?: (searchQuery: SearchField[]) => Promise<void>;
     dropdownList?: DropdownLists;
     isAuthenticated?: boolean;
+    mode?: SearchMode;
+    onModeChange?: (mode: SearchMode) => void;
   } = {},
 ) => ({
   handleSubmit: jest.fn().mockResolvedValue(Promise.resolve()),
   dropdownList: createMockDropdownLists(),
   isAuthenticated: true,
+  // Most suites exercise the criteria builder, which only renders in advanced mode.
+  mode: "advanced" as SearchMode,
+  onModeChange: jest.fn(),
   ...overrides,
 });
 
