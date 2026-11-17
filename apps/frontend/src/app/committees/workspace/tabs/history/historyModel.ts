@@ -234,19 +234,11 @@ export function describeHistoryEvent(
             : "Exit report";
       return { title: `${what} rejected; the member stays`, details };
     }
-    case "letter_attached": {
-      if (event.fileName) details.push(`File: ${event.fileName}`);
-      return {
-        title: event.replaced ? "Resignation letter replaced" : "Resignation letter attached",
-        details,
-      };
-    }
   }
 }
 
 /**
- * The events the timeline shows. `petition_outcome` and `letter_attached`
- * events are Admin-only:
+ * The events the timeline shows. `petition_outcome` events are Admin-only:
  * the server already omits them for Leaders, and this drops them again for any
  * acting role below Admin (defence in depth, and the acting-as simulation).
  */
@@ -256,9 +248,7 @@ export function timelineEvents(
 ): HistoryEvent[] {
   return canSeeElectionOutcomes
     ? [...events]
-    : events.filter(
-        (e) => e.kind !== "petition_outcome" && e.kind !== "letter_attached",
-      );
+    : events.filter((e) => e.kind !== "petition_outcome");
 }
 
 // --- Election outcomes (Admin only) -----------------------------------------

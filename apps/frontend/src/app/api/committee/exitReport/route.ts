@@ -10,9 +10,9 @@
  * via a conditional update so two concurrent reports can't both land).
  *
  * A resignation may carry a Resignation Letter (ticket 08): the staging key
- * and token from `/api/committee/resignation-letter/upload-url`. The file's
- * token, size and first bytes are checked here, and it is copied into the
- * membership's prefix before the report is written (400 if it fails).
+ * from `/api/committee/resignation-letter/upload-url`. The file's size and
+ * first bytes are checked here, and it is copied into the membership's prefix
+ * before the report is written (400 if it fails).
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -31,10 +31,8 @@ import {
   getActiveTermId,
 } from "~/app/api/lib/committeeValidation";
 import { leaderMayActOnCommittee } from "~/app/api/lib/exitReportAccess";
-import {
-  fileExitReport,
-  type ResignationLetter,
-} from "~/app/api/lib/membershipExit";
+import { fileExitReport } from "~/app/api/lib/membershipExit";
+import type { ResignationLetter } from "~/lib/resignationLetter";
 import {
   discardPromotedLetter,
   promoteStagedLetter,
@@ -159,11 +157,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
     }
 
     if (stagedLetter) {
-      const result = await promoteStagedLetter({
-        staged: stagedLetter,
-        userId,
-        membershipId: membership.id,
-      });
+      const result = await promoteStagedLetter(stagedLetter, membership.id);
       if (!result.ok) {
         return NextResponse.json(
           { success: false, error: result.error },

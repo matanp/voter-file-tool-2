@@ -159,7 +159,7 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
 
     // Rejected and filed again: the Admin's old timestamp no longer matches.
     await prisma.$transaction((tx) =>
-      exits.clearRejectedExitReport(tx, state, reportedAt!),
+      exits.clearRejectedExitReport(tx, membershipId, reportedAt!),
     );
     await fileReport();
     const stale = await prisma.$transaction((tx) =>
@@ -172,7 +172,6 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
           resignationMethod: null,
           removalReason: "DECEASED",
           removalNotes: null,
-          letter: "detach",
         },
         { expectedExitReportedAt: reportedAt! },
       ),
@@ -190,7 +189,6 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
           resignationMethod: null,
           removalReason: "DECEASED",
           removalNotes: null,
-          letter: "detach",
         },
         { expectedExitReportedAt: fresh.exitReportedAt! },
       ),
@@ -222,7 +220,6 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
         resignationMethod: null,
         removalReason: "OTHER",
         removalNotes: "Removed by bulk import synchronization",
-        letter: "detach",
       }),
     );
 
@@ -252,7 +249,6 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
         resignationMethod: null,
         removalReason: "OTHER",
         removalNotes: null,
-        letter: "detach",
       });
       // P2025 is not an SQL error: the transaction can keep going.
       const count = await tx.committeeMembership.count({
@@ -266,17 +262,16 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
 
   it("rejecting clears the report and the four exit fields, leaving the member ACTIVE", async () => {
     const reportedAt = await fileReport(LETTER);
-    const state = await readState();
     expect(
       await prisma.$transaction((tx) =>
-        exits.clearRejectedExitReport(tx, state, new Date(0)),
+        exits.clearRejectedExitReport(tx, membershipId, new Date(0)),
       ),
-    ).toEqual({ kind: "changed" });
+    ).toBe(false);
     expect(
       await prisma.$transaction((tx) =>
-        exits.clearRejectedExitReport(tx, state, reportedAt!),
+        exits.clearRejectedExitReport(tx, membershipId, reportedAt!),
       ),
-    ).toEqual({ kind: "cleared", detachedLetter: LETTER });
+    ).toBe(true);
     expect(await readState()).toMatchObject({
       status: "ACTIVE",
       seatNumber: 1,
@@ -357,16 +352,16 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
           resignationMethod: state.resignationMethod,
           removalReason: null,
           removalNotes: null,
-          letter: "keep",
+          letter: "keepReported",
         },
         { expectedExitReportedAt: state.exitReportedAt! },
       ),
     );
-    expect(result).toMatchObject({ kind: "written", detachedLetter: null, letter: LETTER });
+    expect(result).toMatchObject({ kind: "written" });
     expect(await readState()).toMatchObject({ status: "RESIGNED", ...letterColumns });
   });
 
-  it("detaches a pending letter on a superseding removal, even after a stale read", async () => {
+  it("clears a pending letter on a superseding removal, even after a stale read", async () => {
     const before = await readState(); // no report, no letter yet
     await fileReport(LETTER);
     const result = await prisma.$transaction((tx) =>
@@ -376,11 +371,9 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
         resignationMethod: null,
         removalReason: "OTHER",
         removalNotes: null,
-        letter: "detach",
       }),
     );
-    // The lock-and-reread found the letter the stale read didn't have.
-    expect(result).toMatchObject({ kind: "written", detachedLetter: LETTER, letter: null });
+    expect(result).toMatchObject({ kind: "written" });
     expect(await readState()).toMatchObject({
       status: "REMOVED",
       resignationLetterKey: null,
@@ -389,7 +382,7 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
     });
   });
 
-  it("replaces a pending letter with the Admin's upload, detaching the old one", async () => {
+  it("replaces a pending letter with the Admin's upload", async () => {
     await fileReport(LETTER);
     const state = await readState();
     const upload = { ...LETTER, key: "resignation-letters/m/admin.png", contentType: "image/png" as const, fileName: "admin.png" };
@@ -403,23 +396,7 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
         letter: upload,
       }),
     );
-    expect(result).toMatchObject({ kind: "written", detachedLetter: LETTER, letter: upload });
+    expect(result).toMatchObject({ kind: "written" });
     expect(await readState()).toMatchObject({ resignationLetterKey: upload.key });
-  });
-
-  it("attaches a late letter only while the row is RESIGNED with the letter read", async () => {
-    await prisma.committeeMembership.update({
-      where: { id: membershipId },
-      data: { status: "RESIGNED" },
-    });
-    const state = await readState();
-    expect(
-      await prisma.$transaction((tx) => exits.attachRecordedLetter(tx, state, LETTER)),
-    ).toBe(true);
-    // A second attach from the same (now stale) read is refused.
-    expect(
-      await prisma.$transaction((tx) => exits.attachRecordedLetter(tx, state, LETTER)),
-    ).toBe(false);
-    expect(await readState()).toMatchObject(letterColumns);
   });
 });

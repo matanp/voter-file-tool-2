@@ -1,4 +1,4 @@
-/** Committee History's Resignation Letter pieces (ticket 08 decisions 12, 16). */
+/** Committee History's "View letter" on a recorded resignation (ticket 08 decision 16). */
 import { buildHistoryEvents, type HistoryAuditRow, type HistoryMembershipRow } from "~/app/api/lib/membershipHistory";
 
 const membership: HistoryMembershipRow = {
@@ -27,12 +27,6 @@ const auditRow = (overrides: Partial<HistoryAuditRow>): HistoryAuditRow => ({
 });
 
 const rows = [
-  auditRow({
-    id: "a-3",
-    action: "RESIGNATION_LETTER_ATTACHED",
-    afterValue: { resignationLetterFileName: "a.pdf" },
-    metadata: { previousLetterKey: "resignation-letters/m-1/old.pdf" },
-  }),
   auditRow({ id: "a-2" }),
   // An earlier resignation cycle of the same membership.
   auditRow({ id: "a-1", timestamp: new Date("2025-01-01T00:00:00Z") }),
@@ -46,31 +40,15 @@ const build = (isAdmin: boolean) =>
     meetingsById: new Map(),
   });
 
-describe("history letter events", () => {
-  it("should give an Admin the letter target on the newest resignation only", () => {
-    const resigned = build(true).filter((e) => e.kind === "resigned");
-    expect(resigned.map((e) => e.kind === "resigned" && e.letterTarget)).toEqual([
-      {
-        membershipId: "m-1",
-        letter: { fileName: "a.pdf", contentType: "application/pdf" },
-      },
-      undefined,
-    ]);
+const letters = (isAdmin: boolean) =>
+  build(isAdmin).map((e) => (e.kind === "resigned" ? e.letter : "not resigned"));
+
+describe("history letter link", () => {
+  it("should give an Admin the letter on the newest resignation only", () => {
+    expect(letters(true)).toEqual([{ membershipId: "m-1", fileName: "a.pdf" }, undefined]);
   });
 
-  it("should show an Admin the letter attach as a replacement", () => {
-    expect(build(true)[0]).toMatchObject({
-      kind: "letter_attached",
-      fileName: "a.pdf",
-      replaced: true,
-    });
-  });
-
-  it("should give a Leader neither the letter target nor the attach event", () => {
-    const events = build(false);
-    expect(events.some((e) => e.kind === "letter_attached")).toBe(false);
-    expect(
-      events.every((e) => e.kind !== "resigned" || e.letterTarget === undefined),
-    ).toBe(true);
+  it("should never give a Leader the letter", () => {
+    expect(letters(false)).toEqual([undefined, undefined]);
   });
 });

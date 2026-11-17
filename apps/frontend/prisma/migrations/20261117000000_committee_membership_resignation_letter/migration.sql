@@ -2,8 +2,6 @@
 -- stored in R2 under resignation-letters/<membershipId>/ and referenced from the membership row.
 -- See docs/adr/0002-exit-reports-on-the-membership-row.md.
 
-ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'RESIGNATION_LETTER_ATTACHED';
-
 ALTER TABLE "CommitteeMembership"
   ADD COLUMN "resignationLetterKey" TEXT,
   ADD COLUMN "resignationLetterContentType" TEXT,

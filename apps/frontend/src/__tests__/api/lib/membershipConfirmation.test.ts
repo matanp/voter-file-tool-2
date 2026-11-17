@@ -66,7 +66,7 @@ describe("membershipConfirmation", () => {
         membershipType: "APPOINTED",
       });
 
-      expect(result).toEqual({ kind: "accepted", detachedLetter: null });
+      expect(result).toEqual({ kind: "accepted" });
       expect(prismaMock.$queryRaw).toHaveBeenCalled();
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
         expectMembershipUpdate(
@@ -239,7 +239,7 @@ describe("membershipConfirmation", () => {
         membershipType: "APPOINTED",
       });
 
-      expect(result).toEqual({ kind: "accepted", detachedLetter: null });
+      expect(result).toEqual({ kind: "accepted" });
       expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
         expectMembershipExitWrite("membership-target-id-002", {
           status: "REMOVED",
@@ -280,7 +280,7 @@ describe("membershipConfirmation", () => {
         membershipType: "APPOINTED",
       });
 
-      expect(result).toEqual({ kind: "accepted", detachedLetter: null });
+      expect(result).toEqual({ kind: "accepted" });
       expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
         expectMembershipExitWrite("membership-target-id-002", {
           status: "REMOVED",

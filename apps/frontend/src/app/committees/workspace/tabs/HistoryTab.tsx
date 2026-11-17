@@ -22,7 +22,7 @@ import { CommitteeHistoryTimeline } from "./history/CommitteeHistoryTimeline";
 import { ElectionOutcomes } from "./history/ElectionOutcomes";
 import { timelineEvents } from "./history/historyModel";
 
-export function HistoryTab({ committeeId, detail, onRefresh }: CommitteeTabProps) {
+export function HistoryTab({ committeeId, detail }: CommitteeTabProps) {
   const { actingPermissions } = useContext(GlobalContext);
   const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const events = timelineEvents(detail.history.events, isAdmin);
@@ -40,7 +40,6 @@ export function HistoryTab({ committeeId, detail, onRefresh }: CommitteeTabProps
         events={events}
         hasMore={detail.history.hasMore}
         showAdminDetail={isAdmin}
-        onRefresh={onRefresh}
       />
     </div>
   );

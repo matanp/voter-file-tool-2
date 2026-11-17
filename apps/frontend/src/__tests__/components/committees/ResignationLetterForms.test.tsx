@@ -1,17 +1,14 @@
 /**
  * Resignation Letter UI (ticket 08): the instructions dialog's fixed letter
- * line, the Admin's carry-over checkbox (ticked by default), the removal
- * warning, and the Pending item's "View letter".
+ * line, the Admin's Record resignation upload field, and the Pending item's
+ * "View letter".
  */
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ExitInstructionsDialog } from "~/app/committees/workspace/drawer/ExitReportForms";
-import {
-  RecordResignationForm,
-  RemoveMemberForm,
-} from "~/app/committees/workspace/drawer/MemberExitForms";
+import { RecordResignationForm } from "~/app/committees/workspace/drawer/MemberExitForms";
 import { PendingExitReportItem } from "~/app/committees/workspace/tabs/pending/PendingExitReportItem";
 import { resetExitInstructionsCache } from "~/app/committees/workspace/adapters";
 import type { CommitteeRef } from "~/app/committees/workspace/committeeAction";
@@ -24,10 +21,7 @@ const COMMITTEE: CommitteeRef = {
   legDistrict: 1,
   electionDistrict: 5,
 };
-const PENDING_LETTER = {
-  membershipId: "m-rep",
-  letter: { fileName: "rita-letter.pdf", contentType: "application/pdf" as const },
-};
+const LETTER = { fileName: "rita-letter.pdf", contentType: "application/pdf" as const };
 
 beforeEach(() => {
   resetExitInstructionsCache();
@@ -60,17 +54,8 @@ describe("ExitInstructionsDialog letter line", () => {
   });
 });
 
-describe("RecordResignationForm with a pending letter", () => {
-  const Footer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-
-  async function fillAndSubmit() {
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText(/Date resignation received/), "2026-11-01");
-    await user.click(screen.getByLabelText("Email"));
-    return user;
-  }
-
-  it("should keep the Leader's letter by default, and send keepReportedLetter", async () => {
+describe("RecordResignationForm", () => {
+  it("should offer an optional letter upload and send no letter without one", async () => {
     const fetchMock = installFetchMock(() => Promise.resolve(fetchJsonResponse({ status: "success" })));
     render(
       <RecordResignationForm
@@ -78,74 +63,18 @@ describe("RecordResignationForm with a pending letter", () => {
         memberLabel="Rita (V1), seat 3"
         onCancel={jest.fn()}
         onSuccess={jest.fn()}
-        pendingLetter={PENDING_LETTER}
-        Footer={Footer}
-      />,
-    );
-    const keep = screen.getByRole("checkbox", { name: /Keep the letter the Leader attached/ });
-    expect(keep).toBeChecked();
-    expect(screen.getByRole("link", { name: /View: rita-letter.pdf/ })).toHaveAttribute(
-      "href",
-      "/api/committee/resignation-letter?membershipId=m-rep&redirect=1",
-    );
-
-    const user = await fillAndSubmit();
-    await user.click(screen.getByRole("button", { name: "Record resignation" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]!.body)) as Record<string, unknown>;
-    expect(body.keepReportedLetter).toBe(true);
-  });
-
-  it("should not send keepReportedLetter once unticked", async () => {
-    const fetchMock = installFetchMock(() => Promise.resolve(fetchJsonResponse({ status: "success" })));
-    render(
-      <RecordResignationForm
-        action={{ kind: "record-resignation", committee: COMMITTEE, memberId: "V1" }}
-        memberLabel="Rita (V1), seat 3"
-        onCancel={jest.fn()}
-        onSuccess={jest.fn()}
-        pendingLetter={PENDING_LETTER}
-        Footer={Footer}
-      />,
-    );
-    const user = await fillAndSubmit();
-    await user.click(screen.getByRole("checkbox", { name: /Keep the letter/ }));
-    await user.click(screen.getByRole("button", { name: "Record resignation" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]!.body)) as Record<string, unknown>;
-    expect(body).not.toHaveProperty("keepReportedLetter");
-  });
-
-  it("should offer no carry-over without a pending letter", () => {
-    render(
-      <RecordResignationForm
-        action={{ kind: "record-resignation", committee: COMMITTEE, memberId: "V1" }}
-        memberLabel="Rita (V1), seat 3"
-        onCancel={jest.fn()}
-        onSuccess={jest.fn()}
-        Footer={Footer}
-      />,
-    );
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
-    expect(screen.getByTestId("resignation-letter-field")).toBeInTheDocument();
-  });
-});
-
-describe("RemoveMemberForm with a pending letter", () => {
-  it("should warn that the Leader's letter won't be kept", () => {
-    render(
-      <RemoveMemberForm
-        action={{ kind: "remove-member", committee: COMMITTEE, memberId: "V1" }}
-        memberLabel="Rita (V1), seat 3"
-        onCancel={jest.fn()}
-        onSuccess={jest.fn()}
-        pendingLetter={PENDING_LETTER}
         Footer={({ children }) => <div>{children}</div>}
       />,
     );
-    expect(screen.getByTestId("removal-letter-warning")).toHaveTextContent(
-      "The Leader's letter will not be kept with a removal.",
-    );
+    expect(screen.getByTestId("resignation-letter-field")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/Date resignation received/), "2026-11-01");
+    await user.click(screen.getByLabelText("Email"));
+    await user.click(screen.getByRole("button", { name: "Record resignation" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]!.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("letter");
   });
 });
 
@@ -159,7 +88,7 @@ describe("PendingExitReportItem letter", () => {
     kind: "RESIGNATION",
     reportedAt: "2026-10-30T15:04:05.678Z",
     isOwnReport: true,
-    letter: PENDING_LETTER.letter,
+    letter: LETTER,
   };
 
   it("should offer View letter to a read-only Leader", () => {

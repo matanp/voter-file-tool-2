@@ -1,11 +1,11 @@
 "use client";
 /**
  * The optional Resignation Letter upload (leader-feedback-2026-11 ticket 08),
- * shared by the Leader's resignation Exit Report, the Admin's Record
- * resignation, and the Admin's late attach (and meant for ticket 09).
+ * shared by the Leader's resignation Exit Report and the Admin's Record
+ * resignation (and meant for ticket 09).
  *
  * Picking a file uploads it straight away (presigned PUT to staging) with a
- * progress line; the parent's submit sends the staged key and token, and the
+ * progress line; the parent's submit sends the staged key, and the
  * server checks the real bytes then. One file: picking another replaces it,
  * and Remove drops it. The parent should block submitting while
  * `letterFieldBusy(value)`.
@@ -19,7 +19,8 @@ import {
   LETTER_TYPE_LABEL,
   type StagedLetter,
 } from "~/lib/resignationLetter";
-import { uploadResignationLetter, type LetterTarget } from "../adapters";
+import type { CommitteeRef } from "../committeeAction";
+import { uploadResignationLetter } from "../adapters";
 
 export type LetterFieldState =
   | { status: "empty" }
@@ -46,7 +47,7 @@ export function ResignationLetterField({
   hint,
   disabled = false,
 }: {
-  target: LetterTarget;
+  target: { committee: CommitteeRef; memberId: string };
   value: LetterFieldState;
   onChange: (next: LetterFieldState) => void;
   label?: string;

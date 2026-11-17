@@ -125,22 +125,55 @@ export function letterDisposition(type: LetterContentType): "inline" | "attachme
 // --- R2 keys ----------------------------------------------------------------
 
 export const LETTER_PREFIX = "resignation-letters/";
-/** Presigned uploads land here; a 1-day lifecycle rule clears it. */
-export const LETTER_STAGING_PREFIX = `${LETTER_PREFIX}staging/`;
-/** Detached unconfirmed letters; a 90-day lifecycle rule deletes them. */
-export const LETTER_REJECTED_PREFIX = `${LETTER_PREFIX}rejected/`;
 
+/** Where a membership's letters live once submitted. Cleared letters stay here. */
 export function membershipLetterPrefix(membershipId: string): string {
   return `${LETTER_PREFIX}${membershipId}/`;
 }
 
 /**
- * Where a detached unconfirmed letter is moved: `rejected/<membershipId>/<name>`,
- * derived from its key so the audit row can name it before the move happens.
+ * Presigned uploads for one membership land here; a 1-day lifecycle rule
+ * clears `resignation-letters/staging/`. Submit accepts only a key under the
+ * membership's own staging prefix.
  */
-export function rejectedLetterKey(key: string): string {
-  const rest = key.startsWith(LETTER_PREFIX) ? key.slice(LETTER_PREFIX.length) : key;
-  return `${LETTER_REJECTED_PREFIX}${rest}`;
+export function letterStagingPrefix(membershipId: string): string {
+  return `${LETTER_PREFIX}staging/${membershipId}/`;
+}
+
+// --- The row's columns -------------------------------------------------------
+
+/** A letter on a membership row: its R2 key, sniffed type, and display name. */
+export type ResignationLetter = {
+  key: string;
+  contentType: LetterContentType;
+  fileName: string;
+};
+
+type LetterColumns = {
+  resignationLetterKey: string | null;
+  resignationLetterContentType: string | null;
+  resignationLetterFileName: string | null;
+};
+
+export const CLEARED_LETTER_FIELDS = {
+  resignationLetterKey: null,
+  resignationLetterContentType: null,
+  resignationLetterFileName: null,
+} as const satisfies LetterColumns;
+
+export function letterColumns(letter: ResignationLetter): LetterColumns {
+  return {
+    resignationLetterKey: letter.key,
+    resignationLetterContentType: letter.contentType,
+    resignationLetterFileName: letter.fileName,
+  };
+}
+
+/** The row's letter, or null. */
+export function letterOnRow(row: LetterColumns): ResignationLetter | null {
+  const { resignationLetterKey: key, resignationLetterContentType: type } = row;
+  if (!key || !isLetterContentType(type)) return null;
+  return { key, contentType: type, fileName: row.resignationLetterFileName ?? "letter" };
 }
 
 // --- Wire shapes --------------------------------------------------------------
@@ -148,11 +181,7 @@ export function rejectedLetterKey(key: string): string {
 /** A letter the browser PUT to staging, as a submit sends it back. */
 export const stagedLetterSchema = z
   .object({
-    stagingKey: z
-      .string()
-      .trim()
-      .startsWith(LETTER_STAGING_PREFIX, "Invalid letter upload"),
-    token: z.string().trim().min(1, "Invalid letter upload"),
+    stagingKey: z.string().trim().startsWith(`${LETTER_PREFIX}staging/`, "Invalid letter upload"),
     fileName: z.string().trim().min(1).max(255),
   })
   .strict();
@@ -163,7 +192,6 @@ export type StagedLetter = z.infer<typeof stagedLetterSchema>;
 export const letterUploadGrantSchema = z.object({
   uploadUrl: z.string(),
   stagingKey: z.string(),
-  token: z.string(),
   /** Send these exactly; both are signed. */
   contentType: z.enum(LETTER_CONTENT_TYPES),
   contentLength: z.number().int(),
@@ -180,18 +208,9 @@ export const letterSummarySchema = z.object({
 export type LetterSummary = z.infer<typeof letterSummarySchema>;
 
 /** The summary for a row's letter columns, or null when none is attached. */
-export function letterSummaryOf(row: {
-  resignationLetterKey: string | null;
-  resignationLetterFileName: string | null;
-  resignationLetterContentType: string | null;
-}): LetterSummary | null {
-  if (!row.resignationLetterKey) return null;
-  const contentType = row.resignationLetterContentType;
-  if (!isLetterContentType(contentType)) return null;
-  return {
-    fileName: row.resignationLetterFileName ?? "letter",
-    contentType,
-  };
+export function letterSummaryOf(row: LetterColumns): LetterSummary | null {
+  const letter = letterOnRow(row);
+  return letter ? { fileName: letter.fileName, contentType: letter.contentType } : null;
 }
 
 /** Link that opens (or downloads) a membership's letter through the access check. */

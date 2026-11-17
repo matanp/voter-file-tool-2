@@ -33,15 +33,11 @@ import {
   CLEARED_EXIT_FIELDS,
   EXIT_REPORT_STATE_SELECT,
   type ExitReportState,
-  exitLetterMetadata,
-  letterClearedOnLeavingResigned,
-  previousLetterMetadata,
   supersededExitReportMetadata,
   writeMembershipExit,
-  type ResignationLetter,
 } from "~/app/api/lib/membershipExit";
-import { relocateDetachedLetters } from "~/app/api/lib/resignationLetterStorage";
 import { logAuditEventOrThrow, SYSTEM_USER_ID } from "~/lib/auditLog";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
@@ -715,12 +711,7 @@ async function removeMembershipForSync(
   tx: Prisma.TransactionClient,
   actor: BulkLoadActor,
   membership: ExitReportState & { voterRecordId: string },
-  context: {
-    committeeId: number;
-    subject: AuditMembershipSubject;
-    /** Collects detached letters; moved once the committee's transaction commits. */
-    detachedLetters: Array<ResignationLetter | null>;
-  },
+  context: { committeeId: number; subject: AuditMembershipSubject },
 ): Promise<void> {
   const exitResult = await writeMembershipExit(tx, membership, {
     status: "REMOVED",
@@ -729,7 +720,6 @@ async function removeMembershipForSync(
     removalReason: "OTHER",
     removalNotes: "Removed by bulk import synchronization",
     extra: { seatNumber: null },
-    letter: "detach",
   });
   if (exitResult.kind !== "written") {
     // The helper supersedes a report filed mid-import, so this means the member
@@ -738,7 +728,6 @@ async function removeMembershipForSync(
       `Membership ${membership.id} changed during bulk import synchronization`,
     );
   }
-  context.detachedLetters.push(exitResult.detachedLetter);
   await logAuditEventOrThrow(
     actor.userId,
     actor.userRole,
@@ -753,7 +742,6 @@ async function removeMembershipForSync(
         reason: "not_in_import_file",
         committeeId: context.committeeId,
         ...supersededExitReportMetadata(exitResult),
-        ...exitLetterMetadata(exitResult),
       },
       context.subject,
     ),
@@ -847,8 +835,6 @@ type ActivationContext = {
   actor: BulkLoadActor;
   term: ImportPlan["term"];
   maxSeats: number;
-  /** Letters this transaction detached; moved after it commits. */
-  detachedLetters: Array<ResignationLetter | null>;
 };
 
 /**
@@ -922,9 +908,9 @@ async function activateMember(
           removedAt: null,
           rejectedAt: null,
           rejectionNote: null,
-          ...(reactivating ? CLEARED_EXIT_FIELDS : {}),
-          // A RESIGNED member's letter stays in R2; only the columns clear.
-          ...letterClearedOnLeavingResigned(existingMembership),
+          ...(reactivating
+            ? { ...CLEARED_EXIT_FIELDS, ...CLEARED_LETTER_FIELDS }
+            : {}),
           petitionVoteCount: null,
           petitionPrimaryDate: null,
         },
@@ -953,9 +939,6 @@ async function activateMember(
         {
           source: "bulk_import_sync",
           committeeId: committee.id,
-          ...(existingMembership.status === "RESIGNED"
-            ? previousLetterMetadata(existingMembership)
-            : {}),
         },
         subject(seatNumber),
       ),
@@ -1027,7 +1010,7 @@ async function activateMember(
  * for their own move to clear.
  */
 async function removeStaleMembers(
-  { tx, actor, term, detachedLetters }: ActivationContext,
+  { tx, actor, term }: ActivationContext,
   committee: CommitteeRow,
   intendedMembers: Iterable<string>,
   isPlannedMoveSource: (membershipId: string) => boolean,
@@ -1085,7 +1068,6 @@ async function removeStaleMembers(
         term,
         seatNumber: null,
       }),
-      detachedLetters,
     });
     removals.push({
       membershipId: membership.id,
@@ -1186,15 +1168,11 @@ export async function applyRosterImport(
       const attempt: Pick<
         AppliedSummary,
         "activations" | "removals" | "skippedActivations"
-      > & {
-        moves: string[];
-        detachedLetters: Array<ResignationLetter | null>;
-      } = {
+      > & { moves: string[] } = {
         activations: [],
         removals: [],
         skippedActivations: [],
         moves: [],
-        detachedLetters: [],
       };
       try {
         await prisma.$transaction(async (tx) => {
@@ -1203,7 +1181,6 @@ export async function applyRosterImport(
             actor,
             term: activeTerm,
             maxSeats: plan.maxSeatsPerLted,
-            detachedLetters: attempt.detachedLetters,
           };
 
           // Moves this attempt may perform: those arriving here, and those leaving here
@@ -1363,7 +1340,6 @@ export async function applyRosterImport(
                   term: activeTerm,
                   seatNumber: null,
                 }),
-                detachedLetters: attempt.detachedLetters,
               });
               attempt.removals.push({
                 membershipId: membership.id,
@@ -1380,7 +1356,6 @@ export async function applyRosterImport(
               await removeMembershipForSync(tx, actor, membership, {
                 committeeId: committee.id,
                 subject: subjectForVoter(membership.voterRecordId, null),
-                detachedLetters: attempt.detachedLetters,
               });
               attempt.removals.push({
                 membershipId: membership.id,
@@ -1487,7 +1462,6 @@ export async function applyRosterImport(
             if (move) attempt.moves.push(voterRecordId);
           }
         });
-        await relocateDetachedLetters(attempt.detachedLetters);
         applied.activations.push(...attempt.activations);
         applied.removals.push(...attempt.removals);
         applied.skippedActivations.push(...attempt.skippedActivations);

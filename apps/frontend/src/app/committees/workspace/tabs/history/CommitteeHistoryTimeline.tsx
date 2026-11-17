@@ -2,12 +2,13 @@
 import React from "react";
 
 import type { HistoryEvent } from "~/lib/validations/committee";
+import { letterViewHref } from "~/lib/resignationLetter";
+import { ViewLetterLink } from "../../drawer/ResignationLetterField";
 import {
   describeActor,
   describeHistoryEvent,
   describeMember,
 } from "./historyModel";
-import { HistoryLetterActions } from "./HistoryLetterActions";
 
 export type CommitteeHistoryTimelineProps = {
   /** Already filtered for the acting role; newest first. */
@@ -15,8 +16,6 @@ export type CommitteeHistoryTimelineProps = {
   hasMore: boolean;
   /** Acting Admin or above: show staff names, notes and reasons the server sent. */
   showAdminDetail: boolean;
-  /** Refetches the detail after a letter is attached. */
-  onRefresh?: () => void;
 };
 
 function formatInstant(iso: string): string {
@@ -37,7 +36,6 @@ export function CommitteeHistoryTimeline({
   events,
   hasMore,
   showAdminDetail,
-  onRefresh,
 }: CommitteeHistoryTimelineProps) {
   return (
     <section aria-labelledby="committee-history-heading" className="space-y-2">
@@ -73,15 +71,15 @@ export function CommitteeHistoryTimeline({
                     ))}
                   </ul>
                 )}
-                {showAdminDetail &&
-                  event.kind === "resigned" &&
-                  event.letterTarget && (
-                    <HistoryLetterActions
-                      membershipId={event.letterTarget.membershipId}
-                      letter={event.letterTarget.letter}
-                      onSaved={() => onRefresh?.()}
+                {showAdminDetail && event.kind === "resigned" && event.letter && (
+                  <p data-testid="history-letter">
+                    Letter: {event.letter.fileName}{" "}
+                    <ViewLetterLink
+                      href={letterViewHref(event.letter.membershipId)}
+                      fileName={event.letter.fileName}
                     />
-                  )}
+                  </p>
+                )}
               </li>
             );
           })}

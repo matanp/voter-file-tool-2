@@ -1,20 +1,16 @@
 /**
  * Resignation Letters (leader-feedback-2026-11 ticket 08) through the API:
- * the presign, the view access matrix, the late attach, and what file /
- * confirm / reject / Record resignation / removal / reactivation do with a
- * letter. R2 is mocked at the `s3Utils` boundary (jest.setup.ts); tokens are
- * real, signed with the test AUTH_SECRET.
+ * the presign, the view access matrix, and what file / confirm / reject /
+ * Record resignation / removal do with a letter. R2 is mocked at the
+ * `s3Utils` boundary (jest.setup.ts).
  */
 import { PrivilegeLevel, type UserJurisdiction } from "@prisma/client";
-import * as Sentry from "@sentry/nextjs";
 import { POST as uploadUrl } from "~/app/api/committee/resignation-letter/upload-url/route";
 import { GET as viewLetter } from "~/app/api/committee/resignation-letter/route";
-import { POST as attachLetter } from "~/app/api/committee/resignation-letter/attach/route";
 import { POST as reportExit } from "~/app/api/committee/exitReport/route";
 import { POST as confirmExitReport } from "~/app/api/committee/exitReport/confirm/route";
 import { POST as rejectExitReport } from "~/app/api/committee/exitReport/reject/route";
 import { POST as removeOrResign } from "~/app/api/committee/remove/route";
-import { signStagingToken } from "~/app/api/lib/resignationLetterStorage";
 import {
   copyObject,
   deleteObject,
@@ -84,21 +80,11 @@ function leaderJurisdictions(
   );
 }
 
-/** A staged upload the test user's presign would have produced. */
-function staged(overrides: { userId?: string; membershipId?: string; expiresAt?: number } = {}) {
-  const stagingKey = "resignation-letters/staging/s-1";
-  return {
-    stagingKey,
-    fileName: "Signed letter.pdf",
-    token: signStagingToken({
-      stagingKey,
-      userId: overrides.userId ?? "test-user-id",
-      membershipId: overrides.membershipId ?? MEMBERSHIP_ID,
-      contentType: "application/pdf",
-      size: 6,
-      expiresAt: overrides.expiresAt ?? Date.now() + 60_000,
-    }),
-  };
+const STAGING_KEY = `resignation-letters/staging/${MEMBERSHIP_ID}/0f8fad5b-d9cb-469f-a165-70867728950e`;
+
+/** A staged upload the presign for this membership would have produced. */
+function staged(stagingKey = STAGING_KEY) {
+  return { stagingKey, fileName: "Signed letter.pdf" };
 }
 
 /** The staged object R2 holds: 6 bytes of PDF. */
@@ -130,10 +116,6 @@ const reportedWithLetter = () =>
     resignationMethod: "EMAIL",
     ...LETTER_COLUMNS,
   });
-
-beforeAll(() => {
-  process.env.AUTH_SECRET = "test-secret";
-});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -174,8 +156,8 @@ describe("POST /api/committee/resignation-letter/upload-url", () => {
     leaderJurisdictions([{ cityTown: "Test City", legDistrict: 1 }]);
     const response = await uploadUrl(createMockRequest(body()));
     expect(response.status).toBe(200);
-    const grant = await parseJsonResponse<{ stagingKey: string; token: string }>(response);
-    expect(grant.stagingKey).toMatch(/^resignation-letters\/staging\//);
+    const grant = await parseJsonResponse<{ stagingKey: string }>(response);
+    expect(grant.stagingKey.startsWith(`resignation-letters/staging/${MEMBERSHIP_ID}/`)).toBe(true);
     expect(getPresignedSizedUploadUrl).toHaveBeenCalledWith(
       grant.stagingKey,
       "application/pdf",
@@ -209,20 +191,6 @@ describe("POST /api/committee/resignation-letter/upload-url", () => {
     resolveMembership(reportedWithLetter());
     const response = await uploadUrl(createMockRequest(body()));
     expect(response.status).toBe(409);
-  });
-
-  it("should let only an Admin presign for a RESIGNED membership by id", async () => {
-    resolveMembership(row({ status: "RESIGNED" }));
-    const byId = { membershipId: MEMBERSHIP_ID, fileName: "a.pdf", contentType: "application/pdf", size: 10 };
-
-    signIn(PrivilegeLevel.Leader);
-    expect((await uploadUrl(createMockRequest(byId))).status).toBe(403);
-
-    signIn(PrivilegeLevel.Admin);
-    expect((await uploadUrl(createMockRequest(byId))).status).toBe(200);
-
-    resolveMembership(row({ status: "REMOVED" }));
-    expect((await uploadUrl(createMockRequest(byId))).status).toBe(400);
   });
 });
 
@@ -326,7 +294,7 @@ describe("POST /api/committee/exitReport with a letter", () => {
       resignationLetterFileName: "signed-letter.pdf",
     });
     expect(copyObject).toHaveBeenCalledWith(
-      "resignation-letters/staging/s-1",
+      STAGING_KEY,
       data.resignationLetterKey,
       "application/pdf",
     );
@@ -367,24 +335,21 @@ describe("POST /api/committee/exitReport with a letter", () => {
     jest.mocked(readObjectPrefix).mockResolvedValue(new Uint8Array([0x50, 0x4b, 3, 4, 0, 0]));
     const response = await reportExit(createMockRequest(report()));
     expect(response.status).toBe(400);
-    expect(deleteObject).toHaveBeenCalledWith("resignation-letters/staging/s-1");
+    expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
     expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
   });
 
-  it("should refuse and delete a file whose real size isn't the declared size", async () => {
-    jest.mocked(headObjectSize).mockResolvedValue(5_000);
+  it("should refuse and delete a file over 10 MB", async () => {
+    jest.mocked(headObjectSize).mockResolvedValue(11 * 1024 * 1024);
     const response = await reportExit(createMockRequest(report()));
     expect(response.status).toBe(400);
-    expect(deleteObject).toHaveBeenCalledWith("resignation-letters/staging/s-1");
+    expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
   });
 
-  it.each([
-    ["another user", { userId: "someone-else" }],
-    ["another membership", { membershipId: "other-membership" }],
-    ["an expired upload", { expiresAt: Date.now() - 1 }],
-  ])("should refuse a staging key issued to %s", async (_label, overrides) => {
+  it("should refuse a staging key issued for another membership", async () => {
     stagedObjectIsPdf();
-    const response = await reportExit(createMockRequest(report({ letter: staged(overrides) })));
+    const otherKey = "resignation-letters/staging/other-membership/0f8fad5b-d9cb-469f-a165-70867728950e";
+    const response = await reportExit(createMockRequest(report({ letter: staged(otherKey) })));
     expect(response.status).toBe(400);
     expect(copyObject).not.toHaveBeenCalled();
     expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
@@ -408,7 +373,7 @@ describe("confirming and rejecting a report with a letter", () => {
     resolveMembership(reportedWithLetter());
   });
 
-  it("should keep the letter on confirm and record it in the audit", async () => {
+  it("should keep the letter on confirm", async () => {
     prismaMock.committeeMembership.update.mockResolvedValue(
       selectedRow({ ...reportedWithLetter(), status: "RESIGNED" }),
     );
@@ -418,16 +383,10 @@ describe("confirming and rejecting a report with a letter", () => {
     expect(response.status).toBe(200);
     const data = prismaMock.committeeMembership.update.mock.calls[0]![0].data;
     expect(data).not.toHaveProperty("resignationLetterKey");
-    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
-      expectAuditLogCreate({
-        action: "MEMBER_RESIGNED",
-        metadata: jsonContaining({ resignationLetterKey: LETTER_KEY }),
-      }),
-    );
     expect(copyObject).not.toHaveBeenCalled();
   });
 
-  it("should detach the letter on reject, move it to rejected/ after commit, and name it in the audit", async () => {
+  it("should clear the letter on reject and leave the file in place", async () => {
     prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 1 });
     const response = await rejectExitReport(
       createMockRequest({ membershipId: MEMBERSHIP_ID, exitReportedAt: REPORTED_AT.toISOString() }),
@@ -436,35 +395,8 @@ describe("confirming and rejecting a report with a letter", () => {
     expect(prismaMock.committeeMembership.updateMany.mock.calls[0]![0].data).toMatchObject(
       NO_LETTER,
     );
-    const rejectedKey = `resignation-letters/rejected/${MEMBERSHIP_ID}/old.pdf`;
-    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
-      expectAuditLogCreate({
-        action: "MEMBER_EXIT_REPORT_REJECTED",
-        metadata: jsonContaining({
-          detachedResignationLetter: {
-            key: rejectedKey,
-            originalKey: LETTER_KEY,
-            fileName: "old.pdf",
-          },
-        }),
-      }),
-    );
-    expect(copyObject).toHaveBeenCalledWith(LETTER_KEY, rejectedKey, "application/pdf");
-    expect(deleteObject).toHaveBeenCalledWith(LETTER_KEY);
-  });
-
-  it("should still answer 200 when the R2 move fails after commit, reporting to Sentry", async () => {
-    prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 1 });
-    jest.mocked(copyObject).mockRejectedValueOnce(new Error("R2 unavailable"));
-    const response = await rejectExitReport(
-      createMockRequest({ membershipId: MEMBERSHIP_ID, exitReportedAt: REPORTED_AT.toISOString() }),
-    );
-    expect(response.status).toBe(200);
+    expect(copyObject).not.toHaveBeenCalled();
     expect(deleteObject).not.toHaveBeenCalled();
-    expect(Sentry.captureException).toHaveBeenCalledWith(
-      expect.any(Error),
-      expect.objectContaining({ tags: { operation: "resignationLetterRelocate" } }),
-    );
   });
 });
 
@@ -488,40 +420,13 @@ describe("Record resignation and removal with a pending letter", () => {
     );
   });
 
-  it("should carry the Leader's letter over when the Admin keeps it", async () => {
-    const response = await resign({ keepReportedLetter: true });
+  it("should keep the Leader's letter when the Admin uploads none", async () => {
+    const response = await resign();
     expect(response.status).toBe(200);
     expect(prismaMock.committeeMembership.update.mock.calls[0]![0].data).not.toHaveProperty(
       "resignationLetterKey",
     );
-    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
-      expectAuditLogCreate({
-        action: "MEMBER_RESIGNED",
-        metadata: jsonContaining({ letterCarriedOver: true, resignationLetterKey: LETTER_KEY }),
-      }),
-    );
     expect(copyObject).not.toHaveBeenCalled();
-  });
-
-  it("should detach the Leader's letter when the Admin unticks it", async () => {
-    const response = await resign();
-    expect(response.status).toBe(200);
-    expect(prismaMock.committeeMembership.update.mock.calls[0]![0].data).toMatchObject(
-      NO_LETTER,
-    );
-    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
-      expectAuditLogCreate({
-        metadata: jsonContaining({
-          letterCarriedOver: false,
-          detachedResignationLetter: expect.objectContaining({ originalKey: LETTER_KEY }),
-        }),
-      }),
-    );
-    expect(copyObject).toHaveBeenCalledWith(
-      LETTER_KEY,
-      `resignation-letters/rejected/${MEMBERSHIP_ID}/old.pdf`,
-      "application/pdf",
-    );
   });
 
   it("should replace the Leader's letter with the Admin's upload", async () => {
@@ -531,20 +436,15 @@ describe("Record resignation and removal with a pending letter", () => {
     const data = prismaMock.committeeMembership.update.mock.calls[0]![0].data;
     expect(data.resignationLetterKey).toMatch(new RegExp(`^resignation-letters/${MEMBERSHIP_ID}/`));
     expect(data.resignationLetterKey).not.toBe(LETTER_KEY);
-    // The Leader's letter is detached to rejected/.
-    expect(copyObject).toHaveBeenCalledWith(
-      LETTER_KEY,
-      `resignation-letters/rejected/${MEMBERSHIP_ID}/old.pdf`,
-      "application/pdf",
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expectAuditLogCreate({
+        action: "MEMBER_RESIGNED",
+        metadata: jsonContaining({ resignationLetterKey: data.resignationLetterKey }),
+      }),
     );
   });
 
-  it("should refuse keeping and uploading at once", async () => {
-    const response = await resign({ keepReportedLetter: true, letter: staged() });
-    expect(response.status).toBe(422);
-  });
-
-  it("should detach the letter on a removal and record letterCarriedOver: false", async () => {
+  it("should clear the letter on a removal", async () => {
     prismaMock.committeeMembership.update.mockResolvedValue(
       selectedRow({ ...reportedWithLetter(), status: "REMOVED" }),
     );
@@ -555,64 +455,5 @@ describe("Record resignation and removal with a pending letter", () => {
     expect(prismaMock.committeeMembership.update.mock.calls[0]![0].data).toMatchObject(
       NO_LETTER,
     );
-    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
-      expectAuditLogCreate({
-        action: "MEMBER_REMOVED",
-        metadata: jsonContaining({ letterCarriedOver: false }),
-      }),
-    );
-  });
-});
-
-// --- Late attach ----------------------------------------------------------------------
-
-describe("POST /api/committee/resignation-letter/attach", () => {
-  const attach = () =>
-    attachLetter(createMockRequest({ membershipId: MEMBERSHIP_ID, letter: staged() }));
-
-  beforeEach(() => {
-    signIn(PrivilegeLevel.Admin);
-    stagedObjectIsPdf();
-    prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 1 });
-  });
-
-  it("should return 403 for a Leader", async () => {
-    signIn(PrivilegeLevel.Leader, false);
-    expect((await attach()).status).toBe(403);
-  });
-
-  it("should replace a RESIGNED member's letter, keep the old object, and audit it", async () => {
-    resolveMembership(row({ status: "RESIGNED", ...LETTER_COLUMNS }));
-    const response = await attach();
-    expect(response.status).toBe(200);
-    const args = prismaMock.committeeMembership.updateMany.mock.calls[0]![0];
-    expect(args.where).toEqual({
-      id: MEMBERSHIP_ID,
-      status: "RESIGNED",
-      resignationLetterKey: LETTER_KEY,
-    });
-    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
-      expectAuditLogCreate({
-        action: "RESIGNATION_LETTER_ATTACHED",
-        metadata: jsonContaining({ previousLetterKey: LETTER_KEY }),
-      }),
-    );
-    // The replaced object is left in place: never moved or deleted.
-    expect(deleteObject).not.toHaveBeenCalledWith(LETTER_KEY);
-    expect(copyObject).not.toHaveBeenCalledWith(LETTER_KEY, expect.anything(), expect.anything());
-  });
-
-  it("should refuse a membership that isn't RESIGNED", async () => {
-    resolveMembership(reportedWithLetter());
-    expect((await attach()).status).toBe(400);
-    expect(copyObject).not.toHaveBeenCalled();
-  });
-
-  it("should answer 409 and delete the copy when the row changed", async () => {
-    resolveMembership(row({ status: "RESIGNED" }));
-    prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 0 });
-    const response = await attach();
-    expect(response.status).toBe(409);
-    expect(deleteObject).toHaveBeenCalledWith(jest.mocked(copyObject).mock.calls[0]![1]);
   });
 });

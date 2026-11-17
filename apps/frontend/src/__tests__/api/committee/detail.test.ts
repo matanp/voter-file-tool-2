@@ -1320,7 +1320,6 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
                 "MEMBER_REMOVED",
                 "MEMBER_EXIT_REPORTED",
                 "MEMBER_EXIT_REPORT_REJECTED",
-                "RESIGNATION_LETTER_ATTACHED",
                 "PETITION_RECORDED",
               ],
             },

@@ -18,7 +18,7 @@ import {
   withPrivilege,
   type SessionWithUser,
 } from "~/app/api/lib/withPrivilege";
-import { letterOnRow } from "~/app/api/lib/membershipExit";
+import { letterOnRow } from "~/lib/resignationLetter";
 import { letterViewAccess } from "~/app/api/lib/resignationLetterAccess";
 import { letterReadUrl } from "~/app/api/lib/resignationLetterStorage";
 

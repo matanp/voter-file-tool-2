@@ -19,11 +19,8 @@ import {
 } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
-import {
-  letterClearedOnLeavingResigned,
-  previousLetterMetadata,
-} from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import { validateEligibility } from "~/lib/eligibility";
 import {
   buildMembershipAuditSubject,
@@ -249,16 +246,12 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             removalNotes: null,
             petitionVoteCount: null,
             petitionPrimaryDate: null,
+            ...CLEARED_LETTER_FIELDS,
             submissionMetadata: metadataForDbOrUndefined,
-            // Re-adding a RESIGNED member: the letter stays in R2 (decision 15).
-            ...letterClearedOnLeavingResigned(existingMembership),
           },
         });
         const auditMetadataWithSubject = mergeAuditMetadata(
-          {
-            ...(auditMetadataWithWarnings as Record<string, unknown> | undefined),
-            ...previousLetterMetadata(existingMembership),
-          },
+          auditMetadataWithWarnings as Record<string, unknown> | undefined,
           buildMembershipAuditSubject({
             voterRecord,
             committee,

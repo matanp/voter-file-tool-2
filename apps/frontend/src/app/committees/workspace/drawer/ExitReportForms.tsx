@@ -296,11 +296,7 @@ export function ReportExitForm({
           <>
             <ResignationReceivedFields value={input} onChange={setField} />
             <ResignationLetterField
-              target={{
-                kind: "member",
-                committee: action.committee,
-                memberId: action.memberId,
-              }}
+              target={action}
               value={letter}
               onChange={setLetter}
               disabled={submitting}

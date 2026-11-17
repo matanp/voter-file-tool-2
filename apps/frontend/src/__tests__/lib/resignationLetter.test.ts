@@ -2,7 +2,6 @@ import {
   declaredLetterType,
   letterDisposition,
   letterSummaryOf,
-  rejectedLetterKey,
   sniffLetterContentType,
   stagedLetterSchema,
 } from "~/lib/resignationLetter";
@@ -65,12 +64,6 @@ describe("declaredLetterType", () => {
 });
 
 describe("letter keys and serving", () => {
-  it("should move a membership's letter under rejected/, keeping its path", () => {
-    expect(rejectedLetterKey("resignation-letters/m1/abc.pdf")).toBe(
-      "resignation-letters/rejected/m1/abc.pdf",
-    );
-  });
-
   it("should download HEIC and open the other types inline", () => {
     expect(letterDisposition("image/heic")).toBe("attachment");
     expect(letterDisposition("application/pdf")).toBe("inline");
@@ -78,11 +71,11 @@ describe("letter keys and serving", () => {
   });
 
   it("should accept only staging keys from a submit", () => {
-    const base = { token: "t", fileName: "a.pdf" };
+    const base = { fileName: "a.pdf" };
     expect(
       stagedLetterSchema.safeParse({
         ...base,
-        stagingKey: "resignation-letters/staging/abc",
+        stagingKey: "resignation-letters/staging/m1/abc",
       }).success,
     ).toBe(true);
     expect(

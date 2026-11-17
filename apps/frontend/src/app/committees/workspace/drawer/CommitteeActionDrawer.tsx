@@ -121,17 +121,6 @@ export function CommitteeActionDrawer({
   let mode: CandidateSubmissionMode | null = null;
   let flow: React.ReactNode = null;
   if (current) {
-    // The member's pending resignation report's letter (ticket 08 decision 14).
-    const report =
-      "memberId" in current
-        ? detail.pendingExitReports.find(
-            (r) => r.voterRecordId === current.memberId,
-          )
-        : undefined;
-    const pendingLetter =
-      report?.letter != null
-        ? { membershipId: report.membershipId, letter: report.letter }
-        : null;
     const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
     switch (current.kind) {
       case "add-member":
@@ -154,7 +143,6 @@ export function CommitteeActionDrawer({
           <RemoveMemberForm
             key={generation}
             action={current}
-            pendingLetter={pendingLetter}
             memberLabel={occupantLabel(detail, current.memberId).label}
             onCancel={onClose}
             onSuccess={handleSuccess}
@@ -166,7 +154,6 @@ export function CommitteeActionDrawer({
           <RecordResignationForm
             key={generation}
             action={current}
-            pendingLetter={pendingLetter}
             memberLabel={occupantLabel(detail, current.memberId).label}
             onCancel={onClose}
             onSuccess={handleSuccess}

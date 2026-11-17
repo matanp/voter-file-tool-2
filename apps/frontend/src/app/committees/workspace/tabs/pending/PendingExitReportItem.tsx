@@ -19,7 +19,7 @@
  *
  * A resignation's Resignation Letter (ticket 08) shows as "View letter" for
  * everyone who sees the report, and again in the Confirm step so the Admin
- * can read it first. Confirming keeps it; rejecting detaches it.
+ * can read it first. Confirming keeps it; rejecting clears it.
  */
 import React, { useId, useRef, useState } from "react";
 

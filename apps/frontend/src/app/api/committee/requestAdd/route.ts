@@ -12,10 +12,7 @@ import {
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
-import {
-  letterClearedOnLeavingResigned,
-  previousLetterMetadata,
-} from "~/app/api/lib/membershipExit";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import { validateEligibility } from "~/lib/eligibility";
 import {
   buildMembershipAuditSubject,
@@ -279,10 +276,9 @@ async function requestAddHandler(req: NextRequest, session: Session) {
             removalNotes: null,
             petitionVoteCount: null,
             petitionPrimaryDate: null,
+            ...CLEARED_LETTER_FIELDS,
             // Rebuild metadata from the current request intent.
             submissionMetadata: requestMetadata,
-            // Resubmitting a RESIGNED member: the letter stays in R2 (decision 15).
-            ...letterClearedOnLeavingResigned(existing),
           },
         });
 
@@ -294,10 +290,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
           resubmitted.id,
           { status: existing.status },
           { status: "SUBMITTED" },
-          {
-            ...(auditMetadataWithSubject as Record<string, unknown> | undefined),
-            ...previousLetterMetadata(existing),
-          } as Prisma.InputJsonValue,
+          auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
           tx,
         );
       });

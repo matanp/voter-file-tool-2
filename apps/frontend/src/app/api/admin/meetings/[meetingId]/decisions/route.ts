@@ -19,8 +19,6 @@ import {
   type ConfirmSubmittedMembershipResult,
 } from "~/app/api/lib/membershipConfirmation";
 import { validateEligibility } from "~/lib/eligibility";
-import type { ResignationLetter } from "~/app/api/lib/membershipExit";
-import { relocateDetachedLetters } from "~/app/api/lib/resignationLetterStorage";
 import {
   withPrivilege,
   type SessionWithUser,
@@ -87,7 +85,6 @@ async function bulkDecisionsHandler(
     const config = await getGovernanceConfig();
     const maxSeats = config.maxSeatsPerLted;
 
-    const detachedLetters: Array<ResignationLetter | null> = [];
     const results = await prisma.$transaction(async (tx) => {
       const decisionResults: DecisionResult[] = [];
 
@@ -152,7 +149,6 @@ async function bulkDecisionsHandler(
             });
 
             if (outcome.kind === "accepted") {
-              detachedLetters.push(outcome.detachedLetter);
               decisionResults.push({
                 membershipId,
                 decision,
@@ -213,7 +209,6 @@ async function bulkDecisionsHandler(
 
       return decisionResults;
     });
-    await relocateDetachedLetters(detachedLetters);
 
     return NextResponse.json({ results }, { status: 200 });
   } catch (error) {

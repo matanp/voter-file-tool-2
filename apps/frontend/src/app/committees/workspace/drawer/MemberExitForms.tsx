@@ -14,16 +14,13 @@
  * listed beside it in text.
  *
  * Resignation Letters (ticket 08): a resignation takes an optional upload.
- * When the member has a pending resignation report with a letter, the form
- * offers to keep it (ticked by default, decision 14); the Admin's own upload
- * replaces it. A removal warns that the Leader's letter won't be kept.
+ * Without one, a letter on the member's pending resignation report is kept;
+ * the Admin's own upload replaces it.
  */
 import React, { useId, useState } from "react";
 import type { ResignationMethod } from "@prisma/client";
 
-import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioOption } from "~/components/ui/radio-group";
@@ -55,17 +52,12 @@ import {
 import {
   EMPTY_LETTER,
   ResignationLetterField,
-  ViewLetterLink,
   letterFieldBusy,
   stagedLetterOf,
   type LetterFieldState,
 } from "./ResignationLetterField";
-import { letterViewHref, type LetterSummary } from "~/lib/resignationLetter";
 
 export const NOTES_MAX = 1000;
-
-/** A letter the Leader attached to the member's pending resignation report. */
-export type PendingReportLetter = { membershipId: string; letter: LetterSummary };
 
 export const RESIGNATION_METHODS: Array<[ResignationMethod, string]> = [
   ["EMAIL", "Email"],
@@ -83,8 +75,6 @@ type MemberExitFormProps<A> = {
   Footer?: React.ComponentType<{ children: React.ReactNode }>;
   /** Classes for the scrolling body. Defaults to the drawer's padding. */
   bodyClassName?: string;
-  /** The member's pending resignation report's letter, if any. */
-  pendingLetter?: PendingReportLetter | null;
 };
 
 const DRAWER_BODY = "flex-1 space-y-4 overflow-y-auto px-4 py-4";
@@ -267,7 +257,6 @@ export function RemoveMemberForm({
   onSuccess,
   Footer,
   bodyClassName,
-  pendingLetter,
 }: MemberExitFormProps<RemovalAction>) {
   const [input, setInput] = useState<RemovalInput>({ reason: "", notes: "" });
   const { submitting, failure, run } = useActionSubmit(onSuccess);
@@ -290,13 +279,6 @@ export function RemoveMemberForm({
         Removing <span className="font-medium">{memberLabel}</span> from the
         committee. This is an administrative removal, not a resignation.
       </p>
-      {pendingLetter && (
-        <Alert data-testid="removal-letter-warning">
-          <AlertDescription>
-            The Leader&apos;s letter will not be kept with a removal.
-          </AlertDescription>
-        </Alert>
-      )}
       <ReasonAndNotes
         value={input}
         onChange={(patch) => setInput((prev) => ({ ...prev, ...patch }))}
@@ -314,27 +296,18 @@ export function RecordResignationForm({
   onSuccess,
   Footer,
   bodyClassName,
-  pendingLetter,
 }: MemberExitFormProps<ResignationAction>) {
-  const id = useId();
   const [input, setInput] = useState<ResignationInput>({
     dateReceived: "",
     method: "",
     notes: "",
   });
   const [letter, setLetter] = useState<LetterFieldState>(EMPTY_LETTER);
-  const [keepReported, setKeepReported] = useState(true);
   const { submitting, failure, run } = useActionSubmit(onSuccess);
   const setField = (patch: Partial<ResignationInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
   const staged = stagedLetterOf(letter);
-  const submit = () =>
-    run(() =>
-      submitResignation(action, input, {
-        letter: staged,
-        keepReportedLetter: pendingLetter != null && keepReported && !staged,
-      }),
-    );
+  const submit = () => run(() => submitResignation(action, input, staged));
   const problems = [
     ...resignationProblems(input),
     ...(letterFieldBusy(letter) ? ["Wait for the letter to finish uploading."] : []),
@@ -357,42 +330,11 @@ export function RecordResignationForm({
         Recording a resignation for <span className="font-medium">{memberLabel}</span>.
       </p>
       <ResignationReceivedFields value={input} onChange={setField} />
-      {pendingLetter && (
-        <div className="flex items-start gap-2 text-sm">
-          <Checkbox
-            id={`${id}-keep`}
-            checked={keepReported && !staged}
-            disabled={submitting || staged !== null}
-            onCheckedChange={(checked) => setKeepReported(checked === true)}
-          />
-          <div>
-            <Label htmlFor={`${id}-keep`} className="font-normal">
-              Keep the letter the Leader attached (
-              <span className="font-medium">{pendingLetter.letter.fileName}</span>)
-            </Label>{" "}
-            <ViewLetterLink
-              href={letterViewHref(pendingLetter.membershipId)}
-              fileName={pendingLetter.letter.fileName}
-              label="View"
-            />
-            {staged && (
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Your upload below replaces it.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
       <ResignationLetterField
-        target={{ kind: "member", committee: action.committee, memberId: action.memberId }}
+        target={action}
         value={letter}
         onChange={setLetter}
         disabled={submitting}
-        label={
-          pendingLetter
-            ? "Upload a different letter (optional)"
-            : "Resignation letter (optional)"
-        }
       />
       <NotesField
         value={input.notes}

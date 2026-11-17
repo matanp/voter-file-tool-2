@@ -15,17 +15,16 @@ managed by Terraform, so three settings have to be made by hand in the Cloudflar
 1. **Bucket privacy (08 decision 11).** R2 → the bucket → Settings. Check that r2.dev public access is disabled
    and no custom domain is connected. If either is on, stop and decide before shipping 08: letters hold members'
    signatures.
-2. **Lifecycle rules (08 decisions 5, 10).**
-   - `resignation-letters/staging/`: delete after 1 day.
-   - `resignation-letters/rejected/`: delete after 90 days.
-   - No rule for the rest of `resignation-letters/`.
+2. **Lifecycle rule (08 decision 10).** `resignation-letters/staging/`: delete after 1 day. No rule for the rest
+   of `resignation-letters/`. (The `rejected/` rule is no longer used since the 2026-11-16 simplification; it's
+   harmless but can be deleted.)
 3. **CORS.** Allow `PUT` with the `content-type` header from the app's origin, unless the Admin CSV upload already
    works from the browser (it uses the same presigned-PUT mechanism, so the policy may already exist).
 
 ## Acceptance criteria
 
 - [x] The bucket has no public access (confirmed in the dashboard, noted in a comment here).
-- [x] Both lifecycle rules exist with the prefixes and ages above.
+- [x] The staging lifecycle rule exists.
 - [ ] A Leader can upload a letter from the deployed app (the browser PUT isn't blocked by CORS).
 
 ## Comments
@@ -35,3 +34,5 @@ managed by Terraform, so three settings have to be made by hand in the Cloudflar
   shows Public Access **Disabled** (r2.dev off). Matan confirmed no custom domain is connected. Matan added
   both lifecycle rules. A CORS preflight for `PUT` + `content-type` succeeds from `https://opensourcepolitics.online`
   and `http://localhost:3000` (`www.` redirects to the apex). The deployed upload check waits for PR #154 to ship.
+- 2026-11-16: 08 was simplified and no longer moves letters to `rejected/`. That lifecycle rule can be deleted from
+  the dashboard; nothing writes there.

@@ -31,7 +31,7 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
-import { letterSummaryOf } from "~/lib/resignationLetter";
+import { letterOnRow } from "~/lib/resignationLetter";
 import { getName } from "~/lib/voterRecordFormatters";
 import {
   type HistoryEvent,
@@ -49,7 +49,6 @@ export const MEMBERSHIP_HISTORY_ACTIONS = [
   "MEMBER_REMOVED",
   "MEMBER_EXIT_REPORTED",
   "MEMBER_EXIT_REPORT_REJECTED",
-  "RESIGNATION_LETTER_ATTACHED",
   "PETITION_RECORDED",
 ] as const satisfies readonly AuditAction[];
 
@@ -95,8 +94,6 @@ const auditMetadataSchema = z
     voteCount: optionalNullableInt,
     /** MEMBER_EXIT_REPORT_REJECTED */
     rejectionNote: optionalString,
-    /** RESIGNATION_LETTER_ATTACHED */
-    previousLetterKey: optionalString,
     subject: auditSubjectSchema,
   })
   .catch({ subject: {} });
@@ -121,8 +118,6 @@ const afterValueSchema = z
     removalReason: z.nativeEnum(RemovalReason).optional().catch(undefined),
     removalNotes: optionalString,
     exitReportedKind: z.nativeEnum(ExitReportKind).optional().catch(undefined),
-    /** RESIGNATION_LETTER_ATTACHED */
-    resignationLetterFileName: optionalString,
   })
   .catch({});
 
@@ -162,7 +157,7 @@ export type HistoryMembershipRow = {
     middleInitial: string | null;
     lastName: string | null;
   };
-  /** For the Admin's letter actions on a resignation; absent in older callers. */
+  /** For the Admin's "View letter" on a resignation; absent in older callers. */
   status?: string;
   resignationLetterKey?: string | null;
   resignationLetterContentType?: string | null;
@@ -182,10 +177,10 @@ export type BuildHistoryOptions = {
   membershipsByVoterRecordId: ReadonlyMap<string, HistoryMembershipRow>;
   meetingsById: ReadonlyMap<string, HistoryMeetingRow>;
   /**
-   * Memberships whose newest resignation already carries a `letterTarget`.
-   * Shared across batches so only the newest one does; rows arrive newest first.
+   * Memberships whose newest resignation has been seen. Shared across batches
+   * so only the newest one links the letter; rows arrive newest first.
    */
-  letterTargetsGiven?: Set<string>;
+  resignationsSeen?: Set<string>;
 };
 
 const submissionMetadataSchema = z
@@ -270,7 +265,7 @@ export function buildHistoryEvents(
 ): HistoryEvent[] {
   const { isAdmin, membershipsById, membershipsByVoterRecordId, meetingsById } =
     options;
-  const letterTargetsGiven = options.letterTargetsGiven ?? new Set<string>();
+  const resignationsSeen = options.resignationsSeen ?? new Set<string>();
   const events: HistoryEvent[] = [];
 
   const memberFor = (
@@ -380,29 +375,24 @@ export function buildHistoryEvents(
         break;
       case "MEMBER_RESIGNED": {
         // POLICY: a recorded resignation's letter is Admin-only (ticket 08).
-        let letterTarget;
-        if (
-          isAdmin &&
-          membership?.status === "RESIGNED" &&
-          !letterTargetsGiven.has(membership.id)
-        ) {
-          letterTargetsGiven.add(membership.id);
-          letterTarget = {
-            membershipId: membership.id,
-            letter: letterSummaryOf({
-              resignationLetterKey: membership.resignationLetterKey ?? null,
-              resignationLetterContentType:
-                membership.resignationLetterContentType ?? null,
-              resignationLetterFileName:
-                membership.resignationLetterFileName ?? null,
-            }),
-          };
+        // It belongs to the membership's newest resignation, if still RESIGNED.
+        let letter;
+        if (membership && !resignationsSeen.has(membership.id)) {
+          resignationsSeen.add(membership.id);
+          const onRow = letterOnRow({
+            resignationLetterKey: membership.resignationLetterKey ?? null,
+            resignationLetterContentType: membership.resignationLetterContentType ?? null,
+            resignationLetterFileName: membership.resignationLetterFileName ?? null,
+          });
+          if (isAdmin && membership.status === "RESIGNED" && onRow) {
+            letter = { membershipId: membership.id, fileName: onRow.fileName };
+          }
         }
         events.push({
           ...base,
           kind: "resigned",
           effectiveDate: after.resignationDateReceived,
-          letterTarget,
+          letter,
           method: adminOnly(isAdmin, after.resignationMethod),
           reason: adminOnly(
             isAdmin,
@@ -412,15 +402,6 @@ export function buildHistoryEvents(
         });
         break;
       }
-      case "RESIGNATION_LETTER_ATTACHED":
-        if (!isAdmin) break; // the letter itself is Admin-only once recorded
-        events.push({
-          ...base,
-          kind: "letter_attached",
-          fileName: after.resignationLetterFileName,
-          replaced: metadata.previousLetterKey !== undefined,
-        });
-        break;
       case "MEMBER_REMOVED": {
         const incoming = metadata.replacementMembershipId
           ? membershipsById.get(metadata.replacementMembershipId)
@@ -495,8 +476,7 @@ export type LoadHistoryParams = {
 const ADMIN_HISTORY_ACTIONS: AuditAction[] = [...MEMBERSHIP_HISTORY_ACTIONS];
 /** A non-Admin's query skips petition rows: they never become that reader's events. */
 const NON_ADMIN_HISTORY_ACTIONS: AuditAction[] = ADMIN_HISTORY_ACTIONS.filter(
-  (action) =>
-    action !== "PETITION_RECORDED" && action !== "RESIGNATION_LETTER_ATTACHED",
+  (action) => action !== "PETITION_RECORDED",
 );
 
 async function loadMeetings(
@@ -538,7 +518,7 @@ export async function loadMembershipHistory(
   );
   const batchSize = limit + 1;
   const events: HistoryEvent[] = [];
-  const letterTargetsGiven = new Set<string>();
+  const resignationsSeen = new Set<string>();
   let cursorId: string | undefined;
 
   for (;;) {
@@ -573,7 +553,7 @@ export async function loadMembershipHistory(
         membershipsById,
         membershipsByVoterRecordId,
         meetingsById: new Map(meetings.map((m) => [m.id, m])),
-        letterTargetsGiven,
+        resignationsSeen,
       }),
     );
 

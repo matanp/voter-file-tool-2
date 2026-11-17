@@ -24,10 +24,7 @@ import {
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
-import {
-  letterClearedOnLeavingResigned,
-  previousLetterMetadata,
-} from "~/app/api/lib/membershipExit";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
@@ -237,8 +234,7 @@ async function handleCommitteeDiscrepancyHandler(
                 removalNotes: null,
                 petitionVoteCount: null,
                 petitionPrimaryDate: null,
-                // A RESIGNED member's letter stays in R2 (decision 15).
-                ...letterClearedOnLeavingResigned(existingMembership),
+                ...CLEARED_LETTER_FIELDS,
               },
             });
 
@@ -258,7 +254,6 @@ async function handleCommitteeDiscrepancyHandler(
                 {
                   source: "discrepancy_accept",
                   discrepancyVrcnum: VRCNUM,
-                  ...previousLetterMetadata(existingMembership),
                 },
                 buildMembershipAuditSubject({
                   voterRecord,

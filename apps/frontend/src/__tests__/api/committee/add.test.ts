@@ -15,7 +15,6 @@ import {
   expectMembershipCreate,
   expectMembershipUpdate,
   expectAuditLogCreate,
-  jsonContaining,
   getMembershipMock,
   getAuditLogMock,
   setupEligibilityPass,
@@ -259,12 +258,6 @@ describe("/api/committee/add", () => {
           resignationLetterKey: null,
           resignationLetterContentType: null,
           resignationLetterFileName: null,
-        }),
-      );
-      expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
-        expectAuditLogCreate({
-          action: "MEMBER_ACTIVATED",
-          metadata: jsonContaining({ previousLetterKey: letterKey }),
         }),
       );
       expect(jest.mocked(copyObject)).not.toHaveBeenCalled();
