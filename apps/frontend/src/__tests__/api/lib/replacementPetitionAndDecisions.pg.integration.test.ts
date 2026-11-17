@@ -3,7 +3,9 @@
  * - a paired replacement candidate who loses or ties a petition is unpaired,
  *   leaving the outgoing member's Exit Report pending on its own;
  * - a meeting batch runs each decision in a savepoint, so one item whose
- *   paired report changed fails alone, its writes undone, and the rest commit.
+ *   paired report changed, or whose activation hits the one-active-per-term
+ *   index (a P2002 from Postgres, which without a savepoint aborts the whole
+ *   transaction), fails alone, its writes undone, and the rest commit.
  *
  * Needs a database built by `prisma migrate deploy`. Run with
  * `pnpm --filter voter-file-tool test:pg`; skips without a local test URL.
@@ -12,9 +14,12 @@ import { PrivilegeLevel, type Prisma, type PrismaClient } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import type * as MembershipExit from "~/app/api/lib/membershipExit";
 import type * as Savepoint from "~/app/api/lib/savepoint";
+import type * as CommitteeValidation from "~/app/api/lib/committeeValidation";
+import type * as Eligibility from "~/lib/eligibility";
 import type { POST as PetitionPost } from "~/app/api/admin/petition-outcomes/record/route";
 import type { POST as DecisionsPost } from "~/app/api/admin/meetings/[meetingId]/decisions/route";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
+import { ALREADY_IN_ANOTHER_COMMITTEE_ERROR } from "~/app/api/lib/committeeValidation";
 
 const ADMIN_ID = "pg-pd-admin";
 const LEADER_ID = "pg-pd-leader";
@@ -32,6 +37,27 @@ jest.mock("~/app/api/lib/membershipExit", () => {
     "~/app/api/lib/membershipExit",
   );
   return { ...actual, rejectExitReport: jest.fn(actual.rejectExitReport) };
+});
+
+// Wraps the real check so a test can stand in for a concurrent activation
+// that commits between the check and the write.
+jest.mock("~/app/api/lib/committeeValidation", () => {
+  const actual = jest.requireActual<typeof CommitteeValidation>(
+    "~/app/api/lib/committeeValidation",
+  );
+  return {
+    ...actual,
+    isVoterActiveInAnotherCommittee: jest.fn(actual.isVoterActiveInAnotherCommittee),
+  };
+});
+
+// Voter-file eligibility (party, district, import recency) isn't under test.
+jest.mock("~/lib/eligibility", () => {
+  const actual = jest.requireActual<typeof Eligibility>("~/lib/eligibility");
+  return {
+    ...actual,
+    validateEligibility: jest.fn(async () => ({ eligible: true, hardStops: [], warnings: [] })),
+  };
 });
 
 const canRunPg = Boolean(process.env.POSTGRES_PRISMA_URL_TEST);
@@ -52,6 +78,7 @@ function jsonRequest(body: unknown): NextRequest {
 describePg("Replacement pairing across petitions and meeting batches (PostgreSQL)", () => {
   let prisma: PrismaClient;
   let exits: typeof MembershipExit;
+  let validation: typeof CommitteeValidation;
   let savepoint: typeof Savepoint;
   let petitionPost: typeof PetitionPost;
   let decisionsPost: typeof DecisionsPost;
@@ -61,6 +88,7 @@ describePg("Replacement pairing across petitions and meeting batches (PostgreSQL
   beforeAll(async () => {
     prisma = (await import("~/lib/prisma")).default;
     exits = await import("~/app/api/lib/membershipExit");
+    validation = await import("~/app/api/lib/committeeValidation");
     savepoint = await import("~/app/api/lib/savepoint");
     ({ POST: petitionPost } = await import(
       "~/app/api/admin/petition-outcomes/record/route"
@@ -227,6 +255,72 @@ describePg("Replacement pairing across petitions and meeting batches (PostgreSQL
         select: { entityId: true },
       });
       expect(rejectedAudits).toEqual([{ entityId: plain.id }]);
+    });
+
+    it("fails only the item that hits the one-active-per-term index, and commits the rest", async () => {
+      const raced = await member({ status: "SUBMITTED", submittedById: LEADER_ID });
+      const plain = await member({ status: "SUBMITTED", submittedById: LEADER_ID });
+      const otherCommitteeId = (
+        await prisma.committeeList.create({
+          data: { cityTown: "PG PD TOWN", legDistrict: 1, electionDistrict: 2, termId: TERM_ID },
+        })
+      ).id;
+      // Another committee activates the same voter, and commits, after this
+      // item's check and before its write: the write raises a real P2002.
+      jest
+        .mocked(validation.isVoterActiveInAnotherCommittee)
+        .mockImplementationOnce(async () => {
+          await prisma.committeeMembership.create({
+            data: {
+              voterRecordId: raced.voterRecordId,
+              committeeListId: otherCommitteeId,
+              termId: TERM_ID,
+              status: "ACTIVE",
+            },
+          });
+          return false;
+        });
+
+      const response = await decisionsPost(
+        jsonRequest({
+          decisions: [
+            { membershipId: raced.id, decision: "confirm" },
+            { membershipId: plain.id, decision: "confirm" },
+          ],
+        }),
+        { params: Promise.resolve({ meetingId: meetingRecordId }) },
+      );
+
+      expect(await response.json()).toEqual({
+        results: [
+          {
+            membershipId: raced.id,
+            decision: "confirm",
+            success: false,
+            error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+          },
+          { membershipId: plain.id, decision: "confirm", success: true },
+        ],
+      });
+      expect(response.status).toBe(200);
+      expect(await read(raced.id)).toMatchObject({ status: "SUBMITTED", seatNumber: null });
+      expect(await read(plain.id)).toMatchObject({ status: "ACTIVE", meetingRecordId });
+    });
+
+    it("without a savepoint, a caught database error leaves the transaction aborted", async () => {
+      const a = await member({ status: "SUBMITTED" });
+      // What the batch did before savepoints: catch the P2002 and carry on.
+      const batch = prisma.$transaction(async (tx) => {
+        await tx.committeeMembership
+          .create({
+            data: { voterRecordId: a.voterRecordId, committeeListId, termId: TERM_ID, status: "SUBMITTED" },
+          })
+          .catch(() => undefined);
+        await tx.committeeMembership.update({ where: { id: a.id }, data: { rejectionNote: "after" } });
+      });
+
+      await expect(batch).rejects.toThrow(/current transaction is aborted/);
+      expect(await read(a.id)).toMatchObject({ rejectionNote: null });
     });
 
     it("keeps the transaction usable after a database error inside a savepoint", async () => {
