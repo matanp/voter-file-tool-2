@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import {
   confirmSubmittedMembership,
+  PairedExitReportChanged,
   rejectSubmittedMembership,
 } from "~/app/api/lib/membershipConfirmation";
 import { prismaMock, rawQueryMock } from "../../utils/mocks";
@@ -20,6 +21,7 @@ import {
   expectMembershipUpdateMany,
   getAuditLogMock,
   jsonContaining,
+  resolvesTo,
   setupMembershipAuditSubjectMocks,
   stubMembershipRows,
 } from "../../utils/testUtils";
@@ -247,23 +249,23 @@ describe("membershipConfirmation", () => {
       prismaMock.committeeMembership.count.mockResolvedValue(2);
 
       expect(await confirm()).toEqual({ kind: "accepted" });
-      const exitWrite = prismaMock.committeeMembership.update.mock.calls
-        .map(([args]: [Prisma.CommitteeMembershipUpdateArgs]) => args)
-        .find((args) => args.where.id === OUTGOING_ID);
-      expect(exitWrite).toEqual({
-        where: { id: OUTGOING_ID, status: "ACTIVE", exitReportedAt: REPORTED_AT },
-        data: expect.objectContaining({
-          status: "REMOVED",
-          removalReason: "MOVED_OUT_OF_DISTRICT",
-          removalNotes: "Moved to Ohio",
-          resignationDateReceived: null,
-          resignationMethod: null,
-          seatNumber: null,
-          exitReportedAt: null,
-          exitReportedKind: null,
-          replacementMembershipId: null,
-        }),
-      });
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+        expectMembershipExitWrite(
+          OUTGOING_ID,
+          {
+            status: "REMOVED",
+            removalReason: "MOVED_OUT_OF_DISTRICT",
+            removalNotes: "Moved to Ohio",
+            resignationDateReceived: null,
+            resignationMethod: null,
+            seatNumber: null,
+            exitReportedAt: null,
+            exitReportedKind: null,
+            replacementMembershipId: null,
+          },
+          { exitReportedAt: REPORTED_AT },
+        ),
+      );
       expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
         expectAuditLogCreate({
           action: "MEMBER_REMOVED",
@@ -475,6 +477,29 @@ describe("membershipConfirmation", () => {
             meetingRecordId: "meeting-001",
           }),
         }),
+      );
+    });
+
+    it("throws when the paired report changed, and does not audit the rejection", async () => {
+      stubMemberships([candidate(), pairedOutgoing()]);
+      prismaMock.committeeMembership.updateMany.mockImplementation((args) =>
+        resolvesTo({
+          count: args.where?.id === OUTGOING_ID ? 0 : 1,
+        }),
+      );
+
+      await expect(
+        rejectSubmittedMembership(prismaMock, {
+          membershipId: MEMBERSHIP_ID,
+          actor: ACTOR,
+        }),
+      ).rejects.toBeInstanceOf(PairedExitReportChanged);
+
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalledWith(
+        expectAuditLogCreate({ action: "MEMBER_REJECTED" }),
+      );
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalledWith(
+        expectAuditLogCreate({ action: "MEMBER_EXIT_REPORT_REJECTED" }),
       );
     });
 

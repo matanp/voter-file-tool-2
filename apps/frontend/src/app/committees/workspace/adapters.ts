@@ -363,6 +363,7 @@ export async function submitCandidate(
   return { ok: true, message: withWarnings("Submitted your request for approval") };
 }
 
+/** The exit fields a replacement sends: a new report, a rewrite, or the pending report as it is. */
 function replacementExitBody(
   exit: ReplacementExit | undefined,
 ): Pick<RequestAddBody, "exitReport" | "existingExitReportedAt"> {

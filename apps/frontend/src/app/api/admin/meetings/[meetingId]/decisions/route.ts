@@ -13,8 +13,10 @@ import {
   getGovernanceConfig,
   isActiveMembershipPerTermConflict,
 } from "~/app/api/lib/committeeValidation";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import {
   confirmSubmittedMembership,
+  PairedExitReportChanged,
   rejectSubmittedMembership,
   type ConfirmSubmittedMembershipResult,
 } from "~/app/api/lib/membershipConfirmation";
@@ -214,6 +216,12 @@ async function bulkDecisionsHandler(
 
     return NextResponse.json({ results }, { status: 200 });
   } catch (error) {
+    if (error instanceof PairedExitReportChanged) {
+      return NextResponse.json(
+        { error: MEMBER_CHANGED_MESSAGE },
+        { status: 409 },
+      );
+    }
     console.error("Error processing bulk decisions:", error);
     return NextResponse.json(
       { error: "Internal server error" },

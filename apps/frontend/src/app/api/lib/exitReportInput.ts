@@ -5,7 +5,11 @@
  * half (`/api/committee/requestAdd`, ticket 09).
  */
 
-import type { ExitReportKind, RemovalReason, ResignationMethod } from "@prisma/client";
+import type {
+  ExitReportKind,
+  RemovalReason,
+  ResignationMethod,
+} from "@prisma/client";
 import { blankToNull } from "~/lib/blankToNull";
 import type { ExitReportInput } from "~/app/api/lib/membershipExit";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
@@ -73,6 +77,9 @@ export function pendingExitReportAuditValue(row: {
   exitReportedAt: Date;
   exitReportedKind: ExitReportKind | null;
   removalReason: RemovalReason | null;
+  removalNotes: string | null;
+  resignationDateReceived: Date | null;
+  resignationMethod: ResignationMethod | null;
   replacementMembershipId: string | null;
 }): Record<string, unknown> {
   return {
@@ -80,6 +87,11 @@ export function pendingExitReportAuditValue(row: {
     exitReportedAt: row.exitReportedAt.toISOString(),
     exitReportedKind: row.exitReportedKind,
     removalReason: row.removalReason,
+    removalNotes: row.removalNotes,
+    resignationDateReceived: row.resignationDateReceived
+      ? row.resignationDateReceived.toISOString().slice(0, 10)
+      : null,
+    resignationMethod: row.resignationMethod,
     ...(row.replacementMembershipId
       ? { replacementMembershipId: row.replacementMembershipId }
       : {}),

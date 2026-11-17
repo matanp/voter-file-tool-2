@@ -435,13 +435,19 @@ export function expectMembershipUpdateMany(
 /**
  * Matcher for `writeMembershipExit`'s conditional `update` (the only way a
  * membership becomes RESIGNED / REMOVED): the row must still be ACTIVE.
+ * `where` pins extra filters, such as the `exitReportedAt` the writer saw.
  */
 export function expectMembershipExitWrite(
   membershipId: string,
   data: Partial<Prisma.CommitteeMembershipUncheckedUpdateManyInput>,
+  where: Record<string, unknown> = {},
 ): unknown {
   return objectContainingMatcher({
-    where: objectContainingMatcher({ id: membershipId, status: "ACTIVE" }),
+    where: objectContainingMatcher({
+      id: membershipId,
+      status: "ACTIVE",
+      ...where,
+    }),
     data: objectContainingMatcher(data),
   });
 }

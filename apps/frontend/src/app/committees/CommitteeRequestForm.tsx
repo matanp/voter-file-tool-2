@@ -17,6 +17,7 @@ import { toast } from "~/components/ui/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { useApiQuery } from "~/hooks/useApiQuery";
 import {
   type CommitteeRequestData,
   type CommitteeRequestResponse,
@@ -51,33 +52,23 @@ const pendingExitReportsResponseSchema = committeeDetailResponseSchema.pick({
   pendingExitReports: true,
 });
 
+type PendingExitReportsResponse = {
+  pendingExitReports: { voterRecordId: string; reportedAt: string }[];
+};
+
 /**
- * The outgoing member's pending Exit Report (`exitReportedAt`), read from the
- * committee detail at submit time, or null when there is none or it can't be
- * read (the server then refuses a second report with a 409).
+ * The outgoing member's pending Exit Report time from a committee detail
+ * payload, or null when that member has none.
  */
-async function fetchPendingExitReportedAt(
-  committeeListId: number,
+function pendingExitReportedAt(
+  detail: PendingExitReportsResponse | null,
   voterRecordId: string,
-): Promise<string | null> {
-  try {
-    const response = await fetch(`/api/committee/${committeeListId}/detail`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) return null;
-    const parsed = pendingExitReportsResponseSchema.safeParse(
-      await response.json(),
-    );
-    if (!parsed.success) return null;
-    return (
-      parsed.data.pendingExitReports.find(
-        (report) => report.voterRecordId === voterRecordId,
-      )?.reportedAt ?? null
-    );
-  } catch {
-    return null;
-  }
+): string | null {
+  return (
+    detail?.pendingExitReports.find(
+      (report) => report.voterRecordId === voterRecordId,
+    )?.reportedAt ?? null
+  );
 }
 
 /**
@@ -87,16 +78,9 @@ async function fetchPendingExitReportedAt(
  * what accepting a replacement always recorded before, removal, Other. The
  * workspace's Replace member asks.
  */
-async function replacementExitBody(
-  committeeListId: number | null,
-  outgoingVoterId: string,
-): Promise<
-  Pick<CommitteeRequestData, "exitReport" | "existingExitReportedAt">
-> {
-  const existingExitReportedAt =
-    committeeListId == null
-      ? null
-      : await fetchPendingExitReportedAt(committeeListId, outgoingVoterId);
+function replacementExitBody(
+  existingExitReportedAt: string | null,
+): Pick<CommitteeRequestData, "exitReport" | "existingExitReportedAt"> {
   if (existingExitReportedAt) return { existingExitReportedAt };
   return {
     exitReport: {
@@ -188,6 +172,17 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
         description: error.message || "Something went wrong with your request",
         variant: "destructive",
       });
+    },
+  });
+
+  // Read at submit time. A failed read files a new report; the server answers
+  // 409 when one is already pending.
+  const pendingExitReports = useApiQuery<PendingExitReportsResponse>("", {
+    enabled: false,
+    parseResponse: (raw) => {
+      const parsed = pendingExitReportsResponseSchema.safeParse(raw);
+      if (!parsed.success) return { pendingExitReports: [] };
+      return parsed.data;
     },
   });
 
@@ -296,8 +291,22 @@ export const CommitteeRequestForm: React.FC<CommitteeRequestFormProps> = ({
     }
 
     try {
+      let existingExitReportedAt: string | null = null;
+      if (requestRemoveMember && committeeListId != null) {
+        try {
+          const detail = await pendingExitReports.refetch(
+            `/api/committee/${committeeListId}/detail`,
+          );
+          existingExitReportedAt = pendingExitReportedAt(
+            detail,
+            requestRemoveMember.VRCNUM,
+          );
+        } catch {
+          existingExitReportedAt = null;
+        }
+      }
       const outgoingExit = requestRemoveMember
-        ? await replacementExitBody(committeeListId, requestRemoveMember.VRCNUM)
+        ? replacementExitBody(existingExitReportedAt)
         : {};
       await requestMutation.mutate({
         cityTown: city,

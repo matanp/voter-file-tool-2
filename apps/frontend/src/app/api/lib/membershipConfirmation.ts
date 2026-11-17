@@ -38,6 +38,17 @@ import {
 } from "~/lib/auditMembershipSubject";
 import type { EligibilityWarning } from "~/lib/eligibility";
 
+/**
+ * The paired Exit Report changed before its clear. Thrown after the candidate
+ * is marked REJECTED so the caller's transaction rolls that write back.
+ */
+export class PairedExitReportChanged extends Error {
+  constructor() {
+    super("Paired exit report changed");
+    this.name = "PairedExitReportChanged";
+  }
+}
+
 export type ConfirmMembershipActor = {
   userId: string;
   userRole: PrivilegeLevel;
@@ -80,7 +91,9 @@ export type RejectSubmittedMembershipResult =
  * Rejects the Exit Report paired with `candidateId`, if any: clears the report,
  * its exit fields and the pairing (the Admin's reject rule), leaving the
  * outgoing member ACTIVE. Audited as `MEMBER_EXIT_REPORT_REJECTED` with
- * `reason: "replacement_rejected"`.
+ * `reason: "replacement_rejected"`. Throws `PairedExitReportChanged` when the
+ * report changed before the clear, so the caller's transaction rolls the
+ * candidate rejection back.
  */
 async function rejectPairedExitReport(
   tx: Prisma.TransactionClient,
@@ -93,7 +106,7 @@ async function rejectPairedExitReport(
   });
   if (!outgoing?.exitReportedAt) return;
 
-  await rejectExitReport(
+  const cleared = await rejectExitReport(
     tx,
     { ...outgoing, exitReportedAt: outgoing.exitReportedAt },
     actor,
@@ -109,6 +122,7 @@ async function rejectPairedExitReport(
       seatNumber: outgoing.seatNumber,
     }),
   );
+  if (!cleared) throw new PairedExitReportChanged();
 }
 
 /** Confirms a SUBMITTED membership: lock, capacity, seat assign, ACTIVE update, audit pair. */

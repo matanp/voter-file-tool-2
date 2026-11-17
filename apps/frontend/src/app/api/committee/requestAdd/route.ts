@@ -41,6 +41,7 @@ import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 /** A conditional write on the outgoing member lost a race; rolls the transaction back. */
 class OutgoingMemberChanged extends Error {}
 
+/** 409 when the request conflicts with a pending submission or pairing. */
 function conflict(error: string) {
   return NextResponse.json({ success: false, error }, { status: 409 });
 }

@@ -502,7 +502,7 @@ model CommitteeMembership {
   // only while status = 'ACTIVE' and exitReportedAt is set.
   replacementMembershipId String?              @unique
   replacementMembership   CommitteeMembership? @relation("ReplacementOf", fields: [replacementMembershipId], references: [id], onDelete: SetNull)
-  replacing               CommitteeMembership? @relation("ReplacementOf")
+  replacedMember          CommitteeMembership? @relation("ReplacementOf")
 
   petitionVoteCount   Int?
   petitionPrimaryDate DateTime?

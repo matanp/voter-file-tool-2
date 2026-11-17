@@ -8,6 +8,7 @@ import {
 } from "~/app/api/admin/meetings/route";
 import { GET as getSubmissions } from "~/app/api/admin/meetings/[meetingId]/submissions/route";
 import { POST as bulkDecisions } from "~/app/api/admin/meetings/[meetingId]/decisions/route";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import { PrivilegeLevel } from "@prisma/client";
 import {
   createMockSession,
@@ -21,6 +22,7 @@ import {
   getMembershipMock,
   getAuditLogMock,
   getMeetingRecordMock,
+  resolvesTo,
   setupEligibilityPass,
   stubMembershipRows,
 } from "../../../utils/testUtils";
@@ -444,6 +446,39 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
       results: Array<{ success: boolean }>;
     };
     expect(json.results[0]!.success).toBe(true);
+  });
+
+  it("returns 409 and rolls the batch back when a paired report changed", async () => {
+    const outgoingId = "membership-target-id-002";
+    const reportedAt = new Date("2026-10-30T15:04:05.678Z");
+    stubMembershipRows(prismaMock, [
+      createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
+      createMockMembership({
+        id: outgoingId,
+        voterRecordId: "OLD_MEMBER_ID",
+        status: "ACTIVE",
+        exitReportedAt: reportedAt,
+        exitReportedById: "leader-1",
+        exitReportedKind: "REMOVAL",
+        removalReason: "OTHER",
+        replacementMembershipId: MEMBERSHIP_ID,
+      }),
+    ]);
+    prismaMock.committeeMembership.updateMany.mockImplementation((args) =>
+      resolvesTo({
+        count: args.where?.id === outgoingId ? 0 : 1,
+      }),
+    );
+
+    const body = {
+      decisions: [{ membershipId: MEMBERSHIP_ID, decision: "reject" }],
+    };
+    const response = await bulkDecisions(
+      createMockRequest(body),
+      routeContext(MEETING_ID),
+    );
+    await expectErrorResponse(response, 409, MEMBER_CHANGED_MESSAGE);
+    expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
   });
 
   it("returns notSubmitted error on reject when membership already transitioned", async () => {

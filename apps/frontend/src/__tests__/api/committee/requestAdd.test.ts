@@ -652,6 +652,12 @@ describe("/api/committee/requestAdd", () => {
   });
   describe("replacements (ticket 09)", () => {
     const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
+    const FILED_AT = new Date("2026-11-08T16:00:00.000Z");
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     const CANDIDATE_ID = "membership-candidate-1";
     const OUTGOING_ID = "membership-outgoing-1";
 
@@ -703,6 +709,7 @@ describe("/api/committee/requestAdd", () => {
         .filter((args) => args.where?.id === OUTGOING_ID);
 
     it("files the outgoing member's Exit Report paired with the new Submission", async () => {
+      jest.useFakeTimers({ now: FILED_AT });
       setup([outgoingRow()]);
 
       const response = await POST(createMockRequest(replacementBody()));
@@ -720,7 +727,7 @@ describe("/api/committee/requestAdd", () => {
         {
           where: { id: OUTGOING_ID, status: "ACTIVE", exitReportedAt: null },
           data: {
-            exitReportedAt: expect.any(Date),
+            exitReportedAt: FILED_AT,
             exitReportedById: "test-user-id",
             exitReportedKind: "RESIGNATION",
             resignationDateReceived: new Date("2026-10-28"),
@@ -864,6 +871,7 @@ describe("/api/committee/requestAdd", () => {
     });
 
     it("rewrites every field of the pending report when the Leader updates it, and audits it", async () => {
+      jest.useFakeTimers({ now: FILED_AT });
       setup([
         outgoingRow({
           exitReportedAt: REPORTED_AT,
@@ -888,7 +896,7 @@ describe("/api/committee/requestAdd", () => {
         replacementMembershipId: null,
       });
       expect(write?.data).toEqual({
-        exitReportedAt: expect.any(Date),
+        exitReportedAt: FILED_AT,
         exitReportedById: "test-user-id",
         exitReportedKind: "RESIGNATION",
         resignationDateReceived: new Date("2026-10-28"),
@@ -907,6 +915,52 @@ describe("/api/committee/requestAdd", () => {
             exitReportedAt: REPORTED_AT.toISOString(),
             exitReportedKind: "REMOVAL",
             removalReason: "DECEASED",
+            removalNotes: "Old note",
+            resignationDateReceived: null,
+            resignationMethod: null,
+          }),
+          metadata: jsonContaining({ updatedReport: true }),
+        }),
+      );
+    });
+
+    it("audits the previous resignation date and method when a rewrite replaces them", async () => {
+      const received = new Date("2026-09-01T00:00:00.000Z");
+      setup([
+        outgoingRow({
+          exitReportedAt: REPORTED_AT,
+          exitReportedKind: "RESIGNATION",
+          resignationDateReceived: received,
+          resignationMethod: "MAIL",
+          removalReason: null,
+          removalNotes: "Leaving the district",
+        }),
+      ]);
+
+      const response = await POST(
+        createMockRequest(
+          replacementBody({
+            existingExitReportedAt: REPORTED_AT.toISOString(),
+            exitReport: {
+              kind: "REMOVAL",
+              removalReason: "MOVED_OUT_OF_DISTRICT",
+              removalNotes: "Moved",
+            },
+          }),
+        ),
+      );
+
+      expect(response.status).toBe(201);
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_EXIT_REPORTED",
+          entityId: OUTGOING_ID,
+          beforeValue: jsonContaining({
+            exitReportedKind: "RESIGNATION",
+            resignationDateReceived: "2026-09-01",
+            resignationMethod: "MAIL",
+            removalNotes: "Leaving the district",
+            removalReason: null,
           }),
           metadata: jsonContaining({ updatedReport: true }),
         }),

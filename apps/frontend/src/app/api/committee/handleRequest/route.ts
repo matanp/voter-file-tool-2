@@ -4,8 +4,10 @@ import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
 import { getGovernanceConfig, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import {
   confirmSubmittedMembership,
+  PairedExitReportChanged,
   rejectSubmittedMembership,
 } from "~/app/api/lib/membershipConfirmation";
 import type { Session } from "next-auth";
@@ -214,6 +216,12 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
       { status: 200 },
     );
   } catch (error) {
+    if (error instanceof PairedExitReportChanged) {
+      return NextResponse.json(
+        { error: MEMBER_CHANGED_MESSAGE },
+        { status: 409 },
+      );
+    }
     if (isActiveMembershipPerTermConflict(error)) {
       return NextResponse.json(
         { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },

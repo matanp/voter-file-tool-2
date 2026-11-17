@@ -440,6 +440,9 @@ export type PendingExitReportRow = {
   exitReportedById: string | null;
   exitReportedKind: ExitReportKind | null;
   removalReason: RemovalReason | null;
+  removalNotes: string | null;
+  resignationDateReceived: Date | null;
+  resignationMethod: ResignationMethod | null;
   replacementMembershipId: string | null;
 };
 

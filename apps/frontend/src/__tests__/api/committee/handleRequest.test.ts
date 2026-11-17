@@ -1,4 +1,5 @@
 import { POST } from "~/app/api/committee/handleRequest/route";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import {
   Prisma,
   PrivilegeLevel,
@@ -92,6 +93,44 @@ describe("/api/committee/handleRequest", () => {
           { id: "membership-test-id-001" },
         ),
       );
+    });
+
+    it("returns 409 when rejecting a replacement whose paired report changed", async () => {
+      const mockRequestData = createMockHandleRequestData({
+        acceptOrReject: "reject",
+      });
+      const reportedAt = new Date("2026-10-30T15:04:05.678Z");
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+      setupMembershipAuditSubjectMocks(prismaMock);
+      stubMembershipRows(prismaMock, [
+        createMockMembership({
+          id: "membership-test-id-001",
+          status: "SUBMITTED",
+        }),
+        createMockMembership({
+          id: "membership-target-id-002",
+          voterRecordId: "OLD_MEMBER_ID",
+          status: "ACTIVE",
+          exitReportedAt: reportedAt,
+          exitReportedById: "leader-1",
+          exitReportedKind: "REMOVAL",
+          removalReason: "OTHER",
+          replacementMembershipId: "membership-test-id-001",
+        }),
+      ]);
+      prismaMock.committeeMembership.updateMany.mockImplementation((args) =>
+        resolvesTo({
+          count: args.where?.id === "membership-target-id-002" ? 0 : 1,
+        }),
+      );
+
+      const response = await POST(createMockRequest(mockRequestData));
+
+      await expectErrorResponse(response, 409, MEMBER_CHANGED_MESSAGE);
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
     it("should successfully reject a SUBMITTED membership request", async () => {

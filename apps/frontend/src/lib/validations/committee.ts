@@ -416,6 +416,7 @@ const exitReportFieldsShape = {
 
 type ExitReportFields = z.infer<z.ZodObject<typeof exitReportFieldsShape>>;
 
+/** Requires the chosen kind's details and rejects the other kind's fields. */
 function refineExitReportFields(data: ExitReportFields, ctx: z.RefinementCtx) {
   if (data.kind === "RESIGNATION") {
     if (data.resignationDateReceived === undefined) {

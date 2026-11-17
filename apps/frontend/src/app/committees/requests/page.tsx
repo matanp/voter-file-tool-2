@@ -86,7 +86,7 @@ const CommitteeRequests: React.FC = async () => {
       include: {
         committeeList: true,
         voterRecord: true,
-        replacing: {
+        replacedMember: {
           select: {
             voterRecord: { select: VOTER_NAME_SELECT },
           },
@@ -118,10 +118,13 @@ const CommitteeRequests: React.FC = async () => {
       committeeList: m.committeeList,
       voterRecord: m.voterRecord,
       submissionMetadata: m.submissionMetadata,
-      replaces: m.replacing
+      replaces: m.replacedMember
         ? {
-            voterRecordId: m.replacing.voterRecord.VRCNUM,
-            name: personName(m.replacing.voterRecord, m.replacing.voterRecord.VRCNUM),
+            voterRecordId: m.replacedMember.voterRecord.VRCNUM,
+            name: personName(
+              m.replacedMember.voterRecord,
+              m.replacedMember.voterRecord.VRCNUM,
+            ),
           }
         : null,
     });
