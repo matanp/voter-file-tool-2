@@ -11,6 +11,7 @@
     "build": "bash ./build.sh",
     "test": "jest",
     "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/tailwind.css --",
+    "pdf-validation": "tsc -p pdf-validation/tsconfig.json && node pdf-validation/dist/cli.js",
     "prestart": "pnpm --filter '@voter-file-tool/voter-import-processor' run build && pnpm --filter '@voter-file-tool/shared-validators' run build && pnpm --filter '@voter-file-tool/shared-prisma' run build"
   },
   "keywords": [],
