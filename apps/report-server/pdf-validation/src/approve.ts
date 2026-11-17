@@ -54,6 +54,11 @@ export async function approve(opts: {
     if (opts.fixtures && !opts.fixtures.includes(item.fixtureId)) continue;
     if (opts.browser && item.browser !== opts.browser) continue;
     const fixture = fixtureById(item.fixtureId);
+    const record = manifest.renders.find((r) => r.fixtureId === item.fixtureId && r.browser === item.browser);
+    // Cached verification results may predate a checkout or fixture update.
+    if (!record || record.fixtureHash !== fixture.hash) {
+      throw new Error(`${item.id}: rendered fixture hash does not match the current definition; render and verify the current fixture before approving`);
+    }
     const replacingPageCount = opts.pageCounts && fixture.expect.pages === 'browser-paginated' && item.browser === 'chrome';
     const blocking = item.checks.filter(
       (c) => c.status === 'fail' && !SUPERSEDED_BY_APPROVAL.has(c.id) && !(replacingPageCount && c.id === 'page-count'),
@@ -62,7 +67,6 @@ export async function approve(opts: {
       console.log(`skip ${item.id}: failing ${blocking.map((c) => c.id).join(', ')}; a failing render can't become a baseline`);
       continue;
     }
-    const record = manifest.renders.find((r) => r.fixtureId === item.fixtureId && r.browser === item.browser)!;
     const pdf = path.join(runDir, 'downloaded', record.key.slice(runPrefix(opts.runId).length));
     if (!item.candidateSha256 || sha256File(pdf) !== item.candidateSha256) throw new Error(`${pdf} doesn't match its verified hash`);
     const inspection = readJson<Inspection>(path.join(runDir, 'inspect', item.id, 'inspection.json'));
