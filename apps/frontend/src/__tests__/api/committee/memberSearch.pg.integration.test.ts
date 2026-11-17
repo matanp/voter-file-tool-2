@@ -10,8 +10,12 @@
  * test URL. Auth is mocked; everything below the session is real.
  */
 import { NextRequest } from "next/server";
-import { PrivilegeLevel, type PrismaClient } from "@prisma/client";
-import type { MemberSearchResponse } from "~/lib/validations/committee";
+import {
+  MembershipStatus,
+  PrivilegeLevel,
+  type PrismaClient,
+} from "@prisma/client";
+import { memberSearchResponseSchema } from "~/lib/validations/committee";
 import type * as MemberSearchRoute from "~/app/api/committee/memberSearch/route";
 
 const mockAuth = jest.fn();
@@ -124,7 +128,7 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
       firstName: string,
       lastName: string,
       committeeListId: number,
-      status: string,
+      status: MembershipStatus,
       termId = TERM,
     ) => {
       n += 1;
@@ -143,24 +147,30 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
           voterRecordId: VRCNUM,
           committeeListId,
           termId,
-          status: status as never,
-          ...(status === "ACTIVE"
+          status,
+          ...(status === MembershipStatus.ACTIVE
             ? { membershipType: "PETITIONED", seatNumber: 1 }
             : {}),
         },
       });
     };
-    await member("Jane", "Smith", greece1.id, "ACTIVE");
-    await member("Janet", "Smithers", greece2.id, "SUBMITTED");
-    await member("John", "Smith", roch28.id, "CONFIRMED");
-    await member("Rob", "Smith", roch29.id, "ACTIVE");
-    await member("Ann", "Smith", penfield.id, "ACTIVE");
-    await member("Sam", "Smith", greece1.id, "RESIGNED");
-    await member("Rita", "Smith", greece1.id, "REMOVED");
-    await member("Rex", "Smith", greece1.id, "REJECTED");
-    await member("Pat", "Smith", penfield.id, "PETITIONED_LOST");
-    await member("Tie", "Smith", penfield.id, "PETITIONED_TIE");
-    await member("Old", "Smith", oldGreece.id, "ACTIVE", OLD_TERM);
+    await member("Jane", "Smith", greece1.id, MembershipStatus.ACTIVE);
+    await member("Janet", "Smithers", greece2.id, MembershipStatus.SUBMITTED);
+    await member("John", "Smith", roch28.id, MembershipStatus.CONFIRMED);
+    await member("Rob", "Smith", roch29.id, MembershipStatus.ACTIVE);
+    await member("Ann", "Smith", penfield.id, MembershipStatus.ACTIVE);
+    await member("Sam", "Smith", greece1.id, MembershipStatus.RESIGNED);
+    await member("Rita", "Smith", greece1.id, MembershipStatus.REMOVED);
+    await member("Rex", "Smith", greece1.id, MembershipStatus.REJECTED);
+    await member("Pat", "Smith", penfield.id, MembershipStatus.PETITIONED_LOST);
+    await member("Tie", "Smith", penfield.id, MembershipStatus.PETITIONED_TIE);
+    await member(
+      "Old",
+      "Smith",
+      oldGreece.id,
+      MembershipStatus.ACTIVE,
+      OLD_TERM,
+    );
   });
 
   afterAll(async () => {
@@ -186,7 +196,7 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
   async function names(q: string) {
     const res = await search(q);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as MemberSearchResponse;
+    const body = memberSearchResponseSchema.parse(await res.json());
     return body.hits.map((h) => `${h.firstName ?? ""} ${h.lastName ?? ""}`);
   }
 
@@ -216,7 +226,7 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
   it("labels SUBMITTED and CONFIRMED as pending and includes town, LD and ED", async () => {
     signInAs(ADMIN, PrivilegeLevel.Admin);
     const res = await search("jan");
-    const body = (await res.json()) as MemberSearchResponse;
+    const body = memberSearchResponseSchema.parse(await res.json());
     expect(body.hits).toEqual([
       expect.objectContaining({
         firstName: "Jane",
@@ -233,7 +243,9 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
         electionDistrict: 3,
       }),
     ]);
-    const john = (await (await search("john")).json()) as MemberSearchResponse;
+    const john = memberSearchResponseSchema.parse(
+      await (await search("john")).json(),
+    );
     expect(john.hits.map((h) => h.status)).toEqual(["pending"]);
   });
 
@@ -273,5 +285,6 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
     expect((await search("smith")).status).toBe(403);
     signInAs(ADMIN, PrivilegeLevel.Admin);
     expect((await search(" s ")).status).toBe(400);
+    expect((await search(",,")).status).toBe(400);
   });
 });

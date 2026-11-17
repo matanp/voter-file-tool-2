@@ -387,14 +387,12 @@ export function CommitteeWorkspace({
               onLegDistrictChange: (next) => writeUrl({ ld: next }, "replace"),
               onLocalChange: (patch) =>
                 setLocalFilters((prev) => ({ ...prev, ...patch })),
-              ...(canSearchMembers
-                ? { memberSearch: { value: memberQuery, onChange: setMemberQuery } }
-                : {}),
             }}
             {...(canSearchMembers
               ? {
                   memberSearch: {
                     query: memberQuery,
+                    onQueryChange: setMemberQuery,
                     state: memberSearch,
                     onOpen: openSearchHit,
                   },

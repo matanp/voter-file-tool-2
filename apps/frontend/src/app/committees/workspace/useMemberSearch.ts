@@ -2,8 +2,8 @@
 /**
  * Debounced committee member name search (`GET /api/committee/memberSearch`).
  *
- * Queries shorter than `MEMBER_SEARCH_MIN_LENGTH` (after trimming) never hit
- * the server and report `idle`. Each new query aborts the previous request,
+ * The query is normalized to its search words first; one that is too short
+ * (`isSearchableMemberQuery`) never hits the server and reports `idle`. Each new query aborts the previous request,
  * and a result is shown only while it still answers the current query, so a
  * slow response can never replace a newer one.
  */
@@ -11,8 +11,9 @@ import { useEffect, useState } from "react";
 
 import { useDebouncedValue } from "~/hooks/useDebouncedValue";
 import {
-  MEMBER_SEARCH_MIN_LENGTH,
+  isSearchableMemberQuery,
   memberSearchResponseSchema,
+  memberSearchTerms,
   type MemberSearchHit,
 } from "~/lib/validations/committee";
 
@@ -34,13 +35,13 @@ export function memberSearchUrl(q: string): string {
 }
 
 export function useMemberSearch(query: string): MemberSearchState {
-  const trimmed = query.trim();
-  const active = trimmed.length >= MEMBER_SEARCH_MIN_LENGTH;
-  const debounced = useDebouncedValue(trimmed, MEMBER_SEARCH_DEBOUNCE_MS);
+  const normalized = memberSearchTerms(query).join(" ");
+  const active = isSearchableMemberQuery(normalized);
+  const debounced = useDebouncedValue(normalized, MEMBER_SEARCH_DEBOUNCE_MS);
   const [result, setResult] = useState<Result | null>(null);
 
   useEffect(() => {
-    if (debounced.length < MEMBER_SEARCH_MIN_LENGTH) return;
+    if (!isSearchableMemberQuery(debounced)) return;
     const controller = new AbortController();
     void (async () => {
       try {
@@ -67,7 +68,7 @@ export function useMemberSearch(query: string): MemberSearchState {
   }, [debounced]);
 
   if (!active) return { status: "idle" };
-  if (result === null || result.q !== trimmed) return { status: "loading" };
+  if (result === null || result.q !== normalized) return { status: "loading" };
   return result.ok
     ? { status: "ready", hits: result.hits, truncated: result.truncated }
     : { status: "error", error: result.error };

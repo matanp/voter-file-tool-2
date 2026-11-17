@@ -19,14 +19,23 @@ import {
 import { formatTownName } from "./gridModel";
 import type { MemberSearchState } from "./useMemberSearch";
 
-export const MEMBER_SEARCH_RESULTS_ID = "committee-member-search-results";
+/** Everything the list pane needs to run the member search. */
+export type MemberSearchControl = {
+  query: string;
+  onQueryChange: (query: string) => void;
+  state: MemberSearchState;
+  onOpen: (hit: MemberSearchHit) => void;
+};
 
 export function MemberSearchInput({
   value,
   onChange,
+  resultsId,
 }: {
   value: string;
   onChange: (value: string) => void;
+  /** Id of the results region; set only while it is rendered. */
+  resultsId?: string;
 }) {
   return (
     <div className="relative">
@@ -37,7 +46,7 @@ export function MemberSearchInput({
       <Input
         type="search"
         aria-label="Find a member by name"
-        aria-controls={MEMBER_SEARCH_RESULTS_ID}
+        aria-controls={resultsId}
         className="h-9 pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden"
         placeholder="Find a member by name"
         autoComplete="off"
@@ -74,51 +83,83 @@ function committeeLabel(hit: MemberSearchHit): string {
   return `${formatTownName(hit.cityTown)} · LD ${String(hit.legDistrict)} · ED ${String(hit.electionDistrict)}`;
 }
 
+/** The status line: always announced; shown as a message unless hits are listed. */
+function statusLine(
+  query: string,
+  state: MemberSearchState,
+): { text: string; visible: boolean; error: boolean } {
+  switch (state.status) {
+    case "idle":
+      return {
+        text: `Type at least ${String(MEMBER_SEARCH_MIN_LENGTH)} letters of a name.`,
+        visible: true,
+        error: false,
+      };
+    case "loading":
+      return { text: "Searching members…", visible: true, error: false };
+    case "error":
+      return {
+        text: `Could not search members: ${state.error}`,
+        visible: true,
+        error: true,
+      };
+    case "ready": {
+      const n = state.hits.length;
+      return n === 0
+        ? {
+            text: `No members match “${query.trim()}”.`,
+            visible: true,
+            error: false,
+          }
+        : {
+            text: `${String(n)} member${n === 1 ? "" : "s"} found`,
+            visible: false,
+            error: false,
+          };
+    }
+  }
+}
+
+function StatusBadge({ status }: { status: MemberSearchHit["status"] }) {
+  return status === "pending" ? (
+    <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+      <Clock className="h-3 w-3" aria-hidden />
+      Pending
+    </span>
+  ) : (
+    <span className="shrink-0 rounded bg-emerald-50 px-1 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+      Active
+    </span>
+  );
+}
+
 export function MemberSearchResults({
+  id,
   query,
   state,
   selectedCommitteeId,
   onOpen,
 }: {
+  id: string;
   query: string;
   state: MemberSearchState;
   selectedCommitteeId: number | null;
   onOpen: (hit: MemberSearchHit) => void;
 }) {
-  const message =
-    state.status === "idle"
-      ? `Type at least ${String(MEMBER_SEARCH_MIN_LENGTH)} letters of a name.`
-      : state.status === "loading"
-        ? "Searching members…"
-        : state.status === "error"
-          ? `Could not search members: ${state.error}`
-          : state.hits.length === 0
-            ? `No members match “${query.trim()}”.`
-            : null;
-
+  const line = statusLine(query, state);
   return (
-    <div
-      id={MEMBER_SEARCH_RESULTS_ID}
-      aria-label="Member search results"
-      role="region"
-    >
-      {/* Announces result counts and status as the query changes. */}
+    <div id={id} aria-label="Member search results" role="region">
       <p
         className={
-          message === null
-            ? "sr-only"
-            : `p-6 text-center text-sm ${
-                state.status === "error"
-                  ? "text-red-700 dark:text-red-400"
-                  : "text-slate-500"
+          line.visible
+            ? `p-6 text-center text-sm ${
+                line.error ? "text-red-700 dark:text-red-400" : "text-slate-500"
               }`
+            : "sr-only"
         }
         role="status"
       >
-        {message ??
-          (state.status === "ready"
-            ? `${String(state.hits.length)} member${state.hits.length === 1 ? "" : "s"} found`
-            : "")}
+        {line.text}
       </p>
       {state.status === "ready" && state.hits.length > 0 && (
         <>
@@ -143,12 +184,7 @@ export function MemberSearchResults({
                         {committeeLabel(hit)}
                       </span>
                     </span>
-                    {hit.status === "pending" && (
-                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100">
-                        <Clock className="h-3 w-3" aria-hidden />
-                        Pending
-                      </span>
-                    )}
+                    <StatusBadge status={hit.status} />
                     <ChevronRight
                       className="h-4 w-4 shrink-0 text-slate-300"
                       aria-hidden

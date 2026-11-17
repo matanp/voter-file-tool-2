@@ -4,12 +4,17 @@
  * no-jurisdiction short-circuit, result mapping and truncation. The same rules
  * run against a real database in memberSearch.pg.integration.test.ts.
  */
-import { PrivilegeLevel } from "@prisma/client";
+import {
+  PrivilegeLevel,
+  type Prisma,
+  type UserJurisdiction,
+} from "@prisma/client";
 import { GET } from "~/app/api/committee/memberSearch/route";
 import {
   MEMBER_SEARCH_LIMIT,
   memberSearchResponseSchema,
   memberSearchTerms,
+  isSearchableMemberQuery,
 } from "~/lib/validations/committee";
 import {
   createAuthTestSuite,
@@ -17,6 +22,7 @@ import {
   createMockSession,
   DEFAULT_ACTIVE_TERM_ID,
   parseJsonResponseWith,
+  resolvesTo,
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
@@ -24,25 +30,35 @@ import {
   prismaMock,
 } from "../../utils/mocks";
 
-type FindManyMock = { findMany: jest.Mock };
-const membershipMock = () =>
-  (prismaMock as unknown as { committeeMembership: FindManyMock })
-    .committeeMembership;
-const jurisdictionMock = () =>
-  (prismaMock as unknown as { userJurisdiction: FindManyMock })
-    .userJurisdiction;
+/** The membership rows the route selects (not a full CommitteeMembership). */
+type SearchRow = ReturnType<typeof row>;
 
-type WhereArg = {
-  where: {
-    termId: string;
-    status: { in: string[] };
-    committeeList: Record<string, unknown>;
-    voterRecord: unknown;
+function serveMembers(rows: SearchRow[]) {
+  prismaMock.committeeMembership.findMany.mockImplementation(() =>
+    resolvesTo(rows),
+  );
+}
+
+function jurisdictionRow(
+  cityTown: string,
+  legDistrict: number | null,
+): UserJurisdiction {
+  return {
+    id: `jurisdiction-${cityTown}-${String(legDistrict)}`,
+    userId: "test-user-id",
+    cityTown,
+    legDistrict,
+    termId: DEFAULT_ACTIVE_TERM_ID,
+    createdAt: new Date("2026-01-01"),
+    createdById: "admin-1",
   };
-  take: number;
-};
-const lastQuery = () =>
-  (membershipMock().findMany.mock.calls.at(-1) as [WhereArg])[0];
+}
+
+function lastQuery(): Prisma.CommitteeMembershipFindManyArgs {
+  const args = prismaMock.committeeMembership.findMany.mock.calls.at(-1)?.[0];
+  if (!args) throw new Error("member query was not issued");
+  return args;
+}
 
 function signIn(privilegeLevel: PrivilegeLevel) {
   mockAuthSession(createMockSession({ user: { privilegeLevel } }));
@@ -68,8 +84,8 @@ function row(n: number, status = "ACTIVE") {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  membershipMock().findMany.mockResolvedValue([]);
-  jurisdictionMock().findMany.mockResolvedValue([]);
+  serveMembers([]);
+  prismaMock.userJurisdiction.findMany.mockResolvedValue([]);
 });
 
 describe("GET /api/committee/memberSearch auth", () => {
@@ -93,16 +109,19 @@ describe("GET /api/committee/memberSearch auth", () => {
     );
     mockHasPermission(false);
     expect((await GET(request("smith"))).status).toBe(403);
-    expect(membershipMock().findMany).not.toHaveBeenCalled();
+    expect(prismaMock.committeeMembership.findMany).not.toHaveBeenCalled();
   });
 });
 
 describe("GET /api/committee/memberSearch query", () => {
-  it.each([undefined, "", " a "])("rejects q=%p with 400", async (q) => {
-    signIn(PrivilegeLevel.Admin);
-    expect((await GET(request(q))).status).toBe(400);
-    expect(membershipMock().findMany).not.toHaveBeenCalled();
-  });
+  it.each([undefined, "", " a ", ",,", ", ,", " , a "])(
+    "rejects q=%p with 400",
+    async (q) => {
+      signIn(PrivilegeLevel.Admin);
+      expect((await GET(request(q))).status).toBe(400);
+      expect(prismaMock.committeeMembership.findMany).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects an over-long q with 400", async () => {
     signIn(PrivilegeLevel.Admin);
@@ -113,29 +132,25 @@ describe("GET /api/committee/memberSearch query", () => {
     signIn(PrivilegeLevel.Admin);
     await GET(request("smith"));
     const { where, take } = lastQuery();
-    expect(where.termId).toBe(DEFAULT_ACTIVE_TERM_ID);
-    expect(where.status.in.sort()).toEqual([
-      "ACTIVE",
-      "CONFIRMED",
-      "SUBMITTED",
-    ]);
-    expect(where.committeeList).toEqual({ termId: DEFAULT_ACTIVE_TERM_ID });
+    expect(where?.termId).toBe(DEFAULT_ACTIVE_TERM_ID);
+    expect(where?.status).toEqual({ in: ["ACTIVE", "SUBMITTED", "CONFIRMED"] });
+    expect(where?.committeeList).toEqual({ termId: DEFAULT_ACTIVE_TERM_ID });
     expect(take).toBe(MEMBER_SEARCH_LIMIT + 1);
-    expect(jurisdictionMock().findMany).not.toHaveBeenCalled();
+    expect(prismaMock.userJurisdiction.findMany).not.toHaveBeenCalled();
   });
 
   it("Leader: the committee filter is their jurisdictions (null LD = whole town)", async () => {
     signIn(PrivilegeLevel.Leader);
-    jurisdictionMock().findMany.mockResolvedValue([
-      { cityTown: "GREECE", legDistrict: null },
-      { cityTown: "ROCHESTER", legDistrict: 28 },
+    prismaMock.userJurisdiction.findMany.mockResolvedValue([
+      jurisdictionRow("GREECE", null),
+      jurisdictionRow("ROCHESTER", 28),
     ]);
     await GET(request("smith"));
-    expect(lastQuery().where.committeeList).toEqual({
+    expect(lastQuery().where?.committeeList).toEqual({
       termId: DEFAULT_ACTIVE_TERM_ID,
       OR: [{ cityTown: "GREECE" }, { cityTown: "ROCHESTER", legDistrict: 28 }],
     });
-    expect(jurisdictionMock().findMany).toHaveBeenCalledWith({
+    expect(prismaMock.userJurisdiction.findMany).toHaveBeenCalledWith({
       where: { userId: "test-user-id", termId: DEFAULT_ACTIVE_TERM_ID },
     });
   });
@@ -146,13 +161,13 @@ describe("GET /api/committee/memberSearch query", () => {
     expect(res.status).toBe(200);
     const body = await parseJsonResponseWith(res, memberSearchResponseSchema);
     expect(body).toEqual({ hits: [], truncated: false });
-    expect(membershipMock().findMany).not.toHaveBeenCalled();
+    expect(prismaMock.committeeMembership.findMany).not.toHaveBeenCalled();
   });
 
   it("every word must match the first or last name, case-insensitively", async () => {
     signIn(PrivilegeLevel.Admin);
     await GET(request("  Doe,  Jane "));
-    expect(lastQuery().where.voterRecord).toEqual({
+    expect(lastQuery().where?.voterRecord).toEqual({
       AND: ["Doe", "Jane"].map((term) => ({
         OR: [
           { firstName: { contains: term, mode: "insensitive" } },
@@ -167,7 +182,7 @@ describe("GET /api/committee/memberSearch query", () => {
     const rows = Array.from({ length: MEMBER_SEARCH_LIMIT + 1 }, (_, i) =>
       row(i + 1, i === 1 ? "SUBMITTED" : i === 2 ? "CONFIRMED" : "ACTIVE"),
     );
-    membershipMock().findMany.mockResolvedValue(rows);
+    serveMembers(rows);
     const body = await parseJsonResponseWith(
       await GET(request("smith")),
       memberSearchResponseSchema,
@@ -194,10 +209,21 @@ describe("GET /api/committee/memberSearch query", () => {
   it("returns 500 without echoing the query when the database fails", async () => {
     signIn(PrivilegeLevel.Admin);
     jest.spyOn(console, "error").mockImplementation(() => undefined);
-    membershipMock().findMany.mockRejectedValue(new Error("boom"));
+    prismaMock.committeeMembership.findMany.mockRejectedValue(
+      new Error("boom"),
+    );
     const res = await GET(request("smith"));
     expect(res.status).toBe(500);
     expect(JSON.stringify(await res.json())).not.toContain("smith");
+  });
+});
+
+describe("isSearchableMemberQuery", () => {
+  it("needs two letters once split into words", () => {
+    expect(isSearchableMemberQuery("jo")).toBe(true);
+    expect(isSearchableMemberQuery("j s")).toBe(true);
+    expect(isSearchableMemberQuery(",,")).toBe(false);
+    expect(isSearchableMemberQuery(" a ,")).toBe(false);
   });
 });
 

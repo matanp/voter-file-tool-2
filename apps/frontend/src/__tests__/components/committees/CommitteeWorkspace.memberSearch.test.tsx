@@ -17,6 +17,11 @@ import {
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
+import {
+  fetchJsonResponse as jsonResponse,
+  installFetchMock,
+  type FetchJsonResponse,
+} from "../../utils/mocks";
 import { summarizeEdRollups } from "~/lib/summarizeEdRollups";
 import type {
   EdRollup,
@@ -131,20 +136,11 @@ const HITS = [
   hit(ROCHESTER_29, "John", "Smith", "pending"),
 ];
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: { get: () => "application/json" },
-    json: async () => body,
-  } as unknown as Response;
-}
-
 function serve(
-  searchResponse: () => Response = () =>
+  searchResponse: () => FetchJsonResponse = () =>
     jsonResponse({ hits: HITS, truncated: false }),
 ) {
-  const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+  return installFetchMock(async (input) => {
     const url = new URL(String(input), "http://localhost");
     if (url.pathname === "/api/committee/roster") return jsonResponse(ROSTER);
     if (url.pathname === "/api/committee/memberSearch") return searchResponse();
@@ -152,16 +148,11 @@ function serve(
     if (detail) return jsonResponse({ error: "not in this test" }, 404);
     throw new Error(`unexpected fetch ${url.toString()}`);
   });
-  global.fetch = fetchMock as unknown as typeof fetch;
-  return fetchMock;
 }
 
-const searchRequests = (fetchMock: jest.Mock) =>
+const searchRequests = (fetchMock: ReturnType<typeof serve>) =>
   fetchMock.mock.calls
-    .map(
-      ([input]: [RequestInfo | URL]) =>
-        new URL(String(input), "http://localhost"),
-    )
+    .map(([input]) => new URL(String(input), "http://localhost"))
     .filter((u) => u.pathname === "/api/committee/memberSearch")
     .map((u) => u.searchParams.get("q"));
 
@@ -240,7 +231,7 @@ describe("member search results", () => {
     const fetchMock = serve();
     renderWorkspace(PrivilegeLevel.Leader);
     await waitForGrid();
-    await userEvent.type(searchBox(), "s");
+    await userEvent.type(searchBox(), "s,,");
     expect(
       await within(list()).findByText("Type at least 2 letters of a name."),
     ).toBeInTheDocument();
@@ -262,7 +253,7 @@ describe("member search results", () => {
     });
     const items = within(members).getAllByRole("button");
     expect(items.map((b) => b.textContent)).toEqual([
-      "Jane SmithGreece · LD 1 · ED 1",
+      "Jane SmithGreece · LD 1 · ED 1Active",
       "John SmithRochester · LD 29 · ED 7Pending",
     ]);
     expect(searchRequests(fetchMock)).toEqual(["smi"]);

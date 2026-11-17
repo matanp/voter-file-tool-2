@@ -1238,22 +1238,10 @@ export const MEMBER_SEARCH_MAX_LENGTH = 60;
 /** Most hits returned; `truncated` says when there were more. */
 export const MEMBER_SEARCH_LIMIT = 25;
 
-export const memberSearchQuerySchema = z.object({
-  q: z
-    .string({ required_error: "q is required" })
-    .trim()
-    .min(MEMBER_SEARCH_MIN_LENGTH, {
-      message: `q must be at least ${String(MEMBER_SEARCH_MIN_LENGTH)} characters`,
-    })
-    .max(MEMBER_SEARCH_MAX_LENGTH, {
-      message: `q must be at most ${String(MEMBER_SEARCH_MAX_LENGTH)} characters`,
-    }),
-});
-
 /**
  * Splits a name query into words; each word must match the first or the last
- * name. "jane doe", "doe jane" and "doe, jane" all find Jane Doe. Capped at
- * four words.
+ * name. "jane doe", "doe jane" and "doe, jane" all find Jane Doe. Only the
+ * first four words count, which bounds the size of the database filter.
  */
 export function memberSearchTerms(q: string): string[] {
   return q
@@ -1261,6 +1249,28 @@ export function memberSearchTerms(q: string): string[] {
     .filter((t) => t !== "")
     .slice(0, 4);
 }
+
+/**
+ * True when `q` holds enough to search: at least `MEMBER_SEARCH_MIN_LENGTH`
+ * characters once split into words, so punctuation alone (",,") never runs
+ * a search that matches everyone. Shared by the endpoint and the client.
+ */
+export function isSearchableMemberQuery(q: string): boolean {
+  return memberSearchTerms(q).join(" ").length >= MEMBER_SEARCH_MIN_LENGTH;
+}
+
+/** Parses `q` into its search words (see `memberSearchTerms`). */
+export const memberSearchQuerySchema = z.object({
+  q: z
+    .string({ required_error: "q is required" })
+    .max(MEMBER_SEARCH_MAX_LENGTH, {
+      message: `q must be at most ${String(MEMBER_SEARCH_MAX_LENGTH)} characters`,
+    })
+    .refine(isSearchableMemberQuery, {
+      message: `q must have at least ${String(MEMBER_SEARCH_MIN_LENGTH)} letters of a name`,
+    })
+    .transform(memberSearchTerms),
+});
 
 /** `active` is ACTIVE; `pending` is SUBMITTED or CONFIRMED. */
 export const memberSearchStatusSchema = z.enum(["active", "pending"]);

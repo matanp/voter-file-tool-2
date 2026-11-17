@@ -31,11 +31,16 @@ import {
 import {
   MEMBER_SEARCH_LIMIT,
   memberSearchQuerySchema,
-  memberSearchTerms,
   type MemberSearchHit,
   type MemberSearchResponse,
 } from "~/lib/validations/committee";
 
+/**
+ * ACTIVE, plus the two not-yet-active states the search labels "pending"
+ * (ticket 05 decision 3). Broader than `PENDING_MEMBERSHIP_STATUS`
+ * (SUBMITTED only, the requests queue): a CONFIRMED member is not seated yet
+ * either, and a Leader looking for a name should still find them.
+ */
 const SEARCHABLE_STATUSES = [
   MembershipStatus.ACTIVE,
   MembershipStatus.SUBMITTED,
@@ -61,7 +66,7 @@ async function searchMembers(req: NextRequest, session: SessionWithUser) {
     const message = parsed.error.issues[0]?.message ?? "Invalid request";
     return NextResponse.json({ error: message }, { status: 400 });
   }
-  const terms = memberSearchTerms(parsed.data.q);
+  const terms = parsed.data.q;
 
   try {
     const activeTermId = await getActiveTermId();

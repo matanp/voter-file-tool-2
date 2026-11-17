@@ -31,7 +31,11 @@ export type CommitteeFiltersProps = {
   /** DOM id for the collapse toggle, so focus can return to it on expand. */
   collapseButtonId?: string;
   /** Member name search (Leader and up); the input renders when given. */
-  memberSearch?: { value: string; onChange: (value: string) => void };
+  memberSearch?: {
+    value: string;
+    onChange: (value: string) => void;
+    resultsId?: string;
+  };
 };
 
 const QUICK_FILTERS = [
