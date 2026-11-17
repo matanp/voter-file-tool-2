@@ -129,3 +129,29 @@ export function reconcileUrlState(
   }
   return Object.keys(patch).length > 0 ? patch : null;
 }
+
+/**
+ * What to change so `target` shows in the grid, for opening a committee from
+ * outside the grid (member search). Nothing when the current filters already
+ * show it. Otherwise the local filters reset, and a town or LD that excludes
+ * it is dropped (LD alone when the town already matches). `rollup` is the
+ * target's grid row when loaded; without it the local filters are reset to be
+ * safe.
+ */
+export function filtersToReveal(
+  target: { cityTown: string; legDistrict: number },
+  rollup: EdRollup | undefined,
+  filters: CommitteeGridFilters,
+): { town?: null; ld?: null; resetLocal: boolean } {
+  const townExcludes = filters.town !== null && filters.town !== target.cityTown;
+  const ldExcludes =
+    townExcludes || (filters.ld !== null && filters.ld !== target.legDistrict);
+  const shown =
+    rollup !== undefined && filterRollups([rollup], filters).length > 0;
+  if (shown) return { resetLocal: false };
+  return {
+    ...(townExcludes ? { town: null } : {}),
+    ...(ldExcludes && filters.ld !== null ? { ld: null } : {}),
+    resetLocal: true,
+  };
+}

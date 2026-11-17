@@ -20,12 +20,25 @@
  * shows list and detail side by side, with a toggle that collapses the list;
  * below `md` the `committee` param alone switches list ↔ detail.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PanelLeftOpen } from "lucide-react";
+import { PrivilegeLevel } from "@prisma/client";
 
 import type { CommitteeScope } from "../committeeScope";
-import type { CommitteeDetailResponse } from "~/lib/validations/committee";
+import type {
+  CommitteeDetailResponse,
+  MemberSearchHit,
+} from "~/lib/validations/committee";
+import { GlobalContext } from "~/components/providers/GlobalContext";
+import { hasPermissionFor } from "~/lib/utils";
 import type { CommitteeAction, CommitteeActionHandler } from "./committeeAction";
 import { CommitteeDetailPane } from "./CommitteeDetailPane";
 import { CommitteeActionDrawer } from "./drawer/CommitteeActionDrawer";
@@ -35,6 +48,7 @@ import { CommitteeWorkspaceHeader } from "./CommitteeWorkspaceHeader";
 import {
   EMPTY_GRID_FILTERS,
   filterRollups,
+  filtersToReveal,
   groupRollupsByTown,
   legDistrictsForTown,
   reconcileUrlState,
@@ -45,6 +59,7 @@ import { useCommitteeGridData } from "./useCommitteeGridData";
 import { useGridRefresh } from "./useGridRefresh";
 import { useHeightBelowNav } from "./useHeightBelowNav";
 import { useIsDesktop } from "./useIsDesktop";
+import { useMemberSearch } from "./useMemberSearch";
 import {
   buildWorkspaceHref,
   parseWorkspaceUrlState,
@@ -186,6 +201,39 @@ export function CommitteeWorkspace({
     },
     [url.committeeId, writeUrl],
   );
+  // --- Member name search (Leader and up, by acting permissions; the
+  // endpoint enforces the real role and scope) --------------------------------
+  const { actingPermissions } = useContext(GlobalContext);
+  const canSearchMembers = hasPermissionFor(
+    actingPermissions,
+    PrivilegeLevel.Leader,
+  );
+  const [memberQuery, setMemberQuery] = useState("");
+  const { state: memberSearch, reload: reloadMemberSearch } = useMemberSearch(
+    canSearchMembers ? memberQuery : "",
+  );
+  // Opens a hit's committee, first loosening any filter that would hide it
+  // (the invalid-selection recovery would otherwise drop it).
+  const openSearchHit = useCallback(
+    (hit: MemberSearchHit) => {
+      const reveal = filtersToReveal(
+        hit,
+        grid.rollups.find((r) => r.committeeListId === hit.committeeListId),
+        { ...localFilters, town, ld },
+      );
+      if (reveal.resetLocal) setLocalFilters(EMPTY_GRID_FILTERS);
+      const { resetLocal: _resetLocal, ...urlPatch } = reveal;
+      if (
+        hit.committeeListId === url.committeeId &&
+        Object.keys(urlPatch).length === 0
+      ) {
+        return;
+      }
+      writeUrl({ committee: hit.committeeListId, ...urlPatch }, "push");
+    },
+    [grid.rollups, localFilters, town, ld, url.committeeId, writeUrl],
+  );
+
   const setTab = useCallback(
     (tab: WorkspaceTab) => writeUrl({ tab }, "replace"),
     [writeUrl],
@@ -193,18 +241,20 @@ export function CommitteeWorkspace({
 
   // --- Detail ----------------------------------------------------------------
   const loadedDetail = useCommitteeDetail(selectedCommitteeId);
-  // A tab's `onRefresh` (and Retry) refreshes the detail and the grid row.
+  // A tab's `onRefresh` (and Retry) refreshes the detail, the grid row, and
+  // member search, so a removed or resigned member leaves the results.
   const { reload: reloadDetail } = loadedDetail;
   const refreshDetailAndGrid = useCallback(() => {
     reloadDetail();
     refreshGrid(selectedCommitteeId);
-  }, [reloadDetail, refreshGrid, selectedCommitteeId]);
+    reloadMemberSearch();
+  }, [reloadDetail, refreshGrid, selectedCommitteeId, reloadMemberSearch]);
   const detail = { ...loadedDetail, reload: refreshDetailAndGrid };
 
   // --- Action drawer -----------------------------------------------------------
-  // Opened by a roster row action; on success it refreshes the detail and the
-  // grid row (the same cross-pane refresh as a tab's `onRefresh`), and never
-  // writes the URL, so selection, tab and filters stay put.
+  // Opened by a roster row action; on success it refreshes the detail, the
+  // grid row, and member search (the same cross-pane refresh as a tab's
+  // `onRefresh`), and never writes the URL, so selection, tab and filters stay put.
   const [openAction, setOpenAction] = useState<{
     action: CommitteeAction;
     returnFocusTo: HTMLElement | null;
@@ -342,6 +392,16 @@ export function CommitteeWorkspace({
               onLocalChange: (patch) =>
                 setLocalFilters((prev) => ({ ...prev, ...patch })),
             }}
+            {...(canSearchMembers
+              ? {
+                  memberSearch: {
+                    query: memberQuery,
+                    onQueryChange: setMemberQuery,
+                    state: memberSearch,
+                    onOpen: openSearchHit,
+                  },
+                }
+              : {})}
             groups={groups}
             selectedCommitteeId={selectedCommitteeId}
             onSelectCommittee={selectCommittee}

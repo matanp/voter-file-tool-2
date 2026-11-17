@@ -276,6 +276,41 @@ function removeMember(server: Server, memberId: string) {
   return fetchJsonResponse({ status: "error", error: "Member not found in this committee" }, 404);
 }
 
+/** Hits for the current roster, so a removal drops the member from search. */
+function memberSearchBody(server: Server, q: string) {
+  const terms = q
+    .toLowerCase()
+    .split(/[\s,]+/)
+    .filter((term) => term !== "");
+  const hits = server.rollups.flatMap((rollupRow) => {
+    const occupants = [
+      ...(server.seats.get(rollupRow.committeeListId) ?? []),
+      ...(server.unassigned.get(rollupRow.committeeListId) ?? []),
+    ];
+    return occupants.flatMap((occupant) => {
+      if (occupant === null) return [];
+      const first = occupant.firstName.toLowerCase();
+      const last = occupant.lastName.toLowerCase();
+      if (!terms.every((term) => first.includes(term) || last.includes(term))) {
+        return [];
+      }
+      return [
+        {
+          membershipId: `${occupant.VRCNUM}-${String(rollupRow.committeeListId)}`,
+          committeeListId: rollupRow.committeeListId,
+          firstName: occupant.firstName,
+          lastName: occupant.lastName,
+          status: "active" as const,
+          cityTown: rollupRow.cityTown,
+          legDistrict: rollupRow.legDistrict,
+          electionDistrict: rollupRow.electionDistrict,
+        },
+      ];
+    });
+  });
+  return { hits, truncated: false };
+}
+
 function serve(server: Server) {
   return installFetchMock(async (input, init) => {
     const url = new URL(String(input), "http://localhost");
@@ -288,6 +323,10 @@ function serve(server: Server) {
     switch (url.pathname) {
       case "/api/committee/roster":
         return fetchJsonResponse(rosterPage(server));
+      case "/api/committee/memberSearch":
+        return fetchJsonResponse(
+          memberSearchBody(server, url.searchParams.get("q") ?? ""),
+        );
       case "/api/fetchFilteredData":
         return fetchJsonResponse({ data: [JANE], totalRecords: 1 });
       case "/api/committee/eligibility":
@@ -458,6 +497,32 @@ describe("Action drawer in the workspace", () => {
     await waitFor(() =>
       expect(within(detailPane()).getByRole("button", { name: "Add member for seat 1" })).toHaveFocus(),
     );
+  });
+
+  it("drops a removed member from the name search that was already on screen", async () => {
+    serve(newServer());
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: "Find a member by name" }),
+      "sam",
+    );
+    const members = await within(committeeList()).findByRole("list", { name: "Members" });
+    expect(
+      within(members).getByRole("button", { name: /Greece · LD 1 · ED 2/ }),
+    ).toHaveTextContent("Active");
+
+    await openRowAction("Actions for seat 1", "Remove member");
+    await chooseSelectOption(within(drawer()).getByLabelText(/Reason for removal/), "Deceased");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Remove member" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        within(committeeList()).queryByRole("button", { name: /Greece · LD 1 · ED 2/ }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(within(committeeList()).getAllByRole("button", { name: /Sam Seated/ })).toHaveLength(2);
   });
 
   it("returns focus to the trigger after a successful add", async () => {
