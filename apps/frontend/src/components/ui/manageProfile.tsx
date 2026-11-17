@@ -20,6 +20,13 @@ import { jurisdictionLabel } from "~/lib/invites/display";
 
 type ManageProfileButtonProps = {
   session: Session;
+  /** Control the profile sheet from outside (the header's phone menu opens it). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Render only the sheet, with no "View Profile" button; use with `open`. */
+  hideTrigger?: boolean;
+  /** Where focus goes when the sheet closes; needed with `hideTrigger`, which has no trigger to return to. */
+  onCloseAutoFocus?: (event: Event) => void;
 };
 
 type PendingInvite = {
@@ -35,10 +42,16 @@ type PendingInvite = {
 
 export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
   session,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
+  onCloseAutoFocus,
 }) => {
   const { actingPermissions, setActingPermissions } =
     React.useContext(GlobalContext);
-  const [open, setOpen] = React.useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   const [pendingInvite, setPendingInvite] =
     React.useState<PendingInvite | null>(null);
   const [pendingInviteLoading, setPendingInviteLoading] = React.useState(false);
@@ -73,13 +86,15 @@ export const ManageProfileButton: React.FC<ManageProfileButtonProps> = ({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger>
-        <h1 className="bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center align-items">
-          View Profile
-        </h1>
-        {/* <Button variant={"outline"}>View Profile</Button> */}
-      </SheetTrigger>
-      <SheetContent>
+      {!hideTrigger && (
+        <SheetTrigger>
+          <h1 className="bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center align-items">
+            View Profile
+          </h1>
+          {/* <Button variant={"outline"}>View Profile</Button> */}
+        </SheetTrigger>
+      )}
+      <SheetContent onCloseAutoFocus={onCloseAutoFocus}>
         <div className="flex items-center justify-between absolute top-4 left-6 right-16">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
             Open Source Politics
