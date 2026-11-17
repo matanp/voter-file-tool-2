@@ -225,7 +225,7 @@ describe("/api/committee/add", () => {
       expect(getMembershipMockTyped(prismaMock).create).not.toHaveBeenCalled();
     });
 
-    it("unpairs a pending replacement candidate it adds directly, before activating it", async () => {
+    it("unpairs a pending replacement candidate it adds directly, after activating it", async () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
@@ -249,10 +249,12 @@ describe("/api/committee/add", () => {
         where: { replacementMembershipId: candidate.id },
         data: { replacementMembershipId: null },
       });
+      // After: the activation locks the row, so a concurrent resubmit can't
+      // pair it between the unpair and the activation.
       expect(
-        prismaMock.committeeMembership.updateMany.mock.invocationCallOrder[0],
+        prismaMock.committeeMembership.update.mock.invocationCallOrder[0],
       ).toBeLessThan(
-        prismaMock.committeeMembership.update.mock.invocationCallOrder[0]!,
+        prismaMock.committeeMembership.updateMany.mock.invocationCallOrder[0]!,
       );
     });
 

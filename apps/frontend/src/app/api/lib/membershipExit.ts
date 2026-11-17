@@ -385,10 +385,15 @@ export async function unpairReplacement(
 
 /**
  * Moves an existing membership row to ACTIVE; every path that does so goes
- * through here. A row coming from another status (a pending replacement
- * candidate, a rejected or departed member) is unpaired first, so the outgoing
- * member's report stays pending as an ordinary report. (When the candidate is
- * accepted, the outgoing member's exit has already cleared the pairing.)
+ * through here. Whatever report is paired with the row (a pending replacement
+ * candidate activated some other way) is unpaired, so the outgoing member's
+ * report stays pending as an ordinary report. (When the candidate is accepted,
+ * the outgoing member's exit has already cleared the pairing.)
+ *
+ * Callers read `row` without the committee lock, so its status may be stale.
+ * The unpair therefore always runs, and after the activation: the activation
+ * locks the row, so a concurrent resubmit that pairs it either lands first
+ * (and is cleared here) or waits and then misses its conditional write.
  * Returns the row after the write.
  */
 export async function activateMembership(
@@ -403,13 +408,12 @@ export async function activateMembership(
     | "replacementMembershipId"
   >,
 ): Promise<CommitteeMembership> {
-  if (row.status !== ACTIVE_MEMBERSHIP_STATUS) {
-    await unpairReplacement(tx, row.id);
-  }
-  return tx.committeeMembership.update({
+  const activated = await tx.committeeMembership.update({
     where: { id: row.id },
     data: { status: ACTIVE_MEMBERSHIP_STATUS, ...data },
   });
+  await unpairReplacement(tx, row.id);
+  return activated;
 }
 
 /**

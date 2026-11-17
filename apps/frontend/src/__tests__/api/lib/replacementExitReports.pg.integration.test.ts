@@ -249,6 +249,29 @@ describePg("Replacements paired with Exit Reports (PostgreSQL)", () => {
     });
   });
 
+  describe("activateMembership", () => {
+    it("unpairs the candidate even when the caller read a stale status", async () => {
+      const { outgoing, candidate, reportedAt } = await pairedReplacement();
+
+      // The caller read the row as ACTIVE (or any status) before a Leader
+      // resubmitted it as a replacement; activation must still unpair it.
+      const activated = await prisma.$transaction((tx) =>
+        exits.activateMembership(
+          tx,
+          { id: candidate.id, status: "ACTIVE" },
+          { activatedAt: new Date(), seatNumber: 2 },
+        ),
+      );
+
+      expect(activated.status).toBe("ACTIVE");
+      expect(await read(outgoing.id)).toMatchObject({
+        status: "ACTIVE",
+        exitReportedAt: reportedAt,
+        replacementMembershipId: null,
+      });
+    });
+  });
+
   describe("accepting and rejecting the candidate", () => {
     it("accepting records the reported exit and seats the candidate in one transaction", async () => {
       const { outgoing, candidate } = await pairedReplacement();
