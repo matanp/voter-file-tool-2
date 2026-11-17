@@ -3,16 +3,22 @@ import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import { getGovernanceConfig, isActiveMembershipPerTermConflict } from "~/app/api/lib/committeeValidation";
-import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
+import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
 import {
   confirmSubmittedMembership,
-  PairedExitReportChanged,
+  membershipDecisionError,
+  membershipDecisionFailureFromError,
   rejectSubmittedMembership,
+  type MembershipDecisionFailure,
 } from "~/app/api/lib/membershipConfirmation";
 import type { Session } from "next-auth";
 import { handleCommitteeRequestDataSchema } from "~/lib/validations/committee";
 import { validateEligibility } from "~/lib/eligibility";
+
+function decisionFailureResponse(failure: MembershipDecisionFailure) {
+  const { status, body } = membershipDecisionError(failure);
+  return NextResponse.json(body, { status });
+}
 
 async function handleRequestHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
@@ -51,18 +57,10 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
       where: { id: membershipId },
     });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "Committee membership request not found" },
-        { status: 404 },
-      );
-    }
+    if (!membership) return decisionFailureResponse({ kind: "notFound" });
 
     if (membership.status !== "SUBMITTED") {
-      return NextResponse.json(
-        { error: "This membership is not in a pending (SUBMITTED) state" },
-        { status: 400 },
-      );
+      return decisionFailureResponse({ kind: "notSubmitted" });
     }
 
     const actor = { userId, userRole: user.privilegeLevel };
@@ -140,44 +138,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         }),
       );
 
-      if (outcome.kind === "notFound") {
-        return NextResponse.json(
-          { error: "Committee membership request not found" },
-          { status: 404 },
-        );
-      }
-
-      if (outcome.kind === "notSubmitted") {
-        return NextResponse.json(
-          { error: "This membership is not in a pending (SUBMITTED) state" },
-          { status: 400 },
-        );
-      }
-
-      if (outcome.kind === "anotherCommittee") {
-        return NextResponse.json(
-          { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },
-          { status: 422 },
-        );
-      }
-
-      if (outcome.kind === "replacementTargetInvalid") {
-        return NextResponse.json(
-          { error: "Replacement target not found or no longer active" },
-          { status: 422 },
-        );
-      }
-
-      if (outcome.kind === "replacementExitIncomplete") {
-        return NextResponse.json({ error: outcome.message }, { status: 422 });
-      }
-
-      if (outcome.kind === "atCapacity") {
-        return NextResponse.json(
-          { error: "INELIGIBLE", reasons: ["CAPACITY"] },
-          { status: 422 },
-        );
-      }
+      if (outcome.kind !== "accepted") return decisionFailureResponse(outcome);
 
       return NextResponse.json(
         {
@@ -196,19 +157,7 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
         }),
       );
 
-      if (outcome.kind === "notFound") {
-        return NextResponse.json(
-          { error: "Committee membership request not found" },
-          { status: 404 },
-        );
-      }
-
-      if (outcome.kind === "notSubmitted") {
-        return NextResponse.json(
-          { error: "This membership is not in a pending (SUBMITTED) state" },
-          { status: 400 },
-        );
-      }
+      if (outcome.kind !== "rejected") return decisionFailureResponse(outcome);
     }
 
     return NextResponse.json(
@@ -216,18 +165,8 @@ async function handleRequestHandler(req: NextRequest, session: Session) {
       { status: 200 },
     );
   } catch (error) {
-    if (error instanceof PairedExitReportChanged) {
-      return NextResponse.json(
-        { error: MEMBER_CHANGED_MESSAGE },
-        { status: 409 },
-      );
-    }
-    if (isActiveMembershipPerTermConflict(error)) {
-      return NextResponse.json(
-        { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },
-        { status: 422 },
-      );
-    }
+    const failure = membershipDecisionFailureFromError(error);
+    if (failure) return decisionFailureResponse(failure);
     console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },

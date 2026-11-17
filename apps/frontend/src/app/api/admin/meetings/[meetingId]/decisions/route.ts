@@ -1,25 +1,31 @@
 /**
  * SRS 2.4 — POST /api/admin/meetings/[meetingId]/decisions
  * Bulk confirm/reject SUBMITTED memberships within a single transaction.
+ *
+ * One transaction, so the items see each other's writes (capacity and seats
+ * are counted under the committee lock as each item lands) and an unexpected
+ * error rolls the whole batch back. Each decision runs in its own savepoint:
+ * an expected failure that throws (a paired Exit Report that changed, the
+ * one-active-membership-per-term index) undoes only that item's writes and is
+ * reported in `results` like every other per-item failure.
  */
 
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type Prisma } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { bulkDecisionSchema } from "~/lib/validations/committee";
 import { validateRequest } from "~/app/api/lib/validateRequest";
-import {
-  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
-  getGovernanceConfig,
-  isActiveMembershipPerTermConflict,
-} from "~/app/api/lib/committeeValidation";
-import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
+import { getGovernanceConfig } from "~/app/api/lib/committeeValidation";
 import {
   confirmSubmittedMembership,
-  PairedExitReportChanged,
+  membershipDecisionError,
+  membershipDecisionFailureFromError,
   rejectSubmittedMembership,
   type ConfirmSubmittedMembershipResult,
+  type MembershipDecisionFailure,
+  type RejectSubmittedMembershipResult,
 } from "~/app/api/lib/membershipConfirmation";
+import { withSavepoint } from "~/app/api/lib/savepoint";
 import { validateEligibility } from "~/lib/eligibility";
 import {
   withPrivilege,
@@ -35,23 +41,32 @@ type DecisionResult = {
   error?: string;
 };
 
-function confirmErrorMessage(
-  outcome: Exclude<ConfirmSubmittedMembershipResult, { kind: "accepted" }>,
-): string {
-  switch (outcome.kind) {
-    case "notFound":
-      return "Membership not found";
-    case "notSubmitted":
-      return "Membership is not in SUBMITTED status";
-    case "anotherCommittee":
-      return ALREADY_IN_ANOTHER_COMMITTEE_ERROR;
-    case "replacementTargetInvalid":
-      return "Replacement target not found or no longer active";
-    case "replacementExitIncomplete":
-      return outcome.message;
-    case "atCapacity":
-      return "Committee is at capacity";
+/**
+ * Runs one decision in its own savepoint. An expected failure, returned or
+ * thrown, becomes the item's error; an unexpected error propagates and rolls
+ * the batch back.
+ */
+async function runDecision(
+  tx: Prisma.TransactionClient,
+  decide: () => Promise<
+    ConfirmSubmittedMembershipResult | RejectSubmittedMembershipResult
+  >,
+): Promise<{ success: true } | { success: false; error: string }> {
+  let outcome:
+    | ConfirmSubmittedMembershipResult
+    | RejectSubmittedMembershipResult
+    | MembershipDecisionFailure;
+  try {
+    outcome = await withSavepoint(tx, decide);
+  } catch (error) {
+    const failure = membershipDecisionFailureFromError(error);
+    if (!failure) throw error;
+    outcome = failure;
   }
+  if (outcome.kind === "accepted" || outcome.kind === "rejected") {
+    return { success: true };
+  }
+  return { success: false, error: membershipDecisionError(outcome).message };
 }
 
 async function bulkDecisionsHandler(
@@ -142,72 +157,34 @@ async function bulkDecisionsHandler(
             continue;
           }
 
-          try {
-            const outcome = await confirmSubmittedMembership(tx, {
-              membershipId,
-              meetingRecordId: meetingId,
-              actor,
-              maxSeats,
-              membershipType: membership.membershipType ?? "APPOINTED",
-              auditMetadata: { meetingRecordId: meetingId },
-            });
-
-            if (outcome.kind === "accepted") {
-              decisionResults.push({
-                membershipId,
-                decision,
-                success: true,
-              });
-            } else {
-              decisionResults.push({
-                membershipId,
-                decision,
-                success: false,
-                error: confirmErrorMessage(outcome),
-              });
-            }
-          } catch (error) {
-            if (isActiveMembershipPerTermConflict(error)) {
-              decisionResults.push({
-                membershipId,
-                decision,
-                success: false,
-                error: ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
-              });
-              continue;
-            }
-            throw error;
-          }
-        } else {
-          const outcome = await rejectSubmittedMembership(tx, {
+          decisionResults.push({
             membershipId,
-            actor,
-            meetingRecordId: meetingId,
-            rejectionNote: rejectionNote ?? null,
-            auditMetadata: { meetingRecordId: meetingId },
+            decision,
+            ...(await runDecision(tx, () =>
+              confirmSubmittedMembership(tx, {
+                membershipId,
+                meetingRecordId: meetingId,
+                actor,
+                maxSeats,
+                membershipType: membership.membershipType ?? "APPOINTED",
+                auditMetadata: { meetingRecordId: meetingId },
+              }),
+            )),
           });
-
-          if (outcome.kind === "rejected") {
-            decisionResults.push({
-              membershipId,
-              decision,
-              success: true,
-            });
-          } else if (outcome.kind === "notFound") {
-            decisionResults.push({
-              membershipId,
-              decision,
-              success: false,
-              error: "Membership not found",
-            });
-          } else {
-            decisionResults.push({
-              membershipId,
-              decision,
-              success: false,
-              error: `Membership status is not SUBMITTED`,
-            });
-          }
+        } else {
+          decisionResults.push({
+            membershipId,
+            decision,
+            ...(await runDecision(tx, () =>
+              rejectSubmittedMembership(tx, {
+                membershipId,
+                actor,
+                meetingRecordId: meetingId,
+                rejectionNote: rejectionNote ?? null,
+                auditMetadata: { meetingRecordId: meetingId },
+              }),
+            )),
+          });
         }
       }
 
@@ -216,12 +193,6 @@ async function bulkDecisionsHandler(
 
     return NextResponse.json({ results }, { status: 200 });
   } catch (error) {
-    if (error instanceof PairedExitReportChanged) {
-      return NextResponse.json(
-        { error: MEMBER_CHANGED_MESSAGE },
-        { status: 409 },
-      );
-    }
     console.error("Error processing bulk decisions:", error);
     return NextResponse.json(
       { error: "Internal server error" },

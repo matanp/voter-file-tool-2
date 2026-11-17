@@ -30,6 +30,7 @@ import {
   mockAuthSession,
   mockHasPermission,
   prismaMock,
+  rawQueryMock,
 } from "../../../utils/mocks";
 
 // ---------------------------------------------------------------------------
@@ -448,16 +449,17 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     expect(json.results[0]!.success).toBe(true);
   });
 
-  it("returns 409 and rolls the batch back when a paired report changed", async () => {
+  it("fails only the item whose paired report changed, rolling back just its writes", async () => {
     const outgoingId = "membership-target-id-002";
-    const reportedAt = new Date("2026-10-30T15:04:05.678Z");
+    const plainId = "membership-plain-003";
     stubMembershipRows(prismaMock, [
       createMockMembership({ id: MEMBERSHIP_ID, status: "SUBMITTED" }),
+      createMockMembership({ id: plainId, voterRecordId: "PLAIN", status: "SUBMITTED" }),
       createMockMembership({
         id: outgoingId,
         voterRecordId: "OLD_MEMBER_ID",
         status: "ACTIVE",
-        exitReportedAt: reportedAt,
+        exitReportedAt: new Date("2026-10-30T15:04:05.678Z"),
         exitReportedById: "leader-1",
         exitReportedKind: "REMOVAL",
         removalReason: "OTHER",
@@ -469,16 +471,47 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
         count: args.where?.id === outgoingId ? 0 : 1,
       }),
     );
+    const executeRaw = rawQueryMock("$executeRaw").mockResolvedValue(0);
 
     const body = {
-      decisions: [{ membershipId: MEMBERSHIP_ID, decision: "reject" }],
+      decisions: [
+        { membershipId: MEMBERSHIP_ID, decision: "reject" },
+        { membershipId: plainId, decision: "reject" },
+      ],
     };
     const response = await bulkDecisions(
       createMockRequest(body),
       routeContext(MEETING_ID),
     );
-    await expectErrorResponse(response, 409, MEMBER_CHANGED_MESSAGE);
-    expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      results: [
+        {
+          membershipId: MEMBERSHIP_ID,
+          decision: "reject",
+          success: false,
+          error: MEMBER_CHANGED_MESSAGE,
+        },
+        { membershipId: plainId, decision: "reject", success: true },
+      ],
+    });
+    // The first item's candidate rejection is undone by its savepoint; the
+    // second item's is released and kept.
+    const statements = executeRaw.mock.calls.map((call: unknown[]) =>
+      (call[0] as TemplateStringsArray).join("?"),
+    );
+    expect(statements).toEqual([
+      "SAVEPOINT item_savepoint",
+      "ROLLBACK TO SAVEPOINT item_savepoint",
+      "RELEASE SAVEPOINT item_savepoint",
+      "SAVEPOINT item_savepoint",
+      "RELEASE SAVEPOINT item_savepoint",
+    ]);
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledTimes(1);
+    expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+      expectAuditLogCreate({ action: "MEMBER_REJECTED", entityId: plainId }),
+    );
   });
 
   it("returns notSubmitted error on reject when membership already transitioned", async () => {

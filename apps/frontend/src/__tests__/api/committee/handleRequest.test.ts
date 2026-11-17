@@ -295,7 +295,7 @@ describe("/api/committee/handleRequest", () => {
       );
     });
 
-    it("should return 422 when replacement target is not found or no longer active", async () => {
+    it("returns 409 and writes nothing when the paired report changed before the outgoing exit", async () => {
       const mockRequestData = createMockHandleRequestData({
         acceptOrReject: "accept",
       });
@@ -335,11 +335,8 @@ describe("/api/committee/handleRequest", () => {
 
       const response = await POST(createMockRequest(mockRequestData));
 
-      await expectErrorResponse(
-        response,
-        422,
-        "Replacement target not found or no longer active",
-      );
+      await expectErrorResponse(response, 409, MEMBER_CHANGED_MESSAGE);
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
       expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalledWith(
         expectMembershipUpdate(
           { status: "ACTIVE" },

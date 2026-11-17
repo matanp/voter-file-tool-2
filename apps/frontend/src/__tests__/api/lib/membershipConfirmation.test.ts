@@ -9,9 +9,12 @@ import {
 } from "@prisma/client";
 import {
   confirmSubmittedMembership,
+  membershipDecisionError,
+  membershipDecisionFailureFromError,
   PairedExitReportChanged,
   rejectSubmittedMembership,
 } from "~/app/api/lib/membershipConfirmation";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import { prismaMock, rawQueryMock } from "../../utils/mocks";
 import {
   createMockMembership,
@@ -341,17 +344,16 @@ describe("membershipConfirmation", () => {
       expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
-    it("returns replacementTargetInvalid when the paired report changed before the write", async () => {
+    it("throws PairedExitReportChanged when the paired report changed before the write", async () => {
       stubMemberships([candidate(), pairedOutgoing()]);
       prismaMock.committeeMembership.count.mockResolvedValue(2);
       prismaMock.committeeMembership.update.mockRejectedValueOnce(
         Object.assign(new Error("Record to update not found."), { code: "P2025" }),
       );
 
-      expect(await confirm()).toEqual({ kind: "replacementTargetInvalid" });
-      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalledWith(
-        expectAuditLogCreate({ action: "MEMBER_ACTIVATED" }),
-      );
+      // Thrown, so the caller's transaction rolls back the seats it made.
+      await expect(confirm()).rejects.toBeInstanceOf(PairedExitReportChanged);
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
     it("keeps the paired report pending, unpaired, when capacity auto-rejects the candidate", async () => {
@@ -539,6 +541,37 @@ describe("membershipConfirmation", () => {
       });
 
       expect(result).toEqual({ kind: "notFound" });
+    });
+  });
+
+  describe("membershipDecisionError", () => {
+    it("maps a changed paired report, returned or thrown, to 409 refresh", () => {
+      expect(
+        membershipDecisionError({ kind: "pairedExitReportChanged" }),
+      ).toEqual({
+        status: 409,
+        message: MEMBER_CHANGED_MESSAGE,
+        body: { error: MEMBER_CHANGED_MESSAGE },
+      });
+      expect(
+        membershipDecisionFailureFromError(new PairedExitReportChanged()),
+      ).toEqual({ kind: "pairedExitReportChanged" });
+    });
+
+    it("keeps the INELIGIBLE body for single decisions and a sentence for batches", () => {
+      expect(membershipDecisionError({ kind: "atCapacity" })).toEqual({
+        status: 422,
+        message: "Committee is at capacity",
+        body: { error: "INELIGIBLE", reasons: ["CAPACITY"] },
+      });
+      expect(membershipDecisionError({ kind: "anotherCommittee" })).toMatchObject({
+        status: 422,
+        body: { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },
+      });
+    });
+
+    it("leaves an unexpected error to the caller", () => {
+      expect(membershipDecisionFailureFromError(new Error("boom"))).toBeNull();
     });
   });
 });

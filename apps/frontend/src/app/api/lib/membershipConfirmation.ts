@@ -17,9 +17,12 @@ import {
 } from "@prisma/client";
 import {
   ACTIVE_MEMBERSHIP_STATUS,
+  ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
   countActiveMembers,
+  isActiveMembershipPerTermConflict,
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
+import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
@@ -39,8 +42,10 @@ import {
 import type { EligibilityWarning } from "~/lib/eligibility";
 
 /**
- * The paired Exit Report changed before its clear. Thrown after the candidate
- * is marked REJECTED so the caller's transaction rolls that write back.
+ * The outgoing member's paired Exit Report changed between its read and its
+ * write (rejected, rewritten or confirmed meanwhile). Thrown, not returned, so
+ * the caller's transaction rolls back what this decision already wrote: the
+ * candidate's REJECTED status on a reject, the seats on an accept.
  */
 export class PairedExitReportChanged extends Error {
   constructor() {
@@ -115,12 +120,7 @@ async function rejectPairedExitReport(
       reason: "replacement_rejected",
       replacementMembershipId: candidateId,
     },
-    await fetchMembershipAuditSubject(tx, {
-      voterRecordId: outgoing.voterRecordId,
-      committeeListId: outgoing.committeeListId,
-      termId: outgoing.termId,
-      seatNumber: outgoing.seatNumber,
-    }),
+    await fetchMembershipAuditSubject(tx, outgoing),
   );
   if (!cleared) throw new PairedExitReportChanged();
 }
@@ -262,7 +262,7 @@ export async function confirmSubmittedMembership(
       { expectedExitReportedAt: reportedAt },
     );
     if (exitResult.kind !== "written") {
-      return { kind: "replacementTargetInvalid" };
+      throw new PairedExitReportChanged();
     }
     await logAuditEventOrThrow(
       userId,
@@ -284,12 +284,7 @@ export async function confirmSubmittedMembership(
           reportedById: replacementTarget.exitReportedById,
           reportedAt: reportedAt.toISOString(),
         },
-        await fetchMembershipAuditSubject(tx, {
-          voterRecordId: replacementTarget.voterRecordId,
-          committeeListId: replacementTarget.committeeListId,
-          termId: replacementTarget.termId,
-          seatNumber: replacementTarget.seatNumber,
-        }),
+        await fetchMembershipAuditSubject(tx, replacementTarget),
       ),
       tx,
     );
@@ -344,9 +339,7 @@ export async function confirmSubmittedMembership(
   };
 
   const acceptedSubject = await fetchMembershipAuditSubject(tx, {
-    voterRecordId: submittedMembership.voterRecordId,
-    committeeListId: submittedMembership.committeeListId,
-    termId: submittedMembership.termId,
+    ...submittedMembership,
     seatNumber,
   });
   const auditMetadataWithSubject = mergeAuditMetadata(
@@ -451,4 +444,74 @@ export async function rejectSubmittedMembership(
   );
 
   return { kind: "rejected" };
+}
+
+/** Why a single accept or reject didn't go through. */
+export type MembershipDecisionFailure =
+  | Exclude<ConfirmSubmittedMembershipResult, { kind: "accepted" }>
+  | Exclude<RejectSubmittedMembershipResult, { kind: "rejected" }>
+  | { kind: "pairedExitReportChanged" };
+
+export type MembershipDecisionError = {
+  status: 400 | 404 | 409 | 422;
+  /** One line for a per-item result (meeting decisions). */
+  message: string;
+  /** The response body of a single-decision route (handleRequest). */
+  body: { error: string; reasons?: string[] };
+};
+
+function plainError(
+  status: MembershipDecisionError["status"],
+  message: string,
+): MembershipDecisionError {
+  return { status, message, body: { error: message } };
+}
+
+/** The status and message for a failed decision, shared by every decision route. */
+export function membershipDecisionError(
+  failure: MembershipDecisionFailure,
+): MembershipDecisionError {
+  switch (failure.kind) {
+    case "notFound":
+      return plainError(404, "Committee membership request not found");
+    case "notSubmitted":
+      return plainError(
+        400,
+        "This membership is not in a pending (SUBMITTED) state",
+      );
+    case "anotherCommittee":
+      return {
+        status: 422,
+        message: ALREADY_IN_ANOTHER_COMMITTEE_ERROR,
+        body: { error: "INELIGIBLE", reasons: ["ALREADY_IN_ANOTHER_COMMITTEE"] },
+      };
+    case "atCapacity":
+      return {
+        status: 422,
+        message: "Committee is at capacity",
+        body: { error: "INELIGIBLE", reasons: ["CAPACITY"] },
+      };
+    case "replacementTargetInvalid":
+      return plainError(422, "Replacement target not found or no longer active");
+    case "replacementExitIncomplete":
+      return plainError(422, failure.message);
+    case "pairedExitReportChanged":
+      return plainError(409, MEMBER_CHANGED_MESSAGE);
+  }
+}
+
+/**
+ * The decision failure a thrown error stands for (a changed paired report, or
+ * the one-active-membership-per-term index), or null for an unexpected error.
+ */
+export function membershipDecisionFailureFromError(
+  error: unknown,
+): MembershipDecisionFailure | null {
+  if (error instanceof PairedExitReportChanged) {
+    return { kind: "pairedExitReportChanged" };
+  }
+  if (isActiveMembershipPerTermConflict(error)) {
+    return { kind: "anotherCommittee" };
+  }
+  return null;
 }
