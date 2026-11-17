@@ -24,6 +24,8 @@ import {
   formatCalendarDateForForm,
 } from "~/lib/dateUtils";
 
+import { MissingCommittees } from "./MissingCommittees";
+
 interface TermsManagementProps {
   initialTerms: CommitteeTerm[];
 }
@@ -309,6 +311,10 @@ export function TermsManagement({ initialTerms }: TermsManagementProps) {
           )}
         </CardContent>
       </Card>
+
+      <MissingCommittees
+        key={terms.find((term) => term.isActive)?.id ?? "no-active-term"}
+      />
 
       <Dialog
         open={editingTerm !== null}
