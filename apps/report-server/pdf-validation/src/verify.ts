@@ -34,7 +34,7 @@ import { ALL_FIXTURES, FIXTURE_MANIFEST_VERSION, jobTypesCovered } from './fixtu
 import { PDF_JOB_TYPES } from './fixtures/types';
 import type { InspectItem, InspectJob, Inspection, ToolVersions } from './inspect';
 import { loadReview, type LoadedReview } from './llmReview';
-import { MANIFEST_VERSION, type RenderRecord, type RunManifest } from './manifest';
+import { MANIFEST_VERSION, type RemoteObject, type RenderRecord, type RunManifest } from './manifest';
 import { Storage, loadStorageConfig } from './storage';
 import { writeLlmRequest, writeSummary } from './summary';
 
@@ -85,6 +85,43 @@ export function comparisonImage(platform: string): ComparisonImage {
   return { tag, imageId: imageId ?? 'unknown', platform, dockerfileSha256, baseImage };
 }
 
+/** Download and hash-check every evidence object, including non-PDF logs. */
+export async function downloadObjects(
+  storage: Pick<Storage, 'get'>,
+  objects: RemoteObject[],
+  runId: string,
+  downloadDir: string,
+  timeoutMs: number,
+) {
+  const prefix = runPrefix(runId);
+  const downloaded = new Map<string, { ok: boolean; detail: string; file: string }>();
+  for (const object of objects) {
+    assertKeyInRun(object.key, runId);
+    const file = path.join(downloadDir, object.key.slice(prefix.length));
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    try {
+      if (!fs.existsSync(file) || sha256File(file) !== object.sha256) {
+        console.log(`downloading ${object.key}`);
+        fs.writeFileSync(file, await storage.get(object.key, timeoutMs));
+      }
+      const got = sha256File(file);
+      downloaded.set(object.key, got === object.sha256 ? { ok: true, detail: `sha256 ${got.slice(0, 12)} matches the manifest`, file } : { ok: false, detail: `sha256 ${got.slice(0, 12)}, manifest says ${object.sha256.slice(0, 12)}`, file });
+    } catch (error) {
+      downloaded.set(object.key, { ok: false, detail: `download failed: ${errorMessage(error)}`, file });
+    }
+  }
+
+  const checks: Check[] = [...downloaded].filter(([, d]) => !d.ok).map(([key, d]) => fail('evidence-download', `${key}: ${d.detail}`));
+  return { downloaded, checks };
+}
+
+/** Hash all compiled helpers as well as the inspection entry point. */
+export function inspectionJobKey(job: InspectJob, imageId: string, distDir = path.join(HARNESS_DIR, 'dist')): string {
+  const harness = treeHash(distDir, (rel) => rel.endsWith('.js'));
+  if (isUnavailable(harness)) throw new Error(harness.unavailable);
+  return sha256(JSON.stringify({ job, image: imageId, harness: harness.sha256 }));
+}
+
 export async function verify(opts: VerifyOptions): Promise<number> {
   assertRunId(opts.runId);
   const runDir = path.join(opts.runsDir, opts.runId);
@@ -115,22 +152,8 @@ export async function verify(opts: VerifyOptions): Promise<number> {
     manifest.storage.bucket === storage.bucket ? pass('bucket', `${storage.bucket}, ${manifest.storage.source}`) : fail('bucket', `render used ${manifest.storage.bucket}, verify is configured for ${storage.bucket}`),
   );
 
-  const downloaded = new Map<string, { ok: boolean; detail: string; file: string }>();
-  for (const object of manifest.objects) {
-    assertKeyInRun(object.key, opts.runId);
-    const file = path.join(downloadDir, object.key.slice(prefix.length));
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    try {
-      if (!fs.existsSync(file) || sha256File(file) !== object.sha256) {
-        console.log(`downloading ${object.key}`);
-        fs.writeFileSync(file, await storage.get(object.key, opts.downloadTimeoutMs));
-      }
-      const got = sha256File(file);
-      downloaded.set(object.key, got === object.sha256 ? { ok: true, detail: `sha256 ${got.slice(0, 12)} matches the manifest`, file } : { ok: false, detail: `sha256 ${got.slice(0, 12)}, manifest says ${object.sha256.slice(0, 12)}`, file });
-    } catch (error) {
-      downloaded.set(object.key, { ok: false, detail: `download failed: ${errorMessage(error)}`, file });
-    }
-  }
+  const { downloaded, checks: downloadChecks } = await downloadObjects(storage, manifest.objects, opts.runId, downloadDir, opts.downloadTimeoutMs);
+  runChecks.push(...downloadChecks);
 
   // ------------------------------------------------------------ references
   const approvals = loadApprovals();
@@ -186,7 +209,7 @@ export async function verify(opts: VerifyOptions): Promise<number> {
     runChecks.push(pass('comparison-image', `${image.tag} ${image.imageId.slice(0, 19)} (${image.platform}), base ${image.baseImage.split('@')[1]?.slice(0, 19) ?? image.baseImage}`));
     const job: InspectJob = { items };
     const jobFile = path.join(inspectDir, 'job.json');
-    const jobKey = sha256(JSON.stringify({ job, image: image.imageId, harness: sha256File(path.join(HARNESS_DIR, 'dist', 'inspect.js')) }));
+    const jobKey = inspectionJobKey(job, image.imageId);
     const stampFile = path.join(inspectDir, 'job.sha256');
     const fresh = !opts.reinspect && fs.existsSync(stampFile) && fs.readFileSync(stampFile, 'utf8') === jobKey && items.every((i) => fs.existsSync(path.join(inspectDir, i.id, 'inspection.json')));
     if (!fresh) {

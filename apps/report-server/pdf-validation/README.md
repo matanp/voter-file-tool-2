@@ -117,7 +117,10 @@ the run directory, the baseline cache and the compiled harness. Homebrew Poppler
    ```bash
    pnpm -s run pdf-validation approve --run-id <full-run-id> --reviewer "Your Name" --baselines --page-counts
    ```
-   Commit `baselines/approvals.json`.
+   Commit `baselines/approvals.json`. To replace a browser-paginated count after an intentional
+   layout change, run `approve --run-id <id> --reviewer "Your Name" --page-counts --browser chrome`
+   again. Only that approved count mismatch can be replaced; fixed fixture counts and other
+   content failures still block approval.
 4. Optional: `render --browser shell` (harness-installed). This is diagnostic evidence only.
 
 ### After #148 is deployed
@@ -151,7 +154,7 @@ Fail takes precedence over needs-review, which takes precedence over pass. `summ
 `results.json` are generated from the same object.
 
 - **Fail (1):** render failure, preflight or timeout; missing or unreadable PDF; SHA-256 mismatch
-  with the manifest; wrong page count or size (0.5 pt tolerance); missing, duplicated or misordered
+  with the manifest (including missing or corrupted render logs); wrong page count or size (0.5 pt tolerance); missing, duplicated or misordered
   rows; missing totals or required text; wrong outcome colour; text or page count that differs from
   an approved baseline; an LLM `defect` nobody accepted; cleanup failure.
 - **Needs-review (2):** no approved baseline; no approved page count for a browser-paginated

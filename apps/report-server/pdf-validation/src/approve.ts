@@ -53,18 +53,21 @@ export async function approve(opts: {
   for (const item of results.items) {
     if (opts.fixtures && !opts.fixtures.includes(item.fixtureId)) continue;
     if (opts.browser && item.browser !== opts.browser) continue;
-    const blocking = item.checks.filter((c) => c.status === 'fail' && !SUPERSEDED_BY_APPROVAL.has(c.id));
+    const fixture = fixtureById(item.fixtureId);
+    const replacingPageCount = opts.pageCounts && fixture.expect.pages === 'browser-paginated' && item.browser === 'chrome';
+    const blocking = item.checks.filter(
+      (c) => c.status === 'fail' && !SUPERSEDED_BY_APPROVAL.has(c.id) && !(replacingPageCount && c.id === 'page-count'),
+    );
     if (blocking.length) {
       console.log(`skip ${item.id}: failing ${blocking.map((c) => c.id).join(', ')}; a failing render can't become a baseline`);
       continue;
     }
     const record = manifest.renders.find((r) => r.fixtureId === item.fixtureId && r.browser === item.browser)!;
-    const fixture = fixtureById(item.fixtureId);
     const pdf = path.join(runDir, 'downloaded', record.key.slice(runPrefix(opts.runId).length));
     if (!item.candidateSha256 || sha256File(pdf) !== item.candidateSha256) throw new Error(`${pdf} doesn't match its verified hash`);
     const inspection = readJson<Inspection>(path.join(runDir, 'inspect', item.id, 'inspection.json'));
 
-    if (opts.pageCounts && fixture.expect.pages === 'browser-paginated' && item.browser === 'chrome') {
+    if (replacingPageCount) {
       approvals.pageCounts = approvals.pageCounts.filter((p) => !(p.fixtureId === fixture.id && p.fixtureHash === fixture.hash));
       approvals.pageCounts.push({ fixtureId: fixture.id, fixtureHash: fixture.hash, pages: item.pages, browser: 'chrome', pdfSha256: item.candidateSha256, sourceRunId: opts.runId, reviewer: opts.reviewer, approvedAt: now });
       console.log(`page count ${fixture.id}: ${item.pages} (from full Chrome)`);
