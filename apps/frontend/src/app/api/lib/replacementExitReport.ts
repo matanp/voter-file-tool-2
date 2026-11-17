@@ -22,17 +22,21 @@ import {
   pairExitReportWithReplacement,
 } from "~/app/api/lib/membershipExit";
 import {
-  type ExitReportFieldsData,
   exitReportedAuditValue,
   pendingExitReportAuditValue,
   toExitReportInput,
 } from "~/app/api/lib/exitReportInput";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
+import {
+  type ExitReportFields,
+  REPLACEMENT_NEEDS_OUTGOING_EXIT_MESSAGE,
+  replacementCarriesOutgoingExit,
+} from "~/lib/validations/committee";
 
 /** What a replacement request says about the outgoing member's exit. */
 export type OutgoingExitRequest = {
   /** The exit to file, or to rewrite the pending report with. */
-  exitReport?: ExitReportFieldsData;
+  exitReport?: ExitReportFields;
   /** The pending report the Leader saw (ISO), when there was one. */
   existingExitReportedAt?: string;
 };
@@ -92,12 +96,9 @@ export function outgoingMemberProblem(
     if (request.existingExitReportedAt !== undefined) {
       return { status: 409, error: MEMBER_CHANGED_MESSAGE };
     }
-    if (request.exitReport === undefined) {
-      return {
-        status: 422,
-        error:
-          "Say whether the member being replaced resigned or should be removed",
-      };
+    // The request schema enforces this too; kept for callers that skip it.
+    if (!replacementCarriesOutgoingExit(request)) {
+      return { status: 422, error: REPLACEMENT_NEEDS_OUTGOING_EXIT_MESSAGE };
     }
     return null;
   }
@@ -117,27 +118,36 @@ export function outgoingMemberProblem(
   return null;
 }
 
-/** `changed`: the conditional write lost a race; the caller rolls back (409). */
-export type OutgoingExitResult = "written" | "changed";
+/**
+ * A conditional write on the outgoing member lost a race. Thrown inside the
+ * Submission's transaction so it rolls back; the route answers 409.
+ */
+export class OutgoingMemberChanged extends Error {
+  constructor() {
+    super("The member being replaced changed since it was read");
+    this.name = "OutgoingMemberChanged";
+  }
+}
 
 /**
  * In the Submission's transaction: files the outgoing member's report paired
  * with `candidateId`, or pairs the pending report the Leader saw (rewriting it
- * when `exitReport` is given), and audits any report written.
+ * when `exitReport` is given), and audits any report written. Throws
+ * `OutgoingMemberChanged` when the conditional write finds the row changed.
  */
 export async function fileOutgoingExit(
   tx: Prisma.TransactionClient,
   params: {
     outgoing: OutgoingMember;
     candidateId: string;
-    exitReport: ExitReportFieldsData | undefined;
+    exitReport: ExitReportFields | undefined;
     actor: { userId: string; privilegeLevel: PrivilegeLevel };
     committee: Pick<
       CommitteeList,
       "id" | "cityTown" | "legDistrict" | "electionDistrict"
     > & { term: Pick<CommitteeTerm, "id" | "label"> };
   },
-): Promise<OutgoingExitResult> {
+): Promise<void> {
   const { outgoing, candidateId, exitReport, actor, committee } = params;
   const reported = exitReport
     ? toExitReportInput(exitReport, actor.userId)
@@ -154,8 +164,8 @@ export async function fileOutgoingExit(
           replacementMembershipId: candidateId,
           report: reported,
         });
-  if (!at) return "changed";
-  if (!reported) return "written"; // paired as reported; nothing new to audit
+  if (!at) throw new OutgoingMemberChanged();
+  if (!reported) return; // paired as reported; nothing new to audit
 
   await logAuditEventOrThrow(
     actor.userId,
@@ -182,5 +192,4 @@ export async function fileOutgoingExit(
     ),
     tx,
   );
-  return "written";
 }

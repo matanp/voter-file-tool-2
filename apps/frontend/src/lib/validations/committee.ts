@@ -414,7 +414,8 @@ const exitReportFieldsShape = {
   resignationMethod: z.nativeEnum(ResignationMethod).optional(),
 };
 
-type ExitReportFields = z.infer<z.ZodObject<typeof exitReportFieldsShape>>;
+/** The exit fields `reportExitDataSchema` / `replacementExitReportSchema` accept. */
+export type ExitReportFields = z.infer<z.ZodObject<typeof exitReportFieldsShape>>;
 
 /** Requires the chosen kind's details and rejects the other kind's fields. */
 function refineExitReportFields(data: ExitReportFields, ctx: z.RefinementCtx) {
@@ -483,6 +484,23 @@ export const replacementExitReportSchema = z
   .superRefine(refineExitReportFields);
 
 export type ReportExitData = z.infer<typeof reportExitDataSchema>;
+
+export const REPLACEMENT_NEEDS_OUTGOING_EXIT_MESSAGE =
+  "A replacement needs the outgoing member's exit: whether they resigned or should be removed";
+
+/**
+ * A replacement must say how the outgoing member leaves: a new exit, or the
+ * pending report the requester saw. The request schema's refine and the
+ * route's runtime check both use this.
+ */
+export function replacementCarriesOutgoingExit(data: {
+  exitReport?: unknown;
+  existingExitReportedAt?: unknown;
+}): boolean {
+  return (
+    data.exitReport !== undefined || data.existingExitReportedAt !== undefined
+  );
+}
 
 // Leader request (SRS 1.2 — a Submission; with removeMemberId, a replacement).
 export const committeeRequestDataSchema = z
@@ -577,12 +595,9 @@ export const committeeRequestDataSchema = z
   )
   .refine(
     (data) =>
-      data.removeMemberId === undefined ||
-      data.exitReport !== undefined ||
-      data.existingExitReportedAt !== undefined,
+      data.removeMemberId === undefined || replacementCarriesOutgoingExit(data),
     {
-      message:
-        "A replacement needs the outgoing member's exit: whether they resigned or should be removed",
+      message: REPLACEMENT_NEEDS_OUTGOING_EXIT_MESSAGE,
       path: ["exitReport"],
     },
   );

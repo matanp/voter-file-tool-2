@@ -11,21 +11,13 @@ import type {
   ResignationMethod,
 } from "@prisma/client";
 import { blankToNull } from "~/lib/blankToNull";
+import type { ExitReportFields } from "~/lib/validations/committee";
 import type { ExitReportInput } from "~/app/api/lib/membershipExit";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 
-/** The fields `reportExitDataSchema` / `replacementExitReportSchema` accept. */
-export type ExitReportFieldsData = {
-  kind: ExitReportKind;
-  removalReason?: RemovalReason;
-  removalNotes?: string;
-  resignationDateReceived?: string;
-  resignationMethod?: ResignationMethod;
-};
-
 /** Only the chosen kind's fields; notes either way. */
 export function toExitReportInput(
-  fields: ExitReportFieldsData,
+  fields: ExitReportFields,
   reportedById: string,
 ): ExitReportInput {
   const isResignation = fields.kind === "RESIGNATION";

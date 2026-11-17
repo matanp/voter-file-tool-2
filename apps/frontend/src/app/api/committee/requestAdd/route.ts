@@ -10,10 +10,14 @@
  * Leader saw) and the replacement pairs with it rather than filing a second;
  * `exitReport` alongside rewrites its fields. Both writes are conditional on
  * the report the Leader saw (409 otherwise).
+ *
+ * The candidate's own row is read outside the transaction too, so reusing it
+ * is conditional on the status and `submittedAt` read, and creating it treats
+ * a unique-key collision (a concurrent submission) as a 409, not a retry.
  */
 import prisma from "~/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
-import { type Prisma, PrivilegeLevel } from "@prisma/client";
+import { Prisma, PrivilegeLevel } from "@prisma/client";
 import { committeeRequestDataSchema } from "~/lib/validations/committee";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { validateRequest } from "~/app/api/lib/validateRequest";
@@ -32,14 +36,21 @@ import {
 } from "~/lib/auditMembershipSubject";
 import { unpairReplacement } from "~/app/api/lib/membershipExit";
 import {
+  OutgoingMemberChanged,
   fileOutgoingExit,
   findOutgoingMember,
   outgoingMemberProblem,
 } from "~/app/api/lib/replacementExitReport";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 
-/** A conditional write on the outgoing member lost a race; rolls the transaction back. */
-class OutgoingMemberChanged extends Error {}
+/**
+ * The candidate's row changed between the route's read and its write: a
+ * concurrent Admin decision on the reused row, or a concurrent submission that
+ * created it first. Rolls the transaction back; the route answers 409.
+ */
+class CandidateChanged extends Error {}
+
+const CANDIDATE_CHANGED_MESSAGE = "This candidate changed, refresh.";
 
 /** 409 when the request conflicts with a pending submission or pairing. */
 function conflict(error: string) {
@@ -358,23 +369,26 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       candidateId: string,
     ) => {
       if (!outgoing) return;
-      const result = await fileOutgoingExit(tx, {
+      await fileOutgoingExit(tx, {
         outgoing,
         candidateId,
         exitReport,
         actor: { userId, privilegeLevel: userRole },
         committee: committeeRequested,
       });
-      if (result === "changed") throw new OutgoingMemberChanged();
     };
 
     if (existing) {
       await prisma.$transaction(async (tx) => {
-        // The row is reused; a pairing left from its last submission must not
-        // attach to this one.
-        await unpairReplacement(tx, existing.id);
-        const resubmitted = await tx.committeeMembership.update({
-          where: { id: existing.id },
+        // `existing` was read outside this transaction. The write is
+        // conditional on what was read, so a concurrent Admin decision (or
+        // another resubmit) isn't silently reverted to SUBMITTED.
+        const { count } = await tx.committeeMembership.updateMany({
+          where: {
+            id: existing.id,
+            status: existing.status,
+            submittedAt: existing.submittedAt,
+          },
           data: {
             status: "SUBMITTED",
             submittedAt: new Date(),
@@ -397,19 +411,23 @@ async function requestAddHandler(req: NextRequest, session: Session) {
             submissionMetadata: requestMetadata,
           },
         });
+        if (count === 0) throw new CandidateChanged();
+        // The row is reused; a pairing left from its last submission must not
+        // attach to this one.
+        await unpairReplacement(tx, existing.id);
 
         await logAuditEventOrThrow(
           userId,
           userRole,
           "MEMBER_SUBMITTED",
           "CommitteeMembership",
-          resubmitted.id,
+          existing.id,
           { status: existing.status },
           { status: "SUBMITTED" },
           auditMetadataWithSubject as Prisma.InputJsonValue | undefined,
           tx,
         );
-        await replaceOutgoing(tx, resubmitted.id);
+        await replaceOutgoing(tx, existing.id);
       });
 
       return NextResponse.json(
@@ -425,16 +443,29 @@ async function requestAddHandler(req: NextRequest, session: Session) {
 
     // Create CommitteeMembership with status=SUBMITTED
     await prisma.$transaction(async (tx) => {
-      const newMembership = await tx.committeeMembership.create({
-        data: {
-          voterRecordId: sanitizedAddMemberId,
-          committeeListId: committeeRequested.id,
-          termId: activeTermId,
-          status: "SUBMITTED",
-          submittedById: userId,
-          submissionMetadata: requestMetadata,
-        },
-      });
+      const newMembership = await tx.committeeMembership
+        .create({
+          data: {
+            voterRecordId: sanitizedAddMemberId,
+            committeeListId: committeeRequested.id,
+            termId: activeTermId,
+            status: "SUBMITTED",
+            submittedById: userId,
+            submissionMetadata: requestMetadata,
+          },
+        })
+        .catch((error: unknown) => {
+          // A concurrent submission created the candidate's row after our
+          // read. Not treated as idempotent: it may be a different request
+          // (a plain add vs a replacement), so the Leader refreshes.
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+          ) {
+            throw new CandidateChanged();
+          }
+          throw error;
+        });
 
       await logAuditEventOrThrow(
         userId,
@@ -461,6 +492,9 @@ async function requestAddHandler(req: NextRequest, session: Session) {
   } catch (error) {
     if (error instanceof OutgoingMemberChanged) {
       return conflict(MEMBER_CHANGED_MESSAGE);
+    }
+    if (error instanceof CandidateChanged) {
+      return conflict(CANDIDATE_CHANGED_MESSAGE);
     }
     console.error(error);
     return NextResponse.json(
