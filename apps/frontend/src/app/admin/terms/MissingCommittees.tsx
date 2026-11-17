@@ -24,7 +24,9 @@ type CreateMissingCommitteesResponse = {
 // The preview groups the whole voter file; creating writes a few hundred rows.
 const CREATE_TIMEOUT_MS = 60_000;
 
-function groupByTown(missing: MissingCommittee[]): Array<[string, MissingCommittee[]]> {
+function groupByTown(
+  missing: MissingCommittee[],
+): Array<[string, MissingCommittee[]]> {
   const groups = new Map<string, MissingCommittee[]>();
   for (const committee of missing) {
     const list = groups.get(committee.cityTown) ?? [];
@@ -45,27 +47,27 @@ export function MissingCommittees() {
     { timeout: CREATE_TIMEOUT_MS },
   );
 
-  const createMutation = useApiMutation<CreateMissingCommitteesResponse, never>(
-    "/api/admin/committees/missing",
-    "POST",
-    {
-      timeout: CREATE_TIMEOUT_MS,
-      onSuccess: (data) => {
-        toast({
-          title: "Committees created",
-          description: `Created ${data.committeesCreated} committees with ${data.seatsCreated} seats.`,
-        });
-        void query.refetch();
-      },
-      onError: (error) => {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
-      },
+  const createMutation = useApiMutation<
+    CreateMissingCommitteesResponse,
+    { termId: string }
+  >("/api/admin/committees/missing", "POST", {
+    timeout: CREATE_TIMEOUT_MS,
+    onSuccess: (data) => {
+      toast({
+        title: "Committees created",
+        description: `Created ${data.committeesCreated} committees with ${data.seatsCreated} seats.`,
+      });
+      void query.refetch().catch(() => undefined);
     },
-  );
+    onError: (error) => {
+      void query.refetch().catch(() => undefined);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const data = query.data;
   const missing = data?.missing ?? [];
@@ -79,9 +81,9 @@ export function MissingCommittees() {
         <p className="text-sm text-muted-foreground">
           A committee only appears in the committee menus once it exists for the
           term. This finds every election district in the voter file that has no
-          committee in the active term yet, and creates it with empty seats so it
-          can be filled. Re-import the Weighted Table afterwards to give the new
-          committees their weights.
+          committee in the active term yet, and creates it with empty seats so
+          it can be filled. Re-import the Weighted Table afterwards to give the
+          new committees their weights.
         </p>
 
         {query.loading && !data && (
@@ -137,8 +139,14 @@ export function MissingCommittees() {
                   </ul>
                 </details>
                 <Button
-                  onClick={() => void createMutation.mutate()}
-                  disabled={createMutation.loading}
+                  onClick={() => {
+                    void createMutation
+                      .mutate({ termId: data.termId })
+                      .catch(() => undefined);
+                  }}
+                  disabled={
+                    createMutation.loading || query.loading || !!query.error
+                  }
                 >
                   {createMutation.loading
                     ? "Creating…"

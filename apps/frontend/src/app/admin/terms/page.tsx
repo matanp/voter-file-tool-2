@@ -4,7 +4,6 @@ import { getAdminPageAccess } from "~/lib/getAdminPageAccess";
 import prisma from "~/lib/prisma";
 import type { CommitteeTerm } from "@prisma/client";
 import { TermsManagement } from "./TermsManagement";
-import { MissingCommittees } from "./MissingCommittees";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +23,6 @@ export default async function TermsPage() {
     <div className="w-full p-6">
       <h1 className="section-header mb-6">Committee Terms</h1>
       <TermsManagement initialTerms={terms} />
-      <MissingCommittees />
     </div>
   );
 }

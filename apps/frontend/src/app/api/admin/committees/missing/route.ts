@@ -9,10 +9,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import prisma from "~/lib/prisma";
+import { z } from "zod";
+import { validateRequest } from "~/app/api/lib/validateRequest";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import type { SessionWithUser } from "~/app/api/lib/withPrivilege";
 import {
   getActiveTerm,
+  findActiveTerm,
   getGovernanceConfig,
 } from "~/app/api/lib/committeeValidation";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
@@ -45,13 +48,25 @@ async function getHandler() {
   }
 }
 
-async function postHandler(_req: NextRequest, session: SessionWithUser) {
-  try {
-    const term = await getActiveTerm();
-    const { maxSeatsPerLted } = await getGovernanceConfig();
+const createMissingSchema = z.object({ termId: z.string().min(1) });
 
+async function postHandler(req: NextRequest, session: SessionWithUser) {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const validation = validateRequest(body, createMissingSchema);
+  if (!validation.success) return validation.response;
+
+  try {
     const result = await prisma.$transaction(
       async (tx) => {
+        const term = await findActiveTerm(tx);
+        if (!term || term.id !== validation.data.termId) return null;
+
+        const { maxSeatsPerLted } = await getGovernanceConfig();
         const { missing } = await findMissingCommittees(term.id, tx);
         const committees = missing.map(
           ({ cityTown, legDistrict, electionDistrict }) => ({
@@ -81,12 +96,20 @@ async function postHandler(_req: NextRequest, session: SessionWithUser) {
           );
         }
 
-        return counts;
+        return { termId: term.id, ...counts };
       },
       { timeout: CREATE_TRANSACTION_TIMEOUT_MS },
     );
 
-    return NextResponse.json({ success: true, termId: term.id, ...result });
+    if (!result) {
+      return NextResponse.json(
+        {
+          error: "The active term changed. Refresh the preview and try again.",
+        },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("Create missing committees error:", error);
     return NextResponse.json(

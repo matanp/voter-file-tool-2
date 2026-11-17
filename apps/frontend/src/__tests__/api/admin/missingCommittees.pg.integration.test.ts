@@ -8,7 +8,7 @@
  * local test database URL (see jest.pg.env.cjs).
  */
 import { PrivilegeLevel, type PrismaClient } from "@prisma/client";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import type {
   GET as MissingGet,
   POST as MissingPost,
@@ -47,7 +47,15 @@ describePg("Create missing committees (PostgreSQL)", () => {
   let prisma: PrismaClient;
   let get: typeof MissingGet;
   let post: typeof MissingPost;
-  const request = {} as NextRequest;
+  const request = new NextRequest(
+    "http://localhost/api/admin/committees/missing",
+  );
+  const postRequest = (termId = TERM_ID) =>
+    new NextRequest(request.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ termId }),
+    });
 
   beforeAll(async () => {
     ({ GET: get, POST: post } = await import(
@@ -65,7 +73,11 @@ describePg("Create missing committees (PostgreSQL)", () => {
   let voterSeq = 0;
   const seedVoters = async (
     count: number,
-    voter: { townCode: string | null; L_T: string | null; electionDistrict: number | null },
+    voter: {
+      townCode: string | null;
+      L_T: string | null;
+      electionDistrict: number | null;
+    },
   ) => {
     await prisma.voterRecord.createMany({
       data: Array.from({ length: count }, () => ({
@@ -134,10 +146,20 @@ describePg("Create missing committees (PostgreSQL)", () => {
     await seedVoters(1, { townCode: "080", L_T: "17", electionDistrict: null });
 
     await prisma.committeeList.create({
-      data: { cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 1, termId: TERM_ID },
+      data: {
+        cityTown: "ROCHESTER",
+        legDistrict: 17,
+        electionDistrict: 1,
+        termId: TERM_ID,
+      },
     });
     await prisma.committeeList.create({
-      data: { cityTown: "GREECE", legDistrict: 5, electionDistrict: 7, termId: OTHER_TERM_ID },
+      data: {
+        cityTown: "GREECE",
+        legDistrict: 5,
+        electionDistrict: 7,
+        termId: OTHER_TERM_ID,
+      },
     });
   });
 
@@ -148,14 +170,32 @@ describePg("Create missing committees (PostgreSQL)", () => {
 
     expect(body.termId).toBe(TERM_ID);
     expect(body.missing).toEqual([
-      { cityTown: "GREECE", legDistrict: 5, electionDistrict: 7, voterCount: 1 },
-      { cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 2, voterCount: 2 },
+      {
+        cityTown: "GREECE",
+        legDistrict: 5,
+        electionDistrict: 7,
+        voterCount: 1,
+      },
+      {
+        cityTown: "ROCHESTER",
+        legDistrict: 17,
+        electionDistrict: 2,
+        voterCount: 2,
+      },
     ]);
     expect(body.unknownTownCodes).toEqual(["999"]);
   });
 
+  it("rejects a preview from a different active term without writes", async () => {
+    const response = await post(postRequest(OTHER_TERM_ID));
+    expect(response.status).toBe(409);
+    expect(await prisma.committeeList.count()).toBe(2);
+    expect(await prisma.seat.count()).toBe(0);
+    expect(await prisma.auditLog.count()).toBe(0);
+  });
+
   it("creates the missing committees with empty seats, once", async () => {
-    const response = await post(request);
+    const response = await post(postRequest());
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       success: true,
@@ -174,23 +214,46 @@ describePg("Create missing committees (PostgreSQL)", () => {
       },
     });
     expect(created).toEqual([
-      { cityTown: "GREECE", legDistrict: 5, electionDistrict: 7, _count: { seats: MAX_SEATS } },
+      {
+        cityTown: "GREECE",
+        legDistrict: 5,
+        electionDistrict: 7,
+        _count: { seats: MAX_SEATS },
+      },
       // The pre-existing committee is left as it was.
-      { cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 1, _count: { seats: 0 } },
-      { cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 2, _count: { seats: MAX_SEATS } },
+      {
+        cityTown: "ROCHESTER",
+        legDistrict: 17,
+        electionDistrict: 1,
+        _count: { seats: 0 },
+      },
+      {
+        cityTown: "ROCHESTER",
+        legDistrict: 17,
+        electionDistrict: 2,
+        _count: { seats: MAX_SEATS },
+      },
     ]);
 
     const audit = await prisma.auditLog.findMany({
       where: { action: "MISSING_COMMITTEES_CREATED" },
     });
     expect(audit).toHaveLength(1);
-    expect(audit[0]).toMatchObject({ userId: "pg-admin", entityType: "CommitteeList" });
+    expect(audit[0]).toMatchObject({
+      userId: "pg-admin",
+      entityType: "CommitteeList",
+    });
 
     // Running it again finds nothing and writes nothing.
-    const again = await post(request);
-    expect(await again.json()).toMatchObject({ committeesCreated: 0, seatsCreated: 0 });
+    const again = await post(postRequest());
+    expect(await again.json()).toMatchObject({
+      committeesCreated: 0,
+      seatsCreated: 0,
+    });
     expect(
-      await prisma.auditLog.count({ where: { action: "MISSING_COMMITTEES_CREATED" } }),
+      await prisma.auditLog.count({
+        where: { action: "MISSING_COMMITTEES_CREATED" },
+      }),
     ).toBe(1);
     const preview = (await (await get(request)).json()) as PreviewBody;
     expect(preview.missing).toEqual([]);
