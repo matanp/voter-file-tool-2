@@ -79,6 +79,7 @@ export const useKeyboardHandlers = (
   searchState: SearchState,
   onSubmit: (filteredRows: SearchField[]) => Promise<void>,
   isAuthenticated: boolean,
+  { allowAddCriteria = true }: { allowAddCriteria?: boolean } = {},
 ) => {
   const handleSubmit = useSubmitHandler(searchState, onSubmit, isAuthenticated);
 
@@ -98,6 +99,7 @@ export const useKeyboardHandlers = (
 
       // Add criteria shortcut (Ctrl+Shift+Plus or Cmd+Shift+Plus)
       if (
+        allowAddCriteria &&
         (event.ctrlKey || event.metaKey) === addCriteria.ctrl &&
         event.shiftKey === addCriteria.shift &&
         (event.key === addCriteria.key || event.key === "=")
@@ -107,7 +109,7 @@ export const useKeyboardHandlers = (
         return;
       }
     },
-    [handleSubmit, searchState],
+    [handleSubmit, searchState, allowAddCriteria],
   );
 };
 
