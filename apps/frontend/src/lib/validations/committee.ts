@@ -1252,11 +1252,13 @@ export function memberSearchTerms(q: string): string[] {
 
 /**
  * True when `q` holds enough to search: at least `MEMBER_SEARCH_MIN_LENGTH`
- * characters once split into words, so punctuation alone (",,") never runs
- * a search that matches everyone. Shared by the endpoint and the client.
+ * letters once split into words. Punctuation and SQL `LIKE` wildcards
+ * (`%`, `_`) do not count, so `,,` and `%%` never run a search that matches
+ * everyone. Shared by the endpoint and the client.
  */
 export function isSearchableMemberQuery(q: string): boolean {
-  return memberSearchTerms(q).join(" ").length >= MEMBER_SEARCH_MIN_LENGTH;
+  const letters = memberSearchTerms(q).join("").match(/\p{L}/gu);
+  return (letters?.length ?? 0) >= MEMBER_SEARCH_MIN_LENGTH;
 }
 
 /** Parses `q` into its search words (see `memberSearchTerms`). */

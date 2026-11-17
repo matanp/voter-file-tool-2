@@ -209,7 +209,9 @@ export function CommitteeWorkspace({
     PrivilegeLevel.Leader,
   );
   const [memberQuery, setMemberQuery] = useState("");
-  const memberSearch = useMemberSearch(canSearchMembers ? memberQuery : "");
+  const { state: memberSearch, reload: reloadMemberSearch } = useMemberSearch(
+    canSearchMembers ? memberQuery : "",
+  );
   // Opens a hit's committee, first loosening any filter that would hide it
   // (the invalid-selection recovery would otherwise drop it).
   const openSearchHit = useCallback(
@@ -239,18 +241,20 @@ export function CommitteeWorkspace({
 
   // --- Detail ----------------------------------------------------------------
   const loadedDetail = useCommitteeDetail(selectedCommitteeId);
-  // A tab's `onRefresh` (and Retry) refreshes the detail and the grid row.
+  // A tab's `onRefresh` (and Retry) refreshes the detail, the grid row, and
+  // member search, so a removed or resigned member leaves the results.
   const { reload: reloadDetail } = loadedDetail;
   const refreshDetailAndGrid = useCallback(() => {
     reloadDetail();
     refreshGrid(selectedCommitteeId);
-  }, [reloadDetail, refreshGrid, selectedCommitteeId]);
+    reloadMemberSearch();
+  }, [reloadDetail, refreshGrid, selectedCommitteeId, reloadMemberSearch]);
   const detail = { ...loadedDetail, reload: refreshDetailAndGrid };
 
   // --- Action drawer -----------------------------------------------------------
-  // Opened by a roster row action; on success it refreshes the detail and the
-  // grid row (the same cross-pane refresh as a tab's `onRefresh`), and never
-  // writes the URL, so selection, tab and filters stay put.
+  // Opened by a roster row action; on success it refreshes the detail, the
+  // grid row, and member search (the same cross-pane refresh as a tab's
+  // `onRefresh`), and never writes the URL, so selection, tab and filters stay put.
   const [openAction, setOpenAction] = useState<{
     action: CommitteeAction;
     returnFocusTo: HTMLElement | null;

@@ -130,6 +130,7 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
       committeeListId: number,
       status: MembershipStatus,
       termId = TERM,
+      seatNumber = 1,
     ) => {
       n += 1;
       const VRCNUM = `PGSEARCH${String(n)}`;
@@ -149,12 +150,14 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
           termId,
           status,
           ...(status === MembershipStatus.ACTIVE
-            ? { membershipType: "PETITIONED", seatNumber: 1 }
+            ? { membershipType: "PETITIONED", seatNumber }
             : {}),
         },
       });
     };
     await member("Jane", "Smith", greece1.id, MembershipStatus.ACTIVE);
+    await member("Beth%", "Marker", greece2.id, MembershipStatus.ACTIVE, TERM, 1);
+    await member("J_n", "Literal", greece2.id, MembershipStatus.ACTIVE, TERM, 2);
     await member("Janet", "Smithers", greece2.id, MembershipStatus.SUBMITTED);
     await member("John", "Smith", roch28.id, MembershipStatus.CONFIRMED);
     await member("Rob", "Smith", roch29.id, MembershipStatus.ACTIVE);
@@ -286,5 +289,13 @@ describePg("GET /api/committee/memberSearch (PostgreSQL)", () => {
     signInAs(ADMIN, PrivilegeLevel.Admin);
     expect((await search(" s ")).status).toBe(400);
     expect((await search(",,")).status).toBe(400);
+    expect((await search("%%")).status).toBe(400);
+    expect((await search("__")).status).toBe(400);
+  });
+
+  it("treats % and _ as literal characters instead of matching everyone", async () => {
+    signInAs(ADMIN, PrivilegeLevel.Admin);
+    expect(await names("th%")).toEqual(["Beth% Marker"]);
+    expect(await names("j_n")).toEqual(["J_n Literal"]);
   });
 });

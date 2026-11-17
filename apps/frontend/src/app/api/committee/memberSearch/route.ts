@@ -47,14 +47,27 @@ const SEARCHABLE_STATUSES = [
   MembershipStatus.CONFIRMED,
 ];
 
+/**
+ * Prisma `contains` is a SQL `LIKE` / `ILIKE` pattern. `%` and `_` are
+ * wildcards there, and `\` is the escape character, so each is matched
+ * literally. See Prisma's filtering docs.
+ */
+function escapeLikePattern(term: string): string {
+  return term.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/** Every word must match the first or last name, with wildcards escaped. */
 function nameWhere(terms: string[]): Prisma.VoterRecordWhereInput {
   return {
-    AND: terms.map((term) => ({
-      OR: [
-        { firstName: { contains: term, mode: "insensitive" } },
-        { lastName: { contains: term, mode: "insensitive" } },
-      ],
-    })),
+    AND: terms.map((term) => {
+      const pattern = escapeLikePattern(term);
+      return {
+        OR: [
+          { firstName: { contains: pattern, mode: "insensitive" } },
+          { lastName: { contains: pattern, mode: "insensitive" } },
+        ],
+      };
+    }),
   };
 }
 

@@ -114,7 +114,7 @@ describe("GET /api/committee/memberSearch auth", () => {
 });
 
 describe("GET /api/committee/memberSearch query", () => {
-  it.each([undefined, "", " a ", ",,", ", ,", " , a "])(
+  it.each([undefined, "", " a ", ",,", ", ,", " , a ", "%%", "__", "%_", "%a", "12"])(
     "rejects q=%p with 400",
     async (q) => {
       signIn(PrivilegeLevel.Admin);
@@ -177,6 +177,21 @@ describe("GET /api/committee/memberSearch query", () => {
     });
   });
 
+  it("escapes LIKE wildcards so contains matches them literally", async () => {
+    signIn(PrivilegeLevel.Admin);
+    await GET(request("ab%_\\"));
+    expect(lastQuery().where?.voterRecord).toEqual({
+      AND: [
+        {
+          OR: [
+            { firstName: { contains: "ab\\%\\_\\\\", mode: "insensitive" } },
+            { lastName: { contains: "ab\\%\\_\\\\", mode: "insensitive" } },
+          ],
+        },
+      ],
+    });
+  });
+
   it("maps rows to hits, labels SUBMITTED/CONFIRMED pending, and caps with truncated", async () => {
     signIn(PrivilegeLevel.Admin);
     const rows = Array.from({ length: MEMBER_SEARCH_LIMIT + 1 }, (_, i) =>
@@ -222,8 +237,14 @@ describe("isSearchableMemberQuery", () => {
   it("needs two letters once split into words", () => {
     expect(isSearchableMemberQuery("jo")).toBe(true);
     expect(isSearchableMemberQuery("j s")).toBe(true);
+    expect(isSearchableMemberQuery("O'Brien")).toBe(true);
+    expect(isSearchableMemberQuery("ab%")).toBe(true);
     expect(isSearchableMemberQuery(",,")).toBe(false);
     expect(isSearchableMemberQuery(" a ,")).toBe(false);
+    expect(isSearchableMemberQuery("%%")).toBe(false);
+    expect(isSearchableMemberQuery("__")).toBe(false);
+    expect(isSearchableMemberQuery("%a")).toBe(false);
+    expect(isSearchableMemberQuery("12")).toBe(false);
   });
 });
 

@@ -3,11 +3,12 @@
  * Debounced committee member name search (`GET /api/committee/memberSearch`).
  *
  * The query is normalized to its search words first; one that is too short
- * (`isSearchableMemberQuery`) never hits the server and reports `idle`. Each new query aborts the previous request,
- * and a result is shown only while it still answers the current query, so a
- * slow response can never replace a newer one.
+ * (`isSearchableMemberQuery`) never hits the server and reports `idle`. Each
+ * new query aborts the previous request, and a result is shown only while it
+ * still answers the current query, so a slow response can never replace a
+ * newer one. `reload` refetches that same query after a roster mutation.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useDebouncedValue } from "~/hooks/useDebouncedValue";
 import {
@@ -34,15 +35,22 @@ export function memberSearchUrl(q: string): string {
   return `/api/committee/memberSearch?q=${encodeURIComponent(q)}`;
 }
 
-export function useMemberSearch(query: string): MemberSearchState {
+export function useMemberSearch(query: string): {
+  state: MemberSearchState;
+  /** Refetch the current query. No-op until the query is long enough to search. */
+  reload: () => void;
+} {
   const normalized = memberSearchTerms(query).join(" ");
   const active = isSearchableMemberQuery(normalized);
   const debounced = useDebouncedValue(normalized, MEMBER_SEARCH_DEBOUNCE_MS);
+  const [generation, setGeneration] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
+  const requestId = useRef(0);
 
   useEffect(() => {
     if (!isSearchableMemberQuery(debounced)) return;
     const controller = new AbortController();
+    const id = ++requestId.current;
     void (async () => {
       try {
         const res = await fetch(memberSearchUrl(debounced), {
@@ -54,9 +62,10 @@ export function useMemberSearch(query: string): MemberSearchState {
           throw new Error(`Search failed (status ${String(res.status)})`);
         }
         const body = memberSearchResponseSchema.parse(await res.json());
+        if (controller.signal.aborted || id !== requestId.current) return;
         setResult({ q: debounced, ok: true, ...body });
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || id !== requestId.current) return;
         setResult({
           q: debounced,
           ok: false,
@@ -65,11 +74,17 @@ export function useMemberSearch(query: string): MemberSearchState {
       }
     })();
     return () => controller.abort();
-  }, [debounced]);
+  }, [debounced, generation]);
 
-  if (!active) return { status: "idle" };
-  if (result === null || result.q !== normalized) return { status: "loading" };
-  return result.ok
-    ? { status: "ready", hits: result.hits, truncated: result.truncated }
-    : { status: "error", error: result.error };
+  const reload = useCallback(() => setGeneration((current) => current + 1), []);
+
+  const state: MemberSearchState = !active
+    ? { status: "idle" }
+    : result === null || result.q !== normalized
+      ? { status: "loading" }
+      : result.ok
+        ? { status: "ready", hits: result.hits, truncated: result.truncated }
+        : { status: "error", error: result.error };
+
+  return { state, reload };
 }
