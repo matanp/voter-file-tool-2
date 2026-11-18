@@ -17,6 +17,10 @@ describe("getTown", () => {
     expect(getTown({ townCode: null })).toBeNull();
     expect(getTown({ townCode: "A1" })).toBeNull();
   });
+
+  it.each(["0", "000"])("returns null for all-zero code %p", (townCode) => {
+    expect(getTown({ townCode })).toBeNull();
+  });
 });
 
 describe("getVillageWard", () => {
