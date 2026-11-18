@@ -13,7 +13,7 @@
  * Only ACTIVE memberships in the active term count. A voter holds at most one
  * of those (partial unique index), so each record maps to one committee.
  */
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import {
   ACTIVE_MEMBERSHIP_STATUS,
@@ -21,29 +21,21 @@ import {
   findActiveTerm,
   getUserJurisdictions,
 } from "~/app/api/lib/committeeValidation";
+import { hasPermissionFor } from "~/lib/utils";
 import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
 
-type CommitteeViewerLevel =
-  | typeof PrivilegeLevel.Developer
-  | typeof PrivilegeLevel.Admin
-  | typeof PrivilegeLevel.Leader;
-
-/**
- * True when this real role may see some committee rosters. An explicit list
- * rather than `hasPermissionFor`, so a new role is denied until added here.
- */
-function mayViewCommittees(
-  privilegeLevel: PrivilegeLevel | undefined,
-): privilegeLevel is CommitteeViewerLevel {
-  switch (privilegeLevel) {
-    case PrivilegeLevel.Developer:
-    case PrivilegeLevel.Admin:
-    case PrivilegeLevel.Leader:
-      return true;
-    default:
-      return false;
-  }
-}
+/** What the lookup reads from each membership. */
+export const RECORD_SEARCH_MEMBERSHIP_SELECT = {
+  voterRecordId: true,
+  committeeList: {
+    select: {
+      id: true,
+      cityTown: true,
+      legDistrict: true,
+      electionDistrict: true,
+    },
+  },
+} satisfies Prisma.CommitteeMembershipSelect;
 
 /**
  * The committee each voter in `voterRecordIds` is an ACTIVE member of, keyed
@@ -57,7 +49,14 @@ export async function activeCommitteesForRecords(
 ): Promise<Map<string, RecordSearchCommittee>> {
   const result = new Map<string, RecordSearchCommittee>();
   const { privilegeLevel } = user;
-  if (voterRecordIds.length === 0 || !mayViewCommittees(privilegeLevel)) {
+  // Leader and up only. `getUserJurisdictions` doesn't check the role: it
+  // returns whatever jurisdiction rows exist, so a ReadAccess user left with
+  // rows from when they were a Leader would otherwise get badges.
+  if (
+    voterRecordIds.length === 0 ||
+    privilegeLevel === undefined ||
+    !hasPermissionFor(privilegeLevel, PrivilegeLevel.Leader)
+  ) {
     return result;
   }
 
@@ -83,17 +82,7 @@ export async function activeCommitteesForRecords(
           : {}),
       },
     },
-    select: {
-      voterRecordId: true,
-      committeeList: {
-        select: {
-          id: true,
-          cityTown: true,
-          legDistrict: true,
-          electionDistrict: true,
-        },
-      },
-    },
+    select: RECORD_SEARCH_MEMBERSHIP_SELECT,
   });
 
   for (const { voterRecordId, committeeList } of memberships) {

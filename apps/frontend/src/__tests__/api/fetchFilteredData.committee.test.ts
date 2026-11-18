@@ -14,8 +14,7 @@ import {
 import { z } from "zod";
 import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 import { POST } from "~/app/api/fetchFilteredData/route";
-import { hasPermissionFor } from "~/lib/utils";
-import type * as UtilsModule from "~/lib/utils";
+import type { RECORD_SEARCH_MEMBERSHIP_SELECT } from "~/app/api/lib/recordSearchCommittees";
 import { recordSearchCommitteeSchema } from "~/lib/validations/recordSearch";
 import {
   createMockRequest,
@@ -25,18 +24,16 @@ import {
   parseJsonResponseWith,
   resolvesTo,
 } from "../utils/testUtils";
-import { mockAuthSession, prismaMock } from "../utils/mocks";
+import {
+  mockAuthSession,
+  mockRealPermissionHierarchy,
+  prismaMock,
+} from "../utils/mocks";
 
 /** The membership rows the lookup selects (not a full CommitteeMembership). */
-type MembershipRow = {
-  voterRecordId: string;
-  committeeList: {
-    id: number;
-    cityTown: string;
-    legDistrict: number;
-    electionDistrict: number;
-  };
-};
+type MembershipRow = Prisma.CommitteeMembershipGetPayload<{
+  select: typeof RECORD_SEARCH_MEMBERSHIP_SELECT;
+}>;
 
 const responseSchema = z.object({
   data: z.array(
@@ -112,12 +109,9 @@ async function search() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // The real hierarchy, so withPrivilege admits exactly ReadAccess and up.
-  jest
-    .mocked(hasPermissionFor)
-    .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
-    );
+  // The real hierarchy: withPrivilege admits ReadAccess and up, and the
+  // committee lookup runs only for Leader and up.
+  mockRealPermissionHierarchy();
   prismaMock.voterRecord.findMany.mockResolvedValue(RECORDS);
   prismaMock.voterRecord.count.mockResolvedValue(RECORDS.length);
   prismaMock.userJurisdiction.findMany.mockResolvedValue([]);

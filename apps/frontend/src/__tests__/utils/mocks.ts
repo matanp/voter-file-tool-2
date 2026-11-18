@@ -1,4 +1,6 @@
 import type { Session } from "next-auth";
+import { hasPermissionFor } from "~/lib/utils";
+import type * as UtilsModule from "~/lib/utils";
 
 // Convenience helpers to work with global mocks in a type-safe way
 
@@ -52,6 +54,19 @@ export function mockHasPermission(granted: boolean) {
     );
   }
   mockHasPermissionFor.mockReturnValue(granted);
+}
+
+/**
+ * Restores the real privilege hierarchy behind the global `hasPermissionFor`
+ * mock, for code that checks a role inside a route (not just `withPrivilege`),
+ * so a ReadAccess session really is below Leader.
+ */
+export function mockRealPermissionHierarchy() {
+  jest
+    .mocked(hasPermissionFor)
+    .mockImplementation(
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+    );
 }
 
 export const prismaMock = globalThis.mockPrisma;
