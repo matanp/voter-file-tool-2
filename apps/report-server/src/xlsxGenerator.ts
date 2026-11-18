@@ -112,7 +112,8 @@ export function resolveColumnHeaders(
 ): ColumnHeaders {
   const headers: ColumnHeaders = { ...DEFAULT_COLUMN_HEADERS };
   for (const [field, header] of Object.entries(custom)) {
-    if (header.trim()) headers[field] = header;
+    const trimmed = header.trim();
+    if (trimmed) headers[field] = trimmed;
   }
   return headers;
 }
