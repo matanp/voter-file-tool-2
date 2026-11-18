@@ -14,8 +14,7 @@ export type BaseFieldType =
   | "DateOfBirth"
   | "Dropdown"
   | "Street"
-  | "CityTown"
-  | "Hidden";
+  | "CityTown";
 
 export type DateRange = {
   startDate?: Date;
