@@ -8,11 +8,19 @@ import {
   normalizeSearchQuery,
 } from "@voter-file-tool/shared-validators";
 import type { Prisma } from "@prisma/client";
-import { withPrivilege } from "../lib/withPrivilege";
+import { withPrivilege, type SessionWithUser } from "../lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
-import type { Session } from "next-auth";
+import { activeCommitteesForRecords } from "../lib/recordSearchCommittees";
 
-async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
+/**
+ * Record search. Open to ReadAccess; each record gains `activeCommittee` only
+ * when the caller's real role may see that committee's roster (see
+ * `activeCommitteesForRecords`). Otherwise the key is absent.
+ */
+async function fetchFilteredDataHandler(
+  req: NextRequest,
+  session: SessionWithUser,
+) {
   // A malformed or truncated body (e.g. a request the client aborted) is the
   // caller's error, not a server failure.
   let requestBody: unknown;
@@ -46,8 +54,17 @@ async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
       where: query,
     });
 
+    const committees = await activeCommitteesForRecords(
+      records.map((record) => record.VRCNUM),
+      session.user,
+    );
+
     // Convert Prisma records to API format (Date -> string conversion)
-    const apiRecords = records.map(convertPrismaVoterRecordToAPI);
+    const apiRecords = records.map((record) => {
+      const apiRecord = convertPrismaVoterRecordToAPI(record);
+      const activeCommittee = committees.get(record.VRCNUM);
+      return activeCommittee ? { ...apiRecord, activeCommittee } : apiRecord;
+    });
 
     return NextResponse.json(
       { data: apiRecords, totalRecords: totalRecords },
