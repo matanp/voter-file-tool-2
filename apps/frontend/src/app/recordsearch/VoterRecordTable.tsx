@@ -69,7 +69,14 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
       >
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[24ch]">Name</TableHead>
+            {/* Wider on large screens when badges show, so one wraps to two lines at most. */}
+            <TableHead
+              className={
+                showCommitteeMembership ? "w-[24ch] lg:w-[34ch]" : "w-[24ch]"
+              }
+            >
+              Name
+            </TableHead>
             {fieldsList.map((fieldName: FieldName) => {
               const field = fields.find((field) => field.name === fieldName);
               if (!field) {
