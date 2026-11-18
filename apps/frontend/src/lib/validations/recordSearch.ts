@@ -34,3 +34,20 @@ export function recordSearchCommitteeLabel(
     `ED ${committee.electionDistrict}`,
   ].join(" · ");
 }
+
+/**
+ * The badge read aloud: "Committee member: GREECE, Legislative District 1,
+ * Election District 5" (no LD part when the visual label drops it).
+ */
+export function recordSearchCommitteeSpokenLabel(
+  committee: RecordSearchCommittee,
+): string {
+  const parts = [
+    committee.cityTown,
+    ...(committee.legDistrict > 0
+      ? [`Legislative District ${committee.legDistrict}`]
+      : []),
+    `Election District ${committee.electionDistrict}`,
+  ];
+  return `Committee member: ${parts.join(", ")}`;
+}

@@ -4,6 +4,7 @@ import { badgeVariants } from "~/components/ui/badge";
 import { cn } from "~/lib/utils";
 import {
   recordSearchCommitteeLabel,
+  recordSearchCommitteeSpokenLabel,
   type RecordSearchCommittee,
 } from "~/lib/validations/recordSearch";
 
@@ -12,6 +13,7 @@ import {
  * ACTIVE committee member (ticket 08). The server sends the committee only to
  * callers who may see its roster; the page hides it for acting roles below
  * Leader. A span, so it can sit inside the phone layout's card button.
+ * Screen readers get the spelled-out label instead of the abbreviations.
  */
 export function CommitteeMembershipBadge({
   committee,
@@ -34,14 +36,13 @@ export function CommitteeMembershipBadge({
       )}
     >
       {parts.map((part, i) => (
-        <React.Fragment key={i}>
-          {/* Not rendered between flex items; keeps the text readable as one line. */}
-          {i > 0 && " "}
-          <span className="whitespace-nowrap">
-            {i > 0 && i < parts.length - 1 ? `${part} ·` : part}
-          </span>
-        </React.Fragment>
+        <span key={i} aria-hidden="true" className="whitespace-nowrap">
+          {i > 0 && i < parts.length - 1 ? `${part} ·` : part}
+        </span>
       ))}
+      <span className="sr-only">
+        {recordSearchCommitteeSpokenLabel(committee)}
+      </span>
     </span>
   );
 }
