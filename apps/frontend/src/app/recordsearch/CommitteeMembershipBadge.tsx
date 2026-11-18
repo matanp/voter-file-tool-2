@@ -20,15 +20,28 @@ export function CommitteeMembershipBadge({
   committee: RecordSearchCommittee;
   className?: string;
 }) {
+  // Each part stays whole, so a narrow column wraps only between parts.
+  const parts = [
+    "Committee:",
+    ...recordSearchCommitteeLabel(committee).split(" · "),
+  ];
   return (
     <span
       className={cn(
         badgeVariants({ variant: "secondary", hoverable: false }),
-        "whitespace-normal font-medium",
+        "flex-wrap gap-x-1 rounded-md font-medium",
         className,
       )}
     >
-      {`Committee: ${recordSearchCommitteeLabel(committee)}`}
+      {parts.map((part, i) => (
+        <React.Fragment key={i}>
+          {/* Not rendered between flex items; keeps the text readable as one line. */}
+          {i > 0 && " "}
+          <span className="whitespace-nowrap">
+            {i > 0 && i < parts.length - 1 ? `${part} ·` : part}
+          </span>
+        </React.Fragment>
+      ))}
     </span>
   );
 }

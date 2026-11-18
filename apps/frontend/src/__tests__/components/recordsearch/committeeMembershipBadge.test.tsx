@@ -38,6 +38,11 @@ const NON_MEMBER: RecordSearchResult = createMockVoterRecord({
 const RECORDS = [MEMBER, NON_MEMBER];
 const BADGE = "Committee: GREECE · LD 1 · ED 5";
 
+/** The badge element: its parts are separate spans, so match the whole text. */
+const badge = (_: string, el: Element | null) =>
+  el?.textContent === BADGE &&
+  !Array.from(el.children).some((child) => child.textContent === BADGE);
+
 function renderTable(showCommitteeMembership: boolean) {
   return render(
     <VoterRecordTable
@@ -85,7 +90,7 @@ describe("VoterRecordTable committee badge", () => {
     renderTable(true);
 
     const [, memberRow, otherRow] = screen.getAllByRole("row");
-    expect(within(memberRow!).getByText(BADGE)).toBeInTheDocument();
+    expect(within(memberRow!).getByText(badge)).toBeInTheDocument();
     expect(
       within(otherRow!).queryByText(/^Committee:/),
     ).not.toBeInTheDocument();
@@ -94,7 +99,7 @@ describe("VoterRecordTable committee badge", () => {
       within(memberRow!).getByRole("button", { name: "See more details" }),
     );
     const details = screen.getByRole("dialog");
-    expect(within(details).getByText(BADGE)).toBeInTheDocument();
+    expect(within(details).getByText(badge)).toBeInTheDocument();
   });
 
   it("hides the badge when the page doesn't ask for it", async () => {
@@ -118,14 +123,14 @@ describe("VoterRecordCardList committee badge", () => {
     const [memberCard, otherCard] = within(
       screen.getByRole("list", { name: "Voter records" }),
     ).getAllByRole("listitem");
-    expect(within(memberCard!).getByText(BADGE)).toBeInTheDocument();
+    expect(within(memberCard!).getByText(badge)).toBeInTheDocument();
     expect(
       within(otherCard!).queryByText(/^Committee:/),
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /ALEX SAMPLE/ }));
     const sheet = screen.getByRole("dialog", { name: "Voter details" });
-    expect(within(sheet).getByText(BADGE)).toBeInTheDocument();
+    expect(within(sheet).getByText(badge)).toBeInTheDocument();
   });
 
   it("hides the badge when the page doesn't ask for it", async () => {
@@ -143,7 +148,7 @@ describe("VoterCard committee badge", () => {
     const { rerender } = render(
       <VoterCard record={MEMBER} activeCommittee={MEMBER.activeCommittee} />,
     );
-    expect(screen.getByText(BADGE)).toBeInTheDocument();
+    expect(screen.getByText(badge)).toBeInTheDocument();
     rerender(<VoterCard record={MEMBER} />);
     expect(screen.queryByText(/^Committee:/)).not.toBeInTheDocument();
   });
