@@ -3,7 +3,8 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import VoterRecordSearch from "./VoterRecordSearch";
-import { type DropdownLists, type VoterRecord } from "@prisma/client";
+import { type DropdownLists } from "@prisma/client";
+import type { RecordSearchResult } from "~/lib/validations/recordSearch";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { VoterRecordCardList } from "./VoterRecordCardList";
 import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
@@ -44,7 +45,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     setSearchQuery: setContextSearchQuery,
     fieldsList: contextFieldsList,
   } = useVoterSearch();
-  const [records, setRecords] = React.useState<VoterRecord[]>([]);
+  const [records, setRecords] = React.useState<RecordSearchResult[]>([]);
   const [totalRecords, setTotalRecords] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState<SearchQueryField[]>([]);
   const [page, setPage] = React.useState(1);
@@ -60,7 +61,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   // API mutation hooks
   const searchMutation = useApiMutation<
     {
-      data: VoterRecord[];
+      data: RecordSearchResult[];
       totalRecords: number;
     },
     {
@@ -83,7 +84,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
 
   const loadMoreMutation = useApiMutation<
     {
-      data: VoterRecord[];
+      data: RecordSearchResult[];
       totalRecords: number;
     },
     {
@@ -106,6 +107,12 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   }, [contextFieldsList]);
 
   const canExport = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  // The server sends committee membership by the real role; this only hides it
+  // when a Developer is acting as a role that couldn't see rosters.
+  const showCommitteeMembership = hasPermissionFor(
+    actingPermissions,
+    PrivilegeLevel.Leader,
+  );
 
   const handleSubmit = React.useCallback(
     async (searchQueryParam: SearchField[]) => {
@@ -236,6 +243,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
             <div className="md:hidden">
               <VoterRecordCardList
                 records={records}
+                showCommitteeMembership={showCommitteeMembership}
                 fieldsList={fieldsList}
                 loadMore={handleLoadMore}
                 totalRecords={totalRecords}
@@ -244,6 +252,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
             <div className="hidden md:block">
               <VoterRecordTable
                 records={records}
+                showCommitteeMembership={showCommitteeMembership}
                 fieldsList={fieldsList}
                 paginated={true}
                 loadMore={handleLoadMore}

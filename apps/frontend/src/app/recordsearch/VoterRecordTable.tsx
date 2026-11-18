@@ -18,9 +18,13 @@ import { VoterCard } from "./VoterCard";
 import { EllipsisVertical } from "~/components/icons/ellipsisVertical";
 import { fields, type FieldName } from "./fieldsConfig";
 import { ResultsPager } from "./ResultsPager";
+import { CommitteeMembershipBadge } from "./CommitteeMembershipBadge";
+import type { RecordSearchResult } from "~/lib/validations/recordSearch";
 
 interface BaseVoterRecordTableProps {
-  records: VoterRecord[];
+  records: RecordSearchResult[];
+  /** Show each voter's `activeCommittee` (record search, acting role Leader or up). */
+  showCommitteeMembership?: boolean;
   fieldsList: FieldName[];
   fullWidth?: boolean;
   compactView?: boolean;
@@ -40,6 +44,7 @@ type VoterRecordTableProps =
 
 export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
   records,
+  showCommitteeMembership = false,
   extraContent,
   fieldsList,
   fullWidth,
@@ -83,39 +88,56 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {records.map((record) => (
-            <TableRow key={record.VRCNUM}>
-              <TableCell className="font-medium">{`${record.firstName} ${record.lastName}`}</TableCell>
-              {fieldsList.map((fieldName: FieldName) => {
-                const field = fields.find((field) => field.name === fieldName);
-                if (!field) {
-                  return null;
-                }
-                return (
-                  <TableCell key={field.name}>{field.value(record)}</TableCell>
-                );
-              })}
-              {extraContent && <TableCell>{extraContent(record)}</TableCell>}
-              <TableCell className="text-right">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    {compactView ? (
-                      <Button variant={"outline"}>
-                        <EllipsisVertical />
-                      </Button>
-                    ) : (
-                      <Button variant="outline" className="font-light">
-                        {seeMoreDetailsText ?? "See more details"}
-                      </Button>
-                    )}
-                  </PopoverTrigger>
-                  <PopoverContent className="mr-2 w-max shadow-lg">
-                    <VoterCard record={record} />
-                  </PopoverContent>
-                </Popover>
-              </TableCell>
-            </TableRow>
-          ))}
+          {records.map((record) => {
+            const committee = showCommitteeMembership
+              ? record.activeCommittee
+              : undefined;
+            return (
+              <TableRow key={record.VRCNUM}>
+                <TableCell className="font-medium">
+                  {`${record.firstName} ${record.lastName}`}
+                  {committee && (
+                    <CommitteeMembershipBadge
+                      committee={committee}
+                      className="mt-1 flex w-fit"
+                    />
+                  )}
+                </TableCell>
+                {fieldsList.map((fieldName: FieldName) => {
+                  const field = fields.find(
+                    (field) => field.name === fieldName,
+                  );
+                  if (!field) {
+                    return null;
+                  }
+                  return (
+                    <TableCell key={field.name}>
+                      {field.value(record)}
+                    </TableCell>
+                  );
+                })}
+                {extraContent && <TableCell>{extraContent(record)}</TableCell>}
+                <TableCell className="text-right">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      {compactView ? (
+                        <Button variant={"outline"}>
+                          <EllipsisVertical />
+                        </Button>
+                      ) : (
+                        <Button variant="outline" className="font-light">
+                          {seeMoreDetailsText ?? "See more details"}
+                        </Button>
+                      )}
+                    </PopoverTrigger>
+                    <PopoverContent className="mr-2 w-max shadow-lg">
+                      <VoterCard record={record} activeCommittee={committee} />
+                    </PopoverContent>
+                  </Popover>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
         {paginated && (
           <TableFooter id="table-footer">
