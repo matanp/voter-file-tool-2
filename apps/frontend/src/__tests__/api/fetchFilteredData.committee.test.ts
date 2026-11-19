@@ -3,15 +3,16 @@
  * added to record search results (ticket 08). Only a request with
  * `includeCommittee: true` (the record search page) gets it. Who gets it is
  * decided from the real session role: Admin/Developer for any committee, a
- * Leader for their jurisdictions, ReadAccess/RequestAccess never (the key is
+ * Leader for their assignments, ReadAccess/RequestAccess never (the key is
  * absent and no membership query runs). The same rules run against a real
  * database in fetchFilteredData.committee.pg.integration.test.ts.
+ *
+ * There is no acting-as case: `actingPermissions` lives only in the browser
+ * and no request carries it, so the route sees the real role whatever the
+ * Developer is acting as. RecordsList.committeeBadge.test.tsx covers the
+ * page hiding the badge.
  */
-import {
-  PrivilegeLevel,
-  type Prisma,
-  type UserJurisdiction,
-} from "@prisma/client";
+import { PrivilegeLevel, type Prisma } from "@prisma/client";
 import { z } from "zod";
 import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 import { POST } from "~/app/api/fetchFilteredData/route";
@@ -22,10 +23,12 @@ import {
   createMockSession,
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
+  firstCallArg,
   parseJsonResponseWith,
   resolvesTo,
 } from "../utils/testUtils";
 import {
+  jurisdictionRow,
   mockAuthSession,
   mockRealPermissionHierarchy,
   prismaMock,
@@ -76,25 +79,11 @@ function serveMemberships(rows: MembershipRow[]) {
   );
 }
 
-function jurisdictionRow(
-  cityTown: string,
-  legDistrict: number | null,
-): UserJurisdiction {
-  return {
-    id: `jurisdiction-${cityTown}-${String(legDistrict)}`,
-    userId: "test-user-id",
-    cityTown,
-    legDistrict,
-    termId: DEFAULT_ACTIVE_TERM_ID,
-    createdAt: new Date("2026-01-01"),
-    createdById: "admin-1",
-  };
-}
-
 function membershipQuery(): Prisma.CommitteeMembershipFindManyArgs {
-  const args = prismaMock.committeeMembership.findMany.mock.calls.at(-1)?.[0];
-  if (!args) throw new Error("membership query was not issued");
-  return args;
+  expect(prismaMock.committeeMembership.findMany).toHaveBeenCalledTimes(1);
+  return firstCallArg<Prisma.CommitteeMembershipFindManyArgs>(
+    prismaMock.committeeMembership.findMany,
+  );
 }
 
 function signIn(privilegeLevel: PrivilegeLevel) {
@@ -152,7 +141,7 @@ describe("POST /api/fetchFilteredData activeCommittee", () => {
     },
   );
 
-  it("Leader: the committee filter is their jurisdictions (null LD = whole town)", async () => {
+  it("Leader: the committee filter is their assignments (null LD = whole town)", async () => {
     signIn(PrivilegeLevel.Leader);
     prismaMock.userJurisdiction.findMany.mockResolvedValue([
       jurisdictionRow("GREECE", null),
@@ -170,7 +159,7 @@ describe("POST /api/fetchFilteredData activeCommittee", () => {
     });
   });
 
-  it("Leader with no jurisdictions: no field and no membership query", async () => {
+  it("Leader with no assignments: no field and no membership query", async () => {
     signIn(PrivilegeLevel.Leader);
     const body = await search();
 

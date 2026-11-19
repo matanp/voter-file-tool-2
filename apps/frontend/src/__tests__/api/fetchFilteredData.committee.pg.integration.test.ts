@@ -1,9 +1,9 @@
 /**
  * PostgreSQL-backed scope rules for the `activeCommittee` field on
  * POST /api/fetchFilteredData (ticket 08). The lookup is a nested Prisma
- * filter (records on the page, term, status, jurisdictions), so only a real
+ * filter (records on the page, term, status, assignments), so only a real
  * database shows each rule holds: Admins and Developers see every committee,
- * Leaders their jurisdictions only (a null LD covers the whole town),
+ * Leaders their assignments only (a null LD covers the whole town),
  * ReadAccess and RequestAccess nothing, and only ACTIVE members of the active
  * term get the field.
  *
@@ -38,7 +38,7 @@ const ADMIN = "pg-rs-admin";
 const DEVELOPER = "pg-rs-dev";
 const GREECE_LEADER = "pg-rs-greece"; // GREECE, every LD
 const ROCHESTER_LEADER = "pg-rs-roch"; // ROCHESTER LD 28 only
-const NO_SCOPE_LEADER = "pg-rs-none"; // no jurisdictions
+const NO_SCOPE_LEADER = "pg-rs-none"; // no assignments
 const READER = "pg-rs-reader";
 const REQUESTER = "pg-rs-requester";
 
@@ -127,7 +127,7 @@ describePg("POST /api/fetchFilteredData activeCommittee (PostgreSQL)", () => {
           termId: TERM,
         },
         // Left over from when these users were Leaders: a lower real role
-        // must still see nothing, whatever jurisdiction rows remain.
+        // must still see nothing, whatever assignment rows remain.
         ...[READER, REQUESTER].map((userId) => ({
           userId,
           cityTown: "GREECE",
@@ -335,7 +335,7 @@ describePg("POST /api/fetchFilteredData activeCommittee (PostgreSQL)", () => {
     });
   });
 
-  it("a Leader with a null-LD jurisdiction sees every LD of that town only", async () => {
+  it("a Leader with a null-LD assignment sees every LD of that town only", async () => {
     signInAs(GREECE_LEADER, PrivilegeLevel.Leader);
     expect(await badges()).toEqual({
       AGREECEONE: "GREECE 1/5",
@@ -343,7 +343,7 @@ describePg("POST /api/fetchFilteredData activeCommittee (PostgreSQL)", () => {
     });
   });
 
-  it("a Leader with a town + LD jurisdiction sees only that LD; outside it the key is absent", async () => {
+  it("a Leader with a town + LD assignment sees only that LD; outside it the key is absent", async () => {
     signInAs(ROCHESTER_LEADER, PrivilegeLevel.Leader);
     expect(await badges()).toEqual({ CROCHTWENTYEIGHT: "ROCHESTER 28/7" });
     const { body } = await search();
@@ -352,7 +352,7 @@ describePg("POST /api/fetchFilteredData activeCommittee (PostgreSQL)", () => {
     ).not.toHaveProperty("activeCommittee");
   });
 
-  it("a Leader with no active-term jurisdictions gets results without the field", async () => {
+  it("a Leader with no active-term assignments gets results without the field", async () => {
     signInAs(NO_SCOPE_LEADER, PrivilegeLevel.Leader);
     const { raw, body } = await search();
     expect(body.data).toHaveLength(13);
