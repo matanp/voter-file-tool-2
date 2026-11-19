@@ -6,14 +6,21 @@
  * scope comes from the caller's real session role (never `actingPermissions`):
  *
  * - Admin / Developer: every committee.
- * - Leader: committees in their active-term jurisdictions (a null LD covers
- *   the whole town); none when they have no jurisdictions.
+ * - Leader: committees in their active-term assignments (a null LD covers
+ *   the whole town); none when they have no assignments.
  * - RequestAccess / ReadAccess: no lookup at all.
  *
  * Only ACTIVE memberships in the active term count. A voter holds at most one
  * of those (partial unique index), so each record maps to one committee.
+ *
+ * Developer acting-as never reaches this code: `actingPermissions` is client
+ * state (GlobalContext/localStorage) and no request carries it, so a Developer
+ * acting as ReadAccess still gets every committee here and the page hides the
+ * badge. The reverse holds too: a Developer acting as Leader gets every
+ * committee (their real scope), not the narrower set a real Leader would see.
  */
 import { PrivilegeLevel, type Prisma } from "@prisma/client";
+import type { SessionWithUser } from "~/app/api/lib/withPrivilege";
 import prisma from "~/lib/prisma";
 import {
   ACTIVE_MEMBERSHIP_STATUS,
@@ -45,7 +52,7 @@ export const RECORD_SEARCH_MEMBERSHIP_SELECT = {
  */
 export async function activeCommitteesForRecords(
   voterRecordIds: string[],
-  user: { id: string; privilegeLevel?: PrivilegeLevel },
+  user: Pick<SessionWithUser["user"], "id" | "privilegeLevel">,
 ): Promise<Map<string, RecordSearchCommittee>> {
   const result = new Map<string, RecordSearchCommittee>();
   const { privilegeLevel } = user;

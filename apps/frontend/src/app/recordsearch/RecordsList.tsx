@@ -110,7 +110,9 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
 
   const canExport = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   // The server sends committee membership by the real role; this only hides it
-  // when a Developer is acting as a role that couldn't see rosters.
+  // when a Developer is acting as a role that couldn't see rosters. It can't
+  // narrow it: a Developer acting as Leader sees badges for every committee
+  // (their real scope), not just one Leader's assignments.
   const showCommitteeMembership = hasPermissionFor(
     actingPermissions,
     PrivilegeLevel.Leader,
