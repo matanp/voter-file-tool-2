@@ -11,6 +11,7 @@ import {
   getPetitionOutcomeLabel,
   mapCommitteesToReportShape,
   type CommitteeWithMembers,
+  type CommitteeWithMembersAndSeats,
 } from '../committeeMappingHelpers';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
@@ -395,27 +396,39 @@ describe('mapCommitteesToReportShape', () => {
 
 describe('computeDesignationWeight', () => {
   it("carries the committee's per-seat LTED weight onto the summary", () => {
-    const base = {
-      id: 1,
-      cityTown: 'ROCHESTER',
-      legDistrict: 17,
-      electionDistrict: 1,
-      termId: 'term-1',
-      seats: [],
-      memberships: [],
-    };
+    // Only the fields computeDesignationWeight reads; `satisfies` keeps them
+    // checked against the real type before the narrowing cast.
+    const committeeWithLtedWeight = (
+      ltedWeight: CommitteeWithMembersAndSeats['ltedWeight'],
+    ) =>
+      ({
+        id: 1,
+        cityTown: 'ROCHESTER',
+        legDistrict: 17,
+        electionDistrict: 1,
+        termId: 'term-1',
+        ltedWeight,
+        seats: [],
+        memberships: [],
+      }) satisfies Pick<
+        CommitteeWithMembersAndSeats,
+        | 'id'
+        | 'cityTown'
+        | 'legDistrict'
+        | 'electionDistrict'
+        | 'termId'
+        | 'ltedWeight'
+        | 'seats'
+        | 'memberships'
+      > as CommitteeWithMembersAndSeats;
 
     expect(
-      computeDesignationWeight({
-        ...base,
-        ltedWeight: new Prisma.Decimal('128.5'),
-      } as unknown as CommitteeWithMembers).ltedWeight,
+      computeDesignationWeight(
+        committeeWithLtedWeight(new Prisma.Decimal('128.5')),
+      ).ltedWeight,
     ).toBe(128.5);
     expect(
-      computeDesignationWeight({
-        ...base,
-        ltedWeight: null,
-      } as unknown as CommitteeWithMembers).ltedWeight,
+      computeDesignationWeight(committeeWithLtedWeight(null)).ltedWeight,
     ).toBeNull();
   });
 
