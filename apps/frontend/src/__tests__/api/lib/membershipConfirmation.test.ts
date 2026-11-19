@@ -2,7 +2,7 @@
  * Tests for SUBMITTED → ACTIVE / REJECTED membership confirmation service.
  */
 
-import { PrivilegeLevel } from "@prisma/client";
+import { type AuditLog, PrivilegeLevel } from "@prisma/client";
 import {
   confirmSubmittedMembership,
   rejectSubmittedMembership,
@@ -20,6 +20,7 @@ import {
   getMembershipMock,
   jsonContaining,
   jsonLacking,
+  resolvesTo,
   setupMembershipAuditSubjectMocks,
 } from "../../utils/testUtils";
 
@@ -134,6 +135,49 @@ describe("membershipConfirmation", () => {
         expectAuditLogCreate({
           action: "MEMBER_CONFIRMED",
           metadata: jsonLacking("seatPetitioned"),
+        }),
+      );
+    });
+
+    it("does not flag a second seat for a resubmitted petition winner whose old seat is taken", async () => {
+      // Resubmission nulls seatNumber and activatedAt; only the audit log remembers seat 1.
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: MEMBERSHIP_ID,
+          status: "SUBMITTED",
+          membershipType: null,
+          seatNumber: null,
+          activatedAt: null,
+        }),
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(1);
+      getMembershipMock(prismaMock).findMany.mockResolvedValue([{ seatNumber: 1 }]);
+      prismaMock.auditLog.findMany.mockImplementation(() =>
+        resolvesTo<Array<Pick<AuditLog, "afterValue">>>([
+          { afterValue: { status: "ACTIVE", seatNumber: 1 } },
+        ]),
+      );
+
+      await confirmSubmittedMembership(prismaMock, {
+        membershipId: MEMBERSHIP_ID,
+        meetingRecordId: "meeting-001",
+        actor: ACTOR,
+        maxSeats: MAX_SEATS,
+        membershipType: "PETITIONED",
+      });
+
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          { status: "ACTIVE", membershipType: "PETITIONED", seatNumber: 2 },
+          { id: MEMBERSHIP_ID },
+        ),
+      );
+      expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          afterValue: jsonContaining({ seatNumber: 2 }),
+          metadata: jsonLacking("seatPetitioned", "reusedPreviousSeat"),
         }),
       );
     });

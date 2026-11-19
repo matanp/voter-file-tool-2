@@ -4,15 +4,20 @@
  * PETITIONED members without flagging their seats, so the Vacancy and Weight reports saw
  * no petitioned seats.
  *
- * A seat is petitioned when any of these name it for the term:
- *  - membership: a PETITIONED membership, any status, still holding the seat number;
- *  - petition: a membership whose petitionSeatNumber is the seat (a recorded outcome);
- *  - audit: a MEMBER_ACTIVATED audit row that seated a PETITIONED member there. Bulk
+ * One petition win flags one seat: each petitioned membership flags at most one seat for
+ * the term, the first seat it won, taken from the first of these that names one:
+ *  - petition: its petitionSeatNumber (a recorded outcome it won; a membership the outcome
+ *    left PETITIONED_LOST or PETITIONED_TIE won nothing);
+ *  - audit: its earliest MEMBER_ACTIVATED audit row that seated it as PETITIONED. Bulk
  *    removal and replacement null a membership's seatNumber, so the audit log is the
- *    only record of where a petitioned member who has since left was seated.
+ *    only record of where a petitioned member who has since left was seated;
+ *  - membership: its current seatNumber, when it is PETITIONED.
+ * Other seats the same membership held later (a returning member reseated elsewhere) are
+ * counted as passed over, never flagged.
  *
- * Idempotent: only unflagged seats change, and a rerun finds nothing to do. Run the
- * preview first (scripts/backfillPetitionedSeats.ts without --apply).
+ * Idempotent: only unflagged seats change, and a rerun finds nothing to do. Already-flagged
+ * seats are never unflagged. Run the preview first (scripts/backfillPetitionedSeats.ts
+ * without --apply).
  */
 
 import type { PrismaClient, Prisma, PrivilegeLevel } from "@prisma/client";
@@ -37,48 +42,62 @@ export type PetitionedSeatCandidate = {
 
 export type PetitionedSeatBackfillPreview = {
   termId: string;
-  /** Every seat a source names, flagged or not. */
+  /** Every seat some petitioned membership's first seat is, flagged or not. */
   candidates: PetitionedSeatCandidate[];
   /** Candidates whose flag is still false: what --apply would change. */
   toFlag: PetitionedSeatCandidate[];
-  /** Sources that name a seat number with no Seat row; reported, never created. */
+  /** First seats with no Seat row; reported, never created. */
   missingSeats: Array<{
     committeeListId: number;
     seatNumber: number;
     sources: PetitionedSeatSource[];
   }>;
   summary: {
+    /** Memberships with any petitioned-seat evidence for the term. */
+    petitionedMemberships: number;
     petitionedSeats: number;
     alreadyPetitioned: number;
     toFlag: number;
     committees: number;
     maxPerCommittee: number;
+    /** Seats chosen per source (a seat several memberships chose counts once per source). */
     bySource: Record<PetitionedSeatSource, number>;
+    /**
+     * Seats a petitioned membership also held, but not as its first seat, and no
+     * membership chose: left as they are.
+     */
+    passedOverSeats: number;
   };
 };
 
 type Db = Pick<PrismaClient, "$queryRaw"> | Prisma.TransactionClient;
 
-type SourceRow = {
+type EvidenceRow = {
+  membershipId: string;
   committeeListId: number;
   seatNumber: number;
   source: PetitionedSeatSource;
+  /** When the audit row was written; null for the membership's own columns. */
+  at: Date | null;
 };
 
-async function findSourceRows(db: Db, termId: string): Promise<SourceRow[]> {
-  return db.$queryRaw<SourceRow[]>`
-    SELECT m."committeeListId", m."seatNumber", 'membership' AS source
-    FROM "CommitteeMembership" m
-    WHERE m."termId" = ${termId}
-      AND m."membershipType" = 'PETITIONED'
-      AND m."seatNumber" IS NOT NULL
-    UNION
-    SELECT m."committeeListId", m."petitionSeatNumber" AS "seatNumber", 'petition' AS source
+const SOURCE_PRIORITY: Record<PetitionedSeatSource, number> = {
+  petition: 0,
+  audit: 1,
+  membership: 2,
+};
+
+async function findEvidenceRows(db: Db, termId: string): Promise<EvidenceRow[]> {
+  return db.$queryRaw<EvidenceRow[]>`
+    SELECT m."id" AS "membershipId", m."committeeListId", m."petitionSeatNumber" AS "seatNumber",
+           'petition' AS source, NULL::timestamp AS at
     FROM "CommitteeMembership" m
     WHERE m."termId" = ${termId}
       AND m."petitionSeatNumber" IS NOT NULL
-    UNION
-    SELECT m."committeeListId", (a."afterValue"->>'seatNumber')::int AS "seatNumber", 'audit' AS source
+      AND m."status" NOT IN ('PETITIONED_LOST', 'PETITIONED_TIE')
+    UNION ALL
+    SELECT m."id", m."committeeListId", (a."afterValue"->>'seatNumber')::int,
+           'audit', a."timestamp"
     FROM "AuditLog" a
     JOIN "CommitteeMembership" m
       ON a."entityType" = 'CommitteeMembership' AND a."entityId" = m."id"
@@ -86,19 +105,44 @@ async function findSourceRows(db: Db, termId: string): Promise<SourceRow[]> {
       AND a."action" = 'MEMBER_ACTIVATED'
       AND jsonb_typeof(a."afterValue"->'seatNumber') = 'number'
       AND COALESCE(a."afterValue"->>'membershipType', m."membershipType"::text) = 'PETITIONED'
+    UNION ALL
+    SELECT m."id", m."committeeListId", m."seatNumber", 'membership', NULL::timestamp
+    FROM "CommitteeMembership" m
+    WHERE m."termId" = ${termId}
+      AND m."membershipType" = 'PETITIONED'
+      AND m."seatNumber" IS NOT NULL
   `;
+}
+
+/** Each membership's first seat: highest-priority source, earliest audit row first. */
+function firstSeatPerMembership(rows: EvidenceRow[]): EvidenceRow[] {
+  const first = new Map<string, EvidenceRow>();
+  for (const row of rows) {
+    const current = first.get(row.membershipId);
+    if (!current || compareEvidence(row, current) < 0) {
+      first.set(row.membershipId, row);
+    }
+  }
+  return Array.from(first.values());
+}
+
+function compareEvidence(a: EvidenceRow, b: EvidenceRow): number {
+  const bySource = SOURCE_PRIORITY[a.source] - SOURCE_PRIORITY[b.source];
+  if (bySource !== 0) return bySource;
+  return (a.at?.getTime() ?? 0) - (b.at?.getTime() ?? 0);
 }
 
 export async function previewPetitionedSeatBackfill(
   db: Db,
   termId: string,
 ): Promise<PetitionedSeatBackfillPreview> {
-  const sourceRows = await findSourceRows(db, termId);
+  const evidenceRows = await findEvidenceRows(db, termId);
+  const sourceRows = firstSeatPerMembership(evidenceRows);
 
   const seatKey = (seat: { committeeListId: number; seatNumber: number }) =>
     `${seat.committeeListId}:${seat.seatNumber}`;
 
-  // One entry per named seat, keeping its ids alongside every source that names it.
+  // One entry per chosen seat, keeping its ids alongside every source that chose it.
   const namedSeats = new Map<
     string,
     {
@@ -117,6 +161,9 @@ export async function previewPetitionedSeatBackfill(
     named.sources.add(row.source);
     namedSeats.set(key, named);
   }
+  const passedOverSeats = new Set(
+    evidenceRows.map(seatKey).filter((key) => !namedSeats.has(key)),
+  ).size;
 
   const committeeIds = Array.from(
     new Set(sourceRows.map((row) => row.committeeListId)),
@@ -210,12 +257,14 @@ export async function previewPetitionedSeatBackfill(
     toFlag,
     missingSeats,
     summary: {
+      petitionedMemberships: sourceRows.length,
       petitionedSeats: candidates.length,
       alreadyPetitioned: candidates.length - toFlag.length,
       toFlag: toFlag.length,
       committees: perCommittee.size,
       maxPerCommittee: Math.max(0, ...perCommittee.values()),
       bySource,
+      passedOverSeats,
     },
   };
 }

@@ -66,10 +66,10 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 });
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
-  // The activation write runs for real, so its membership and Seat writes reach prismaMock.
+  // The activation (seat choice and write) runs for real, so its membership and Seat
+  // reads and writes reach prismaMock.
   ...jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils"),
   ensureSeatsExist: jest.fn(),
-  assignNextAvailableSeat: jest.fn(),
 }));
 
 const parseWithFormatMock = jest.fn();
@@ -92,9 +92,6 @@ const getGovernanceConfigMock = jest.mocked(
   committeeValidation.getGovernanceConfig,
 );
 const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
-const assignNextAvailableSeatMock = jest.mocked(
-  seatUtils.assignNextAvailableSeat,
-);
 
 const VRCNUM = "VRC-PETITIONED-1";
 const COMMITTEE_ID = 101;
@@ -431,7 +428,6 @@ const setupCommonMocks = () => {
   getGovernanceConfigMock.mockResolvedValue(
     createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
   );
-  assignNextAvailableSeatMock.mockResolvedValue(1);
   ensureSeatsExistMock.mockResolvedValue(undefined);
 
   existsSyncMock.mockReturnValue(true);

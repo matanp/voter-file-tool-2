@@ -356,6 +356,96 @@ describe("POST /api/admin/petition-outcomes/record", () => {
     );
   });
 
+  describe("Seat.isPetitioned follows whether someone won the seat", () => {
+    const seatAudit = () =>
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "PETITION_RECORDED",
+          entityType: "Seat",
+          entityId: SEAT_ID,
+        }),
+      );
+    const seatAuditValues = () => {
+      seatAudit();
+      const row = prismaMock.auditLog.create.mock.calls
+        .map(([args]) => args.data)
+        .find((data) => data.entityType === "Seat");
+      return { before: row?.beforeValue, after: row?.afterValue };
+    };
+    const tiePayload = createValidPayload({
+      candidates: [
+        { voterRecordId: "V1", voteCount: 5, outcome: "TIE" },
+        { voterRecordId: "V2", voteCount: 5, outcome: "TIE" },
+      ],
+    });
+
+    it("a win flags the seat and the audit records it", async () => {
+      const response = await POST(createMockRequest(createValidPayload()));
+
+      expect(response.status).toBe(200);
+      const claim = firstCallArg<Prisma.SeatUpdateManyArgs>(
+        prismaMock.seat.updateMany,
+      );
+      expect(claim.data).toMatchObject({ isPetitioned: true });
+      const { before, after } = seatAuditValues();
+      expect(before).toMatchObject({ isPetitioned: false });
+      expect(after).toMatchObject({ isPetitioned: true });
+    });
+
+    it("a tie latches the seat without flagging it", async () => {
+      const response = await POST(createMockRequest(tiePayload));
+
+      expect(response.status).toBe(200);
+      const claim = firstCallArg<Prisma.SeatUpdateManyArgs>(
+        prismaMock.seat.updateMany,
+      );
+      expect(claim.data).not.toHaveProperty("isPetitioned");
+      expect(claim.data.petitionOutcomeRecordedAt).toBeInstanceOf(Date);
+      const { before, after } = seatAuditValues();
+      expect(before).toMatchObject({ isPetitioned: false });
+      expect(after).toMatchObject({ isPetitioned: false });
+    });
+
+    it("a tie leaves an already-petitioned seat petitioned", async () => {
+      prismaMock.seat.findUnique.mockResolvedValue({
+        id: SEAT_ID,
+        committeeListId: 1,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        seatNumber: 1,
+        isPetitioned: true,
+        petitionOutcomeRecordedAt: null,
+        weight: null,
+      } satisfies Seat);
+
+      const response = await POST(createMockRequest(tiePayload));
+
+      expect(response.status).toBe(200);
+      const claim = firstCallArg<Prisma.SeatUpdateManyArgs>(
+        prismaMock.seat.updateMany,
+      );
+      expect(claim.data).not.toHaveProperty("isPetitioned");
+      const { before, after } = seatAuditValues();
+      expect(before).toMatchObject({ isPetitioned: true });
+      expect(after).toMatchObject({ isPetitioned: true });
+    });
+
+    it("all candidates losing is rejected before the seat is touched", async () => {
+      const response = await POST(
+        createMockRequest(
+          createValidPayload({
+            candidates: [
+              { voterRecordId: "V1", outcome: "LOST_PRIMARY" },
+              { voterRecordId: "V2", outcome: "LOST_PRIMARY" },
+            ],
+          }),
+        ),
+      );
+
+      expect(response.status).toBe(422);
+      expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   it("records tie as PETITIONED_TIE with null seatNumber", async () => {
     const body = createValidPayload({
       candidates: [

@@ -16,9 +16,8 @@ import {
 } from "~/app/api/lib/committeeValidation";
 import {
   activateMembershipInSeat,
-  assignNextAvailableSeat,
   ensureSeatsExist,
-  seatPetitionedAuditMetadata,
+  seatActivationAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import {
   supersededExitReportMetadata,
@@ -234,12 +233,6 @@ export async function confirmSubmittedMembership(
     );
   }
 
-  const seatNumber = await assignNextAvailableSeat(
-    submittedMembership.committeeListId,
-    submittedMembership.termId,
-    { tx, maxSeats },
-  );
-
   const now = new Date();
 
   const existingMeta =
@@ -253,22 +246,24 @@ export async function confirmSubmittedMembership(
       ? { ...existingMeta, eligibilityWarnings }
       : existingMeta;
 
+  // A resubmitted former member may be returning; the helper decides their seat.
   const activation = await activateMembershipInSeat(tx, {
-    update: {
-      where: { id: membershipId },
-      data: {
-        confirmedAt: now,
-        activatedAt: now,
-        meetingRecordId,
-        membershipType,
-        seatNumber,
-        submissionMetadata:
-          Object.keys(updatedSubmissionMetadata).length > 0
-            ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
-            : undefined,
-      },
+    committeeListId: submittedMembership.committeeListId,
+    termId: submittedMembership.termId,
+    maxSeats,
+    membershipType,
+    existing: submittedMembership,
+    data: {
+      confirmedAt: now,
+      activatedAt: now,
+      meetingRecordId,
+      submissionMetadata:
+        Object.keys(updatedSubmissionMetadata).length > 0
+          ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
+          : undefined,
     },
   });
+  const { seatNumber } = activation;
 
   const confirmedSnapshot = {
     status: "CONFIRMED" as const,
@@ -320,7 +315,7 @@ export async function confirmSubmittedMembership(
     activatedSnapshot,
     {
       ...auditMetadataWithSubject,
-      ...seatPetitionedAuditMetadata(activation),
+      ...seatActivationAuditMetadata(activation),
     },
     tx,
   );

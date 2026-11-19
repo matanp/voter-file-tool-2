@@ -27,10 +27,9 @@ import {
 } from "~/app/api/lib/committeeValidation";
 import {
   activateMembershipInSeat,
-  assignNextAvailableSeat,
   ensureSeatsExist,
   type MembershipActivation,
-  seatPetitionedAuditMetadata,
+  seatActivationAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import {
   CLEARED_EXIT_FIELDS,
@@ -875,105 +874,54 @@ async function activateMember(
     },
   });
 
-  let seatNumber = existingMembership?.seatNumber ?? null;
-  if (
-    !(
-      existingMembership?.status === ACTIVE_MEMBERSHIP_STATUS &&
-      seatNumber !== null
-    )
-  ) {
-    seatNumber = await assignNextAvailableSeat(committee.id, term.id, {
-      tx,
-      maxSeats,
-    });
-  }
-
-  if (existingMembership) {
-    // Existing memberships are not rewritten: a membership that already records how
-    // its member won the seat keeps that, and only an untyped one takes the file's.
-    const membershipType: MembershipType =
-      existingMembership.membershipType ?? plannedMembershipType;
-    // An import says the member is on the file, not that they haven't resigned:
-    // an already-ACTIVE row keeps its exit and Exit Report fields (a pending
-    // report stays pending). Only reactivation from another status clears them.
-    const reactivating = existingMembership.status !== ACTIVE_MEMBERSHIP_STATUS;
-    let activation: MembershipActivation;
-    try {
-      activation = await activateMembershipInSeat(tx, {
-        update: {
-          where: { id: existingMembership.id },
-          data: {
-            activatedAt: existingMembership.activatedAt ?? new Date(),
-            membershipType,
-            seatNumber,
-            confirmedAt: null,
-            resignedAt: null,
-            removedAt: null,
-            rejectedAt: null,
-            rejectionNote: null,
-            // A reactivated row starts clean; an already-ACTIVE row keeps the petition
-            // result it won its seat with.
-            ...(reactivating
-              ? {
-                  ...CLEARED_EXIT_FIELDS,
-                  petitionVoteCount: null,
-                  petitionPrimaryDate: null,
-                }
-              : {}),
-          },
-        },
-      });
-    } catch (error) {
-      throwActivationConflict(
-        error,
-        voterRecordId,
-        committeeIdentity,
-        plannedMembershipType,
-      );
-    }
-    await logAuditEventOrThrow(
-      actor.userId,
-      actor.userRole,
-      "MEMBER_ACTIVATED",
-      "CommitteeMembership",
-      existingMembership.id,
-      { status: existingMembership.status },
-      {
-        status: ACTIVE_MEMBERSHIP_STATUS,
-        membershipType,
-        seatNumber,
-      },
-      mergeAuditMetadata(
-        {
-          source: "bulk_import_sync",
-          committeeId: committee.id,
-          ...seatPetitionedAuditMetadata(activation),
-        },
-        subject(seatNumber),
-      ),
-      tx,
-    );
-    return {
-      voterRecordId,
-      committee: committeeIdentity,
-      membershipType,
-      seatNumber,
-    };
-  }
-
-  const membershipType: MembershipType = plannedMembershipType;
+  // Existing memberships are not rewritten: a membership that already records how
+  // its member won the seat keeps that, and only an untyped one takes the file's.
+  const membershipType: MembershipType =
+    existingMembership?.membershipType ?? plannedMembershipType;
+  // An import says the member is on the file, not that they haven't resigned:
+  // an already-ACTIVE row keeps its exit and Exit Report fields (a pending
+  // report stays pending). Only reactivation from another status clears them.
+  const reactivating =
+    existingMembership !== null &&
+    existingMembership.status !== ACTIVE_MEMBERSHIP_STATUS;
+  const seat = {
+    committeeListId: committee.id,
+    termId: term.id,
+    maxSeats,
+    membershipType,
+  };
   let activation: MembershipActivation;
   try {
-    activation = await activateMembershipInSeat(tx, {
-      create: {
-        voterRecordId,
-        committeeListId: committee.id,
-        termId: term.id,
-        activatedAt: new Date(),
-        membershipType,
-        seatNumber,
-      },
-    });
+    activation = await activateMembershipInSeat(
+      tx,
+      existingMembership
+        ? {
+            ...seat,
+            existing: existingMembership,
+            data: {
+              activatedAt: existingMembership.activatedAt ?? new Date(),
+              confirmedAt: null,
+              resignedAt: null,
+              removedAt: null,
+              rejectedAt: null,
+              rejectionNote: null,
+              // A reactivated row starts clean; an already-ACTIVE row keeps the petition
+              // result it won its seat with.
+              ...(reactivating
+                ? {
+                    ...CLEARED_EXIT_FIELDS,
+                    petitionVoteCount: null,
+                    petitionPrimaryDate: null,
+                  }
+                : {}),
+            },
+          }
+        : {
+            ...seat,
+            existing: null,
+            data: { voterRecordId, activatedAt: new Date() },
+          },
+    );
   } catch (error) {
     throwActivationConflict(
       error,
@@ -982,13 +930,14 @@ async function activateMember(
       plannedMembershipType,
     );
   }
+  const { seatNumber } = activation;
   await logAuditEventOrThrow(
     actor.userId,
     actor.userRole,
     "MEMBER_ACTIVATED",
     "CommitteeMembership",
     activation.membership.id,
-    null,
+    existingMembership ? { status: existingMembership.status } : null,
     {
       status: ACTIVE_MEMBERSHIP_STATUS,
       membershipType,
@@ -998,7 +947,7 @@ async function activateMember(
       {
         source: "bulk_import_sync",
         committeeId: committee.id,
-        ...seatPetitionedAuditMetadata(activation),
+        ...seatActivationAuditMetadata(activation),
       },
       subject(seatNumber),
     ),

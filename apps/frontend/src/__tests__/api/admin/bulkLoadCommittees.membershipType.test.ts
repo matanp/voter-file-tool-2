@@ -3,7 +3,7 @@
  * canonical entry's `membershipType` rather than a constant. Existing memberships are not
  * rewritten — a reactivation keeps the type it already has.
  */
-import type { Prisma } from "@prisma/client";
+import type { AuditLog, CommitteeMembership, Prisma } from "@prisma/client";
 import { applyRosterImport } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 import { prismaMock } from "../../utils/mocks";
@@ -42,10 +42,10 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 });
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
-  // The activation write runs for real, so its membership and Seat writes reach prismaMock.
+  // The activation (seat choice and write) runs for real, so its membership and Seat
+  // reads and writes reach prismaMock.
   ...jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils"),
   ensureSeatsExist: jest.fn(),
-  assignNextAvailableSeat: jest.fn(),
 }));
 
 const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
@@ -53,9 +53,6 @@ const getGovernanceConfigMock = jest.mocked(
   committeeValidation.getGovernanceConfig,
 );
 const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
-const assignNextAvailableSeatMock = jest.mocked(
-  seatUtils.assignNextAvailableSeat,
-);
 
 const seatFlagWrite = (seatNumber = 1) => ({
   where: {
@@ -130,7 +127,6 @@ describe("membership type written by an import", () => {
     );
     echoMembershipWrites({ id: "m-new", committeeListId: 101 });
     prismaMock.seat.updateMany.mockResolvedValue({ count: 1 });
-    assignNextAvailableSeatMock.mockResolvedValue(1);
     ensureSeatsExistMock.mockResolvedValue(undefined);
   });
 
@@ -274,5 +270,89 @@ describe("membership type written by an import", () => {
 
     expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite());
     expectActivationAudit(false);
+  });
+
+  describe("a returning petition winner", () => {
+    const returningWinner = () =>
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
+        createMockMembership({
+          id: "m-returning",
+          voterRecordId: "VRC005",
+          committeeListId: 101,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          status: "REMOVED",
+          membershipType: "PETITIONED",
+          seatNumber: null,
+          activatedAt: new Date("2026-01-05T00:00:00.000Z"),
+        }),
+      );
+    const lastSeatedIn = (seatNumber: number) =>
+      prismaMock.auditLog.findMany.mockImplementation(() =>
+        resolvesTo<Array<Pick<AuditLog, "afterValue">>>([
+          { afterValue: { status: "ACTIVE", seatNumber } },
+        ]),
+      );
+    /** Answers only the activation's occupied-seat query; the import's other reads see none. */
+    const occupied = (...seatNumbers: number[]) =>
+      prismaMock.committeeMembership.findMany.mockImplementation(
+        (args?: Prisma.CommitteeMembershipFindManyArgs) =>
+          resolvesTo<Array<Pick<CommitteeMembership, "seatNumber">>>(
+            args?.where?.status === "ACTIVE" &&
+              args.select?.seatNumber === true &&
+              Object.keys(args.select).length === 1
+              ? seatNumbers.map((seatNumber) => ({ seatNumber }))
+              : [],
+          ),
+      );
+
+    it("goes back to their previous seat, and the audit says so", async () => {
+      returningWinner();
+      lastSeatedIn(3);
+
+      await applyRosterImport({
+        entries: [rosterEntry("VRC005", "PETITIONED")],
+        rejected: [],
+      });
+
+      const update = firstCallArg<Prisma.CommitteeMembershipUpdateArgs>(
+        prismaMock.committeeMembership.update,
+      );
+      expect(update.data).toMatchObject({ status: "ACTIVE", seatNumber: 3 });
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite(3));
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          afterValue: jsonContaining({ seatNumber: 3 }),
+          metadata: jsonContaining({
+            seatPetitioned: true,
+            reusedPreviousSeat: true,
+          }),
+        }),
+      );
+    });
+
+    it("is seated elsewhere without flagging a second seat when theirs is taken", async () => {
+      returningWinner();
+      lastSeatedIn(1);
+      occupied(1);
+
+      await applyRosterImport({
+        entries: [rosterEntry("VRC005", "PETITIONED")],
+        rejected: [],
+      });
+
+      const update = firstCallArg<Prisma.CommitteeMembershipUpdateArgs>(
+        prismaMock.committeeMembership.update,
+      );
+      expect(update.data).toMatchObject({ status: "ACTIVE", seatNumber: 2 });
+      expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
+      expectActivationAudit(false);
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          metadata: jsonLacking("reusedPreviousSeat"),
+        }),
+      );
+    });
   });
 });

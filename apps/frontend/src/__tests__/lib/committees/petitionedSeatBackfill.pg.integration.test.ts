@@ -63,6 +63,7 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
   const activationAudit = (
     membershipId: string,
     afterValue: Prisma.InputJsonObject,
+    timestamp?: Date,
   ) =>
     prisma.auditLog.create({
       data: {
@@ -72,6 +73,7 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
         entityType: "CommitteeMembership",
         entityId: membershipId,
         afterValue,
+        ...(timestamp ? { timestamp } : {}),
       },
     });
 
@@ -169,13 +171,28 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
       membershipType: "PETITIONED",
       seatNumber: 3,
     });
-    // (petition) A recorded outcome names seat 4 of the other committee.
+    // (petition) A recorded outcome's winner of seat 4 of the other committee, since resigned.
+    await membership({
+      committeeListId: otherCommitteeId,
+      status: "RESIGNED",
+      membershipType: "PETITIONED",
+      seatNumber: null,
+      petitionSeatNumber: 4,
+    });
+    // Not petitioned: the candidate who lost that seat won nothing.
     await membership({
       committeeListId: otherCommitteeId,
       status: "PETITIONED_LOST",
       membershipType: "PETITIONED",
       seatNumber: null,
       petitionSeatNumber: 4,
+    });
+    await membership({
+      committeeListId: otherCommitteeId,
+      status: "PETITIONED_LOST",
+      membershipType: "PETITIONED",
+      seatNumber: null,
+      petitionSeatNumber: 3,
     });
     // Not petitioned: an appointee, and an appointee's activation audit.
     const appointed = await membership({
@@ -218,16 +235,112 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
       [2, 4, ["petition"]],
     ]);
     expect(preview.summary).toEqual({
+      petitionedMemberships: 4,
       petitionedSeats: 4,
       alreadyPetitioned: 0,
       toFlag: 4,
       committees: 2,
       maxPerCommittee: 3,
       bySource: { membership: 2, petition: 1, audit: 1 },
+      passedOverSeats: 0,
     });
     expect(preview.missingSeats).toEqual([]);
     // A preview writes nothing.
     expect(await prisma.seat.count({ where: { isPetitioned: true } })).toBe(0);
+  });
+
+  it("flags only the first seat of a petition winner who later held another", async () => {
+    // Seated in 1 by petition, removed, reactivated into seat 3 (1 was taken by then).
+    const returning = await membership({
+      committeeListId: committeeId,
+      status: "ACTIVE",
+      membershipType: "PETITIONED",
+      seatNumber: 3,
+    });
+    await activationAudit(
+      returning.id,
+      { status: "ACTIVE", membershipType: "PETITIONED", seatNumber: 3 },
+      new Date("2026-08-01T00:00:00.000Z"),
+    );
+    await activationAudit(
+      returning.id,
+      { status: "ACTIVE", membershipType: "PETITIONED", seatNumber: 1 },
+      new Date("2026-02-01T00:00:00.000Z"),
+    );
+    // A recorded petition win outranks the audit log: this one won seat 4, was later
+    // reseated in 2.
+    const recorded = await membership({
+      committeeListId: otherCommitteeId,
+      status: "ACTIVE",
+      membershipType: "PETITIONED",
+      seatNumber: 2,
+      petitionSeatNumber: 4,
+    });
+    await activationAudit(
+      recorded.id,
+      { status: "ACTIVE", membershipType: "PETITIONED", seatNumber: 2 },
+      new Date("2026-01-01T00:00:00.000Z"),
+    );
+
+    const preview = await backfill.previewPetitionedSeatBackfill(
+      prisma,
+      TERM_ID,
+    );
+
+    expect(
+      preview.candidates.map((c) => [
+        c.electionDistrict,
+        c.seatNumber,
+        c.sources,
+      ]),
+    ).toEqual([
+      [1, 1, ["audit"]],
+      [2, 4, ["petition"]],
+    ]);
+    expect(preview.summary).toMatchObject({
+      petitionedMemberships: 2,
+      petitionedSeats: 2,
+      toFlag: 2,
+      passedOverSeats: 2,
+    });
+
+    const first = await backfill.applyPetitionedSeatBackfill(
+      prisma,
+      TERM_ID,
+      ACTOR,
+    );
+    expect(first.flagged).toBe(2);
+    expect(await petitionedSeats(committeeId)).toEqual([1]);
+    expect(await petitionedSeats(otherCommitteeId)).toEqual([4]);
+
+    const second = await backfill.applyPetitionedSeatBackfill(
+      prisma,
+      TERM_ID,
+      ACTOR,
+    );
+    expect(second.flagged).toBe(0);
+  });
+
+  it("never unflags a seat it didn't choose", async () => {
+    const returning = await membership({
+      committeeListId: committeeId,
+      status: "ACTIVE",
+      membershipType: "PETITIONED",
+      seatNumber: 3,
+    });
+    await activationAudit(
+      returning.id,
+      { status: "ACTIVE", membershipType: "PETITIONED", seatNumber: 1 },
+      new Date("2026-02-01T00:00:00.000Z"),
+    );
+    await prisma.seat.updateMany({
+      where: { committeeListId: committeeId, termId: TERM_ID, seatNumber: 3 },
+      data: { isPetitioned: true },
+    });
+
+    await backfill.applyPetitionedSeatBackfill(prisma, TERM_ID, ACTOR);
+
+    expect(await petitionedSeats(committeeId)).toEqual([1, 3]);
   });
 
   it("uses the membership's type when an activation audit row doesn't record one", async () => {

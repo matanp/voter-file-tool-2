@@ -176,13 +176,19 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
     };
 
     const recordedAt = new Date();
+    // A seat is won by petition only when someone won it. An outcome with no winner (a tie)
+    // still latches the seat, but leaves isPetitioned as it was (never clearing it).
+    const isPetitionedAfter = winnerCandidate ? true : seat.isPetitioned;
 
     await prisma.$transaction(async (tx) => {
       // petitionOutcomeRecordedAt is the single-use latch. isPetitioned may already be set
       // (an imported petitioned seat), so it can't serve as one.
       const claimedSeat = await tx.seat.updateMany({
         where: { id: seat.id, petitionOutcomeRecordedAt: null },
-        data: { petitionOutcomeRecordedAt: recordedAt, isPetitioned: true },
+        data: {
+          petitionOutcomeRecordedAt: recordedAt,
+          ...(winnerCandidate ? { isPetitioned: true } : {}),
+        },
       });
       if (claimedSeat.count !== 1) {
         throw new OutcomeAlreadyRecordedError();
@@ -407,7 +413,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
           petitionOutcomeRecordedAt: null,
         },
         {
-          isPetitioned: true,
+          isPetitioned: isPetitionedAfter,
           petitionOutcomeRecordedAt: recordedAt.toISOString(),
         },
         {

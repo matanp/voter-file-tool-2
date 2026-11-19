@@ -15,10 +15,8 @@ import {
 } from "~/app/api/lib/committeeValidation";
 import {
   activateMembershipInSeat,
-  assignNextAvailableSeat,
   ensureSeatsExist,
-  type MembershipActivationWrite,
-  seatPetitionedAuditMetadata,
+  seatActivationAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
@@ -218,25 +216,22 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         return { kind: "atCapacity" } as const;
       }
 
-      const seatNumber = await assignNextAvailableSeat(
-        committee.id,
-        activeTermId,
-        {
-          tx,
-          maxSeats: config.maxSeatsPerLted,
-        },
-      );
-
       // Write the membership ACTIVE (admin direct-add): reactivate a previously
-      // non-active row, or create one.
-      const write: MembershipActivationWrite = existingMembership
-        ? {
-            update: {
-              where: { id: existingMembership.id },
+      // non-active row, or create one. The helper picks the seat.
+      const seat = {
+        committeeListId: committee.id,
+        termId: activeTermId,
+        maxSeats: config.maxSeatsPerLted,
+        membershipType,
+      };
+      const activation = await activateMembershipInSeat(
+        tx,
+        existingMembership
+          ? {
+              ...seat,
+              existing: existingMembership,
               data: {
                 activatedAt: new Date(),
-                membershipType,
-                seatNumber,
                 confirmedAt: null,
                 resignedAt: null,
                 removedAt: null,
@@ -250,20 +245,18 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
                 petitionPrimaryDate: null,
                 submissionMetadata: metadataForDbOrUndefined,
               },
+            }
+          : {
+              ...seat,
+              existing: null,
+              data: {
+                voterRecordId: memberId,
+                activatedAt: new Date(),
+                submissionMetadata: metadataForDbOrUndefined,
+              },
             },
-          }
-        : {
-            create: {
-              voterRecordId: memberId,
-              committeeListId: committee.id,
-              termId: activeTermId,
-              activatedAt: new Date(),
-              membershipType,
-              seatNumber,
-              submissionMetadata: metadataForDbOrUndefined,
-            },
-          };
-      const activation = await activateMembershipInSeat(tx, write);
+      );
+      const { seatNumber } = activation;
       const auditMetadataWithSubject = mergeAuditMetadata(
         auditMetadataWithWarnings as Record<string, unknown> | undefined,
         buildMembershipAuditSubject({
@@ -283,7 +276,7 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
         {
           ...auditMetadataWithSubject,
-          ...seatPetitionedAuditMetadata(activation),
+          ...seatActivationAuditMetadata(activation),
         },
         tx,
       );

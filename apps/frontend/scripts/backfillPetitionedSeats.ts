@@ -1,6 +1,7 @@
 /**
  * One-time backfill: set Seat.isPetitioned on every seat won by petition in a term.
- * See src/lib/committees/petitionedSeatBackfill.ts for what counts as petitioned.
+ * Each petitioned membership flags at most one seat, its first; see
+ * src/lib/committees/petitionedSeatBackfill.ts for how that seat is chosen.
  *
  * Usage (from apps/frontend):
  *   pnpm db:backfill-petitioned-seats                                # dry run, active term
@@ -47,14 +48,19 @@ function databaseHost(): string {
 function printPreview(preview: PetitionedSeatBackfillPreview): void {
   const { summary } = preview;
   console.log(`Term: ${preview.termId}`);
-  console.log(`Petitioned seats found:    ${summary.petitionedSeats}`);
+  console.log(`Petitioned memberships:    ${summary.petitionedMemberships}`);
+  console.log(`Petitioned seats found:    ${summary.petitionedSeats} (one per membership: its first seat)`);
   console.log(`  already flagged:         ${summary.alreadyPetitioned}`);
   console.log(`  to flag:                 ${summary.toFlag}`);
   console.log(`Committees (EDs):          ${summary.committees}`);
   console.log(`Most in one committee:     ${summary.maxPerCommittee}`);
   console.log(
-    `Evidence (a seat can have several): membership ${summary.bySource.membership}, ` +
-      `petition ${summary.bySource.petition}, audit ${summary.bySource.audit}`,
+    `First seat chosen by (a seat several memberships chose can count under several): ` +
+      `petition ${summary.bySource.petition}, audit ${summary.bySource.audit}, ` +
+      `membership ${summary.bySource.membership}`,
+  );
+  console.log(
+    `Later seats of the same memberships, left unflagged: ${summary.passedOverSeats}`,
   );
   const auditOnly = preview.candidates.filter(
     (c) => c.sources.length === 1 && c.sources[0] === "audit",
