@@ -7,7 +7,7 @@
  *   designation-weight total, and missing-weight warnings, all spelled out in
  *   text (plan §10).
  * - Acting Admin (`actingPermissions`, client visibility only): the LTED
- *   total-weight editor and the per-seat breakdown. What a Leader sees is
+ *   weight editor and the per-seat breakdown. What a Leader sees is
  *   decided in `seats/seatsWeightDisplay.ts` (`seatsWeightVisibility`).
  *
  * All numbers come from the detail response (the server's rollup and
@@ -85,7 +85,6 @@ export function SeatsWeightTab({ detail, onRefresh }: CommitteeTabProps) {
           key={committee.ltedWeight ?? ""}
           committeeListId={committee.committeeListId}
           ltedWeight={committee.ltedWeight}
-          maxSeatsPerLted={detail.maxSeatsPerLted}
           onSaved={onSaved}
         />
       )}

@@ -1,9 +1,9 @@
 "use client";
 /**
- * The LTED total-weight editor (Admin). Saves through the existing
- * `PATCH /api/committee/updateLtedWeight`, which also recomputes every seat's
- * weight (LTED total ÷ seats per LTED). Validation and server errors show
- * inline, as text (plan §10).
+ * The LTED weight editor (Admin). The LTED weight is the per-seat weight (the
+ * weighted table's `Weighted Vote`). Saves through the existing
+ * `PATCH /api/committee/updateLtedWeight`, which also sets every seat's weight
+ * to it. Validation and server errors show inline, as text (plan §10).
  *
  * The parent keys this component on the saved value, so the field resets to
  * the server's value whenever the refreshed detail brings a new one.
@@ -24,7 +24,6 @@ export type LtedWeightEditorProps = {
   committeeListId: number;
   /** `committee.ltedWeight` as the server sent it (Decimal string), null when unset. */
   ltedWeight: string | null;
-  maxSeatsPerLted: number;
   /** Called after the server saved the value. */
   onSaved: (value: number | null) => void;
 };
@@ -32,7 +31,6 @@ export type LtedWeightEditorProps = {
 export function LtedWeightEditor({
   committeeListId,
   ltedWeight,
-  maxSeatsPerLted,
   onSaved,
 }: LtedWeightEditorProps) {
   const ids = useId();
@@ -75,7 +73,7 @@ export function LtedWeightEditor({
     <form onSubmit={(e) => void save(e)} className="space-y-2" noValidate>
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
-          <Label htmlFor={inputId}>LTED total weight</Label>
+          <Label htmlFor={inputId}>LTED weight per seat</Label>
           <Input
             id={inputId}
             type="text"
@@ -97,8 +95,8 @@ export function LtedWeightEditor({
         </Button>
       </div>
       <p id={hintId} className="text-slate-600 dark:text-slate-400">
-        Each seat&apos;s weight is this total divided by {maxSeatsPerLted}. Leave
-        it blank to clear the weight.
+        Every seat in this district carries this weight; it is not a total for
+        the district. Leave it blank to clear the weight.
       </p>
       {error && (
         <p id={errorId} role="alert" className="text-red-700 dark:text-red-400">

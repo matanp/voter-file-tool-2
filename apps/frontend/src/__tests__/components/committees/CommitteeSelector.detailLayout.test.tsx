@@ -238,7 +238,7 @@ describe("CommitteeSelector detail interim layout", () => {
     expect(
       screen.getByRole("heading", { name: "Committee settings" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("LTED total weight")).toBeInTheDocument();
+    expect(screen.getByLabelText("LTED weight per seat")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Petition outcomes" }),
     ).toBeInTheDocument();
@@ -318,7 +318,7 @@ describe("CommitteeSelector detail interim layout", () => {
     expect(
       screen.queryByRole("heading", { name: "Committee settings" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("LTED total weight")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("LTED weight per seat")).not.toBeInTheDocument();
   });
 
   it("shows the add-member disclosure but not settings to RequestAccess users", async () => {

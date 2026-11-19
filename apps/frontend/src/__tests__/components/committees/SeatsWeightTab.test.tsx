@@ -1,6 +1,6 @@
 /**
  * Seats & Weight tab (ticket 11, plan §7.3): seat summary, designation weight
- * with missing-weight warnings, and for acting Admins the LTED total-weight
+ * with missing-weight warnings, and for acting Admins the LTED weight
  * editor (`PATCH /api/committee/updateLtedWeight`) and the per-seat
  * breakdown. Leaders see what they see today: the summary only.
  */
@@ -62,7 +62,7 @@ function detailWith(overrides: DetailOverrides = {}): CommitteeDetailResponse {
       legDistrict: 1,
       electionDistrict: 2,
       termId: "term-1",
-      ltedWeight: overrides.ltedWeight === undefined ? "100" : overrides.ltedWeight,
+      ltedWeight: overrides.ltedWeight === undefined ? "25" : overrides.ltedWeight,
       assemblyDistrict: "134",
     },
     term: {
@@ -153,7 +153,7 @@ function renderTab(
   };
 }
 
-const weightInput = () => screen.getByRole("textbox", { name: "LTED total weight" });
+const weightInput = () => screen.getByRole("textbox", { name: "LTED weight per seat" });
 const saveButton = () => screen.getByRole("button", { name: /Save LTED weight|Saving/ });
 const summary = () => screen.getByRole("list", { name: "Seat and weight summary" });
 
@@ -218,7 +218,11 @@ describe("SeatsWeightTab for Admins", () => {
 
   it("saves a new LTED weight, then refreshes and announces it", async () => {
     const { onRefresh } = renderTab(detailWith());
-    expect(weightInput()).toHaveValue("100");
+    // The LTED weight is per seat: the editor shows the seats' own weight (25).
+    expect(weightInput()).toHaveValue("25");
+    expect(weightInput()).toHaveAccessibleDescription(
+      /Every seat in this district carries this weight; it is not a total/,
+    );
     expect(saveButton()).toBeDisabled(); // unchanged
 
     await userEvent.clear(weightInput());

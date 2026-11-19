@@ -1017,7 +1017,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                 <CardContent>
                   <div className="flex flex-wrap gap-4 items-end">
                     <div className="flex flex-col gap-1">
-                      <Label htmlFor="lted-weight">LTED total weight</Label>
+                      <Label htmlFor="lted-weight">LTED weight per seat</Label>
                       <Input
                         id="lted-weight"
                         type="number"
