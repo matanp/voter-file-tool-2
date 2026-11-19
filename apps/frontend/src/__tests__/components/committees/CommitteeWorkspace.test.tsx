@@ -717,7 +717,7 @@ describe("CommitteeWorkspace roles", () => {
     const fetchMock = serveRoster(pagesOf(ALL, 500));
     // e.g. a Developer acting as a Leader.
     const { unmount } = renderWorkspace({ query: "committee=1", role: PrivilegeLevel.Leader });
-    await within(detailPane()).findByText("LTED weight 1.5");
+    await within(detailPane()).findByText("LTED weight 1.5 per seat");
     expect(screen.queryByRole("link", { name: "Review pending" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "Roster",
@@ -729,7 +729,7 @@ describe("CommitteeWorkspace roles", () => {
     unmount();
 
     renderWorkspace({ query: "committee=1", role: PrivilegeLevel.Developer });
-    await within(detailPane()).findByText("LTED weight 1.5");
+    await within(detailPane()).findByText("LTED weight 1.5 per seat");
     expect(screen.getByRole("link", { name: "Review pending" })).toBeInTheDocument();
     const developerInit = detailRequests(fetchMock)[1]?.[1];
 
@@ -748,7 +748,7 @@ describe("CommitteeWorkspace detail loading", () => {
     renderWorkspace({ query: "committee=2" });
     await waitForGrid();
 
-    expect(await within(detailPane()).findByText("LTED weight 2.5")).toBeInTheDocument();
+    expect(await within(detailPane()).findByText("LTED weight 2.5 per seat")).toBeInTheDocument();
     expect(detailRequests(fetchMock).map(([id]) => id)).toEqual([2]);
     const summary = within(detailPane()).getByRole("list", { name: "Committee summary" });
     expect(summary).toHaveTextContent("2 of 4 seats filled · 2 open");
@@ -773,7 +773,7 @@ describe("CommitteeWorkspace detail loading", () => {
     expect(screen.getByRole("tab", { name: "Roster" })).toBeInTheDocument();
 
     gate.resolve();
-    expect(await within(detailPane()).findByText("LTED weight 3.5")).toBeInTheDocument();
+    expect(await within(detailPane()).findByText("LTED weight 3.5 per seat")).toBeInTheDocument();
     expect(within(detailPane()).queryByText("Loading committee details…")).not.toBeInTheDocument();
   });
 
@@ -797,7 +797,7 @@ describe("CommitteeWorkspace detail loading", () => {
     fail = false;
     await userEvent.click(within(alert).getByRole("button", { name: "Retry" }));
 
-    expect(await within(detailPane()).findByText("LTED weight 1.5")).toBeInTheDocument();
+    expect(await within(detailPane()).findByText("LTED weight 1.5 per seat")).toBeInTheDocument();
     expect(within(detailPane()).queryByRole("alert")).not.toBeInTheDocument();
     expect(detailRequests(fetchMock).map(([id]) => id)).toEqual([1, 1]);
   });
@@ -842,11 +842,11 @@ describe("CommitteeWorkspace detail loading", () => {
     expect(within(detailPane()).getByRole("status")).toHaveTextContent(
       "Loading committee details…",
     );
-    expect(within(detailPane()).queryByText("LTED weight 1.5")).not.toBeInTheDocument();
+    expect(within(detailPane()).queryByText("LTED weight 1.5 per seat")).not.toBeInTheDocument();
 
     gates.get(2)?.resolve();
-    expect(await within(detailPane()).findByText("LTED weight 2.5")).toBeInTheDocument();
-    expect(within(detailPane()).queryByText("LTED weight 1.5")).not.toBeInTheDocument();
+    expect(await within(detailPane()).findByText("LTED weight 2.5 per seat")).toBeInTheDocument();
+    expect(within(detailPane()).queryByText("LTED weight 1.5 per seat")).not.toBeInTheDocument();
   });
 
   it("keeps the newer committee when the older response arrives last", async () => {
@@ -864,21 +864,21 @@ describe("CommitteeWorkspace detail loading", () => {
     await userEvent.click(rowFor(GREECE_2));
     await waitFor(() => expect(detailRequests(fetchMock)).toHaveLength(2));
     gates.get(2)?.resolve();
-    expect(await within(detailPane()).findByText("LTED weight 2.5")).toBeInTheDocument();
+    expect(await within(detailPane()).findByText("LTED weight 2.5 per seat")).toBeInTheDocument();
 
     await act(async () => {
       gates.get(1)?.resolve();
       await Promise.resolve();
     });
-    expect(within(detailPane()).getByText("LTED weight 2.5")).toBeInTheDocument();
-    expect(within(detailPane()).queryByText("LTED weight 1.5")).not.toBeInTheDocument();
+    expect(within(detailPane()).getByText("LTED weight 2.5 per seat")).toBeInTheDocument();
+    expect(within(detailPane()).queryByText("LTED weight 1.5 per seat")).not.toBeInTheDocument();
   });
 
   it("renders each tab's registered component in a labelled tabpanel", async () => {
     serveRoster(pagesOf(ALL, 500));
     renderWorkspace({ query: "committee=1" });
     await waitForGrid();
-    await within(detailPane()).findByText("LTED weight 1.5");
+    await within(detailPane()).findByText("LTED weight 1.5 per seat");
 
     // A tab's h3 is its name unless the tab names its section otherwise.
     const sectionHeading: Record<string, string> = { History: "Committee history" };
@@ -950,7 +950,7 @@ describe("CommitteeWorkspace layout and keyboard access", () => {
     serveRoster(pagesOf(ALL, 500));
     renderWorkspace({ query: "committee=1" });
     await waitForGrid();
-    await within(detailPane()).findByText("LTED weight 1.5");
+    await within(detailPane()).findByText("LTED weight 1.5 per seat");
 
     act(() => screen.getByRole("tab", { name: "Roster" }).focus());
     await userEvent.keyboard("{ArrowRight}");
@@ -974,7 +974,7 @@ describe("CommitteeWorkspace layout and keyboard access", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(lastWrite(mockPush)?.get("committee")).toBe("3");
-    expect(await within(detailPane()).findByText("LTED weight 3.5")).toBeInTheDocument();
+    expect(await within(detailPane()).findByText("LTED weight 3.5 per seat")).toBeInTheDocument();
   });
 
   it("collapses and restores the committee list with a toggle, keeping focus on it", async () => {
@@ -1013,7 +1013,7 @@ describe("CommitteeWorkspace layout and keyboard access", () => {
     expect(committeeList()).toHaveClass("hidden");
     expect(detailPane()).not.toHaveClass("hidden");
     expect(screen.getByRole("heading", { level: 2, name: "Penfield · ED 2" })).toHaveFocus();
-    await within(detailPane()).findByText("LTED weight 4.5");
+    await within(detailPane()).findByText("LTED weight 4.5 per seat");
 
     await userEvent.click(within(detailPane()).getByRole("button", { name: "Back to committees" }));
 
