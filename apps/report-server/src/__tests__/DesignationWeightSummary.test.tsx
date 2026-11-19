@@ -1,8 +1,49 @@
-import {
+import React from 'react';
+import ReactDOMServer from 'react-dom/server';
+import DesignationWeightSummaryReport, {
+  formatWeight,
   summaryToRow,
   groupWeightSummaries,
+  sumWeights,
 } from '../components/DesignationWeightSummary';
 import type { DesignationWeightSummary } from '../committeeMappingHelpers';
+
+
+/** A committee with four seats, the first `petitioned` of them petitioned and filled. */
+function committee({
+  ltedWeight,
+  petitioned,
+  electionDistrict = 1,
+}: {
+  ltedWeight: number | null;
+  petitioned: number;
+  electionDistrict?: number;
+}): DesignationWeightSummary {
+  const seats = [1, 2, 3, 4].map((seatNumber) => {
+    const isPetitioned = seatNumber <= petitioned;
+    return {
+      seatNumber,
+      isPetitioned,
+      isOccupied: true,
+      occupantMembershipType: 'PETITIONED' as const,
+      seatWeight: ltedWeight,
+      contributes: isPetitioned && ltedWeight != null,
+      contributionWeight: isPetitioned ? (ltedWeight ?? 0) : 0,
+    };
+  });
+  return {
+    committeeListId: electionDistrict,
+    cityTown: 'ROCHESTER',
+    legDistrict: 17,
+    electionDistrict,
+    ltedWeight,
+    totalWeight: (ltedWeight ?? 0) * petitioned,
+    totalContributingSeats: ltedWeight != null ? petitioned : 0,
+    seats,
+    missingWeightSeatNumbers:
+      ltedWeight == null ? seats.filter((x) => x.isPetitioned).map((x) => x.seatNumber) : [],
+  };
+}
 
 describe('DesignationWeightSummary', () => {
   describe('summaryToRow', () => {
@@ -12,6 +53,7 @@ describe('DesignationWeightSummary', () => {
         cityTown: 'ROCHESTER',
         legDistrict: 1,
         electionDistrict: 2,
+        ltedWeight: 1.25,
         totalWeight: 2.5,
         totalContributingSeats: 2,
         seats: [
@@ -38,7 +80,7 @@ describe('DesignationWeightSummary', () => {
             isPetitioned: true,
             isOccupied: false,
             occupantMembershipType: null,
-            seatWeight: 1,
+            seatWeight: 1.25,
             contributes: false,
             contributionWeight: 0,
           },
@@ -53,7 +95,9 @@ describe('DesignationWeightSummary', () => {
       expect(row.occupiedPetitioned).toBe(2);
       expect(row.vacantPetitioned).toBe(1);
       expect(row.appointed).toBe(1);
-      expect(row.ltedWeight).toBe(3.5);
+      expect(row.ltedWeight).toBe(1.25);
+      // Base weight: per-seat weight x petitioned seats, filled or not.
+      expect(row.baseWeight).toBe(3.75);
       expect(row.designationWeight).toBe(2.5);
       expect(row.missingWeights).toBe('');
     });
@@ -64,6 +108,7 @@ describe('DesignationWeightSummary', () => {
         cityTown: 'ROCHESTER',
         legDistrict: 1,
         electionDistrict: 1,
+        ltedWeight: null,
         totalWeight: 0,
         totalContributingSeats: 0,
         seats: [],
@@ -73,6 +118,20 @@ describe('DesignationWeightSummary', () => {
       const row = summaryToRow(s);
 
       expect(row.missingWeights).toBe('1, 3, 5');
+    });
+
+    it('has no LTED or base weight when the committee has no LTED weight', () => {
+      const row = summaryToRow(committee({ ltedWeight: null, petitioned: 2 }));
+
+      expect(row.ltedWeight).toBeNull();
+      expect(row.baseWeight).toBeNull();
+    });
+
+    it('gives a zero base weight when no seat is petitioned', () => {
+      const row = summaryToRow(committee({ ltedWeight: 128.5, petitioned: 0 }));
+
+      expect(row.ltedWeight).toBe(128.5);
+      expect(row.baseWeight).toBe(0);
     });
   });
 
@@ -84,6 +143,7 @@ describe('DesignationWeightSummary', () => {
           cityTown: 'ROCHESTER',
           legDistrict: 1,
           electionDistrict: 1,
+          ltedWeight: null,
           totalWeight: 10,
           totalContributingSeats: 2,
           seats: [],
@@ -94,6 +154,7 @@ describe('DesignationWeightSummary', () => {
           cityTown: 'ROCHESTER',
           legDistrict: 1,
           electionDistrict: 2,
+          ltedWeight: null,
           totalWeight: 5,
           totalContributingSeats: 1,
           seats: [],
@@ -104,6 +165,7 @@ describe('DesignationWeightSummary', () => {
           cityTown: 'BRIGHTON',
           legDistrict: 2,
           electionDistrict: 1,
+          ltedWeight: null,
           totalWeight: 3,
           totalContributingSeats: 1,
           seats: [],
@@ -124,6 +186,75 @@ describe('DesignationWeightSummary', () => {
       expect(rochesterGroup?.rows).toHaveLength(2);
       expect(brightonGroup?.subtotalWeight).toBe(3);
       expect(brightonGroup?.rows).toHaveLength(1);
+    });
+  });
+  describe('formatWeight', () => {
+    it('rounds half up on the decimal digits, not the binary value', () => {
+      // (1.005).toFixed(2) is "1.00" because 1.005 is stored as 1.00499...
+      expect(formatWeight(1.005)).toBe('1.01');
+      expect(formatWeight(128.5)).toBe('128.50');
+      expect(formatWeight(0.1 + 0.2)).toBe('0.30');
+    });
+
+    it('rounds the base weight from its exact product', () => {
+      // 1.005 * 3 is 3.0149999999999997 as a float; the exact product is 3.015.
+      const row = summaryToRow(committee({ ltedWeight: 1.005, petitioned: 3 }));
+      expect(formatWeight(row.baseWeight!)).toBe('3.02');
+    });
+  });
+  describe('sumWeights', () => {
+    it('adds weights exactly, so the total rounds like the rows', () => {
+      // 0.501 + 1.134 is 1.6349999999999998 as floats; exactly it is 1.635.
+      expect(formatWeight(sumWeights([0.501, 1.134]))).toBe('1.64');
+      expect(sumWeights([])).toBe(0);
+    });
+
+    it('subtotals each group exactly', () => {
+      const [group] = groupWeightSummaries([
+        { ...committee({ ltedWeight: null, petitioned: 0, electionDistrict: 1 }), totalWeight: 0.501 },
+        { ...committee({ ltedWeight: null, petitioned: 0, electionDistrict: 2 }), totalWeight: 1.134 },
+      ]);
+      expect(formatWeight(group!.subtotalWeight)).toBe('1.64');
+    });
+  });
+  describe('report', () => {
+    const cellsOf = (html: string) =>
+      Array.from(html.matchAll(/<tr[^>]*>(.*?)<\/tr>/g), ([, row]) =>
+        Array.from(row!.matchAll(/<t[hd][^>]*>(.*?)<\/t[hd]>/g), ([, cell]) => cell),
+      );
+
+    it('shows the per-seat LTED weight and the base weight for each ED', () => {
+      const groups = groupWeightSummaries([
+        committee({ ltedWeight: 128.5, petitioned: 4, electionDistrict: 1 }),
+        committee({ ltedWeight: null, petitioned: 2, electionDistrict: 2 }),
+      ]);
+      const html = ReactDOMServer.renderToStaticMarkup(
+        <DesignationWeightSummaryReport
+          groups={groups}
+          grandTotalWeight={514}
+          scopeDescription="ROCHESTER"
+          reportAuthor="Test"
+          committeesWithMissingWeights={[]}
+        />,
+      );
+
+      const [header, full, unweighted, subtotal] = cellsOf(html);
+      expect(header).toEqual([
+        'ED',
+        'Total Seats',
+        'Petitioned Seats',
+        'Occupied Petitioned',
+        'Vacant Petitioned',
+        'Appointed',
+        'LTED Weight',
+        'Base Weight',
+        'Designation Weight',
+        'Missing Weights',
+      ]);
+      expect(full).toEqual(['001', '4', '4', '4', '0', '0', '128.50', '514.00', '514.00', '—']);
+      expect(unweighted?.slice(6, 8)).toEqual(['—', '—']);
+      // The subtotal still sits under Designation Weight.
+      expect(subtotal?.slice(-2)).toEqual(['514.00', '']);
     });
   });
 });

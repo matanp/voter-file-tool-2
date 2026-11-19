@@ -26,6 +26,7 @@ import {
 } from './signInSheetHelpers';
 import DesignationWeightSummaryReport, {
   groupWeightSummaries,
+  sumWeights,
 } from './components/DesignationWeightSummary';
 import VacancyReport from './components/VacancyReport';
 import ChangesReport from './components/ChangesReport';
@@ -285,10 +286,7 @@ export const generateDesignationWeightSummaryHTML = (
   const tailwindCSS = tailwindCssLink();
 
   const groups = groupWeightSummaries(summaries);
-  const grandTotalWeight = groups.reduce(
-    (sum, g) => sum + g.subtotalWeight,
-    0,
-  );
+  const grandTotalWeight = sumWeights(groups.map((g) => g.subtotalWeight));
   const committeesWithMissingWeights = summaries
     .filter((s) => s.missingWeightSeatNumbers.length > 0)
     .map((s) => ({

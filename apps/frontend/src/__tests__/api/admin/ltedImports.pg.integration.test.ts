@@ -204,17 +204,17 @@ describePg("LTED imports (PostgreSQL)", () => {
     it("sets committee and seat weights, and clears them for a blank weight", async () => {
       const response = await weightedPost(
         weightedTable([
-          { LTED: "17001", "Weighted Vote": 100 },
+          { LTED: "17001", "Weighted Vote": 128.5 },
           { LTED: "17002" },
         ]),
       );
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({ matched: 2 });
 
-      // Same Decimal division as recomputeSeatWeights: 100 / 3 to 20 significant digits.
+      // "Weighted Vote" is per seat: each seat stores it unchanged.
       expect(await storedWeights(weightedId)).toEqual({
-        ltedWeight: "100",
-        seatWeights: Array(MAX_SEATS).fill("33.333333333333333333"),
+        ltedWeight: "128.5",
+        seatWeights: Array(MAX_SEATS).fill("128.5"),
       });
       expect(await storedWeights(clearedId)).toEqual({
         ltedWeight: null,

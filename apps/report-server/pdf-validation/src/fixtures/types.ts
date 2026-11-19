@@ -55,6 +55,8 @@ export type WeightSummarySpec = {
   cityTown: string;
   legDistrict: number;
   electionDistrict: number;
+  /** Per-seat LTED weight; the report's Base Weight is this × petitioned seats. */
+  ltedWeight: number | null;
   totalWeight: number;
   seats: SeatSpec[];
   missingWeightSeatNumbers: number[];

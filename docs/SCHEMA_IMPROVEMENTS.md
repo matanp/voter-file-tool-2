@@ -355,11 +355,11 @@ author" is a stated invariant, not an accident of defaults.
 
 ### 3.2 Derived value stored twice: `CommitteeList.ltedWeight` and `Seat.weight`
 
-`Seat.weight = ltedWeight / maxSeatsPerLted` (recomputed by
-`recomputeSeatWeights`, `seatUtils.ts:121`). Storing the per-seat quotient is a deliberate
+`Seat.weight = ltedWeight` (`ltedWeight` is already per seat; see **LTED Weight** in
+`CONTEXT.md`; recomputed by `recomputeSeatWeights` in `seatUtils.ts`). Storing a copy per seat is a deliberate
 denormalization (seats can in principle carry independent weights later), but today it is
-pure derivation and can go stale if `ltedWeight` or `maxSeatsPerLted` changes without a
-recompute call. Document the invariant on `Seat.weight` ("cache of ltedWeight/maxSeats;
+pure derivation and can go stale if `ltedWeight` changes without a
+recompute call. Document the invariant on `Seat.weight` ("copy of ltedWeight;
 maintained by recomputeSeatWeights — do not set directly") or drop the column and compute on
 read until per-seat independence is actually needed.
 

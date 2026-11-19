@@ -307,9 +307,6 @@ describe("/api/admin/weightedTable/import", () => {
       { id: 3, cityTown: "ROCHESTER", legDistrict: 18, electionDistrict: 1 },
     ] as never);
     prismaMock.ltedDistrictCrosswalk.findMany.mockResolvedValue([] as never);
-    (prismaMock.committeeGovernanceConfig.findFirst as jest.Mock).mockResolvedValue({
-      maxSeatsPerLted: 3,
-    });
 
     const response = await POST(
       createFormDataRequest({ weightedTable: createUploadFile() }),
@@ -322,12 +319,9 @@ describe("/api/admin/weightedTable/import", () => {
     expect(executeRawMock).toHaveBeenCalledTimes(2);
     // Committee 3 appears twice; the last row wins. A blank weight clears it.
     expect(executeRawValues(0)).toEqual([[1, 2, 3], ["100", null, "12"]]);
-    // Seat weight = ltedWeight / maxSeatsPerLted, null when the weight is cleared.
-    const [seatIds, seatWeights] = executeRawValues(1) as [number[], string[]];
-    expect(seatIds).toEqual([1, 2, 3]);
-    expect(seatWeights[1]).toBeNull();
-    expect(Number(seatWeights[0])).toBeCloseTo(100 / 3, 15);
-    expect(seatWeights[2]).toBe("4");
+    // "Weighted Vote" is per seat: every seat gets the row's value unchanged
+    // (not divided by the seat count), and null when the weight is cleared.
+    expect(executeRawValues(1)).toEqual([[1, 2, 3], ["100", null, "12"]]);
   });
 
   it("logs a WEIGHTED_TABLE_IMPORTED audit event after the write commits", async () => {

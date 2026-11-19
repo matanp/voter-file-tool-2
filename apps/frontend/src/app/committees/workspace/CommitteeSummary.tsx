@@ -34,7 +34,7 @@ export function CommitteeSummary({ rollup, ltedWeight }: CommitteeSummaryProps) 
           {rollup.pendingCount} pending
         </li>
       )}
-      <li>{ltedWeight ? `LTED weight ${ltedWeight}` : "LTED weight not set"}</li>
+      <li>{ltedWeight ? `LTED weight ${ltedWeight} per seat` : "LTED weight not set"}</li>
       {missing.length > 0 && (
         <li className="inline-flex items-center gap-1 text-amber-800 dark:text-amber-300">
           <AlertTriangle className="h-3.5 w-3.5" aria-hidden />

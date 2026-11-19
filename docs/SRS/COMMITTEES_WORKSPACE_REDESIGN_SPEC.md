@@ -173,7 +173,7 @@ CommitteesWorkspacePage
 
 ### 8.1 Core Entities
 
-- `CommitteeList`: LTED identity + term + LTED total weight context
+- `CommitteeList`: LTED identity + term + LTED weight (per seat) context
 - `CommitteeMembership`: lifecycle and actor actions (authoritative)
 - `Seat`: occupancy and seat-level weight/petitioned status
 - `CommitteeGovernanceConfig`: eligibility and policy configuration

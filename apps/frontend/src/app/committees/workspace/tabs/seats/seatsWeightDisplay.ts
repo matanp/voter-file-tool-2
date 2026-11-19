@@ -16,7 +16,7 @@ import {
 
 export type SeatsWeightVisibility = {
   /**
-   * The LTED total-weight editor, which also shows the current LTED weight
+   * The LTED weight editor, which also shows the current LTED weight
    * (`updateLtedWeight` is Admin-only on the server).
    */
   canEditLtedWeight: boolean;
@@ -90,7 +90,7 @@ export type LtedWeightParse =
   | { ok: false; error: string };
 
 /**
- * Parses the LTED total-weight field: blank clears the weight; otherwise the
+ * Parses the LTED weight field: blank clears the weight; otherwise the
  * number must pass the server's own `updateLtedWeightSchema` field rule.
  */
 export function parseLtedWeightInput(text: string): LtedWeightParse {
