@@ -20,8 +20,9 @@ import {
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
-  assignNextAvailableSeat,
+  activateMembershipInSeat,
   ensureSeatsExist,
+  seatActivationAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
@@ -193,15 +194,6 @@ async function handleCommitteeDiscrepancyHandler(
             },
           );
 
-          const seatNumber = await assignNextAvailableSeat(
-            discrepancy.committee.id,
-            discrepancy.committee.termId,
-            {
-              tx,
-              maxSeats: config!.maxSeatsPerLted,
-            },
-          );
-
           const incomingMembershipType: MembershipType =
             discrepancy.incomingMembershipType ??
             DEFAULT_INCOMING_MEMBERSHIP_TYPE;
@@ -216,13 +208,14 @@ async function handleCommitteeDiscrepancyHandler(
             const membershipType: MembershipType =
               existingMembership.membershipType ?? incomingMembershipType;
 
-            const updatedMembership = await tx.committeeMembership.update({
-              where: { id: existingMembership.id },
+            const activation = await activateMembershipInSeat(tx, {
+              committeeListId: discrepancy.committee.id,
+              termId: discrepancy.committee.termId,
+              maxSeats: config!.maxSeatsPerLted,
+              membershipType,
+              existing: existingMembership,
               data: {
-                status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: new Date(),
-                membershipType,
-                seatNumber,
                 confirmedAt: null,
                 resignedAt: null,
                 removedAt: null,
@@ -237,6 +230,8 @@ async function handleCommitteeDiscrepancyHandler(
                 ...CLEARED_LETTER_FIELDS,
               },
             });
+            const updatedMembership = activation.membership;
+            const { seatNumber } = activation;
 
             resolutionMetadata.membershipId = updatedMembership.id;
             resolutionMetadata.membershipAfter =
@@ -254,6 +249,7 @@ async function handleCommitteeDiscrepancyHandler(
                 {
                   source: "discrepancy_accept",
                   discrepancyVrcnum: VRCNUM,
+                  ...seatActivationAuditMetadata(activation),
                 },
                 buildMembershipAuditSubject({
                   voterRecord,
@@ -268,17 +264,16 @@ async function handleCommitteeDiscrepancyHandler(
           } else {
             resolutionMetadata.membershipOutcome = "created";
 
-            const createdMembership = await tx.committeeMembership.create({
-              data: {
-                voterRecordId: VRCNUM,
-                committeeListId: discrepancy.committee.id,
-                termId: discrepancy.committee.termId,
-                status: ACTIVE_MEMBERSHIP_STATUS,
-                activatedAt: new Date(),
-                membershipType: incomingMembershipType,
-                seatNumber,
-              },
+            const activation = await activateMembershipInSeat(tx, {
+              committeeListId: discrepancy.committee.id,
+              termId: discrepancy.committee.termId,
+              maxSeats: config!.maxSeatsPerLted,
+              membershipType: incomingMembershipType,
+              existing: null,
+              data: { voterRecordId: VRCNUM, activatedAt: new Date() },
             });
+            const createdMembership = activation.membership;
+            const { seatNumber } = activation;
 
             resolutionMetadata.membershipId = createdMembership.id;
             resolutionMetadata.membershipAfter =
@@ -300,6 +295,7 @@ async function handleCommitteeDiscrepancyHandler(
                 {
                   source: "discrepancy_accept",
                   discrepancyVrcnum: VRCNUM,
+                  ...seatActivationAuditMetadata(activation),
                 },
                 buildMembershipAuditSubject({
                   voterRecord,

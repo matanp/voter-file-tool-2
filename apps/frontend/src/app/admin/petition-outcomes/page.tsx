@@ -51,7 +51,7 @@ export default async function PetitionOutcomesPage({
       legDistrict: true,
       electionDistrict: true,
       termId: true,
-      seats: { orderBy: { seatNumber: "asc" }, select: { id: true, seatNumber: true, isPetitioned: true } },
+      seats: { orderBy: { seatNumber: "asc" }, select: { id: true, seatNumber: true, petitionOutcomeRecordedAt: true } },
     },
   });
   const params = (await Promise.resolve(searchParams)) ?? {};

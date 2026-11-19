@@ -12,7 +12,7 @@ import { RecordResignationForm } from "~/app/committees/workspace/drawer/MemberE
 import { LETTER_REFUSED_FORM_MESSAGE } from "~/app/committees/workspace/drawer/ResignationLetterField";
 import { PendingExitReportItem } from "~/app/committees/workspace/tabs/pending/PendingExitReportItem";
 import { resetExitInstructionsCache } from "~/app/committees/workspace/adapters";
-import type { CommitteeRef } from "~/app/committees/workspace/committeeAction";
+import type { CommitteeRef } from "~/lib/committees/committeeRef";
 import type { PendingExitReport } from "~/lib/validations/committee";
 import { fetchJsonResponse, installFetchMock } from "../../utils/mocks";
 

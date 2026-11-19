@@ -89,7 +89,7 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
       );
     }
 
-    if (seat.isPetitioned) {
+    if (seat.petitionOutcomeRecordedAt !== null) {
       return NextResponse.json(
         { error: OUTCOME_ALREADY_RECORDED_ERROR },
         { status: 409 },
@@ -176,10 +176,20 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
       });
     };
 
+    const recordedAt = new Date();
+    // A seat is won by petition only when someone won it. An outcome with no winner (a tie)
+    // still latches the seat, but leaves isPetitioned as it was (never clearing it).
+    const isPetitionedAfter = winnerCandidate ? true : seat.isPetitioned;
+
     await prisma.$transaction(async (tx) => {
+      // petitionOutcomeRecordedAt is the single-use latch. isPetitioned may already be set
+      // (an imported petitioned seat), so it can't serve as one.
       const claimedSeat = await tx.seat.updateMany({
-        where: { id: seat.id, isPetitioned: false },
-        data: { isPetitioned: true },
+        where: { id: seat.id, petitionOutcomeRecordedAt: null },
+        data: {
+          petitionOutcomeRecordedAt: recordedAt,
+          ...(winnerCandidate ? { isPetitioned: true } : {}),
+        },
       });
       if (claimedSeat.count !== 1) {
         throw new OutcomeAlreadyRecordedError();
@@ -403,8 +413,14 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
         "PETITION_RECORDED",
         "Seat",
         seat.id,
-        { isPetitioned: seat.isPetitioned },
-        { isPetitioned: true },
+        {
+          isPetitioned: seat.isPetitioned,
+          petitionOutcomeRecordedAt: null,
+        },
+        {
+          isPetitioned: isPetitionedAfter,
+          petitionOutcomeRecordedAt: recordedAt.toISOString(),
+        },
         {
           committeeListId,
           termId,

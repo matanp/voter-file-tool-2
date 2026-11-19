@@ -25,6 +25,7 @@
     "db:setup": "../../scripts/setup-dev-db.sh",
     "db:seed": "prisma db seed",
     "db:seed-lted-crosswalk": "tsx scripts/seedLtedCrosswalk.ts",
+    "db:backfill-petitioned-seats": "tsx scripts/backfillPetitionedSeats.ts",
     "fixtures:roster": "tsx scripts/makeRosterFixtures.ts",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",

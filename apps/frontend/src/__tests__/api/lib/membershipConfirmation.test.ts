@@ -2,7 +2,7 @@
  * Tests for SUBMITTED → ACTIVE / REJECTED membership confirmation service.
  */
 
-import { PrivilegeLevel } from "@prisma/client";
+import { type AuditLog, PrivilegeLevel } from "@prisma/client";
 import {
   confirmSubmittedMembership,
   rejectSubmittedMembership,
@@ -10,6 +10,8 @@ import {
 import { prismaMock } from "../../utils/mocks";
 import {
   createMockMembership,
+  echoMembershipWrites,
+  DEFAULT_ACTIVE_TERM_ID,
   expectAuditLogCreate,
   expectMembershipUpdate,
   expectMembershipExitWrite,
@@ -17,6 +19,8 @@ import {
   getAuditLogMock,
   getMembershipMock,
   jsonContaining,
+  jsonLacking,
+  resolvesTo,
   setupMembershipAuditSubjectMocks,
 } from "../../utils/testUtils";
 import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
@@ -36,7 +40,7 @@ describe("membershipConfirmation", () => {
     prismaMock.$queryRaw.mockResolvedValue([] as never);
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
-    getMembershipMock(prismaMock).update.mockResolvedValue({});
+    echoMembershipWrites();
     getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
     getAuditLogMock(prismaMock).create.mockResolvedValue({});
     (prismaMock.seat as { count: jest.Mock }).count = jest
@@ -110,6 +114,72 @@ describe("membershipConfirmation", () => {
           { status: "ACTIVE", membershipType: "PETITIONED" },
           { id: MEMBERSHIP_ID },
         ),
+      );
+      // Confirming a PETITIONED member flags their seat petitioned, and the
+      // MEMBER_ACTIVATED row records it (MEMBER_CONFIRMED doesn't seat anyone).
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
+        where: {
+          committeeListId: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          seatNumber: 1,
+          isPetitioned: false,
+        },
+        data: { isPetitioned: true },
+      });
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          metadata: jsonContaining({ seatPetitioned: true }),
+        }),
+      );
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_CONFIRMED",
+          metadata: jsonLacking("seatPetitioned"),
+        }),
+      );
+    });
+
+    it("does not flag a second seat for a resubmitted petition winner whose old seat is taken", async () => {
+      // Resubmission nulls seatNumber and activatedAt; only the audit log remembers seat 1.
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({
+          id: MEMBERSHIP_ID,
+          status: "SUBMITTED",
+          membershipType: null,
+          seatNumber: null,
+          activatedAt: null,
+        }),
+      );
+      getMembershipMock(prismaMock).count.mockResolvedValue(1);
+      getMembershipMock(prismaMock).findMany.mockResolvedValue([{ seatNumber: 1 }]);
+      prismaMock.auditLog.findMany.mockImplementation(() =>
+        resolvesTo<Array<Pick<AuditLog, "afterValue">>>([
+          { afterValue: { status: "ACTIVE", seatNumber: 1 } },
+        ]),
+      );
+
+      await confirmSubmittedMembership(prismaMock, {
+        membershipId: MEMBERSHIP_ID,
+        meetingRecordId: "meeting-001",
+        actor: ACTOR,
+        maxSeats: MAX_SEATS,
+        membershipType: "PETITIONED",
+      });
+
+      expect(getMembershipMock(prismaMock).update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          { status: "ACTIVE", membershipType: "PETITIONED", seatNumber: 2 },
+          { id: MEMBERSHIP_ID },
+        ),
+      );
+      expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          afterValue: jsonContaining({ seatNumber: 2 }),
+          metadata: jsonLacking("seatPetitioned", "reusedPreviousSeat"),
+        }),
       );
     });
 

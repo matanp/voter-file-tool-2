@@ -7,23 +7,33 @@ type AuditLogClient = {
     create: (args: Prisma.AuditLogCreateArgs) => Promise<unknown>;
   };
 };
+type AuditLogManyClient = {
+  auditLog: {
+    createMany: (args: Prisma.AuditLogCreateManyArgs) => Promise<unknown>;
+  };
+};
 
 type AuditMetadata = Record<string, unknown> | Prisma.InputJsonValue;
 
-type WriteAuditEventParams = {
-  userId: string,
-  userRole: PrivilegeLevel,
-  action: AuditAction,
-  entityType: string,
-  entityId: string,
-  before?: Record<string, unknown> | null,
-  after?: Record<string, unknown> | null,
-  metadata?: AuditMetadata,
-  client?: AuditLogClient,
-  throwOnError?: boolean,
+/** One audit row, before it is shaped for the AuditLog table. */
+export type AuditEvent = {
+  userId: string;
+  userRole: PrivilegeLevel;
+  action: AuditAction;
+  entityType: string;
+  entityId: string;
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+  metadata?: AuditMetadata;
 };
 
-async function writeAuditEvent({
+type WriteAuditEventParams = AuditEvent & {
+  client?: AuditLogClient;
+  throwOnError?: boolean;
+};
+
+/** Shapes an event as an AuditLog row. Shared by the single and batch writers so they can't drift. */
+function buildAuditLogRow({
   userId,
   userRole,
   action,
@@ -32,9 +42,7 @@ async function writeAuditEvent({
   before,
   after,
   metadata,
-  client = prisma,
-  throwOnError = false,
-}: WriteAuditEventParams): Promise<void> {
+}: AuditEvent): Prisma.AuditLogCreateManyInput {
   const beforeValue =
     before === null
       ? Prisma.JsonNull
@@ -44,23 +52,28 @@ async function writeAuditEvent({
       ? Prisma.JsonNull
       : (after as unknown as Prisma.InputJsonValue);
   const metadataValue = metadata as Prisma.InputJsonValue | undefined;
+  return {
+    userId,
+    userRole,
+    action,
+    entityType,
+    entityId,
+    beforeValue,
+    afterValue,
+    metadata: metadataValue,
+  };
+}
 
+async function writeAuditEvent({
+  client = prisma,
+  throwOnError = false,
+  ...event
+}: WriteAuditEventParams): Promise<void> {
   try {
-    await client.auditLog.create({
-      data: {
-        userId,
-        userRole,
-        action,
-        entityType,
-        entityId,
-        beforeValue,
-        afterValue,
-        metadata: metadataValue,
-      },
-    });
+    await client.auditLog.create({ data: buildAuditLogRow(event) });
   } catch (error) {
     console.error(
-      `Failed to log audit event: action=${action}, entityType=${entityType}, entityId=${entityId}`,
+      `Failed to log audit event: action=${event.action}, entityType=${event.entityType}, entityId=${event.entityId}`,
       error,
     );
     if (throwOnError) {
@@ -119,4 +132,25 @@ export async function logAuditEventOrThrow(
     client,
     throwOnError: true,
   });
+}
+
+/**
+ * Fail-closed batch audit: writes every event in one createMany, for a bulk change that
+ * would otherwise be one round trip per row. Same row shape as logAuditEventOrThrow.
+ */
+export async function logAuditEventsOrThrow(
+  events: AuditEvent[],
+  client: AuditLogManyClient = prisma,
+): Promise<void> {
+  if (events.length === 0) return;
+  try {
+    await client.auditLog.createMany({ data: events.map(buildAuditLogRow) });
+  } catch (error) {
+    const actions = Array.from(new Set(events.map((event) => event.action)));
+    console.error(
+      `Failed to log ${events.length} audit events: actions=${actions.join(",")}`,
+      error,
+    );
+    throw error;
+  }
 }

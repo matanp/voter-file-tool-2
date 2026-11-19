@@ -21,7 +21,7 @@ import {
   letterViewHref,
   type StagedLetter,
 } from "~/lib/resignationLetter";
-import type { CommitteeRef } from "../committeeAction";
+import type { CommitteeRef } from "~/lib/committees/committeeRef";
 import { uploadResignationLetter, type ActionOutcome } from "../adapters";
 
 export type LetterFieldState =

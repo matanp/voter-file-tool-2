@@ -34,8 +34,10 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 });
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
+  // The activation (seat choice and write) runs for real, so its membership and Seat
+  // reads and writes reach prismaMock.
+  ...jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils"),
   ensureSeatsExist: jest.fn(),
-  assignNextAvailableSeat: jest.fn(),
 }));
 
 const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
@@ -43,9 +45,6 @@ const getGovernanceConfigMock = jest.mocked(
   committeeValidation.getGovernanceConfig,
 );
 const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
-const assignNextAvailableSeatMock = jest.mocked(
-  seatUtils.assignNextAvailableSeat,
-);
 
 let nextSourceRow = 2;
 
@@ -155,7 +154,6 @@ describe("planRosterImport", () => {
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
     committeeExists([]);
-    assignNextAvailableSeatMock.mockResolvedValue(1);
     ensureSeatsExistMock.mockResolvedValue(undefined);
   });
 

@@ -91,6 +91,7 @@ enum AuditAction {
   MEMBER_EXIT_REPORTED
   MEMBER_EXIT_REPORT_REJECTED
   MISSING_COMMITTEES_CREATED
+  SEAT_PETITIONED_BACKFILLED
 }
 
 enum DiscrepancyResolution {
@@ -408,7 +409,15 @@ model Seat {
   term            CommitteeTerm @relation(fields: [termId], references: [id])
   termId          String
   seatNumber      Int           // 1–maxSeatsPerLted
-  isPetitioned    Boolean       @default(false) // Immutable for term; set by petition workflow (future)
+  // The seat was won by petition this term. Set when a PETITIONED member is first seated, or
+  // returns to their previous seat (activateMembershipInSeat), and by the petition-outcomes
+  // recorder when the outcome has a winner. One petition win flags one seat: a returning winner
+  // reseated elsewhere doesn't flag the new seat. Never cleared, so a seat stays petitioned
+  // after its winner leaves and someone is appointed.
+  isPetitioned    Boolean       @default(false)
+  // When an Admin recorded this seat's petition/primary outcome. Null until then. This, not
+  // isPetitioned, is the recorder's "outcome already recorded" latch.
+  petitionOutcomeRecordedAt DateTime?
   weight          Decimal?     // = CommitteeList.ltedWeight (per seat) — null until LTED weight known
 
   @@unique([committeeListId, termId, seatNumber])

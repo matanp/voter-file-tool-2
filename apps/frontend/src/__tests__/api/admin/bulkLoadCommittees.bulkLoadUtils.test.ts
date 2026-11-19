@@ -7,6 +7,7 @@ import {
   createMockCommitteeTerm,
   createMockGovernanceConfig,
   createMockMembership,
+  echoMembershipWrites,
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   expectAuditLogCreate,
@@ -38,8 +39,10 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 });
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
+  // The activation (seat choice and write) runs for real, so its membership and Seat
+  // reads and writes reach prismaMock.
+  ...jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils"),
   ensureSeatsExist: jest.fn(),
-  assignNextAvailableSeat: jest.fn(),
 }));
 
 const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
@@ -47,9 +50,6 @@ const getGovernanceConfigMock = jest.mocked(
   committeeValidation.getGovernanceConfig,
 );
 const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
-const assignNextAvailableSeatMock = jest.mocked(
-  seatUtils.assignNextAvailableSeat,
-);
 
 /**
  * A canonical roster entry, as a parser would produce it. The importer sees only these —
@@ -116,8 +116,8 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       const ids = (args?.where?.VRCNUM as { in?: string[] })?.in ?? [];
       return resolvesTo(ids.map((VRCNUM) => createMockVoterRecord({ VRCNUM })));
     });
-    assignNextAvailableSeatMock.mockResolvedValue(1);
     ensureSeatsExistMock.mockResolvedValue(undefined);
+    echoMembershipWrites();
   });
 
   it("creates CommitteeMembership records and does not write legacy voterRecord.committeeId", async () => {
@@ -344,7 +344,6 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         seatNumber: null,
       }),
     );
-    assignNextAvailableSeatMock.mockResolvedValue(2);
 
     await applyRosterImport({ entries, rejected: [] });
 
@@ -353,7 +352,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
         {
           status: "ACTIVE",
           membershipType: "PETITIONED",
-          seatNumber: 2,
+          seatNumber: 1,
         },
         { id: "m-existing" },
       ),
@@ -410,7 +409,6 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
           ...existing,
         }),
       );
-      assignNextAvailableSeatMock.mockResolvedValue(2);
     };
 
     const entries = [
@@ -1088,11 +1086,6 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     getGovernanceConfigMock.mockResolvedValue(
       createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
     );
-    // The real seat allocator, so an occupied-seat table actually blocks the newcomer.
-    assignNextAvailableSeatMock.mockImplementation(
-      jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils")
-        .assignNextAvailableSeat,
-    );
 
     const entries = [
       rosterEntry({ vrcnum: "VRC_STAYS", cityTown: "OLD CITY" }),
@@ -1292,11 +1285,6 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     // the stale member still holds a seat there.
     getGovernanceConfigMock.mockResolvedValue(
       createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
-    );
-    // The real seat allocator, so an occupied-seat table actually blocks the mover.
-    assignNextAvailableSeatMock.mockImplementation(
-      jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils")
-        .assignNextAvailableSeat,
     );
 
     const entries = [

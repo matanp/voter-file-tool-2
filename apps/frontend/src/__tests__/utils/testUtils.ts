@@ -13,7 +13,7 @@ import {
 } from "@prisma/client";
 import type { Session } from "next-auth";
 import type { z } from "zod";
-import { mockAuthSession, mockHasPermission } from "./mocks";
+import { mockAuthSession, mockHasPermission, prismaMock } from "./mocks";
 import {
   committeeDataSchema,
   type CommitteeData,
@@ -346,6 +346,13 @@ export function jsonContaining(
   return expect.objectContaining(obj) as unknown as Prisma.InputJsonValue;
 }
 
+/** Matches JSON (e.g. audit metadata) that carries none of the given keys. */
+export function jsonLacking(...keys: string[]): Prisma.InputJsonValue {
+  return expect.not.objectContaining(
+    Object.fromEntries(keys.map((key) => [key, expect.anything()])),
+  ) as unknown as Prisma.InputJsonValue;
+}
+
 /**
  * Extract arguments from the Nth call to a Jest mock function.
  * Throws if the mock was not called enough times — use after asserting toHaveBeenCalled.
@@ -609,6 +616,50 @@ export const selectedRow = <Shape>(row: Shape): never => row as never;
  */
 export const resolvesTo = <Shape>(row: Shape): never =>
   Promise.resolve(row) as never;
+
+/** The written fields activateMembershipInSeat reads back from the row to flag the seat. */
+function writtenMembershipFields(data: object): Partial<MockMembership> {
+  const written: Record<string, unknown> = { ...data };
+  const { voterRecordId, committeeListId, termId, seatNumber, membershipType } =
+    written;
+  return {
+    ...(typeof voterRecordId === "string" ? { voterRecordId } : {}),
+    ...(typeof committeeListId === "number" ? { committeeListId } : {}),
+    ...(typeof termId === "string" ? { termId } : {}),
+    ...(typeof seatNumber === "number" || seatNumber === null
+      ? { seatNumber }
+      : {}),
+    ...(membershipType === "PETITIONED" || membershipType === "APPOINTED"
+      ? { membershipType }
+      : {}),
+    ...(written.status === "ACTIVE" ? { status: "ACTIVE" as const } : {}),
+  };
+}
+
+/**
+ * Makes committeeMembership.create/update resolve to the row they wrote (on top of
+ * `base`, e.g. the existing row's committee and term). activateMembershipInSeat reads the
+ * written row back to decide whether to flag its seat, so a fixed or undefined resolution
+ * would hide that write. A test's own mockResolvedValue still overrides this.
+ */
+export function echoMembershipWrites(base: Partial<MockMembership> = {}): void {
+  prismaMock.committeeMembership.create.mockImplementation(
+    (args: Prisma.CommitteeMembershipCreateArgs) =>
+      resolvesTo<MockMembership>(
+        createMockMembership({ ...base, ...writtenMembershipFields(args.data) }),
+      ),
+  );
+  prismaMock.committeeMembership.update.mockImplementation(
+    (args: Prisma.CommitteeMembershipUpdateArgs) =>
+      resolvesTo<MockMembership>(
+        createMockMembership({
+          ...base,
+          ...(typeof args.where.id === "string" ? { id: args.where.id } : {}),
+          ...writtenMembershipFields(args.data),
+        }),
+      ),
+  );
+}
 
 /**
  * Mocks voterRecord + committeeList for membership audit subject snapshots.

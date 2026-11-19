@@ -11,10 +11,13 @@ import {
   createCommitteeUpsertArgs,
   createMockGovernanceConfig,
   createMockMembership,
+  echoMembershipWrites,
+  DEFAULT_ACTIVE_TERM_ID,
   createMockVoterRecord,
   expectMembershipCreate,
   expectMembershipUpdate,
   expectAuditLogCreate,
+  jsonContaining,
   getMembershipMock,
   getAuditLogMock,
   setupEligibilityPass,
@@ -50,9 +53,7 @@ describe("/api/committee/add", () => {
       );
       setupEligibilityPassTyped(prismaMock);
       getMembershipMockTyped(prismaMock).findUnique.mockResolvedValue(null);
-      getMembershipMockTyped(prismaMock).create.mockResolvedValue(
-        createMockMembership({ status: "ACTIVE" }),
-      );
+      echoMembershipWrites();
     };
 
     it("should successfully add a member to a committee", async () => {
@@ -85,6 +86,8 @@ describe("/api/committee/add", () => {
           seatNumber: 1,
         }),
       );
+      // An appointee's seat isn't flagged; no other write here touches Seat.
+      expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
     });
 
     it("should store PETITIONED when membershipType is provided", async () => {
@@ -110,6 +113,23 @@ describe("/api/committee/add", () => {
         expectMembershipCreate({
           membershipType: "PETITIONED",
           seatNumber: 1,
+        }),
+      );
+      // A petitioned member's seat is flagged petitioned for the term, and the
+      // activation's audit row records it.
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
+        where: {
+          committeeListId: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          seatNumber: 1,
+          isPetitioned: false,
+        },
+        data: { isPetitioned: true },
+      });
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          metadata: jsonContaining({ seatPetitioned: true }),
         }),
       );
     });

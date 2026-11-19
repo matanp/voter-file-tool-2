@@ -3,7 +3,7 @@
  * its PUT starts, and the field after the server refuses the staged letter.
  */
 import { uploadResignationLetter, type ActionOutcome } from "~/app/committees/workspace/adapters";
-import type { CommitteeRef } from "~/app/committees/workspace/committeeAction";
+import type { CommitteeRef } from "~/lib/committees/committeeRef";
 import {
   LETTER_REFUSED_FORM_MESSAGE,
   letterAfterSubmit,
