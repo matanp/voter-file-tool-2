@@ -20,6 +20,6 @@ describe('resolveColumnHeaders', () => {
   });
 
   it('trims whitespace around custom headers', () => {
-    expect(resolveColumnHeaders({ name: '  Name  ' }).name).toBe('Name');
+    expect(resolveColumnHeaders({ name: '  Voter  ' }).name).toBe('Voter');
   });
 });
