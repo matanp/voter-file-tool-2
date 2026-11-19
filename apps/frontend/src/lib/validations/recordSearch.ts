@@ -4,35 +4,39 @@
  * `activeCommittee` is the committee a voter is an ACTIVE member of in the
  * active term (ticket 08). The server adds it only when the caller's real
  * role may see that committee's roster: Admin and Developer for any
- * committee, a Leader for committees in their jurisdictions. Otherwise the
- * key is absent, never null, so a ReadAccess response carries no membership
- * data at all.
+ * committee, a Leader for committees in their assignments.
+ * Otherwise the key is absent, never null, so a ReadAccess response carries
+ * no membership data at all.
+ *
+ * Plain types: the client does not parse the response (see the note on
+ * `RecordSearchResult`).
  */
-import { z } from "zod";
 import type { VoterRecord } from "@prisma/client";
+import {
+  committeeLabelParts,
+  type CommitteeRef,
+} from "~/lib/committees/committeeRef";
 
-export const recordSearchCommitteeSchema = z.object({
-  committeeListId: z.number().int(),
-  cityTown: z.string(),
-  legDistrict: z.number().int(),
-  electionDistrict: z.number().int(),
-});
-export type RecordSearchCommittee = z.infer<typeof recordSearchCommitteeSchema>;
+export type RecordSearchCommittee = CommitteeRef;
 
-/** A record search row as the record search page holds it. */
+/**
+ * A record search row as the record search page holds it. The response is
+ * not parsed, so the date fields arrive as strings despite the `VoterRecord`
+ * type (`convertPrismaVoterRecordToAPI`); that predates ticket 08.
+ */
 export type RecordSearchResult = VoterRecord & {
   activeCommittee?: RecordSearchCommittee;
 };
 
-/** "GREECE · LD 1 · ED 5" (no LD for towns without one, as on the roster). */
-export function recordSearchCommitteeLabel(
-  committee: RecordSearchCommittee,
-): string {
-  return [
-    committee.cityTown,
-    ...(committee.legDistrict > 0 ? [`LD ${committee.legDistrict}`] : []),
-    `ED ${committee.electionDistrict}`,
-  ].join(" · ");
+/**
+ * The committee to show on a result: its `activeCommittee` when the acting
+ * role may see memberships (`show`), otherwise none.
+ */
+export function visibleCommittee(
+  record: RecordSearchResult,
+  show: boolean,
+): RecordSearchCommittee | undefined {
+  return show ? record.activeCommittee : undefined;
 }
 
 /**
@@ -42,12 +46,5 @@ export function recordSearchCommitteeLabel(
 export function recordSearchCommitteeSpokenLabel(
   committee: RecordSearchCommittee,
 ): string {
-  const parts = [
-    committee.cityTown,
-    ...(committee.legDistrict > 0
-      ? [`Legislative District ${committee.legDistrict}`]
-      : []),
-    `Election District ${committee.electionDistrict}`,
-  ];
-  return `Committee member: ${parts.join(", ")}`;
+  return `Committee member: ${committeeLabelParts(committee, { spelledOut: true }).join(", ")}`;
 }

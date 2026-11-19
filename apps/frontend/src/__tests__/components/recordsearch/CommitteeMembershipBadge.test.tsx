@@ -12,8 +12,8 @@ import { VoterRecordTable } from "~/app/recordsearch/VoterRecordTable";
 import { VoterRecordCardList } from "~/app/recordsearch/VoterRecordCardList";
 import { VoterCard } from "~/app/recordsearch/VoterCard";
 import { CommitteeMembershipBadge } from "~/app/recordsearch/CommitteeMembershipBadge";
+import { committeeLabel } from "~/lib/committees/committeeRef";
 import {
-  recordSearchCommitteeLabel,
   recordSearchCommitteeSpokenLabel,
   type RecordSearchResult,
 } from "~/lib/validations/recordSearch";
@@ -67,13 +67,13 @@ function renderCards(showCommitteeMembership: boolean) {
   );
 }
 
-describe("recordSearchCommitteeLabel", () => {
+describe("committee labels", () => {
   it("names the town, LD and ED, leaving out LD for a town without one", () => {
-    expect(recordSearchCommitteeLabel(MEMBER.activeCommittee!)).toBe(
+    expect(committeeLabel(MEMBER.activeCommittee!)).toBe(
       "GREECE · LD 1 · ED 5",
     );
     expect(
-      recordSearchCommitteeLabel({
+      committeeLabel({
         committeeListId: 8,
         cityTown: "BRIGHTON",
         legDistrict: 0,

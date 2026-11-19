@@ -15,7 +15,7 @@ import { z } from "zod";
 import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 import { POST } from "~/app/api/fetchFilteredData/route";
 import type { RECORD_SEARCH_MEMBERSHIP_SELECT } from "~/app/api/lib/recordSearchCommittees";
-import { recordSearchCommitteeSchema } from "~/lib/validations/recordSearch";
+import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
 import {
   createMockRequest,
   createMockSession,
@@ -35,12 +35,19 @@ type MembershipRow = Prisma.CommitteeMembershipGetPayload<{
   select: typeof RECORD_SEARCH_MEMBERSHIP_SELECT;
 }>;
 
+const committeeSchema = z.object({
+  committeeListId: z.number().int(),
+  cityTown: z.string(),
+  legDistrict: z.number().int(),
+  electionDistrict: z.number().int(),
+}) satisfies z.ZodType<RecordSearchCommittee>;
+
 const responseSchema = z.object({
   data: z.array(
     z
       .object({
         VRCNUM: z.string(),
-        activeCommittee: recordSearchCommitteeSchema.optional(),
+        activeCommittee: committeeSchema.optional(),
       })
       .passthrough(),
   ),

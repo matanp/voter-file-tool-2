@@ -9,16 +9,6 @@ import {
 } from "~/lib/eligibilityMessages";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import type { ActionOutcome } from "../adapters";
-import { hasLegDistrict, type CommitteeRef } from "../committeeAction";
-
-/** "GREECE · LD 1 · ED 5" (no LD for towns without one). */
-export function committeeLabel(committee: CommitteeRef): string {
-  return [
-    committee.cityTown,
-    ...(hasLegDistrict(committee) ? [`LD ${committee.legDistrict}`] : []),
-    `ED ${committee.electionDistrict}`,
-  ].join(" · ");
-}
 
 export function personName(person: {
   firstName?: string | null;

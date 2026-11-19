@@ -1,15 +1,5 @@
+import type { CommitteeRef } from "~/lib/committees/committeeRef";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
-
-/**
- * The committee an action targets: `committeeListId` plus the composite key
- * the mutation endpoints use (plan §3.11, §8).
- */
-export type CommitteeRef = {
-  committeeListId: number;
-  cityTown: string;
-  legDistrict: number;
-  electionDistrict: number;
-};
 
 /** Candidate search additionally needs the committee's residency context. */
 export type CandidateCommitteeRef = CommitteeRef & {
@@ -49,14 +39,6 @@ export type CommitteeActionHandler = (
   action: CommitteeAction,
   returnFocusTo?: HTMLElement | null,
 ) => void;
-
-/**
- * Towns without legislative districts carry the sentinel (-1) as their LD in
- * read models; endpoints want it omitted and labels leave it out.
- */
-export function hasLegDistrict(committee: Pick<CommitteeRef, "legDistrict">): boolean {
-  return committee.legDistrict > 0;
-}
 
 export function committeeRefFrom(
   committee: CommitteeDetailResponse["committee"],

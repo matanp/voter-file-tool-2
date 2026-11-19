@@ -1,6 +1,9 @@
 "use client";
 import React from "react";
-import type { RecordSearchResult } from "~/lib/validations/recordSearch";
+import {
+  visibleCommittee,
+  type RecordSearchResult,
+} from "~/lib/validations/recordSearch";
 import {
   Sheet,
   SheetContent,
@@ -39,9 +42,9 @@ export const VoterRecordCardList: React.FC<VoterRecordCardListProps> = ({
   const [selected, setSelected] = React.useState<RecordSearchResult | null>(
     null,
   );
-  const committeeOf = (record: RecordSearchResult) =>
-    showCommitteeMembership ? record.activeCommittee : undefined;
-  const selectedCommittee = selected ? committeeOf(selected) : undefined;
+  const selectedCommittee = selected
+    ? visibleCommittee(selected, showCommitteeMembership)
+    : undefined;
   const shownFields = fieldsList
     .map((name) => fields.find((field) => field.name === name))
     .filter((field) => field !== undefined);
@@ -54,7 +57,7 @@ export const VoterRecordCardList: React.FC<VoterRecordCardListProps> = ({
         aria-label="Voter records"
       >
         {records.map((record) => {
-          const committee = committeeOf(record);
+          const committee = visibleCommittee(record, showCommitteeMembership);
           return (
             <li key={record.VRCNUM}>
               <button

@@ -17,7 +17,7 @@ import {
   type PrismaClient,
 } from "@prisma/client";
 import { z } from "zod";
-import { recordSearchCommitteeSchema } from "~/lib/validations/recordSearch";
+import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
 import type * as FetchFilteredDataRoute from "~/app/api/fetchFilteredData/route";
 
 const mockAuth = jest.fn();
@@ -45,13 +45,20 @@ const REQUESTER = "pg-rs-requester";
 /** Every test voter shares this last name, so one search returns them all. */
 const LAST_NAME = "PGRECORDSEARCH";
 
+const committeeSchema = z.object({
+  committeeListId: z.number().int(),
+  cityTown: z.string(),
+  legDistrict: z.number().int(),
+  electionDistrict: z.number().int(),
+}) satisfies z.ZodType<RecordSearchCommittee>;
+
 const responseSchema = z.object({
   data: z.array(
     z
       .object({
         VRCNUM: z.string(),
         firstName: z.string().nullable(),
-        activeCommittee: recordSearchCommitteeSchema.optional(),
+        activeCommittee: committeeSchema.optional(),
       })
       .passthrough(),
   ),

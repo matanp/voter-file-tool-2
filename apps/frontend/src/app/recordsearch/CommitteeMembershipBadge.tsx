@@ -1,9 +1,9 @@
 import React from "react";
 
 import { badgeVariants } from "~/components/ui/badge";
+import { committeeLabelParts } from "~/lib/committees/committeeRef";
 import { cn } from "~/lib/utils";
 import {
-  recordSearchCommitteeLabel,
   recordSearchCommitteeSpokenLabel,
   type RecordSearchCommittee,
 } from "~/lib/validations/recordSearch";
@@ -23,10 +23,7 @@ export function CommitteeMembershipBadge({
   className?: string;
 }) {
   // Each part stays whole, so a narrow column wraps only between parts.
-  const parts = [
-    "Committee:",
-    ...recordSearchCommitteeLabel(committee).split(" · "),
-  ];
+  const parts = ["Committee:", ...committeeLabelParts(committee)];
   return (
     <span
       className={cn(

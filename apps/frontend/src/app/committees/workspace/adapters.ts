@@ -42,10 +42,9 @@ import {
 } from "~/lib/validations/committee";
 import {
   hasLegDistrict,
-  type CandidateCommitteeRef,
-  type CommitteeAction,
   type CommitteeRef,
-} from "./committeeAction";
+} from "~/lib/committees/committeeRef";
+import type { CandidateCommitteeRef, CommitteeAction } from "./committeeAction";
 
 /** The add-flow actions: both pick a candidate. */
 export type CandidateAction = Extract<
