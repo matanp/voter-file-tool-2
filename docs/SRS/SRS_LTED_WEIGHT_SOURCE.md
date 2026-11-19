@@ -38,7 +38,7 @@ local and prod on 2026-10-25.
 | A | LT | String | Zero-padded leg district (`004`, `052`), or `Total` on subtotal rows |
 | B | LT Name | String | `LD 0NN` for city LDs, town name for town LDs, or `Total` |
 | C | LTED | Number | Same encoding as §2.2, stored as a number (`4001`, not `04001`) |
-| D | Weighted Vote | Number | LTED total weight — the value imported into `CommitteeList.ltedWeight` |
+| D | Weighted Vote | Number | Per-seat weight — the value imported into `CommitteeList.ltedWeight` and copied to each seat (not divided by the seat count) |
 | E–I | Weighted Seats, Current Filed Seats, Base Weight, Current Weight, Vacancy | Number | Ignored by the importer |
 
 Things to know about this file:
@@ -70,7 +70,7 @@ Things to know about this file:
 |--------|--------|------|-------------|---------|
 | A | LTED | String | Encoded LTED identifier = `legDistrict` + zero-padded `electionDistrict` | `04001`, `17002` |
 | B | Comment | String | Source note (e.g., election used for weight calculation) | "Based on Democratic Vote for Member of Assembly in 2024" |
-| C | Weighted Vote | Decimal | LTED total weight | `0`, `128.5`, `17.75` |
+| C | Weighted Vote | Decimal | Per-seat weight | `0`, `128.5`, `17.75` |
 | D | LT | Integer | Leg District (redundant with LTED parse; useful for validation) | `4`, `17`, `21` |
 
 ### 2.2 LTED Code Parsing
@@ -226,7 +226,7 @@ flowchart LR
 | SRS_IMPLEMENTATION_ROADMAP.md | 1.4 Seat Model | Store ltedWeight via Weighted Table import |
 | SRS_IMPLEMENTATION_ROADMAP.md | 2.7 Weight / Designation Logic | Weight source and import path |
 | SRS_DATA_MODEL_CHANGES.md | CommitteeList.ltedWeight | Source: MCDC Weighted Table or admin entry |
-| SRS_v0.1_Committee_Membership_Governance.md | §8.1 | Each LTED has total weight (source clarified here) |
+| SRS_v0.1_Committee_Membership_Governance.md | §8.1 | Each LTED has a per-seat weight (source clarified here) |
 | SRS_GAPS_AND_CONSIDERATIONS.md | §2.1 | LTED Matrix provides crosswalk format/source for LtedDistrictCrosswalk |
 
 ---

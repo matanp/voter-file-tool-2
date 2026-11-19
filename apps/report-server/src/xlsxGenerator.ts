@@ -26,7 +26,11 @@ import type {
   ChangesReportRow,
   PetitionOutcomeRow,
 } from './committeeMappingHelpers';
-import { groupWeightSummaries } from './components/DesignationWeightSummary';
+import {
+  formatWeight,
+  groupWeightSummaries,
+  sumWeights,
+} from './components/DesignationWeightSummary';
 
 type ColumnHeaders = Record<string, string>;
 type FieldWidths = Record<string, number>;
@@ -289,7 +293,7 @@ export async function generateVoterListXLSXAndUpload(
   );
 }
 
-const WEIGHT_SUMMARY_COLUMN_WIDTHS = [15, 12, 12, 12, 12, 18, 18, 12, 18, 18, 25];
+const WEIGHT_SUMMARY_COLUMN_WIDTHS = [15, 12, 12, 12, 12, 18, 18, 12, 18, 18, 18, 25];
 
 /**
  * Generates and uploads the Designation Weight Summary XLSX report.
@@ -311,12 +315,12 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
     'Vacant Petitioned',
     'Appointed',
     'LTED Weight',
+    'Base Weight',
     'Designation Weight',
     'Notes',
   ];
   const worksheetData: WorksheetData = [headers];
 
-  let grandTotal = 0;
   for (const group of groups) {
     for (const row of group.rows) {
       worksheetData.push([
@@ -328,8 +332,10 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
         row.occupiedPetitioned,
         row.vacantPetitioned,
         row.appointed,
-        row.ltedWeight.toFixed(2),
-        row.designationWeight.toFixed(2),
+        // A missing weight is a blank cell here; the PDF shows a dash.
+        row.ltedWeight != null ? formatWeight(row.ltedWeight) : '',
+        row.baseWeight != null ? formatWeight(row.baseWeight) : '',
+        formatWeight(row.designationWeight),
         row.missingWeights || '',
       ]);
     }
@@ -343,10 +349,10 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
       '',
       '',
       '',
-      group.subtotalWeight.toFixed(2),
+      '',
+      formatWeight(group.subtotalWeight),
       '',
     ]);
-    grandTotal += group.subtotalWeight;
   }
   worksheetData.push([
     'Grand Total',
@@ -358,7 +364,8 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
     '',
     '',
     '',
-    grandTotal.toFixed(2),
+    '',
+    formatWeight(sumWeights(groups.map((g) => g.subtotalWeight))),
     '',
   ]);
 

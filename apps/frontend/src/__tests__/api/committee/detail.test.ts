@@ -34,7 +34,6 @@ import {
   prismaMock,
 } from "../../utils/mocks";
 
-jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 type CommitteeListMock = { findUnique: jest.Mock };
 type UserJurisdictionMock = { findMany: jest.Mock };
@@ -900,6 +899,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
           kind: "RESIGNATION",
           reportedAt: REPORTED_AT.toISOString(),
           isOwnReport: true,
+          letter: null,
         },
       ]);
       const rows = body.rows.filter((r) => r.occupant !== null);

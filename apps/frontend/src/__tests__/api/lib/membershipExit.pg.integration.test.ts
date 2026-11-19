@@ -84,7 +84,13 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
     membershipId = membership.id;
   });
 
-  const fileReport = () =>
+  const LETTER = {
+    key: "resignation-letters/m/letter.pdf",
+    contentType: "application/pdf" as const,
+    fileName: "letter.pdf",
+  };
+
+  const fileReport = (letter: typeof LETTER | null = null) =>
     prisma.$transaction((tx) =>
       exits.fileExitReport(tx, membershipId, {
         kind: "RESIGNATION",
@@ -93,6 +99,7 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
         resignationMethod: "EMAIL",
         removalReason: "OTHER",
         removalNotes: "Moving away",
+        letter,
       }),
     );
 
@@ -254,7 +261,7 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
   });
 
   it("rejecting clears the report and the four exit fields, leaving the member ACTIVE", async () => {
-    const reportedAt = await fileReport();
+    const reportedAt = await fileReport(LETTER);
     expect(
       await prisma.$transaction((tx) =>
         exits.clearRejectedExitReport(tx, membershipId, new Date(0)),
@@ -274,6 +281,122 @@ describePg("Exit Reports on the membership row (PostgreSQL)", () => {
       removalNotes: null,
       resignationDateReceived: null,
       resignationMethod: null,
+      resignationLetterKey: null,
     });
+  });
+
+  // --- Resignation Letters (ticket 08) ---------------------------------------
+
+  const letterColumns = {
+    resignationLetterKey: LETTER.key,
+    resignationLetterContentType: LETTER.contentType,
+    resignationLetterFileName: LETTER.fileName,
+  };
+
+  it("refuses a letter on an ACTIVE row without a resignation report", async () => {
+    await expect(
+      prisma.committeeMembership.update({
+        where: { id: membershipId },
+        data: letterColumns,
+      }),
+    ).rejects.toThrow(/CommitteeMembership_resignation_letter_only_on_resignation/);
+  });
+
+  it("refuses a letter on a removal report and on a REMOVED row", async () => {
+    await prisma.committeeMembership.update({
+      where: { id: membershipId },
+      data: { exitReportedAt: new Date(), exitReportedKind: "REMOVAL" },
+    });
+    await expect(
+      prisma.committeeMembership.update({
+        where: { id: membershipId },
+        data: letterColumns,
+      }),
+    ).rejects.toThrow(/CommitteeMembership_resignation_letter_only_on_resignation/);
+    await expect(
+      prisma.committeeMembership.update({
+        where: { id: membershipId },
+        data: {
+          status: "REMOVED",
+          exitReportedAt: null,
+          exitReportedKind: null,
+          ...letterColumns,
+        },
+      }),
+    ).rejects.toThrow(/CommitteeMembership_resignation_letter_only_on_resignation/);
+  });
+
+  it("refuses a letter key without its content type and file name", async () => {
+    await prisma.committeeMembership.update({
+      where: { id: membershipId },
+      data: { status: "RESIGNED" },
+    });
+    await expect(
+      prisma.committeeMembership.update({
+        where: { id: membershipId },
+        data: { resignationLetterKey: LETTER.key },
+      }),
+    ).rejects.toThrow(/CommitteeMembership_resignation_letter_fields_together/);
+  });
+
+  it("keeps the reported letter on confirm, as the recorded one", async () => {
+    await fileReport(LETTER);
+    const state = await readState();
+    const result = await prisma.$transaction((tx) =>
+      exits.writeMembershipExit(
+        tx,
+        state,
+        {
+          status: "RESIGNED",
+          resignationDateReceived: state.resignationDateReceived,
+          resignationMethod: state.resignationMethod,
+          removalReason: null,
+          removalNotes: null,
+          letter: "keepReported",
+        },
+        { expectedExitReportedAt: state.exitReportedAt! },
+      ),
+    );
+    expect(result).toMatchObject({ kind: "written" });
+    expect(await readState()).toMatchObject({ status: "RESIGNED", ...letterColumns });
+  });
+
+  it("clears a pending letter on a superseding removal, even after a stale read", async () => {
+    const before = await readState(); // no report, no letter yet
+    await fileReport(LETTER);
+    const result = await prisma.$transaction((tx) =>
+      exits.writeMembershipExit(tx, before, {
+        status: "REMOVED",
+        resignationDateReceived: null,
+        resignationMethod: null,
+        removalReason: "OTHER",
+        removalNotes: null,
+      }),
+    );
+    expect(result).toMatchObject({ kind: "written" });
+    expect(await readState()).toMatchObject({
+      status: "REMOVED",
+      resignationLetterKey: null,
+      resignationLetterContentType: null,
+      resignationLetterFileName: null,
+    });
+  });
+
+  it("replaces a pending letter with the Admin's upload", async () => {
+    await fileReport(LETTER);
+    const state = await readState();
+    const upload = { ...LETTER, key: "resignation-letters/m/admin.png", contentType: "image/png" as const, fileName: "admin.png" };
+    const result = await prisma.$transaction((tx) =>
+      exits.writeMembershipExit(tx, state, {
+        status: "RESIGNED",
+        resignationDateReceived: new Date("2026-11-01"),
+        resignationMethod: "MAIL",
+        removalReason: null,
+        removalNotes: null,
+        letter: upload,
+      }),
+    );
+    expect(result).toMatchObject({ kind: "written" });
+    expect(await readState()).toMatchObject({ resignationLetterKey: upload.key });
   });
 });

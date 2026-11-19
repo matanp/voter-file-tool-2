@@ -22,6 +22,7 @@ import {
   firstCallArg,
 } from "../../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 
 const SEAT_ID = "seat-1";
 
@@ -539,6 +540,31 @@ describe("POST /api/admin/petition-outcomes/record", () => {
           membershipType: "PETITIONED",
           petitionSeatNumber: 1,
         },
+        { id: "existing-1" },
+      ),
+    );
+  });
+
+  it("clears a RESIGNED winner's Resignation Letter columns (ticket 08 decision 15)", async () => {
+    prismaMock.committeeMembership.findUnique
+      .mockResolvedValueOnce(
+        createMockMembership({
+          id: "existing-1",
+          voterRecordId: "V1",
+          status: "RESIGNED",
+          resignationLetterKey: "resignation-letters/existing-1/a.pdf",
+          resignationLetterContentType: "application/pdf",
+          resignationLetterFileName: "a.pdf",
+        }),
+      )
+      .mockResolvedValueOnce(null);
+
+    const response = await POST(createMockRequest(createValidPayload()));
+
+    await expectSuccessResponse(response, { message: "Petition outcome recorded", seatNumber: 1 }, 200);
+    expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+      expectMembershipUpdate(
+        { status: "ACTIVE", ...CLEARED_LETTER_FIELDS },
         { id: "existing-1" },
       ),
     );

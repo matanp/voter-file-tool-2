@@ -27,6 +27,7 @@ import {
   type AuthTestConfig,
 } from "../../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 
 const activatedAt = "2026-01-01T00:00:00.000Z";
 
@@ -173,6 +174,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
             removalReason: "OTHER",
             removalNotes: "Undo of discrepancy accept",
             exitReportedAt: null,
+            ...CLEARED_LETTER_FIELDS, // ticket 08: a superseded report takes its letter with it
             exitReportedById: null,
             exitReportedKind: null,
           }),
@@ -242,6 +244,7 @@ describe("/api/admin/handleCommitteeDiscrepancy/undo", () => {
             removalReason: "MOVED_OUT_OF_DISTRICT",
             removalNotes: null,
             exitReportedAt: null,
+            ...CLEARED_LETTER_FIELDS, // ticket 08: a superseded report takes its letter with it
             exitReportedKind: null,
           }),
         );

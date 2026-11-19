@@ -219,6 +219,9 @@ export const createMockMembership = (
   exitReportedAt: null,
   exitReportedById: null,
   exitReportedKind: null,
+  resignationLetterKey: null,
+  resignationLetterContentType: null,
+  resignationLetterFileName: null,
   ...overrides,
 });
 

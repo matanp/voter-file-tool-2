@@ -210,6 +210,11 @@ export const fetchFilteredDataSchema = z.object({
   searchQuery: z.array(searchQueryFieldSchema),
   pageSize: z.number().int().min(1).max(100),
   page: z.number().int().min(1),
+  /**
+   * Add each voter's `activeCommittee` (ticket 08), still gated by the real
+   * role. Only the record search page asks; other callers skip the lookup.
+   */
+  includeCommittee: z.boolean().optional(),
 });
 
 export type FetchFilteredDataRequest = z.infer<typeof fetchFilteredDataSchema>;

@@ -12,6 +12,10 @@
  * Both are Admin-only endpoints that audit the change. The primary action
  * stays disabled until the requirements are met, and what's missing is
  * listed beside it in text.
+ *
+ * Resignation Letters (ticket 08): a resignation takes an optional upload.
+ * Without one, a letter on the member's pending resignation report is kept;
+ * the Admin's own upload replaces it.
  */
 import React, { useId, useState } from "react";
 import type { ResignationMethod } from "@prisma/client";
@@ -45,6 +49,14 @@ import {
   useActionSubmit,
   type ActionFailure,
 } from "./drawerParts";
+import {
+  EMPTY_LETTER,
+  ResignationLetterField,
+  letterAfterSubmit,
+  letterFieldProblems,
+  stagedLetterOf,
+  type LetterFieldState,
+} from "./ResignationLetterField";
 
 export const NOTES_MAX = 1000;
 
@@ -291,14 +303,25 @@ export function RecordResignationForm({
     method: "",
     notes: "",
   });
+  const [letter, setLetter] = useState<LetterFieldState>(EMPTY_LETTER);
   const { submitting, failure, run } = useActionSubmit(onSuccess);
   const setField = (patch: Partial<ResignationInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
-  const submit = () => run(() => submitResignation(action, input));
+  const staged = stagedLetterOf(letter);
+  const submit = () =>
+    run(async () => {
+      const after = letterAfterSubmit(letter, await submitResignation(action, input, staged));
+      setLetter(after.letter);
+      return after.outcome;
+    });
+  const problems = [
+    ...resignationProblems(input),
+    ...letterFieldProblems(letter),
+  ];
 
   return (
     <ExitFormLayout
-      problems={resignationProblems(input)}
+      problems={problems}
       failure={failure}
       failureTitle="Could not record resignation"
       submitting={submitting}
@@ -313,6 +336,12 @@ export function RecordResignationForm({
         Recording a resignation for <span className="font-medium">{memberLabel}</span>.
       </p>
       <ResignationReceivedFields value={input} onChange={setField} />
+      <ResignationLetterField
+        target={action}
+        value={letter}
+        onChange={setLetter}
+        disabled={submitting}
+      />
       <NotesField
         value={input.notes}
         required={false}

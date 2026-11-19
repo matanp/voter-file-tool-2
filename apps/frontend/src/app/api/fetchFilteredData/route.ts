@@ -8,11 +8,22 @@ import {
   normalizeSearchQuery,
 } from "@voter-file-tool/shared-validators";
 import type { Prisma } from "@prisma/client";
-import { withPrivilege } from "../lib/withPrivilege";
+import { withPrivilege, type SessionWithUser } from "../lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
-import type { Session } from "next-auth";
+import { activeCommitteesForRecords } from "../lib/recordSearchCommittees";
+import type { RecordSearchCommittee } from "~/lib/recordSearch";
 
-async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
+/**
+ * Record search. Open to ReadAccess. With `includeCommittee: true` (sent only
+ * by the record search page), each record gains `activeCommittee` when the
+ * caller's real role may see that committee's roster (see
+ * `activeCommitteesForRecords`). Otherwise the key is absent and no
+ * membership lookup runs.
+ */
+async function fetchFilteredDataHandler(
+  req: NextRequest,
+  session: SessionWithUser,
+) {
   // A malformed or truncated body (e.g. a request the client aborted) is the
   // caller's error, not a server failure.
   let requestBody: unknown;
@@ -28,7 +39,7 @@ async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
       return validation.response;
     }
 
-    const { searchQuery, pageSize, page } = validation.data;
+    const { searchQuery, pageSize, page, includeCommittee } = validation.data;
     const normalized = normalizeSearchQuery(searchQuery);
 
     const query: Prisma.VoterRecordWhereInput =
@@ -46,8 +57,19 @@ async function fetchFilteredDataHandler(req: NextRequest, _session: Session) {
       where: query,
     });
 
+    const committees = includeCommittee
+      ? await activeCommitteesForRecords(
+          records.map((record) => record.VRCNUM),
+          session.user,
+        )
+      : new Map<string, RecordSearchCommittee>();
+
     // Convert Prisma records to API format (Date -> string conversion)
-    const apiRecords = records.map(convertPrismaVoterRecordToAPI);
+    const apiRecords = records.map((record) => {
+      const apiRecord = convertPrismaVoterRecordToAPI(record);
+      const activeCommittee = committees.get(record.VRCNUM);
+      return activeCommittee ? { ...apiRecord, activeCommittee } : apiRecord;
+    });
 
     return NextResponse.json(
       { data: apiRecords, totalRecords: totalRecords },

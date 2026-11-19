@@ -25,6 +25,7 @@ import {
   seatActivationAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
@@ -226,6 +227,7 @@ async function handleCommitteeDiscrepancyHandler(
                 removalNotes: null,
                 petitionVoteCount: null,
                 petitionPrimaryDate: null,
+                ...CLEARED_LETTER_FIELDS,
               },
             });
             const updatedMembership = activation.membership;

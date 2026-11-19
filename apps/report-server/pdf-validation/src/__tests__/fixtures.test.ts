@@ -65,6 +65,14 @@ describe('fixture manifest v1', () => {
     expect(required).toContain('Grand Total: 28007.00');
   });
 
+  it("expects each weight row's LTED, Base and Designation Weight cells", () => {
+    const required = fixtureById('weights-quick').expect.requiredOnPage!.map((r) => r.text);
+    // Row 0 has no LTED weight; row 1 has 0.25 per seat on 2 petitioned seats.
+    expect(required).toContain('— — 7000.25');
+    expect(required).toContain('0.25 0.50 7001.25');
+    expect(required).toContain('Committees with missing weights: BRIGHTON LD16 ED001');
+  });
+
   it('computes vacancy totals independently', () => {
     // Rows k=0..3: filled 0,1,2,3 of 4; petitioned 2,3,4,2.
     expect(fixtureById('vacancy-quick').expect.required).toContain('Grand Total 16 6 10 5 6 5');

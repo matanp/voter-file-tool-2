@@ -32,7 +32,12 @@ import {
 } from "../utils/fetchFilteredDataTestUtils";
 import type { DeepMockProxy } from "jest-mock-extended";
 import type { PrismaClient } from "@prisma/client";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
+import {
+  mockAuthSession,
+  mockHasPermission,
+  mockRealPermissionHierarchy,
+  prismaMock,
+} from "../utils/mocks";
 import {
   searchableFieldEnum,
   convertPrismaVoterRecordToAPI,
@@ -44,7 +49,8 @@ type PrismaMock = DeepMockProxy<PrismaClient>;
 const setupAuthenticatedTest = (privilegeLevel = PrivilegeLevel.ReadAccess) => {
   const mockSession = createMockSession({ user: { privilegeLevel } });
   mockAuthSession(mockSession);
-  mockHasPermission(true);
+  // The route checks the role again for committee data (ReadAccess gets none).
+  mockRealPermissionHierarchy();
   return mockSession;
 };
 
@@ -73,6 +79,7 @@ describe("/api/fetchFilteredData", () => {
 
     // Setup mocks for successful authentication tests
     const setupSuccessMocks = () => {
+      mockRealPermissionHierarchy();
       // Use actual records from the shared dataset that match the search criteria
       const johnRecords = SHARED_MOCK_VOTER_RECORDS.filter(
         (record) => record.firstName === "John",

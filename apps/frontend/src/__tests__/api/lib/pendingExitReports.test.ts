@@ -37,6 +37,7 @@ describe("toPendingExitReport", () => {
       kind: "REMOVAL",
       reportedAt: reportedAt.toISOString(),
       isOwnReport: false,
+      letter: null,
       reportedBy: { id: "leader-1", name: "Leader One" },
       removalReason: "OTHER",
       removalNotes: "Moved away",

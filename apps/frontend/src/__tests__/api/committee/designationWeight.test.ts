@@ -2,7 +2,7 @@
  * SRS 2.7 — Route tests for GET /api/committee/designationWeight.
  */
 
-import { PrivilegeLevel, Prisma, type UserJurisdiction } from "@prisma/client";
+import { PrivilegeLevel, Prisma } from "@prisma/client";
 import { GET } from "~/app/api/committee/designationWeight/route";
 import {
   createMockSession,
@@ -13,6 +13,7 @@ import {
   DEFAULT_ACTIVE_TERM_ID,
 } from "../../utils/testUtils";
 import {
+  jurisdictionRow,
   mockAuthSession,
   mockHasPermission,
   prismaMock,
@@ -34,22 +35,6 @@ function getMembershipMock(): MembershipMock {
 function getCommitteeListMock(): CommitteeListMock {
   return (prismaMock as unknown as { committeeList: CommitteeListMock })
     .committeeList;
-}
-
-/** A Leader's jurisdiction row, as `findMany` returns it (no `select`). */
-function jurisdictionRow(
-  cityTown: string,
-  legDistrict: number | null,
-): UserJurisdiction {
-  return {
-    id: `jurisdiction-${cityTown}-${String(legDistrict)}`,
-    userId: "test-user-id",
-    cityTown,
-    legDistrict,
-    termId: DEFAULT_ACTIVE_TERM_ID,
-    createdAt: new Date("2026-01-01"),
-    createdById: "admin-1",
-  };
 }
 
 function mockSeat(overrides: {

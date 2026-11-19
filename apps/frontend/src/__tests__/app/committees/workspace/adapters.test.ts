@@ -23,8 +23,8 @@ import {
 import type {
   CandidateCommitteeRef,
   CommitteeAction,
-  CommitteeRef,
 } from "~/app/committees/workspace/committeeAction";
+import type { CommitteeRef } from "~/lib/committees/committeeRef";
 import { hasPermissionFor } from "~/lib/utils";
 import { fetchJsonResponse, installFetchMock } from "../../../utils/mocks";
 import type * as UtilsModule from "~/lib/utils";

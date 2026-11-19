@@ -40,6 +40,8 @@ async function resolveMaxSeats(
 /**
  * Ensures maxSeatsPerLted Seat records exist for the given committee+term.
  * Idempotent: creates only missing seats. Call after CommitteeList upsert.
+ * New seats get the committee's LTED weight, so they don't show as missing a
+ * weight until the next recompute.
  */
 export async function ensureSeatsExist(
   committeeListId: number,
@@ -71,11 +73,16 @@ export async function ensureSeatsExist(
   }
 
   if (toCreate.length > 0) {
+    const committee = await db.committeeList.findUnique({
+      where: { id: committeeListId },
+      select: { ltedWeight: true },
+    });
+    const weight = seatWeightFromLted(committee?.ltedWeight ?? null);
     await db.seat.createMany({
       data: toCreate.map((row) => ({
         ...row,
         isPetitioned: false,
-        weight: null,
+        weight,
       })),
       skipDuplicates: true,
     });
@@ -131,12 +138,12 @@ export async function assignNextAvailableSeat(
 }
 
 /**
- * Recomputes Seat.weight for all seats in the committee.
- * weight = ltedWeight / maxSeatsPerLted. Clears weights if ltedWeight is null.
+ * Recomputes Seat.weight for all seats in the committee: each seat's weight is
+ * the committee's LTED weight. Clears weights if ltedWeight is null.
  */
 export async function recomputeSeatWeights(
   committeeListId: number,
-  options?: Pick<SeatUtilsOptions, "tx" | "maxSeats">,
+  options?: Pick<SeatUtilsOptions, "tx">,
 ): Promise<void> {
   const db = (options?.tx ?? prisma) as SeatUtilsClient;
   const committee = await db.committeeList.findUnique({
@@ -146,20 +153,20 @@ export async function recomputeSeatWeights(
 
   if (!committee) return;
 
-  const maxSeats = await resolveMaxSeats(db, options?.maxSeats);
-
   await db.seat.updateMany({
     where: { committeeListId },
-    data: { weight: computeSeatWeight(committee.ltedWeight, maxSeats) },
+    data: { weight: seatWeightFromLted(committee.ltedWeight) },
   });
 }
 
-/** Seat weight = ltedWeight / maxSeatsPerLted; null when the LTED weight is unknown. */
-export function computeSeatWeight(
+/**
+ * Seat weight = the committee's LTED weight, which is already per seat (the
+ * weighted table's `Weighted Vote`); null when the LTED weight is unknown.
+ */
+export function seatWeightFromLted(
   ltedWeight: Prisma.Decimal.Value | null,
-  maxSeats: number,
 ): Prisma.Decimal | null {
-  return ltedWeight != null ? new Prisma.Decimal(ltedWeight).div(maxSeats) : null;
+  return ltedWeight != null ? new Prisma.Decimal(ltedWeight) : null;
 }
 
 /** The seat an ACTIVE membership was just written into, and how its member got it. */

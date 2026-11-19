@@ -271,6 +271,8 @@ export type DesignationWeightSummary = {
   cityTown: string;
   legDistrict: number;
   electionDistrict: number;
+  /** The committee's LTED weight: the weight of each seat. Null until known. */
+  ltedWeight: number | null;
   totalWeight: number;
   totalContributingSeats: number;
   seats: SeatWeightBreakdown[];
@@ -308,6 +310,10 @@ export function computeDesignationWeight(
     cityTown: committee.cityTown,
     legDistrict: committee.legDistrict,
     electionDistrict: committee.electionDistrict,
+    ltedWeight:
+      committee.ltedWeight != null
+        ? new Prisma.Decimal(committee.ltedWeight).toNumber()
+        : null,
     totalWeight: core.totalWeight,
     totalContributingSeats: core.totalContributingSeats,
     seats: core.seats,

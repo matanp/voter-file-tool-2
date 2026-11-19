@@ -40,7 +40,7 @@ Status labels used:
 | --- | --- | --- |
 | Single `CommitteeGovernanceConfig` row | Implemented | Enforced by singleton unique index migration. |
 | Configurable party rule (`requiredPartyCode`) | Implemented | Rule is enforced and admin updates validate `requiredPartyCode` against `DropdownLists.party`. |
-| Configurable max seats (`maxSeatsPerLted`) | Implemented | Used in capacity checks, seat creation, and seat-weight computation. |
+| Configurable max seats (`maxSeatsPerLted`) | Implemented | Used in capacity checks and seat creation. (Updated 2026-11-18: no longer used in the seat weight, which is the LTED weight itself.) |
 | Configurable AD check (`requireAssemblyDistrictMatch`) | Implemented | Hard-stop and BOE flagging behavior honor toggle. |
 | Operational configurability (admin-managed in app) | Implemented | Admin governance-config read/update API and `/admin/governance-config` UI now manage all required fields in-app. |
 

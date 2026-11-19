@@ -1,4 +1,5 @@
 import React from 'react';
+import { Prisma } from '@prisma/client';
 import type { DesignationWeightSummary } from '../committeeMappingHelpers';
 
 /** Row-ready summary with derived aggregates for report display */
@@ -11,7 +12,10 @@ export type WeightSummaryRow = {
   occupiedPetitioned: number;
   vacantPetitioned: number;
   appointed: number;
-  ltedWeight: number;
+  /** Per-seat weight; null when the committee has no LTED weight. */
+  ltedWeight: number | null;
+  /** Base Weight: LTED weight × petitioned seats, filled or not. */
+  baseWeight: number | null;
   designationWeight: number;
   missingWeights: string;
 };
@@ -44,9 +48,11 @@ export function summaryToRow(s: DesignationWeightSummary): WeightSummaryRow {
   const appointed = s.seats.filter(
     (x) => x.occupantMembershipType === 'APPOINTED',
   ).length;
-  const ltedWeight = s.seats
-    .filter((x) => x.isPetitioned && x.seatWeight != null)
-    .reduce((sum, x) => sum + (x.seatWeight ?? 0), 0);
+  // Multiplied as a Decimal so the product is exact before it is rounded.
+  const baseWeight =
+    s.ltedWeight != null
+      ? new Prisma.Decimal(s.ltedWeight).times(petitionedSeats).toNumber()
+      : null;
 
   return {
     cityTown: s.cityTown,
@@ -57,12 +63,23 @@ export function summaryToRow(s: DesignationWeightSummary): WeightSummaryRow {
     occupiedPetitioned,
     vacantPetitioned,
     appointed,
-    ltedWeight,
+    ltedWeight: s.ltedWeight,
+    baseWeight,
     designationWeight: s.totalWeight,
     missingWeights: s.missingWeightSeatNumbers.length > 0
       ? s.missingWeightSeatNumbers.join(', ')
       : '',
   };
+}
+
+/**
+ * Adds weights as Decimals. Adding the numbers directly brings binary error
+ * back (0.501 + 1.134 is 1.6349999999999998, which formats as "1.63").
+ */
+export function sumWeights(weights: number[]): number {
+  return weights
+    .reduce((sum, w) => sum.plus(w), new Prisma.Decimal(0))
+    .toNumber();
 }
 
 /**
@@ -84,12 +101,24 @@ export function groupWeightSummaries(
   return Array.from(map.entries()).map(([key, rows]) => {
     const [cityTown, legStr] = key.split('|');
     const legDistrict = Number.parseInt(legStr ?? '0', 10);
-    const subtotalWeight = rows.reduce((sum, r) => sum + r.designationWeight, 0);
+    const subtotalWeight = sumWeights(rows.map((r) => r.designationWeight));
     return { cityTown, legDistrict, rows, subtotalWeight };
   });
 }
 
 const MAX_ROWS_PER_PAGE = 20;
+
+/**
+ * Formats a weight to 2 places, rounding half up on its decimal digits.
+ * `Number#toFixed` rounds the binary value instead, so 1.005 would print
+ * "1.00". Shared by the PDF and XLSX so both show the same digits.
+ */
+export const formatWeight = (weight: number): string =>
+  new Prisma.Decimal(weight).toFixed(2);
+
+/** The PDF marks a missing weight with a dash; the XLSX leaves the cell blank. */
+const formatOptionalWeight = (weight: number | null) =>
+  weight != null ? formatWeight(weight) : '—';
 
 const DesignationWeightSummaryReport = React.forwardRef<
   HTMLDivElement,
@@ -136,6 +165,9 @@ const DesignationWeightSummaryReport = React.forwardRef<
           LTED Weight
         </th>
         <th className="border border-gray-400 px-2 py-1 text-left">
+          Base Weight
+        </th>
+        <th className="border border-gray-400 px-2 py-1 text-left">
           Designation Weight
         </th>
         <th className="border border-gray-400 px-2 py-1 text-left">
@@ -165,10 +197,13 @@ const DesignationWeightSummaryReport = React.forwardRef<
           {row.appointed}
         </td>
         <td className="border border-gray-400 px-2 py-1 text-right">
-          {row.ltedWeight.toFixed(2)}
+          {formatOptionalWeight(row.ltedWeight)}
         </td>
         <td className="border border-gray-400 px-2 py-1 text-right">
-          {row.designationWeight.toFixed(2)}
+          {formatOptionalWeight(row.baseWeight)}
+        </td>
+        <td className="border border-gray-400 px-2 py-1 text-right">
+          {formatWeight(row.designationWeight)}
         </td>
         <td className="border border-gray-400 px-2 py-1">
           {row.missingWeights || '—'}
@@ -214,13 +249,13 @@ const DesignationWeightSummaryReport = React.forwardRef<
                       {pageIdx === pageChunks.length - 1 && (
                         <tr className="bg-gray-50 font-semibold">
                           <td
-                            colSpan={7}
+                            colSpan={8}
                             className="border border-gray-400 px-2 py-1 text-right"
                           >
                             Subtotal
                           </td>
                           <td className="border border-gray-400 px-2 py-1 text-right">
-                            {group.subtotalWeight.toFixed(2)}
+                            {formatWeight(group.subtotalWeight)}
                           </td>
                           <td className="border border-gray-400 px-2 py-1" />
                         </tr>
@@ -231,7 +266,7 @@ const DesignationWeightSummaryReport = React.forwardRef<
                     pageIdx === pageChunks.length - 1 && (
                       <div className="mt-2">
                         <div className="text-sm font-semibold">
-                          Grand Total: {grandTotalWeight.toFixed(2)}
+                          Grand Total: {formatWeight(grandTotalWeight)}
                         </div>
                         {committeesWithMissingWeights.length > 0 && (
                           <div className="mt-4 text-xs text-gray-600">

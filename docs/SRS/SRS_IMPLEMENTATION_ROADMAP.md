@@ -193,8 +193,8 @@ No distinction between petitioned and appointed members.
 1. Each `CommitteeList` + `CommitteeTerm` combination has `governanceConfig.maxSeatsPerLted` seats (conceptual or explicit; MCDC default: 4)
 2. Option A — explicit `Seat` model: `id`, `committeeListId`, `termId`, `seatNumber` (1 to maxSeatsPerLted), `isPetitioned` (boolean, immutable for term), `weight` (Decimal)
 3. Option B — seat number on `CommitteeMembership`: `seatNumber` (1 to maxSeatsPerLted) field, with `isPetitioned` and `weight` derived from petition data
-4. Store LTED total weight (from BOE) on `CommitteeList` or a term-specific junction. **Open question:** Confirm whether BOE voter/committee export includes weight, or if it requires a separate MCDC upload. If unknown, support admin manual entry as fallback.
-5. Compute `seatWeight = ltedTotalWeight / governanceConfig.maxSeatsPerLted`
+4. Store the LTED weight (the per-seat weight; from BOE) on `CommitteeList` or a term-specific junction. **Open question:** Confirm whether BOE voter/committee export includes weight, or if it requires a separate MCDC upload. If unknown, support admin manual entry as fallback.
+5. Seat weight = the LTED weight, which is already per seat (not divided by `governanceConfig.maxSeatsPerLted`)
 6. Mark seats as petitioned when petition outcomes are recorded (immutable for the term)
 
 ---
@@ -446,8 +446,8 @@ No weight fields, no calculation logic.
 
 **What to build:**
 
-1. Store LTED total weight (from BOE data import or admin entry)
-2. Compute seat weight = total weight / governanceConfig.maxSeatsPerLted
+1. Store the LTED weight, the per-seat weight (from the weighted table import or admin entry)
+2. Seat weight = the LTED weight; it is not divided by governanceConfig.maxSeatsPerLted
 3. Business rules:
    - Only occupied, petitioned seats contribute weight
    - Vacant petitioned seats contribute zero (not redistributed)

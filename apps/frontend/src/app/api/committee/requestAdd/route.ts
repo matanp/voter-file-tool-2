@@ -12,6 +12,7 @@ import {
 } from "~/app/api/lib/committeeValidation";
 import type { Session } from "next-auth";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import { validateEligibility } from "~/lib/eligibility";
 import {
   buildMembershipAuditSubject,
@@ -275,6 +276,7 @@ async function requestAddHandler(req: NextRequest, session: Session) {
             removalNotes: null,
             petitionVoteCount: null,
             petitionPrimaryDate: null,
+            ...CLEARED_LETTER_FIELDS,
             // Rebuild metadata from the current request intent.
             submissionMetadata: requestMetadata,
           },

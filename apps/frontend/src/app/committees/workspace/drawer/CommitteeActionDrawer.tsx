@@ -25,12 +25,13 @@ import {
   SheetTitle,
 } from "~/components/ui/sheet";
 import { toast } from "~/components/ui/use-toast";
+import { committeeLabel } from "~/lib/committees/committeeRef";
 import { hasPermissionFor } from "~/lib/utils";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import { candidateSubmissionMode, type CandidateSubmissionMode } from "../adapters";
 import type { CommitteeAction } from "../committeeAction";
 import { AddMemberFlow } from "./AddMemberFlow";
-import { DrawerFooter, committeeLabel, occupantLabel, occupantRow } from "./drawerParts";
+import { DrawerFooter, occupantLabel, occupantRow } from "./drawerParts";
 import { ReportExitForm } from "./ExitReportForms";
 import { RecordResignationForm, RemoveMemberForm } from "./MemberExitForms";
 import { VoterDetailsView } from "./VoterDetailsView";

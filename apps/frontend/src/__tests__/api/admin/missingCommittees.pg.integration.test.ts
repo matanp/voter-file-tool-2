@@ -258,4 +258,39 @@ describePg("Create missing committees (PostgreSQL)", () => {
     const preview = (await (await get(request)).json()) as PreviewBody;
     expect(preview.missing).toEqual([]);
   });
+
+  it("gives seats it creates the committee's LTED weight (the per-seat weight)", async () => {
+    const { createCommittees } = await import(
+      "~/lib/committees/missingCommittees"
+    );
+    // ROCHESTER 17-001 exists in the term with no seats; give it a weight.
+    await prisma.committeeList.updateMany({
+      where: { termId: TERM_ID, legDistrict: 17, electionDistrict: 1 },
+      data: { ltedWeight: "128.5" },
+    });
+
+    const counts = await prisma.$transaction((tx) =>
+      createCommittees(
+        tx,
+        TERM_ID,
+        [
+          { cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 1 },
+          { cityTown: "ROCHESTER", legDistrict: 17, electionDistrict: 2 },
+        ],
+        MAX_SEATS,
+      ),
+    );
+    expect(counts).toEqual({ committeesCreated: 1, seatsCreated: 2 * MAX_SEATS });
+
+    const seats = await prisma.seat.findMany({
+      where: { termId: TERM_ID },
+      select: { committeeList: { select: { electionDistrict: true } }, weight: true },
+    });
+    const weightsByEd = (ed: number) =>
+      seats
+        .filter((seat) => seat.committeeList.electionDistrict === ed)
+        .map((seat) => seat.weight?.toString() ?? null);
+    expect(weightsByEd(1)).toEqual(Array(MAX_SEATS).fill("128.5"));
+    expect(weightsByEd(2)).toEqual(Array(MAX_SEATS).fill(null));
+  });
 });

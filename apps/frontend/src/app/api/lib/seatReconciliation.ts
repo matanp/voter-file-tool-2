@@ -289,7 +289,6 @@ async function reconcileIncrease(
   for (const committee of committees) {
     await recomputeSeatWeights(committee.id, {
       tx: db as unknown as Prisma.TransactionClient,
-      maxSeats: newMaxSeats,
     });
   }
 
@@ -372,7 +371,6 @@ async function reconcileDecrease(
   for (const committee of committees) {
     await recomputeSeatWeights(committee.id, {
       tx: db as unknown as Prisma.TransactionClient,
-      maxSeats: newMaxSeats,
     });
   }
 

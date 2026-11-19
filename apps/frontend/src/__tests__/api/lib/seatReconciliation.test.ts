@@ -503,7 +503,7 @@ describe("seatReconciliation", () => {
   });
 
   describe("reconcileSeatsForMaxSeatsChange weights", () => {
-    it("recomputes weights using ltedWeight / newMaxSeats", async () => {
+    it("recomputes weights to the per-seat LTED weight, whatever the seat count", async () => {
       setupCommitteeListMock([
         { id: 1, cityTown: "GREECE", legDistrict: 1, electionDistrict: 1 },
       ]);
@@ -528,7 +528,7 @@ describe("seatReconciliation", () => {
         newMaxSeats: 6,
       });
 
-      const expectedWeight = new Prisma.Decimal(128).div(6);
+      const expectedWeight = new Prisma.Decimal(128);
       expect(
         (prismaMock.seat as { updateMany: jest.Mock }).updateMany,
       ).toHaveBeenCalledWith(

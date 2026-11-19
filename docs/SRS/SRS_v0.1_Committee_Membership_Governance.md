@@ -235,9 +235,9 @@ Warnings allow submission but require review:
 
 #### 8.1 LTED and Seat Weights
 
-- Each LTED has a total weight provided by BOE (decimals allowed)
+- Each LTED has a per-seat weight provided by BOE (decimals allowed); see **LTED Weight** in `CONTEXT.md`
 - Each LTED has four seats
-- Seat weight = LTED total weight ÷ 4
+- Seat weight = the LTED weight (not divided by the seat count)
 
 #### 8.2 Base Committee
 

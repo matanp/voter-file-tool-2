@@ -9,7 +9,7 @@ type WeightInput = Extract<FixtureInput, { jobType: 'designationWeightSummary' }
 
 /**
  * Designation weights double as row tokens: 7000.25, 7001.25, ... are unique, exact in
- * binary, and can't collide with seat counts, LTED weights (< 2) or the much larger totals.
+ * binary, and can't collide with seat counts, LTED and base weights (< 2) or the much larger totals.
  */
 const weightToken = (i: number) => 7000 + i + 0.25;
 const SEAT_WEIGHT = 0.25;
@@ -25,23 +25,38 @@ function seats(i: number): SeatSpec[] {
   }));
 }
 
-/** `count` committees in one jurisdiction; `start` numbers the tokens across groups. */
-function group(cityTown: string, legDistrict: number, count: number, start: number, missingEvery = 0): WeightSummarySpec[] {
+/**
+ * `count` committees in one jurisdiction; `start` numbers the tokens across groups. Every
+ * `unweightedEvery`-th committee has no LTED weight, so neither do its seats (a seat's weight
+ * is always its committee's): its LTED and Base Weight cells read "—" and its petitioned seats
+ * are listed as missing. It keeps a designation-weight token only so the row can be found.
+ */
+function group(cityTown: string, legDistrict: number, count: number, start: number, unweightedEvery = 0): WeightSummarySpec[] {
   return Array.from({ length: count }, (_, k) => {
     const i = start + k;
-    const missing = missingEvery > 0 && k % missingEvery === 0 ? [4] : [];
+    const unweighted = unweightedEvery > 0 && k % unweightedEvery === 0;
+    const seatSpecs = seats(i).map((s) => (unweighted ? { ...s, seatWeight: null } : s));
     return {
       cityTown,
       legDistrict,
       electionDistrict: k + 1,
+      ltedWeight: unweighted ? null : SEAT_WEIGHT,
       totalWeight: weightToken(i),
-      seats: seats(i).map((s) => (missing.includes(s.seatNumber) ? { ...s, seatWeight: null } : s)),
-      missingWeightSeatNumbers: missing,
+      seats: seatSpecs,
+      missingWeightSeatNumbers: unweighted ? seatSpecs.filter((x) => x.isPetitioned).map((x) => x.seatNumber) : [],
     };
   });
 }
 
 const money = (n: number) => n.toFixed(2);
+const weightCell = (n: number | null) => (n == null ? '—' : money(n));
+
+/** The row's LTED Weight, Base Weight and Designation Weight cells, which sit side by side. */
+function weightCells(s: WeightSummarySpec): string {
+  const petitioned = s.seats.filter((x) => x.isPetitioned).length;
+  const base = s.ltedWeight == null ? null : s.ltedWeight * petitioned;
+  return `${weightCell(s.ltedWeight)} ${weightCell(base)} ${money(s.totalWeight)}`;
+}
 const pad3 = (n: number) => String(n).padStart(3, '0');
 
 function weightExpectations(input: WeightInput): Expectations {
@@ -69,7 +84,10 @@ function weightExpectations(input: WeightInput): Expectations {
     for (let i = 0; i < g.rows.length; i += ROWS_PER_PAGE) {
       const chunk = g.rows.slice(i, i + ROWS_PER_PAGE);
       const last = i + ROWS_PER_PAGE >= g.rows.length;
-      pages.push({ tokens: chunk.map((r) => money(r.totalWeight)), text: [g.label, ...(last ? [`Subtotal ${money(subtotal)}`] : [])] });
+      pages.push({
+        tokens: chunk.map((r) => money(r.totalWeight)),
+        text: [g.label, ...chunk.map(weightCells), ...(last ? [`Subtotal ${money(subtotal)}`] : [])],
+      });
     }
   }
   const missing = input.summaries.filter((s) => s.missingWeightSeatNumbers.length > 0);
@@ -104,14 +122,14 @@ export const weightSummaryFamily: FixtureFamily = {
   family: 'weight-summary',
   jobTypes: ['designationWeightSummary'],
   fixtures: [
-    weightFixture('weights-quick', 'quick', 'One jurisdiction, 4 rows; 1 page', 'jurisdiction', group('BRIGHTON', 16, 4, 0), { cityTown: 'BRIGHTON' }),
+    weightFixture('weights-quick', 'quick', 'One jurisdiction, 4 rows (the first with no LTED weight); 1 page', 'jurisdiction', group('BRIGHTON', 16, 4, 0, 4), { cityTown: 'BRIGHTON' }),
     weightFixture('weights-20', 'full', '20 rows: the last that fit on one page', 'jurisdiction', group('BRIGHTON', 16, 20, 100), { cityTown: 'BRIGHTON' }),
     weightFixture('weights-21', 'full', '21 rows: 20 + 1 on 2 pages', 'jurisdiction', group('BRIGHTON', 16, 21, 200), { cityTown: 'BRIGHTON' }),
     weightFixture('weights-200', 'full', '200 rows in one group; 10 pages', 'jurisdiction', group('ROCHESTER', 5, 200, 300), { cityTown: 'ROCHESTER', legDistrict: 5 }),
     weightFixture(
       'weights-multi-group',
       'full',
-      'Countywide, 3 groups (25 / 3 / 12 rows) with missing seat weights; independent subtotals and grand total',
+      'Countywide, 3 groups (25 / 3 / 12 rows) with some committees missing an LTED weight; independent subtotals and grand total',
       'countywide',
       [...group('BRIGHTON', 16, 25, 600, 10), ...group('HENRIETTA', 17, 3, 700), ...group('ROCHESTER', 22, 12, 800, 5)],
     ),

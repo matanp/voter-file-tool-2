@@ -248,7 +248,7 @@ model Seat {
 
   // Weight (SRS §8)
   isPetitioned    Boolean       @default(false)  // Immutable for the term once set
-  weight          Decimal?      // LTED total weight / maxSeatsPerLted — set when LTED weight is known
+  weight          Decimal?      // = ltedWeight (already per seat; see CONTEXT.md LTED Weight) — set when LTED weight is known
 
   @@unique([committeeListId, termId, seatNumber])
   @@index([committeeListId, termId])
@@ -388,8 +388,8 @@ model CommitteeList {
   legDistrict      Int
   electionDistrict Int
 
-  // NEW: LTED total weight from BOE (SRS §8.1)
-  // Decimals allowed. Seat weight = ltedWeight / maxSeatsPerLted (from CommitteeGovernanceConfig)
+  // NEW: LTED weight from BOE (SRS §8.1): the weight of each seat, not a total
+  // Decimals allowed. Seat weight = ltedWeight (see CONTEXT.md LTED Weight)
   // Source: BOE data import or MCDC admin entry.
   ltedWeight       Decimal?
 

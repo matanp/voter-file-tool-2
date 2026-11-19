@@ -27,6 +27,7 @@ import {
   prismaMock,
   rawQueryMock,
 } from "../../utils/mocks";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 
 function reviewRouteContext(id: string) {
   return { params: Promise.resolve({ id }) };
@@ -405,6 +406,7 @@ describe("/api/admin/eligibility-flags", () => {
         removalReason: "MOVED_OUT_OF_DISTRICT",
         removalNotes: null,
         exitReportedAt: null,
+        ...CLEARED_LETTER_FIELDS, // ticket 08: a superseded report takes its letter with it
       }),
     );
     expect(prismaMock.auditLog.create).toHaveBeenNthCalledWith(
