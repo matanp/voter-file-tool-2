@@ -1,4 +1,4 @@
-# 21 - R2 setup for Resignation Letters
+# 23 - R2 setup for Resignation Letters
 
 Status: ready-for-human
 

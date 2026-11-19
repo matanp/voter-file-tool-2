@@ -8,7 +8,7 @@
 
 ## Cloudflare R2: Resignation Letters
 
-Resignation Letters (leader-feedback-2026-11 ticket 08) are stored in the same R2 bucket as reports (`R2_BUCKET_NAME`), under `resignation-letters/`. Terraform doesn't manage the bucket, so set these up in the Cloudflare dashboard before shipping the feature (tracked in `.scratch/leader-feedback-2026-11/issues/21-r2-letter-lifecycle-and-privacy.md`):
+Resignation Letters (leader-feedback-2026-11 ticket 08) are stored in the same R2 bucket as reports (`R2_BUCKET_NAME`), under `resignation-letters/`. Terraform doesn't manage the bucket, so set these up in the Cloudflare dashboard before shipping the feature (tracked in `.scratch/leader-feedback-2026-11/issues/23-r2-letter-lifecycle-and-privacy.md`):
 
 1. **Confirm the bucket isn't public.** R2 → the bucket → Settings: *Public access* via r2.dev must be disabled, and there must be no connected custom domain. Letters hold members' signatures and personal details, and are only meant to be reachable through 5-minute presigned URLs. If the bucket is public, stop: don't ship letters to it.
 2. **Lifecycle rule** (R2 → the bucket → Settings → Object lifecycle rules): prefix `resignation-letters/staging/`, delete objects 1 day after upload (abandoned uploads).
