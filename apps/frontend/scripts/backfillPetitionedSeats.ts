@@ -3,9 +3,9 @@
  * See src/lib/committees/petitionedSeatBackfill.ts for what counts as petitioned.
  *
  * Usage (from apps/frontend):
- *   pnpm exec tsx scripts/backfillPetitionedSeats.ts                 # dry run, active term
- *   pnpm exec tsx scripts/backfillPetitionedSeats.ts --csv out.csv   # dry run, write seat list
- *   pnpm exec tsx scripts/backfillPetitionedSeats.ts --apply --actor-email admin@example.org
+ *   pnpm db:backfill-petitioned-seats                                # dry run, active term
+ *   pnpm db:backfill-petitioned-seats --csv out.csv                  # dry run, write seat list
+ *   pnpm db:backfill-petitioned-seats --apply --actor-email admin@example.org
  *   [--term <termId>]  defaults to the active term
  *
  * The database is whatever POSTGRES_PRISMA_URL points at; the script prints its host first.
@@ -110,7 +110,9 @@ async function main() {
     const preview = await previewPetitionedSeatBackfill(prisma, termId);
     printPreview(preview);
     if (csvPath) writeCsv(csvPath, preview);
-    console.log("\nDry run: nothing changed. Rerun with --apply --actor-email <email>.");
+    console.log(
+      "\nDry run: nothing changed. Rerun with --apply --actor-email <email>.",
+    );
     return;
   }
 
@@ -121,10 +123,14 @@ async function main() {
   });
   if (!actor) throw new Error(`No user with email ${actorEmail}`);
 
-  const { flagged, preview } = await applyPetitionedSeatBackfill(prisma, termId, {
-    userId: actor.id,
-    userRole: actor.privilegeLevel,
-  });
+  const { flagged, preview } = await applyPetitionedSeatBackfill(
+    prisma,
+    termId,
+    {
+      userId: actor.id,
+      userRole: actor.privilegeLevel,
+    },
+  );
   printPreview(preview);
   if (csvPath) writeCsv(csvPath, preview);
   console.log(`\nFlagged ${flagged} seats.`);

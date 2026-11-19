@@ -930,7 +930,6 @@ async function activateMember(
     await markSeatPetitioned(tx, {
       committeeListId: committee.id,
       termId: term.id,
-      status: ACTIVE_MEMBERSHIP_STATUS,
       membershipType,
       seatNumber,
     });
@@ -988,7 +987,6 @@ async function activateMember(
   await markSeatPetitioned(tx, {
     committeeListId: committee.id,
     termId: term.id,
-    status: ACTIVE_MEMBERSHIP_STATUS,
     membershipType,
     seatNumber,
   });

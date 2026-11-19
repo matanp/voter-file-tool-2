@@ -3,6 +3,7 @@
  * canonical entry's `membershipType` rather than a constant. Existing memberships are not
  * rewritten — a reactivation keeps the type it already has.
  */
+import type { Prisma } from "@prisma/client";
 import { applyRosterImport } from "~/app/api/admin/bulkLoadCommittees/bulkLoadUtils";
 import type { RosterEntry } from "~/app/api/admin/bulkLoadCommittees/rosterFormats/types";
 import { prismaMock } from "../../utils/mocks";
@@ -16,6 +17,7 @@ import {
   expectAuditLogCreate,
   expectMembershipCreate,
   expectMembershipUpdate,
+  firstCallArg,
   getAuditLogMock,
   getMembershipMock,
   jsonContaining,
@@ -56,10 +58,9 @@ const markSeatPetitionedMock = jest.mocked(seatUtils.markSeatPetitioned);
 const seatedAs = (
   membershipType: RosterEntry["membershipType"],
   seatNumber = 1,
-) => ({
+): seatUtils.SeatedMembership => ({
   committeeListId: 101,
   termId: DEFAULT_ACTIVE_TERM_ID,
-  status: "ACTIVE",
   membershipType,
   seatNumber,
 });
@@ -224,7 +225,7 @@ describe("membership type written by an import", () => {
   });
 
   it("keeps the petition result on a member who is already ACTIVE and flags their seat", async () => {
-    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+    prismaMock.committeeMembership.findUnique.mockResolvedValue(
       createMockMembership({
         id: "m-active",
         voterRecordId: "VRC004",
@@ -243,10 +244,9 @@ describe("membership type written by an import", () => {
       rejected: [],
     });
 
-    const updateCalls = getMembershipMock(prismaMock).update.mock
-      .calls as Array<[{ data: Record<string, unknown> }]>;
-    const [update] = updateCalls[0] ?? [];
-    if (!update) throw new Error("expected a membership update");
+    const update = firstCallArg<Prisma.CommitteeMembershipUpdateArgs>(
+      prismaMock.committeeMembership.update,
+    );
     expect(update.data).toMatchObject({ status: "ACTIVE", seatNumber: 3 });
     expect(update.data).not.toHaveProperty("petitionVoteCount");
     expect(update.data).not.toHaveProperty("petitionPrimaryDate");

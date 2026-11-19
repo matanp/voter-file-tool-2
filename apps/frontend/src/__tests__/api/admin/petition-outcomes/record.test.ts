@@ -3,7 +3,7 @@
  */
 
 import { POST } from "~/app/api/admin/petition-outcomes/record/route";
-import { PrivilegeLevel } from "@prisma/client";
+import { PrivilegeLevel, type Prisma, type Seat } from "@prisma/client";
 import {
   createMockMembership,
   createMockSession,
@@ -19,6 +19,7 @@ import {
   DEFAULT_ACTIVE_TERM_ID,
   getMembershipMock,
   getAuditLogMock,
+  firstCallArg,
 } from "../../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
 
@@ -175,22 +176,32 @@ describe("POST /api/admin/petition-outcomes/record", () => {
   it("records an outcome on a seat already flagged petitioned without a recorded outcome", async () => {
     // An imported petitioned seat (or one flagged by the backfill) is petitioned but has
     // no recorded outcome, so the recorder must still accept it.
-    (prismaMock.seat as { findUnique: jest.Mock }).findUnique.mockResolvedValue({
+    prismaMock.seat.findUnique.mockResolvedValue({
       id: SEAT_ID,
       committeeListId: 1,
       termId: DEFAULT_ACTIVE_TERM_ID,
       seatNumber: 1,
       isPetitioned: true,
       petitionOutcomeRecordedAt: null,
-    });
+      weight: null,
+    } satisfies Seat);
 
     const response = await POST(createMockRequest(createValidPayload()));
 
-    await expectSuccessResponse(response, { message: "Petition outcome recorded", seatNumber: 1 }, 200);
-    expect((prismaMock.seat as { updateMany: jest.Mock }).updateMany).toHaveBeenCalledWith({
-      where: { id: SEAT_ID, petitionOutcomeRecordedAt: null },
-      data: { petitionOutcomeRecordedAt: expect.any(Date) as Date, isPetitioned: true },
+    await expectSuccessResponse(
+      response,
+      { message: "Petition outcome recorded", seatNumber: 1 },
+      200,
+    );
+    const claim = firstCallArg<Prisma.SeatUpdateManyArgs>(
+      prismaMock.seat.updateMany,
+    );
+    expect(claim.where).toEqual({
+      id: SEAT_ID,
+      petitionOutcomeRecordedAt: null,
     });
+    expect(claim.data).toMatchObject({ isPetitioned: true });
+    expect(claim.data.petitionOutcomeRecordedAt).toBeInstanceOf(Date);
   });
 
   it("returns 409 when seat is occupied by another member", async () => {

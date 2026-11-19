@@ -270,7 +270,6 @@ export async function confirmSubmittedMembership(
   await markSeatPetitioned(tx, {
     committeeListId: submittedMembership.committeeListId,
     termId: submittedMembership.termId,
-    status: ACTIVE_MEMBERSHIP_STATUS,
     membershipType,
     seatNumber,
   });

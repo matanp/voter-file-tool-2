@@ -10,6 +10,7 @@ import {
   createCommitteeUpsertArgs,
   createMockGovernanceConfig,
   createMockMembership,
+  DEFAULT_ACTIVE_TERM_ID,
   createMockVoterRecord,
   expectMembershipCreate,
   expectMembershipUpdate,
@@ -83,9 +84,9 @@ describe("/api/committee/add", () => {
           membershipType: "APPOINTED",
           seatNumber: 1,
         }),
-      );      expect(prismaMock.seat.updateMany).not.toHaveBeenCalledWith(
-        expect.objectContaining({ data: { isPetitioned: true } }),
       );
+      // An appointee's seat isn't flagged; no other write here touches Seat.
+      expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
     });
 
     it("should store PETITIONED when membershipType is provided", async () => {
@@ -112,11 +113,12 @@ describe("/api/committee/add", () => {
           membershipType: "PETITIONED",
           seatNumber: 1,
         }),
-      );      // A petitioned member's seat is flagged petitioned for the term.
+      );
+      // A petitioned member's seat is flagged petitioned for the term.
       expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
         where: {
-          committeeListId: expect.any(Number) as number,
-          termId: expect.any(String) as string,
+          committeeListId: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
           seatNumber: 1,
           isPetitioned: false,
         },

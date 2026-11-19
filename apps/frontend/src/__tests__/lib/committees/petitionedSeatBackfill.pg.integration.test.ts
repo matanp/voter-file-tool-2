@@ -120,7 +120,12 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
     }
     const makeCommittee = async (electionDistrict: number, termId: string) => {
       const committee = await prisma.committeeList.create({
-        data: { cityTown: "ROCHESTER", legDistrict: 17, electionDistrict, termId },
+        data: {
+          cityTown: "ROCHESTER",
+          legDistrict: 17,
+          electionDistrict,
+          termId,
+        },
       });
       await prisma.seat.createMany({
         data: [1, 2, 3, 4].map((seatNumber) => ({
@@ -195,10 +200,17 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
       seatNumber: 1,
     });
 
-    const preview = await backfill.previewPetitionedSeatBackfill(prisma, TERM_ID);
+    const preview = await backfill.previewPetitionedSeatBackfill(
+      prisma,
+      TERM_ID,
+    );
 
     expect(
-      preview.candidates.map((c) => [c.electionDistrict, c.seatNumber, c.sources]),
+      preview.candidates.map((c) => [
+        c.electionDistrict,
+        c.seatNumber,
+        c.sources,
+      ]),
     ).toEqual([
       [1, 1, ["membership"]],
       [1, 2, ["membership"]],
@@ -236,7 +248,10 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
     });
     await activationAudit(appointee.id, { status: "ACTIVE", seatNumber: 3 });
 
-    const preview = await backfill.previewPetitionedSeatBackfill(prisma, TERM_ID);
+    const preview = await backfill.previewPetitionedSeatBackfill(
+      prisma,
+      TERM_ID,
+    );
 
     expect(preview.candidates.map((c) => c.seatNumber)).toEqual([2]);
   });
@@ -267,15 +282,23 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
       seatNumber: 1,
     });
 
-    const first = await backfill.applyPetitionedSeatBackfill(prisma, TERM_ID, ACTOR);
+    const first = await backfill.applyPetitionedSeatBackfill(
+      prisma,
+      TERM_ID,
+      ACTOR,
+    );
 
     expect(first.flagged).toBe(1);
     expect(first.preview.summary.alreadyPetitioned).toBe(1);
     expect(await petitionedSeats(committeeId)).toEqual([1, 2]);
-    expect(await petitionedSeats(otherTermCommitteeId, OTHER_TERM_ID)).toEqual([]);
+    expect(await petitionedSeats(otherTermCommitteeId, OTHER_TERM_ID)).toEqual(
+      [],
+    );
     // The recorder latch is untouched: these seats can still get an outcome recorded.
     expect(
-      await prisma.seat.count({ where: { petitionOutcomeRecordedAt: { not: null } } }),
+      await prisma.seat.count({
+        where: { petitionOutcomeRecordedAt: { not: null } },
+      }),
     ).toBe(0);
 
     const audits = await prisma.auditLog.findMany({
@@ -295,10 +318,16 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
       }) as unknown,
     });
 
-    const second = await backfill.applyPetitionedSeatBackfill(prisma, TERM_ID, ACTOR);
+    const second = await backfill.applyPetitionedSeatBackfill(
+      prisma,
+      TERM_ID,
+      ACTOR,
+    );
     expect(second.flagged).toBe(0);
     expect(
-      await prisma.auditLog.count({ where: { action: "SEAT_PETITIONED_BACKFILLED" } }),
+      await prisma.auditLog.count({
+        where: { action: "SEAT_PETITIONED_BACKFILLED" },
+      }),
     ).toBe(1);
   });
 
@@ -310,7 +339,10 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
       seatNumber: 7,
     });
 
-    const preview = await backfill.previewPetitionedSeatBackfill(prisma, TERM_ID);
+    const preview = await backfill.previewPetitionedSeatBackfill(
+      prisma,
+      TERM_ID,
+    );
 
     expect(preview.candidates).toEqual([]);
     expect(preview.missingSeats).toEqual([

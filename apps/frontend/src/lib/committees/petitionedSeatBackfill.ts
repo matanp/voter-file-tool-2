@@ -90,12 +90,27 @@ export async function previewPetitionedSeatBackfill(
 ): Promise<PetitionedSeatBackfillPreview> {
   const sourceRows = await findSourceRows(db, termId);
 
-  const sourcesByKey = new Map<string, Set<PetitionedSeatSource>>();
+  const seatKey = (seat: { committeeListId: number; seatNumber: number }) =>
+    `${seat.committeeListId}:${seat.seatNumber}`;
+
+  // One entry per named seat, keeping its ids alongside every source that names it.
+  const namedSeats = new Map<
+    string,
+    {
+      committeeListId: number;
+      seatNumber: number;
+      sources: Set<PetitionedSeatSource>;
+    }
+  >();
   for (const row of sourceRows) {
-    const key = `${row.committeeListId}:${row.seatNumber}`;
-    const sources = sourcesByKey.get(key) ?? new Set<PetitionedSeatSource>();
-    sources.add(row.source);
-    sourcesByKey.set(key, sources);
+    const key = seatKey(row);
+    const named = namedSeats.get(key) ?? {
+      committeeListId: row.committeeListId,
+      seatNumber: row.seatNumber,
+      sources: new Set<PetitionedSeatSource>(),
+    };
+    named.sources.add(row.source);
+    namedSeats.set(key, named);
   }
 
   const committeeIds = Array.from(
@@ -123,22 +138,24 @@ export async function previewPetitionedSeatBackfill(
             AND s."committeeListId" = ANY(${committeeIds})
         `;
 
-  const seatByKey = new Map(
-    seats.map((seat) => [`${seat.committeeListId}:${seat.seatNumber}`, seat]),
-  );
+  const seatByKey = new Map(seats.map((seat) => [seatKey(seat), seat]));
 
-  const sourceOrder: PetitionedSeatSource[] = ["membership", "petition", "audit"];
+  const sourceOrder: PetitionedSeatSource[] = [
+    "membership",
+    "petition",
+    "audit",
+  ];
   const candidates: PetitionedSeatCandidate[] = [];
   const missingSeats: PetitionedSeatBackfillPreview["missingSeats"] = [];
-  for (const [key, sourceSet] of sourcesByKey) {
-    const sources = sourceOrder.filter((source) => sourceSet.has(source));
+  for (const [key, named] of namedSeats) {
+    const sources = sourceOrder.filter((source) => named.sources.has(source));
     const seat = seatByKey.get(key);
     if (!seat) {
-      const [committeeListId, seatNumber] = key.split(":").map(Number) as [
-        number,
-        number,
-      ];
-      missingSeats.push({ committeeListId, seatNumber, sources });
+      missingSeats.push({
+        committeeListId: named.committeeListId,
+        seatNumber: named.seatNumber,
+        sources,
+      });
       continue;
     }
     candidates.push({
@@ -161,7 +178,8 @@ export async function previewPetitionedSeatBackfill(
       a.seatNumber - b.seatNumber,
   );
   missingSeats.sort(
-    (a, b) => a.committeeListId - b.committeeListId || a.seatNumber - b.seatNumber,
+    (a, b) =>
+      a.committeeListId - b.committeeListId || a.seatNumber - b.seatNumber,
   );
 
   const perCommittee = new Map<number, number>();

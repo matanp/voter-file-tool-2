@@ -144,24 +144,25 @@ export function computeSeatWeight(
   return ltedWeight != null ? new Prisma.Decimal(ltedWeight).div(maxSeats) : null;
 }
 
+/** The seat an ACTIVE membership was just written into, and how its member got it. */
+export type SeatedMembership = {
+  committeeListId: number;
+  termId: string;
+  seatNumber: number | null;
+  membershipType: MembershipType | null;
+};
+
 /**
- * Marks the seat as won by petition for the term. Call it from every write that leaves an
- * ACTIVE PETITIONED membership in a seat; it does nothing for other writes. It only ever sets
- * the flag: a petitioned seat stays petitioned after its member leaves, so Vacancy and Weight
- * reports keep counting it. Idempotent.
+ * Marks the seat as won by petition for the term. Call it right after every write that makes
+ * a membership ACTIVE in a seat; it does nothing unless the member is PETITIONED. It only ever
+ * sets the flag: a petitioned seat stays petitioned after its member leaves, so Vacancy and
+ * Weight reports keep counting it. Idempotent.
  */
 export async function markSeatPetitioned(
   tx: Prisma.TransactionClient,
-  membership: {
-    committeeListId: number;
-    termId: string;
-    status: string;
-    membershipType: MembershipType | null;
-    seatNumber: number | null;
-  },
+  membership: SeatedMembership,
 ): Promise<void> {
   if (
-    membership.status !== ACTIVE_MEMBERSHIP_STATUS ||
     membership.membershipType !== "PETITIONED" ||
     membership.seatNumber === null
   ) {

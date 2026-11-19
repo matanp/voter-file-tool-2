@@ -252,7 +252,6 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         await markSeatPetitioned(tx, {
           committeeListId: committee.id,
           termId: activeTermId,
-          status: ACTIVE_MEMBERSHIP_STATUS,
           membershipType,
           seatNumber,
         });
@@ -292,7 +291,6 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         await markSeatPetitioned(tx, {
           committeeListId: committee.id,
           termId: activeTermId,
-          status: ACTIVE_MEMBERSHIP_STATUS,
           membershipType,
           seatNumber,
         });

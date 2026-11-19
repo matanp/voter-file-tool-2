@@ -10,6 +10,7 @@ import {
 import { prismaMock } from "../../utils/mocks";
 import {
   createMockMembership,
+  DEFAULT_ACTIVE_TERM_ID,
   expectAuditLogCreate,
   expectMembershipUpdate,
   expectMembershipExitWrite,
@@ -109,13 +110,17 @@ describe("membershipConfirmation", () => {
           { status: "ACTIVE", membershipType: "PETITIONED" },
           { id: MEMBERSHIP_ID },
         ),
-      );      // Confirming a PETITIONED member flags their seat petitioned.
-      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ isPetitioned: false }) as unknown,
-          data: { isPetitioned: true },
-        }),
       );
+      // Confirming a PETITIONED member flags their seat petitioned.
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
+        where: {
+          committeeListId: 1,
+          termId: DEFAULT_ACTIVE_TERM_ID,
+          seatNumber: 1,
+          isPetitioned: false,
+        },
+        data: { isPetitioned: true },
+      });
     });
 
     it("returns notFound when membership is missing", async () => {
