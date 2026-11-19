@@ -106,7 +106,7 @@ The voting weight of one seat in a committee's election district, set by an Admi
 _Avoid_: committee weight, ED weight
 
 **Base Weight**:
-A committee's full weight: its LTED Weight times its petitioned seats, whether those seats are filled or not. It matches the weighted table's `Base Weight` column and appears on the Weight Report. The filled share of it is the Designation Weight.
+A committee's LTED Weight times its petitioned seats, whether those seats are filled or not. It matches the weighted table's `Base Weight` column and appears on the Weight Report. The filled share of it is the Designation Weight.
 _Avoid_: total weight, ED weight, full weight
 
 **Designation Weight**:

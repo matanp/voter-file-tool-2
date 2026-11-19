@@ -14,7 +14,7 @@ export type WeightSummaryRow = {
   appointed: number;
   /** Per-seat weight; null when the committee has no LTED weight. */
   ltedWeight: number | null;
-  /** The ED's full weight: LTED weight × petitioned seats, filled or not. */
+  /** Base Weight: LTED weight × petitioned seats, filled or not. */
   baseWeight: number | null;
   designationWeight: number;
   missingWeights: string;
