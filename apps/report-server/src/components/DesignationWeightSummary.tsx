@@ -73,6 +73,16 @@ export function summaryToRow(s: DesignationWeightSummary): WeightSummaryRow {
 }
 
 /**
+ * Adds weights as Decimals. Adding the numbers directly brings binary error
+ * back (0.501 + 1.134 is 1.6349999999999998, which formats as "1.63").
+ */
+export function sumWeights(weights: number[]): number {
+  return weights
+    .reduce((sum, w) => sum.plus(w), new Prisma.Decimal(0))
+    .toNumber();
+}
+
+/**
  * Groups DesignationWeightSummary[] by (cityTown, legDistrict) and computes subtotals.
  */
 export function groupWeightSummaries(
@@ -91,7 +101,7 @@ export function groupWeightSummaries(
   return Array.from(map.entries()).map(([key, rows]) => {
     const [cityTown, legStr] = key.split('|');
     const legDistrict = Number.parseInt(legStr ?? '0', 10);
-    const subtotalWeight = rows.reduce((sum, r) => sum + r.designationWeight, 0);
+    const subtotalWeight = sumWeights(rows.map((r) => r.designationWeight));
     return { cityTown, legDistrict, rows, subtotalWeight };
   });
 }

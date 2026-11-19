@@ -4,6 +4,7 @@ import DesignationWeightSummaryReport, {
   formatWeight,
   summaryToRow,
   groupWeightSummaries,
+  sumWeights,
 } from '../components/DesignationWeightSummary';
 import type { DesignationWeightSummary } from '../committeeMappingHelpers';
 
@@ -199,6 +200,21 @@ describe('DesignationWeightSummary', () => {
       // 1.005 * 3 is 3.0149999999999997 as a float; the exact product is 3.015.
       const row = summaryToRow(committee({ ltedWeight: 1.005, petitioned: 3 }));
       expect(formatWeight(row.baseWeight!)).toBe('3.02');
+    });
+  });
+  describe('sumWeights', () => {
+    it('adds weights exactly, so the total rounds like the rows', () => {
+      // 0.501 + 1.134 is 1.6349999999999998 as floats; exactly it is 1.635.
+      expect(formatWeight(sumWeights([0.501, 1.134]))).toBe('1.64');
+      expect(sumWeights([])).toBe(0);
+    });
+
+    it('subtotals each group exactly', () => {
+      const [group] = groupWeightSummaries([
+        { ...committee({ ltedWeight: null, petitioned: 0, electionDistrict: 1 }), totalWeight: 0.501 },
+        { ...committee({ ltedWeight: null, petitioned: 0, electionDistrict: 2 }), totalWeight: 1.134 },
+      ]);
+      expect(formatWeight(group!.subtotalWeight)).toBe('1.64');
     });
   });
   describe('report', () => {

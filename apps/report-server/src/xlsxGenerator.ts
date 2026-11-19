@@ -29,6 +29,7 @@ import type {
 import {
   formatWeight,
   groupWeightSummaries,
+  sumWeights,
 } from './components/DesignationWeightSummary';
 
 type ColumnHeaders = Record<string, string>;
@@ -320,7 +321,6 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
   ];
   const worksheetData: WorksheetData = [headers];
 
-  let grandTotal = 0;
   for (const group of groups) {
     for (const row of group.rows) {
       worksheetData.push([
@@ -353,7 +353,6 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
       formatWeight(group.subtotalWeight),
       '',
     ]);
-    grandTotal += group.subtotalWeight;
   }
   worksheetData.push([
     'Grand Total',
@@ -366,7 +365,7 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
     '',
     '',
     '',
-    formatWeight(grandTotal),
+    formatWeight(sumWeights(groups.map((g) => g.subtotalWeight))),
     '',
   ]);
 
