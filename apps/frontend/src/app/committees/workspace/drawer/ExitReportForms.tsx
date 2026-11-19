@@ -250,9 +250,9 @@ export function ReportExitForm({
   const send = () => {
     setConfirming(false);
     void run(async () => {
-      const outcome = await submitExitReport(action, input, staged);
-      setLetter((current) => letterAfterSubmit(current, outcome));
-      return outcome;
+      const after = letterAfterSubmit(letter, await submitExitReport(action, input, staged));
+      setLetter(after.letter);
+      return after.outcome;
     });
   };
   const problems = [

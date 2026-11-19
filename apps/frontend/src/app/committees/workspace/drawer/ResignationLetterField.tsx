@@ -39,17 +39,24 @@ export function letterFieldProblems(state: LetterFieldState): string[] {
     : [];
 }
 
+export const LETTER_REFUSED_FORM_MESSAGE = "The letter wasn't accepted. Attach it again, or remove it.";
+
 /**
- * The field after a submit: when the server refused the staged letter (it
- * deletes it), the field shows why instead of a stale "Attached".
+ * After a submit: when the server refused the staged letter (it deletes it),
+ * the field shows why instead of a stale "Attached", and the form's own alert
+ * points at the field rather than repeating the reason.
  */
 export function letterAfterSubmit(
   state: LetterFieldState,
   outcome: ActionOutcome,
-): LetterFieldState {
-  return !outcome.ok && outcome.kind === "error" && outcome.letterRejected
-    ? { status: "error", message: outcome.message }
-    : state;
+): { letter: LetterFieldState; outcome: ActionOutcome } {
+  if (outcome.ok || outcome.kind !== "error" || !outcome.letterRejected) {
+    return { letter: state, outcome };
+  }
+  return {
+    letter: { status: "error", message: outcome.message },
+    outcome: { ...outcome, message: LETTER_REFUSED_FORM_MESSAGE },
+  };
 }
 
 /** The staged letter to submit, or null. */
@@ -107,7 +114,9 @@ export function ResignationLetterField({
 
   return (
     <div className="grid gap-1" data-testid="resignation-letter-field">
-      <Label htmlFor={id}>Resignation letter (optional)</Label>
+      <Label id={`${id}-label`} htmlFor={id}>
+        Resignation letter (optional)
+      </Label>
       <p id={`${id}-hint`} className="text-xs text-slate-600 dark:text-slate-400">
         {`${LETTER_TYPE_LABEL}, up to ${LETTER_MAX_LABEL}.`}
       </p>
@@ -133,6 +142,8 @@ export function ResignationLetterField({
           size="sm"
           variant="outline"
           disabled={disabled}
+          // The input isn't a tab stop, so the button carries its label and hint.
+          aria-describedby={`${id}-label ${id}-hint`}
           onClick={() => inputRef.current?.click()}
         >
           {hasFile ? "Replace file" : "Choose file"}

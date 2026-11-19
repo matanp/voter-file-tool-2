@@ -9,6 +9,7 @@ import userEvent from "@testing-library/user-event";
 
 import { ExitInstructionsDialog } from "~/app/committees/workspace/drawer/ExitReportForms";
 import { RecordResignationForm } from "~/app/committees/workspace/drawer/MemberExitForms";
+import { LETTER_REFUSED_FORM_MESSAGE } from "~/app/committees/workspace/drawer/ResignationLetterField";
 import { PendingExitReportItem } from "~/app/committees/workspace/tabs/pending/PendingExitReportItem";
 import { resetExitInstructionsCache } from "~/app/committees/workspace/adapters";
 import type { CommitteeRef } from "~/app/committees/workspace/committeeAction";
@@ -75,6 +76,61 @@ describe("RecordResignationForm", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const body = JSON.parse(String(fetchMock.mock.calls[0]![1]!.body)) as Record<string, unknown>;
     expect(body).not.toHaveProperty("letter");
+  });
+});
+
+describe("RecordResignationForm with a refused letter", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("should drop the attached letter and show why when the server refuses it", async () => {
+    // The staging PUT succeeds without a network.
+    jest.spyOn(XMLHttpRequest.prototype, "open").mockImplementation(() => undefined);
+    jest.spyOn(XMLHttpRequest.prototype, "setRequestHeader").mockImplementation(() => undefined);
+    jest.spyOn(XMLHttpRequest.prototype, "status", "get").mockReturnValue(200);
+    jest.spyOn(XMLHttpRequest.prototype, "send").mockImplementation(function (this: XMLHttpRequest) {
+      this.onload?.(new ProgressEvent("load"));
+    });
+    installFetchMock((input) =>
+      Promise.resolve(
+        String(input).includes("upload-url")
+          ? fetchJsonResponse({
+              uploadUrl: "https://r2.example/put",
+              stagingKey: "resignation-letters/staging/m1/0f8fad5b-d9cb-469f-a165-70867728950e",
+              contentType: "application/pdf",
+              contentLength: 4,
+            })
+          : fetchJsonResponse(
+              { status: "error", error: "The file isn't a PDF, JPEG, PNG or HEIC.", letterRejected: true },
+              400,
+            ),
+      ),
+    );
+    render(
+      <RecordResignationForm
+        action={{ kind: "record-resignation", committee: COMMITTEE, memberId: "V1" }}
+        memberLabel="Rita (V1), seat 3"
+        onCancel={jest.fn()}
+        onSuccess={jest.fn()}
+        Footer={({ children }) => <div>{children}</div>}
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.upload(
+      screen.getByLabelText("Resignation letter (optional)"),
+      new File(["%PDF"], "letter.pdf", { type: "application/pdf" }),
+    );
+    expect(await screen.findByTestId("letter-ready")).toHaveTextContent("letter.pdf");
+    await user.type(screen.getByLabelText(/Date resignation received/), "2026-11-01");
+    await user.click(screen.getByLabelText("Email"));
+    await user.click(screen.getByRole("button", { name: "Record resignation" }));
+
+    const field = screen.getByTestId("resignation-letter-field");
+    await waitFor(() =>
+      expect(field).toHaveTextContent("The file isn't a PDF, JPEG, PNG or HEIC."),
+    );
+    expect(screen.queryByTestId("letter-ready")).not.toBeInTheDocument();
+    expect(await screen.findByText(LETTER_REFUSED_FORM_MESSAGE)).toBeInTheDocument();
   });
 });
 

@@ -310,9 +310,9 @@ export function RecordResignationForm({
   const staged = stagedLetterOf(letter);
   const submit = () =>
     run(async () => {
-      const outcome = await submitResignation(action, input, staged);
-      setLetter((current) => letterAfterSubmit(current, outcome));
-      return outcome;
+      const after = letterAfterSubmit(letter, await submitResignation(action, input, staged));
+      setLetter(after.letter);
+      return after.outcome;
     });
   const problems = [
     ...resignationProblems(input),

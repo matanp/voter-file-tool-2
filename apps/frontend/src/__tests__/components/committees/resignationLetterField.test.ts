@@ -2,9 +2,10 @@
  * Resignation Letter field plumbing (ticket 08): an upload cancelled before
  * its PUT starts, and the field after the server refuses the staged letter.
  */
-import { uploadResignationLetter } from "~/app/committees/workspace/adapters";
+import { uploadResignationLetter, type ActionOutcome } from "~/app/committees/workspace/adapters";
 import type { CommitteeRef } from "~/app/committees/workspace/committeeAction";
 import {
+  LETTER_REFUSED_FORM_MESSAGE,
   letterAfterSubmit,
   type LetterFieldState,
 } from "~/app/committees/workspace/drawer/ResignationLetterField";
@@ -55,19 +56,22 @@ describe("letterAfterSubmit", () => {
     staged: { stagingKey: "resignation-letters/staging/m1/k", fileName: "letter.pdf" },
   };
 
-  it("should show the server's reason once it refused the staged letter", () => {
-    expect(
-      letterAfterSubmit(ready, {
-        ok: false,
-        kind: "error",
-        message: "The file is over 10 MB.",
-        letterRejected: true,
-      }),
-    ).toEqual({ status: "error", message: "The file is over 10 MB." });
+  it("should show the server's reason in the field once it refused the staged letter", () => {
+    const after = letterAfterSubmit(ready, {
+      ok: false,
+      kind: "error",
+      message: "The file is over 10 MB.",
+      letterRejected: true,
+    });
+    expect(after.letter).toEqual({ status: "error", message: "The file is over 10 MB." });
+    // The form's alert points at the field instead of repeating the reason.
+    expect(after.outcome).toMatchObject({ ok: false, message: LETTER_REFUSED_FORM_MESSAGE });
   });
 
   it("should keep the attached letter after any other failure, for a retry", () => {
-    expect(letterAfterSubmit(ready, { ok: false, kind: "error", message: "db down" })).toBe(ready);
-    expect(letterAfterSubmit(ready, { ok: false, kind: "ineligible", reasons: [] })).toBe(ready);
+    const failed: ActionOutcome = { ok: false, kind: "error", message: "db down" };
+    expect(letterAfterSubmit(ready, failed)).toEqual({ letter: ready, outcome: failed });
+    const ineligible: ActionOutcome = { ok: false, kind: "ineligible", reasons: [] };
+    expect(letterAfterSubmit(ready, ineligible)).toEqual({ letter: ready, outcome: ineligible });
   });
 });
