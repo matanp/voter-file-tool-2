@@ -23,9 +23,23 @@ describe("sniffLetterContentType", () => {
     expect(sniffLetterContentType(bytes(0, 0, 0, 0x18, "ftypheic", 0, 0))).toBe(
       "image/heic",
     );
-    expect(sniffLetterContentType(bytes(0, 0, 0, 0x18, "ftypmif1", 0, 0))).toBe(
-      "image/heic",
-    );
+    // A generic HEIF major brand with HEIC among the compatible brands.
+    expect(
+      sniffLetterContentType(bytes(0, 0, 0, 0x18, "ftypmif1", 0, 0, 0, 0, "mif1heic")),
+    ).toBe("image/heic");
+  });
+
+  it("should refuse HEIF files that aren't HEIC, such as AVIF", () => {
+    expect(
+      sniffLetterContentType(bytes(0, 0, 0, 0x1c, "ftypavif", 0, 0, 0, 0, "avifmif1miaf")),
+    ).toBeNull();
+    expect(
+      sniffLetterContentType(bytes(0, 0, 0, 0x1c, "ftypmif1", 0, 0, 0, 0, "mif1avifmiaf")),
+    ).toBeNull();
+    // A HEIC brand past the end of the ftyp box doesn't count.
+    expect(
+      sniffLetterContentType(bytes(0, 0, 0, 0x14, "ftypmif1", 0, 0, 0, 0, "mif1heic")),
+    ).toBeNull();
   });
 
   it("should refuse other files, including ones named or typed as letters", () => {

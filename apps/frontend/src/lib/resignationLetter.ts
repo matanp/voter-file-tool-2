@@ -76,14 +76,43 @@ export function declaredLetterType(file: {
   return BY_EXTENSION[ext] ?? null;
 }
 
-/** How many leading bytes `sniffLetterContentType` needs. */
-export const LETTER_SNIFF_BYTES = 16;
+/**
+ * How many leading bytes `sniffLetterContentType` needs: enough for the
+ * `ftyp` box's compatible brands, which follow its first 16 bytes.
+ */
+export const LETTER_SNIFF_BYTES = 64;
 
-/** HEIF brands that mean an HEIC / HEIF still image (ISO/IEC 23008-12). */
-const HEIC_BRANDS = new Set(["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"]);
+/** HEVC-coded HEIF brands, i.e. HEIC (ISO/IEC 23008-12). */
+const HEIC_BRANDS = new Set(["heic", "heix", "heim", "heis", "hevc", "hevx"]);
+
+/**
+ * Generic HEIF brands. AVIF and other non-HEVC HEIF files use them too, so
+ * they count only alongside a HEIC brand among the compatible brands.
+ */
+const GENERIC_HEIF_BRANDS = new Set(["mif1", "msf1"]);
 
 function ascii(bytes: Uint8Array, start: number, end: number): string {
   return String.fromCharCode(...bytes.subarray(start, end));
+}
+
+/**
+ * True for an ISO BMFF `ftyp` box (at the start of the file) that declares
+ * HEIC: a HEIC major brand, or a generic HEIF one with a HEIC compatible
+ * brand.
+ */
+function isHeicFtyp(bytes: Uint8Array): boolean {
+  if (bytes.length < 12 || ascii(bytes, 4, 8) !== "ftyp") return false;
+  const major = ascii(bytes, 8, 12);
+  if (HEIC_BRANDS.has(major)) return true;
+  if (!GENERIC_HEIF_BRANDS.has(major)) return false;
+  const boxSize =
+    ((bytes[0]! << 24) | (bytes[1]! << 16) | (bytes[2]! << 8) | bytes[3]!) >>> 0;
+  const end = Math.min(boxSize, bytes.length);
+  // Compatible brands start after the major brand and minor version.
+  for (let at = 16; at + 4 <= end; at += 4) {
+    if (HEIC_BRANDS.has(ascii(bytes, at, at + 4))) return true;
+  }
+  return false;
 }
 
 /**
@@ -93,7 +122,7 @@ function ascii(bytes: Uint8Array, start: number, end: number): string {
  * - PDF: `%PDF-`
  * - JPEG: `FF D8 FF`
  * - PNG: `89 50 4E 47 0D 0A 1A 0A`
- * - HEIC: an ISO BMFF `ftyp` box at offset 4 with a HEIF major brand
+ * - HEIC: an ISO BMFF `ftyp` box at offset 4 declaring HEIC (`isHeicFtyp`)
  */
 export function sniffLetterContentType(
   bytes: Uint8Array,
@@ -113,13 +142,7 @@ export function sniffLetterContentType(
   if (bytes.length >= png.length && png.every((b, i) => bytes[i] === b)) {
     return "image/png";
   }
-  if (
-    bytes.length >= 12 &&
-    ascii(bytes, 4, 8) === "ftyp" &&
-    HEIC_BRANDS.has(ascii(bytes, 8, 12))
-  ) {
-    return "image/heic";
-  }
+  if (isHeicFtyp(bytes)) return "image/heic";
   return null;
 }
 
