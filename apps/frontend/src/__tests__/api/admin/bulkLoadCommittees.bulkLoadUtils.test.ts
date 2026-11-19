@@ -7,6 +7,7 @@ import {
   createMockCommitteeTerm,
   createMockGovernanceConfig,
   createMockMembership,
+  echoMembershipWrites,
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   expectAuditLogCreate,
@@ -37,9 +38,10 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 });
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
+  // The activation write runs for real, so its membership and Seat writes reach prismaMock.
+  ...jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils"),
   ensureSeatsExist: jest.fn(),
   assignNextAvailableSeat: jest.fn(),
-  markSeatPetitioned: jest.fn(),
 }));
 
 const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
@@ -118,6 +120,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
     });
     assignNextAvailableSeatMock.mockResolvedValue(1);
     ensureSeatsExistMock.mockResolvedValue(undefined);
+    echoMembershipWrites();
   });
 
   it("creates CommitteeMembership records and does not write legacy voterRecord.committeeId", async () => {

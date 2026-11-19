@@ -26,9 +26,11 @@ import {
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
+  activateMembershipInSeat,
   assignNextAvailableSeat,
-  markSeatPetitioned,
   ensureSeatsExist,
+  type MembershipActivation,
+  seatPetitionedAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import {
   CLEARED_EXIT_FIELDS,
@@ -895,28 +897,30 @@ async function activateMember(
     // an already-ACTIVE row keeps its exit and Exit Report fields (a pending
     // report stays pending). Only reactivation from another status clears them.
     const reactivating = existingMembership.status !== ACTIVE_MEMBERSHIP_STATUS;
+    let activation: MembershipActivation;
     try {
-      await tx.committeeMembership.update({
-        where: { id: existingMembership.id },
-        data: {
-          status: ACTIVE_MEMBERSHIP_STATUS,
-          activatedAt: existingMembership.activatedAt ?? new Date(),
-          membershipType,
-          seatNumber,
-          confirmedAt: null,
-          resignedAt: null,
-          removedAt: null,
-          rejectedAt: null,
-          rejectionNote: null,
-          // A reactivated row starts clean; an already-ACTIVE row keeps the petition
-          // result it won its seat with.
-          ...(reactivating
-            ? {
-                ...CLEARED_EXIT_FIELDS,
-                petitionVoteCount: null,
-                petitionPrimaryDate: null,
-              }
-            : {}),
+      activation = await activateMembershipInSeat(tx, {
+        update: {
+          where: { id: existingMembership.id },
+          data: {
+            activatedAt: existingMembership.activatedAt ?? new Date(),
+            membershipType,
+            seatNumber,
+            confirmedAt: null,
+            resignedAt: null,
+            removedAt: null,
+            rejectedAt: null,
+            rejectionNote: null,
+            // A reactivated row starts clean; an already-ACTIVE row keeps the petition
+            // result it won its seat with.
+            ...(reactivating
+              ? {
+                  ...CLEARED_EXIT_FIELDS,
+                  petitionVoteCount: null,
+                  petitionPrimaryDate: null,
+                }
+              : {}),
+          },
         },
       });
     } catch (error) {
@@ -927,12 +931,6 @@ async function activateMember(
         plannedMembershipType,
       );
     }
-    await markSeatPetitioned(tx, {
-      committeeListId: committee.id,
-      termId: term.id,
-      membershipType,
-      seatNumber,
-    });
     await logAuditEventOrThrow(
       actor.userId,
       actor.userRole,
@@ -949,6 +947,7 @@ async function activateMember(
         {
           source: "bulk_import_sync",
           committeeId: committee.id,
+          ...seatPetitionedAuditMetadata(activation),
         },
         subject(seatNumber),
       ),
@@ -963,14 +962,13 @@ async function activateMember(
   }
 
   const membershipType: MembershipType = plannedMembershipType;
-  let createdMembership;
+  let activation: MembershipActivation;
   try {
-    createdMembership = await tx.committeeMembership.create({
-      data: {
+    activation = await activateMembershipInSeat(tx, {
+      create: {
         voterRecordId,
         committeeListId: committee.id,
         termId: term.id,
-        status: ACTIVE_MEMBERSHIP_STATUS,
         activatedAt: new Date(),
         membershipType,
         seatNumber,
@@ -984,18 +982,12 @@ async function activateMember(
       plannedMembershipType,
     );
   }
-  await markSeatPetitioned(tx, {
-    committeeListId: committee.id,
-    termId: term.id,
-    membershipType,
-    seatNumber,
-  });
   await logAuditEventOrThrow(
     actor.userId,
     actor.userRole,
     "MEMBER_ACTIVATED",
     "CommitteeMembership",
-    createdMembership.id,
+    activation.membership.id,
     null,
     {
       status: ACTIVE_MEMBERSHIP_STATUS,
@@ -1006,6 +998,7 @@ async function activateMember(
       {
         source: "bulk_import_sync",
         committeeId: committee.id,
+        ...seatPetitionedAuditMetadata(activation),
       },
       subject(seatNumber),
     ),

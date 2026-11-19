@@ -14,9 +14,11 @@ import {
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
+  activateMembershipInSeat,
   assignNextAvailableSeat,
   ensureSeatsExist,
-  markSeatPetitioned,
+  type MembershipActivationWrite,
+  seatPetitionedAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
@@ -225,96 +227,66 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
         },
       );
 
-      // Create CommitteeMembership with status=ACTIVE (admin direct-add)
-      if (existingMembership) {
-        // Re-activate a previously non-active membership.
-        await tx.committeeMembership.update({
-          where: { id: existingMembership.id },
-          data: {
-            status: ACTIVE_MEMBERSHIP_STATUS,
-            activatedAt: new Date(),
-            membershipType,
-            seatNumber,
-            confirmedAt: null,
-            resignedAt: null,
-            removedAt: null,
-            rejectedAt: null,
-            rejectionNote: null,
-            resignationDateReceived: null,
-            resignationMethod: null,
-            removalReason: null,
-            removalNotes: null,
-            petitionVoteCount: null,
-            petitionPrimaryDate: null,
-            submissionMetadata: metadataForDbOrUndefined,
-          },
-        });
-        await markSeatPetitioned(tx, {
-          committeeListId: committee.id,
-          termId: activeTermId,
-          membershipType,
+      // Write the membership ACTIVE (admin direct-add): reactivate a previously
+      // non-active row, or create one.
+      const write: MembershipActivationWrite = existingMembership
+        ? {
+            update: {
+              where: { id: existingMembership.id },
+              data: {
+                activatedAt: new Date(),
+                membershipType,
+                seatNumber,
+                confirmedAt: null,
+                resignedAt: null,
+                removedAt: null,
+                rejectedAt: null,
+                rejectionNote: null,
+                resignationDateReceived: null,
+                resignationMethod: null,
+                removalReason: null,
+                removalNotes: null,
+                petitionVoteCount: null,
+                petitionPrimaryDate: null,
+                submissionMetadata: metadataForDbOrUndefined,
+              },
+            },
+          }
+        : {
+            create: {
+              voterRecordId: memberId,
+              committeeListId: committee.id,
+              termId: activeTermId,
+              activatedAt: new Date(),
+              membershipType,
+              seatNumber,
+              submissionMetadata: metadataForDbOrUndefined,
+            },
+          };
+      const activation = await activateMembershipInSeat(tx, write);
+      const auditMetadataWithSubject = mergeAuditMetadata(
+        auditMetadataWithWarnings as Record<string, unknown> | undefined,
+        buildMembershipAuditSubject({
+          voterRecord,
+          committee,
+          term: committee.term,
           seatNumber,
-        });
-        const auditMetadataWithSubject = mergeAuditMetadata(
-          auditMetadataWithWarnings as Record<string, unknown> | undefined,
-          buildMembershipAuditSubject({
-            voterRecord,
-            committee,
-            term: committee.term,
-            seatNumber,
-          }),
-        );
-        await logAuditEventOrThrow(
-          userId,
-          userRole,
-          "MEMBER_ACTIVATED",
-          "CommitteeMembership",
-          existingMembership.id,
-          { status: existingMembership.status },
-          { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
-          auditMetadataWithSubject,
-          tx,
-        );
-      } else {
-        const newMembership = await tx.committeeMembership.create({
-          data: {
-            voterRecordId: memberId,
-            committeeListId: committee.id,
-            termId: activeTermId,
-            status: ACTIVE_MEMBERSHIP_STATUS,
-            activatedAt: new Date(),
-            membershipType,
-            seatNumber,
-            submissionMetadata: metadataForDbOrUndefined,
-          },
-        });
-        await markSeatPetitioned(tx, {
-          committeeListId: committee.id,
-          termId: activeTermId,
-          membershipType,
-          seatNumber,
-        });
-        const auditMetadataWithSubject = mergeAuditMetadata(
-          auditMetadataWithWarnings as Record<string, unknown> | undefined,
-          buildMembershipAuditSubject({
-            voterRecord,
-            committee,
-            term: committee.term,
-            seatNumber,
-          }),
-        );
-        await logAuditEventOrThrow(
-          userId,
-          userRole,
-          "MEMBER_ACTIVATED",
-          "CommitteeMembership",
-          newMembership.id,
-          null,
-          { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
-          auditMetadataWithSubject,
-          tx,
-        );
-      }
+        }),
+      );
+      await logAuditEventOrThrow(
+        userId,
+        userRole,
+        "MEMBER_ACTIVATED",
+        "CommitteeMembership",
+        activation.membership.id,
+        existingMembership ? { status: existingMembership.status } : null,
+        { status: ACTIVE_MEMBERSHIP_STATUS, seatNumber },
+        {
+          ...auditMetadataWithSubject,
+          ...seatPetitionedAuditMetadata(activation),
+        },
+        tx,
+      );
 
       return { kind: "added" } as const;
     });

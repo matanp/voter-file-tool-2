@@ -2,6 +2,7 @@ import { AuditAction, Prisma, PrivilegeLevel } from "@prisma/client";
 import {
   logAuditEvent,
   logAuditEventOrThrow,
+  logAuditEventsOrThrow,
   SYSTEM_USER_ID,
 } from "~/lib/auditLog";
 import { prismaMock } from "../utils/mocks";
@@ -151,6 +152,87 @@ describe("auditLog", () => {
           metadata: { reason: "Manual override", ip: "127.0.0.1" },
         }),
       );
+    });
+  });
+
+  describe("logAuditEventsOrThrow", () => {
+    it("writes every event in one createMany, shaped like a single audit row", async () => {
+      prismaMock.auditLog.createMany.mockResolvedValue({ count: 2 });
+
+      await logAuditEventsOrThrow([
+        {
+          userId: "user-1",
+          userRole: PrivilegeLevel.Developer,
+          action: AuditAction.SEAT_PETITIONED_BACKFILLED,
+          entityType: "Seat",
+          entityId: "seat-1",
+          before: { isPetitioned: false },
+          after: { isPetitioned: true },
+          metadata: { seatNumber: 1 },
+        },
+        {
+          userId: "user-1",
+          userRole: PrivilegeLevel.Developer,
+          action: AuditAction.SEAT_PETITIONED_BACKFILLED,
+          entityType: "Seat",
+          entityId: "seat-2",
+          before: null,
+        },
+      ]);
+
+      expect(prismaMock.auditLog.createMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.auditLog.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            userId: "user-1",
+            userRole: PrivilegeLevel.Developer,
+            action: AuditAction.SEAT_PETITIONED_BACKFILLED,
+            entityType: "Seat",
+            entityId: "seat-1",
+            beforeValue: { isPetitioned: false },
+            afterValue: { isPetitioned: true },
+            metadata: { seatNumber: 1 },
+          },
+          {
+            userId: "user-1",
+            userRole: PrivilegeLevel.Developer,
+            action: AuditAction.SEAT_PETITIONED_BACKFILLED,
+            entityType: "Seat",
+            entityId: "seat-2",
+            beforeValue: Prisma.JsonNull,
+            afterValue: undefined,
+            metadata: undefined,
+          },
+        ],
+      });
+    });
+
+    it("writes nothing for an empty batch", async () => {
+      await logAuditEventsOrThrow([]);
+
+      expect(prismaMock.auditLog.createMany).not.toHaveBeenCalled();
+    });
+
+    it("throws when the batch insert fails", async () => {
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+      prismaMock.auditLog.createMany.mockRejectedValue(
+        new Error("DB connection lost"),
+      );
+
+      await expect(
+        logAuditEventsOrThrow([
+          {
+            userId: "user-1",
+            userRole: PrivilegeLevel.Developer,
+            action: AuditAction.SEAT_PETITIONED_BACKFILLED,
+            entityType: "Seat",
+            entityId: "seat-1",
+          },
+        ]),
+      ).rejects.toThrow("DB connection lost");
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
     });
   });
 });

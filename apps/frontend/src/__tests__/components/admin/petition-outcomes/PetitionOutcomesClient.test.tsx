@@ -109,8 +109,14 @@ jest.mock("~/components/ui/select", () => {
   };
 });
 
+const RECORDED_AT = new Date("2026-06-30T00:00:00.000Z");
+
 function buildCommitteeList(
-  seats: Array<{ id: string; seatNumber: number; outcomeRecorded: boolean }>,
+  seats: Array<{
+    id: string;
+    seatNumber: number;
+    petitionOutcomeRecordedAt: Date | null;
+  }>,
 ) {
   return [
     {
@@ -131,8 +137,8 @@ describe("PetitionOutcomesClient seat picker (SRS P1 revision)", () => {
 
   it("renders seats without a recorded outcome as enabled and seats with a recorded outcome as disabled with reason", async () => {
     const committeeLists = buildCommitteeList([
-      { id: "seat-1", seatNumber: 1, outcomeRecorded: false },
-      { id: "seat-2", seatNumber: 2, outcomeRecorded: true },
+      { id: "seat-1", seatNumber: 1, petitionOutcomeRecordedAt: null },
+      { id: "seat-2", seatNumber: 2, petitionOutcomeRecordedAt: RECORDED_AT },
     ]);
     render(
       <PetitionOutcomesClient
@@ -154,7 +160,7 @@ describe("PetitionOutcomesClient seat picker (SRS P1 revision)", () => {
 
   it("shows a helper message when every seat already has a recorded outcome", async () => {
     const committeeLists = buildCommitteeList([
-      { id: "seat-1", seatNumber: 1, outcomeRecorded: true },
+      { id: "seat-1", seatNumber: 1, petitionOutcomeRecordedAt: RECORDED_AT },
     ]);
     render(
       <PetitionOutcomesClient
@@ -176,7 +182,7 @@ describe("PetitionOutcomesClient seat picker (SRS P1 revision)", () => {
 
   it("disables Record outcome once the selected seat's outcome is recorded elsewhere (stale-state guard)", async () => {
     const initialCommitteeLists = buildCommitteeList([
-      { id: "seat-1", seatNumber: 1, outcomeRecorded: false },
+      { id: "seat-1", seatNumber: 1, petitionOutcomeRecordedAt: null },
     ]);
     const { rerender } = render(
       <PetitionOutcomesClient
@@ -192,7 +198,7 @@ describe("PetitionOutcomesClient seat picker (SRS P1 revision)", () => {
     expect(screen.getByRole("button", { name: "Record outcome" })).not.toBeDisabled();
 
     const updatedCommitteeLists = buildCommitteeList([
-      { id: "seat-1", seatNumber: 1, outcomeRecorded: true },
+      { id: "seat-1", seatNumber: 1, petitionOutcomeRecordedAt: RECORDED_AT },
     ]);
     rerender(
       <PetitionOutcomesClient

@@ -10,11 +10,13 @@ import {
   createCommitteeUpsertArgs,
   createMockGovernanceConfig,
   createMockMembership,
+  echoMembershipWrites,
   DEFAULT_ACTIVE_TERM_ID,
   createMockVoterRecord,
   expectMembershipCreate,
   expectMembershipUpdate,
   expectAuditLogCreate,
+  jsonContaining,
   getMembershipMock,
   getAuditLogMock,
   setupEligibilityPass,
@@ -50,9 +52,7 @@ describe("/api/committee/add", () => {
       );
       setupEligibilityPassTyped(prismaMock);
       getMembershipMockTyped(prismaMock).findUnique.mockResolvedValue(null);
-      getMembershipMockTyped(prismaMock).create.mockResolvedValue(
-        createMockMembership({ status: "ACTIVE" }),
-      );
+      echoMembershipWrites();
     };
 
     it("should successfully add a member to a committee", async () => {
@@ -114,7 +114,8 @@ describe("/api/committee/add", () => {
           seatNumber: 1,
         }),
       );
-      // A petitioned member's seat is flagged petitioned for the term.
+      // A petitioned member's seat is flagged petitioned for the term, and the
+      // activation's audit row records it.
       expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
         where: {
           committeeListId: 1,
@@ -124,6 +125,12 @@ describe("/api/committee/add", () => {
         },
         data: { isPetitioned: true },
       });
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          metadata: jsonContaining({ seatPetitioned: true }),
+        }),
+      );
     });
 
     it("should store email and phone in submissionMetadata when provided (SRS 2.1a)", async () => {

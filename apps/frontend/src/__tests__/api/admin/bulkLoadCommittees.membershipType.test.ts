@@ -12,6 +12,7 @@ import {
   createMockCommitteeTerm,
   createMockGovernanceConfig,
   createMockMembership,
+  echoMembershipWrites,
   createMockVoterRecord,
   DEFAULT_ACTIVE_TERM_ID,
   expectAuditLogCreate,
@@ -21,6 +22,7 @@ import {
   getAuditLogMock,
   getMembershipMock,
   jsonContaining,
+  jsonLacking,
   resolvesTo,
   setupRosterImportPrismaMocks,
 } from "../../utils/testUtils";
@@ -40,9 +42,10 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 });
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
+  // The activation write runs for real, so its membership and Seat writes reach prismaMock.
+  ...jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils"),
   ensureSeatsExist: jest.fn(),
   assignNextAvailableSeat: jest.fn(),
-  markSeatPetitioned: jest.fn(),
 }));
 
 const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
@@ -53,17 +56,27 @@ const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
 const assignNextAvailableSeatMock = jest.mocked(
   seatUtils.assignNextAvailableSeat,
 );
-const markSeatPetitionedMock = jest.mocked(seatUtils.markSeatPetitioned);
 
-const seatedAs = (
-  membershipType: RosterEntry["membershipType"],
-  seatNumber = 1,
-): seatUtils.SeatedMembership => ({
-  committeeListId: 101,
-  termId: DEFAULT_ACTIVE_TERM_ID,
-  membershipType,
-  seatNumber,
+const seatFlagWrite = (seatNumber = 1) => ({
+  where: {
+    committeeListId: 101,
+    termId: DEFAULT_ACTIVE_TERM_ID,
+    seatNumber,
+    isPetitioned: false,
+  },
+  data: { isPetitioned: true },
 });
+
+/** The activation's audit row records whether it flagged the seat. */
+const expectActivationAudit = (seatPetitioned: boolean) =>
+  expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+    expectAuditLogCreate({
+      action: "MEMBER_ACTIVATED",
+      metadata: seatPetitioned
+        ? jsonContaining({ seatPetitioned: true })
+        : jsonLacking("seatPetitioned"),
+    }),
+  );
 
 const rosterEntry = (
   vrcnum: string,
@@ -115,9 +128,8 @@ describe("membership type written by an import", () => {
         electionDistrict: 1,
       }),
     );
-    getMembershipMock(prismaMock).create.mockResolvedValue(
-      createMockMembership({ id: "m-new", status: "ACTIVE", seatNumber: 1 }),
-    );
+    echoMembershipWrites({ id: "m-new", committeeListId: 101 });
+    prismaMock.seat.updateMany.mockResolvedValue({ count: 1 });
     assignNextAvailableSeatMock.mockResolvedValue(1);
     ensureSeatsExistMock.mockResolvedValue(undefined);
   });
@@ -148,11 +160,13 @@ describe("membership type written by an import", () => {
           }),
         }),
       );
-      // The seat helper decides from the type; a PETITIONED member flags their seat.
-      expect(markSeatPetitionedMock).toHaveBeenCalledWith(
-        prismaMock,
-        seatedAs(membershipType),
-      );
+      // Only a PETITIONED member flags their seat, and the audit row says so.
+      if (membershipType === "PETITIONED") {
+        expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite());
+      } else {
+        expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
+      }
+      expectActivationAudit(membershipType === "PETITIONED");
     },
   );
 
@@ -180,10 +194,8 @@ describe("membership type written by an import", () => {
         { id: "m-existing" },
       ),
     );
-    expect(markSeatPetitionedMock).toHaveBeenCalledWith(
-      prismaMock,
-      seatedAs("APPOINTED"),
-    );
+    expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
+    expectActivationAudit(false);
   });
 
   it("takes the entry's type when reactivating a membership that has none", async () => {
@@ -218,10 +230,8 @@ describe("membership type written by an import", () => {
         }),
       }),
     );
-    expect(markSeatPetitionedMock).toHaveBeenCalledWith(
-      prismaMock,
-      seatedAs("PETITIONED"),
-    );
+    expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite());
+    expectActivationAudit(true);
   });
 
   it("keeps the petition result on a member who is already ACTIVE and flags their seat", async () => {
@@ -250,9 +260,19 @@ describe("membership type written by an import", () => {
     expect(update.data).toMatchObject({ status: "ACTIVE", seatNumber: 3 });
     expect(update.data).not.toHaveProperty("petitionVoteCount");
     expect(update.data).not.toHaveProperty("petitionPrimaryDate");
-    expect(markSeatPetitionedMock).toHaveBeenCalledWith(
-      prismaMock,
-      seatedAs("PETITIONED", 3),
-    );
+    expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite(3));
+    expectActivationAudit(true);
+  });
+
+  it("does not record a seat flag the seat already had", async () => {
+    prismaMock.seat.updateMany.mockResolvedValue({ count: 0 });
+
+    await applyRosterImport({
+      entries: [rosterEntry("VRC001", "PETITIONED")],
+      rejected: [],
+    });
+
+    expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite());
+    expectActivationAudit(false);
   });
 });

@@ -20,9 +20,10 @@ import {
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
+  activateMembershipInSeat,
   assignNextAvailableSeat,
   ensureSeatsExist,
-  markSeatPetitioned,
+  seatPetitionedAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -216,28 +217,28 @@ async function handleCommitteeDiscrepancyHandler(
             const membershipType: MembershipType =
               existingMembership.membershipType ?? incomingMembershipType;
 
-            const updatedMembership = await tx.committeeMembership.update({
-              where: { id: existingMembership.id },
-              data: {
-                status: ACTIVE_MEMBERSHIP_STATUS,
-                activatedAt: new Date(),
-                membershipType,
-                seatNumber,
-                confirmedAt: null,
-                resignedAt: null,
-                removedAt: null,
-                rejectedAt: null,
-                rejectionNote: null,
-                resignationDateReceived: null,
-                resignationMethod: null,
-                removalReason: null,
-                removalNotes: null,
-                petitionVoteCount: null,
-                petitionPrimaryDate: null,
+            const activation = await activateMembershipInSeat(tx, {
+              update: {
+                where: { id: existingMembership.id },
+                data: {
+                  activatedAt: new Date(),
+                  membershipType,
+                  seatNumber,
+                  confirmedAt: null,
+                  resignedAt: null,
+                  removedAt: null,
+                  rejectedAt: null,
+                  rejectionNote: null,
+                  resignationDateReceived: null,
+                  resignationMethod: null,
+                  removalReason: null,
+                  removalNotes: null,
+                  petitionVoteCount: null,
+                  petitionPrimaryDate: null,
+                },
               },
             });
-
-            await markSeatPetitioned(tx, updatedMembership);
+            const updatedMembership = activation.membership;
 
             resolutionMetadata.membershipId = updatedMembership.id;
             resolutionMetadata.membershipAfter =
@@ -255,6 +256,7 @@ async function handleCommitteeDiscrepancyHandler(
                 {
                   source: "discrepancy_accept",
                   discrepancyVrcnum: VRCNUM,
+                  ...seatPetitionedAuditMetadata(activation),
                 },
                 buildMembershipAuditSubject({
                   voterRecord,
@@ -269,19 +271,17 @@ async function handleCommitteeDiscrepancyHandler(
           } else {
             resolutionMetadata.membershipOutcome = "created";
 
-            const createdMembership = await tx.committeeMembership.create({
-              data: {
+            const activation = await activateMembershipInSeat(tx, {
+              create: {
                 voterRecordId: VRCNUM,
                 committeeListId: discrepancy.committee.id,
                 termId: discrepancy.committee.termId,
-                status: ACTIVE_MEMBERSHIP_STATUS,
                 activatedAt: new Date(),
                 membershipType: incomingMembershipType,
                 seatNumber,
               },
             });
-
-            await markSeatPetitioned(tx, createdMembership);
+            const createdMembership = activation.membership;
 
             resolutionMetadata.membershipId = createdMembership.id;
             resolutionMetadata.membershipAfter =
@@ -303,6 +303,7 @@ async function handleCommitteeDiscrepancyHandler(
                 {
                   source: "discrepancy_accept",
                   discrepancyVrcnum: VRCNUM,
+                  ...seatPetitionedAuditMetadata(activation),
                 },
                 buildMembershipAuditSubject({
                   voterRecord,

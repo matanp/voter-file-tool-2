@@ -10,6 +10,7 @@ import {
 import { prismaMock } from "../../utils/mocks";
 import {
   createMockMembership,
+  echoMembershipWrites,
   DEFAULT_ACTIVE_TERM_ID,
   expectAuditLogCreate,
   expectMembershipUpdate,
@@ -18,6 +19,7 @@ import {
   getAuditLogMock,
   getMembershipMock,
   jsonContaining,
+  jsonLacking,
   setupMembershipAuditSubjectMocks,
 } from "../../utils/testUtils";
 
@@ -36,7 +38,7 @@ describe("membershipConfirmation", () => {
     prismaMock.$queryRaw.mockResolvedValue([] as never);
     getMembershipMock(prismaMock).findFirst.mockResolvedValue(null);
     getMembershipMock(prismaMock).findMany.mockResolvedValue([]);
-    getMembershipMock(prismaMock).update.mockResolvedValue({});
+    echoMembershipWrites();
     getMembershipMock(prismaMock).updateMany.mockResolvedValue({ count: 1 });
     getAuditLogMock(prismaMock).create.mockResolvedValue({});
     (prismaMock.seat as { count: jest.Mock }).count = jest
@@ -111,7 +113,8 @@ describe("membershipConfirmation", () => {
           { id: MEMBERSHIP_ID },
         ),
       );
-      // Confirming a PETITIONED member flags their seat petitioned.
+      // Confirming a PETITIONED member flags their seat petitioned, and the
+      // MEMBER_ACTIVATED row records it (MEMBER_CONFIRMED doesn't seat anyone).
       expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
         where: {
           committeeListId: 1,
@@ -121,6 +124,18 @@ describe("membershipConfirmation", () => {
         },
         data: { isPetitioned: true },
       });
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_ACTIVATED",
+          metadata: jsonContaining({ seatPetitioned: true }),
+        }),
+      );
+      expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+        expectAuditLogCreate({
+          action: "MEMBER_CONFIRMED",
+          metadata: jsonLacking("seatPetitioned"),
+        }),
+      );
     });
 
     it("returns notFound when membership is missing", async () => {

@@ -311,6 +311,7 @@ describePg("Petitioned seat backfill (PostgreSQL)", () => {
       beforeValue: { isPetitioned: false },
       afterValue: { isPetitioned: true },
       metadata: expect.objectContaining({
+        source: backfill.PETITIONED_SEAT_BACKFILL_SOURCE,
         termId: TERM_ID,
         committeeListId: committeeId,
         seatNumber: 1,

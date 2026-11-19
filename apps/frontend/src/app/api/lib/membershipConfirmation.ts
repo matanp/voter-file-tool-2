@@ -15,9 +15,10 @@ import {
   isVoterActiveInAnotherCommittee,
 } from "~/app/api/lib/committeeValidation";
 import {
+  activateMembershipInSeat,
   assignNextAvailableSeat,
   ensureSeatsExist,
-  markSeatPetitioned,
+  seatPetitionedAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import {
   supersededExitReportMetadata,
@@ -252,26 +253,21 @@ export async function confirmSubmittedMembership(
       ? { ...existingMeta, eligibilityWarnings }
       : existingMeta;
 
-  await tx.committeeMembership.update({
-    where: { id: membershipId },
-    data: {
-      status: ACTIVE_MEMBERSHIP_STATUS,
-      confirmedAt: now,
-      activatedAt: now,
-      meetingRecordId,
-      membershipType,
-      seatNumber,
-      submissionMetadata:
-        Object.keys(updatedSubmissionMetadata).length > 0
-          ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
-          : undefined,
+  const activation = await activateMembershipInSeat(tx, {
+    update: {
+      where: { id: membershipId },
+      data: {
+        confirmedAt: now,
+        activatedAt: now,
+        meetingRecordId,
+        membershipType,
+        seatNumber,
+        submissionMetadata:
+          Object.keys(updatedSubmissionMetadata).length > 0
+            ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
+            : undefined,
+      },
     },
-  });
-  await markSeatPetitioned(tx, {
-    committeeListId: submittedMembership.committeeListId,
-    termId: submittedMembership.termId,
-    membershipType,
-    seatNumber,
   });
 
   const confirmedSnapshot = {
@@ -322,7 +318,10 @@ export async function confirmSubmittedMembership(
     membershipId,
     { status: "CONFIRMED" },
     activatedSnapshot,
-    auditMetadataWithSubject,
+    {
+      ...auditMetadataWithSubject,
+      ...seatPetitionedAuditMetadata(activation),
+    },
     tx,
   );
 

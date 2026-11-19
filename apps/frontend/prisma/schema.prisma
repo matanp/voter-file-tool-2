@@ -410,7 +410,7 @@ model Seat {
   termId          String
   seatNumber      Int           // 1–maxSeatsPerLted
   // The seat was won by petition this term. Set by every write that seats an ACTIVE PETITIONED
-  // member (markSeatPetitioned) and by the petition-outcomes recorder; never cleared, so a seat
+  // member (activateMembershipInSeat) and by the petition-outcomes recorder; never cleared, so a seat
   // stays petitioned after its winner leaves and someone is appointed.
   isPetitioned    Boolean       @default(false)
   // When an Admin recorded this seat's petition/primary outcome. Null until then. This, not

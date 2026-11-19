@@ -2,7 +2,7 @@
  * SRS 1.4 — Seat model utilities: creation, assignment, and weight computation.
  */
 
-import { type MembershipType, Prisma } from "@prisma/client";
+import { type CommitteeMembership, Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { getGovernanceConfig, ACTIVE_MEMBERSHIP_STATUS } from "./committeeValidation";
 type SeatUtilsClient = Pick<
@@ -145,30 +145,31 @@ export function computeSeatWeight(
 }
 
 /** The seat an ACTIVE membership was just written into, and how its member got it. */
-export type SeatedMembership = {
-  committeeListId: number;
-  termId: string;
-  seatNumber: number | null;
-  membershipType: MembershipType | null;
-};
+export type SeatedMembership = Pick<
+  CommitteeMembership,
+  "committeeListId" | "termId" | "seatNumber" | "membershipType"
+>;
 
 /**
- * Marks the seat as won by petition for the term. Call it right after every write that makes
- * a membership ACTIVE in a seat; it does nothing unless the member is PETITIONED. It only ever
- * sets the flag: a petitioned seat stays petitioned after its member leaves, so Vacancy and
- * Weight reports keep counting it. Idempotent.
+ * Marks the seat as won by petition for the term; does nothing unless the member is
+ * PETITIONED. It only ever sets the flag: a petitioned seat stays petitioned after its
+ * member leaves, so Vacancy and Weight reports keep counting it. Idempotent. Returns
+ * whether it changed the seat.
+ *
+ * Not exported: activations go through activateMembershipInSeat, so the flag can't be
+ * forgotten on a new path.
  */
-export async function markSeatPetitioned(
+async function markSeatPetitioned(
   tx: Prisma.TransactionClient,
   membership: SeatedMembership,
-): Promise<void> {
+): Promise<boolean> {
   if (
     membership.membershipType !== "PETITIONED" ||
     membership.seatNumber === null
   ) {
-    return;
+    return false;
   }
-  await tx.seat.updateMany({
+  const { count } = await tx.seat.updateMany({
     where: {
       committeeListId: membership.committeeListId,
       termId: membership.termId,
@@ -177,4 +178,62 @@ export async function markSeatPetitioned(
     },
     data: { isPetitioned: true },
   });
+  return count > 0;
+}
+
+type ActivationUpdateData = Omit<
+  Prisma.CommitteeMembershipUncheckedUpdateInput,
+  "status"
+>;
+type ActivationCreateData = Omit<
+  Prisma.CommitteeMembershipUncheckedCreateInput,
+  "status"
+>;
+
+/** Reactivate (or rewrite) an existing row, or create a new one; the status is always ACTIVE. */
+export type MembershipActivationWrite =
+  | {
+      update: {
+        where: Prisma.CommitteeMembershipWhereUniqueInput;
+        data: ActivationUpdateData;
+      };
+    }
+  | { create: ActivationCreateData };
+
+export type MembershipActivation = {
+  membership: CommitteeMembership;
+  /** True when this activation flagged the seat petitioned (it wasn't already). */
+  seatPetitioned: boolean;
+};
+
+/**
+ * The one write that makes a membership ACTIVE in a seat: writes the row with status
+ * ACTIVE, then flags the seat petitioned when the member is PETITIONED. Callers record
+ * `seatPetitioned` in their activation audit row via seatPetitionedAuditMetadata.
+ */
+export async function activateMembershipInSeat(
+  tx: Prisma.TransactionClient,
+  write: MembershipActivationWrite,
+): Promise<MembershipActivation> {
+  const membership =
+    "update" in write
+      ? await tx.committeeMembership.update({
+          where: write.update.where,
+          data: { ...write.update.data, status: ACTIVE_MEMBERSHIP_STATUS },
+        })
+      : await tx.committeeMembership.create({
+          data: { ...write.create, status: ACTIVE_MEMBERSHIP_STATUS },
+        });
+  const seatPetitioned = await markSeatPetitioned(tx, membership);
+  return { membership, seatPetitioned };
+}
+
+/**
+ * Audit metadata for an activation: `{ seatPetitioned: true }` when it flagged its seat,
+ * nothing otherwise. Spread into the activation's MEMBER_ACTIVATED metadata.
+ */
+export function seatPetitionedAuditMetadata(
+  activation: Pick<MembershipActivation, "seatPetitioned">,
+): { seatPetitioned?: true } {
+  return activation.seatPetitioned ? { seatPetitioned: true } : {};
 }

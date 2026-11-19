@@ -5,15 +5,16 @@
 import { Prisma } from "@prisma/client";
 import {
   assignNextAvailableSeat,
+  activateMembershipInSeat,
   ensureSeatsExist,
-  markSeatPetitioned,
   recomputeSeatWeights,
-  type SeatedMembership,
+  seatPetitionedAuditMetadata,
 } from "~/app/api/lib/seatUtils";
 import { prismaMock } from "../../utils/mocks";
 import {
   createMockGovernanceConfig,
   createMockMembership,
+  echoMembershipWrites,
   expectSeatCreateMany,
   expectSeatUpdateMany,
 } from "../../utils/testUtils";
@@ -148,36 +149,100 @@ describe("seatUtils", () => {
     });
   });
 
-  describe("markSeatPetitioned", () => {
-    const seated: SeatedMembership = {
-      committeeListId: 7,
-      termId: "term-1",
-      membershipType: "PETITIONED",
-      seatNumber: 2,
+  describe("activateMembershipInSeat", () => {
+    const seatFlagWrite = {
+      where: {
+        committeeListId: 7,
+        termId: "term-1",
+        seatNumber: 2,
+        isPetitioned: false,
+      },
+      data: { isPetitioned: true },
     };
 
-    it("flags the seat of a PETITIONED member, and only sets it true", async () => {
-      await markSeatPetitioned(prismaMock, seated);
+    beforeEach(() => {
+      echoMembershipWrites({ committeeListId: 7, termId: "term-1" });
+    });
 
-      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
-        where: {
+    it("creates the row ACTIVE and flags a PETITIONED member's seat", async () => {
+      prismaMock.seat.updateMany.mockResolvedValue({ count: 1 });
+
+      const activation = await activateMembershipInSeat(prismaMock, {
+        create: {
+          voterRecordId: "VRC1",
           committeeListId: 7,
           termId: "term-1",
+          membershipType: "PETITIONED",
           seatNumber: 2,
-          isPetitioned: false,
         },
-        data: { isPetitioned: true },
+      });
+
+      expect(prismaMock.committeeMembership.create).toHaveBeenCalledWith({
+        data: {
+          voterRecordId: "VRC1",
+          committeeListId: 7,
+          termId: "term-1",
+          membershipType: "PETITIONED",
+          seatNumber: 2,
+          status: "ACTIVE",
+        },
+      });
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite);
+      expect(activation.seatPetitioned).toBe(true);
+      expect(activation.membership).toMatchObject({
+        status: "ACTIVE",
+        membershipType: "PETITIONED",
+        seatNumber: 2,
+      });
+      expect(seatPetitionedAuditMetadata(activation)).toEqual({
+        seatPetitioned: true,
       });
     });
 
-    it.each<[string, Partial<SeatedMembership>]>([
-      ["an APPOINTED member", { membershipType: "APPOINTED" }],
-      ["an untyped member", { membershipType: null }],
-      ["a member with no seat", { seatNumber: null }],
-    ])("leaves the seat alone for %s", async (_label, override) => {
-      await markSeatPetitioned(prismaMock, { ...seated, ...override });
+    it("updates an existing row ACTIVE and flags its seat from the written row", async () => {
+      prismaMock.seat.updateMany.mockResolvedValue({ count: 1 });
+
+      const activation = await activateMembershipInSeat(prismaMock, {
+        update: {
+          where: { id: "m-1" },
+          data: { membershipType: "PETITIONED", seatNumber: 2 },
+        },
+      });
+
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith({
+        where: { id: "m-1" },
+        data: { membershipType: "PETITIONED", seatNumber: 2, status: "ACTIVE" },
+      });
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite);
+      expect(activation.seatPetitioned).toBe(true);
+    });
+
+    it("reports no change when the seat was already petitioned", async () => {
+      prismaMock.seat.updateMany.mockResolvedValue({ count: 0 });
+
+      const activation = await activateMembershipInSeat(prismaMock, {
+        update: {
+          where: { id: "m-1" },
+          data: { membershipType: "PETITIONED", seatNumber: 2 },
+        },
+      });
+
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(seatFlagWrite);
+      expect(activation.seatPetitioned).toBe(false);
+      expect(seatPetitionedAuditMetadata(activation)).toEqual({});
+    });
+
+    it.each<[string, Prisma.CommitteeMembershipUncheckedUpdateInput]>([
+      ["an APPOINTED member", { membershipType: "APPOINTED", seatNumber: 2 }],
+      ["an untyped member", { membershipType: null, seatNumber: 2 }],
+      ["a member with no seat", { membershipType: "PETITIONED", seatNumber: null }],
+    ])("leaves the seat alone for %s", async (_label, data) => {
+      const activation = await activateMembershipInSeat(prismaMock, {
+        update: { where: { id: "m-1" }, data },
+      });
 
       expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
+      expect(activation.seatPetitioned).toBe(false);
     });
   });
 });

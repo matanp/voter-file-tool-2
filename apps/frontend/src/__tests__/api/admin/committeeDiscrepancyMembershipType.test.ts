@@ -66,9 +66,10 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 });
 
 jest.mock("~/app/api/lib/seatUtils", () => ({
+  // The activation write runs for real, so its membership and Seat writes reach prismaMock.
+  ...jest.requireActual<typeof seatUtils>("~/app/api/lib/seatUtils"),
   ensureSeatsExist: jest.fn(),
   assignNextAvailableSeat: jest.fn(),
-  markSeatPetitioned: jest.fn(),
 }));
 
 const parseWithFormatMock = jest.fn();
@@ -94,7 +95,6 @@ const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
 const assignNextAvailableSeatMock = jest.mocked(
   seatUtils.assignNextAvailableSeat,
 );
-const markSeatPetitionedMock = jest.mocked(seatUtils.markSeatPetitioned);
 
 const VRCNUM = "VRC-PETITIONED-1";
 const COMMITTEE_ID = 101;
@@ -570,10 +570,26 @@ const acceptStoredDiscrepancyExpectingPetitionedMembership = async () => {
       seatNumber: 1,
     }),
   );
-  // The written row goes to the seat helper, which flags the seat for a PETITIONED member.
-  expect(markSeatPetitionedMock).toHaveBeenCalledWith(
-    prismaMock,
-    createdMembership,
+  // The written row's seat is flagged for a PETITIONED member, and the activation's
+  // audit row records it.
+  expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
+    where: {
+      committeeListId: COMMITTEE_ID,
+      termId: createdMembership.termId,
+      seatNumber: 1,
+      isPetitioned: false,
+    },
+    data: { isPetitioned: true },
+  });
+  expect(getAuditLogMock(prismaMock).create).toHaveBeenCalledWith(
+    expectAuditLogCreate({
+      action: "MEMBER_ACTIVATED",
+      entityId: "m-new",
+      metadata: jsonContaining({
+        source: "discrepancy_accept",
+        seatPetitioned: true,
+      }),
+    }),
   );
 };
 

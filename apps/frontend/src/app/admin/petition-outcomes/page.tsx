@@ -66,13 +66,7 @@ export default async function PetitionOutcomesPage({
       <PetitionOutcomesClient
         activeTermId={activeTermId}
         termLabel={term?.label ?? ""}
-        committeeLists={committeeLists.map((committee) => ({
-          ...committee,
-          seats: committee.seats.map(({ petitionOutcomeRecordedAt, ...seat }) => ({
-            ...seat,
-            outcomeRecorded: petitionOutcomeRecordedAt !== null,
-          })),
-        }))}
+        committeeLists={committeeLists}
         initialCommitteeListId={initialCommitteeListId}
       />
     </div>

@@ -16,6 +16,11 @@
  */
 
 import type { PrismaClient, Prisma, PrivilegeLevel } from "@prisma/client";
+// Relative, not ~/: scripts/backfillPetitionedSeats.ts imports this module directly.
+import { logAuditEventsOrThrow } from "../auditLog";
+
+/** `metadata.source` on the backfill's SEAT_PETITIONED_BACKFILLED audit rows. */
+export const PETITIONED_SEAT_BACKFILL_SOURCE = "petitioned_seat_backfill";
 
 export type PetitionedSeatSource = "membership" | "petition" | "audit";
 
@@ -246,17 +251,17 @@ export async function applyPetitionedSeatBackfill(
         );
       }
 
-      await tx.auditLog.createMany({
-        data: preview.toFlag.map((candidate) => ({
+      await logAuditEventsOrThrow(
+        preview.toFlag.map((candidate) => ({
           userId: actor.userId,
           userRole: actor.userRole,
           action: "SEAT_PETITIONED_BACKFILLED" as const,
           entityType: "Seat",
           entityId: candidate.seatId,
-          beforeValue: { isPetitioned: false },
-          afterValue: { isPetitioned: true },
+          before: { isPetitioned: false },
+          after: { isPetitioned: true },
           metadata: {
-            source: "petitioned_seat_backfill",
+            source: PETITIONED_SEAT_BACKFILL_SOURCE,
             evidence: candidate.sources,
             committeeListId: candidate.committeeListId,
             termId,
@@ -266,7 +271,8 @@ export async function applyPetitionedSeatBackfill(
             electionDistrict: candidate.electionDistrict,
           },
         })),
-      });
+        tx,
+      );
 
       return { flagged: updated.count, preview };
     },
