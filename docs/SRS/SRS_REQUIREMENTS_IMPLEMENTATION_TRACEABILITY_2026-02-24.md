@@ -154,7 +154,7 @@ Gap:
 | --- | --- | --- |
 | Singleton `CommitteeGovernanceConfig` row | Implemented | Schema + singleton index migration + seed (`apps/frontend/prisma/schema.prisma`, `apps/frontend/prisma/migrations/20260218213513_committee_governance_config_singleton/migration.sql`, `apps/frontend/prisma/seed.ts`) |
 | Configurable `requiredPartyCode` | Implemented | Eligibility + BOE flagging + admin validation against dropdown values (`apps/frontend/src/lib/eligibility.ts`, `packages/shared-prisma/src/boeEligibilityFlagging.ts`, `apps/frontend/src/app/api/admin/governance-config/route.ts`) |
-| Configurable `maxSeatsPerLted` | Implemented | Capacity + seat creation + seat weight + UI usage (`apps/frontend/src/lib/eligibility.ts`, `apps/frontend/src/app/api/lib/seatUtils.ts`, `apps/frontend/src/app/committees/CommitteeSelector.tsx`) |
+| Configurable `maxSeatsPerLted` | Implemented | Capacity + seat creation + UI usage; not the seat weight since 2026-11-18, which is the LTED weight itself (`apps/frontend/src/lib/eligibility.ts`, `apps/frontend/src/app/api/lib/seatUtils.ts`, `apps/frontend/src/app/committees/CommitteeSelector.tsx`) |
 | Configurable `requireAssemblyDistrictMatch` | Implemented | Eligibility hard-stop and BOE flagging respect toggle (`apps/frontend/src/lib/eligibility.ts`, `packages/shared-prisma/src/boeEligibilityFlagging.ts`) |
 | Admin-operational configurability in app | Implemented | Admin page/API/tests (`apps/frontend/src/app/admin/governance-config/GovernanceConfigClient.tsx`, `apps/frontend/src/app/api/admin/governance-config/route.ts`, `apps/frontend/src/__tests__/api/admin/governance-config.integration.test.ts`) |
 

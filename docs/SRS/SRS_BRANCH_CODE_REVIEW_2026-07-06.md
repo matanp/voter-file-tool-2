@@ -104,6 +104,8 @@ Requirement:
 
 - Governance config §2.2 says `maxSeatsPerLted` affects capacity checks, seat model creation, and `seatWeight = ltedWeight / maxSeatsPerLted`.
 
+  _Updated 2026-11-18: the seat weight is now the LTED weight itself, not divided by `maxSeatsPerLted` (see **LTED Weight** in `CONTEXT.md`)._
+
 Evidence:
 
 - The governance config route updates only the singleton config at `apps/frontend/src/app/api/admin/governance-config/route.ts:156`.

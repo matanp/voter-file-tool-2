@@ -8,6 +8,8 @@ Confirmed. The governance config PATCH route updates only the singleton `Committ
 
 This conflicts with Governance Config 2.2, which says `maxSeatsPerLted` affects capacity checks, seat model creation, and `seatWeight = ltedWeight / maxSeatsPerLted`.
 
+_Updated 2026-11-18: the seat weight is now the LTED weight itself, not divided by `maxSeatsPerLted` (see **LTED Weight** in `CONTEXT.md`)._ A `maxSeatsPerLted` change therefore no longer changes any seat's weight.
+
 ## Evidence Checked
 
 - `apps/frontend/src/app/api/admin/governance-config/route.ts`
@@ -100,7 +102,7 @@ This conflicts with Governance Config 2.2, which says `maxSeatsPerLted` affects 
      - 4 -> 2 does not reject because of a historical-term petitioned seat 3 or 4.
      - 4 -> 2 deletes vacant non-petitioned active-term seats 3 and 4.
      - 4 -> 2 leaves historical-term seats unchanged.
-     - Weight recomputation uses `ltedWeight / newMaxSeats`.
+     - Weight recomputation uses `ltedWeight / newMaxSeats`. (Superseded 2026-11-18: seats now get `ltedWeight` unchanged.)
    - Route tests:
      - PATCH calls reconciliation only when max changes.
      - PATCH for non-seat config fields succeeds without an active term.
