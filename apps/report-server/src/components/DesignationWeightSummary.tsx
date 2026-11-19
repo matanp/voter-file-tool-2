@@ -11,7 +11,10 @@ export type WeightSummaryRow = {
   occupiedPetitioned: number;
   vacantPetitioned: number;
   appointed: number;
-  ltedWeight: number;
+  /** Per-seat weight; null when the committee has no LTED weight. */
+  ltedWeight: number | null;
+  /** The ED's full weight: LTED weight × petitioned seats, filled or not. */
+  baseWeight: number | null;
   designationWeight: number;
   missingWeights: string;
 };
@@ -44,9 +47,8 @@ export function summaryToRow(s: DesignationWeightSummary): WeightSummaryRow {
   const appointed = s.seats.filter(
     (x) => x.occupantMembershipType === 'APPOINTED',
   ).length;
-  const ltedWeight = s.seats
-    .filter((x) => x.isPetitioned && x.seatWeight != null)
-    .reduce((sum, x) => sum + (x.seatWeight ?? 0), 0);
+  const baseWeight =
+    s.ltedWeight != null ? s.ltedWeight * petitionedSeats : null;
 
   return {
     cityTown: s.cityTown,
@@ -57,7 +59,8 @@ export function summaryToRow(s: DesignationWeightSummary): WeightSummaryRow {
     occupiedPetitioned,
     vacantPetitioned,
     appointed,
-    ltedWeight,
+    ltedWeight: s.ltedWeight,
+    baseWeight,
     designationWeight: s.totalWeight,
     missingWeights: s.missingWeightSeatNumbers.length > 0
       ? s.missingWeightSeatNumbers.join(', ')
@@ -90,6 +93,9 @@ export function groupWeightSummaries(
 }
 
 const MAX_ROWS_PER_PAGE = 20;
+
+const formatWeight = (weight: number | null) =>
+  weight != null ? weight.toFixed(2) : '—';
 
 const DesignationWeightSummaryReport = React.forwardRef<
   HTMLDivElement,
@@ -136,6 +142,9 @@ const DesignationWeightSummaryReport = React.forwardRef<
           LTED Weight
         </th>
         <th className="border border-gray-400 px-2 py-1 text-left">
+          Base Weight
+        </th>
+        <th className="border border-gray-400 px-2 py-1 text-left">
           Designation Weight
         </th>
         <th className="border border-gray-400 px-2 py-1 text-left">
@@ -165,7 +174,10 @@ const DesignationWeightSummaryReport = React.forwardRef<
           {row.appointed}
         </td>
         <td className="border border-gray-400 px-2 py-1 text-right">
-          {row.ltedWeight.toFixed(2)}
+          {formatWeight(row.ltedWeight)}
+        </td>
+        <td className="border border-gray-400 px-2 py-1 text-right">
+          {formatWeight(row.baseWeight)}
         </td>
         <td className="border border-gray-400 px-2 py-1 text-right">
           {row.designationWeight.toFixed(2)}
@@ -214,7 +226,7 @@ const DesignationWeightSummaryReport = React.forwardRef<
                       {pageIdx === pageChunks.length - 1 && (
                         <tr className="bg-gray-50 font-semibold">
                           <td
-                            colSpan={7}
+                            colSpan={8}
                             className="border border-gray-400 px-2 py-1 text-right"
                           >
                             Subtotal

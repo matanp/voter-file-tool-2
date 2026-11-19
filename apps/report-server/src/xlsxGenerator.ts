@@ -289,7 +289,7 @@ export async function generateVoterListXLSXAndUpload(
   );
 }
 
-const WEIGHT_SUMMARY_COLUMN_WIDTHS = [15, 12, 12, 12, 12, 18, 18, 12, 18, 18, 25];
+const WEIGHT_SUMMARY_COLUMN_WIDTHS = [15, 12, 12, 12, 12, 18, 18, 12, 18, 18, 18, 25];
 
 /**
  * Generates and uploads the Designation Weight Summary XLSX report.
@@ -311,6 +311,7 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
     'Vacant Petitioned',
     'Appointed',
     'LTED Weight',
+    'Base Weight',
     'Designation Weight',
     'Notes',
   ];
@@ -328,13 +329,15 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
         row.occupiedPetitioned,
         row.vacantPetitioned,
         row.appointed,
-        row.ltedWeight.toFixed(2),
+        row.ltedWeight?.toFixed(2) ?? '',
+        row.baseWeight?.toFixed(2) ?? '',
         row.designationWeight.toFixed(2),
         row.missingWeights || '',
       ]);
     }
     worksheetData.push([
       'Subtotal',
+      '',
       '',
       '',
       '',
@@ -350,6 +353,7 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
   }
   worksheetData.push([
     'Grand Total',
+    '',
     '',
     '',
     '',

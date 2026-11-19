@@ -12,6 +12,7 @@ import {
   mapCommitteesToReportShape,
   type CommitteeWithMembers,
 } from '../committeeMappingHelpers';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
 jest.mock('../lib/prisma', () => ({
@@ -393,6 +394,31 @@ describe('mapCommitteesToReportShape', () => {
 });
 
 describe('computeDesignationWeight', () => {
+  it("carries the committee's per-seat LTED weight onto the summary", () => {
+    const base = {
+      id: 1,
+      cityTown: 'ROCHESTER',
+      legDistrict: 17,
+      electionDistrict: 1,
+      termId: 'term-1',
+      seats: [],
+      memberships: [],
+    };
+
+    expect(
+      computeDesignationWeight({
+        ...base,
+        ltedWeight: new Prisma.Decimal('128.5'),
+      } as unknown as CommitteeWithMembers).ltedWeight,
+    ).toBe(128.5);
+    expect(
+      computeDesignationWeight({
+        ...base,
+        ltedWeight: null,
+      } as unknown as CommitteeWithMembers).ltedWeight,
+    ).toBeNull();
+  });
+
   it('throws deterministic error for duplicate active memberships on same seat', () => {
     expect(() =>
       computeDesignationWeight({

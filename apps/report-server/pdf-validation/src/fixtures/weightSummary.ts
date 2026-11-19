@@ -9,7 +9,7 @@ type WeightInput = Extract<FixtureInput, { jobType: 'designationWeightSummary' }
 
 /**
  * Designation weights double as row tokens: 7000.25, 7001.25, ... are unique, exact in
- * binary, and can't collide with seat counts, LTED weights (< 2) or the much larger totals.
+ * binary, and can't collide with seat counts, LTED and base weights (< 2) or the much larger totals.
  */
 const weightToken = (i: number) => 7000 + i + 0.25;
 const SEAT_WEIGHT = 0.25;
@@ -34,6 +34,7 @@ function group(cityTown: string, legDistrict: number, count: number, start: numb
       cityTown,
       legDistrict,
       electionDistrict: k + 1,
+      ltedWeight: SEAT_WEIGHT,
       totalWeight: weightToken(i),
       seats: seats(i).map((s) => (missing.includes(s.seatNumber) ? { ...s, seatWeight: null } : s)),
       missingWeightSeatNumbers: missing,
