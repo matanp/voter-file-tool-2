@@ -22,7 +22,7 @@ import {
   type StagedLetter,
 } from "~/lib/resignationLetter";
 import type { CommitteeRef } from "../committeeAction";
-import { uploadResignationLetter } from "../adapters";
+import { uploadResignationLetter, type ActionOutcome } from "../adapters";
 
 export type LetterFieldState =
   | { status: "empty" }
@@ -37,6 +37,19 @@ export function letterFieldProblems(state: LetterFieldState): string[] {
   return state.status === "uploading"
     ? ["Wait for the letter to finish uploading."]
     : [];
+}
+
+/**
+ * The field after a submit: when the server refused the staged letter (it
+ * deletes it), the field shows why instead of a stale "Attached".
+ */
+export function letterAfterSubmit(
+  state: LetterFieldState,
+  outcome: ActionOutcome,
+): LetterFieldState {
+  return !outcome.ok && outcome.kind === "error" && outcome.letterRejected
+    ? { status: "error", message: outcome.message }
+    : state;
 }
 
 /** The staged letter to submit, or null. */

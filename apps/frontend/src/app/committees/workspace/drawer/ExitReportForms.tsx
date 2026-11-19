@@ -45,6 +45,7 @@ import { useActionSubmit } from "./drawerParts";
 import {
   EMPTY_LETTER,
   ResignationLetterField,
+  letterAfterSubmit,
   letterFieldProblems,
   stagedLetterOf,
   type LetterFieldState,
@@ -248,7 +249,11 @@ export function ReportExitForm({
   const staged = isResignation ? stagedLetterOf(letter) : null;
   const send = () => {
     setConfirming(false);
-    void run(() => submitExitReport(action, input, staged));
+    void run(async () => {
+      const outcome = await submitExitReport(action, input, staged);
+      setLetter((current) => letterAfterSubmit(current, outcome));
+      return outcome;
+    });
   };
   const problems = [
     ...exitReportProblems(input),

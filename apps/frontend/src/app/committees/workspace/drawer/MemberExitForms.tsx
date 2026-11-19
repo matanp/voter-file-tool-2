@@ -52,6 +52,7 @@ import {
 import {
   EMPTY_LETTER,
   ResignationLetterField,
+  letterAfterSubmit,
   letterFieldProblems,
   stagedLetterOf,
   type LetterFieldState,
@@ -307,7 +308,12 @@ export function RecordResignationForm({
   const setField = (patch: Partial<ResignationInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
   const staged = stagedLetterOf(letter);
-  const submit = () => run(() => submitResignation(action, input, staged));
+  const submit = () =>
+    run(async () => {
+      const outcome = await submitResignation(action, input, staged);
+      setLetter((current) => letterAfterSubmit(current, outcome));
+      return outcome;
+    });
   const problems = [
     ...resignationProblems(input),
     ...letterFieldProblems(letter),

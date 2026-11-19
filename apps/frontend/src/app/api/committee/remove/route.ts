@@ -155,7 +155,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         const result = await promoteStagedLetter(staged, membership.id);
         if (!result.ok) {
           return NextResponse.json(
-            { status: "error", error: result.error },
+            { status: "error", error: result.error, letterRejected: true },
             { status: result.status },
           );
         }

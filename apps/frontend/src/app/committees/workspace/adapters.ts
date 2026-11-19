@@ -274,7 +274,8 @@ export type ActionOutcome =
   | { ok: true; message: string }
   /** The server's hard stops (`INELIGIBLE`). */
   | { ok: false; kind: "ineligible"; reasons: string[] }
-  | { ok: false; kind: "error"; message: string };
+  /** `letterRejected`: the server refused the staged Resignation Letter and deleted it. */
+  | { ok: false; kind: "error"; message: string; letterRejected?: true };
 
 type AddBody = z.input<typeof committeeDataSchema>;
 type RequestAddBody = z.input<typeof committeeRequestDataSchema>;
@@ -662,6 +663,7 @@ async function postJson(
     reasons?: unknown;
     success?: unknown;
     status?: unknown;
+    letterRejected?: unknown;
   } | null;
 
   if (failure?.error === "INELIGIBLE") {
@@ -678,6 +680,7 @@ async function postJson(
       ok: false,
       kind: "error",
       message: errorMessage(json, `Request failed with status ${response.status}`),
+      ...(failure?.letterRejected === true ? { letterRejected: true as const } : {}),
     };
   }
   return { ok: true, body: json };

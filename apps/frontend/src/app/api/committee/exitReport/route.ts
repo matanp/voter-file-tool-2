@@ -162,7 +162,7 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
       const result = await promoteStagedLetter(stagedLetter, membership.id);
       if (!result.ok) {
         return NextResponse.json(
-          { success: false, error: result.error },
+          { success: false, error: result.error, letterRejected: true },
           { status: result.status },
         );
       }

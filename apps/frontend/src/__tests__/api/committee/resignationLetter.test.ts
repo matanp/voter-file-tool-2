@@ -361,6 +361,7 @@ describe("POST /api/committee/exitReport with a letter", () => {
     jest.mocked(readObjectPrefix).mockResolvedValue(new Uint8Array([0x50, 0x4b, 3, 4, 0, 0]));
     const response = await reportExit(createMockRequest(report()));
     expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ letterRejected: true });
     expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
     expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
   });
@@ -482,6 +483,14 @@ describe("Record resignation and removal with a pending letter", () => {
       }),
     );
     expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
+  });
+
+  it("should flag a refused Admin upload so the form can drop it", async () => {
+    jest.mocked(headObject).mockResolvedValue({ size: 11 * 1024 * 1024, etag: ETAG });
+    const response = await resign({ letter: staged() });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ letterRejected: true });
+    expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
   });
 
   it("should keep the Admin's staged upload for a retry when the write fails", async () => {
