@@ -12,7 +12,7 @@ import type { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { normalizeTownCode } from "~/lib/lted/digitParsing";
 import { lookupCityTown } from "~/lib/lted/monroeTownCodes";
-import { computeSeatWeight } from "~/app/api/lib/seatUtils";
+import { seatWeightFromLted } from "~/app/api/lib/seatUtils";
 
 export type MissingCommittee = {
   cityTown: string;
@@ -151,7 +151,7 @@ export async function createCommittees(
       termId,
       seatNumber: i + 1,
       isPetitioned: false,
-      weight: computeSeatWeight(row.ltedWeight),
+      weight: seatWeightFromLted(row.ltedWeight),
     })),
   );
   const { count: seatsCreated } =

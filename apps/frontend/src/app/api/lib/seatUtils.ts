@@ -72,7 +72,7 @@ export async function ensureSeatsExist(
       where: { id: committeeListId },
       select: { ltedWeight: true },
     });
-    const weight = computeSeatWeight(committee?.ltedWeight ?? null);
+    const weight = seatWeightFromLted(committee?.ltedWeight ?? null);
     await db.seat.createMany({
       data: toCreate.map((row) => ({
         ...row,
@@ -137,7 +137,7 @@ export async function recomputeSeatWeights(
 
   await db.seat.updateMany({
     where: { committeeListId },
-    data: { weight: computeSeatWeight(committee.ltedWeight) },
+    data: { weight: seatWeightFromLted(committee.ltedWeight) },
   });
 }
 
@@ -145,7 +145,7 @@ export async function recomputeSeatWeights(
  * Seat weight = the committee's LTED weight, which is already per seat (the
  * weighted table's `Weighted Vote`); null when the LTED weight is unknown.
  */
-export function computeSeatWeight(
+export function seatWeightFromLted(
   ltedWeight: Prisma.Decimal.Value | null,
 ): Prisma.Decimal | null {
   return ltedWeight != null ? new Prisma.Decimal(ltedWeight) : null;
