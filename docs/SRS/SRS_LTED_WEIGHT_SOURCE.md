@@ -226,7 +226,7 @@ flowchart LR
 | SRS_IMPLEMENTATION_ROADMAP.md | 1.4 Seat Model | Store ltedWeight via Weighted Table import |
 | SRS_IMPLEMENTATION_ROADMAP.md | 2.7 Weight / Designation Logic | Weight source and import path |
 | SRS_DATA_MODEL_CHANGES.md | CommitteeList.ltedWeight | Source: MCDC Weighted Table or admin entry |
-| SRS_v0.1_Committee_Membership_Governance.md | §8.1 | Each LTED has total weight (source clarified here) |
+| SRS_v0.1_Committee_Membership_Governance.md | §8.1 | Each LTED has a per-seat weight (source clarified here) |
 | SRS_GAPS_AND_CONSIDERATIONS.md | §2.1 | LTED Matrix provides crosswalk format/source for LtedDistrictCrosswalk |
 
 ---

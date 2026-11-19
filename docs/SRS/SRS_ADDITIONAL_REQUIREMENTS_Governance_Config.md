@@ -40,7 +40,7 @@ Extends SRS §7.1 Hard Stops: "Individual is not an enrolled Democrat" becomes "
 - Affects:
   - Capacity checks in `handleRequest`, `AddCommitteeForm`, `CommitteeRequestForm`
   - Seat model creation (N seats per CommitteeList per term)
-  - Weight calculation: `seatWeight = ltedWeight / maxSeatsPerLted`
+  - Weight calculation: none; `seatWeight = ltedWeight`, which is already per seat (see **LTED Weight** in `CONTEXT.md`)
 - **MCDC default:** 4.
 
 Extends SRS §7.1 (LTED capacity) and §8.1 (seat/weight logic).
