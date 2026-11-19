@@ -495,6 +495,20 @@ model CommitteeMembership {
   exitReportedBy   User?           @relation("ExitReportedMemberships", fields: [exitReportedById], references: [id])
   exitReportedKind ExitReportKind?
 
+  // Resignation Letter (leader-feedback-2026-11 ticket 08): the file a resignation came in.
+  // Follows the exit fields' lifecycle: while ACTIVE with a resignation Exit Report it belongs
+  // to the *reported* exit, once RESIGNED to the *recorded* one. Every other write clears it
+  // (membershipExit.ts, plus the reactivation paths); the file stays in R2.
+  // NOTE: CHECK constraints in
+  // prisma/migrations/20261117000000_committee_membership_resignation_letter/migration.sql
+  // enforce that a key is set only on a RESIGNED row or an ACTIVE row with a resignation report,
+  // and that the key, content type and file name are set together.
+  resignationLetterKey         String?
+  // Sniffed from the file's first bytes at submit, never taken from the client.
+  resignationLetterContentType String?
+  // The original name, sanitized; for display only.
+  resignationLetterFileName    String?
+
   petitionVoteCount   Int?
   petitionPrimaryDate DateTime?
   // SRS 2.6 — ties candidate/outcome to a specific seat for petition workflow

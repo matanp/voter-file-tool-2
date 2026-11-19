@@ -2,6 +2,7 @@
 import React from "react";
 
 import type { HistoryEvent } from "~/lib/validations/committee";
+import { ViewLetterLink } from "../../drawer/ResignationLetterField";
 import {
   describeActor,
   describeHistoryEvent,
@@ -68,6 +69,15 @@ export function CommitteeHistoryTimeline({
                       </li>
                     ))}
                   </ul>
+                )}
+                {showAdminDetail && event.kind === "resigned" && event.letter && (
+                  <p data-testid="history-letter">
+                    Letter: {event.letter.fileName}{" "}
+                    <ViewLetterLink
+                      membershipId={event.letter.membershipId}
+                      fileName={event.letter.fileName}
+                    />
+                  </p>
                 )}
               </li>
             );

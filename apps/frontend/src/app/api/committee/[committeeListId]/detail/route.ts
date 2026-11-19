@@ -189,6 +189,10 @@ async function getCommitteeDetail(
           petitionPrimaryDate: true,
           petitionSeatNumber: true,
           submissionMetadata: true,
+          status: true,
+          resignationLetterKey: true,
+          resignationLetterContentType: true,
+          resignationLetterFileName: true,
           voterRecord: {
             select: { firstName: true, middleInitial: true, lastName: true },
           },

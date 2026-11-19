@@ -14,10 +14,12 @@ import {
   getMembershipMock,
   getAuditLogMock,
   expectAuditLogCreate,
+  expectMembershipUpdate,
   DEFAULT_ACTIVE_TERM_ID,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 
 const createMockDiscrepancy = (overrides: Record<string, unknown> = {}) => ({
   id: "discrepancy-id-1",
@@ -224,6 +226,44 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
           action: "MEMBER_ACTIVATED",
           entityId: existingMembershipId,
         }),
+      );
+    });
+
+    it("accept with a RESIGNED membership: clears its Resignation Letter columns (ticket 08 decision 15)", async () => {
+      const existingMembershipId = "existing-membership-id";
+      mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
+      mockHasPermission(true);
+      prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
+        createMockDiscrepancy() as never,
+      );
+      setupAuditSubjectMocks();
+      setupResolveMocks();
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
+        createMockMembership({
+          id: existingMembershipId,
+          voterRecordId: "TEST123",
+          status: "RESIGNED",
+          seatNumber: null,
+          resignationLetterKey: `resignation-letters/${existingMembershipId}/a.pdf`,
+          resignationLetterContentType: "application/pdf",
+          resignationLetterFileName: "a.pdf",
+        }),
+      );
+      prismaMock.committeeMembership.count.mockResolvedValue(1);
+      prismaMock.committeeMembership.update.mockResolvedValue(
+        createMockMembership({ id: existingMembershipId, status: "ACTIVE", seatNumber: 2 }),
+      );
+
+      const response = await POST(
+        createMockRequest({ VRCNUM: "TEST123", accept: true, takeAddress: "" }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          { status: "ACTIVE", ...CLEARED_LETTER_FIELDS },
+          { id: existingMembershipId },
+        ),
       );
     });
 

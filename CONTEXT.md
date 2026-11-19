@@ -121,6 +121,10 @@ _Avoid_: request, committee change request
 A Leader's report that a member resigned or should be removed, waiting for an Admin to confirm or reject it. The member stays ACTIVE and seated until confirmed.
 _Avoid_: removal request, pending removal, resignation request
 
+**Resignation Letter**:
+The file a member's resignation came in, attached to a resignation Exit Report or to an Admin's recorded resignation. Kept indefinitely once the resignation is recorded.
+_Avoid_: resignation document, attachment, upload
+
 **Hard Stop**:
 An eligibility rule a candidate fails that blocks adding or submitting them, such as a party or district mismatch or a full committee. A warning is the nonblocking counterpart.
 _Avoid_: error, validation failure

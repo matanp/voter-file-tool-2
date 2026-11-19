@@ -24,6 +24,7 @@ import * as committeeValidation from "~/app/api/lib/committeeValidation";
 import type * as CommitteeValidationModule from "~/app/api/lib/committeeValidation";
 import * as seatUtils from "~/app/api/lib/seatUtils";
 import type { ExitReportState } from "~/app/api/lib/membershipExit";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 
 jest.mock("~/app/api/lib/committeeValidation", () => {
   const actual = jest.requireActual<typeof CommitteeValidationModule>(
@@ -474,6 +475,25 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
       );
     });
 
+    it("clears a RESIGNED member's Resignation Letter columns on reactivation (ticket 08 decision 15)", async () => {
+      setupJaneInCommittee({
+        status: "RESIGNED",
+        seatNumber: null,
+        resignationLetterKey: "resignation-letters/m-existing/a.pdf",
+        resignationLetterContentType: "application/pdf",
+        resignationLetterFileName: "a.pdf",
+      });
+
+      await applyRosterImport({ entries, rejected: [] });
+
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          { status: "ACTIVE", ...CLEARED_LETTER_FIELDS },
+          { id: "m-existing" },
+        ),
+      );
+    });
+
     it("is superseded, and recorded in the audit, when sync removes the member", async () => {
       prismaMock.voterRecord.findUnique.mockResolvedValue(
         createMockVoterRecord({
@@ -546,6 +566,7 @@ describe("bulkLoadCommittees import from canonical roster entries", () => {
           status: "REMOVED",
           removalNotes: "Removed by bulk import synchronization",
           exitReportedAt: null,
+          ...CLEARED_LETTER_FIELDS, // ticket 08: a superseded report takes its letter with it
         }),
       );
       expect(prismaMock.auditLog.create).toHaveBeenCalledWith(

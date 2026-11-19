@@ -37,6 +37,7 @@ import {
   writeMembershipExit,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow, SYSTEM_USER_ID } from "~/lib/auditLog";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
@@ -907,7 +908,9 @@ async function activateMember(
           removedAt: null,
           rejectedAt: null,
           rejectionNote: null,
-          ...(reactivating ? CLEARED_EXIT_FIELDS : {}),
+          ...(reactivating
+            ? { ...CLEARED_EXIT_FIELDS, ...CLEARED_LETTER_FIELDS }
+            : {}),
           petitionVoteCount: null,
           petitionPrimaryDate: null,
         },

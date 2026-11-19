@@ -19,6 +19,7 @@ import {
   writeMembershipLeavingActive,
 } from "~/app/api/lib/membershipExit";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
@@ -256,7 +257,11 @@ async function recordPetitionOutcomeHandler(req: NextRequest, session: Session) 
           } else {
             await tx.committeeMembership.update({
               where: { id: existing.id },
-              data: baseData,
+              data: {
+                ...baseData,
+                // Only a RESIGNED row (of the non-ACTIVE ones) can have a letter.
+                ...(existing.status === "RESIGNED" ? CLEARED_LETTER_FIELDS : {}),
+              },
             });
           }
           await logAuditEventOrThrow(

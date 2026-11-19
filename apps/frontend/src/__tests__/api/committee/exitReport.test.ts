@@ -312,6 +312,9 @@ describe("POST /api/committee/exitReport/reject", () => {
       resignationMethod: null,
       removalReason: null,
       removalNotes: null,
+      resignationLetterKey: null,
+      resignationLetterContentType: null,
+      resignationLetterFileName: null,
     });
     expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
       expectAuditLogCreate({

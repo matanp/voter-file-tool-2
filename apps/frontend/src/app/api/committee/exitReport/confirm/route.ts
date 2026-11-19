@@ -9,7 +9,8 @@
  * since changed (confirmed, rejected, re-filed, or the member left) is a 409.
  * Audited as `MEMBER_RESIGNED` / `MEMBER_REMOVED` with
  * `{ source: "exit_report", reportedById, reportedAt }`, plus the Admin's
- * optional `confirmationNote` (like a rejection's `rejectionNote`).
+ * optional `confirmationNote` (like a rejection's `rejectionNote`). A
+ * resignation's letter is kept as the recorded one.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -117,6 +118,8 @@ async function confirmExitReportHandler(
         resignationMethod,
         removalReason: null,
         removalNotes: notes,
+        // The report's letter becomes the recorded one (ticket 08).
+        letter: "keepReported",
       };
       afterValue = {
         status: "RESIGNED",

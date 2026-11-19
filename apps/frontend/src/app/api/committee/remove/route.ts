@@ -24,12 +24,22 @@ import {
   writeMembershipExit,
   type MembershipExit,
 } from "~/app/api/lib/membershipExit";
+import type { ResignationLetter, StagedLetter } from "~/lib/resignationLetter";
+import {
+  discardPromotedLetter,
+  promoteStagedLetter,
+  releaseStagedLetter,
+} from "~/app/api/lib/resignationLetterStorage";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 
 /**
  * SRS 2.3 / 2.5 — Admin records a resignation (`action: "RESIGN"`) or removes a
  * member, through the shared exit helper. A pending Exit Report on the member
  * is superseded (confirming one goes through `/api/committee/exitReport/confirm`).
+ *
+ * Resignation Letters (ticket 08): a resignation may carry the Admin's own
+ * upload (`letter`), which replaces any letter on a pending report; without
+ * one, the pending report's letter is kept. A removal clears it.
  */
 async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const body = (await req.json()) as unknown;
@@ -57,6 +67,8 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const userId = session.user.id;
   const userRole = session.user.privilegeLevel;
   const legDistrictForDb = toDbSentinelValue(legDistrict);
+  let staged: StagedLetter | undefined;
+  let promoted: ResignationLetter | null = null;
 
   try {
     const activeTermId = await getActiveTermId();
@@ -138,12 +150,24 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     if (isResign) {
       const resignData = validation.data as ResignCommitteeData;
       const trimmedNotes = blankToNull(resignData.removalNotes);
+      staged = resignData.letter;
+      if (staged) {
+        const result = await promoteStagedLetter(staged, membership.id);
+        if (!result.ok) {
+          return NextResponse.json(
+            { status: "error", error: result.error, letterRejected: true },
+            { status: result.status },
+          );
+        }
+        promoted = result.letter;
+      }
       exit = {
         status: "RESIGNED",
         resignationDateReceived: new Date(resignData.resignationDateReceived),
         resignationMethod: resignData.resignationMethod,
         removalReason: null,
         removalNotes: trimmedNotes,
+        letter: promoted ?? "keepReported",
       };
       action = "MEMBER_RESIGNED";
       afterValue = {
@@ -152,7 +176,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         resignationMethod: resignData.resignationMethod,
         ...(trimmedNotes ? { removalNotes: trimmedNotes } : {}),
       };
-      baseMetadata = undefined;
+      baseMetadata = promoted ? { resignationLetterKey: promoted.key } : undefined;
     } else {
       const removeData = validation.data as RemoveCommitteeData;
       const trimmedNotes = blankToNull(removeData.removalNotes);
@@ -199,14 +223,18 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     });
 
     if (outcome !== "written") {
+      await discardPromotedLetter(promoted);
       return NextResponse.json(
         { status: "error", error: MEMBER_CHANGED_MESSAGE },
         { status: 409 },
       );
     }
 
+    if (staged && promoted) await releaseStagedLetter(staged);
+
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
+    await discardPromotedLetter(promoted);
     Sentry.captureException(error, {
       tags: { operation: isResign ? "resignCommittee" : "removeCommittee" },
       extra: { cityTown, legDistrict, electionDistrict, memberId },

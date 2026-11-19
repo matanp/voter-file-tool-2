@@ -25,12 +25,14 @@ import type {
 } from "@prisma/client";
 import {
   ExitReportKind,
+  MembershipStatus,
   MembershipType,
   RemovalReason,
   ResignationMethod,
 } from "@prisma/client";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
+import { letterOnRow, type LetterColumns } from "~/lib/resignationLetter";
 import { getName } from "~/lib/voterRecordFormatters";
 import {
   type HistoryEvent,
@@ -146,7 +148,7 @@ export type HistoryAuditRow = {
  * linked members). Its petition columns are deliberately absent: they hold
  * only the latest cycle, so an older `petition_outcome` must not read them.
  */
-export type HistoryMembershipRow = {
+export type HistoryMembershipRow = LetterColumns & {
   id: string;
   voterRecordId: string;
   seatNumber: number | null;
@@ -156,6 +158,8 @@ export type HistoryMembershipRow = {
     middleInitial: string | null;
     lastName: string | null;
   };
+  /** With the letter columns, for the Admin's "View letter" on a resignation. */
+  status: MembershipStatus;
 };
 
 export type HistoryMeetingRow = {
@@ -170,6 +174,11 @@ export type BuildHistoryOptions = {
   membershipsById: ReadonlyMap<string, HistoryMembershipRow>;
   membershipsByVoterRecordId: ReadonlyMap<string, HistoryMembershipRow>;
   meetingsById: ReadonlyMap<string, HistoryMeetingRow>;
+  /**
+   * Memberships whose newest resignation has been seen. Shared across batches
+   * so only the newest one links the letter; rows arrive newest first.
+   */
+  resignationsSeen?: Set<string>;
 };
 
 const submissionMetadataSchema = z
@@ -254,6 +263,7 @@ export function buildHistoryEvents(
 ): HistoryEvent[] {
   const { isAdmin, membershipsById, membershipsByVoterRecordId, meetingsById } =
     options;
+  const resignationsSeen = options.resignationsSeen ?? new Set<string>();
   const events: HistoryEvent[] = [];
 
   const memberFor = (
@@ -361,11 +371,22 @@ export function buildHistoryEvents(
           eligibilityWarnings: adminOnly(isAdmin, metadata.eligibilityWarnings),
         });
         break;
-      case "MEMBER_RESIGNED":
+      case "MEMBER_RESIGNED": {
+        // POLICY: a recorded resignation's letter is Admin-only (ticket 08).
+        // It belongs to the membership's newest resignation, if still RESIGNED.
+        let letter;
+        if (membership && !resignationsSeen.has(membership.id)) {
+          resignationsSeen.add(membership.id);
+          const onRow = letterOnRow(membership);
+          if (isAdmin && membership.status === MembershipStatus.RESIGNED && onRow) {
+            letter = { membershipId: membership.id, fileName: onRow.fileName };
+          }
+        }
         events.push({
           ...base,
           kind: "resigned",
           effectiveDate: after.resignationDateReceived,
+          letter,
           method: adminOnly(isAdmin, after.resignationMethod),
           reason: adminOnly(
             isAdmin,
@@ -374,6 +395,7 @@ export function buildHistoryEvents(
           notes: adminOnly(isAdmin, after.removalNotes),
         });
         break;
+      }
       case "MEMBER_REMOVED": {
         const incoming = metadata.replacementMembershipId
           ? membershipsById.get(metadata.replacementMembershipId)
@@ -490,6 +512,7 @@ export async function loadMembershipHistory(
   );
   const batchSize = limit + 1;
   const events: HistoryEvent[] = [];
+  const resignationsSeen = new Set<string>();
   let cursorId: string | undefined;
 
   for (;;) {
@@ -524,6 +547,7 @@ export async function loadMembershipHistory(
         membershipsById,
         membershipsByVoterRecordId,
         meetingsById: new Map(meetings.map((m) => [m.id, m])),
+        resignationsSeen,
       }),
     );
 

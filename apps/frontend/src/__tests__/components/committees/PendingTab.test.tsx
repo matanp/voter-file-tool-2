@@ -406,6 +406,7 @@ const ADMIN_EXIT_REPORT: PendingExitReport = {
   removalNotes: "Moving to Ohio",
   resignationDateReceived: "2026-10-29T00:00:00.000Z",
   resignationMethod: "EMAIL",
+  letter: null,
 };
 
 /** What a Leader receives: the Admin-only keys are absent. */
@@ -418,6 +419,7 @@ const LEADER_EXIT_REPORT: PendingExitReport = {
   kind: "RESIGNATION",
   reportedAt: REPORTED_AT,
   isOwnReport: true,
+  letter: null,
 };
 
 function renderWithExitReports(reports: PendingExitReport[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
