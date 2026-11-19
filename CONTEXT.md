@@ -102,8 +102,12 @@ A petition candidate's result in the primary for a committee seat: won, lost, or
 _Avoid_: petition outcome context, petition result
 
 **LTED Weight**:
-The voting weight of one seat in a committee's election district, set by an Admin or imported from the county's weighted table (`Weighted Vote`). Every seat in the district has this weight; it is not divided among them. A district's full weight (the Weight Report's Base Weight) is its LTED Weight times its petitioned seats.
+The voting weight of one seat in a committee's election district, set by an Admin or imported from the county's weighted table (`Weighted Vote`). Every seat in the district has this weight; it is not divided among them. A district's full weight is its **Base Weight**.
 _Avoid_: committee weight, ED weight
+
+**Base Weight**:
+A committee's full weight: its LTED Weight times its petitioned seats, whether those seats are filled or not. It matches the weighted table's `Base Weight` column and appears on the Weight Report. The filled share of it is the Designation Weight.
+_Avoid_: total weight, ED weight, full weight
 
 **Designation Weight**:
 The part of a committee's weight that counts toward designation: the LTED Weight of each petitioned seat that is currently filled. It is incomplete, and not shown as a number, while any petitioned seat has no weight.

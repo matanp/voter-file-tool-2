@@ -30,7 +30,7 @@ Members
 
 Committee settings
 ┌────────────────────────────────────────────┐
-│ LTED total weight  [________]  [Save]      │
+│ LTED weight per seat  [_____]  [Save]      │
 └────────────────────────────────────────────┘
 
 Petition outcomes
@@ -78,7 +78,7 @@ Petition outcomes
 - [ ] Opening the disclosure preserves all existing candidate-search and
       eligibility states.
 - [ ] A successful addition closes the disclosure and refreshes the committee.
-- [ ] LTED total weight appears inside a clearly labeled **Committee settings**
+- [ ] LTED weight per seat appears inside a clearly labeled **Committee settings**
       card and retains its existing save behavior.
 - [ ] Major sections remain visually distinct when the add-member disclosure is
       open.
