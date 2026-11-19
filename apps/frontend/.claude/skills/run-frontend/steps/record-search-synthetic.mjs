@@ -36,7 +36,7 @@ export default async function (page, { width, snap }) {
   if (await quick.count()) {
     await quick.fill(first);
     await page.getByLabel('Last name', { exact: true }).fill(rest.join(' '));
-    await page.getByRole('button', { name: /submit/i }).first().click();
+    await page.getByRole('button', { name: /^search\b/i }).first().click();
   } else {
     // Criteria builder before the quick name box (for "before" shots). That code needs a second
     // Submit click: the first one's blur turned the typed text into a chip and moved the button.
