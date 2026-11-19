@@ -145,13 +145,6 @@ export function isEmptyField(field: SearchField): boolean {
 }
 
 /**
- * Type guard for checking if a field is a hidden field.
- */
-export function isHiddenField(field: BaseSearchField): boolean {
-  return field.type === "Hidden";
-}
-
-/**
  * Type guard for checking if a field allows multiple values.
  */
 export function allowsMultipleValues(field: BaseSearchField): boolean {

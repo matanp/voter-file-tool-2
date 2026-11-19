@@ -19,7 +19,6 @@ export const SEARCH_CONFIG = {
     STREET: "Street",
     CITY_TOWN: "CityTown",
     BOOLEAN: "Boolean",
-    HIDDEN: "Hidden",
   } as const,
 
   displayThresholds: {

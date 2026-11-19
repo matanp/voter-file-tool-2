@@ -72,8 +72,7 @@ export const getAvailableFields = (
   return allFields
     .filter(
       (field) =>
-        ((field.compoundType || field.type !== "Hidden") &&
-          searchRows.find((row) => row.name === field.name) === undefined) ||
+        searchRows.find((row) => row.name === field.name) === undefined ||
         field.name === currentRowName,
     )
     .map((field) => ({

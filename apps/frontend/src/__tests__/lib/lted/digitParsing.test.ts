@@ -1,4 +1,5 @@
 import {
+  isAllZeroTownCode,
   normalizeDigits,
   normalizeTownCode,
   parseDistrictValue,
@@ -21,6 +22,26 @@ describe("digitParsing", () => {
     it("pads known town codes to three digits", () => {
       expect(normalizeTownCode("80")).toBe("080");
       expect(normalizeTownCode("080")).toBe("080");
+    });
+  });
+
+  describe("isAllZeroTownCode", () => {
+    it.each(["0", "000", "0000", " 00 ", "0.0", 0])(
+      "treats %p as all zeros",
+      (value) => {
+        expect(isAllZeroTownCode(value)).toBe(true);
+      },
+    );
+
+    it.each(["080", "80", "", null, "A1", "100"])(
+      "does not treat %p as all zeros",
+      (value) => {
+        expect(isAllZeroTownCode(value)).toBe(false);
+      },
+    );
+
+    it("leaves normalizeTownCode accepting 000 for imports", () => {
+      expect(normalizeTownCode("0")).toBe("000");
     });
   });
 

@@ -271,10 +271,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       );
     }
 
-    case SEARCH_CONFIG.fieldTypes.HIDDEN: {
-      return null;
-    }
-
     default: {
       console.warn(`Unknown field type: ${String(field.type)}`);
       return null;

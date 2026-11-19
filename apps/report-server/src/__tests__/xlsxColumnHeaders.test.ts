@@ -18,4 +18,8 @@ describe('resolveColumnHeaders', () => {
       VILLAGE_WARD_LABEL
     );
   });
+
+  it('trims whitespace around custom headers', () => {
+    expect(resolveColumnHeaders({ name: '  Voter  ' }).name).toBe('Voter');
+  });
 });

@@ -423,23 +423,6 @@ describe("FieldRenderer", () => {
     });
   });
 
-  describe("Hidden Fields", () => {
-    it("renders nothing for hidden fields", () => {
-      // Find the CC_WD_Village field from the cityTown compound field
-      const hiddenField = {
-        ...testSearchFields.cityTownField,
-        name: "CC_WD_Village" as const,
-        type: "Hidden" as const,
-      };
-      const props = createMockFieldRendererProps({
-        field: hiddenField,
-      });
-      const { container } = render(<FieldRenderer {...props} />);
-
-      expect(container.firstChild).toBeNull();
-    });
-  });
-
   describe("Accessibility", () => {
     it("has correct ARIA labels for different field types", () => {
       const stringProps = createMockFieldRendererProps({

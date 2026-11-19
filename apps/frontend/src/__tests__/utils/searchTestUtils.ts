@@ -472,7 +472,6 @@ export const isValidFieldType = (
     "Dropdown",
     "Street",
     "CityTown",
-    "Hidden",
   ] as const;
   return validTypes.includes(type as BaseSearchField["type"]);
 };

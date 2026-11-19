@@ -27,8 +27,6 @@ export const CompoundFieldRenderer: React.FC<CompoundFieldRendererProps> = ({
   return (
     <>
       {field.fields.map((subField: BaseSearchField, subIndex) => {
-        if (subField.type === SEARCH_CONFIG.fieldTypes.HIDDEN) return null;
-
         const shouldShowLabel =
           subField.name !== FIELD_CONFIG.cityFieldName &&
           subField.type !== SEARCH_CONFIG.fieldTypes.BOOLEAN &&

@@ -177,7 +177,6 @@ export class SearchFieldProcessor {
       case "Street":
       case "CityTown":
       case "Boolean":
-      case "Hidden":
       default:
         return "text";
     }
@@ -253,8 +252,6 @@ export class SearchFieldProcessor {
         return this.validateDropdown(value);
       case "CityTown":
         return this.validateCityTown(value);
-      case "Hidden":
-        return this.validateHidden(value);
       default:
         console.warn(
           `Unknown field type: ${String(type)}, returning undefined`,
@@ -511,38 +508,6 @@ export class SearchFieldProcessor {
   private static validateCityTown(value: unknown): string | undefined {
     const result = this.validateString(value, false);
     return Array.isArray(result) ? result[0] : result;
-  }
-
-  private static validateHidden(value: unknown): SearchFieldValue {
-    // Hidden fields can contain any value type, but we should still validate
-    if (value === null || value === undefined) {
-      return undefined;
-    }
-
-    // For hidden fields, we'll convert to string as a safe fallback
-    // This is safer than the previous `value as SearchFieldValue`
-    if (typeof value === "string") {
-      return value;
-    }
-
-    if (typeof value === "number") {
-      return value;
-    }
-
-    if (typeof value === "boolean") {
-      return value;
-    }
-
-    if (Array.isArray(value)) {
-      return value as string[];
-    }
-
-    if (value instanceof Date) {
-      return value;
-    }
-
-    // Convert unknown types to string as a safe fallback
-    return String(value);
   }
 
   // Type guard methods for field names
