@@ -39,7 +39,7 @@ export function letterFieldProblems(state: LetterFieldState): string[] {
     : [];
 }
 
-export const LETTER_REFUSED_FORM_MESSAGE = "The letter wasn't accepted. Attach it again, or remove it.";
+export const LETTER_REFUSED_FORM_MESSAGE = "The letter wasn't accepted. Choose another file, or submit without one.";
 
 /**
  * After a submit: when the server refused the staged letter (it deletes it),
