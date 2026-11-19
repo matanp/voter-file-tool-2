@@ -5,7 +5,8 @@ export default async function (page, { width, snap }) {
   const [first, ...rest] = (process.env.NAME ?? 'John Smith').split(' ');
   await page.getByLabel('First name', { exact: true }).fill(first);
   await page.getByLabel('Last name', { exact: true }).fill(rest.join(' '));
-  await page.getByRole('button', { name: /submit/i }).first().click();
+  // The quick name box's button is "Search (Ctrl+Enter)"; the criteria builder's is "Submit …".
+  await page.getByRole('button', { name: /^search\b/i }).first().click();
   if (width < 768) {
     const card = page.getByRole('list', { name: 'Voter records' }).getByRole('button').first();
     await card.waitFor({ timeout: 90000 });
