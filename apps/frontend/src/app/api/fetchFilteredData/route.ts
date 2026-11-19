@@ -11,11 +11,14 @@ import type { Prisma } from "@prisma/client";
 import { withPrivilege, type SessionWithUser } from "../lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import { activeCommitteesForRecords } from "../lib/recordSearchCommittees";
+import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
 
 /**
- * Record search. Open to ReadAccess; each record gains `activeCommittee` only
- * when the caller's real role may see that committee's roster (see
- * `activeCommitteesForRecords`). Otherwise the key is absent.
+ * Record search. Open to ReadAccess. With `includeCommittee: true` (sent only
+ * by the record search page), each record gains `activeCommittee` when the
+ * caller's real role may see that committee's roster (see
+ * `activeCommitteesForRecords`). Otherwise the key is absent and no
+ * membership lookup runs.
  */
 async function fetchFilteredDataHandler(
   req: NextRequest,
@@ -36,7 +39,7 @@ async function fetchFilteredDataHandler(
       return validation.response;
     }
 
-    const { searchQuery, pageSize, page } = validation.data;
+    const { searchQuery, pageSize, page, includeCommittee } = validation.data;
     const normalized = normalizeSearchQuery(searchQuery);
 
     const query: Prisma.VoterRecordWhereInput =
@@ -54,10 +57,12 @@ async function fetchFilteredDataHandler(
       where: query,
     });
 
-    const committees = await activeCommitteesForRecords(
-      records.map((record) => record.VRCNUM),
-      session.user,
-    );
+    const committees = includeCommittee
+      ? await activeCommitteesForRecords(
+          records.map((record) => record.VRCNUM),
+          session.user,
+        )
+      : new Map<string, RecordSearchCommittee>();
 
     // Convert Prisma records to API format (Date -> string conversion)
     const apiRecords = records.map((record) => {

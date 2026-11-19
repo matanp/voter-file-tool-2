@@ -68,6 +68,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       searchQuery: SearchQueryField[];
       pageSize: number;
       page: number;
+      includeCommittee: boolean;
     }
   >("/api/fetchFilteredData", "POST", {
     onSuccess: (data) => {
@@ -91,6 +92,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       searchQuery: SearchQueryField[];
       pageSize: number;
       page: number;
+      includeCommittee: boolean;
     }
   >("/api/fetchFilteredData", "POST", {
     onSuccess: (data) => {
@@ -128,6 +130,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         searchQuery: flattenedQuery,
         pageSize: 100,
         page: 1,
+        includeCommittee: true,
       });
 
       setContextSearchQuery(searchQueryParam, flattenedQuery);
@@ -144,6 +147,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       searchQuery: searchQuery,
       pageSize,
       page: page + 1,
+      includeCommittee: true,
     });
   }, [loadMoreMutation, searchQuery, pageSize, page]);
 

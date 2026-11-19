@@ -1,10 +1,11 @@
 /**
  * POST /api/fetchFilteredData with Prisma mocked: the `activeCommittee` field
- * added to record search results (ticket 08). Who gets it is decided from the
- * real session role: Admin/Developer for any committee, a Leader for their
- * jurisdictions, ReadAccess/RequestAccess never (the key is absent and no
- * membership query runs). The same rules run against a real database in
- * fetchFilteredData.committee.pg.integration.test.ts.
+ * added to record search results (ticket 08). Only a request with
+ * `includeCommittee: true` (the record search page) gets it. Who gets it is
+ * decided from the real session role: Admin/Developer for any committee, a
+ * Leader for their jurisdictions, ReadAccess/RequestAccess never (the key is
+ * absent and no membership query runs). The same rules run against a real
+ * database in fetchFilteredData.committee.pg.integration.test.ts.
  */
 import {
   PrivilegeLevel,
@@ -100,7 +101,7 @@ function signIn(privilegeLevel: PrivilegeLevel) {
   mockAuthSession(createMockSession({ user: { privilegeLevel } }));
 }
 
-async function search() {
+async function search(extra: Record<string, unknown> = { includeCommittee: true }) {
   const res = await POST(
     createMockRequest({
       searchQuery: [
@@ -108,6 +109,7 @@ async function search() {
       ],
       pageSize: 10,
       page: 1,
+      ...extra,
     }),
   );
   expect(res.status).toBe(200);
@@ -199,6 +201,36 @@ describe("POST /api/fetchFilteredData activeCommittee", () => {
 
     expect(JSON.stringify(body)).not.toContain("activeCommittee");
     expect(prismaMock.committeeMembership.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["omitted", {}],
+    ["false", { includeCommittee: false }],
+  ])(
+    "includeCommittee %s: Admin gets no field and no lookup runs",
+    async (_label, extra) => {
+      signIn(PrivilegeLevel.Admin);
+      const body = await search(extra);
+
+      expect(body.data).toHaveLength(2);
+      expect(JSON.stringify(body)).not.toContain("activeCommittee");
+      expect(prismaMock.committeeTerm.findFirst).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.findMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a non-boolean includeCommittee", async () => {
+    signIn(PrivilegeLevel.Admin);
+    const res = await POST(
+      createMockRequest({
+        searchQuery: [],
+        pageSize: 10,
+        page: 1,
+        includeCommittee: "yes",
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(prismaMock.voterRecord.findMany).not.toHaveBeenCalled();
   });
 
   it("an empty page skips the membership lookup", async () => {

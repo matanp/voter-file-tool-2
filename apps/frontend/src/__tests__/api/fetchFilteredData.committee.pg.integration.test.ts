@@ -244,7 +244,7 @@ describePg("POST /api/fetchFilteredData activeCommittee (PostgreSQL)", () => {
     });
   }
 
-  async function search(page = 1, pageSize = 100) {
+  async function search(page = 1, pageSize = 100, includeCommittee = true) {
     const res = await route.POST(
       new NextRequest("http://localhost/api/fetchFilteredData", {
         method: "POST",
@@ -253,6 +253,7 @@ describePg("POST /api/fetchFilteredData activeCommittee (PostgreSQL)", () => {
           searchQuery: [{ field: "lastName", values: [LAST_NAME] }],
           page,
           pageSize,
+          includeCommittee,
         }),
       }),
     );
@@ -354,6 +355,13 @@ describePg("POST /api/fetchFilteredData activeCommittee (PostgreSQL)", () => {
   it("a Leader with no active-term jurisdictions gets results without the field", async () => {
     signInAs(NO_SCOPE_LEADER, PrivilegeLevel.Leader);
     const { raw, body } = await search();
+    expect(body.data).toHaveLength(13);
+    expect(JSON.stringify(raw)).not.toContain("activeCommittee");
+  });
+
+  it("without includeCommittee an Admin gets no membership data", async () => {
+    signInAs(ADMIN, PrivilegeLevel.Admin);
+    const { raw, body } = await search(1, 100, false);
     expect(body.data).toHaveLength(13);
     expect(JSON.stringify(raw)).not.toContain("activeCommittee");
   });

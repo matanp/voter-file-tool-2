@@ -2,9 +2,10 @@
  * Record search response extras (POST /api/fetchFilteredData).
  *
  * `activeCommittee` is the committee a voter is an ACTIVE member of in the
- * active term (ticket 08). The server adds it only when the caller's real
- * role may see that committee's roster: Admin and Developer for any
- * committee, a Leader for committees in their assignments.
+ * active term (ticket 08). The server adds it only when the request sets
+ * `includeCommittee` (record search does; other callers of the route don't)
+ * and the caller's real role may see that committee's roster: Admin and
+ * Developer for any committee, a Leader for committees in their assignments.
  * Otherwise the key is absent, never null, so a ReadAccess response carries
  * no membership data at all.
  *
