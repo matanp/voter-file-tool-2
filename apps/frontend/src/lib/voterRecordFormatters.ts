@@ -1,6 +1,6 @@
 import type { VoterRecord } from "@prisma/client";
 
-import { normalizeTownCode } from "~/lib/lted/digitParsing";
+import { isAllZeroTownCode, normalizeTownCode } from "~/lib/lted/digitParsing";
 import { lookupCityTown } from "~/lib/lted/monroeTownCodes";
 
 /** Formats a voter record street address, optionally using committee address override. */
@@ -29,7 +29,7 @@ export const getName = (
  */
 export const getTown = (record: Pick<VoterRecord, "townCode">) => {
   const code = normalizeTownCode(record.townCode);
-  if (!code || code === "000") return null;
+  if (!code || isAllZeroTownCode(code)) return null;
   const name = lookupCityTown(code, "strict");
   return name ? `${name} (${code})` : code;
 };

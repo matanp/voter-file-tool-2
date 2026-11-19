@@ -23,3 +23,13 @@ export function normalizeTownCode(value: unknown): string | null {
   if (parsed === null) return null;
   return parsed.toString().padStart(3, "0");
 }
+
+/**
+ * True when a town code is all zeros, which the BOE voter file uses to mean
+ * "no town". `normalizeTownCode` keeps "000" as a valid code so imports
+ * (crosswalk, weighted table) don't silently drop such rows; call this where an
+ * all-zero code should be treated as missing.
+ */
+export function isAllZeroTownCode(value: unknown): boolean {
+  return normalizeTownCode(value) === "000";
+}
