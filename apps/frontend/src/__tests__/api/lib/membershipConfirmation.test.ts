@@ -19,6 +19,7 @@ import {
   jsonContaining,
   setupMembershipAuditSubjectMocks,
 } from "../../utils/testUtils";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 
 const ACTOR = {
   userId: "test-user-id",
@@ -287,6 +288,7 @@ describe("membershipConfirmation", () => {
           removalReason: "OTHER",
           removalNotes: "Replacement request accepted",
           exitReportedAt: null,
+          ...CLEARED_LETTER_FIELDS, // ticket 08: a superseded report takes its letter with it
           exitReportedKind: null,
         }),
       );

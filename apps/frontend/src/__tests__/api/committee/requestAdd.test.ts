@@ -22,6 +22,8 @@ import {
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
+import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
+import { deleteObject } from "~/lib/s3Utils";
 import {
   mockAuthSession,
   mockHasPermission,
@@ -510,6 +512,38 @@ describe("/api/committee/requestAdd", () => {
         ),
       );
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("should clear a RESIGNED membership's letter columns on resubmission (ticket 08 decision 15)", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
+      );
+      mockHasPermission(true);
+      setupEligibilityPass(prismaMock);
+      prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
+        createMockMembership({
+          id: "membership-resigned-1",
+          status: "RESIGNED",
+          resignationLetterKey: "resignation-letters/membership-resigned-1/a.pdf",
+          resignationLetterContentType: "application/pdf",
+          resignationLetterFileName: "a.pdf",
+        }),
+      );
+      prismaMock.committeeMembership.update.mockResolvedValue(
+        createMockMembership({ id: "membership-resigned-1", status: "SUBMITTED" }),
+      );
+
+      const response = await POST(createMockRequest(createMockRequestData()));
+
+      expect(response.status).toBe(201);
+      expect(prismaMock.committeeMembership.update).toHaveBeenCalledWith(
+        expectMembershipUpdate(
+          { status: "SUBMITTED", ...CLEARED_LETTER_FIELDS },
+          { id: "membership-resigned-1" },
+        ),
+      );
+      expect(deleteObject).not.toHaveBeenCalled();
     });
 
     it("should return 422 INELIGIBLE when add member is ACTIVE in another committee", async () => {
