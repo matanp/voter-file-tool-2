@@ -113,12 +113,12 @@ export async function assignNextAvailableSeat(
 }
 
 /**
- * Recomputes Seat.weight for all seats in the committee.
- * weight = ltedWeight / maxSeatsPerLted. Clears weights if ltedWeight is null.
+ * Recomputes Seat.weight for all seats in the committee: each seat's weight is
+ * the committee's LTED weight. Clears weights if ltedWeight is null.
  */
 export async function recomputeSeatWeights(
   committeeListId: number,
-  options?: Pick<SeatUtilsOptions, "tx" | "maxSeats">,
+  options?: Pick<SeatUtilsOptions, "tx">,
 ): Promise<void> {
   const db = (options?.tx ?? prisma) as SeatUtilsClient;
   const committee = await db.committeeList.findUnique({
@@ -128,18 +128,18 @@ export async function recomputeSeatWeights(
 
   if (!committee) return;
 
-  const maxSeats = await resolveMaxSeats(db, options?.maxSeats);
-
   await db.seat.updateMany({
     where: { committeeListId },
-    data: { weight: computeSeatWeight(committee.ltedWeight, maxSeats) },
+    data: { weight: computeSeatWeight(committee.ltedWeight) },
   });
 }
 
-/** Seat weight = ltedWeight / maxSeatsPerLted; null when the LTED weight is unknown. */
+/**
+ * Seat weight = the committee's LTED weight, which is already per seat (the
+ * weighted table's `Weighted Vote`); null when the LTED weight is unknown.
+ */
 export function computeSeatWeight(
   ltedWeight: Prisma.Decimal.Value | null,
-  maxSeats: number,
 ): Prisma.Decimal | null {
-  return ltedWeight != null ? new Prisma.Decimal(ltedWeight).div(maxSeats) : null;
+  return ltedWeight != null ? new Prisma.Decimal(ltedWeight) : null;
 }

@@ -9,11 +9,7 @@ import { NextResponse } from "next/server";
 import { PrivilegeLevel } from "@prisma/client";
 import { withPrivilege } from "~/app/api/lib/withPrivilege";
 import { logAuditEvent } from "~/lib/auditLog";
-import {
-  getActiveTermId,
-  getGovernanceConfig,
-} from "~/app/api/lib/committeeValidation";
-import { computeSeatWeight } from "~/app/api/lib/seatUtils";
+import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import {
   normalizeDigits,
   normalizeTownCode,
@@ -318,37 +314,36 @@ async function importHandler(req: NextRequest, session: SessionWithUser) {
     let seatsUpdated = 0;
 
     if (weightsByCommitteeId.size > 0) {
-      const { maxSeatsPerLted } = await getGovernanceConfig();
-      const updates = Array.from(weightsByCommitteeId, ([id, weight]) => ({
-        id,
-        weight: weight != null ? String(weight) : null,
-        seatWeight:
-          computeSeatWeight(weight, maxSeatsPerLted)?.toString() ?? null,
-      }));
+      // "Weighted Vote" is the per-seat weight: it is stored as the committee's
+      // LTED weight and copied unchanged to every seat, as recomputeSeatWeights does.
+      const ids = Array.from(weightsByCommitteeId.keys());
+      const weights = Array.from(weightsByCommitteeId.values(), (weight) =>
+        weight != null ? String(weight) : null,
+      );
 
       // Two statements for the whole file instead of an update + seat recompute per
       // row, which timed out on full-county files. Prisma has no per-row-values bulk
-      // update, so each joins against unnest'd arrays; numerics travel as text so the
-      // seat weight matches recomputeSeatWeights' Decimal division exactly. Seats are
-      // rewritten for every matched committee, as recomputeSeatWeights was.
+      // update, so each joins against unnest'd arrays; numerics travel as text so
+      // they reach Postgres exactly as parsed. Seats are rewritten for every
+      // matched committee, as recomputeSeatWeights would.
       [committeesUpdated, seatsUpdated] = await prisma.$transaction(
         async (tx) => {
           const committeeRows = await tx.$executeRaw`
             UPDATE "CommitteeList" AS c
             SET "ltedWeight" = r.weight::numeric
             FROM unnest(
-              ${updates.map((u) => u.id)}::int[],
-              ${updates.map((u) => u.weight)}::text[]
+              ${ids}::int[],
+              ${weights}::text[]
             ) AS r(id, weight)
             WHERE c.id = r.id
           `;
           const seatRows = await tx.$executeRaw`
             UPDATE "Seat" AS s
-            SET "weight" = r.seat_weight::numeric
+            SET "weight" = r.weight::numeric
             FROM unnest(
-              ${updates.map((u) => u.id)}::int[],
-              ${updates.map((u) => u.seatWeight)}::text[]
-            ) AS r(committee_list_id, seat_weight)
+              ${ids}::int[],
+              ${weights}::text[]
+            ) AS r(committee_list_id, weight)
             WHERE s."committeeListId" = r.committee_list_id
           `;
           return [committeeRows, seatRows] as const;

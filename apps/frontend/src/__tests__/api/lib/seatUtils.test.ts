@@ -97,10 +97,9 @@ describe("seatUtils", () => {
   });
 
   describe("recomputeSeatWeights", () => {
-    it("sets weight when ltedWeight is present", async () => {
-      const ltedWeight = 128;
-      const maxSeatsPerLted = 4; // from createMockGovernanceConfig({ maxSeatsPerLted: 4 })
-      const expectedWeight = new Prisma.Decimal(ltedWeight).div(maxSeatsPerLted);
+    it("sets every seat's weight to the LTED weight, not a share of it", async () => {
+      const ltedWeight = 128.5;
+      const expectedWeight = new Prisma.Decimal(ltedWeight);
 
       (prismaMock.committeeList as { findUnique: jest.Mock }).findUnique = jest
         .fn()
