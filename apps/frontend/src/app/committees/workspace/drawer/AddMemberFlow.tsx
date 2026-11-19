@@ -21,6 +21,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioOption } from "~/components/ui/radio-group";
 import { Textarea } from "~/components/ui/textarea";
+import { committeeLabel } from "~/lib/committees/committeeRef";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import ContactInfoLabel from "../../ContactInfoLabel";
 import EligibilitySnapshotPanel from "../../EligibilitySnapshotPanel";
@@ -40,7 +41,6 @@ import {
   DrawerFooter,
   OutcomeAlert,
   StepHeading,
-  committeeLabel,
   occupantLabel,
   personName,
   useActionSubmit,

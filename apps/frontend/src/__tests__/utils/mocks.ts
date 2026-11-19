@@ -1,4 +1,8 @@
+import type { UserJurisdiction } from "@prisma/client";
 import type { Session } from "next-auth";
+import { hasPermissionFor } from "~/lib/utils";
+import type * as UtilsModule from "~/lib/utils";
+import { DEFAULT_ACTIVE_TERM_ID } from "./testUtils";
 
 // Convenience helpers to work with global mocks in a type-safe way
 
@@ -54,7 +58,40 @@ export function mockHasPermission(granted: boolean) {
   mockHasPermissionFor.mockReturnValue(granted);
 }
 
+/**
+ * Restores the real privilege hierarchy behind the global `hasPermissionFor`
+ * mock, for code that checks a role inside a route (not just `withPrivilege`),
+ * so a ReadAccess session really is below Leader.
+ */
+export function mockRealPermissionHierarchy() {
+  jest
+    .mocked(hasPermissionFor)
+    .mockImplementation(
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+    );
+}
+
 export const prismaMock = globalThis.mockPrisma;
+
+/**
+ * A Leader's assignment row (`UserJurisdiction`) in the default active term,
+ * as `userJurisdiction.findMany` returns it (no `select`). A null LD covers
+ * the whole town.
+ */
+export function jurisdictionRow(
+  cityTown: string,
+  legDistrict: number | null,
+): UserJurisdiction {
+  return {
+    id: `jurisdiction-${cityTown}-${String(legDistrict)}`,
+    userId: "test-user-id",
+    cityTown,
+    legDistrict,
+    termId: DEFAULT_ACTIVE_TERM_ID,
+    createdAt: new Date("2026-01-01"),
+    createdById: "admin-1",
+  };
+}
 
 // --- Raw SQL ($queryRaw / $executeRaw) ------------------------------------------
 

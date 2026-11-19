@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
 import { fetchCandidateEligibility } from "../adapters";
-import type { CommitteeRef } from "../committeeAction";
+import type { CommitteeRef } from "~/lib/committees/committeeRef";
 
 export type CandidateEligibility =
   | { status: "loading" }

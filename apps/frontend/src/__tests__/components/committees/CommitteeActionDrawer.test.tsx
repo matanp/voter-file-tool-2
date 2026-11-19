@@ -22,8 +22,8 @@ import { CommitteeActionDrawer } from "~/app/committees/workspace/drawer/Committ
 import type {
   CandidateCommitteeRef,
   CommitteeAction,
-  CommitteeRef,
 } from "~/app/committees/workspace/committeeAction";
+import type { CommitteeRef } from "~/lib/committees/committeeRef";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { toast } from "~/components/ui/use-toast";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";

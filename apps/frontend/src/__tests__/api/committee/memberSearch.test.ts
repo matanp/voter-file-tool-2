@@ -4,11 +4,7 @@
  * no-jurisdiction short-circuit, result mapping and truncation. The same rules
  * run against a real database in memberSearch.pg.integration.test.ts.
  */
-import {
-  PrivilegeLevel,
-  type Prisma,
-  type UserJurisdiction,
-} from "@prisma/client";
+import { PrivilegeLevel, type Prisma } from "@prisma/client";
 import { GET } from "~/app/api/committee/memberSearch/route";
 import {
   MEMBER_SEARCH_LIMIT,
@@ -25,6 +21,7 @@ import {
   resolvesTo,
 } from "../../utils/testUtils";
 import {
+  jurisdictionRow,
   mockAuthSession,
   mockHasPermission,
   prismaMock,
@@ -37,21 +34,6 @@ function serveMembers(rows: SearchRow[]) {
   prismaMock.committeeMembership.findMany.mockImplementation(() =>
     resolvesTo(rows),
   );
-}
-
-function jurisdictionRow(
-  cityTown: string,
-  legDistrict: number | null,
-): UserJurisdiction {
-  return {
-    id: `jurisdiction-${cityTown}-${String(legDistrict)}`,
-    userId: "test-user-id",
-    cityTown,
-    legDistrict,
-    termId: DEFAULT_ACTIVE_TERM_ID,
-    createdAt: new Date("2026-01-01"),
-    createdById: "admin-1",
-  };
 }
 
 function lastQuery(): Prisma.CommitteeMembershipFindManyArgs {

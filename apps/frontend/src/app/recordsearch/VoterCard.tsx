@@ -4,11 +4,13 @@ import type { MembershipType, VoterRecord } from "@prisma/client";
 import { VILLAGE_WARD_LABEL } from "@voter-file-tool/shared-validators";
 
 import { Badge } from "~/components/ui/badge";
+import type { RecordSearchCommittee } from "~/lib/recordSearch";
 import {
   getAddress,
   getTown,
   getVillageWard,
 } from "~/lib/voterRecordFormatters";
+import { CommitteeMembershipBadge } from "./CommitteeMembershipBadge";
 
 /** SRS 2.1a — optional submission contact overrides (prefer over voter record when displaying committee member). */
 export type SubmissionContactOverrides = {
@@ -21,6 +23,7 @@ export const VoterCard = ({
   committee,
   membershipType,
   submissionMetadata,
+  activeCommittee,
   headingLevel: Heading = "h2",
 }: {
   record: VoterRecord;
@@ -28,6 +31,8 @@ export const VoterCard = ({
   membershipType?: MembershipType | null;
   /** SRS 2.1a — when present, display email/phone from submission over voter record. */
   submissionMetadata?: SubmissionContactOverrides | null;
+  /** Record search: the committee this voter is an ACTIVE member of, when the viewer may see it. */
+  activeCommittee?: RecordSearchCommittee;
   /** The name's heading; "h3" under a titled container such as a drawer. */
   headingLevel?: "h2" | "h3";
 }) => {
@@ -38,7 +43,9 @@ export const VoterCard = ({
 
   return (
     <div className="max-w-lg mx-auto bg-white rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-4">
+      <div
+        className={`flex items-center gap-2 ${activeCommittee ? "mb-2" : "mb-4"}`}
+      >
         <Heading className="text-xl font-medium text-gray-800">
           {`${record.firstName} ${record.lastName}`}
         </Heading>
@@ -48,6 +55,12 @@ export const VoterCard = ({
           </Badge>
         )}
       </div>
+      {activeCommittee && (
+        <CommitteeMembershipBadge
+          committee={activeCommittee}
+          className="mb-4"
+        />
+      )}
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 text-sm sm:grid-cols-2 text-gray-600 [&>*>p>span]:font-light">
         <div>
           <p>
