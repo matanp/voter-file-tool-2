@@ -29,7 +29,7 @@ import {
   getUserJurisdictions,
 } from "~/app/api/lib/committeeValidation";
 import { hasPermissionFor } from "~/lib/utils";
-import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
+import type { RecordSearchCommittee } from "~/lib/recordSearch";
 
 /** What the lookup reads from each membership. */
 export const RECORD_SEARCH_MEMBERSHIP_SELECT = {

@@ -16,7 +16,7 @@ import { committeeLabel } from "~/lib/committees/committeeRef";
 import {
   recordSearchCommitteeSpokenLabel,
   type RecordSearchResult,
-} from "~/lib/validations/recordSearch";
+} from "~/lib/recordSearch";
 import { createMockVoterRecord } from "../../utils/testUtils";
 
 const MEMBER: RecordSearchResult = {

@@ -30,17 +30,6 @@ export type RecordSearchResult = VoterRecord & {
 };
 
 /**
- * The committee to show on a result: its `activeCommittee` when the acting
- * role may see memberships (`show`), otherwise none.
- */
-export function visibleCommittee(
-  record: RecordSearchResult,
-  show: boolean,
-): RecordSearchCommittee | undefined {
-  return show ? record.activeCommittee : undefined;
-}
-
-/**
  * The badge read aloud: "Committee member: GREECE, Legislative District 1,
  * Election District 5" (no LD part when the visual label drops it).
  */

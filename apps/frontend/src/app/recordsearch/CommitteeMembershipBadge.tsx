@@ -6,7 +6,7 @@ import { cn } from "~/lib/utils";
 import {
   recordSearchCommitteeSpokenLabel,
   type RecordSearchCommittee,
-} from "~/lib/validations/recordSearch";
+} from "~/lib/recordSearch";
 
 /**
  * "Committee: GREECE · LD 1 · ED 5" on a record search result whose voter is an

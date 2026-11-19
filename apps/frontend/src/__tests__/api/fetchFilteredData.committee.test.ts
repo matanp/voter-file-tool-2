@@ -17,7 +17,7 @@ import { z } from "zod";
 import { searchableFieldEnum } from "@voter-file-tool/shared-validators";
 import { POST } from "~/app/api/fetchFilteredData/route";
 import type { RECORD_SEARCH_MEMBERSHIP_SELECT } from "~/app/api/lib/recordSearchCommittees";
-import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
+import type { RecordSearchCommittee } from "~/lib/recordSearch";
 import {
   createMockRequest,
   createMockSession,

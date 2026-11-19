@@ -11,7 +11,7 @@ import type { Prisma } from "@prisma/client";
 import { withPrivilege, type SessionWithUser } from "../lib/withPrivilege";
 import { PrivilegeLevel } from "@prisma/client";
 import { activeCommitteesForRecords } from "../lib/recordSearchCommittees";
-import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
+import type { RecordSearchCommittee } from "~/lib/recordSearch";
 
 /**
  * Record search. Open to ReadAccess. With `includeCommittee: true` (sent only

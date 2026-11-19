@@ -17,7 +17,7 @@ import {
   type PrismaClient,
 } from "@prisma/client";
 import { z } from "zod";
-import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
+import type { RecordSearchCommittee } from "~/lib/recordSearch";
 import type * as FetchFilteredDataRoute from "~/app/api/fetchFilteredData/route";
 
 const mockAuth = jest.fn();

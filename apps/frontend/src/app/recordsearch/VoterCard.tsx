@@ -4,7 +4,7 @@ import type { MembershipType, VoterRecord } from "@prisma/client";
 import { VILLAGE_WARD_LABEL } from "@voter-file-tool/shared-validators";
 
 import { Badge } from "~/components/ui/badge";
-import type { RecordSearchCommittee } from "~/lib/validations/recordSearch";
+import type { RecordSearchCommittee } from "~/lib/recordSearch";
 import {
   getAddress,
   getTown,

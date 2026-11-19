@@ -19,10 +19,7 @@ import { EllipsisVertical } from "~/components/icons/ellipsisVertical";
 import { fields, type FieldName } from "./fieldsConfig";
 import { ResultsPager } from "./ResultsPager";
 import { CommitteeMembershipBadge } from "./CommitteeMembershipBadge";
-import {
-  visibleCommittee,
-  type RecordSearchResult,
-} from "~/lib/validations/recordSearch";
+import { type RecordSearchResult } from "~/lib/recordSearch";
 
 interface BaseVoterRecordTableProps {
   records: RecordSearchResult[];
@@ -99,10 +96,9 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
         </TableHeader>
         <TableBody>
           {records.map((record) => {
-            const committee = visibleCommittee(
-              record,
-              showCommitteeMembership,
-            );
+            const committee = showCommitteeMembership
+              ? record.activeCommittee
+              : undefined;
             return (
               <TableRow key={record.VRCNUM}>
                 <TableCell className="font-medium">

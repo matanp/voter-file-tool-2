@@ -7,7 +7,7 @@ const FIRSTS = ['ALEX', 'ALEXA', 'ALEXANDER', 'ALEXANDRA', 'ALEXIS'];
 const STREETS = ['EXAMPLE ST', 'SAMPLE AVE', 'PLACEHOLDER RD'];
 const COMMITTEES = {
   0: { committeeListId: 101, cityTown: 'EXAMPLETOWN', legDistrict: 17, electionDistrict: 4 },
-  3: { committeeListId: 102, cityTown: 'SAMPLEVILLE', legDistrict: 0, electionDistrict: 12 },
+  3: { committeeListId: 102, cityTown: 'SAMPLEVILLE', legDistrict: -1, electionDistrict: 12 },
   4: { committeeListId: 103, cityTown: 'EXAMPLETOWN', legDistrict: 18, electionDistrict: 9 },
   7: { committeeListId: 104, cityTown: 'PLACEHOLDER CITY', legDistrict: 22, electionDistrict: 101 },
 };
