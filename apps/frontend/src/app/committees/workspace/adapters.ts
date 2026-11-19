@@ -700,6 +700,11 @@ function putWithProgress(
   signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Remove or Replace may have run while the upload URL was being fetched.
+    if (signal?.aborted) {
+      reject(new DOMException("Upload cancelled", "AbortError"));
+      return;
+    }
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
     // Signed: must match the declared type exactly. Content-Length is set by the browser.
