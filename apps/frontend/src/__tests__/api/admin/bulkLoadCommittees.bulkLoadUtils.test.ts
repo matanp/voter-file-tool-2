@@ -39,6 +39,7 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 jest.mock("~/app/api/lib/seatUtils", () => ({
   ensureSeatsExist: jest.fn(),
   assignNextAvailableSeat: jest.fn(),
+  markSeatPetitioned: jest.fn(),
 }));
 
 const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);

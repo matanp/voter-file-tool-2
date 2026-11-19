@@ -17,6 +17,7 @@ import {
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
+  markSeatPetitioned,
 } from "~/app/api/lib/seatUtils";
 import {
   supersededExitReportMetadata,
@@ -265,6 +266,13 @@ export async function confirmSubmittedMembership(
           ? (updatedSubmissionMetadata as Prisma.InputJsonValue)
           : undefined,
     },
+  });
+  await markSeatPetitioned(tx, {
+    committeeListId: submittedMembership.committeeListId,
+    termId: submittedMembership.termId,
+    status: ACTIVE_MEMBERSHIP_STATUS,
+    membershipType,
+    seatNumber,
   });
 
   const confirmedSnapshot = {

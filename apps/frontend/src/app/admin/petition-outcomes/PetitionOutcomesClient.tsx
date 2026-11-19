@@ -32,7 +32,7 @@ type CommitteeListWithSeats = {
   legDistrict: number;
   electionDistrict: number;
   termId: string;
-  seats: Array<{ id: string; seatNumber: number; isPetitioned: boolean }>;
+  seats: Array<{ id: string; seatNumber: number; outcomeRecorded: boolean }>;
 };
 
 interface PetitionOutcomesClientProps {
@@ -66,9 +66,9 @@ export function PetitionOutcomesClient({
 
   const selectedCommittee = committeeLists.find((c) => c.id === committeeListId);
   const seats = selectedCommittee?.seats ?? [];
-  const availableSeats = seats.filter((s) => !s.isPetitioned);
+  const availableSeats = seats.filter((s) => !s.outcomeRecorded);
   const selectedSeat = seats.find((s) => s.seatNumber === seatNumber);
-  const selectedSeatIsAvailable = selectedSeat != null && !selectedSeat.isPetitioned;
+  const selectedSeatIsAvailable = selectedSeat != null && !selectedSeat.outcomeRecorded;
 
   const recordMutation = useApiMutation<
     { message: string; seatNumber: number },
@@ -258,10 +258,10 @@ export function PetitionOutcomesClient({
                 <SelectItem
                   key={s.id}
                   value={String(s.seatNumber)}
-                  disabled={s.isPetitioned}
+                  disabled={s.outcomeRecorded}
                 >
                   Seat {s.seatNumber}
-                  {s.isPetitioned ? " — Outcome already recorded" : ""}
+                  {s.outcomeRecorded ? " — Outcome already recorded" : ""}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
+  markSeatPetitioned,
   recomputeSeatWeights,
 } from "~/app/api/lib/seatUtils";
 import { prismaMock } from "../../utils/mocks";
@@ -141,6 +142,42 @@ describe("seatUtils", () => {
         .mockResolvedValue(null);
 
       await recomputeSeatWeights(999);
+
+      expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("markSeatPetitioned", () => {
+    const seated = {
+      committeeListId: 7,
+      termId: "term-1",
+      status: "ACTIVE",
+      membershipType: "PETITIONED" as const,
+      seatNumber: 2,
+    };
+    const tx = prismaMock as unknown as Prisma.TransactionClient;
+
+    it("flags the seat of an ACTIVE PETITIONED member, and only sets it true", async () => {
+      await markSeatPetitioned(tx, seated);
+
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
+        where: {
+          committeeListId: 7,
+          termId: "term-1",
+          seatNumber: 2,
+          isPetitioned: false,
+        },
+        data: { isPetitioned: true },
+      });
+    });
+
+    it.each([
+      ["an APPOINTED member", { membershipType: "APPOINTED" as const }],
+      ["an untyped member", { membershipType: null }],
+      ["a member who is not ACTIVE", { status: "SUBMITTED" }],
+      ["a member with no seat", { seatNumber: null }],
+    ])("leaves the seat alone for %s", async (_label, override) => {
+      await markSeatPetitioned(tx, { ...seated, ...override });
 
       expect(prismaMock.seat.updateMany).not.toHaveBeenCalled();
     });

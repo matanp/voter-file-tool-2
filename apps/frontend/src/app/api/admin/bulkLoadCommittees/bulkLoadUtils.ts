@@ -27,6 +27,7 @@ import {
 } from "~/app/api/lib/committeeValidation";
 import {
   assignNextAvailableSeat,
+  markSeatPetitioned,
   ensureSeatsExist,
 } from "~/app/api/lib/seatUtils";
 import {
@@ -907,9 +908,15 @@ async function activateMember(
           removedAt: null,
           rejectedAt: null,
           rejectionNote: null,
-          ...(reactivating ? CLEARED_EXIT_FIELDS : {}),
-          petitionVoteCount: null,
-          petitionPrimaryDate: null,
+          // A reactivated row starts clean; an already-ACTIVE row keeps the petition
+          // result it won its seat with.
+          ...(reactivating
+            ? {
+                ...CLEARED_EXIT_FIELDS,
+                petitionVoteCount: null,
+                petitionPrimaryDate: null,
+              }
+            : {}),
         },
       });
     } catch (error) {
@@ -920,6 +927,13 @@ async function activateMember(
         plannedMembershipType,
       );
     }
+    await markSeatPetitioned(tx, {
+      committeeListId: committee.id,
+      termId: term.id,
+      status: ACTIVE_MEMBERSHIP_STATUS,
+      membershipType,
+      seatNumber,
+    });
     await logAuditEventOrThrow(
       actor.userId,
       actor.userRole,
@@ -971,6 +985,13 @@ async function activateMember(
       plannedMembershipType,
     );
   }
+  await markSeatPetitioned(tx, {
+    committeeListId: committee.id,
+    termId: term.id,
+    status: ACTIVE_MEMBERSHIP_STATUS,
+    membershipType,
+    seatNumber,
+  });
   await logAuditEventOrThrow(
     actor.userId,
     actor.userRole,

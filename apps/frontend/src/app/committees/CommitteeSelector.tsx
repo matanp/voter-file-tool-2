@@ -932,7 +932,11 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                             <td className="px-2 py-1">{seat.seatNumber}</td>
                             <td className="px-2 py-1">{occupantName}</td>
                             <td className="px-2 py-1 text-muted-foreground">
-                              {seat.isPetitioned ? "Petitioned" : "Appointed"}
+                              {occupant?.membershipType === "PETITIONED"
+                                ? "Petitioned"
+                                : occupant?.membershipType === "APPOINTED"
+                                  ? "Appointed"
+                                  : "—"}
                             </td>
                             <td className="px-2 py-1 text-right">{weightStr}</td>
                           </tr>

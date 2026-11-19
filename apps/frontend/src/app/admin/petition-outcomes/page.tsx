@@ -51,7 +51,7 @@ export default async function PetitionOutcomesPage({
       legDistrict: true,
       electionDistrict: true,
       termId: true,
-      seats: { orderBy: { seatNumber: "asc" }, select: { id: true, seatNumber: true, isPetitioned: true } },
+      seats: { orderBy: { seatNumber: "asc" }, select: { id: true, seatNumber: true, petitionOutcomeRecordedAt: true } },
     },
   });
   const params = (await Promise.resolve(searchParams)) ?? {};
@@ -66,7 +66,13 @@ export default async function PetitionOutcomesPage({
       <PetitionOutcomesClient
         activeTermId={activeTermId}
         termLabel={term?.label ?? ""}
-        committeeLists={committeeLists}
+        committeeLists={committeeLists.map((committee) => ({
+          ...committee,
+          seats: committee.seats.map(({ petitionOutcomeRecordedAt, ...seat }) => ({
+            ...seat,
+            outcomeRecorded: petitionOutcomeRecordedAt !== null,
+          })),
+        }))}
         initialCommitteeListId={initialCommitteeListId}
       />
     </div>

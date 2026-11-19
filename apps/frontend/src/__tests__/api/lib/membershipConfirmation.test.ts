@@ -109,6 +109,12 @@ describe("membershipConfirmation", () => {
           { status: "ACTIVE", membershipType: "PETITIONED" },
           { id: MEMBERSHIP_ID },
         ),
+      );      // Confirming a PETITIONED member flags their seat petitioned.
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isPetitioned: false }) as unknown,
+          data: { isPetitioned: true },
+        }),
       );
     });
 

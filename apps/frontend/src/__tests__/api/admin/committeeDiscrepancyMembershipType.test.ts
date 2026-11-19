@@ -68,6 +68,7 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 jest.mock("~/app/api/lib/seatUtils", () => ({
   ensureSeatsExist: jest.fn(),
   assignNextAvailableSeat: jest.fn(),
+  markSeatPetitioned: jest.fn(),
 }));
 
 const parseWithFormatMock = jest.fn();
@@ -93,6 +94,7 @@ const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
 const assignNextAvailableSeatMock = jest.mocked(
   seatUtils.assignNextAvailableSeat,
 );
+const markSeatPetitionedMock = jest.mocked(seatUtils.markSeatPetitioned);
 
 const VRCNUM = "VRC-PETITIONED-1";
 const COMMITTEE_ID = 101;
@@ -567,6 +569,11 @@ const acceptStoredDiscrepancyExpectingPetitionedMembership = async () => {
       membershipType: "PETITIONED",
       seatNumber: 1,
     }),
+  );
+  // The written row goes to the seat helper, which flags the seat for a PETITIONED member.
+  expect(markSeatPetitionedMock).toHaveBeenCalledWith(
+    prismaMock,
+    createdMembership,
   );
 };
 

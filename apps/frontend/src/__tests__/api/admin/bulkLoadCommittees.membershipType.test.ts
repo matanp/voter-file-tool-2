@@ -40,6 +40,7 @@ jest.mock("~/app/api/lib/committeeValidation", () => {
 jest.mock("~/app/api/lib/seatUtils", () => ({
   ensureSeatsExist: jest.fn(),
   assignNextAvailableSeat: jest.fn(),
+  markSeatPetitioned: jest.fn(),
 }));
 
 const getActiveTermMock = jest.mocked(committeeValidation.getActiveTerm);
@@ -50,6 +51,18 @@ const ensureSeatsExistMock = jest.mocked(seatUtils.ensureSeatsExist);
 const assignNextAvailableSeatMock = jest.mocked(
   seatUtils.assignNextAvailableSeat,
 );
+const markSeatPetitionedMock = jest.mocked(seatUtils.markSeatPetitioned);
+
+const seatedAs = (
+  membershipType: RosterEntry["membershipType"],
+  seatNumber = 1,
+) => ({
+  committeeListId: 101,
+  termId: DEFAULT_ACTIVE_TERM_ID,
+  status: "ACTIVE",
+  membershipType,
+  seatNumber,
+});
 
 const rosterEntry = (
   vrcnum: string,
@@ -134,6 +147,11 @@ describe("membership type written by an import", () => {
           }),
         }),
       );
+      // The seat helper decides from the type; a PETITIONED member flags their seat.
+      expect(markSeatPetitionedMock).toHaveBeenCalledWith(
+        prismaMock,
+        seatedAs(membershipType),
+      );
     },
   );
 
@@ -160,6 +178,10 @@ describe("membership type written by an import", () => {
         { status: "ACTIVE", membershipType: "APPOINTED" },
         { id: "m-existing" },
       ),
+    );
+    expect(markSeatPetitionedMock).toHaveBeenCalledWith(
+      prismaMock,
+      seatedAs("APPOINTED"),
     );
   });
 
@@ -194,6 +216,43 @@ describe("membership type written by an import", () => {
           membershipType: "PETITIONED",
         }),
       }),
+    );
+    expect(markSeatPetitionedMock).toHaveBeenCalledWith(
+      prismaMock,
+      seatedAs("PETITIONED"),
+    );
+  });
+
+  it("keeps the petition result on a member who is already ACTIVE and flags their seat", async () => {
+    getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      createMockMembership({
+        id: "m-active",
+        voterRecordId: "VRC004",
+        committeeListId: 101,
+        termId: DEFAULT_ACTIVE_TERM_ID,
+        status: "ACTIVE",
+        membershipType: "PETITIONED",
+        seatNumber: 3,
+        petitionVoteCount: 120,
+        petitionPrimaryDate: new Date("2026-06-23T00:00:00.000Z"),
+      }),
+    );
+
+    await applyRosterImport({
+      entries: [rosterEntry("VRC004", "PETITIONED")],
+      rejected: [],
+    });
+
+    const updateCalls = getMembershipMock(prismaMock).update.mock
+      .calls as Array<[{ data: Record<string, unknown> }]>;
+    const [update] = updateCalls[0] ?? [];
+    if (!update) throw new Error("expected a membership update");
+    expect(update.data).toMatchObject({ status: "ACTIVE", seatNumber: 3 });
+    expect(update.data).not.toHaveProperty("petitionVoteCount");
+    expect(update.data).not.toHaveProperty("petitionPrimaryDate");
+    expect(markSeatPetitionedMock).toHaveBeenCalledWith(
+      prismaMock,
+      seatedAs("PETITIONED", 3),
     );
   });
 });

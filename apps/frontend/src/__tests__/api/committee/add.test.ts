@@ -83,6 +83,8 @@ describe("/api/committee/add", () => {
           membershipType: "APPOINTED",
           seatNumber: 1,
         }),
+      );      expect(prismaMock.seat.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ data: { isPetitioned: true } }),
       );
     });
 
@@ -110,7 +112,16 @@ describe("/api/committee/add", () => {
           membershipType: "PETITIONED",
           seatNumber: 1,
         }),
-      );
+      );      // A petitioned member's seat is flagged petitioned for the term.
+      expect(prismaMock.seat.updateMany).toHaveBeenCalledWith({
+        where: {
+          committeeListId: expect.any(Number) as number,
+          termId: expect.any(String) as string,
+          seatNumber: 1,
+          isPetitioned: false,
+        },
+        data: { isPetitioned: true },
+      });
     });
 
     it("should store email and phone in submissionMetadata when provided (SRS 2.1a)", async () => {

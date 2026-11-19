@@ -22,6 +22,7 @@ import {
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
+  markSeatPetitioned,
 } from "~/app/api/lib/seatUtils";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -236,6 +237,8 @@ async function handleCommitteeDiscrepancyHandler(
               },
             });
 
+            await markSeatPetitioned(tx, updatedMembership);
+
             resolutionMetadata.membershipId = updatedMembership.id;
             resolutionMetadata.membershipAfter =
               snapshotMembershipAfter(updatedMembership);
@@ -277,6 +280,8 @@ async function handleCommitteeDiscrepancyHandler(
                 seatNumber,
               },
             });
+
+            await markSeatPetitioned(tx, createdMembership);
 
             resolutionMetadata.membershipId = createdMembership.id;
             resolutionMetadata.membershipAfter =

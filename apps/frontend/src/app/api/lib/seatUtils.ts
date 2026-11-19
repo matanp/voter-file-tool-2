@@ -2,7 +2,7 @@
  * SRS 1.4 — Seat model utilities: creation, assignment, and weight computation.
  */
 
-import { Prisma } from "@prisma/client";
+import { type MembershipType, Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { getGovernanceConfig, ACTIVE_MEMBERSHIP_STATUS } from "./committeeValidation";
 type SeatUtilsClient = Pick<
@@ -142,4 +142,38 @@ export function computeSeatWeight(
   maxSeats: number,
 ): Prisma.Decimal | null {
   return ltedWeight != null ? new Prisma.Decimal(ltedWeight).div(maxSeats) : null;
+}
+
+/**
+ * Marks the seat as won by petition for the term. Call it from every write that leaves an
+ * ACTIVE PETITIONED membership in a seat; it does nothing for other writes. It only ever sets
+ * the flag: a petitioned seat stays petitioned after its member leaves, so Vacancy and Weight
+ * reports keep counting it. Idempotent.
+ */
+export async function markSeatPetitioned(
+  tx: Prisma.TransactionClient,
+  membership: {
+    committeeListId: number;
+    termId: string;
+    status: string;
+    membershipType: MembershipType | null;
+    seatNumber: number | null;
+  },
+): Promise<void> {
+  if (
+    membership.status !== ACTIVE_MEMBERSHIP_STATUS ||
+    membership.membershipType !== "PETITIONED" ||
+    membership.seatNumber === null
+  ) {
+    return;
+  }
+  await tx.seat.updateMany({
+    where: {
+      committeeListId: membership.committeeListId,
+      termId: membership.termId,
+      seatNumber: membership.seatNumber,
+      isPetitioned: false,
+    },
+    data: { isPetitioned: true },
+  });
 }

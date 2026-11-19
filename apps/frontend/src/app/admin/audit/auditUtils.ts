@@ -13,6 +13,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   MEMBER_EXIT_REPORT_REJECTED: "Member Exit Report Rejected",
   MISSING_COMMITTEES_CREATED: "Missing Committees Created",
   PETITION_RECORDED: "Petition Recorded",
+  SEAT_PETITIONED_BACKFILLED: "Seat Petitioned (Backfill)",
   MEETING_CREATED: "Meeting Created",
   REPORT_GENERATED: "Report Generated",
   TERM_CREATED: "Term Created",

@@ -16,6 +16,7 @@ import {
 import {
   assignNextAvailableSeat,
   ensureSeatsExist,
+  markSeatPetitioned,
 } from "~/app/api/lib/seatUtils";
 import type { Session } from "next-auth";
 import * as Sentry from "@sentry/nextjs";
@@ -248,6 +249,13 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             submissionMetadata: metadataForDbOrUndefined,
           },
         });
+        await markSeatPetitioned(tx, {
+          committeeListId: committee.id,
+          termId: activeTermId,
+          status: ACTIVE_MEMBERSHIP_STATUS,
+          membershipType,
+          seatNumber,
+        });
         const auditMetadataWithSubject = mergeAuditMetadata(
           auditMetadataWithWarnings as Record<string, unknown> | undefined,
           buildMembershipAuditSubject({
@@ -280,6 +288,13 @@ async function addCommitteeHandler(req: NextRequest, session: Session) {
             seatNumber,
             submissionMetadata: metadataForDbOrUndefined,
           },
+        });
+        await markSeatPetitioned(tx, {
+          committeeListId: committee.id,
+          termId: activeTermId,
+          status: ACTIVE_MEMBERSHIP_STATUS,
+          membershipType,
+          seatNumber,
         });
         const auditMetadataWithSubject = mergeAuditMetadata(
           auditMetadataWithWarnings as Record<string, unknown> | undefined,
