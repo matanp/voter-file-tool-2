@@ -35,6 +35,8 @@ async function resolveMaxSeats(
 /**
  * Ensures maxSeatsPerLted Seat records exist for the given committee+term.
  * Idempotent: creates only missing seats. Call after CommitteeList upsert.
+ * New seats get the committee's LTED weight, so they don't show as missing a
+ * weight until the next recompute.
  */
 export async function ensureSeatsExist(
   committeeListId: number,
@@ -66,11 +68,16 @@ export async function ensureSeatsExist(
   }
 
   if (toCreate.length > 0) {
+    const committee = await db.committeeList.findUnique({
+      where: { id: committeeListId },
+      select: { ltedWeight: true },
+    });
+    const weight = computeSeatWeight(committee?.ltedWeight ?? null);
     await db.seat.createMany({
       data: toCreate.map((row) => ({
         ...row,
         isPetitioned: false,
-        weight: null,
+        weight,
       })),
       skipDuplicates: true,
     });

@@ -70,6 +70,10 @@ describe("seatUtils", () => {
         .fn()
         .mockResolvedValue({ count: 4 });
 
+      (prismaMock.committeeList as { findUnique: jest.Mock }).findUnique = jest
+        .fn()
+        .mockResolvedValue({ ltedWeight: null });
+
       await ensureSeatsExist(1, "term-1");
 
       expect((prismaMock.seat as { createMany: jest.Mock }).createMany).toHaveBeenCalledWith(
@@ -80,6 +84,35 @@ describe("seatUtils", () => {
             seatNumber,
             isPetitioned: false,
             weight: null,
+          })),
+        }),
+      );
+    });
+
+    it("gives new seats the committee's LTED weight, which is the per-seat weight", async () => {
+      (prismaMock.seat as { count: jest.Mock }).count = jest
+        .fn()
+        .mockResolvedValue(2);
+      (prismaMock.seat as { findMany: jest.Mock }).findMany = jest
+        .fn()
+        .mockResolvedValue([{ seatNumber: 1 }, { seatNumber: 2 }]);
+      (prismaMock.seat as { createMany: jest.Mock }).createMany = jest
+        .fn()
+        .mockResolvedValue({ count: 2 });
+      (prismaMock.committeeList as { findUnique: jest.Mock }).findUnique = jest
+        .fn()
+        .mockResolvedValue({ ltedWeight: new Prisma.Decimal("128.5") });
+
+      await ensureSeatsExist(1, "term-1");
+
+      expect((prismaMock.seat as { createMany: jest.Mock }).createMany).toHaveBeenCalledWith(
+        expectSeatCreateMany({
+          data: [3, 4].map((seatNumber) => ({
+            committeeListId: 1,
+            termId: "term-1",
+            seatNumber,
+            isPetitioned: false,
+            weight: new Prisma.Decimal("128.5"),
           })),
         }),
       );

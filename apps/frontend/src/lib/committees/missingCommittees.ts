@@ -12,6 +12,7 @@ import type { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { normalizeTownCode } from "~/lib/lted/digitParsing";
 import { lookupCityTown } from "~/lib/lted/monroeTownCodes";
+import { computeSeatWeight } from "~/app/api/lib/seatUtils";
 
 export type MissingCommittee = {
   cityTown: string;
@@ -109,7 +110,8 @@ export type CreateCommitteesResult = {
 
 /**
  * Creates a CommitteeList row and `maxSeats` empty seats for each committee.
- * Idempotent: rows or seats that already exist are skipped.
+ * Idempotent: rows or seats that already exist are skipped. Seats get the
+ * committee's LTED weight when it has one.
  */
 export async function createCommittees(
   tx: Prisma.TransactionClient,
@@ -140,7 +142,7 @@ export async function createCommittees(
         electionDistrict: c.electionDistrict,
       })),
     },
-    select: { id: true },
+    select: { id: true, ltedWeight: true },
   });
 
   const seatData = rows.flatMap((row) =>
@@ -149,7 +151,7 @@ export async function createCommittees(
       termId,
       seatNumber: i + 1,
       isPetitioned: false,
-      weight: null,
+      weight: computeSeatWeight(row.ltedWeight),
     })),
   );
   const { count: seatsCreated } =
