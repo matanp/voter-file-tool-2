@@ -16,6 +16,8 @@ import type { EligibilityWarning } from "~/lib/eligibility";
 import {
   LETTER_CONTENT_TYPES,
   LETTER_MAX_BYTES,
+  LETTER_SIZE_MESSAGE,
+  LETTER_TYPE_MESSAGE,
   letterSummarySchema,
   stagedLetterSchema,
 } from "~/lib/resignationLetter";
@@ -1040,19 +1042,19 @@ export type PendingExitReport = z.infer<typeof pendingExitReportSchema>;
 
 // --- Resignation Letters (leader-feedback-2026-11 ticket 08) ---------------------
 
-/** The file a letter upload declares; the server checks the real bytes at submit. */
+/**
+ * The file a letter upload declares; the server checks the real bytes at
+ * submit. The file's name travels with the submit (`stagedLetterSchema`).
+ */
 const letterFileFields = {
-  fileName: z.string().trim().min(1, "File name is required").max(255),
   contentType: z.enum(LETTER_CONTENT_TYPES, {
-    errorMap: () => ({
-      message: "The letter must be a PDF, JPEG, PNG or HEIC file.",
-    }),
+    errorMap: () => ({ message: LETTER_TYPE_MESSAGE }),
   }),
   size: z
     .number()
     .int()
     .positive("The file is empty")
-    .max(LETTER_MAX_BYTES, "The letter must be at most 10 MB."),
+    .max(LETTER_MAX_BYTES, LETTER_SIZE_MESSAGE),
 };
 
 /** A letter upload for a current member, keyed like the roster's actions. */

@@ -29,7 +29,8 @@ import {
 import type { EligibilityWarning } from "~/lib/eligibility";
 import {
   LETTER_MAX_BYTES,
-  LETTER_TYPE_LABEL,
+  LETTER_SIZE_MESSAGE,
+  LETTER_TYPE_MESSAGE,
   declaredLetterType,
   letterUploadGrantSchema,
   type StagedLetter,
@@ -684,11 +685,10 @@ async function postJson(
 
 // --- Resignation Letters (leader-feedback-2026-11 ticket 08) --------------------------
 
-/** Client-side checks before asking for an upload URL; the server re-checks the bytes. */
-export function letterFileProblem(file: { name: string; type: string; size: number }): string | null {
-  if (!declaredLetterType(file)) return `The letter must be a ${LETTER_TYPE_LABEL} file.`;
-  if (file.size === 0) return "The file is empty.";
-  if (file.size > LETTER_MAX_BYTES) return "The letter must be at most 10 MB.";
+/** Client-side size check before asking for an upload URL; the server re-checks the bytes. */
+function letterSizeProblem(size: number): string | null {
+  if (size === 0) return "The file is empty.";
+  if (size > LETTER_MAX_BYTES) return LETTER_SIZE_MESSAGE;
   return null;
 }
 
@@ -728,18 +728,16 @@ export async function uploadResignationLetter(
   onProgress: (fraction: number) => void,
   signal?: AbortSignal,
 ): Promise<{ ok: true; staged: StagedLetter } | { ok: false; message: string }> {
-  const problem = letterFileProblem(file);
   const contentType = declaredLetterType(file);
-  if (problem !== null || !contentType) {
-    return { ok: false, message: problem ?? "Unsupported file" };
-  }
+  if (!contentType) return { ok: false, message: LETTER_TYPE_MESSAGE };
+  const sizeProblem = letterSizeProblem(file.size);
+  if (sizeProblem !== null) return { ok: false, message: sizeProblem };
 
   const body: LetterUploadRequest = {
     cityTown: target.committee.cityTown,
     ...legDistrictParam(target.committee),
     electionDistrict: target.committee.electionDistrict,
     memberId: target.memberId,
-    fileName: file.name,
     contentType,
     size: file.size,
   };

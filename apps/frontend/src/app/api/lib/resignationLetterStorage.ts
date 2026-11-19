@@ -33,7 +33,9 @@ import {
 } from "~/lib/s3Utils";
 import {
   LETTER_MAX_BYTES,
+  LETTER_SIZE_MESSAGE,
   LETTER_SNIFF_BYTES,
+  LETTER_TYPE_MESSAGE,
   letterDisposition,
   letterExtension,
   letterStagingPrefix,
@@ -122,7 +124,7 @@ export async function promoteStagedLetter(
   }
   if (head.size === 0 || head.size > LETTER_MAX_BYTES) {
     await deleteQuietly(stagingKey);
-    return { ok: false, status: 400, error: "The letter must be a file of at most 10 MB." };
+    return { ok: false, status: 400, error: LETTER_SIZE_MESSAGE };
   }
 
   const contentType = sniffLetterContentType(
@@ -130,11 +132,7 @@ export async function promoteStagedLetter(
   );
   if (!contentType) {
     await deleteQuietly(stagingKey);
-    return {
-      ok: false,
-      status: 400,
-      error: "The letter must be a PDF, JPEG, PNG or HEIC file.",
-    };
+    return { ok: false, status: 400, error: LETTER_TYPE_MESSAGE };
   }
 
   const key = `${membershipLetterPrefix(membershipId)}${randomUUID()}.${letterExtension(contentType)}`;

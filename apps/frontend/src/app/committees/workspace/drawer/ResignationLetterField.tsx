@@ -2,13 +2,13 @@
 /**
  * The optional Resignation Letter upload (leader-feedback-2026-11 ticket 08),
  * shared by the Leader's resignation Exit Report and the Admin's Record
- * resignation (and meant for ticket 09).
+ * resignation.
  *
  * Picking a file uploads it straight away (presigned PUT to staging) with a
  * progress line; the parent's submit sends the staged key, and the
  * server checks the real bytes then. One file: picking another replaces it,
- * and Remove drops it. The parent should block submitting while
- * `letterFieldBusy(value)`.
+ * and Remove drops it. The parent lists `letterFieldProblems(value)` with its
+ * own, so it can't submit while an upload is running.
  */
 import React, { useEffect, useId, useRef } from "react";
 
@@ -16,7 +16,9 @@ import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import {
   LETTER_ACCEPT,
+  LETTER_MAX_LABEL,
   LETTER_TYPE_LABEL,
+  letterViewHref,
   type StagedLetter,
 } from "~/lib/resignationLetter";
 import type { CommitteeRef } from "../committeeAction";
@@ -30,8 +32,11 @@ export type LetterFieldState =
 
 export const EMPTY_LETTER: LetterFieldState = { status: "empty" };
 
-export function letterFieldBusy(state: LetterFieldState): boolean {
-  return state.status === "uploading";
+/** What blocks submitting: an upload still running. */
+export function letterFieldProblems(state: LetterFieldState): string[] {
+  return state.status === "uploading"
+    ? ["Wait for the letter to finish uploading."]
+    : [];
 }
 
 /** The staged letter to submit, or null. */
@@ -43,15 +48,11 @@ export function ResignationLetterField({
   target,
   value,
   onChange,
-  label = "Resignation letter (optional)",
-  hint,
   disabled = false,
 }: {
   target: { committee: CommitteeRef; memberId: string };
   value: LetterFieldState;
   onChange: (next: LetterFieldState) => void;
-  label?: string;
-  hint?: string;
   disabled?: boolean;
 }) {
   const id = useId();
@@ -93,9 +94,9 @@ export function ResignationLetterField({
 
   return (
     <div className="grid gap-1" data-testid="resignation-letter-field">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>Resignation letter (optional)</Label>
       <p id={`${id}-hint`} className="text-xs text-slate-600 dark:text-slate-400">
-        {hint ?? `${LETTER_TYPE_LABEL}, up to 10 MB.`}
+        {`${LETTER_TYPE_LABEL}, up to ${LETTER_MAX_LABEL}.`}
       </p>
       <input
         ref={inputRef}
@@ -150,23 +151,21 @@ export function ResignationLetterField({
 
 /** "View letter": opens through the access check; HEIC downloads instead. */
 export function ViewLetterLink({
-  href,
+  membershipId,
   fileName,
-  label = "View letter",
 }: {
-  href: string;
+  membershipId: string;
   fileName: string;
-  label?: string;
 }) {
   return (
     <a
-      href={href}
+      href={letterViewHref(membershipId)}
       target="_blank"
       rel="noopener noreferrer"
       className="text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-      aria-label={`${label}: ${fileName} (opens in a new tab)`}
+      aria-label={`View letter: ${fileName} (opens in a new tab)`}
     >
-      {label}
+      View letter
     </a>
   );
 }

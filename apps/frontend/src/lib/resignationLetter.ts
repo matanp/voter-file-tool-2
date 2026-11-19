@@ -27,6 +27,12 @@ export const LETTER_ACCEPT =
 
 export const LETTER_TYPE_LABEL = "PDF, JPEG, PNG or HEIC";
 
+/** "10 MB", from `LETTER_MAX_BYTES`. */
+export const LETTER_MAX_LABEL = `${LETTER_MAX_BYTES / (1024 * 1024)} MB`;
+
+export const LETTER_TYPE_MESSAGE = `The letter must be a ${LETTER_TYPE_LABEL} file.`;
+export const LETTER_SIZE_MESSAGE = `The letter must be at most ${LETTER_MAX_LABEL}.`;
+
 const EXTENSIONS: Record<LetterContentType, string> = {
   "application/pdf": "pdf",
   "image/jpeg": "jpg",
@@ -149,7 +155,7 @@ export type ResignationLetter = {
   fileName: string;
 };
 
-type LetterColumns = {
+export type LetterColumns = {
   resignationLetterKey: string | null;
   resignationLetterContentType: string | null;
   resignationLetterFileName: string | null;

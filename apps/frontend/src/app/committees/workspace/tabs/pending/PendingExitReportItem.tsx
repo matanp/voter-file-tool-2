@@ -42,7 +42,6 @@ import {
 } from "~/lib/dateUtils";
 import { REMOVAL_REASON_LABELS } from "~/lib/removalReasonLabels";
 import type { PendingExitReport } from "~/lib/validations/committee";
-import { letterViewHref } from "~/lib/resignationLetter";
 import { confirmExitReport, rejectExitReport } from "../../adapters";
 import { ViewLetterLink } from "../../drawer/ResignationLetterField";
 import { personName, type PendingDecision } from "./PendingSubmissionItem";
@@ -157,7 +156,7 @@ export function PendingExitReportItem({
             <>
               <span className="font-medium">Letter:</span> {report.letter.fileName}{" "}
               <ViewLetterLink
-                href={letterViewHref(report.membershipId)}
+                membershipId={report.membershipId}
                 fileName={report.letter.fileName}
               />
             </>
@@ -258,7 +257,7 @@ export function PendingExitReportItem({
                     : "Letter attached: "}
                   <span className="font-medium">{report.letter.fileName}</span>{" "}
                   <ViewLetterLink
-                    href={letterViewHref(report.membershipId)}
+                    membershipId={report.membershipId}
                     fileName={report.letter.fileName}
                   />
                 </>

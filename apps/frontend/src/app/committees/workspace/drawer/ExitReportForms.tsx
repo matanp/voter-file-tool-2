@@ -45,7 +45,7 @@ import { useActionSubmit } from "./drawerParts";
 import {
   EMPTY_LETTER,
   ResignationLetterField,
-  letterFieldBusy,
+  letterFieldProblems,
   stagedLetterOf,
   type LetterFieldState,
 } from "./ResignationLetterField";
@@ -252,9 +252,7 @@ export function ReportExitForm({
   };
   const problems = [
     ...exitReportProblems(input),
-    ...(isResignation && letterFieldBusy(letter)
-      ? ["Wait for the letter to finish uploading."]
-      : []),
+    ...(isResignation ? letterFieldProblems(letter) : []),
   ];
 
   return (

@@ -137,7 +137,6 @@ beforeEach(() => {
 describe("POST /api/committee/resignation-letter/upload-url", () => {
   const body = (overrides: Record<string, unknown> = {}) => ({
     ...memberKey,
-    fileName: "letter.pdf",
     contentType: "application/pdf",
     size: 2048,
     ...overrides,

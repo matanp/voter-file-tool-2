@@ -52,7 +52,7 @@ import {
 import {
   EMPTY_LETTER,
   ResignationLetterField,
-  letterFieldBusy,
+  letterFieldProblems,
   stagedLetterOf,
   type LetterFieldState,
 } from "./ResignationLetterField";
@@ -310,7 +310,7 @@ export function RecordResignationForm({
   const submit = () => run(() => submitResignation(action, input, staged));
   const problems = [
     ...resignationProblems(input),
-    ...(letterFieldBusy(letter) ? ["Wait for the letter to finish uploading."] : []),
+    ...letterFieldProblems(letter),
   ];
 
   return (

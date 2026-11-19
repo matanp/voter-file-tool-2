@@ -10,7 +10,9 @@
  * The member is a current (ACTIVE) one, for a Leader's resignation Exit
  * Report or an Admin's Record resignation. A Leader must have jurisdiction,
  * and the member must not already have a pending report (no editing a filed
- * report).
+ * report). Like `/api/committee/exitReport` and `requestAdd`, a RequestAccess
+ * user isn't jurisdiction-scoped (`leaderMayActOnCommittee`); see
+ * .scratch/committees-workspace/issues/03-requestaccess-submission-role.md.
  */
 import { type NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
@@ -31,7 +33,7 @@ import { isActualAdmin } from "~/app/api/lib/resignationLetterAccess";
 import { issueLetterUpload } from "~/app/api/lib/resignationLetterStorage";
 import { letterUploadSchema } from "~/lib/validations/committee";
 
-function error(status: number, message: string) {
+function failure(status: number, message: string) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
@@ -40,7 +42,7 @@ async function uploadUrlHandler(req: NextRequest, session: SessionWithUser) {
   try {
     body = await req.json();
   } catch {
-    return error(400, "Invalid JSON format");
+    return failure(400, "Invalid JSON format");
   }
 
   const validation = validateRequest(body, letterUploadSchema);
@@ -61,7 +63,7 @@ async function uploadUrlHandler(req: NextRequest, session: SessionWithUser) {
         },
       },
     });
-    if (!committee) return error(404, "Committee not found in the active term");
+    if (!committee) return failure(404, "Committee not found in the active term");
 
     const allowed = await leaderMayActOnCommittee({
       userId: session.user.id,
@@ -70,7 +72,7 @@ async function uploadUrlHandler(req: NextRequest, session: SessionWithUser) {
       committee,
     });
     if (!allowed) {
-      return error(403, "You do not have jurisdiction access for this committee");
+      return failure(403, "You do not have jurisdiction access for this committee");
     }
 
     const membership = await prisma.committeeMembership.findUnique({
@@ -83,13 +85,13 @@ async function uploadUrlHandler(req: NextRequest, session: SessionWithUser) {
       },
       select: { id: true, status: true, exitReportedAt: true },
     });
-    if (!membership) return error(404, "Member not found in this committee");
+    if (!membership) return failure(404, "Member not found in this committee");
     if (membership.status !== ACTIVE_MEMBERSHIP_STATUS) {
-      return error(400, "Member does not have an active membership in this committee");
+      return failure(400, "Member does not have an active membership in this committee");
     }
     // A Leader attaches a letter only while filing; a filed report isn't edited.
     if (!isActualAdmin(privilegeLevel) && membership.exitReportedAt !== null) {
-      return error(409, "An exit has already been reported for this member");
+      return failure(409, "An exit has already been reported for this member");
     }
 
     const grant = await issueLetterUpload({
@@ -101,7 +103,7 @@ async function uploadUrlHandler(req: NextRequest, session: SessionWithUser) {
   } catch (err) {
     Sentry.captureException(err, { tags: { operation: "resignationLetterUploadUrl" } });
     console.error(err);
-    return error(500, "Internal server error");
+    return failure(500, "Internal server error");
   }
 }
 

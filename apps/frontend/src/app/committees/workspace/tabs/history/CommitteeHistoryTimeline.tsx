@@ -2,7 +2,6 @@
 import React from "react";
 
 import type { HistoryEvent } from "~/lib/validations/committee";
-import { letterViewHref } from "~/lib/resignationLetter";
 import { ViewLetterLink } from "../../drawer/ResignationLetterField";
 import {
   describeActor,
@@ -75,7 +74,7 @@ export function CommitteeHistoryTimeline({
                   <p data-testid="history-letter">
                     Letter: {event.letter.fileName}{" "}
                     <ViewLetterLink
-                      href={letterViewHref(event.letter.membershipId)}
+                      membershipId={event.letter.membershipId}
                       fileName={event.letter.fileName}
                     />
                   </p>

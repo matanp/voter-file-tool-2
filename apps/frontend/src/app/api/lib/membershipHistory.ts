@@ -25,13 +25,14 @@ import type {
 } from "@prisma/client";
 import {
   ExitReportKind,
+  MembershipStatus,
   MembershipType,
   RemovalReason,
   ResignationMethod,
 } from "@prisma/client";
 import { z } from "zod";
 import prisma from "~/lib/prisma";
-import { letterOnRow } from "~/lib/resignationLetter";
+import { letterOnRow, type LetterColumns } from "~/lib/resignationLetter";
 import { getName } from "~/lib/voterRecordFormatters";
 import {
   type HistoryEvent,
@@ -147,7 +148,7 @@ export type HistoryAuditRow = {
  * linked members). Its petition columns are deliberately absent: they hold
  * only the latest cycle, so an older `petition_outcome` must not read them.
  */
-export type HistoryMembershipRow = {
+export type HistoryMembershipRow = LetterColumns & {
   id: string;
   voterRecordId: string;
   seatNumber: number | null;
@@ -157,11 +158,8 @@ export type HistoryMembershipRow = {
     middleInitial: string | null;
     lastName: string | null;
   };
-  /** For the Admin's "View letter" on a resignation; absent in older callers. */
-  status?: string;
-  resignationLetterKey?: string | null;
-  resignationLetterContentType?: string | null;
-  resignationLetterFileName?: string | null;
+  /** With the letter columns, for the Admin's "View letter" on a resignation. */
+  status: MembershipStatus;
 };
 
 export type HistoryMeetingRow = {
@@ -379,12 +377,8 @@ export function buildHistoryEvents(
         let letter;
         if (membership && !resignationsSeen.has(membership.id)) {
           resignationsSeen.add(membership.id);
-          const onRow = letterOnRow({
-            resignationLetterKey: membership.resignationLetterKey ?? null,
-            resignationLetterContentType: membership.resignationLetterContentType ?? null,
-            resignationLetterFileName: membership.resignationLetterFileName ?? null,
-          });
-          if (isAdmin && membership.status === "RESIGNED" && onRow) {
+          const onRow = letterOnRow(membership);
+          if (isAdmin && membership.status === MembershipStatus.RESIGNED && onRow) {
             letter = { membershipId: membership.id, fileName: onRow.fileName };
           }
         }

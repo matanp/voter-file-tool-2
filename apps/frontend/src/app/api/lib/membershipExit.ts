@@ -32,6 +32,7 @@ import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
 import {
   CLEARED_LETTER_FIELDS,
   letterColumns,
+  type LetterColumns,
   type ResignationLetter,
 } from "~/lib/resignationLetter";
 
@@ -262,14 +263,19 @@ export async function writeMembershipExit(
       resignationMethod: exit.resignationMethod,
       removalReason: exit.removalReason,
       removalNotes: exit.removalNotes,
-      ...(exit.letter === undefined
-        ? CLEARED_LETTER_FIELDS
-        : exit.letter === "keepReported"
-          ? {}
-          : letterColumns(exit.letter)),
+      ...letterUpdate(exit.letter),
     },
     mode,
   );
+}
+
+/** The letter columns an exit writes: cleared, left as reported, or a new upload. */
+function letterUpdate(
+  letter: MembershipExit["letter"],
+): Partial<LetterColumns> {
+  if (letter === undefined) return CLEARED_LETTER_FIELDS;
+  if (letter === "keepReported") return {};
+  return letterColumns(letter);
 }
 
 /**
@@ -363,4 +369,3 @@ export async function clearRejectedExitReport(
   });
   return count > 0;
 }
-
