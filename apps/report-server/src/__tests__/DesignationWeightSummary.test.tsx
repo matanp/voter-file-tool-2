@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import DesignationWeightSummaryReport, {
+  formatWeight,
   summaryToRow,
   groupWeightSummaries,
 } from '../components/DesignationWeightSummary';
@@ -184,6 +185,20 @@ describe('DesignationWeightSummary', () => {
       expect(rochesterGroup?.rows).toHaveLength(2);
       expect(brightonGroup?.subtotalWeight).toBe(3);
       expect(brightonGroup?.rows).toHaveLength(1);
+    });
+  });
+  describe('formatWeight', () => {
+    it('rounds half up on the decimal digits, not the binary value', () => {
+      // (1.005).toFixed(2) is "1.00" because 1.005 is stored as 1.00499...
+      expect(formatWeight(1.005)).toBe('1.01');
+      expect(formatWeight(128.5)).toBe('128.50');
+      expect(formatWeight(0.1 + 0.2)).toBe('0.30');
+    });
+
+    it('rounds the base weight from its exact product', () => {
+      // 1.005 * 3 is 3.0149999999999997 as a float; the exact product is 3.015.
+      const row = summaryToRow(committee({ ltedWeight: 1.005, petitioned: 3 }));
+      expect(formatWeight(row.baseWeight!)).toBe('3.02');
     });
   });
   describe('report', () => {

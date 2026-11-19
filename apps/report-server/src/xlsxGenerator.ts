@@ -26,7 +26,10 @@ import type {
   ChangesReportRow,
   PetitionOutcomeRow,
 } from './committeeMappingHelpers';
-import { groupWeightSummaries } from './components/DesignationWeightSummary';
+import {
+  formatWeight,
+  groupWeightSummaries,
+} from './components/DesignationWeightSummary';
 
 type ColumnHeaders = Record<string, string>;
 type FieldWidths = Record<string, number>;
@@ -329,9 +332,10 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
         row.occupiedPetitioned,
         row.vacantPetitioned,
         row.appointed,
-        row.ltedWeight?.toFixed(2) ?? '',
-        row.baseWeight?.toFixed(2) ?? '',
-        row.designationWeight.toFixed(2),
+        // A missing weight is a blank cell here; the PDF shows a dash.
+        row.ltedWeight != null ? formatWeight(row.ltedWeight) : '',
+        row.baseWeight != null ? formatWeight(row.baseWeight) : '',
+        formatWeight(row.designationWeight),
         row.missingWeights || '',
       ]);
     }
@@ -346,7 +350,7 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
       '',
       '',
       '',
-      group.subtotalWeight.toFixed(2),
+      formatWeight(group.subtotalWeight),
       '',
     ]);
     grandTotal += group.subtotalWeight;
@@ -362,7 +366,7 @@ export async function generateDesignationWeightSummaryXLSXAndUpload(
     '',
     '',
     '',
-    grandTotal.toFixed(2),
+    formatWeight(grandTotal),
     '',
   ]);
 
