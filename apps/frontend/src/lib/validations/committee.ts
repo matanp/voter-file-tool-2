@@ -1062,6 +1062,15 @@ export const letterUploadSchema = committeeMemberTargetSchema
 
 export type LetterUploadRequest = z.input<typeof letterUploadSchema>;
 
+/** `GET /api/committee/resignation-letter` query. */
+export const letterViewQuerySchema = z
+  .object({
+    membershipId: z.string().trim().min(1),
+    /** `1`: redirect to the URL instead of returning it, for a plain link. */
+    redirect: z.literal("1").optional(),
+  })
+  .strict();
+
 /** SRS 2.6 — one petition candidate as `/api/admin/petition-outcomes` lists it (Admin-only). */
 export const petitionOutcomeContextSchema = z.object({
   id: z.string(),

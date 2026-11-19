@@ -18,15 +18,24 @@ import {
   withPrivilege,
   type SessionWithUser,
 } from "~/app/api/lib/withPrivilege";
+import { validateRequest } from "~/app/api/lib/validateRequest";
 import { letterOnRow } from "~/lib/resignationLetter";
+import { letterViewQuerySchema } from "~/lib/validations/committee";
 import { letterViewAccess } from "~/app/api/lib/resignationLetterAccess";
 import { letterReadUrl } from "~/app/api/lib/resignationLetterStorage";
 
 async function getLetterHandler(req: NextRequest, session: SessionWithUser) {
-  const membershipId = req.nextUrl.searchParams.get("membershipId")?.trim();
-  if (!membershipId) {
-    return NextResponse.json({ error: "membershipId is required" }, { status: 400 });
-  }
+  const { searchParams } = req.nextUrl;
+  const validation = validateRequest(
+    {
+      membershipId: searchParams.get("membershipId") ?? undefined,
+      redirect: searchParams.get("redirect") ?? undefined,
+    },
+    letterViewQuerySchema,
+  );
+  if (!validation.success) return validation.response;
+  const { membershipId, redirect } = validation.data;
+
   try {
     const membership = await prisma.committeeMembership.findUnique({
       where: { id: membershipId },
@@ -40,10 +49,13 @@ async function getLetterHandler(req: NextRequest, session: SessionWithUser) {
         committeeList: { select: { cityTown: true, legDistrict: true } },
       },
     });
-    const letter = membership ? letterOnRow(membership) : null;
-    if (!membership || !letter) {
-      return NextResponse.json({ error: "No letter is attached" }, { status: 404 });
+    if (!membership) {
+      return NextResponse.json(
+        { success: false, error: "Membership not found" },
+        { status: 404 },
+      );
     }
+    // Access first, so a reader without it can't tell whether a letter exists.
     const access = await letterViewAccess({
       viewer: {
         userId: session.user.id,
@@ -53,12 +65,19 @@ async function getLetterHandler(req: NextRequest, session: SessionWithUser) {
     });
     if (access !== "allowed") {
       return NextResponse.json(
-        { error: "You do not have access to this letter" },
+        { success: false, error: "You do not have access to this letter" },
         { status: 403 },
       );
     }
+    const letter = letterOnRow(membership);
+    if (!letter) {
+      return NextResponse.json(
+        { success: false, error: "No letter is attached" },
+        { status: 404 },
+      );
+    }
     const url = await letterReadUrl(letter);
-    if (req.nextUrl.searchParams.get("redirect") === "1") {
+    if (redirect === "1") {
       return NextResponse.redirect(url, { status: 302 });
     }
     return NextResponse.json({ url }, { status: 200 });
@@ -67,7 +86,10 @@ async function getLetterHandler(req: NextRequest, session: SessionWithUser) {
       tags: { operation: "resignationLetterView" },
       extra: { membershipId },
     });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 

@@ -149,6 +149,13 @@ jest.mock("~/auth", () => ({
   auth: jest.fn(),
 }));
 
+// Sentry reports nothing in unit tests; `captureException` is a jest.fn so
+// tests can assert on what a route reports.
+jest.mock("@sentry/nextjs", () => ({
+  ...jest.requireActual<Record<string, unknown>>("@sentry/nextjs"),
+  captureException: jest.fn(),
+}));
+
 // Unit tests never reach R2: every s3Utils call is a jest.fn (the real module
 // also throws at import without R2 credentials). Tests that care set results
 // with `jest.mocked(...)`, or mock the module themselves.

@@ -34,7 +34,6 @@ import {
   prismaMock,
 } from "../../utils/mocks";
 
-jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 type CommitteeListMock = { findUnique: jest.Mock };
 type UserJurisdictionMock = { findMany: jest.Mock };

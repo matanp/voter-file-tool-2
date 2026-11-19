@@ -7,11 +7,17 @@
  *   to a pending resignation Exit Report. Once the resignation is recorded the
  *   letter is Admin-only: it holds the member's signature and details.
  */
-import { PrivilegeLevel } from "@prisma/client";
+import {
+  ExitReportKind,
+  PrivilegeLevel,
+  type MembershipStatus,
+} from "@prisma/client";
 import { canAccessCommittee } from "~/app/api/lib/committeeRead";
+import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
+import { hasPermissionFor } from "~/lib/utils";
 
-export function isActualAdmin(level: PrivilegeLevel | undefined): boolean {
-  return level === PrivilegeLevel.Admin || level === PrivilegeLevel.Developer;
+export function isActualAdmin(level: PrivilegeLevel): boolean {
+  return hasPermissionFor(level, PrivilegeLevel.Admin);
 }
 
 export type LetterViewDecision = "allowed" | "forbidden";
@@ -19,8 +25,8 @@ export type LetterViewDecision = "allowed" | "forbidden";
 export async function letterViewAccess(params: {
   viewer: { userId: string; privilegeLevel: PrivilegeLevel };
   membership: {
-    status: string;
-    exitReportedKind: string | null;
+    status: MembershipStatus;
+    exitReportedKind: ExitReportKind | null;
     termId: string;
     committeeList: { cityTown: string; legDistrict: number };
   };
@@ -28,8 +34,8 @@ export async function letterViewAccess(params: {
   const { viewer, membership } = params;
   if (isActualAdmin(viewer.privilegeLevel)) return "allowed";
   const pending =
-    membership.status === "ACTIVE" &&
-    membership.exitReportedKind === "RESIGNATION";
+    membership.status === ACTIVE_MEMBERSHIP_STATUS &&
+    membership.exitReportedKind === ExitReportKind.RESIGNATION;
   if (!pending) return "forbidden";
   const inScope = await canAccessCommittee({
     userId: viewer.userId,

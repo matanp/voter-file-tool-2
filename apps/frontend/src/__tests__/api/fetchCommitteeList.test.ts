@@ -22,9 +22,6 @@ import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 
 // Global mocks are available from jest.setup.js
-jest.mock("@sentry/nextjs", () => ({
-  captureException: jest.fn(),
-}));
 
 /** Residency fields for a committee with no crosswalk row, with the AD check on. */
 const NO_CROSSWALK_RESIDENCY = {

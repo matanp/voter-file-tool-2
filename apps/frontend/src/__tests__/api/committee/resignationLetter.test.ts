@@ -30,13 +30,9 @@ import {
   parseJsonResponse,
   selectedRow,
 } from "../../utils/testUtils";
-import {
-  mockAuthSession,
-  mockHasPermission,
-  prismaMock,
-} from "../../utils/mocks";
-
-jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
+import { mockAuthSession, prismaMock } from "../../utils/mocks";
+import { hasPermissionFor } from "~/lib/utils";
+import type * as UtilsModule from "~/lib/utils";
 
 const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
 const MEMBERSHIP_ID = "membership-test-id-001";
@@ -60,9 +56,14 @@ const memberKey = {
   memberId: "TEST123456",
 };
 
-function signIn(privilegeLevel: PrivilegeLevel, granted = true) {
+/** Signs in with the real privilege hierarchy (the routes also ask "is this an Admin?"). */
+function signIn(privilegeLevel: PrivilegeLevel) {
   mockAuthSession(createMockSession({ user: { privilegeLevel } }));
-  mockHasPermission(granted);
+  jest
+    .mocked(hasPermissionFor)
+    .mockImplementation(
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+    );
 }
 
 function leaderJurisdictions(
@@ -103,8 +104,13 @@ function row(overrides: Parameters<typeof createMockMembership>[0] = {}) {
   };
 }
 
-function resolveMembership(r: object) {
-  prismaMock.committeeMembership.findUnique.mockResolvedValue(selectedRow(r));
+/** The membership row (with the relations the routes select) a lookup returns. */
+type MembershipRow = ReturnType<typeof row>;
+
+function resolveMembership(r: MembershipRow) {
+  prismaMock.committeeMembership.findUnique.mockResolvedValue(
+    selectedRow<MembershipRow>(r),
+  );
 }
 
 /** A pending resignation report carrying a letter. */
@@ -146,7 +152,7 @@ describe("POST /api/committee/resignation-letter/upload-url", () => {
   });
 
   it("should return 403 for ReadAccess", async () => {
-    signIn(PrivilegeLevel.ReadAccess, false);
+    signIn(PrivilegeLevel.ReadAccess);
     const response = await uploadUrl(createMockRequest(body()));
     expect(response.status).toBe(403);
     expect(getPresignedSizedUploadUrl).not.toHaveBeenCalled();
@@ -258,6 +264,24 @@ describe("GET /api/committee/resignation-letter", () => {
     signIn(PrivilegeLevel.Admin);
     resolveMembership(row({ status: "RESIGNED" }));
     expect((await view()).status).toBe(404);
+  });
+
+  it("should refuse a Leader without access before saying whether a letter exists", async () => {
+    signIn(PrivilegeLevel.Leader);
+    leaderJurisdictions([{ cityTown: "Elsewhere", legDistrict: 9 }]);
+    resolveMembership(
+      row({ exitReportedAt: REPORTED_AT, exitReportedKind: "RESIGNATION" }),
+    );
+    expect((await view()).status).toBe(403);
+  });
+
+  it("should validate the query", async () => {
+    signIn(PrivilegeLevel.Admin);
+    const response = await viewLetter(
+      createMockRequest({}, { membershipId: " " }, { method: "GET" }),
+    );
+    expect(response.status).toBe(422);
+    expect(prismaMock.committeeMembership.findUnique).not.toHaveBeenCalled();
   });
 });
 
@@ -391,7 +415,7 @@ describe("confirming and rejecting a report with a letter", () => {
 
   it("should keep the letter on confirm", async () => {
     prismaMock.committeeMembership.update.mockResolvedValue(
-      selectedRow({ ...reportedWithLetter(), status: "RESIGNED" }),
+      selectedRow<MembershipRow>({ ...reportedWithLetter(), status: "RESIGNED" }),
     );
     const response = await confirmExitReport(
       createMockRequest({ membershipId: MEMBERSHIP_ID, exitReportedAt: REPORTED_AT.toISOString() }),
@@ -432,7 +456,7 @@ describe("Record resignation and removal with a pending letter", () => {
     signIn(PrivilegeLevel.Admin);
     resolveMembership(reportedWithLetter());
     prismaMock.committeeMembership.update.mockResolvedValue(
-      selectedRow({ ...reportedWithLetter(), status: "RESIGNED" }),
+      selectedRow<MembershipRow>({ ...reportedWithLetter(), status: "RESIGNED" }),
     );
   });
 
@@ -473,7 +497,7 @@ describe("Record resignation and removal with a pending letter", () => {
 
   it("should clear the letter on a removal", async () => {
     prismaMock.committeeMembership.update.mockResolvedValue(
-      selectedRow({ ...reportedWithLetter(), status: "REMOVED" }),
+      selectedRow<MembershipRow>({ ...reportedWithLetter(), status: "REMOVED" }),
     );
     const response = await removeOrResign(
       createMockRequest({ ...memberKey, removalReason: "DECEASED" }),

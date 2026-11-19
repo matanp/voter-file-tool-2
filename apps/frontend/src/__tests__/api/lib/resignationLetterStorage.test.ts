@@ -19,7 +19,6 @@ import {
   releaseStagedLetter,
 } from "~/app/api/lib/resignationLetterStorage";
 
-jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 const PDF = new Uint8Array([...("%PDF-1.7\n" as string)].map((c) => c.charCodeAt(0)));
 const ZIP = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]);

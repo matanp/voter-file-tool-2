@@ -3,6 +3,7 @@
  * (ticket 08), against the mocked Prisma client. The CHECK constraints
  * themselves are in membershipExit.pg.integration.test.ts.
  */
+import type { CommitteeMembership } from "@prisma/client";
 import {
   writeMembershipExit,
   writeMembershipLeavingActive,
@@ -38,7 +39,7 @@ const resignation = {
 beforeEach(() => {
   jest.clearAllMocks();
   prismaMock.committeeMembership.update.mockResolvedValue(
-    selectedRow(createMockMembership()),
+    selectedRow<CommitteeMembership>(createMockMembership()),
   );
 });
 
