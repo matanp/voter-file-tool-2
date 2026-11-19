@@ -16,7 +16,7 @@ import {
   deleteObject,
   getPresignedReadUrl,
   getPresignedSizedUploadUrl,
-  headObjectSize,
+  headObject,
   readObjectPrefix,
 } from "~/lib/s3Utils";
 import {
@@ -80,6 +80,7 @@ function leaderJurisdictions(
   );
 }
 
+const ETAG = '"etag-1"';
 const STAGING_KEY = `resignation-letters/staging/${MEMBERSHIP_ID}/0f8fad5b-d9cb-469f-a165-70867728950e`;
 
 /** A staged upload the presign for this membership would have produced. */
@@ -89,7 +90,7 @@ function staged(stagingKey = STAGING_KEY) {
 
 /** The staged object R2 holds: 6 bytes of PDF. */
 function stagedObjectIsPdf() {
-  jest.mocked(headObjectSize).mockResolvedValue(6);
+  jest.mocked(headObject).mockResolvedValue({ size: 6, etag: ETAG });
   jest.mocked(readObjectPrefix).mockResolvedValue(PDF_BYTES);
 }
 
@@ -297,7 +298,9 @@ describe("POST /api/committee/exitReport with a letter", () => {
       STAGING_KEY,
       data.resignationLetterKey,
       "application/pdf",
+      ETAG,
     );
+    expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
     expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
       expectAuditLogCreate({
         action: "MEMBER_EXIT_REPORTED",
@@ -312,7 +315,7 @@ describe("POST /api/committee/exitReport with a letter", () => {
     expect(prismaMock.committeeMembership.updateMany.mock.calls[0]![0].data).toMatchObject(
       NO_LETTER,
     );
-    expect(headObjectSize).not.toHaveBeenCalled();
+    expect(headObject).not.toHaveBeenCalled();
   });
 
   it("should refuse a letter on a removal report", async () => {
@@ -331,7 +334,7 @@ describe("POST /api/committee/exitReport with a letter", () => {
   });
 
   it("should refuse and delete a file whose first bytes aren't a letter type", async () => {
-    jest.mocked(headObjectSize).mockResolvedValue(6);
+    jest.mocked(headObject).mockResolvedValue({ size: 6, etag: ETAG });
     jest.mocked(readObjectPrefix).mockResolvedValue(new Uint8Array([0x50, 0x4b, 3, 4, 0, 0]));
     const response = await reportExit(createMockRequest(report()));
     expect(response.status).toBe(400);
@@ -340,7 +343,7 @@ describe("POST /api/committee/exitReport with a letter", () => {
   });
 
   it("should refuse and delete a file over 10 MB", async () => {
-    jest.mocked(headObjectSize).mockResolvedValue(11 * 1024 * 1024);
+    jest.mocked(headObject).mockResolvedValue({ size: 11 * 1024 * 1024, etag: ETAG });
     const response = await reportExit(createMockRequest(report()));
     expect(response.status).toBe(400);
     expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
@@ -355,13 +358,26 @@ describe("POST /api/committee/exitReport with a letter", () => {
     expect(prismaMock.committeeMembership.updateMany).not.toHaveBeenCalled();
   });
 
-  it("should delete the copied letter when the report loses a race", async () => {
+  it("should delete the copied letter, but keep the staged one, when the report loses a race", async () => {
     stagedObjectIsPdf();
     prismaMock.committeeMembership.updateMany.mockResolvedValue({ count: 0 });
     const response = await reportExit(createMockRequest(report()));
     expect(response.status).toBe(409);
     const copiedTo = jest.mocked(copyObject).mock.calls[0]![1];
     expect(deleteObject).toHaveBeenCalledWith(copiedTo);
+    expect(deleteObject).not.toHaveBeenCalledWith(STAGING_KEY);
+  });
+
+  it("should accept a retry with the same staging key after a failed write", async () => {
+    stagedObjectIsPdf();
+    prismaMock.committeeMembership.updateMany.mockRejectedValueOnce(new Error("db down"));
+    expect((await reportExit(createMockRequest(report()))).status).toBe(500);
+    expect(deleteObject).not.toHaveBeenCalledWith(STAGING_KEY);
+
+    const retry = await reportExit(createMockRequest(report()));
+    expect(retry.status).toBe(201);
+    expect(copyObject).toHaveBeenCalledTimes(2);
+    expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
   });
 });
 
@@ -442,6 +458,17 @@ describe("Record resignation and removal with a pending letter", () => {
         metadata: jsonContaining({ resignationLetterKey: data.resignationLetterKey }),
       }),
     );
+    expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
+  });
+
+  it("should keep the Admin's staged upload for a retry when the write fails", async () => {
+    stagedObjectIsPdf();
+    prismaMock.committeeMembership.update.mockRejectedValueOnce(new Error("db down"));
+    const response = await resign({ letter: staged() });
+    expect(response.status).toBe(500);
+    const copiedTo = jest.mocked(copyObject).mock.calls[0]![1];
+    expect(deleteObject).toHaveBeenCalledWith(copiedTo);
+    expect(deleteObject).not.toHaveBeenCalledWith(STAGING_KEY);
   });
 
   it("should clear the letter on a removal", async () => {

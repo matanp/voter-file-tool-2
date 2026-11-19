@@ -165,21 +165,31 @@ export async function getPresignedSizedUploadUrl(
   });
 }
 
-/** The object's size, or null when it doesn't exist. Other errors throw. */
-export async function headObjectSize(key: string): Promise<number | null> {
+function httpStatusOf(error: unknown): number | undefined {
+  return (error as { $metadata?: { httpStatusCode?: number } }).$metadata
+    ?.httpStatusCode;
+}
+
+/**
+ * The object's size and ETag, or null when it doesn't exist. Other errors
+ * throw.
+ */
+export async function headObject(
+  key: string,
+): Promise<{ size: number; etag: string } | null> {
+  let response;
   try {
-    const response = await s3.send(
+    response = await s3.send(
       new HeadObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: key }),
     );
-    return response.ContentLength ?? 0;
   } catch (error) {
-    const status = (error as { $metadata?: { httpStatusCode?: number } })
-      .$metadata?.httpStatusCode;
-    if (status === 404 || (error as { name?: string }).name === "NotFound") {
+    if (httpStatusOf(error) === 404 || (error as { name?: string }).name === "NotFound") {
       return null;
     }
     throw error;
   }
+  if (!response.ETag) throw new Error(`HEAD ${key} returned no ETag`);
+  return { size: response.ContentLength ?? 0, etag: response.ETag };
 }
 
 /** The object's first `length` bytes (a ranged GET). */
@@ -198,22 +208,34 @@ export async function readObjectPrefix(
   return await response.Body.transformToByteArray();
 }
 
-/** Server-side copy within the bucket, replacing the stored Content-Type. */
+/**
+ * Server-side copy within the bucket, replacing the stored Content-Type. The
+ * copy happens only while the source still has `sourceETag` (the one a HEAD
+ * saw); otherwise nothing is written and the result is `"sourceChanged"`.
+ */
 export async function copyObject(
   sourceKey: string,
   destinationKey: string,
   contentType: string,
-): Promise<void> {
+  sourceETag: string,
+): Promise<"copied" | "sourceChanged"> {
   const bucket = process.env.R2_BUCKET_NAME!;
-  await s3.send(
-    new CopyObjectCommand({
-      Bucket: bucket,
-      Key: destinationKey,
-      CopySource: `${bucket}/${sourceKey.split("/").map(encodeURIComponent).join("/")}`,
-      ContentType: contentType,
-      MetadataDirective: "REPLACE",
-    }),
-  );
+  try {
+    await s3.send(
+      new CopyObjectCommand({
+        Bucket: bucket,
+        Key: destinationKey,
+        CopySource: `${bucket}/${sourceKey.split("/").map(encodeURIComponent).join("/")}`,
+        CopySourceIfMatch: sourceETag,
+        ContentType: contentType,
+        MetadataDirective: "REPLACE",
+      }),
+    );
+  } catch (error) {
+    if (httpStatusOf(error) === 412) return "sourceChanged";
+    throw error;
+  }
+  return "copied";
 }
 
 export async function deleteObject(key: string): Promise<void> {

@@ -6,9 +6,14 @@
  * `resignation-letters/staging/<membershipId>/<uuid>`. At submit,
  * `promoteStagedLetter` checks the key is under that membership's staging
  * prefix, the object's real size (HEAD) and its type from its first bytes
- * (ranged GET), then copies it to `resignation-letters/<membershipId>/` and
- * deletes the staging copy. A file that fails the checks is deleted and
+ * (ranged GET), then copies it to `resignation-letters/<membershipId>/`. The
+ * copy is conditional on the ETag the HEAD saw, so bytes PUT again after the
+ * checks are never copied. A file that fails the checks is deleted and
  * refused with 400.
+ *
+ * The staging copy is kept until the caller's row write lands
+ * (`releaseStagedLetter`), so a submit that fails afterwards (a 409 race or a
+ * 500) can be retried with the same staging key.
  *
  * Letters are never moved or deleted once submitted: a letter cleared from
  * its row stays under the membership's prefix.
@@ -23,7 +28,7 @@ import {
   deleteObject,
   getPresignedReadUrl,
   getPresignedSizedUploadUrl,
-  headObjectSize,
+  headObject,
   readObjectPrefix,
 } from "~/lib/s3Utils";
 import {
@@ -89,8 +94,9 @@ export type PromoteResult =
 
 /**
  * Checks a staged upload and copies it into the membership's prefix. On
- * success the caller writes the returned letter to the row; if that write
- * doesn't land, call `discardPromotedLetter`.
+ * success the caller writes the returned letter to the row, then calls
+ * `releaseStagedLetter` once the write lands, or `discardPromotedLetter` if
+ * it doesn't (the staging copy stays for a retry).
  */
 export async function promoteStagedLetter(
   staged: StagedLetter,
@@ -106,15 +112,15 @@ export async function promoteStagedLetter(
     };
   }
 
-  const size = await headObjectSize(stagingKey);
-  if (size === null) {
+  const head = await headObject(stagingKey);
+  if (head === null) {
     return {
       ok: false,
       status: 400,
       error: "The letter upload didn't finish or has expired. Attach the file again.",
     };
   }
-  if (size === 0 || size > LETTER_MAX_BYTES) {
+  if (head.size === 0 || head.size > LETTER_MAX_BYTES) {
     await deleteQuietly(stagingKey);
     return { ok: false, status: 400, error: "The letter must be a file of at most 10 MB." };
   }
@@ -132,15 +138,30 @@ export async function promoteStagedLetter(
   }
 
   const key = `${membershipLetterPrefix(membershipId)}${randomUUID()}.${letterExtension(contentType)}`;
-  await copyObject(stagingKey, key, contentType);
-  await deleteQuietly(stagingKey);
+  if ((await copyObject(stagingKey, key, contentType, head.etag)) === "sourceChanged") {
+    // Re-uploaded between the checks and the copy: the checked bytes are gone.
+    await deleteQuietly(stagingKey);
+    return {
+      ok: false,
+      status: 400,
+      error: "The letter changed while it was being checked. Attach the file again.",
+    };
+  }
   return {
     ok: true,
     letter: { key, contentType, fileName: letterDisplayName(staged.fileName, contentType) },
   };
 }
 
-/** Deletes a promoted copy whose DB write didn't land (lost a race, or threw). */
+/** Deletes the staging copy once the promoted letter's row write has landed. */
+export async function releaseStagedLetter(staged: StagedLetter): Promise<void> {
+  await deleteQuietly(staged.stagingKey);
+}
+
+/**
+ * Deletes a promoted copy whose DB write didn't land (lost a race, or threw).
+ * The staging copy is left for a retry; the lifecycle rule clears it.
+ */
 export async function discardPromotedLetter(
   letter: ResignationLetter | null | undefined,
 ): Promise<void> {

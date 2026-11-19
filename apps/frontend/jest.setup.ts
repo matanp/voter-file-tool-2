@@ -158,9 +158,9 @@ jest.mock("~/lib/s3Utils", () => ({
   getPresignedUploadUrl: jest.fn(async () => "https://r2.test/upload"),
   getPresignedSizedUploadUrl: jest.fn(async () => "https://r2.test/upload"),
   getFileMetadata: jest.fn(async () => null),
-  headObjectSize: jest.fn(async () => null),
+  headObject: jest.fn(async () => null),
   readObjectPrefix: jest.fn(async () => new Uint8Array()),
-  copyObject: jest.fn(async () => undefined),
+  copyObject: jest.fn(async () => "copied"),
   deleteObject: jest.fn(async () => undefined),
 }));
 

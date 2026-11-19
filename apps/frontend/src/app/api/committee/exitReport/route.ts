@@ -12,7 +12,8 @@
  * A resignation may carry a Resignation Letter (ticket 08): the staging key
  * from `/api/committee/resignation-letter/upload-url`. The file's size and
  * first bytes are checked here, and it is copied into the membership's prefix
- * before the report is written (400 if it fails).
+ * before the report is written (400 if it fails). The staging copy is deleted
+ * only once the report lands, so a failed submit can be retried.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -36,6 +37,7 @@ import type { ResignationLetter } from "~/lib/resignationLetter";
 import {
   discardPromotedLetter,
   promoteStagedLetter,
+  releaseStagedLetter,
 } from "~/app/api/lib/resignationLetterStorage";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import {
@@ -239,6 +241,8 @@ async function reportExitHandler(req: NextRequest, session: SessionWithUser) {
         { status: 409 },
       );
     }
+
+    if (stagedLetter && promoted) await releaseStagedLetter(stagedLetter);
 
     return NextResponse.json(
       { success: true, exitReportedAt: reportedAt.toISOString() },

@@ -24,10 +24,11 @@ import {
   writeMembershipExit,
   type MembershipExit,
 } from "~/app/api/lib/membershipExit";
-import type { ResignationLetter } from "~/lib/resignationLetter";
+import type { ResignationLetter, StagedLetter } from "~/lib/resignationLetter";
 import {
   discardPromotedLetter,
   promoteStagedLetter,
+  releaseStagedLetter,
 } from "~/app/api/lib/resignationLetterStorage";
 import { MEMBER_CHANGED_MESSAGE } from "~/app/api/lib/exitReportAccess";
 
@@ -66,6 +67,7 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
   const userId = session.user.id;
   const userRole = session.user.privilegeLevel;
   const legDistrictForDb = toDbSentinelValue(legDistrict);
+  let staged: StagedLetter | undefined;
   let promoted: ResignationLetter | null = null;
 
   try {
@@ -148,8 +150,9 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
     if (isResign) {
       const resignData = validation.data as ResignCommitteeData;
       const trimmedNotes = blankToNull(resignData.removalNotes);
-      if (resignData.letter) {
-        const result = await promoteStagedLetter(resignData.letter, membership.id);
+      staged = resignData.letter;
+      if (staged) {
+        const result = await promoteStagedLetter(staged, membership.id);
         if (!result.ok) {
           return NextResponse.json(
             { status: "error", error: result.error },
@@ -226,6 +229,8 @@ async function removeCommitteeHandler(req: NextRequest, session: Session) {
         { status: 409 },
       );
     }
+
+    if (staged && promoted) await releaseStagedLetter(staged);
 
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
