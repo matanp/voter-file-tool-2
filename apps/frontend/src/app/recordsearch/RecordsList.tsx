@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import VoterRecordSearch from "./VoterRecordSearch";
 import { type DropdownLists } from "@prisma/client";
-import type { RecordSearchResult } from "~/lib/validations/recordSearch";
+import type { RecordSearchResult } from "~/lib/recordSearch";
 import { VoterRecordTable } from "./VoterRecordTable";
 import { VoterRecordCardList } from "./VoterRecordCardList";
 import { VoterRecordTableSkeleton } from "./VoterRecordTableSkeleton";
@@ -39,7 +39,7 @@ interface RecordsListProps {
 export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const router = useRouter();
   const { toast } = useToast();
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const { actingPermissions } = useContext(GlobalContext);
   const {
     setSearchQuery: setContextSearchQuery,
@@ -117,6 +117,12 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     actingPermissions,
     PrivilegeLevel.Leader,
   );
+  // Ask for membership only when the real role could get it; the server
+  // decides scope either way and returns nothing below Leader.
+  const includeCommittee = hasPermissionFor(
+    session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+    PrivilegeLevel.Leader,
+  );
 
   const handleSubmit = React.useCallback(
     async (searchQueryParam: SearchField[]) => {
@@ -132,7 +138,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         searchQuery: flattenedQuery,
         pageSize: 100,
         page: 1,
-        includeCommittee: true,
+        includeCommittee,
       });
 
       setContextSearchQuery(searchQueryParam, flattenedQuery);
@@ -141,7 +147,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         scrollToElement(LOADING_SECTION_ID);
       }, 100);
     },
-    [searchMutation, setContextSearchQuery],
+    [searchMutation, setContextSearchQuery, includeCommittee],
   );
 
   const handleLoadMore = React.useCallback(async () => {
@@ -149,9 +155,9 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       searchQuery: searchQuery,
       pageSize,
       page: page + 1,
-      includeCommittee: true,
+      includeCommittee,
     });
-  }, [loadMoreMutation, searchQuery, pageSize, page]);
+  }, [loadMoreMutation, searchQuery, pageSize, page, includeCommittee]);
 
   const handleExport = () => {
     if (totalRecords > MAX_RECORDS_FOR_EXPORT) {
