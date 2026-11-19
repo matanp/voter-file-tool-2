@@ -104,6 +104,8 @@ export function ResignationLetterField({
         type="file"
         accept={LETTER_ACCEPT}
         className="sr-only"
+        // The "Choose file" button opens it; one tab stop, not two.
+        tabIndex={-1}
         aria-describedby={`${id}-hint`}
         disabled={disabled}
         onChange={(e) => {
