@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { type z } from "zod";
+import {
+  zodFieldErrors,
+  type ValidationErrorResponse,
+} from "@voter-file-tool/shared-validators";
 
 /**
  * Validates request body against a Zod schema and returns parsed data or error response.
@@ -30,17 +34,14 @@ export function validateRequest<Output>(
     console.warn("Form errors:", formErrors);
   }
 
-  const { fieldErrors } = result.error.flatten();
-  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+  const fieldErrors = zodFieldErrors(result.error);
+  const errorBody: ValidationErrorResponse = {
+    success: false,
+    error: "Invalid request data",
+    ...(Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {}),
+  };
   return {
     success: false,
-    response: NextResponse.json(
-      {
-        success: false,
-        error: "Invalid request data",
-        ...(hasFieldErrors ? { fieldErrors } : {}),
-      },
-      { status: 422 },
-    ),
+    response: NextResponse.json(errorBody, { status: 422 }),
   };
 }

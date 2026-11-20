@@ -839,7 +839,7 @@ describe("CommitteeActionDrawer: contact details", () => {
     expectFieldError(phoneInput(), "Phone is not accepted");
     expect(emailInput()).not.toHaveAttribute("aria-invalid");
     await waitFor(() => expect(phoneInput()).toHaveFocus());
-    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
+    expect(drawer().contains(document.activeElement)).toBe(true);
     expect(phoneInput()).toHaveValue("585-555-0123");
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -866,7 +866,7 @@ describe("CommitteeActionDrawer: contact details", () => {
     await userEvent.click(add());
     const blocked = await within(drawer()).findByRole("alert");
     await waitFor(() => expect(blocked).toHaveFocus());
-    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
+    expect(drawer().contains(document.activeElement)).toBe(true);
 
     await userEvent.click(add());
     await waitFor(() =>

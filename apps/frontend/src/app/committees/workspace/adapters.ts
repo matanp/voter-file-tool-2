@@ -21,6 +21,8 @@ import { z } from "zod";
 // The client-safe entry point: the package root also exports PrismaClient.
 import { committeeResidencySearchFilter } from "@voter-file-tool/shared-prisma/committeeResidency";
 import {
+  fieldErrorsSchema,
+  firstFieldMessages,
   normalizeSearchQuery,
   searchableFieldEnum,
   type SearchQueryField,
@@ -282,11 +284,13 @@ export type ActionOutcome =
       kind: "error";
       message: string;
       letterRejected?: true;
-      fieldErrors?: Record<string, string>;
+      fieldErrors?: Partial<Record<string, string>>;
     };
 
 type AddBody = z.input<typeof committeeDataSchema>;
 type RequestAddBody = z.input<typeof committeeRequestDataSchema>;
+/** A body field of `add` or `requestAdd`: the keys a submission's `fieldErrors` use. */
+export type SubmissionBodyField = keyof AddBody | keyof RequestAddBody;
 
 function addBody(committee: CommitteeRef, details: CandidateDetails): AddBody {
   const overrideReason = details.overrideReason?.trim();
@@ -685,26 +689,17 @@ async function postJson(
     };
   }
   if (!response.ok || failure?.success === false || failure?.status === "error") {
+    // A validation 422 (`validateRequest`) names its fields; keep the first message of each.
+    const fieldErrors = fieldErrorsSchema.safeParse(failure?.fieldErrors);
     return {
       ok: false,
       kind: "error",
       message: errorMessage(json, `Request failed with status ${response.status}`),
       ...(failure?.letterRejected === true ? { letterRejected: true as const } : {}),
-      ...fieldErrorsOf(failure?.fieldErrors),
+      ...(fieldErrors.success ? { fieldErrors: firstFieldMessages(fieldErrors.data) } : {}),
     };
   }
   return { ok: true, body: json };
-}
-
-/** `validateRequest`'s `fieldErrors` (field → messages), first message per field. */
-function fieldErrorsOf(value: unknown): { fieldErrors?: Record<string, string> } {
-  if (!value || typeof value !== "object") return {};
-  const fieldErrors: Record<string, string> = {};
-  for (const [field, messages] of Object.entries(value)) {
-    const first: unknown = Array.isArray(messages) ? messages[0] : undefined;
-    if (typeof first === "string" && first) fieldErrors[field] = first;
-  }
-  return Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {};
 }
 
 // --- Resignation Letters (leader-feedback-2026-11 ticket 08) --------------------------

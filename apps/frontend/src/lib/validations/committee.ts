@@ -12,6 +12,7 @@ import {
   RemovalReason,
   ResignationMethod,
 } from "@prisma/client";
+import { firstFieldMessages } from "@voter-file-tool/shared-validators";
 import type { EligibilityWarning } from "~/lib/eligibility";
 import {
   LETTER_CONTENT_TYPES,
@@ -111,11 +112,7 @@ export function memberContactErrors(contact: {
     phone: contact.phone.trim(),
   });
   if (result.success) return {};
-  const { fieldErrors } = result.error.flatten();
-  return {
-    ...(fieldErrors.email?.[0] ? { email: fieldErrors.email[0] } : {}),
-    ...(fieldErrors.phone?.[0] ? { phone: fieldErrors.phone[0] } : {}),
-  };
+  return firstFieldMessages(result.error.flatten().fieldErrors);
 }
 
 // Committee data validation schema

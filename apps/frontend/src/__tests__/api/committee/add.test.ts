@@ -26,6 +26,7 @@ import {
   parseJsonResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
+import { validationErrorResponseSchema } from "@voter-file-tool/shared-validators";
 import {
   MEMBER_EMAIL_MESSAGE,
   MEMBER_PHONE_MESSAGE,
@@ -718,7 +719,9 @@ describe("/api/committee/add", () => {
         );
 
         expect(response.status).toBe(422);
-        await expect(parseJsonResponse(response)).resolves.toEqual({
+        expect(
+          validationErrorResponseSchema.parse(await parseJsonResponse(response)),
+        ).toEqual({
           success: false,
           error: "Invalid request data",
           fieldErrors: { [field]: [message] },

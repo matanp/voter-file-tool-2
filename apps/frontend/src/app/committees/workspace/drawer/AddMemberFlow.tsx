@@ -18,7 +18,7 @@
  * submit, focus moves to the invalid field or the error alert, never out of
  * the drawer.
  */
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useId, useMemo, useState } from "react";
 import type { MembershipType } from "@prisma/client";
 
 import { Button } from "~/components/ui/button";
@@ -39,6 +39,7 @@ import {
   type CandidateAction,
   type CandidateRecord,
   type CandidateSubmissionMode,
+  type SubmissionBodyField,
 } from "../adapters";
 import {
   CandidateSearchStep,
@@ -48,12 +49,12 @@ import {
 } from "./CandidateSearchStep";
 import {
   DrawerFooter,
-  FieldError,
   OutcomeAlert,
   StepHeading,
   occupantLabel,
   personName,
   useActionSubmit,
+  useFieldErrors,
 } from "./drawerParts";
 import { useCandidateEligibility } from "./useCandidateEligibility";
 
@@ -78,28 +79,27 @@ type Details = {
 
 /** The step-3 fields that can carry an error, in the order they appear. */
 type DetailField = "email" | "phone" | "notes" | "overrideReason";
-const DETAIL_FIELDS: DetailField[] = ["email", "phone", "notes", "overrideReason"];
-type FieldErrors = Partial<Record<DetailField, string>>;
+const DETAIL_FIELDS: readonly DetailField[] = ["email", "phone", "notes", "overrideReason"];
 
 /** The endpoints' body field for each step-3 field (`adapters.ts`). */
-const SERVER_FIELD: Record<DetailField, string> = {
+const SERVER_FIELD: Record<DetailField, SubmissionBodyField> = {
   email: "email",
   phone: "phone",
   notes: "requestNotes",
   overrideReason: "overrideReason",
 };
 
-function detailFieldErrors(serverErrors: Record<string, string> | undefined): FieldErrors {
-  const errors: FieldErrors = {};
+/** The server's field errors that belong to step-3 fields. */
+function detailFieldErrors(
+  serverErrors: Partial<Record<string, string>> | undefined,
+): Partial<Record<DetailField, string>> {
+  const errors: Partial<Record<DetailField, string>> = {};
   for (const field of DETAIL_FIELDS) {
     const message = serverErrors?.[SERVER_FIELD[field]];
     if (message) errors[field] = message;
   }
   return errors;
 }
-
-const firstInvalid = (errors: FieldErrors) =>
-  DETAIL_FIELDS.find((field) => errors[field]) ?? null;
 
 const EMPTY_DETAILS: Details = {
   membershipType: "APPOINTED",
@@ -132,21 +132,8 @@ export function AddMemberFlow({
   const [candidate, setCandidate] = useState<CandidateRecord | null>(null);
   const [override, setOverride] = useState(false);
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const detailErrors = useFieldErrors(DETAIL_FIELDS);
   const { submitting, failure, clearFailure, run } = useActionSubmit(onSuccess);
-
-  // Where focus goes once the next render is on screen: a step-3 field, or
-  // the error alert. The submit button was disabled in flight, so without
-  // this focus would fall to <body>.
-  const [pendingFocus, setPendingFocus] = useState<DetailField | "alert" | null>(null);
-  const fieldRefs = useRef<Partial<Record<DetailField, HTMLElement | null>>>({});
-  const alertRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!pendingFocus) return;
-    const target = pendingFocus === "alert" ? alertRef.current : fieldRefs.current[pendingFocus];
-    target?.focus();
-    setPendingFocus(null);
-  }, [pendingFocus]);
 
   const eligibility = useCandidateEligibility(action.committee, candidate?.VRCNUM ?? null);
   const existingMemberIds = useMemo(
@@ -177,25 +164,15 @@ export function AddMemberFlow({
   const setDetail = (patch: Partial<Details>) => {
     setDetails((prev) => ({ ...prev, ...patch }));
     // Editing a field clears its message; Continue checks again.
-    setFieldErrors((prev) => {
-      const next = { ...prev };
-      for (const key of Object.keys(patch)) delete next[key as DetailField];
-      return next;
-    });
-  };
-  const showFieldErrors = (errors: FieldErrors) => {
-    setFieldErrors(errors);
-    setPendingFocus(firstInvalid(errors));
+    detailErrors.clear(DETAIL_FIELDS.filter((field) => field in patch));
   };
 
   const continueFromDetails = () => {
-    const errors = memberContactErrors(details);
-    if (firstInvalid(errors)) showFieldErrors(errors);
-    else goToStep("confirm");
+    if (!detailErrors.show(memberContactErrors(details))) goToStep("confirm");
   };
 
   const submit = async (selected: CandidateRecord) => {
-    const failed = await run(() =>
+    const submitFailure = await run(() =>
       submitCandidate(action, mode, {
         candidateId: selected.VRCNUM,
         ...(isAdd ? { membershipType: details.membershipType } : { notes: details.notes }),
@@ -204,30 +181,14 @@ export function AddMemberFlow({
         ...(overriding ? { overrideReason: details.overrideReason } : {}),
       }),
     );
-    if (!failed) return;
-    const errors = failed.kind === "error" ? detailFieldErrors(failed.fieldErrors) : {};
-    if (firstInvalid(errors)) {
-      goToStep("details");
-      showFieldErrors(errors);
-    } else {
-      setPendingFocus("alert");
-    }
+    if (!submitFailure) return;
+    // A step-3 field the endpoint rejected goes back to step 3, beside its field.
+    const errors =
+      submitFailure.kind === "error" ? detailFieldErrors(submitFailure.fieldErrors) : {};
+    if (detailErrors.show(errors)) goToStep("details");
+    else detailErrors.focusAlert();
   };
-
-  const inputId = (field: DetailField) => `${id}-${field}`;
-  const errorId = (field: DetailField) => `${id}-${field}-error`;
-  /** Props tying a step-3 control to its error message (`fieldError`). */
-  const fieldProps = (field: DetailField) => ({
-    id: inputId(field),
-    ref: (el: HTMLElement | null) => {
-      fieldRefs.current[field] = el;
-    },
-    "aria-invalid": fieldErrors[field] ? true : undefined,
-    "aria-describedby": fieldErrors[field] ? errorId(field) : undefined,
-  });
-  const fieldError = (field: DetailField) => (
-    <FieldError id={errorId(field)} message={fieldErrors[field]} />
-  );
+  const { fieldProps, fieldError, inputId } = detailErrors;
 
   const heading = (
     <StepHeading
@@ -442,7 +403,7 @@ export function AddMemberFlow({
         )}
         {failure && (
           <OutcomeAlert
-            alertRef={alertRef}
+            alertRef={detailErrors.alertRef}
             outcome={failure}
             ineligibleTitle={isAdd ? "Cannot add member" : "Submission blocked"}
           />

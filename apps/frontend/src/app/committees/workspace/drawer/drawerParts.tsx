@@ -1,6 +1,6 @@
 "use client";
 /** Pieces every drawer flow shares: step headings, the footer, outcome alerts. */
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import {
@@ -109,6 +109,69 @@ export function DrawerFooter({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   );
+}
+
+type FocusTarget<F> = { to: "field"; field: F } | { to: "alert" };
+
+/**
+ * A step's field errors, and where focus goes after a failure. Each message
+ * sits beside its control (`fieldError`), tied to it by `aria-describedby`.
+ * `show` focuses the first invalid field and `focusAlert` the failure alert,
+ * once the next render is on screen; without this, a submit button disabled
+ * in flight drops focus to <body>.
+ *
+ * `fields` is the order the controls appear in.
+ */
+export function useFieldErrors<F extends string>(fields: readonly F[]) {
+  const id = useId();
+  const [errors, setErrors] = useState<Partial<Record<F, string>>>({});
+  const [pendingFocus, setPendingFocus] = useState<FocusTarget<F> | null>(null);
+  const fieldRefs = useRef<Partial<Record<F, HTMLElement | null>>>({});
+  const alertRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!pendingFocus) return;
+    const target =
+      pendingFocus.to === "alert" ? alertRef.current : fieldRefs.current[pendingFocus.field];
+    target?.focus();
+    setPendingFocus(null);
+  }, [pendingFocus]);
+
+  const inputId = (field: F) => `${id}-${field}`;
+  const errorId = (field: F) => `${id}-${field}-error`;
+  return {
+    /** Shows `next` and focuses its first invalid field; false if it has none. */
+    show(next: Partial<Record<F, string>>): boolean {
+      const first = fields.find((field) => next[field]);
+      if (first === undefined) return false;
+      setErrors(next);
+      setPendingFocus({ to: "field", field: first });
+      return true;
+    },
+    /** Drops the messages for `changed` (the user edited them). */
+    clear(changed: readonly F[]) {
+      if (!changed.some((field) => errors[field])) return;
+      setErrors((prev) => {
+        const next = { ...prev };
+        for (const field of changed) delete next[field];
+        return next;
+      });
+    },
+    focusAlert: () => setPendingFocus({ to: "alert" }),
+    /** For `OutcomeAlert`'s `alertRef`. */
+    alertRef,
+    inputId,
+    /** Props for a control: its id, its ref, and its error wiring. */
+    fieldProps: (field: F) => ({
+      id: inputId(field),
+      ref: (el: HTMLElement | null) => {
+        fieldRefs.current[field] = el;
+      },
+      "aria-invalid": errors[field] ? true : undefined,
+      "aria-describedby": errors[field] ? errorId(field) : undefined,
+    }),
+    /** The control's message, if it has one. */
+    fieldError: (field: F) => <FieldError id={errorId(field)} message={errors[field]} />,
+  };
 }
 
 /** Field-level error text, tied to its control by `id` (`aria-describedby`). */
