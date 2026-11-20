@@ -45,3 +45,11 @@ Two checks moved here from ticket 10:
 - Idle RSS of the node process (step 1). Target from ticket 10: under 120Mi, against the ~195Mi ts-node baseline.
   PM2 showed 64.2mb right after launch, which isn't an idle figure.
 - During `pm2 restart report-server` (step 6), `ps` should show no `pnpm`, `tsc`, `tailwindcss` or `ts-node`.
+
+### 2026-11-19: carried over from ticket 11
+
+- Step 4 (largest xlsx): read the peak after a big export without restarting in between:
+  `P=$(pm2 pid report-server); grep VmHWM /proc/$P/status`. Ticket 11 expected roughly 450–550 MB for 17k rows; under 700 MB is fine.
+- Run a real absentee report and record its CSV size. The absentee path loads the whole CSV (about 6× its size in heap),
+  so a file much over ~55 MB will hit the 384 MB heap cap.
+- Chrome peaks per report (steps 2–3) are covered by ticket [20](20-post-deploy-memory-and-failure-validation.md)'s measured run.

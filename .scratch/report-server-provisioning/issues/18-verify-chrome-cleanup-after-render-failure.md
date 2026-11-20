@@ -1,7 +1,8 @@
 # 18 - Verify Chrome cleanup after a failed PDF render or upload
 
-Status: ready-for-agent
+Status: ready-for-human
 Type: task
+Blocked by: 20
 
 ## Evidence (2026-11-08)
 
@@ -27,3 +28,12 @@ found no Chrome processes. This verifies the successful path only; failure clean
 - Launch failure does not attempt to close a browser that was never created.
 
 Related: [04](04-install-runs-out-of-memory.md).
+
+## Comments
+
+### 2026-11-19: unit coverage in PR #148; box check folded into 20
+
+PR #148 bounds `browser.close()` (10 s, then SIGKILL of Chrome's process group) and adds tests for a failed `newPage()`,
+a hanging `close()` and a rejecting `close()`, with the report keeping its original error. Ticket 20's failure scenarios
+run the real-browser orphan check on the box, and its acceptance closes this ticket. Upload-rejection cleanup is still
+only covered by the `try/finally` from PR #141; confirm 20's scenarios include it.

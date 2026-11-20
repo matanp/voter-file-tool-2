@@ -1,6 +1,6 @@
 # 11 - Cap node's heap and give PM2 a memory limit that can actually fire
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 Blocked by: 10
 
@@ -95,3 +95,13 @@ Still needs the real box:
 - The largest real voter-list export (all fields, 20k rows) and a real absentee report still succeed. Note the peak
   node RSS for ticket 08 step 4.
 - Optional, on a scratch box: forced growth restarts the server and the box stays responsive.
+
+### 2026-11-19: resolved (PR #146 merged and deployed 2026-11-09)
+
+Checked on the production box after the deploy: `pm2 describe report-server` shows `interpreter args --max-old-space-size=384`
+and `max memory restart 734003200` (700M). Several real 17k-row all-fields voter-list exports succeeded (one checked:
+17,223 rows, 41 columns, 26.9 MB, intact). Afterwards PM2 showed 0 restarts, `dmesg` showed no OOM kills, and the box
+had 627 MB available. The export headers and dates issues spotted in that file are `.scratch/xlsx-export-formatting/`.
+
+Not done, moved to [08](08-measure-report-server-memory.md): the peak RSS (`VmHWM`) of that export, and a real absentee
+report with its CSV size. The forced-growth test on a scratch box was optional and wasn't run.

@@ -1,6 +1,6 @@
 # 19 - Add post-deploy PDF validation (quick mode and baseline comparison)
 
-Status: ready-for-agent
+Status: ready-for-human
 Type: task
 
 Must merge and deploy **before** PR [#148](https://github.com/matanp/voter-file-tool-2/pull/148), so the box can be checked before and after it. Follow-up: [20 - Memory measurement and failure scenarios](20-post-deploy-memory-and-failure-validation.md).
@@ -109,3 +109,18 @@ Two slices, either one PR or two:
 - Document safe invocation, test-bucket setup, browser installation, timeouts, and cleanup, including interrupted runs. Leave the normal service running. Keep execution manual; automatic deploy gating and rollback are follow-ups.
 
 Related: [12 - Headless shell](12-chrome-headless-shell.md), [20 - Memory and failures](20-post-deploy-memory-and-failure-validation.md).
+
+## Comments
+
+### 2026-11-19: harness built and merged (PR #155, 2026-11-17)
+
+`render` / `verify` / `cleanup` / `approve` / `accept` are on main; runbook `apps/report-server/pdf-validation/README.md`.
+Tested locally against the dev R2 bucket with synthetic data (217 tests; quick run both browsers passed; full run 68
+renders). Local run evidence is in the main checkout's ignored `apps/report-server/pdf-validation/runs/`.
+
+Remaining, all human on the box:
+1. Deploy current main. Pre-#148 quick and full runs with `--browser chrome`, verify on the Mac.
+2. Approve the full-Chrome baselines and page counts; commit `approvals.json`.
+3. After #148 is deployed, quick and full runs with `--browser both`.
+
+The full run's report defects are filed as `.scratch/reports-polish/issues/02`–`05`.

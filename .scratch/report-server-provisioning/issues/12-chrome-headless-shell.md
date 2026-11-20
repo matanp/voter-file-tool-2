@@ -65,3 +65,9 @@ then SIGKILLs the browser. The children exit with it. `--single-process` stays, 
 than full Chrome. Local layout runners that launch, call `version()` and close without a page hit this hang too.
 
 **macOS dev note:** the same deadlock showed up on macOS (main thread in `pthread_join` under AppKit).
+
+### 2026-11-19: PR #148 rebased onto main
+
+Rebased cleanly onto main (after #155) and force-pushed. Report-server tests pass (269). Still open and not deployed.
+Order: deploy main, run ticket 19's pre-#148 box runs with `--browser chrome`, approve baselines, then merge and deploy
+#148, then 19's post-#148 runs with `--browser both` and ticket 20.

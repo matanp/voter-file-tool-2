@@ -7,7 +7,7 @@ This checks tickets 01, 02, 03, 04 and 06 on a fresh instance. Ticket 05 (the `a
 - PR #141 merged and fresh provisioning completed with HTTPS warnings.
 - Tickets 01, 03 and 06 are resolved: ownership/store, pinned pnpm, and protected failure logging passed.
 - Ticket 02 remains open: all automatic ACME attempts timed out; manual certbot later succeeded and external TLS verification passed.
-- Ticket 04 remains open: swap and install/build memory checks passed, but deployment exited 1 at the redundant Prisma step (ticket 16). Recovery restarted the service.
+- Ticket 04: swap and install/build memory checks passed, but deployment exited 1 at the redundant Prisma step. That step was removed (ticket 16) and 04 is now resolved. Recovery restarted the service.
 - Real sign-in sheet and committee PDFs downloaded successfully; no Chrome processes remained afterward. PM2 later showed 13 hours online and zero restarts.
 - Reboot verification is ticket 17; failed-render cleanup is ticket 18. Full workload memory measurements remain in ticket 08.
 - Current certbot email is `admin@opensourcepolitics.com`; monitored delivery remains unverified (ticket 05).

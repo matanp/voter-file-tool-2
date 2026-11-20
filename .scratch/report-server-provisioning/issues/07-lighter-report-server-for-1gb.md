@@ -16,8 +16,8 @@ This file is an index. The work is split into one ticket per fix:
 | 08 | Measure memory process by process (the baseline for everything below) | ready-for-human | small |
 | 09 | Avoid two copies of Chrome without giving up concurrency (shared browser, render lock, or nothing; re-evaluate after 10–12) | needs-triage | small–medium |
 | 10 | Start compiled JS under plain node (no pnpm, `tsc`, Tailwind or ts-node on restart) | resolved (PR #144) | medium |
-| 11 | Cap node's heap and set a PM2 memory limit that can fire (unblocked: 10 resolved) | ready-for-agent | small |
-| 12 | Try Puppeteer's lighter `chrome-headless-shell` | ready-for-agent | small |
+| 11 | Cap node's heap and set a PM2 memory limit that can fire | resolved (PR #146) | small |
+| 12 | Try Puppeteer's lighter `chrome-headless-shell` | PR #148 open; waits for 19's pre-#148 box run | small |
 | 13 | Turn off services the box doesn't need | ready-for-human | small |
 | 14 | Build the report server elsewhere and copy it over (no installs on the box) | needs-triage | large |
 | 15 | Move PDF rendering off the box, or stop using a browser (blocked by 08, 09, 12) | needs-triage | large |
