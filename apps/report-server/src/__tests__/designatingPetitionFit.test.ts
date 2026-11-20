@@ -16,42 +16,73 @@ type FakeCell = {
 };
 
 /**
- * A fake sheet whose "Sheet No." bottom is `contentHeight(cells, tightened)`, scaled by
+ * Fake sheets whose "Sheet No." bottom is `contentHeight(cells, tightened)`, scaled by
  * the content zoom. Enough to exercise the script's step order without a browser.
  */
 function runFit(
   cellSizes: number[],
   contentHeight: (fontSizes: number[], tightened: boolean) => number,
+  sheetCount = 1,
 ) {
-  const cells: FakeCell[] = cellSizes.map((base) => ({ base, style: {} }));
-  const content = { style: { zoom: '' } };
-  const fontSizes = () =>
-    cells.map((c) =>
-      c.style.fontSize ? parseFloat(c.style.fontSize) : c.base,
-    );
-  const sheetNoBottom = () => {
-    const zoom = content.style.zoom ? parseFloat(content.style.zoom) : 1;
-    return (
-      contentHeight(fontSizes(), cells[0]?.style.lineHeight === '1.2') * zoom
-    );
+  const sheets = Array.from({ length: sheetCount }, () => {
+    const cells: FakeCell[] = cellSizes.map((base) => ({ base, style: {} }));
+    const content = { style: { zoom: '' } };
+    let measurements = 0;
+    const fontSizes = () =>
+      cells.map((c) =>
+        c.style.fontSize ? parseFloat(c.style.fontSize) : c.base,
+      );
+    const sheetNoBottom = () => {
+      const zoom = content.style.zoom ? parseFloat(content.style.zoom) : 1;
+      return (
+        contentHeight(fontSizes(), cells[0]?.style.lineHeight === '1.2') * zoom
+      );
+    };
+    const sheet = {
+      getBoundingClientRect: () => ({ bottom: SHEET_HEIGHT }),
+      querySelector: (sel: string) =>
+        sel === '[data-petition-sheet-no]'
+          ? {
+              getBoundingClientRect: () => {
+                measurements++;
+                return { bottom: sheetNoBottom() };
+              },
+            }
+          : sel === '[data-petition-content]'
+            ? content
+            : null,
+      querySelectorAll: () => cells,
+    };
+    return {
+      sheet,
+      cells,
+      content,
+      sheetNoBottom,
+      measurements: () => measurements,
+    };
+  });
+  const bodyAttributes: string[] = [];
+  const document = {
+    querySelectorAll: () => sheets.map((s) => s.sheet),
+    body: { setAttribute: (name: string) => bodyAttributes.push(name) },
   };
-  const sheet = {
-    getBoundingClientRect: () => ({ bottom: SHEET_HEIGHT }),
-    querySelector: (sel: string) =>
-      sel === '[data-petition-sheet-no]'
-        ? { getBoundingClientRect: () => ({ bottom: sheetNoBottom() }) }
-        : sel === '[data-petition-content]'
-          ? content
-          : null,
-    querySelectorAll: () => cells,
-  };
-  const document = { querySelectorAll: () => [sheet] };
   const getComputedStyle = (el: FakeCell) => ({ fontSize: `${el.base}px` });
-  new Function('document', 'getComputedStyle', PETITION_FIT_SCRIPT)(
+  const warnings: string[] = [];
+  const fakeConsole = { warn: (msg: string) => warnings.push(msg) };
+  new Function('document', 'getComputedStyle', 'console', PETITION_FIT_SCRIPT)(
     document,
     getComputedStyle,
+    fakeConsole,
   );
-  return { cells, zoom: content.style.zoom, sheetNoBottom: sheetNoBottom() };
+  const first = sheets[0]!;
+  return {
+    cells: first.cells,
+    zoom: first.content.style.zoom,
+    sheetNoBottom: first.sheetNoBottom(),
+    sheets,
+    bodyAttributes,
+    warnings,
+  };
 }
 
 describe('petition fit script', () => {
@@ -83,7 +114,11 @@ describe('petition fit script', () => {
       [12, 12, 9],
       (sizes) => 1200 + sizes[0]! * 12,
     );
-    expect(cells.map((c) => c.style.fontSize)).toEqual(['10px', '10px', '9px']);
+    expect(cells.map((c) => c.style.fontSize)).toEqual([
+      '10px',
+      '10px',
+      undefined,
+    ]);
     expect(zoom).toBe('');
   });
 
@@ -92,6 +127,29 @@ describe('petition fit script', () => {
     expect(cells.map((c) => c.style.fontSize)).toEqual(['8px', '8px']);
     expect(parseFloat(zoom)).toBeLessThan(1);
     expect(sheetNoBottom).toBeLessThanOrEqual(LIMIT);
+  });
+
+  it('flags a sheet that still overflows at 50% zoom instead of failing silently', () => {
+    const { zoom, bodyAttributes, warnings } = runFit([12], () => 3000);
+    expect(zoom).toBe('0.5');
+    expect(bodyAttributes).toEqual(['data-petition-overflow']);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('starts later sheets from the step the first sheet needed', () => {
+    const { sheets, bodyAttributes } = runFit(
+      [12, 9],
+      (sizes) => 1200 + sizes[0]! * 12,
+      3,
+    );
+    for (const s of sheets) {
+      expect(s.cells.map((c) => c.style.fontSize)).toEqual(['10px', undefined]);
+      expect(s.sheetNoBottom()).toBeLessThanOrEqual(LIMIT);
+    }
+    // Sheet 2: initial check, one at 10px, the zoom loop's check, the final check.
+    expect(sheets[1]!.measurements()).toBe(4);
+    expect(sheets[0]!.measurements()).toBeGreaterThan(4);
+    expect(bodyAttributes).toEqual([]);
   });
 });
 
