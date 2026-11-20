@@ -72,3 +72,29 @@ watched mailbox. Still, make it a
 Terraform variable (`certbot_email`), pass it through `user_data`, and fail with a clear message if
 SSL is enabled and the variable is empty. Let's Encrypt no longer sends expiry emails, so watching renewals
 (`certbot renew --dry-run`, the certbot systemd timer) matters more than the address itself.
+
+### 2026-11-08: failure reporting verified; automatic HTTPS still fails after PR #141
+
+Fresh provisioning resolved `reports.opensourcepolitics.online` to the instance's static IP
+`54.70.186.10` after 0 seconds, but all three ACME attempts timed out connecting to port 80.
+The script correctly printed `HTTPS NOT CONFIGURED` and ended with warnings. The protected
+certbot log retained all three attempts; directory/file ownership and modes were root:root
+750/640. Ticket 06's failure-log behavior was observed on the real instance.
+
+Later, an external curl reached nginx and Express on port 80. Manual certbot succeeded, and
+external HTTPS verification passed. This proves recovery, not automatic provisioning success.
+The cause remains unconfirmed: matching DNS and outbound public IP alone did not establish
+inbound HTTP reachability at certificate-request time.
+
+Remaining work:
+
+- Correlate timestamped provisioning/ACME attempts with static-IP attachment and Lightsail public-port
+  configuration completion. Capture nginx listeners, host firewall state, and external port-80
+  reachability during the failing interval; do not assume the timing-race hypothesis is proven.
+- Inspect Terraform dependencies and provisioning ordering. Implement an appropriate bounded
+  readiness/retry mechanism based on the observed cause, keeping explicit failure warnings.
+- Validate with a controlled fresh provisioning run that HTTPS works without manual certbot.
+  Use an isolated environment/ACME staging where practical during repeated diagnosis; coordinate
+  any production recreate because it destroys the instance disk and interrupts service.
+- Preserve protected logging and failure summaries. Record the successful run's timestamps and
+  external certificate-verification output before resolving this ticket.

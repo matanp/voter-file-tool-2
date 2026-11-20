@@ -1,6 +1,6 @@
 # 01 - Provisioning runs installs and builds as root and leaves root-owned files in the project
 
-Status: ready-for-human
+Status: resolved
 Type: task
 
 ## What happened (2026-10-16)
@@ -74,3 +74,7 @@ this: the pinned pnpm still runs as root in `03-build-packages.sh`.
 - Audit: `02`, `06` and `07` already use `${SSH_USER:-$(whoami)}`. Nothing else in `infrastructure/scripts/` chowns to `whoami`.
 
 Next: a human runs `terraform:recreate` and checks the Acceptance list above.
+
+### 2026-11-08: verification update
+
+Ownership verification passed on the fresh instance: the recursive search found no non-bitnami owners in the project or existing pnpm store. The pnpm cache directory did not exist (not an ownership failure). As bitnami, the active store matched `.modules.yaml`. Deployment installed and built without permission errors. Its later unrelated Prisma CLI failure is tracked in ticket 16.

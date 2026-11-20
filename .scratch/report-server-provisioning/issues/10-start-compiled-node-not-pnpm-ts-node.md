@@ -1,6 +1,6 @@
 # 10 - Start the report server as compiled JavaScript under plain node
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 
 ## Why
@@ -40,7 +40,7 @@ memory: about 195Mi RSS idle (ticket 04). This also covers the "have PM2 run nod
 
 ## Comments
 
-### 2026-11-08: implemented on branch `report-server-compiled-node` (not pushed)
+### 2026-11-08: implemented on branch `report-server-compiled-node`
 
 Changes:
 - `apps/report-server/package.json`: `build` (`clean`, `tsc -p tsconfig.build.json`, `build:css`), `clean`, `start:prod`
@@ -85,3 +85,29 @@ Still needs the real box:
 - The first deploy of this change: `pm2 save` should replace the dump's `start.sh` entry, so check that a reboot
   resurrects `dist/index.js`. If the deploy aborts before re-registration, the existing PM2 entry can still use
   `start.sh` to restart the old application.
+
+### 2026-11-08: deployed to production (PR #144)
+
+Merged as PR #144 (`84af3920`) and deployed to the existing box with `scripts/deploy-lightsail.sh`, run after a
+`git pull`. Pull first so bash runs the new deploy script, not the old copy it already loaded. No recreate.
+
+- The deploy printed `🔨 Building report-server...`, ran `build.sh` (tsc + Tailwind), then `pm2 delete` / `pm2 start
+  ecosystem.config.js` / `pm2 save`. PM2: `[PM2][WARN] Applications report-server not running, starting...`, then
+  `online`, 0 restarts.
+- `pm2 describe report-server`: script path `/opt/voter-file-tool/apps/report-server/dist/index.js`, interpreter
+  `/home/bitnami/.nvm/versions/node/v22.23.4/bin/node`.
+- Startup logs: the 21:54:19 start goes straight from dotenv to `Server is running on http://0.0.0.0:8080`, with no
+  `Now using node`, `pnpm start`, Tailwind or ts-node output. The 20:35 start before it shows the old path.
+- A PDF report and an xlsx report both generated successfully from the production frontend after the deploy.
+- PM2 reported 64.2mb right after launch. That's a startup snapshot, not the idle RSS figure.
+
+Resolved: the code is merged and running in production, and PDF and xlsx work. Remaining checks moved to other tickets:
+- Idle RSS against the <120Mi target, and `ps` during `pm2 restart report-server` showing no pnpm/tsc/tailwindcss/ts-node:
+  ticket 08 (step 1 idle, step 6 restart).
+- Reboot resurrects `dist/index.js` from the saved dump: ticket 17. Check with `grep '"pm_exec_path"' ~/.pm2/dump.pm2`
+  (the dump is indented JSON, so there's a space after the colon).
+- The fresh-provisioning path (`03-build-packages.sh` builds `dist/`, `07-start-services.sh` starts it) hasn't run on a
+  real box yet: added to `../recreate-checklist.md`.
+
+`start.sh` stays in the repo only so an aborted first deploy on an old-config box can restart. It can be deleted once no
+box has a PM2 dump pointing at it, which is now true of production.

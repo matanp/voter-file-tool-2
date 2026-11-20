@@ -1,6 +1,6 @@
 # 16 - Remove redundant Prisma generation from deployment and verify a successful redeploy
 
-Status: ready-for-human
+Status: resolved
 Type: task
 
 ## Evidence (2026-11-08)
@@ -61,3 +61,27 @@ Done on branch `deploy-drop-redundant-prisma-generate`:
 Still open (human): open the PR, merge it, pull main on the instance, run the deploy with memory
 logging while report-server is online, generate a PDF, and attach the output. Ticket 04's
 redeploy acceptance depends on this.
+
+## Verification (2026-11-08, after PR #143 merged)
+
+On the `micro_3_0` instance (`bitnami@54.70.186.10`, `/opt/voter-file-tool`):
+
+- `git pull origin main` fast-forwarded `c50dbd3..5efb2e6` before the script was invoked, so the updated
+  script ran. (`grep -c "prisma generate"` prints 1 because the new comment mentions it; the command is gone.)
+- report-server was online before the deploy (14h uptime, 0 restarts).
+- `bash scripts/deploy-lightsail.sh` built all workspace packages, restarted report-server, and printed
+  `✅ Deployment complete!` with `Deploy exit code: 0`. PM2 then showed report-server `online`, new PID 47754,
+  0 restarts, 59s uptime at 91.1 MB.
+- Memory, sampled every 5s with `free -m` during the deploy. The three lowest-available samples:
+
+  ```text
+  20:36:08 used=743 avail=201
+  20:36:03 used=741 avail=203
+  20:36:13 used=741 avail=203
+  ```
+
+  These are samples, not guaranteed peaks. They are in line with the previous run's 188 MB available after restart.
+- `sudo dmesg -T | grep -i -E "out of memory|oom-kill"` printed nothing.
+- SSH stayed responsive throughout. A PDF generated afterwards downloaded and opened correctly.
+
+All acceptance criteria are met. This also closes ticket 04's redeploy acceptance.

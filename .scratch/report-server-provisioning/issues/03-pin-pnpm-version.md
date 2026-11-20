@@ -1,6 +1,6 @@
 # 03 - Provisioning installs whatever pnpm is latest, not the repo's pinned 8.15.7
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 
 ## What happened (2026-10-16)
@@ -60,3 +60,7 @@ Confirmed 2026-10-16 04:36: after `npm install -g pnpm@8.15.7`, `pm2 restart rep
 - Not done: the optional change to stop `start.sh` running `pnpm start`, and the Node 24 question.
   `pnpm start` also runs `build:css`, so running node directly would need that step moved to build time.
   That's a separate ticket.
+
+### 2026-11-08: verification update
+
+Fresh-instance verification as bitnami printed pnpm 8.15.7, matching packageManager. Deployment reused the store and the server started successfully. Node was v22.23.4; the optional Node 24 migration remains outside this ticket.
