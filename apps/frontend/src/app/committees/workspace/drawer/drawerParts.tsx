@@ -52,13 +52,20 @@ export type ActionFailure = Extract<ActionOutcome, { ok: false }>;
 export function useActionSubmit(onSuccess: (message: string) => void) {
   const [submitting, setSubmitting] = useState(false);
   const [failure, setFailure] = useState<ActionFailure | null>(null);
-  const run = async (mutation: () => Promise<ActionOutcome>) => {
+  /** Resolves to the failure, or null on success. */
+  const run = async (
+    mutation: () => Promise<ActionOutcome>,
+  ): Promise<ActionFailure | null> => {
     setSubmitting(true);
     setFailure(null);
     const outcome = await mutation();
     setSubmitting(false);
-    if (outcome.ok) onSuccess(outcome.message);
-    else setFailure(outcome);
+    if (outcome.ok) {
+      onSuccess(outcome.message);
+      return null;
+    }
+    setFailure(outcome);
+    return outcome;
   };
   return { submitting, failure, clearFailure: () => setFailure(null), run };
 }
@@ -104,17 +111,32 @@ export function DrawerFooter({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** A failed mutation: the server's hard stops, or its error message. */
+/** Field-level error text, tied to its control by `id` (`aria-describedby`). */
+export function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} className="text-sm text-red-700 dark:text-red-400">
+      {message}
+    </p>
+  );
+}
+
+/**
+ * A failed mutation: the server's hard stops, or its error message.
+ * Focusable (`alertRef`), so a flow can move focus here when the action fails.
+ */
 export function OutcomeAlert({
   outcome,
   ineligibleTitle,
+  alertRef,
 }: {
   outcome: Extract<ActionOutcome, { ok: false }>;
   ineligibleTitle: string;
+  alertRef?: React.Ref<HTMLDivElement>;
 }) {
   if (outcome.kind === "ineligible") {
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" ref={alertRef} tabIndex={-1} className="outline-none">
         <AlertTitle>{ineligibleTitle}</AlertTitle>
         <AlertDescription>
           <ul className="mt-1 list-inside list-disc space-y-1">
@@ -128,7 +150,7 @@ export function OutcomeAlert({
     );
   }
   return (
-    <Alert variant="destructive">
+    <Alert variant="destructive" ref={alertRef} tabIndex={-1} className="outline-none">
       <AlertTitle>Something went wrong</AlertTitle>
       <AlertDescription>{outcome.message}</AlertDescription>
     </Alert>

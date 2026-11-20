@@ -34,9 +34,11 @@ import {
   type FetchMockImpl,
 } from "../../utils/mocks";
 import type * as UtilsModule from "~/lib/utils";
-import type {
-  CommitteeDetailResponse,
-  SeatRosterRow,
+import {
+  MEMBER_EMAIL_MESSAGE,
+  MEMBER_PHONE_MESSAGE,
+  type CommitteeDetailResponse,
+  type SeatRosterRow,
 } from "~/lib/validations/committee";
 
 jest.mock("~/components/providers/GlobalContext", () => {
@@ -748,6 +750,128 @@ describe("CommitteeActionDrawer: Admin add", () => {
     await userEvent.click(add());
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CommitteeActionDrawer: contact details", () => {
+  const emailInput = () =>
+    within(drawer()).getByRole("textbox", { name: "Member contact email" });
+  const phoneInput = () =>
+    within(drawer()).getByRole("textbox", { name: "Member contact phone" });
+  const onDetailsStep = () =>
+    within(drawer()).getByRole("heading", { level: 3, name: /Membership details/ });
+
+  /** The control is marked invalid and described by the message beside it. */
+  function expectFieldError(input: HTMLElement, message: string) {
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription(message);
+  }
+
+  it("won't pass step 3 with an invalid email or phone, and says why beside each field", async () => {
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/requestAdd": [{ body: { success: true, message: "ok" } }],
+    });
+    renderDrawer({ role: PrivilegeLevel.Leader });
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+
+    await userEvent.type(emailInput(), "not-an-email");
+    await userEvent.type(phoneInput(), "abc");
+    await userEvent.click(continueButton());
+
+    expect(onDetailsStep()).toBeInTheDocument();
+    expectFieldError(emailInput(), MEMBER_EMAIL_MESSAGE);
+    expectFieldError(phoneInput(), MEMBER_PHONE_MESSAGE);
+    expect(emailInput()).toHaveFocus();
+
+    // Fixing a field clears its message; the other still blocks.
+    await userEvent.clear(emailInput());
+    await userEvent.type(emailInput(), "jane@example.com");
+    expect(emailInput()).not.toHaveAttribute("aria-invalid");
+    expect(emailInput()).not.toHaveAccessibleDescription();
+    await userEvent.click(continueButton());
+    expect(onDetailsStep()).toBeInTheDocument();
+    expect(phoneInput()).toHaveFocus();
+
+    await userEvent.clear(phoneInput());
+    await userEvent.type(phoneInput(), "(585) 555-0123");
+    await userEvent.click(continueButton());
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Submit candidate" }),
+    );
+
+    await waitFor(() =>
+      expect(callsTo(fetchMock, "/api/committee/requestAdd")).toHaveLength(1),
+    );
+    expect(bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0])).toMatchObject({
+      email: "jane@example.com",
+      phone: "(585) 555-0123",
+    });
+  });
+
+  it("returns to step 3 with the server's field errors and focuses the first invalid field", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/add": [
+        {
+          body: {
+            success: false,
+            error: "Invalid request data",
+            fieldErrors: { phone: ["Phone is not accepted"], memberId: ["Required"] },
+          },
+          status: 422,
+        },
+      ],
+    });
+    const { onClose } = renderDrawer();
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+    await userEvent.type(phoneInput(), "585-555-0123");
+    await userEvent.click(continueButton());
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
+
+    await waitFor(() => expect(onDetailsStep()).toBeInTheDocument());
+    expectFieldError(phoneInput(), "Phone is not accepted");
+    expect(emailInput()).not.toHaveAttribute("aria-invalid");
+    await waitFor(() => expect(phoneInput()).toHaveFocus());
+    expect(phoneInput()).toHaveValue("585-555-0123");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("keeps focus in the drawer, on the error alert, after a non-field error", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/add": [
+        {
+          body: { success: false, error: "INELIGIBLE", reasons: ["CAPACITY"] },
+          status: 422,
+        },
+        { body: { success: false, error: "Internal server error" }, status: 500 },
+      ],
+    });
+    renderDrawer();
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+    await userEvent.click(continueButton());
+    const add = () => within(drawer()).getByRole("button", { name: "Add member" });
+
+    await userEvent.click(add());
+    const blocked = await within(drawer()).findByRole("alert");
+    await waitFor(() => expect(blocked).toHaveFocus());
+    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
+
+    await userEvent.click(add());
+    await waitFor(() =>
+      expect(within(drawer()).getByRole("alert")).toHaveTextContent("Internal server error"),
+    );
+    await waitFor(() => expect(within(drawer()).getByRole("alert")).toHaveFocus());
   });
 });
 

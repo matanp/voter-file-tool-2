@@ -11,8 +11,14 @@
  * Eligibility is server-decided throughout: the preflight shows what the
  * server would say, and the mutation endpoint has the final word (its hard
  * stops come back into the confirm step, and the drawer stays open).
+ *
+ * Contact email and phone are checked at step 3 with the endpoints' own rules
+ * (`memberContactErrors`). If the endpoint still rejects a step-3 field, the
+ * flow goes back to step 3 with the message beside it. After any failed
+ * submit, focus moves to the invalid field or the error alert, never out of
+ * the drawer.
  */
-import React, { useId, useMemo, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { MembershipType } from "@prisma/client";
 
 import { Button } from "~/components/ui/button";
@@ -22,7 +28,10 @@ import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioOption } from "~/components/ui/radio-group";
 import { Textarea } from "~/components/ui/textarea";
 import { committeeLabel } from "~/lib/committees/committeeRef";
-import type { CommitteeDetailResponse } from "~/lib/validations/committee";
+import {
+  memberContactErrors,
+  type CommitteeDetailResponse,
+} from "~/lib/validations/committee";
 import ContactInfoLabel from "../../ContactInfoLabel";
 import EligibilitySnapshotPanel from "../../EligibilitySnapshotPanel";
 import {
@@ -39,6 +48,7 @@ import {
 } from "./CandidateSearchStep";
 import {
   DrawerFooter,
+  FieldError,
   OutcomeAlert,
   StepHeading,
   occupantLabel,
@@ -65,6 +75,31 @@ type Details = {
   notes: string;
   overrideReason: string;
 };
+
+/** The step-3 fields that can carry an error, in the order they appear. */
+type DetailField = "email" | "phone" | "notes" | "overrideReason";
+const DETAIL_FIELDS: DetailField[] = ["email", "phone", "notes", "overrideReason"];
+type FieldErrors = Partial<Record<DetailField, string>>;
+
+/** The endpoints' body field for each step-3 field (`adapters.ts`). */
+const SERVER_FIELD: Record<DetailField, string> = {
+  email: "email",
+  phone: "phone",
+  notes: "requestNotes",
+  overrideReason: "overrideReason",
+};
+
+function detailFieldErrors(serverErrors: Record<string, string> | undefined): FieldErrors {
+  const errors: FieldErrors = {};
+  for (const field of DETAIL_FIELDS) {
+    const message = serverErrors?.[SERVER_FIELD[field]];
+    if (message) errors[field] = message;
+  }
+  return errors;
+}
+
+const firstInvalid = (errors: FieldErrors) =>
+  DETAIL_FIELDS.find((field) => errors[field]) ?? null;
 
 const EMPTY_DETAILS: Details = {
   membershipType: "APPOINTED",
@@ -97,7 +132,21 @@ export function AddMemberFlow({
   const [candidate, setCandidate] = useState<CandidateRecord | null>(null);
   const [override, setOverride] = useState(false);
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const { submitting, failure, clearFailure, run } = useActionSubmit(onSuccess);
+
+  // Where focus goes once the next render is on screen: a step-3 field, or
+  // the error alert. The submit button was disabled in flight, so without
+  // this focus would fall to <body>.
+  const [pendingFocus, setPendingFocus] = useState<DetailField | "alert" | null>(null);
+  const fieldRefs = useRef<Partial<Record<DetailField, HTMLElement | null>>>({});
+  const alertRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!pendingFocus) return;
+    const target = pendingFocus === "alert" ? alertRef.current : fieldRefs.current[pendingFocus];
+    target?.focus();
+    setPendingFocus(null);
+  }, [pendingFocus]);
 
   const eligibility = useCandidateEligibility(action.committee, candidate?.VRCNUM ?? null);
   const existingMemberIds = useMemo(
@@ -125,11 +174,28 @@ export function AddMemberFlow({
     clearFailure();
     setStep(next);
   };
-  const setDetail = (patch: Partial<Details>) =>
+  const setDetail = (patch: Partial<Details>) => {
     setDetails((prev) => ({ ...prev, ...patch }));
+    // Editing a field clears its message; Continue checks again.
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(patch)) delete next[key as DetailField];
+      return next;
+    });
+  };
+  const showFieldErrors = (errors: FieldErrors) => {
+    setFieldErrors(errors);
+    setPendingFocus(firstInvalid(errors));
+  };
 
-  const submit = (selected: CandidateRecord) =>
-    run(() =>
+  const continueFromDetails = () => {
+    const errors = memberContactErrors(details);
+    if (firstInvalid(errors)) showFieldErrors(errors);
+    else goToStep("confirm");
+  };
+
+  const submit = async (selected: CandidateRecord) => {
+    const failed = await run(() =>
       submitCandidate(action, mode, {
         candidateId: selected.VRCNUM,
         ...(isAdd ? { membershipType: details.membershipType } : { notes: details.notes }),
@@ -138,6 +204,25 @@ export function AddMemberFlow({
         ...(overriding ? { overrideReason: details.overrideReason } : {}),
       }),
     );
+    if (!failed) return;
+    const errors = failed.kind === "error" ? detailFieldErrors(failed.fieldErrors) : {};
+    if (firstInvalid(errors)) {
+      goToStep("details");
+      showFieldErrors(errors);
+    } else {
+      setPendingFocus("alert");
+    }
+  };
+
+  /** Props tying a step-3 control to its error message. */
+  const fieldProps = (field: DetailField) => ({
+    id: `${id}-${field}`,
+    ref: (el: HTMLElement | null) => {
+      fieldRefs.current[field] = el;
+    },
+    "aria-invalid": fieldErrors[field] ? true : undefined,
+    "aria-describedby": fieldErrors[field] ? `${id}-${field}-error` : undefined,
+  });
 
   const heading = (
     <StepHeading
@@ -225,6 +310,7 @@ export function AddMemberFlow({
     );
   } else if (step === "details") {
     const canContinue = !overriding || details.overrideReason.trim() !== "";
+    const inputId = (field: DetailField) => `${id}-${field}`;
     body = (
       <div className="space-y-4">
         {isAdd && (
@@ -256,41 +342,50 @@ export function AddMemberFlow({
         <div className="grid gap-2">
           <ContactInfoLabel memberName={candidateName} />
           <Input
+            {...fieldProps("email")}
             type="email"
             placeholder="Email"
             value={details.email}
             onChange={(e) => setDetail({ email: e.target.value })}
             aria-label="Member contact email"
           />
+          <FieldError id={`${inputId("email")}-error`} message={fieldErrors.email} />
           <Input
+            {...fieldProps("phone")}
             type="tel"
             placeholder="Phone"
             value={details.phone}
             onChange={(e) => setDetail({ phone: e.target.value })}
             aria-label="Member contact phone"
           />
+          <FieldError id={`${inputId("phone")}-error`} message={fieldErrors.phone} />
         </div>
         {!isAdd && (
           <div className="grid gap-1">
-            <Label htmlFor={`${id}-notes`}>Notes for the reviewer</Label>
+            <Label htmlFor={inputId("notes")}>Notes for the reviewer</Label>
             <Textarea
-              id={`${id}-notes`}
+              {...fieldProps("notes")}
               rows={3}
               maxLength={NOTES_MAX}
               value={details.notes}
               onChange={(e) => setDetail({ notes: e.target.value })}
             />
+            <FieldError id={`${inputId("notes")}-error`} message={fieldErrors.notes} />
           </div>
         )}
         {overriding && (
           <div className="grid gap-1">
-            <Label htmlFor={`${id}-override-reason`}>Override reason (required)</Label>
+            <Label htmlFor={inputId("overrideReason")}>Override reason (required)</Label>
             <Textarea
-              id={`${id}-override-reason`}
+              {...fieldProps("overrideReason")}
               rows={3}
               maxLength={OVERRIDE_REASON_MAX}
               value={details.overrideReason}
               onChange={(e) => setDetail({ overrideReason: e.target.value })}
+            />
+            <FieldError
+              id={`${inputId("overrideReason")}-error`}
+              message={fieldErrors.overrideReason}
             />
           </div>
         )}
@@ -301,7 +396,7 @@ export function AddMemberFlow({
         <Button type="button" variant="outline" onClick={() => goToStep("review")}>
           Back
         </Button>
-        <Button type="button" disabled={!canContinue} onClick={() => goToStep("confirm")}>
+        <Button type="button" disabled={!canContinue} onClick={continueFromDetails}>
           Continue
         </Button>
       </>
@@ -346,6 +441,7 @@ export function AddMemberFlow({
         )}
         {failure && (
           <OutcomeAlert
+            alertRef={alertRef}
             outcome={failure}
             ineligibleTitle={isAdd ? "Cannot add member" : "Submission blocked"}
           />

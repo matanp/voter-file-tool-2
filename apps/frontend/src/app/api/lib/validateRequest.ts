@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { type z } from "zod";
 
 /**
- * Validates request body against a Zod schema and returns parsed data or error response
+ * Validates request body against a Zod schema and returns parsed data or error response.
+ * A 422 carries `fieldErrors` (top-level field → messages) when any field failed,
+ * so forms can show each message beside its field.
  * @param body - The request body to validate
  * @param schema - The Zod schema to validate against
  * @returns Object with success flag and either parsed data or error response
@@ -28,10 +30,16 @@ export function validateRequest<Output>(
     console.warn("Form errors:", formErrors);
   }
 
+  const { fieldErrors } = result.error.flatten();
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
   return {
     success: false,
     response: NextResponse.json(
-      { success: false, error: "Invalid request data" },
+      {
+        success: false,
+        error: "Invalid request data",
+        ...(hasFieldErrors ? { fieldErrors } : {}),
+      },
       { status: 422 },
     ),
   };

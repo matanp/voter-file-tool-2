@@ -69,6 +69,55 @@ export type FetchCommitteeListResponse = CommitteeList & {
   maxSeatsPerLted?: number;
 };
 
+// SRS 2.1a — the optional member contact on add and requestAdd. The drawer
+// checks the same rules before it lets the user continue (`memberContactErrors`).
+
+export const MEMBER_EMAIL_MESSAGE = "Enter a valid email address, like name@example.com.";
+export const MEMBER_PHONE_MESSAGE =
+  "Enter a phone number using digits, spaces and ( ) + - . only, like 585-555-0123.";
+
+/** Digits plus the usual phone punctuation; 7 to 15 digits (E.164 allows 15). */
+export function isValidMemberPhone(value: string): boolean {
+  if (!/^[\d\s()+.-]+$/.test(value)) return false;
+  const digits = value.replace(/\D/g, "").length;
+  return digits >= 7 && digits <= 15;
+}
+
+export const memberContactEmailSchema = z
+  .string()
+  .trim()
+  .email(MEMBER_EMAIL_MESSAGE)
+  .optional()
+  .or(z.literal(""));
+
+export const memberContactPhoneSchema = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || isValidMemberPhone(v), MEMBER_PHONE_MESSAGE)
+  .optional();
+
+const memberContactSchema = z.object({
+  email: memberContactEmailSchema,
+  phone: memberContactPhoneSchema,
+});
+
+/** Field messages for a member contact, checked as the endpoints check it. */
+export function memberContactErrors(contact: {
+  email: string;
+  phone: string;
+}): { email?: string; phone?: string } {
+  const result = memberContactSchema.safeParse({
+    email: contact.email.trim(),
+    phone: contact.phone.trim(),
+  });
+  if (result.success) return {};
+  const { fieldErrors } = result.error.flatten();
+  return {
+    ...(fieldErrors.email?.[0] ? { email: fieldErrors.email[0] } : {}),
+    ...(fieldErrors.phone?.[0] ? { phone: fieldErrors.phone[0] } : {}),
+  };
+}
+
 // Committee data validation schema
 export const committeeDataSchema = z
   .object({
@@ -109,13 +158,8 @@ export const committeeDataSchema = z
     forceAdd: z.boolean().optional(),
     overrideReason: z.string().trim().max(500).optional(),
     // SRS 2.1a — optional contact for this submission; stored in submissionMetadata only
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email format")
-      .optional()
-      .or(z.literal("")),
-    phone: z.string().trim().optional(),
+    email: memberContactEmailSchema,
+    phone: memberContactPhoneSchema,
   })
   .strict()
   .transform((data) => ({
@@ -161,13 +205,8 @@ export const committeeRequestDataSchema = z
     forceAdd: z.boolean().optional(),
     overrideReason: z.string().trim().max(500).optional(),
     // SRS 2.1a — optional contact for this submission; stored in submissionMetadata only
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email format")
-      .optional()
-      .or(z.literal("")),
-    phone: z.string().trim().optional(),
+    email: memberContactEmailSchema,
+    phone: memberContactPhoneSchema,
   })
   .strict()
   .transform((data) => ({

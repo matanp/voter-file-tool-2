@@ -273,8 +273,17 @@ export type ActionOutcome =
   | { ok: true; message: string }
   /** The server's hard stops (`INELIGIBLE`). */
   | { ok: false; kind: "ineligible"; reasons: string[] }
-  /** `letterRejected`: the server refused the staged Resignation Letter and deleted it. */
-  | { ok: false; kind: "error"; message: string; letterRejected?: true };
+  /**
+   * `letterRejected`: the server refused the staged Resignation Letter and deleted it.
+   * `fieldErrors`: a 422's per-field messages (first one per field), keyed by body field.
+   */
+  | {
+      ok: false;
+      kind: "error";
+      message: string;
+      letterRejected?: true;
+      fieldErrors?: Record<string, string>;
+    };
 
 type AddBody = z.input<typeof committeeDataSchema>;
 type RequestAddBody = z.input<typeof committeeRequestDataSchema>;
@@ -663,6 +672,7 @@ async function postJson(
     success?: unknown;
     status?: unknown;
     letterRejected?: unknown;
+    fieldErrors?: unknown;
   } | null;
 
   if (failure?.error === "INELIGIBLE") {
@@ -680,9 +690,21 @@ async function postJson(
       kind: "error",
       message: errorMessage(json, `Request failed with status ${response.status}`),
       ...(failure?.letterRejected === true ? { letterRejected: true as const } : {}),
+      ...fieldErrorsOf(failure?.fieldErrors),
     };
   }
   return { ok: true, body: json };
+}
+
+/** `validateRequest`'s `fieldErrors` (field → messages), first message per field. */
+function fieldErrorsOf(value: unknown): { fieldErrors?: Record<string, string> } {
+  if (!value || typeof value !== "object") return {};
+  const fieldErrors: Record<string, string> = {};
+  for (const [field, messages] of Object.entries(value)) {
+    const first: unknown = Array.isArray(messages) ? messages[0] : undefined;
+    if (typeof first === "string" && first) fieldErrors[field] = first;
+  }
+  return Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {};
 }
 
 // --- Resignation Letters (leader-feedback-2026-11 ticket 08) --------------------------
