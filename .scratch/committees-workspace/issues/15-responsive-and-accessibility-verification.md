@@ -36,3 +36,9 @@ HITL for the manual pass; record what was checked and on what, and link any foll
 | 17 | Touch target size and zoom to 200% | Not automatable | — | Manual |
 
 Noted outside workspace scope: at 375 the global app header (`app/components/header.tsx`) scrolls sideways inside itself, so **Reports** and **View Profile** start off-screen. That isn't page overflow, and the header is app-wide, not part of this ticket. 15b decides whether it needs a follow-up.
+
+**2026-11-15, app header follow-up.** The header overflow noted above is now owned by
+[leader-feedback-2026-11-11 #06](../../leader-feedback-2026-11-11/issues/06-mobile-name-search.md), which a leader
+raised ("cleaner mobile version"). 15b doesn't need to decide it. In the same session, a headless re-check at
+375px against local data (Leader in Rochester LD 17, and a Developer) found the workspace list and detail view
+both fit, with no horizontal page overflow. That doesn't replace the real-phone pass.

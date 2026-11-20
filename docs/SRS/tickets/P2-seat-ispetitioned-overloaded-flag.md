@@ -107,3 +107,11 @@ Follow [test-type-safety](../../../skills/test-type-safety/SKILL.md) when adding
 - [1.4 Seat Model](1.4-seat-model.md)
 - [2.6 Petition + Primary Outcome Tracking](2.6-petition-primary-outcome-tracking.md)
 - [P1 Petition Outcomes Non-Petitioned Seat Picker](P1-petition-outcomes-non-petitioned-seat-picker.md)
+
+## 2026-11-17 update: now blocking
+
+The bulk import never sets `Seat.isPetitioned`, so every imported petitioned seat reads as non-petitioned. The
+fix backfills the flag on about 1,470 seats. That would lock every one of those seats on the petition-outcomes
+screen (409 from the record route, seat disabled in the client). Option B (a separate "outcome recorded"
+signal) must land first. Tracked in `.scratch/leader-feedback-2026-11/issues/06-vacancy-report-petitioned-status.md`.
+

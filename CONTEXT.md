@@ -33,6 +33,18 @@ A time-limited offer of a privilege to an email address, redeemable once. Redeem
 A city or town, optionally narrowed to a single legislative district within it. A jurisdiction with no legislative district covers the whole city or town.
 _Avoid_: area, territory, region, locality
 
+**Town**:
+The town, or the City of Rochester, that a voter lives in, per the BOE. It is not the same as the city in their mailing address.
+_Avoid_: municipality, town code (for the place itself)
+
+**Postal City**:
+The city named in a voter's mailing address. It says nothing about where they live for voting purposes and can name a different Town, e.g. many Penfield voters have a Webster mailing address.
+_Avoid_: city, town
+
+**Village / Ward**:
+The village, Rochester quadrant, or town ward within a Town that a voter lives in, per the BOE. Most voters are in none.
+_Avoid_: CC WD Village, village code
+
 **Assignment**:
 Authority given to a Leader over one jurisdiction for one committee term. Assignments do not carry across terms.
 _Avoid_: jurisdiction (for the grant itself), scope, mapping
