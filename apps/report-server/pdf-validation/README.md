@@ -179,9 +179,10 @@ A timeout is a failed check, and the evidence is kept. The harness kills only pr
 attribute to the render:
 - the worker it started;
 - the Chrome process group that worker launched (Puppeteer starts Chrome as a group leader);
-- any process whose command line mentions the render's own `TMPDIR`. Puppeteer puts Chrome's
-  profile there, so this catches a Chrome that started before the worker could report its pid. The
-  service's Chrome never matches.
+- any process whose command line mentions the render's own `TMPDIR` (a fresh `/tmp/vft-pdf-<browser>-XXXXXX`,
+  removed after the render). Puppeteer puts Chrome's profile there, so this catches a Chrome that
+  started before the worker could report its pid. The service's Chrome never matches. It's kept short
+  on purpose: Chrome exits at launch (code 133) when its socket path under `TMPDIR` passes ~108 bytes.
 
 After each render it checks for leftovers the same way. Any leftover fails the render.
 Every R2 request has the same per-case timeout. The end-of-run diagnostics and the evidence upload
