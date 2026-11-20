@@ -7,10 +7,11 @@
  * 1883).
  *
  * Rule: a time of day strictly between 00:00 and 10:00 is truncated to its UTC day. Only a zone
- * west of UTC (UTC-0:01 to UTC-10) puts local midnight there, and those all land on the intended
- * calendar day in UTC. That covers every mainland US zone, including local mean time. A time at or
- * after 10:00 could be midnight in a zone east of UTC (UTC+14 is 10:00Z the previous day), where
- * truncating would lock in the wrong day. Those rows are counted, listed, and left alone.
+ * west of UTC (and less than 10 hours behind it) puts local midnight there, and those all land on
+ * the intended calendar day in UTC. That covers every mainland US zone and Alaska, including local
+ * mean time. Hawaii midnight (10:00Z) is left alone, because 10:00Z is also midnight at UTC+14 on the
+ * previous day, where truncating would lock in the wrong day. Values at 10:00 or later are counted,
+ * listed, and left alone.
  *
  * Usage (from apps/frontend):
  *   pnpm db:backfill-voter-dates-utc            # dry run: counts per column and time of day
@@ -75,6 +76,14 @@ async function countColumn(table: string, column: string): Promise<Bucket[]> {
     GROUP BY 1, 2
     ORDER BY 3 DESC
   `);
+}
+
+async function countRowsToFix(table: string): Promise<number> {
+  const anyFixable = COLUMNS.map(fixable).join(" OR ");
+  const [row] = await prisma.$queryRawUnsafe<{ rows: bigint }[]>(
+    `SELECT count(*) AS rows FROM "${table}" WHERE ${anyFixable}`,
+  );
+  return Number(row?.rows ?? 0);
 }
 
 /** Walks the table by primary key; returns the number of rows changed. */
@@ -149,13 +158,16 @@ async function main(): Promise<void> {
         );
       }
     }
-    console.log(`${table.name}: ${tableToFix} column values to fix`);
+    const rowsToFix = tableToFix > 0 ? await countRowsToFix(table.name) : 0;
+    console.log(
+      `${table.name}: ${tableToFix} values to fix, in ${rowsToFix} rows`,
+    );
 
-    if (apply && tableToFix > 0) {
+    if (apply && rowsToFix > 0) {
       console.time(`${table.name} update`);
       const changed = await fixTable(table.name, table.key, batchSize);
       console.timeEnd(`${table.name} update`);
-      console.log(`${table.name}: ${changed} rows updated`);
+      console.log(`${table.name}: ${changed} rows updated (expected ${rowsToFix})`);
     }
     console.log();
   }
