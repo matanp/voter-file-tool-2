@@ -30,15 +30,18 @@ const config = {
     ],
     "@typescript-eslint/require-await": "off",
     // Stopgap until date-handling ticket 09 settles the real rule. A calendar date stored at
-    // UTC midnight renders a day early in US browsers unless formatted in UTC.
+    // UTC midnight renders a day early in US browsers unless formatted in UTC. Matches the
+    // field formatted directly (`r.DOB.toLocaleDateString()`) or wrapped (`new Date(r.DOB)`).
     "no-restricted-syntax": [
       "error",
-      {
-        selector:
-          "CallExpression[callee.property.name='toLocaleDateString'][callee.object.type='NewExpression'][callee.object.arguments.0.property.name=/^(DOB|originalRegDate|meetingDate|petitionPrimaryDate)$/]:not(:has(Property[key.name='timeZone']))",
+      ...[
+        "CallExpression[callee.property.name='toLocaleDateString'][callee.object.property.name=/^(DOB|originalRegDate|meetingDate|petitionPrimaryDate)$/]",
+        "CallExpression[callee.property.name='toLocaleDateString'][callee.object.type='NewExpression'][callee.object.arguments.0.property.name=/^(DOB|originalRegDate|meetingDate|petitionPrimaryDate)$/]",
+      ].map((call) => ({
+        selector: `${call}:not(:has(Property[key.name='timeZone'])):not(:has(Property[key.value='timeZone']))`,
         message:
           "Calendar dates render a day early in local time. Use formatCalendarDateNumeric from ~/lib/dateUtils, or pass timeZone: 'UTC'.",
-      },
+      })),
     ],
     "@typescript-eslint/no-misused-promises": [
       "error",

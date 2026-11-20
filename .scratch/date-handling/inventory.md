@@ -46,7 +46,7 @@ Ranked by impact. "Fixed" means fixed on `fix/dob-one-day-early` (ticket 11).
 | F6 | Voter import, `voterRecordProcessor.ts:168` | The stored date depends on the importing machine's time zone. A run from a machine east of UTC would store the **previous** day, and then no reader can recover the true day | Open → new ticket (A+ step 3), plus a backfill of the ~2.5% |
 | F7 | `report-server/src/components/ChangesReport.tsx:11` | `formatDate("YYYY-MM-DD")` parses UTC midnight and then formats in the server's local zone. Correct only while the report server runs in UTC | Fixed: `formatDate` passes `timeZone: 'UTC'`, pinned by `ChangesReport.test.tsx` |
 | F8 | XLSX exports (DOB, originalRegDate) | Written as ISO text cells, not dates. The day isn't shifted (the first 10 characters are right) | Already tracked: `.scratch/xlsx-export-formatting/issues/02` |
-| F9 | Changes report buckets instants by UTC day (`committeeMappingHelpers.ts:634`, `toISOString().slice(0, 10)`) | An activation at 9pm Eastern is listed under the next day | Instant, not calendar date; out of this map's scope, but worth a ticket |
+| F9 | Changes report buckets instants by UTC day (`committeeMappingHelpers.ts:634`, `toISOString().slice(0, 10)`) | An activation at 9pm Eastern is listed under the next day | Instant, not calendar date; out of this map's scope. Ticket [13](issues/13-changes-report-buckets-instants-by-utc-day.md) |
 
 ## Sites checked and fine
 
