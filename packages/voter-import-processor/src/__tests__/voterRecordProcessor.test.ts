@@ -13,26 +13,35 @@ import type { VoterRecordArchiveStrings } from "../types";
 import type { VoterRecord } from "@prisma/client";
 
 describe("convertStringToDateTime", () => {
-  it("parses valid mm/dd/yyyy format", () => {
+  it("parses mm/dd/yyyy to UTC midnight of that day", () => {
     const result = convertStringToDateTime("01/15/1990");
     expect(result).toBeInstanceOf(Date);
-    expect(result.getFullYear()).toBe(1990);
-    expect(result.getMonth()).toBe(0);
-    expect(result.getDate()).toBe(15);
+    expect(result.toISOString()).toBe("1990-01-15T00:00:00.000Z");
   });
 
   it("parses 12/31/2000 correctly", () => {
-    const result = convertStringToDateTime("12/31/2000");
-    expect(result.getFullYear()).toBe(2000);
-    expect(result.getMonth()).toBe(11);
-    expect(result.getDate()).toBe(31);
+    expect(convertStringToDateTime("12/31/2000").toISOString()).toBe(
+      "2000-12-31T00:00:00.000Z",
+    );
   });
 
   it("strips quotes from input", () => {
-    const result = convertStringToDateTime('"01/15/1990"');
-    expect(result.getFullYear()).toBe(1990);
-    expect(result.getMonth()).toBe(0);
-    expect(result.getDate()).toBe(15);
+    expect(convertStringToDateTime('"01/15/1990"').toISOString()).toBe(
+      "1990-01-15T00:00:00.000Z",
+    );
+  });
+
+  it("doesn't depend on the machine's time zone", () => {
+    // The suite runs in America/Los_Angeles (jest.globalSetup.cjs), where the
+    // old local-midnight parse gave 07:00Z/08:00Z, and pre-1883 dates picked up
+    // LA's local mean time offset.
+    expect(process.env.TZ).toBe("America/Los_Angeles");
+    expect(convertStringToDateTime("07/04/1980").toISOString()).toBe(
+      "1980-07-04T00:00:00.000Z",
+    );
+    expect(convertStringToDateTime("02/01/1880").toISOString()).toBe(
+      "1880-02-01T00:00:00.000Z",
+    );
   });
 
   it("throws for invalid format - wrong delimiter", () => {
@@ -170,11 +179,15 @@ describe("transformVoterRecord", () => {
       originalRegDate: "01/10/2019",
     });
     const result = transformVoterRecord(record, 2024, 1);
-    const dob = result?.DOB;
-    expect(dob).toBeInstanceOf(Date);
-    expect((dob as Date).getFullYear()).toBe(1985);
-    expect((dob as Date).getMonth()).toBe(2);
-    expect((dob as Date).getDate()).toBe(15);
+    expect((result?.DOB as Date).toISOString()).toBe(
+      "1985-03-15T00:00:00.000Z",
+    );
+    expect((result?.lastUpdate as Date).toISOString()).toBe(
+      "2024-06-20T00:00:00.000Z",
+    );
+    expect((result?.originalRegDate as Date).toISOString()).toBe(
+      "2019-01-10T00:00:00.000Z",
+    );
   });
 
   it("trims string fields", () => {

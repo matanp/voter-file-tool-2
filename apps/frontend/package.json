@@ -26,6 +26,7 @@
     "db:seed": "prisma db seed",
     "db:seed-lted-crosswalk": "tsx scripts/seedLtedCrosswalk.ts",
     "db:backfill-petitioned-seats": "tsx scripts/backfillPetitionedSeats.ts",
+    "db:backfill-voter-dates-utc": "tsx scripts/backfillVoterDatesToUtcMidnight.ts",
     "fixtures:roster": "tsx scripts/makeRosterFixtures.ts",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
