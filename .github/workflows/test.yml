@@ -25,5 +25,8 @@ jobs:
 
       - run: pnpm test
 
+      - name: Frontend lint
+        run: pnpm --filter voter-file-tool lint
+
       - name: Infrastructure script tests
         run: python3 -m unittest discover -s infrastructure/tests -v

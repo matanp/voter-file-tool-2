@@ -8,6 +8,7 @@ interface ChangesReportProps {
   reportAuthor: string;
 }
 
+/** Formats a `YYYY-MM-DD` calendar date. UTC, so the day doesn't depend on the server's zone. */
 function formatDate(iso: string): string {
   try {
     const d = new Date(iso);
@@ -16,6 +17,7 @@ function formatDate(iso: string): string {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      timeZone: 'UTC',
     });
   } catch {
     return iso;
