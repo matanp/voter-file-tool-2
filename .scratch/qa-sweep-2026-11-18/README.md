@@ -168,7 +168,7 @@ confirming an exit.
    instead of IDs. Event names don't match either: the audit says "Member Activated" where History says "Added".
 5. **Two search boxes stacked in the sidebar** ("Find a member by name" and "ED number or town") with different
    behavior. Member search replaces the ED list. Consider one box with a scope toggle, or clearer labels.
-6. **Record search results** show only name, DOB and phone, so there are many identical "AARON SMITH" rows. Add town
+6. **Record search results** show only name, DOB and phone, so common names show many identical rows. Add town
    or address and party to the row. The details popover has no actions (no "add to committee", no link to the
    voter's committee).
 7. **Candidate search** shows "first 10 of 674" with no paging. That's fine as a nudge, but say which fields narrow
