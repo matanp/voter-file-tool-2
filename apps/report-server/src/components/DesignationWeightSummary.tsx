@@ -113,7 +113,10 @@ export const MAX_ROWS_PER_PAGE = 20;
  * Page geometry, in CSS px, for the fixed 8.5in landscape page. The page has
  * room for the column header, MAX_ROWS_PER_PAGE rows and the footer, plus the
  * space below the rows that the trailing block (Subtotal, Grand Total, notes)
- * needs. Rows are 25px (text-sm 20px line + py-0.5 + 1px border).
+ * needs. Rows are 25px (text-sm 20px line + py-0.5 + 1px border). These are
+ * hand-measured: after changing this template's spacing or fonts, re-check
+ * the weights-20, weights-200 and weights-multi-group fixtures in the PDF
+ * validation harness (apps/report-server/pdf-validation).
  */
 const ROW_PX = 25;
 /** Space for rows and the trailing block between the column header and the footer. */
@@ -137,6 +140,8 @@ export function missingWeightsNotesHeight(notesText: string | null): number {
  * trailing block of `trailingPx`; when its rows plus that block don't fit, its
  * last row moves to a new page with the trailing block, so a footer is never
  * pushed onto a sheet of its own. Always returns at least one (maybe empty) page.
+ * Known limit: a trailing block taller than a whole page (missing-weights
+ * notes listing hundreds of committees) still overflows.
  */
 export function chunkRows<T>(rows: T[], trailingPx: number): T[][] {
   const chunks: T[][] = [];

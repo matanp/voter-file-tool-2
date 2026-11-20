@@ -276,6 +276,30 @@ describe('DesignationWeightSummary', () => {
       expect(html).toContain('Subtotal');
       expect(html).toContain('Grand Total: 40.00');
     });
+
+    it('numbers pages across groups in the rendered footer', () => {
+      const rows = [
+        ...Array.from({ length: 20 }, (_, i) =>
+          committee({ ltedWeight: 1, petitioned: 2, electionDistrict: i + 1 }),
+        ),
+        ...Array.from({ length: 3 }, (_, i) => ({
+          ...committee({ ltedWeight: 1, petitioned: 2, electionDistrict: i + 1 }),
+          legDistrict: 18,
+        })),
+      ];
+      const html = ReactDOMServer.renderToStaticMarkup(
+        <DesignationWeightSummaryReport
+          groups={groupWeightSummaries(rows)}
+          grandTotalWeight={46}
+          scopeDescription="ROCHESTER"
+          reportAuthor="Test"
+          committeesWithMissingWeights={[]}
+        />,
+      );
+      expect(html.match(/Page \d+ of \d+/g)).toEqual(['Page 1 of 2', 'Page 2 of 2']);
+      expect(html.match(/Subtotal/g)).toHaveLength(2);
+      expect(html.match(/Grand Total/g)).toHaveLength(1);
+    });
   });
   describe('report', () => {
     const cellsOf = (html: string) =>
