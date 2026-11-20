@@ -43,4 +43,6 @@ Branch `drawer-field-errors`.
 - `AddMemberFlow` maps server field errors onto step 3 and focuses the first invalid field. On any other failure it
   focuses the error alert.
 - Not done here: `MemberExitForms` and `ExitReportForms` have the same disabled-button focus loss after an error.
-  They still need the `alertRef` treatment.
+  Tracked in [31](31-exit-forms-lose-focus-after-error.md).
+- SRS [2.1a](../../../docs/SRS/tickets/2.1a-email-phone-submission.md) now states the phone rule (it said "store
+  as-is").
