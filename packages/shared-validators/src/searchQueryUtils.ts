@@ -4,8 +4,30 @@ import { searchableFieldEnum, COMPUTED_BOOLEAN_FIELDS } from './constants';
 import {
   isComputedBooleanSearchField,
   isValuesSearchField,
+  isDateValuesSearchField,
   isDateRangeSearchField,
 } from './searchQueryFieldGuards';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Start of the UTC day containing `iso`, or null if it does not parse.
+ *
+ * Voter-record date columns hold calendar dates stored at UTC midnight, or at
+ * Pacific midnight (07:00/08:00Z) for rows imported from a Pacific machine.
+ * Both fall inside the same UTC day, so a search matches the whole UTC day.
+ */
+function utcDayStart(iso: string): Date | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  );
+}
+
+function nextUtcDayStart(dayStart: Date): Date {
+  return new Date(dayStart.getTime() + DAY_MS);
+}
 
 const NAME_FIELDS = new Set<string>([
   searchableFieldEnum.enum.firstName,
@@ -134,20 +156,25 @@ export function buildPrismaWhereClause(
       continue;
     }
 
-    // Handle date range queries
+    // Handle date range queries. Both ends are inclusive calendar days.
     if (isDateRangeSearchField(field)) {
       const rangeConditions: Prisma.VoterRecordWhereInput[] = [];
-      const rangeField = field as any;
+      const startDay = field.range.startDate
+        ? utcDayStart(field.range.startDate)
+        : null;
+      const endDay = field.range.endDate
+        ? utcDayStart(field.range.endDate)
+        : null;
 
-      if (rangeField.range.startDate) {
+      if (startDay) {
         rangeConditions.push({
-          [fieldField]: { gte: rangeField.range.startDate },
+          [fieldField]: { gte: startDay.toISOString() },
         });
       }
 
-      if (rangeField.range.endDate) {
+      if (endDay) {
         rangeConditions.push({
-          [fieldField]: { lte: rangeField.range.endDate },
+          [fieldField]: { lt: nextUtcDayStart(endDay).toISOString() },
         });
       }
 
@@ -168,7 +195,26 @@ export function buildPrismaWhereClause(
         continue;
       }
 
-      if (NAME_FIELDS.has(fieldField as string)) {
+      if (isDateValuesSearchField(field)) {
+        // Each value is a calendar day: match the whole UTC day it names.
+        const dayConditions = validValues.flatMap((value) => {
+          const day = utcDayStart(String(value));
+          if (!day) return [];
+          return [
+            {
+              [fieldField]: {
+                gte: day.toISOString(),
+                lt: nextUtcDayStart(day).toISOString(),
+              },
+            },
+          ];
+        });
+        if (dayConditions.length === 1) {
+          andConditions.push(dayConditions[0]!);
+        } else if (dayConditions.length > 1) {
+          andConditions.push({ OR: dayConditions });
+        }
+      } else if (NAME_FIELDS.has(fieldField as string)) {
         // For name fields, convert to uppercase and use OR condition for multiple values
         const upperCaseValues = validValues.map((value: unknown) =>
           String(value).trim().toUpperCase()

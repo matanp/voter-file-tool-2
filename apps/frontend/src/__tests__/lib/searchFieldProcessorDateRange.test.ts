@@ -96,8 +96,8 @@ describe("SearchFieldProcessor - DateRange", () => {
       const field: BaseSearchField = {
         ...mockDateField,
         value: {
-          startDate: new Date("2023-01-01"),
-          endDate: new Date("2023-12-31"),
+          startDate: new Date(2023, 0, 1, 18, 30),
+          endDate: new Date(2023, 11, 31, 18, 30),
         },
       };
 
@@ -116,7 +116,7 @@ describe("SearchFieldProcessor - DateRange", () => {
       const field: BaseSearchField = {
         ...mockDateField,
         value: {
-          startDate: new Date("2023-01-01"),
+          startDate: new Date(2023, 0, 1, 18, 30),
         },
       };
 
@@ -135,7 +135,7 @@ describe("SearchFieldProcessor - DateRange", () => {
       const field: BaseSearchField = {
         ...mockDateField,
         value: {
-          endDate: new Date("2023-12-31"),
+          endDate: new Date(2023, 11, 31, 18, 30),
         },
       };
 

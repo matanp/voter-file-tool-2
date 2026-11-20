@@ -179,7 +179,16 @@ describe("/api/fetchFilteredData", () => {
               values: ["1985-03-15T00:00:00.000Z"],
             },
           ],
-          { DOB: { in: ["1985-03-15T00:00:00.000Z"] } },
+          {
+            AND: [
+              {
+                DOB: {
+                  gte: "1985-03-15T00:00:00.000Z",
+                  lt: "1985-03-16T00:00:00.000Z",
+                },
+              },
+            ],
+          },
         ),
         createSearchTestCase(
           "should find records with email (hasEmail=true)",
@@ -316,7 +325,16 @@ describe("/api/fetchFilteredData", () => {
               values: ["1900-01-01T00:00:00.000Z"],
             },
           ],
-          { DOB: { in: ["1900-01-01T00:00:00.000Z"] } },
+          {
+            AND: [
+              {
+                DOB: {
+                  gte: "1900-01-01T00:00:00.000Z",
+                  lt: "1900-01-02T00:00:00.000Z",
+                },
+              },
+            ],
+          },
         ),
 
         // Complex miss cases - combinations that don't exist
@@ -496,13 +514,30 @@ describe("/api/fetchFilteredData", () => {
             },
           ],
           {
-            DOB: {
-              in: [
-                "1985-03-15T00:00:00.000Z",
-                "1987-07-22T00:00:00.000Z",
-                "1990-01-10T00:00:00.000Z",
-              ],
-            },
+            AND: [
+              {
+                OR: [
+                  {
+                    DOB: {
+                      gte: "1985-03-15T00:00:00.000Z",
+                      lt: "1985-03-16T00:00:00.000Z",
+                    },
+                  },
+                  {
+                    DOB: {
+                      gte: "1987-07-22T00:00:00.000Z",
+                      lt: "1987-07-23T00:00:00.000Z",
+                    },
+                  },
+                  {
+                    DOB: {
+                      gte: "1990-01-10T00:00:00.000Z",
+                      lt: "1990-01-11T00:00:00.000Z",
+                    },
+                  },
+                ],
+              },
+            ],
           },
         ),
         createSearchTestCase(
