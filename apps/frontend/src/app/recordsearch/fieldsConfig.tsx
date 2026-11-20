@@ -3,6 +3,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { TableCell } from "~/components/ui/table";
 import { VILLAGE_WARD_LABEL } from "@voter-file-tool/shared-validators";
 import { getVillageWard } from "~/lib/voterRecordFormatters";
+import { formatCalendarDateNumeric } from "~/lib/dateUtils";
 
 // Define the field configuration that can be shared between table and skeleton
 export interface FieldConfig {
@@ -207,7 +208,7 @@ export const fields: FieldConfig[] = [
     head: "DOB",
     size: "w-[20ch]",
     value: (record: VoterRecord) =>
-      record.DOB ? new Date(record.DOB).toLocaleDateString() : "",
+      record.DOB ? formatCalendarDateNumeric(record.DOB) : "",
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-dob-${index}`}>
         <Skeleton className="h-[1rem] w-[10ch]" />
@@ -330,7 +331,7 @@ export const fields: FieldConfig[] = [
     size: "w-[20ch]",
     value: (record: VoterRecord) =>
       record.originalRegDate
-        ? new Date(record.originalRegDate).toLocaleDateString()
+        ? formatCalendarDateNumeric(record.originalRegDate)
         : "",
     skeletonCell: (index: number) => (
       <TableCell key={`skeleton-originalRegDate-${index}`}>

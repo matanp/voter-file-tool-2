@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import { Button } from "~/components/ui/button";
+import { formatCalendarDateNumeric } from "~/lib/dateUtils";
 import { CreateMeetingDialog } from "./CreateMeetingDialog";
 import { PendingSubmissionsTable } from "./PendingSubmissionsTable";
 
@@ -73,7 +74,7 @@ export function MeetingsManagement({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">
-                        {new Date(m.meetingDate).toLocaleDateString()} —{" "}
+                        {formatCalendarDateNumeric(m.meetingDate)} —{" "}
                         {m.meetingType.replace("_", " ")}
                       </p>
                       {m.notes && (

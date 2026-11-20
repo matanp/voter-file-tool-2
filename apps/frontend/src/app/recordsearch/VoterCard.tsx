@@ -4,6 +4,7 @@ import type { MembershipType, VoterRecord } from "@prisma/client";
 import { VILLAGE_WARD_LABEL } from "@voter-file-tool/shared-validators";
 
 import { Badge } from "~/components/ui/badge";
+import { formatCalendarDateNumeric } from "~/lib/dateUtils";
 import type { RecordSearchCommittee } from "~/lib/recordSearch";
 import {
   getAddress,
@@ -71,7 +72,7 @@ export const VoterCard = ({
           </p>
           <p>
             <span>DOB:</span>{" "}
-            {record.DOB ? new Date(record.DOB).toLocaleDateString() : "-"}
+            {record.DOB ? formatCalendarDateNumeric(record.DOB) : "-"}
           </p>
           <p>
             <span>Telephone:</span> {displayPhone ?? "-"}
