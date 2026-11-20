@@ -25,6 +25,18 @@ describe("isValidContactPhone", () => {
       expect(isValidContactPhone(value)).toBe(false);
     },
   );
+
+  it("accepts a long but real number with an extension", () => {
+    expect(isValidContactPhone("+1 (585) 555-0123 ext. 123456")).toBe(true);
+  });
+
+  it("rejects an over-long value without running the pattern on it", () => {
+    // Without the length cap this input takes seconds to match.
+    const huge = "1" + " ".repeat(100_000) + "!";
+    const start = Date.now();
+    expect(isValidContactPhone(huge)).toBe(false);
+    expect(Date.now() - start).toBeLessThan(50);
+  });
 });
 
 describe("contactErrors", () => {

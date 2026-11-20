@@ -13,11 +13,17 @@ export const CONTACT_PHONE_MESSAGE =
 
 const PHONE_MIN_DIGITS = 7;
 const PHONE_MAX_DIGITS = 15;
+/**
+ * Longer than any real number with separators and an extension. Checked before
+ * the pattern, whose cost grows with the square of the length on long runs of spaces.
+ */
+const PHONE_MAX_LENGTH = 40;
 /** Digits and the usual separators, with an optional leading "+" and extension. */
 const PHONE_PATTERN = /^\+?[\d\s().-]+(?:\s*(?:x|ext\.?)\s*\d{1,6})?$/i;
 
 /** True when `value` reads as a phone number (7–15 digits, before any extension). */
 export function isValidContactPhone(value: string): boolean {
+  if (value.length > PHONE_MAX_LENGTH) return false;
   if (!PHONE_PATTERN.test(value)) return false;
   const main = value.replace(/(?:x|ext\.?)\s*\d+$/i, "");
   const digits = main.replace(/\D/g, "").length;
