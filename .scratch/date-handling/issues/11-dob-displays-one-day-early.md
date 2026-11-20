@@ -53,7 +53,7 @@ Found by the grep and not fixed here (details in [../inventory.md](../inventory.
 - **XLSX exports** write DOB and originalRegDate as ISO text, not shifted. Tracked in
   `.scratch/xlsx-export-formatting/issues/02`.
 - **`apps/report-server/src/components/ChangesReport.tsx:11`** formats `YYYY-MM-DD` in the server's zone. Correct
-  only while the report server runs in UTC.
+  only while the report server runs in UTC. Fixed afterwards: `formatDate` now passes `timeZone: 'UTC'`, pinned by `ChangesReport.test.tsx` (report-server tests now run in America/New_York too).
 - **DOB search** (single date and range) compares raw instants that carry the picker's local time of day. This is an
   input bug, not a display bug, and is likely `docs/BUGS.md` BUG-001.
 - **`lib/electionDateUtils.ts` `formatElectionDate`** duplicates the numeric UTC format and returns `NaN/NaN/NaN` for
