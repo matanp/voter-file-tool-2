@@ -1,7 +1,5 @@
-// Run in a US time zone, where formatting a UTC-midnight date in local time
-// shows the previous day. Node re-reads TZ when it changes at runtime.
-process.env.TZ = "America/New_York";
-
+// jest.globalSetup.cjs pins TZ=America/New_York, where formatting a
+// UTC-midnight date in local time shows the previous day.
 import { formatCalendarDateNumeric } from "~/lib/dateUtils";
 
 describe("formatCalendarDateNumeric under a non-UTC TZ", () => {

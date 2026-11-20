@@ -79,9 +79,10 @@ export function formatCalendarDateForDisplay(date: Date | string): string {
 
 /**
  * Formats a Calendar Date as numeric US month/day/year using UTC calendar
- * parts (e.g. "3/5/1972"). Use this for DOB, registration dates and date-input
- * values: they're stored at UTC midnight, so formatting them in the viewer's
- * time zone shows the day before anywhere west of UTC.
+ * parts (e.g. "3/5/1972"). Use this to display DOB, registration dates, and
+ * dates saved from a date input (meetings, primaries): they're stored at UTC
+ * midnight, so formatting them in the viewer's time zone shows the day before
+ * anywhere west of UTC.
  */
 export function formatCalendarDateNumeric(date: Date | string): string {
   const value = typeof date === "string" ? new Date(date) : date;

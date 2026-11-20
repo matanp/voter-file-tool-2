@@ -10,6 +10,7 @@ const config = {
   // Use jsdom as default environment for frontend tests
   testEnvironment: "jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
+  globalSetup: "<rootDir>/jest.globalSetup.cjs",
   testMatch: ["**/__tests__/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)"],
   testPathIgnorePatterns: [
     "<rootDir>/.next/",
