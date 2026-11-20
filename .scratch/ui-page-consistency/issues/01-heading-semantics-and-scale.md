@@ -71,3 +71,12 @@ standalone full-screen states, not app pages.
 The page container / max-width work — see [02](02-page-container-extraction.md).
 Do this ticket first; it is small and mostly mechanical, and 02 touches many of
 the same files.
+
+## Comments
+
+### 2026-11-19 — QA sweep addition (finding A10; Tier 3, P3)
+
+From the [QA sweep 2026-11-18](../../qa-sweep-2026-11-18/README.md): heading order skips from H1 to H3 on Home and
+Reports. Fix those in the same pass.
+
+- [ ] Home and Reports have no skipped heading levels.

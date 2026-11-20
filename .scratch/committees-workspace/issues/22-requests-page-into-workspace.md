@@ -39,3 +39,20 @@ requests" in `PendingTab.tsx`), but it is a standalone page that doesn't look or
   belongs to in one click.
 - Submissions use the same item component and controls everywhere.
 - [x] Every "pending" count includes Exit Reports, or says it doesn't.
+
+## Comments
+
+### 2026-11-19 — QA sweep additions (findings I2, I3; Tier 2, P2)
+
+From the [QA sweep 2026-11-18](../../qa-sweep-2026-11-18/README.md):
+
+- **I2.** Admin → Pending review jumps to `/committees/requests`: the admin sidebar disappears, the top nav highlights
+  Committee List, content sits in a 240 px column on a 1500 px screen, and there's no way back. Prod shows the same
+  narrow layout. Either render it inside the admin shell, or link to it only from the workspace's "Review pending".
+- **I3.** The page says "Confirmations are processed via a meeting record", yet every card has a working Confirm.
+  Group headers read "ROCHESTER, 17, 1" instead of the workspace's "Rochester · LD 17 · ED 1".
+
+Acceptance additions:
+
+- [ ] The admin entry point keeps the user in a shell with a way back.
+- [ ] The copy matches what the buttons do; group headers use the workspace's committee label.
