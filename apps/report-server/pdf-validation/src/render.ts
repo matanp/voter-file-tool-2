@@ -207,8 +207,10 @@ export async function render(opts: RenderOptions): Promise<number> {
       headless: resolved.headless,
       executablePath: resolved.executablePath,
     };
-    const caseTmp = path.join(runDir, 'tmp', `${step.fixture.id}.${step.browser}`);
-    fs.mkdirSync(caseTmp, { recursive: true });
+    // Keep TMPDIR short, under /tmp rather than the run directory. Chrome puts its singleton socket
+    // under TMPDIR, and a Unix socket path over ~108 bytes makes Chrome exit at launch (code 133,
+    // seen on the Lightsail box with the /opt/.../runs/<run-id>/tmp/<case> path).
+    const caseTmp = fs.mkdtempSync(path.join('/tmp', `vft-pdf-${step.browser}-`));
     const outcome = await runWorker(job, record, caseTmp, (child, pgid) => {
       current = { child, chromePgid: pgid };
     });
