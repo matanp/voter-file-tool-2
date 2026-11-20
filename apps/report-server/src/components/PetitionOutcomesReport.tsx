@@ -56,14 +56,22 @@ function PetitionOutcomesReport({ rows, reportAuthor }: PetitionOutcomesReportPr
     });
 
     return (
-      <div className="w-[11in] min-h-[8.5in] p-6 font-sans bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
+      <div className="w-[11in] p-6 font-sans bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
         <h1 className="text-xl font-bold mb-4">Petition Outcomes Report</h1>
         {groups.map((g) => (
-          <div key={`${g.cityTown}-${g.legDistrict}-${g.electionDistrict}`} className="mb-6">
-            <h2 className="text-sm font-semibold mb-2">
+          <div key={`${g.cityTown}-${g.legDistrict}-${g.electionDistrict}`} className="mb-6 print-keep-together">
+            <h2 className="text-sm font-semibold mb-2 print-keep-with-next">
               City/Town: {g.cityTown}, LD {g.legDistrict}, ED {g.electionDistrict}
             </h2>
-            <table className="w-full text-sm border-collapse">
+            {/* Fixed widths so every ED table lines up, whatever its names' lengths. */}
+            <table className="w-full table-fixed text-sm border-collapse">
+              <colgroup>
+                <col className="w-[8%]" />
+                <col className="w-[52%]" />
+                <col className="w-[11%]" />
+                <col className="w-[12%]" />
+                <col className="w-[17%]" />
+              </colgroup>
               <thead>
                 <tr className="bg-gray-100">
                   <th className="border border-gray-400 px-2 py-1 text-right">Seat #</th>
