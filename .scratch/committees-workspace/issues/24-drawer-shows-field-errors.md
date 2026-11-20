@@ -33,16 +33,28 @@ Source: [QA sweep 2026-11-18](../../qa-sweep-2026-11-18/README.md), findings B2,
 
 ## Resolution
 
-Branch `drawer-field-errors`.
+Branch `drawer-field-errors`, PR #163 (merged). PR #164 was a parallel implementation of this issue; it was closed
+unmerged, and its branch `drawer-field-errors-24` is still on the remote (it allowed phone extensions).
 
 - Shared member contact rules in `lib/validations/committee.ts` (`memberContactEmailSchema`,
   `memberContactPhoneSchema`, `memberContactErrors`). The add and requestAdd schemas use them, and so does step 3.
   A phone now needs 7 to 15 digits, using only digits, spaces and `( ) + - .`. Extensions like `x123` are rejected.
-- `validateRequest` adds `fieldErrors` to every 422 it returns. The strict `bulkLoadCommitteesErrorSchema` allows
-  the key.
+- `validateRequest` adds `fieldErrors` to every 422 it returns. The contract lives in
+  `packages/shared-validators/src/schemas/fieldErrors.ts`:
+  - `fieldErrorsSchema` and `validationErrorResponseSchema` describe the 422 body.
+  - `zodFieldErrors` builds it from a Zod error. `validateRequest` and governance-config use it.
+  - `firstFieldMessages` keeps the first message per field. `memberContactErrors` and the workspace adapter use it.
+  - `bulkLoadCommitteesErrorSchema` reuses `fieldErrorsSchema`.
+- The workspace adapter checks `fieldErrors` with the shared schema and passes the first message per field on the
+  failed outcome. `SubmissionBodyField` (`adapters.ts`) types the drawer's map from step-3 fields to body fields.
 - `AddMemberFlow` maps server field errors onto step 3 and focuses the first invalid field. On any other failure it
-  focuses the error alert.
+  focuses the error alert. The state and focus hand-off live in `useFieldErrors` (`drawer/drawerParts.tsx`).
+- Known and accepted:
+  - The legacy add and request forms don't check phone on the client, so a bad phone there gets a generic "Invalid
+    request data" toast.
+  - When a 422 has errors on both a step-3 field and another field, only the step-3 message is shown.
 - Not done here: `MemberExitForms` and `ExitReportForms` have the same disabled-button focus loss after an error.
   Tracked in [31](31-exit-forms-lose-focus-after-error.md).
+- Small follow-ups from review: [32](32-field-errors-follow-ups.md).
 - SRS [2.1a](../../../docs/SRS/tickets/2.1a-email-phone-submission.md) now states the phone rule (it said "store
   as-is").
