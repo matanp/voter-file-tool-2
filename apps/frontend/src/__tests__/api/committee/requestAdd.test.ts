@@ -21,8 +21,12 @@ import {
   DEFAULT_ACTIVE_TERM_ID,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
+import {
+  LEG_DISTRICT_SENTINEL,
+  validationErrorResponseSchema,
+} from "@voter-file-tool/shared-validators";
 import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
+import { MEMBER_PHONE_MESSAGE } from "~/lib/validations/committee";
 import { deleteObject } from "~/lib/s3Utils";
 import {
   mockAuthSession,
@@ -736,6 +740,26 @@ describe("/api/committee/requestAdd", () => {
         await expectErrorResponse(response, 422, "Invalid request data");
       },
     );
+
+    it("should return 422 with a field error for phone 'abc'", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Leader } }),
+      );
+      mockHasPermission(true);
+
+      const response = await POST(
+        createMockRequest(createMockRequestData({ phone: "abc" })),
+      );
+
+      expect(response.status).toBe(422);
+      expect(
+        validationErrorResponseSchema.parse(await parseJsonResponse(response)),
+      ).toEqual({
+        success: false,
+        error: "Invalid request data",
+        fieldErrors: { phone: [MEMBER_PHONE_MESSAGE] },
+      });
+    });
 
     test.each(validationTestCases.invalidRequestNotes)(
       "should return 422 for invalid requestNotes - $field",

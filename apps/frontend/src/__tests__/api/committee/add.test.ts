@@ -26,6 +26,11 @@ import {
   parseJsonResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
+import { validationErrorResponseSchema } from "@voter-file-tool/shared-validators";
+import {
+  MEMBER_EMAIL_MESSAGE,
+  MEMBER_PHONE_MESSAGE,
+} from "~/lib/validations/committee";
 import {
   mockAuthSession,
   mockHasPermission,
@@ -696,6 +701,34 @@ describe("/api/committee/add", () => {
         expect(prismaMock.$transaction).toHaveBeenCalled();
       });
     });
+
+    test.each([
+      { field: "phone", value: "abc", message: MEMBER_PHONE_MESSAGE },
+      { field: "phone", value: "12", message: MEMBER_PHONE_MESSAGE },
+      { field: "email", value: "not-an-email", message: MEMBER_EMAIL_MESSAGE },
+    ])(
+      "should return 422 with a field error for $field $value",
+      async ({ field, value, message }) => {
+        mockAuthSession(
+          createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+        );
+        mockHasPermission(true);
+
+        const response = await POST(
+          createMockRequest(createMockCommitteeData({ [field]: value }, false)),
+        );
+
+        expect(response.status).toBe(422);
+        expect(
+          validationErrorResponseSchema.parse(await parseJsonResponse(response)),
+        ).toEqual({
+          success: false,
+          error: "Invalid request data",
+          fieldErrors: { [field]: [message] },
+        });
+        expect(prismaMock.committeeList.upsert).not.toHaveBeenCalled();
+      },
+    );
 
     // Parameterized validation tests
     test.each([

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { fieldErrorsSchema } from './fieldErrors';
 import { voterRecordSchema } from './voterRecord';
 
 /**
@@ -231,6 +232,8 @@ export const bulkLoadCommitteesErrorSchema = z
     success: z.literal(false).optional(),
     /** Present only on the 422 an apply request gets when the plan would overfill a committee. */
     capacityFailures: plannedCapacityFailureSchema.array().optional(),
+    /** A request-validation 422's per-field messages (`validateRequest`). */
+    fieldErrors: fieldErrorsSchema.optional(),
   })
   .strict();
 

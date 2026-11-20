@@ -21,6 +21,8 @@ import { z } from "zod";
 // The client-safe entry point: the package root also exports PrismaClient.
 import { committeeResidencySearchFilter } from "@voter-file-tool/shared-prisma/committeeResidency";
 import {
+  fieldErrorsSchema,
+  firstFieldMessages,
   normalizeSearchQuery,
   searchableFieldEnum,
   type SearchQueryField,
@@ -273,11 +275,22 @@ export type ActionOutcome =
   | { ok: true; message: string }
   /** The server's hard stops (`INELIGIBLE`). */
   | { ok: false; kind: "ineligible"; reasons: string[] }
-  /** `letterRejected`: the server refused the staged Resignation Letter and deleted it. */
-  | { ok: false; kind: "error"; message: string; letterRejected?: true };
+  /**
+   * `letterRejected`: the server refused the staged Resignation Letter and deleted it.
+   * `fieldErrors`: a 422's per-field messages (first one per field), keyed by body field.
+   */
+  | {
+      ok: false;
+      kind: "error";
+      message: string;
+      letterRejected?: true;
+      fieldErrors?: Partial<Record<string, string>>;
+    };
 
 type AddBody = z.input<typeof committeeDataSchema>;
 type RequestAddBody = z.input<typeof committeeRequestDataSchema>;
+/** A body field of `add` or `requestAdd`: the keys a submission's `fieldErrors` use. */
+export type SubmissionBodyField = keyof AddBody | keyof RequestAddBody;
 
 function addBody(committee: CommitteeRef, details: CandidateDetails): AddBody {
   const overrideReason = details.overrideReason?.trim();
@@ -663,6 +676,7 @@ async function postJson(
     success?: unknown;
     status?: unknown;
     letterRejected?: unknown;
+    fieldErrors?: unknown;
   } | null;
 
   if (failure?.error === "INELIGIBLE") {
@@ -675,11 +689,17 @@ async function postJson(
     };
   }
   if (!response.ok || failure?.success === false || failure?.status === "error") {
+    // A validation 422 (`validateRequest`) names its fields; keep the first message of each.
+    const parsedFieldErrors = fieldErrorsSchema.safeParse(failure?.fieldErrors);
+    const fieldErrors = parsedFieldErrors.success
+      ? firstFieldMessages(parsedFieldErrors.data)
+      : {};
     return {
       ok: false,
       kind: "error",
       message: errorMessage(json, `Request failed with status ${response.status}`),
       ...(failure?.letterRejected === true ? { letterRejected: true as const } : {}),
+      ...(Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {}),
     };
   }
   return { ok: true, body: json };

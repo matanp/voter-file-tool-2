@@ -1,6 +1,9 @@
 import { AuditAction, PrivilegeLevel } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import {
+  zodFieldErrors,
+  type FieldErrors,
+} from "@voter-file-tool/shared-validators";
 import { findActiveTerm } from "~/app/api/lib/committeeValidation";
 import {
   reconcileSeatsForMaxSeatsChange,
@@ -60,29 +63,7 @@ function toApiPayload(config: {
   };
 }
 
-function toFieldErrors(error: z.ZodError): Record<string, string[]> {
-  const fieldErrors = error.flatten().fieldErrors;
-  const sortedKeys = Object.keys(fieldErrors).sort((a, b) =>
-    a.localeCompare(b),
-  );
-  const result: Record<string, string[]> = {};
-
-  for (const key of sortedKeys) {
-    const messages = fieldErrors[key];
-    if (!messages) continue;
-    const normalized = messages.filter(
-      (message): message is string => typeof message === "string",
-    );
-    if (normalized.length === 0) continue;
-    result[key] = normalized;
-  }
-
-  return result;
-}
-
-function validationErrorResponse(
-  fieldErrors: Record<string, string[]>,
-): NextResponse {
+function validationErrorResponse(fieldErrors: FieldErrors): NextResponse {
   return NextResponse.json(
     {
       success: false,
@@ -128,7 +109,7 @@ async function patchHandler(req: NextRequest, session: SessionWithUser) {
 
   const parsed = governanceConfigUpdateSchema.safeParse(body);
   if (!parsed.success) {
-    return validationErrorResponse(toFieldErrors(parsed.error));
+    return validationErrorResponse(zodFieldErrors(parsed.error));
   }
 
   const partyOptions = await getPartyOptions();

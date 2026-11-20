@@ -1,5 +1,9 @@
 import type { ZodTypeAny } from "zod";
 import {
+  MEMBER_EMAIL_MESSAGE,
+  MEMBER_PHONE_MESSAGE,
+  isValidMemberPhone,
+  memberContactErrors,
   removeCommitteeDataSchema,
   reportExitDataSchema,
   resignCommitteeDataSchema,
@@ -336,6 +340,34 @@ describe("reportExitDataSchema", () => {
     ).toMatchObject({
       path: ["kind"],
       message: "Date received and method apply only to a resignation",
+    });
+  });
+});
+
+describe("member contact (SRS 2.1a)", () => {
+  it.each(["585-555-0123", "(585) 555-0123", "+1 585.555.0123", "555-1234"])(
+    "accepts phone %s",
+    (phone) => {
+      expect(isValidMemberPhone(phone)).toBe(true);
+      expect(memberContactErrors({ email: "", phone })).toEqual({});
+    },
+  );
+
+  it.each(["abc", "585-555-0123 ext 4", "123456", "1234567890123456"])(
+    "rejects phone %s",
+    (phone) => {
+      expect(isValidMemberPhone(phone)).toBe(false);
+    },
+  );
+
+  it("treats blank email and phone as not given", () => {
+    expect(memberContactErrors({ email: "  ", phone: "  " })).toEqual({});
+  });
+
+  it("reports each invalid field with the endpoints' message", () => {
+    expect(memberContactErrors({ email: "not-an-email", phone: "abc" })).toEqual({
+      email: MEMBER_EMAIL_MESSAGE,
+      phone: MEMBER_PHONE_MESSAGE,
     });
   });
 });
