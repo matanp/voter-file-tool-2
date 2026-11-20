@@ -13,6 +13,7 @@ import {
   STRING_FIELDS,
 } from "@voter-file-tool/shared-validators";
 import { EARLIEST_DATE, LATEST_DATE } from "~/lib/constants/dateBoundaries";
+import { pickedDayToUtcIso } from "~/lib/dateUtils";
 
 export class SearchFieldProcessor {
   static normalizeForStorage(
@@ -637,11 +638,11 @@ export class SearchFieldProcessor {
       };
 
       if (range.startDate) {
-        rangeData.startDate = range.startDate.toISOString();
+        rangeData.startDate = pickedDayToUtcIso(range.startDate);
       }
 
       if (range.endDate) {
-        rangeData.endDate = range.endDate.toISOString();
+        rangeData.endDate = pickedDayToUtcIso(range.endDate);
       }
 
       // Only return if at least one date is provided
@@ -659,7 +660,7 @@ export class SearchFieldProcessor {
     if (value instanceof Date) {
       return {
         field: fieldName,
-        values: [value.toISOString()],
+        values: [pickedDayToUtcIso(value)],
       };
     }
 
@@ -707,10 +708,10 @@ export class SearchFieldProcessor {
               } = {
                 startDate: dobValue.extendBefore
                   ? EARLIEST_DATE.toISOString()
-                  : dobValue.singleDate.toISOString(),
+                  : pickedDayToUtcIso(dobValue.singleDate),
                 endDate: dobValue.extendAfter
                   ? LATEST_DATE.toISOString()
-                  : dobValue.singleDate.toISOString(),
+                  : pickedDayToUtcIso(dobValue.singleDate),
               };
 
               return {
@@ -721,7 +722,7 @@ export class SearchFieldProcessor {
               // Regular single date
               return {
                 field: dbFieldName,
-                values: [dobValue.singleDate.toISOString()],
+                values: [pickedDayToUtcIso(dobValue.singleDate)],
               };
             }
           }
@@ -740,10 +741,10 @@ export class SearchFieldProcessor {
               } = {
                 startDate: dobValue.extendBefore
                   ? EARLIEST_DATE.toISOString()
-                  : dobValue.singleDate.toISOString(),
+                  : pickedDayToUtcIso(dobValue.singleDate),
                 endDate: dobValue.extendAfter
                   ? LATEST_DATE.toISOString()
-                  : dobValue.singleDate.toISOString(),
+                  : pickedDayToUtcIso(dobValue.singleDate),
               };
 
               return {
@@ -757,8 +758,12 @@ export class SearchFieldProcessor {
               startDate: string | null;
               endDate: string | null;
             } = {
-              startDate: dobValue.range.startDate?.toISOString() ?? null,
-              endDate: dobValue.range.endDate?.toISOString() ?? null,
+              startDate: dobValue.range.startDate
+                ? pickedDayToUtcIso(dobValue.range.startDate)
+                : null,
+              endDate: dobValue.range.endDate
+                ? pickedDayToUtcIso(dobValue.range.endDate)
+                : null,
             };
 
             if (rangeData.startDate ?? rangeData.endDate) {

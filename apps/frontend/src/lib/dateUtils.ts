@@ -48,6 +48,18 @@ export function parseTermDateRange(
 }
 
 /**
+ * Turns a date picked in the browser into the calendar day the user saw, as
+ * UTC midnight ("1960-12-12T00:00:00.000Z"). Pickers return a local Date that
+ * carries the current time of day; only its local year, month and day count.
+ */
+export function pickedDayToUtcIso(date: Date): string {
+  const day = new Date(0);
+  // setUTCFullYear, not Date.UTC, which would remap years 0-99 to 19xx.
+  day.setUTCFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+  return day.toISOString();
+}
+
+/**
  * Formats a Date as YYYY-MM-DD using UTC calendar parts for date inputs.
  */
 export function formatCalendarDateForForm(date: Date | string): string {

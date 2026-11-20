@@ -23,7 +23,7 @@ describe('buildPrismaWhereClause - DateRange', () => {
         {
           AND: [
             { DOB: { gte: '2023-01-01T00:00:00.000Z' } },
-            { DOB: { lte: '2023-12-31T23:59:59.999Z' } },
+            { DOB: { lt: '2024-01-01T00:00:00.000Z' } },
           ],
         },
       ],
@@ -68,7 +68,7 @@ describe('buildPrismaWhereClause - DateRange', () => {
     expect(result).toEqual({
       AND: [
         {
-          AND: [{ DOB: { lte: '2023-12-31T23:59:59.999Z' } }],
+          AND: [{ DOB: { lt: '2024-01-01T00:00:00.000Z' } }],
         },
       ],
     });
@@ -113,7 +113,7 @@ describe('buildPrismaWhereClause - DateRange', () => {
         {
           AND: [
             { DOB: { gte: '2023-01-01T00:00:00.000Z' } },
-            { DOB: { lte: '2023-12-31T23:59:59.999Z' } },
+            { DOB: { lt: '2024-01-01T00:00:00.000Z' } },
           ],
         },
       ],
@@ -145,7 +145,7 @@ describe('buildPrismaWhereClause - DateRange', () => {
         {
           AND: [
             { DOB: { gte: '1990-01-01T00:00:00.000Z' } },
-            { DOB: { lte: '2000-12-31T23:59:59.999Z' } },
+            { DOB: { lt: '2001-01-01T00:00:00.000Z' } },
           ],
         },
         {
@@ -177,7 +177,7 @@ describe('buildPrismaWhereClause - DateRange', () => {
         {
           AND: [
             { DOB: { gte: '2023-01-01T00:00:00.000Z' } },
-            { DOB: { lte: '2023-12-31T23:59:59.999Z' } },
+            { DOB: { lt: '2024-01-01T00:00:00.000Z' } },
           ],
         },
         getHasEmailConditions(),
