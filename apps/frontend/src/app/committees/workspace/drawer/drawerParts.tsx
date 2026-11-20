@@ -134,9 +134,15 @@ export function OutcomeAlert({
   ineligibleTitle: string;
   alertRef?: React.Ref<HTMLDivElement>;
 }) {
+  const alertProps = {
+    variant: "destructive",
+    ref: alertRef,
+    tabIndex: -1,
+    className: "outline-none",
+  } as const;
   if (outcome.kind === "ineligible") {
     return (
-      <Alert variant="destructive" ref={alertRef} tabIndex={-1} className="outline-none">
+      <Alert {...alertProps}>
         <AlertTitle>{ineligibleTitle}</AlertTitle>
         <AlertDescription>
           <ul className="mt-1 list-inside list-disc space-y-1">
@@ -150,7 +156,7 @@ export function OutcomeAlert({
     );
   }
   return (
-    <Alert variant="destructive" ref={alertRef} tabIndex={-1} className="outline-none">
+    <Alert {...alertProps}>
       <AlertTitle>Something went wrong</AlertTitle>
       <AlertDescription>{outcome.message}</AlertDescription>
     </Alert>

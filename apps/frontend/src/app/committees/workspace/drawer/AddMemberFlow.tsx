@@ -214,15 +214,20 @@ export function AddMemberFlow({
     }
   };
 
-  /** Props tying a step-3 control to its error message. */
+  const inputId = (field: DetailField) => `${id}-${field}`;
+  const errorId = (field: DetailField) => `${id}-${field}-error`;
+  /** Props tying a step-3 control to its error message (`fieldError`). */
   const fieldProps = (field: DetailField) => ({
-    id: `${id}-${field}`,
+    id: inputId(field),
     ref: (el: HTMLElement | null) => {
       fieldRefs.current[field] = el;
     },
     "aria-invalid": fieldErrors[field] ? true : undefined,
-    "aria-describedby": fieldErrors[field] ? `${id}-${field}-error` : undefined,
+    "aria-describedby": fieldErrors[field] ? errorId(field) : undefined,
   });
+  const fieldError = (field: DetailField) => (
+    <FieldError id={errorId(field)} message={fieldErrors[field]} />
+  );
 
   const heading = (
     <StepHeading
@@ -310,7 +315,6 @@ export function AddMemberFlow({
     );
   } else if (step === "details") {
     const canContinue = !overriding || details.overrideReason.trim() !== "";
-    const inputId = (field: DetailField) => `${id}-${field}`;
     body = (
       <div className="space-y-4">
         {isAdd && (
@@ -349,7 +353,7 @@ export function AddMemberFlow({
             onChange={(e) => setDetail({ email: e.target.value })}
             aria-label="Member contact email"
           />
-          <FieldError id={`${inputId("email")}-error`} message={fieldErrors.email} />
+          {fieldError("email")}
           <Input
             {...fieldProps("phone")}
             type="tel"
@@ -358,7 +362,7 @@ export function AddMemberFlow({
             onChange={(e) => setDetail({ phone: e.target.value })}
             aria-label="Member contact phone"
           />
-          <FieldError id={`${inputId("phone")}-error`} message={fieldErrors.phone} />
+          {fieldError("phone")}
         </div>
         {!isAdd && (
           <div className="grid gap-1">
@@ -370,7 +374,7 @@ export function AddMemberFlow({
               value={details.notes}
               onChange={(e) => setDetail({ notes: e.target.value })}
             />
-            <FieldError id={`${inputId("notes")}-error`} message={fieldErrors.notes} />
+            {fieldError("notes")}
           </div>
         )}
         {overriding && (
@@ -383,10 +387,7 @@ export function AddMemberFlow({
               value={details.overrideReason}
               onChange={(e) => setDetail({ overrideReason: e.target.value })}
             />
-            <FieldError
-              id={`${inputId("overrideReason")}-error`}
-              message={fieldErrors.overrideReason}
-            />
+            {fieldError("overrideReason")}
           </div>
         )}
       </div>
