@@ -119,7 +119,7 @@ function VacancyReport({ rows, reportAuthor }: VacancyReportProps) {
                 </React.Fragment>
               );
             })}
-            <tr className="bg-gray-200 font-bold">
+            <tr className="bg-gray-200 font-bold print-keep-with-previous">
               <td className="border border-gray-400 px-2 py-1">Grand Total</td>
               <td className="border border-gray-400 px-2 py-1 text-right">{grandTotalSeats}</td>
               <td className="border border-gray-400 px-2 py-1 text-right">{grandFilled}</td>
@@ -132,7 +132,7 @@ function VacancyReport({ rows, reportAuthor }: VacancyReportProps) {
             </tr>
           </tbody>
         </table>
-        <div className="mt-4 flex justify-between text-xs">
+        <div className="mt-4 flex justify-between text-xs print-keep-with-previous">
           <span>{generationDate}</span>
           <span>{reportAuthor}</span>
         </div>

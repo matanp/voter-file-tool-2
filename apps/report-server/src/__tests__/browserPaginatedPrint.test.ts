@@ -5,6 +5,7 @@ import {
   BROWSER_PAGINATED_PRINT_CSS,
   generateChangesReportHTML,
   generateDesignationWeightSummaryHTML,
+  generatePDFAndUpload,
   generatePetitionOutcomesReportHTML,
   generateVacancyReportHTML,
 } from '../utils';
@@ -65,6 +66,19 @@ describe('print rules for browser-paginated reports', () => {
     },
   );
 
+  it('the shared PDF options set no margins, so code-paginated reports are unchanged', async () => {
+    const puppeteer = jest.requireMock('puppeteer') as { launch: jest.Mock };
+    const { uploadFileToR2 } = jest.requireMock('../s3Utils') as { uploadFileToR2: jest.Mock };
+    const createPDFStream = jest.fn().mockResolvedValue({});
+    puppeteer.launch.mockResolvedValue({
+      newPage: async () => ({ setDefaultTimeout: jest.fn(), setContent: jest.fn(), createPDFStream }),
+      close: jest.fn(),
+    });
+    uploadFileToR2.mockResolvedValue(true);
+    await generatePDFAndUpload('<html></html>', true, 'x.pdf');
+    expect(createPDFStream.mock.calls[0][0]).not.toHaveProperty('margin');
+  });
+
   it('fixed-height reports do not get the page margins', () => {
     const html = generateDesignationWeightSummaryHTML([], 'Countywide', 'Tester');
     expect(html).not.toContain('@page');
@@ -74,6 +88,7 @@ describe('print rules for browser-paginated reports', () => {
     const html = browserPaginated.vacancy;
     expect(html).toMatch(/<tr class="[^"]*print-keep-with-next[^"]*"><td colSpan="7"[^>]*>BRIGHTON, LD 16</);
     expect(html).toMatch(/<tr class="[^"]*print-keep-with-previous[^"]*"><td[^>]*>Subtotal/);
+    expect(html).toMatch(/<tr class="[^"]*print-keep-with-previous[^"]*"><td[^>]*>Grand Total/);
     expect(html).not.toContain('h-[8.5in]');
   });
 

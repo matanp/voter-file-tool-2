@@ -97,7 +97,7 @@ function PetitionOutcomesReport({ rows, reportAuthor }: PetitionOutcomesReportPr
             </table>
           </div>
         ))}
-        <div className="mt-4 flex justify-between text-xs">
+        <div className="mt-4 flex justify-between text-xs print-keep-with-previous">
           <span>{generationDate}</span>
           <span>{reportAuthor}</span>
         </div>
