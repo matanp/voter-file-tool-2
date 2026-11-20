@@ -106,7 +106,89 @@ export function groupWeightSummaries(
   });
 }
 
-const MAX_ROWS_PER_PAGE = 20;
+/** Committee rows on a full page. */
+export const MAX_ROWS_PER_PAGE = 20;
+
+/*
+ * Page geometry, in CSS px, for the fixed 8.5in landscape page. The page has
+ * room for the column header, MAX_ROWS_PER_PAGE rows and the footer, plus the
+ * space below the rows that the trailing block (Subtotal, Grand Total, notes)
+ * needs. Rows are 25px (text-sm 20px line + py-0.5 + 1px border).
+ */
+const ROW_PX = 25;
+/** Space for rows and the trailing block between the column header and the footer. */
+const ROW_AREA_PX = 580;
+const SUBTOTAL_PX = ROW_PX;
+/** `mt-2` + one text-sm line. */
+const GRAND_TOTAL_PX = 28;
+/** Conservative characters per text-xs line across the 10.33in content width. */
+const NOTE_CHARS_PER_LINE = 110;
+
+/** Height of the missing-weights notes under the Grand Total, or 0 when there are none. */
+export function missingWeightsNotesHeight(notesText: string | null): number {
+  if (!notesText) return 0;
+  const lines = Math.max(1, Math.ceil(notesText.length / NOTE_CHARS_PER_LINE));
+  // mt-4, the "— indicates" line, mt-1, then the committee list.
+  return 16 + 16 + 4 + lines * 16;
+}
+
+/**
+ * Splits rows into pages of MAX_ROWS_PER_PAGE. The last page also carries a
+ * trailing block of `trailingPx`; when its rows plus that block don't fit, its
+ * last row moves to a new page with the trailing block, so a footer is never
+ * pushed onto a sheet of its own. Always returns at least one (maybe empty) page.
+ */
+export function chunkRows<T>(rows: T[], trailingPx: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < rows.length; i += MAX_ROWS_PER_PAGE) {
+    chunks.push(rows.slice(i, i + MAX_ROWS_PER_PAGE));
+  }
+  if (chunks.length === 0) return [[]];
+
+  const lastChunkMaxRows = Math.max(
+    0,
+    Math.floor((ROW_AREA_PX - trailingPx) / ROW_PX),
+  );
+  const last = chunks[chunks.length - 1];
+  if (last.length > lastChunkMaxRows) {
+    const carried = Math.min(1, lastChunkMaxRows);
+    chunks[chunks.length - 1] = last.slice(0, last.length - carried);
+    chunks.push(last.slice(last.length - carried));
+  }
+  return chunks;
+}
+
+export type WeightSummaryPage = {
+  groupIndex: number;
+  rows: WeightSummaryRow[];
+  /** The group's last page: shows the Subtotal row. */
+  isGroupEnd: boolean;
+  /** The report's last page: also shows the Grand Total and notes. */
+  isReportEnd: boolean;
+};
+
+/**
+ * Lays out every group's pages. Each group starts a new page; page numbers
+ * are the index in the returned list, so "Page N of M" matches the sheets.
+ */
+export function paginateWeightSummary(
+  groups: { rows: WeightSummaryRow[] }[],
+  notesText: string | null,
+): WeightSummaryPage[] {
+  return groups.flatMap((group, groupIndex) => {
+    const isLastGroup = groupIndex === groups.length - 1;
+    const trailingPx =
+      SUBTOTAL_PX +
+      (isLastGroup ? GRAND_TOTAL_PX + missingWeightsNotesHeight(notesText) : 0);
+    const chunks = chunkRows(group.rows, trailingPx);
+    return chunks.map((rows, i) => ({
+      groupIndex,
+      rows,
+      isGroupEnd: i === chunks.length - 1,
+      isReportEnd: isLastGroup && i === chunks.length - 1,
+    }));
+  });
+}
 
 /**
  * Formats a weight to 2 places, rounding half up on its decimal digits.
@@ -176,44 +258,59 @@ const DesignationWeightSummaryReport = React.forwardRef<
       </tr>
     );
 
+    /** Body and Subtotal cells: py-0.5 keeps 20 rows, the Subtotal, the Grand Total and the footer on one page. */
+    const cell = 'border border-gray-400 px-2 py-0.5';
+
     const renderRow = (row: WeightSummaryRow) => (
       <tr key={`${row.cityTown}-${row.legDistrict}-${row.electionDistrict}`}>
-        <td className="border border-gray-400 px-2 py-1">
+        <td className={cell}>
           {row.electionDistrict.toString().padStart(3, '0')}
         </td>
-        <td className="border border-gray-400 px-2 py-1 text-right">
+        <td className={`${cell} text-right`}>
           {row.totalSeats}
         </td>
-        <td className="border border-gray-400 px-2 py-1 text-right">
+        <td className={`${cell} text-right`}>
           {row.petitionedSeats}
         </td>
-        <td className="border border-gray-400 px-2 py-1 text-right">
+        <td className={`${cell} text-right`}>
           {row.occupiedPetitioned}
         </td>
-        <td className="border border-gray-400 px-2 py-1 text-right">
+        <td className={`${cell} text-right`}>
           {row.vacantPetitioned}
         </td>
-        <td className="border border-gray-400 px-2 py-1 text-right">
+        <td className={`${cell} text-right`}>
           {row.appointed}
         </td>
-        <td className="border border-gray-400 px-2 py-1 text-right">
+        <td className={`${cell} text-right`}>
           {formatOptionalWeight(row.ltedWeight)}
         </td>
-        <td className="border border-gray-400 px-2 py-1 text-right">
+        <td className={`${cell} text-right`}>
           {formatOptionalWeight(row.baseWeight)}
         </td>
-        <td className="border border-gray-400 px-2 py-1 text-right">
+        <td className={`${cell} text-right`}>
           {formatWeight(row.designationWeight)}
         </td>
-        <td className="border border-gray-400 px-2 py-1">
+        <td className={cell}>
           {row.missingWeights || '—'}
         </td>
       </tr>
     );
 
+    const missingWeightsText =
+      committeesWithMissingWeights.length > 0
+        ? committeesWithMissingWeights
+            .map(
+              (c) =>
+                `${c.cityTown} LD${c.legDistrict} ED${c.electionDistrict.toString().padStart(3, '0')}`,
+            )
+            .join('; ')
+        : null;
+    const pages = paginateWeightSummary(groups, missingWeightsText);
+
     return (
       <div ref={ref}>
-        {groups.map((group, groupIdx) => {
+        {pages.map((page, pageIdx) => {
+          const group = groups[page.groupIndex];
           // Rochester gets zero-padded LD (domain-specific). Matches CommitteeReport.tsx.
           // TODO: Extract shared helper if this pattern spreads to more report components.
           const groupLabel =
@@ -221,16 +318,9 @@ const DesignationWeightSummaryReport = React.forwardRef<
               ? `City/Town: ${group.cityTown}, Legislative District: ${group.legDistrict.toString().padStart(2, '0')}`
               : `City/Town: ${group.cityTown}, Legislative District: ${group.legDistrict}`;
 
-          const rows = group.rows;
-          const pageChunks: WeightSummaryRow[][] = [];
-          for (let i = 0; i < rows.length; i += MAX_ROWS_PER_PAGE) {
-            pageChunks.push(rows.slice(i, i + MAX_ROWS_PER_PAGE));
-          }
-          if (pageChunks.length === 0) pageChunks.push([]);
-
-          return pageChunks.map((chunk, pageIdx) => (
+          return (
             <div
-              key={`${groupIdx}-${pageIdx}`}
+              key={pageIdx}
               className="w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto"
               style={{ fontFamily: 'Arial, sans-serif' }}
             >
@@ -245,76 +335,51 @@ const DesignationWeightSummaryReport = React.forwardRef<
                   <table className="w-full text-sm border-collapse">
                     <thead>{colHeader}</thead>
                     <tbody>
-                      {chunk.map(renderRow)}
-                      {pageIdx === pageChunks.length - 1 && (
+                      {page.rows.map(renderRow)}
+                      {page.isGroupEnd && (
                         <tr className="bg-gray-50 font-semibold">
-                          <td
-                            colSpan={8}
-                            className="border border-gray-400 px-2 py-1 text-right"
-                          >
+                          <td colSpan={8} className={`${cell} text-right`}>
                             Subtotal
                           </td>
-                          <td className="border border-gray-400 px-2 py-1 text-right">
+                          <td className={`${cell} text-right`}>
                             {formatWeight(group.subtotalWeight)}
                           </td>
-                          <td className="border border-gray-400 px-2 py-1" />
+                          <td className={cell} />
                         </tr>
                       )}
                     </tbody>
                   </table>
-                  {groupIdx === groups.length - 1 &&
-                    pageIdx === pageChunks.length - 1 && (
-                      <div className="mt-2">
-                        <div className="text-sm font-semibold">
-                          Grand Total: {formatWeight(grandTotalWeight)}
-                        </div>
-                        {committeesWithMissingWeights.length > 0 && (
-                          <div className="mt-4 text-xs text-gray-600">
-                            <p>
-                              — indicates weight data not available for one or
-                              more seats
-                            </p>
-                            <p className="mt-1">
-                              Committees with missing weights:{' '}
-                              {committeesWithMissingWeights
-                                .map(
-                                  (c) =>
-                                    `${c.cityTown} LD${c.legDistrict} ED${c.electionDistrict.toString().padStart(3, '0')}`,
-                                )
-                                .join('; ')}
-                            </p>
-                          </div>
-                        )}
+                  {page.isReportEnd && (
+                    <div className="mt-2">
+                      <div className="text-sm font-semibold">
+                        Grand Total: {formatWeight(grandTotalWeight)}
                       </div>
-                    )}
+                      {missingWeightsText && (
+                        <div className="mt-4 text-xs text-gray-600">
+                          <p>
+                            — indicates weight data not available for one or
+                            more seats
+                          </p>
+                          <p className="mt-1">
+                            Committees with missing weights:{' '}
+                            {missingWeightsText}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="mt-auto pt-4 flex w-full text-xs justify-between">
                   <span>{generationDate}</span>
                   <span>{reportAuthor}</span>
                   <span>
-                    Page{' '}
-                    {groups
-                      .slice(0, groupIdx)
-                      .reduce(
-                        (acc, g) =>
-                          acc +
-                          Math.ceil(g.rows.length / MAX_ROWS_PER_PAGE),
-                        0,
-                      ) +
-                      pageIdx +
-                      1}{' '}
-                    of{' '}
-                    {groups.reduce(
-                      (acc, g) =>
-                        acc + Math.ceil(g.rows.length / MAX_ROWS_PER_PAGE),
-                      0,
-                    )}
+                    Page {pageIdx + 1} of {pages.length}
                   </span>
                 </div>
               </div>
               <div className="page-break" />
             </div>
-          ));
+          );
         })}
       </div>
     );

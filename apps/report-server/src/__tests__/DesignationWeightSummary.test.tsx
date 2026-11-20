@@ -5,6 +5,9 @@ import DesignationWeightSummaryReport, {
   summaryToRow,
   groupWeightSummaries,
   sumWeights,
+  chunkRows,
+  paginateWeightSummary,
+  missingWeightsNotesHeight,
 } from '../components/DesignationWeightSummary';
 import type { DesignationWeightSummary } from '../committeeMappingHelpers';
 
@@ -215,6 +218,63 @@ describe('DesignationWeightSummary', () => {
         { ...committee({ ltedWeight: null, petitioned: 0, electionDistrict: 2 }), totalWeight: 1.134 },
       ]);
       expect(formatWeight(group!.subtotalWeight)).toBe('1.64');
+    });
+  });
+  describe('pagination', () => {
+    const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+    const sizes = (chunks: unknown[][]) => chunks.map((c) => c.length);
+    /** Subtotal + Grand Total, the trailing block on a one-group report without notes. */
+    const finalTrailingPx = 25 + 28;
+
+    it.each([
+      [19, [19]],
+      [20, [20]],
+      [21, [20, 1]],
+      [40, [20, 20]],
+    ])('keeps %i rows with their subtotal and grand total as %j', (n, expected) => {
+      expect(sizes(chunkRows(range(n), finalTrailingPx))).toEqual(expected);
+    });
+
+    it('returns one empty page when there are no rows', () => {
+      expect(chunkRows([], finalTrailingPx)).toEqual([[]]);
+    });
+
+    it('carries the last row over when a full last page has no room for the trailing block', () => {
+      const tallNotes = 'X'.repeat(110 * 3);
+      const trailingPx = finalTrailingPx + missingWeightsNotesHeight(tallNotes);
+      expect(sizes(chunkRows(range(20), trailingPx))).toEqual([19, 1]);
+      expect(sizes(chunkRows(range(40), trailingPx))).toEqual([20, 19, 1]);
+      // A short last page that still fits is left alone.
+      expect(sizes(chunkRows(range(25), trailingPx))).toEqual([20, 5]);
+    });
+
+    it('numbers pages across groups from the same chunks it renders', () => {
+      const group = (n: number) => ({ rows: range(n).map(() => ({}) as never) });
+      const pages = paginateWeightSummary([group(20), group(40), group(3)], null);
+      expect(pages.map((p) => [p.groupIndex, p.rows.length, p.isGroupEnd, p.isReportEnd])).toEqual([
+        [0, 20, true, false],
+        [1, 20, false, false],
+        [1, 20, true, false],
+        [2, 3, true, true],
+      ]);
+    });
+
+    it('prints "Page N of M" matching the pages it renders', () => {
+      const rows = Array.from({ length: 20 }, (_, i) =>
+        committee({ ltedWeight: 1, petitioned: 2, electionDistrict: i + 1 }),
+      );
+      const html = ReactDOMServer.renderToStaticMarkup(
+        <DesignationWeightSummaryReport
+          groups={groupWeightSummaries(rows)}
+          grandTotalWeight={40}
+          scopeDescription="ROCHESTER"
+          reportAuthor="Test"
+          committeesWithMissingWeights={[]}
+        />,
+      );
+      expect(html.match(/Page \d+ of \d+/g)).toEqual(['Page 1 of 1']);
+      expect(html).toContain('Subtotal');
+      expect(html).toContain('Grand Total: 40.00');
     });
   });
   describe('report', () => {
