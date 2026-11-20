@@ -41,3 +41,7 @@ committee-diff.json
 # Python bytecode (infrastructure/tests)
 __pycache__/
 *.pyc
+
+# Local crosswalk one-offs (data dump and script)
+apps/frontend/crosswalk-backup.csv
+apps/frontend/scripts/createCrosswalkOnlyCommittees.mjs
