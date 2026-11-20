@@ -1,6 +1,6 @@
 # 11 - Prod shows every date of birth one day early
 
-Status: ready-for-agent
+Status: resolved
 Tier: 1 (fix now) · Priority: P1
 Source: [QA sweep 2026-11-18](../../qa-sweep-2026-11-18/README.md), finding B1
 
@@ -27,7 +27,8 @@ exports in `apps/report-server`) for other calendar-date fields formatted withou
 a stored DOB or registration date.
 
 The ~2.5% of rows stored at Pacific midnight still read correctly in UTC (07:00Z is the same calendar day), so this
-fix is safe for them too. Correcting their stored values stays with the backfill in this folder.
+fix is safe for them too. Correcting their stored values stays with the backfill in this folder (done 2026-11-19, see
+[02](02-measure-stored-drift.md)).
 
 ## Acceptance criteria
 

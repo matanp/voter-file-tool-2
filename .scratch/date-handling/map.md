@@ -27,7 +27,10 @@ A spec at `.scratch/date-handling/spec.md` that an implementing agent can execut
 - How the Date of Birth search's extend-before / extend-after boundaries express themselves once the representation is chosen. `DATE_BOUNDARIES` currently holds two `Date` objects, one of them computed at module load.
 - Whether `calendarDateStringSchema` (`schemas/committeeTerm.ts`) and the report schemas' `z.string().datetime()` converge on one shared zod schema, or stay separate because one describes a calendar date and the other an instant.
 - What the invalid-date policy is across the module — today `formatCalendarDateForDisplay` returns `""` and `sortElectionDates` sorts invalid dates last, and nothing states which is intended.
-- Whether the voter import processor's change of convention implies a re-import of already-loaded voter files rather than a backfill.
+
+## Settled since charting
+
+- **Voter dates: backfill, not re-import.** On 2026-11-19 the import switched to `Date.UTC` (PR #165), and prod was backfilled in place: 17,445 `VoterRecord` rows and 500,670 `VoterRecordArchive` rows, moved from Pacific midnight to UTC midnight. No re-import was needed, because every drifted value was already on the right UTC day. Counts are in [ticket 02](issues/02-measure-stored-drift.md).
 
 ## Out of scope
 

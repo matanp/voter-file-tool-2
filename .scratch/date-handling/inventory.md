@@ -15,7 +15,7 @@ calendar-date ones are covered below through their columns.
 
 | Column | How it's written today | Stored at |
 |---|---|---|
-| `VoterRecord.DOB`, `.originalRegDate`, `.lastUpdate` (and `VoterRecordArchive`) | `packages/voter-import-processor/src/voterRecordProcessor.ts:168`, `new Date(yyyy, mm - 1, dd)` | **Midnight in the importing machine's time zone.** UTC midnight on prod (~97%), Pacific midnight for imports run from a Pacific machine (~2.5%, see ticket 02) |
+| `VoterRecord.DOB`, `.originalRegDate`, `.lastUpdate` (and `VoterRecordArchive`) | `packages/voter-import-processor/src/voterRecordProcessor.ts`, `Date.UTC(yyyy, mm - 1, dd)` since PR #165 (was `new Date(yyyy, mm - 1, dd)`, the importing machine's local midnight) | UTC midnight. The Pacific-midnight rows from an old import (17,445 live, 500,670 archive) were backfilled on 2026-11-19; see ticket 02 |
 | `ElectionDate.date` | `api/admin/electionDates/route.ts` and `/bulk`, using `parseCalendarDate` from `lib/electionConfigParsing.ts` | UTC midnight |
 | `CommitteeTerm.startDate`, `.endDate` | `parseTermDateRange` → `parseCalendarDate` from `lib/dateUtils.ts:10` | **Noon** UTC |
 | `MeetingRecord.meetingDate` | `api/admin/meetings/route.ts:35`, `new Date("YYYY-MM-DD")` from a `type="date"` input | UTC midnight |
@@ -43,7 +43,7 @@ Ranked by impact. "Fixed" means fixed on `fix/dob-one-day-early` (ticket 11).
 | F3 | `committees/CommitteeSelector.tsx:1098` (petitionPrimaryDate, legacy page) | Same as F1 | Fixed |
 | F4 | **DOB search, single date**: `components/ui/datePicker.tsx:95` → `lib/searchFieldProcessor.ts:722` → `shared-validators/src/searchQueryUtils.ts:181` | The picker builds the date from `new Date()` and only changes the day, so `singleDate` carries the current local time of day. The server then matches `DOB in [that exact instant]`, which no row stored at midnight can equal. This is very likely the cause of `docs/BUGS.md` **BUG-001, "Single date search not working"**. Read from the code; not yet reproduced in the app | Open → new ticket |
 | F5 | **DOB search, range and extend-before/after**: same path, `gte`/`lte` on the raw instants | Start and end carry local time of day, so the start day is dropped (`gte 1972-03-05T14:23Z` excludes `00:00Z`), and the end day is kept only by accident. Ticket 07 (inclusive-end rule) is the design question; this is the live bug | Open → new ticket, with ticket 07 |
-| F6 | Voter import, `voterRecordProcessor.ts:168` | The stored date depends on the importing machine's time zone. A run from a machine east of UTC would store the **previous** day, and then no reader can recover the true day | Open → new ticket (A+ step 3), plus a backfill of the ~2.5% |
+| F6 | Voter import, `voterRecordProcessor.ts:168` | The stored date depends on the importing machine's time zone. A run from a machine east of UTC would store the **previous** day, and then no reader can recover the true day | Fixed: PR #165, deployed to the report server, and prod backfilled on 2026-11-19 (ticket 02 has the counts) |
 | F7 | `report-server/src/components/ChangesReport.tsx:11` | `formatDate("YYYY-MM-DD")` parses UTC midnight and then formats in the server's local zone. Correct only while the report server runs in UTC | Fixed: `formatDate` passes `timeZone: 'UTC'`, pinned by `ChangesReport.test.tsx` |
 | F8 | XLSX exports (DOB, originalRegDate) | Written as ISO text cells, not dates. The day isn't shifted (the first 10 characters are right) | Already tracked: `.scratch/xlsx-export-formatting/issues/02` |
 | F9 | Changes report buckets instants by UTC day (`committeeMappingHelpers.ts:634`, `toISOString().slice(0, 10)`) | An activation at 9pm Eastern is listed under the next day | Instant, not calendar date; out of this map's scope. Ticket [13](issues/13-changes-report-buckets-instants-by-utc-day.md) |
@@ -65,6 +65,6 @@ Ranked by impact. "Fixed" means fixed on `fix/dob-one-day-early` (ticket 11).
 
 - The display half (F1–F3, F7) is mechanical once one formatter exists. A lint rule on `toLocaleDateString` without a
   `timeZone` would have caught every case (ticket 09).
-- The two real bugs that remain are on the **input** side (F4–F6). Both come from building a calendar date out of a
+- The real bugs are on the **input** side (F4–F6; F6 is now fixed). Both come from building a calendar date out of a
   local `Date`. That supports giving the Calendar Date module (ticket 06) its own parse and construct functions, not
   just a formatter.

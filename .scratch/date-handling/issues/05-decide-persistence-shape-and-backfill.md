@@ -18,3 +18,15 @@ Settle with it:
 - If the numbers from ticket 02 make the backfill its own project, rule it out to the map's Out of scope rather than carrying it.
 
 This is the hard-to-reverse decision in the effort and the one a future reader will ask "why" about. Offer an ADR under `docs/adr/` when it resolves — the directory does not exist yet, so create it.
+
+## Comments
+
+### 2026-11-19: the drifted rows are already corrected
+
+The first two bullets above are settled, outside this ticket. The drifted voter rows were fixed by an in-place
+backfill (PR #165, `pnpm db:backfill-voter-dates-utc`), shipped separately from any schema change. Every voter
+calendar date on prod is now at UTC midnight. Ticket 02 has the counts.
+
+What's left here is the schema question: keep `DateTime` with the UTC-midnight invariant, or migrate to `@db.Date`.
+Size of a `@db.Date` migration: 539,425 rows in `VoterRecord` and 3,548,414 in `VoterRecordArchive`, three columns
+each. The data is already clean, so the migration is a plain type cast with no correction step.
