@@ -119,7 +119,9 @@ Tested locally against the dev R2 bucket with synthetic data (217 tests; quick r
 renders). Local run evidence is in the main checkout's ignored `apps/report-server/pdf-validation/runs/`.
 
 Remaining, all human on the box:
-1. Deploy current main. Pre-#148 quick and full runs with `--browser chrome`, verify on the Mac.
+1. Pre-#148 quick and full runs with `--browser chrome`, verify on the Mac. No deploy needed: checked 2026-11-19,
+   the box is at `45c450dc` (#166, the last report-server change) with `dist/index.js` built after it. Redeploy first
+   only if report-server code merges before the run.
 2. Approve the full-Chrome baselines and page counts; commit `approvals.json`.
 3. After #148 is deployed, quick and full runs with `--browser both`.
 
