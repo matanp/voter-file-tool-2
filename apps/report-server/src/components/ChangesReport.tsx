@@ -27,6 +27,10 @@ function formatDate(iso: string): string {
 /**
  * Changes report PDF — table with Date, Member Name, City/Town, LD, ED, Change Type, Details.
  * Grouped by date (descending).
+ *
+ * Printed on Letter landscape (`useLandscape: true`), so the container is 11in wide and has no
+ * fixed height: the browser paginates the table, and a minimum height taller than the 8.5in page
+ * would push out a blank trailing page.
  */
 function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportProps) {
     const byDate = new Map<string, ChangesReportRow[]>();
@@ -47,7 +51,7 @@ function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportPr
     });
 
     return (
-      <div className="w-[8.5in] min-h-[11in] p-6 font-sans bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
+      <div className="w-[11in] p-6 font-sans bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
         <h1 className="text-xl font-bold mb-2">Committee Changes</h1>
         <p className="text-sm mb-4">
           {fromFmt} — {toFmt}
@@ -55,7 +59,7 @@ function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportPr
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-100">
-              <th className="border border-gray-400 px-2 py-1 text-left">Date</th>
+              <th className="border border-gray-400 px-2 py-1 text-left whitespace-nowrap">Date</th>
               <th className="border border-gray-400 px-2 py-1 text-left">Member Name</th>
               <th className="border border-gray-400 px-2 py-1 text-left">City/Town</th>
               <th className="border border-gray-400 px-2 py-1 text-right">LD</th>
@@ -74,7 +78,7 @@ function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportPr
               const dateFmt = formatDate(dateStr);
               return dateRows.map((r, i) => (
                 <tr key={`${dateStr}-${r.memberName}-${r.electionDistrict}-${i}`}>
-                  <td className="border border-gray-400 px-2 py-1">{dateFmt}</td>
+                  <td className="border border-gray-400 px-2 py-1 whitespace-nowrap">{dateFmt}</td>
                   <td className="border border-gray-400 px-2 py-1">{r.memberName}</td>
                   <td className="border border-gray-400 px-2 py-1">{r.cityTown}</td>
                   <td className="border border-gray-400 px-2 py-1 text-right">{r.legDistrict}</td>

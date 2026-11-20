@@ -29,3 +29,19 @@ describe('ChangesReport dates', () => {
     expect(html).not.toContain('Mar 4, 2026');
   });
 });
+
+describe('ChangesReport page geometry', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    <ChangesReport rows={[row]} dateFrom="2026-03-01" dateTo="2026-03-31" reportAuthor="Tester" />,
+  );
+
+  it('sizes the container for Letter landscape with no minimum height', () => {
+    expect(html).toMatch(/^<div class="w-\[11in\] /);
+    expect(html).not.toMatch(/min-h-|h-\[/);
+  });
+
+  it('keeps the Date header and cells on one line', () => {
+    expect(html).toMatch(/<th class="[^"]*whitespace-nowrap[^"]*">Date<\/th>/);
+    expect(html).toMatch(/<td class="[^"]*whitespace-nowrap[^"]*">Mar 5, 2026<\/td>/);
+  });
+});

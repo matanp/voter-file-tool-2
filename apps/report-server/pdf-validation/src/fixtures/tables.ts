@@ -116,7 +116,7 @@ function changesExpectations(rows: ChangesRowSpec[], dateFrom: string, dateTo: s
     tokens,
     {
       reviewNotes: [
-        'Geometry: the component lays out an 8.5in-wide portrait container but production prints Letter landscape. Report clipped or overflowing content as a defect; do not approve it as expected layout.',
+        'Geometry: Letter landscape; the component lays out an 11in-wide container with no fixed height, so the table should span the page width and the Date column should stay on one line. Report a blank right band, a wrapped date, or a blank trailing page as a defect.',
       ],
     },
   );
