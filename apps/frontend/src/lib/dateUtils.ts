@@ -78,6 +78,21 @@ export function formatCalendarDateForDisplay(date: Date | string): string {
 }
 
 /**
+ * Formats a Calendar Date as numeric US month/day/year using UTC calendar
+ * parts (e.g. "3/5/1972"). Use this to display DOB, registration dates, and
+ * dates saved from a date input (meetings, primaries): they're stored at UTC
+ * midnight, so formatting them in the viewer's time zone shows the day before
+ * anywhere west of UTC.
+ */
+export function formatCalendarDateNumeric(date: Date | string): string {
+  const value = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(value.getTime())) {
+    return "";
+  }
+  return value.toLocaleDateString("en-US", { timeZone: "UTC" });
+}
+
+/**
  * The viewer's local calendar day of an Instant (e.g. when a report was
  * filed), "Jan 1, 2026". Unlike `formatCalendarDateForDisplay`, not UTC: a
  * report filed at 9pm Eastern shows that day, not the next.

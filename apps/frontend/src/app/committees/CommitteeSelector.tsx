@@ -18,6 +18,7 @@ import { VoterCard } from "~/app/recordsearch/VoterCard";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { hasPermissionFor } from "~/lib/utils";
+import { formatCalendarDateNumeric } from "~/lib/dateUtils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
 import { CommitteeSummaryBlock } from "./CommitteeSummaryBlock";
@@ -1095,7 +1096,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                           const outcomeLabel =
                             row.status === "PETITIONED_LOST" ? "Lost" : "Tie";
                           const primaryDate = row.petitionPrimaryDate
-                            ? new Date(row.petitionPrimaryDate).toLocaleDateString("en-US")
+                            ? formatCalendarDateNumeric(row.petitionPrimaryDate)
                             : "—";
                           return (
                             <tr key={row.id} className="border-t border-primary-200">
