@@ -9,6 +9,8 @@ const createJestConfig = nextJest({
 const config = {
   // Use Node environment for API route tests
   testEnvironment: "node",
+  // Same US zone as jest.config.cjs; see jest.globalSetup.cjs.
+  globalSetup: "<rootDir>/jest.globalSetup.cjs",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   testMatch: ["<rootDir>/src/__tests__/api/**/*.[jt]s?(x)"],
   testPathIgnorePatterns: [

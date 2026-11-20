@@ -159,9 +159,9 @@ export function convertStringToDateTime(dateString: string): Date {
     throw new Error("Invalid date format. Expected mm/dd/yyyy");
   }
 
-  const jsDate = new Date(yyyy, mm - 1, dd); // mm-1 because months are 0-indexed in JavaScript
-
-  return jsDate;
+  // UTC midnight, so the stored calendar day doesn't depend on the importing
+  // machine's time zone. mm - 1 because JS months are 0-indexed.
+  return new Date(Date.UTC(yyyy, mm - 1, dd));
 }
 
 export const exampleVoterRecord: Partial<VoterRecordArchive> = {
