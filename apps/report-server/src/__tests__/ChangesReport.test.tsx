@@ -14,7 +14,7 @@ const row: ChangesReportRow = {
 };
 
 describe('ChangesReport dates', () => {
-  it('runs in a zone west of UTC, where a UTC-midnight date would slip a day', () => {
+  it('environment check: jest runs west of UTC, where a UTC-midnight date reads a day early', () => {
     expect(new Date('2026-03-05').getDate()).toBe(4);
   });
 

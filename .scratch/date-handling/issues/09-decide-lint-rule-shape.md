@@ -25,6 +25,7 @@ Settle:
 
 `apps/frontend/.eslintrc.cjs` has a `no-restricted-syntax` error for `new Date(x.<field>).toLocaleDateString(...)` with
 no `timeZone` option, where `<field>` is `DOB`, `originalRegDate`, `meetingDate` or `petitionPrimaryDate`. These are the
-ticket 11 sites. It matches by property name, so it misses aliased values (`const d = record.DOB`), other calendar
-fields, and report-server. It's a guard against ticket 11 coming back, not the answer to this ticket. Replace or widen
+ticket 11 sites. It matches by property name, so it misses aliased values (`const d = record.DOB`), `new Date(r?.DOB)` and
+`new Date(r.DOB!)`, other calendar fields, and report-server. It also flags options passed as a variable, even one
+that sets `timeZone`. It's a guard against ticket 11 coming back, not the answer to this ticket. Replace or widen
 it once 06 fixes the module's entry points.
