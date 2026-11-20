@@ -166,6 +166,28 @@ describe("/api/committee/add", () => {
       );
     });
 
+    it.each([
+      [{ phone: "abc" }, "phone"],
+      [{ phone: "12" }, "phone"],
+      [{ email: "not-an-email" }, "email"],
+    ])("rejects invalid contact %j with a field error (422)", async (contact, field) => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
+      );
+      mockHasPermission(true);
+
+      const response = await POST(createMockRequest(createMockCommitteeData(contact, false)));
+
+      expect(response.status).toBe(422);
+      const body = await parseJsonResponse<{
+        error: string;
+        fieldErrors?: Record<string, string>;
+      }>(response);
+      expect(body.error).toBe("Invalid request data");
+      expect(Object.keys(body.fieldErrors ?? {})).toEqual([field]);
+      expect(getMembershipMockTyped(prismaMock).create).not.toHaveBeenCalled();
+    });
+
     it("should return warnings and persist eligibilityWarnings in submissionMetadata when eligibility has warnings (SRS §2.2)", async () => {
       const mockCommitteeData = createMockCommitteeData();
       const mockSession = createMockSession({

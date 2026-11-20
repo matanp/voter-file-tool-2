@@ -12,7 +12,7 @@
  * server would say, and the mutation endpoint has the final word (its hard
  * stops come back into the confirm step, and the drawer stays open).
  */
-import React, { useId, useMemo, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { MembershipType } from "@prisma/client";
 
 import { Button } from "~/components/ui/button";
@@ -23,6 +23,11 @@ import { RadioGroup, RadioOption } from "~/components/ui/radio-group";
 import { Textarea } from "~/components/ui/textarea";
 import { committeeLabel } from "~/lib/committees/committeeRef";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
+import {
+  contactErrors,
+  type ContactErrors,
+  type ContactField,
+} from "~/lib/validations/contact";
 import ContactInfoLabel from "../../ContactInfoLabel";
 import EligibilitySnapshotPanel from "../../EligibilitySnapshotPanel";
 import {
@@ -54,6 +59,18 @@ const STEPS: Record<Step, { n: number; title: string }> = {
   details: { n: 3, title: "Membership details" },
   confirm: { n: 4, title: "Confirm" },
 };
+
+const CONTACT_FIELDS: ContactField[] = ["email", "phone"];
+
+/** The server's field errors that belong to the details step's contact fields. */
+function serverContactErrors(fieldErrors: Record<string, string> | undefined): ContactErrors {
+  const errors: ContactErrors = {};
+  for (const field of CONTACT_FIELDS) {
+    const message = fieldErrors?.[field];
+    if (message) errors[field] = message;
+  }
+  return errors;
+}
 
 const OVERRIDE_REASON_MAX = 500;
 const NOTES_MAX = 1000;
@@ -98,6 +115,20 @@ export function AddMemberFlow({
   const [override, setOverride] = useState(false);
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
   const { submitting, failure, clearFailure, run } = useActionSubmit(onSuccess);
+  const [contactErrs, setContactErrs] = useState<ContactErrors>({});
+  // The contact field to focus once the details step has rendered.
+  const [focusField, setFocusField] = useState<ContactField | null>(null);
+  const fieldRefs = {
+    email: useRef<HTMLInputElement>(null),
+    phone: useRef<HTMLInputElement>(null),
+  };
+  useEffect(() => {
+    if (!focusField) return;
+    fieldRefs[focusField].current?.focus();
+    setFocusField(null);
+    // fieldRefs holds stable refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusField, step]);
 
   const eligibility = useCandidateEligibility(action.committee, candidate?.VRCNUM ?? null);
   const existingMemberIds = useMemo(
@@ -128,8 +159,25 @@ export function AddMemberFlow({
   const setDetail = (patch: Partial<Details>) =>
     setDetails((prev) => ({ ...prev, ...patch }));
 
-  const submit = (selected: CandidateRecord) =>
-    run(() =>
+  /** Shows `errors` beside their fields and focuses the first; false when there are none. */
+  const showContactErrors = (errors: ContactErrors) => {
+    setContactErrs(errors);
+    const first = CONTACT_FIELDS.find((f) => errors[f]);
+    if (first) setFocusField(first);
+    return first !== undefined;
+  };
+
+  /** Edits a contact field; once it has an error, the error tracks the value. */
+  const setContact = (field: ContactField, value: string) => {
+    setDetail({ [field]: value });
+    if (contactErrs[field]) {
+      const next = contactErrors({ ...details, [field]: value })[field];
+      setContactErrs((prev) => ({ ...prev, [field]: next }));
+    }
+  };
+
+  const submit = async (selected: CandidateRecord) => {
+    const outcome = await run(() =>
       submitCandidate(action, mode, {
         candidateId: selected.VRCNUM,
         ...(isAdd ? { membershipType: details.membershipType } : { notes: details.notes }),
@@ -138,6 +186,15 @@ export function AddMemberFlow({
         ...(overriding ? { overrideReason: details.overrideReason } : {}),
       }),
     );
+    // A rejected contact field goes back to the step that has it. Any other
+    // failure stays here, in the alert, which takes focus.
+    if (outcome.ok || outcome.kind !== "error") return;
+    const errors = serverContactErrors(outcome.fieldErrors);
+    if (Object.keys(errors).length > 0) {
+      goToStep("details");
+      showContactErrors(errors);
+    }
+  };
 
   const heading = (
     <StepHeading
@@ -255,20 +312,30 @@ export function AddMemberFlow({
         )}
         <div className="grid gap-2">
           <ContactInfoLabel memberName={candidateName} />
-          <Input
-            type="email"
-            placeholder="Email"
-            value={details.email}
-            onChange={(e) => setDetail({ email: e.target.value })}
-            aria-label="Member contact email"
-          />
-          <Input
-            type="tel"
-            placeholder="Phone"
-            value={details.phone}
-            onChange={(e) => setDetail({ phone: e.target.value })}
-            aria-label="Member contact phone"
-          />
+          {CONTACT_FIELDS.map((field) => {
+            const error = contactErrs[field];
+            const errorId = `${id}-${field}-error`;
+            return (
+              <div key={field} className="grid gap-1">
+                <Input
+                  ref={fieldRefs[field]}
+                  id={`${id}-${field}`}
+                  type={field === "email" ? "email" : "tel"}
+                  placeholder={field === "email" ? "Email" : "Phone"}
+                  value={details[field]}
+                  onChange={(e) => setContact(field, e.target.value)}
+                  aria-label={`Member contact ${field}`}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? errorId : undefined}
+                />
+                {error && (
+                  <p id={errorId} className="text-sm text-red-600 dark:text-red-400">
+                    {error}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
         {!isAdd && (
           <div className="grid gap-1">
@@ -301,7 +368,13 @@ export function AddMemberFlow({
         <Button type="button" variant="outline" onClick={() => goToStep("review")}>
           Back
         </Button>
-        <Button type="button" disabled={!canContinue} onClick={() => goToStep("confirm")}>
+        <Button
+          type="button"
+          disabled={!canContinue}
+          onClick={() => {
+            if (!showContactErrors(contactErrors(details))) goToStep("confirm");
+          }}
+        >
           Continue
         </Button>
       </>
@@ -348,6 +421,7 @@ export function AddMemberFlow({
           <OutcomeAlert
             outcome={failure}
             ineligibleTitle={isAdd ? "Cannot add member" : "Submission blocked"}
+            focusOnMount
           />
         )}
       </div>

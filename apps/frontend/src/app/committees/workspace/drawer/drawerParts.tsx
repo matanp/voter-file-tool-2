@@ -59,6 +59,7 @@ export function useActionSubmit(onSuccess: (message: string) => void) {
     setSubmitting(false);
     if (outcome.ok) onSuccess(outcome.message);
     else setFailure(outcome);
+    return outcome;
   };
   return { submitting, failure, clearFailure: () => setFailure(null), run };
 }
@@ -104,17 +105,33 @@ export function DrawerFooter({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** A failed mutation: the server's hard stops, or its error message. */
+/**
+ * A failed mutation: the server's hard stops, or its error message. With
+ * `focusOnMount`, focus moves to the alert when it appears; the button that
+ * was pressed is disabled while the request runs, so without this focus falls
+ * out of the dialog.
+ */
 export function OutcomeAlert({
   outcome,
   ineligibleTitle,
+  focusOnMount = false,
 }: {
   outcome: Extract<ActionOutcome, { ok: false }>;
   ineligibleTitle: string;
+  focusOnMount?: boolean;
 }) {
+  const ref = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (el && focusOnMount) el.focus();
+    },
+    [focusOnMount],
+  );
+  const focusProps = focusOnMount
+    ? { ref, tabIndex: -1, className: "outline-none" }
+    : {};
   if (outcome.kind === "ineligible") {
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" {...focusProps}>
         <AlertTitle>{ineligibleTitle}</AlertTitle>
         <AlertDescription>
           <ul className="mt-1 list-inside list-disc space-y-1">
@@ -128,7 +145,7 @@ export function OutcomeAlert({
     );
   }
   return (
-    <Alert variant="destructive">
+    <Alert variant="destructive" {...focusProps}>
       <AlertTitle>Something went wrong</AlertTitle>
       <AlertDescription>{outcome.message}</AlertDescription>
     </Alert>

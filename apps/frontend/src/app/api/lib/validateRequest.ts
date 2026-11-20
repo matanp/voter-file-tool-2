@@ -28,11 +28,28 @@ export function validateRequest<Output>(
     console.warn("Form errors:", formErrors);
   }
 
+  // Per-field messages let a form put each error beside its field. They are
+  // the schema's own messages, so they reveal nothing about stored data.
+  const fieldErrors = firstMessagePerField(result.error);
+
   return {
     success: false,
     response: NextResponse.json(
-      { success: false, error: "Invalid request data" },
+      {
+        success: false,
+        error: "Invalid request data",
+        ...(Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {}),
+      },
       { status: 422 },
     ),
   };
+}
+
+function firstMessagePerField(error: z.ZodError): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [field, messages] of Object.entries(error.flatten().fieldErrors)) {
+    const first = messages?.[0];
+    if (first) out[field] = first;
+  }
+  return out;
 }

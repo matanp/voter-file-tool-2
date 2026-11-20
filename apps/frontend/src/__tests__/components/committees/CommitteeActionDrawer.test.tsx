@@ -751,6 +751,112 @@ describe("CommitteeActionDrawer: Admin add", () => {
   });
 });
 
+describe("CommitteeActionDrawer: contact field errors", () => {
+  const emailField = () =>
+    within(drawer()).getByRole("textbox", { name: "Member contact email" });
+  const phoneField = () =>
+    within(drawer()).getByRole("textbox", { name: "Member contact phone" });
+  const detailsHeading = () =>
+    within(drawer()).queryByRole("heading", { level: 3, name: /Membership details/ });
+
+  async function toDetails(role: PrivilegeLevel = PrivilegeLevel.Admin) {
+    renderDrawer({ role });
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+  }
+
+  it("keeps an invalid email or phone on the details step, beside its field", async () => {
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/requestAdd": [{ body: { success: true, message: "ok" } }],
+    });
+    await toDetails(PrivilegeLevel.Leader);
+    await userEvent.type(emailField(), "not-an-email");
+    await userEvent.type(phoneField(), "abc");
+    await userEvent.click(continueButton());
+
+    expect(detailsHeading()).toBeInTheDocument();
+    for (const [field, text] of [
+      [emailField(), /valid email address/],
+      [phoneField(), /phone number using digits/],
+    ] as const) {
+      expect(field).toHaveAttribute("aria-invalid", "true");
+      expect(field).toHaveAccessibleDescription(text);
+    }
+    expect(emailField()).toHaveFocus();
+
+    // Fixing a field clears its error; the other still blocks.
+    await userEvent.clear(emailField());
+    await userEvent.type(emailField(), "jane@example.com");
+    expect(emailField()).not.toHaveAttribute("aria-invalid");
+    await userEvent.click(continueButton());
+    expect(detailsHeading()).toBeInTheDocument();
+    expect(phoneField()).toHaveFocus();
+
+    await userEvent.clear(phoneField());
+    await userEvent.type(phoneField(), "(585) 555-0123");
+    await userEvent.click(continueButton());
+    expect(
+      within(drawer()).getByRole("heading", { level: 3, name: /Confirm/ }),
+    ).toBeInTheDocument();
+    expect(callsTo(fetchMock, "/api/committee/requestAdd")).toHaveLength(0);
+  });
+
+  it("returns a server field error to the details step and focuses that field", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/add": [
+        {
+          body: {
+            success: false,
+            error: "Invalid request data",
+            fieldErrors: { phone: "The server says this phone is wrong." },
+          },
+          status: 422,
+        },
+      ],
+    });
+    await toDetails();
+    await userEvent.type(phoneField(), "585-555-0123");
+    await userEvent.click(continueButton());
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
+
+    await waitFor(() => expect(detailsHeading()).toBeInTheDocument());
+    expect(phoneField()).toHaveAttribute("aria-invalid", "true");
+    expect(phoneField()).toHaveAccessibleDescription("The server says this phone is wrong.");
+    await waitFor(() => expect(phoneField()).toHaveFocus());
+    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("focuses the error alert, inside the drawer, after a non-field failure", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/add": [
+        {
+          body: {
+            success: false,
+            error: "Invalid request data",
+            fieldErrors: { overrideReason: "String must contain at most 500 character(s)" },
+          },
+          status: 422,
+        },
+      ],
+    });
+    await toDetails();
+    await userEvent.click(continueButton());
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
+
+    const alert = await within(drawer()).findByRole("alert");
+    expect(alert).toHaveTextContent("at most 500 character");
+    expect(alert).toHaveFocus();
+    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
+  });
+});
+
 describe("CommitteeActionDrawer: submission roles", () => {
   it("submits a candidate through requestAdd for a Leader", async () => {
     const fetchMock = serve({

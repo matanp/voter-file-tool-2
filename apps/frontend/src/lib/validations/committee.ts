@@ -21,6 +21,7 @@ import {
   letterSummarySchema,
   stagedLetterSchema,
 } from "~/lib/resignationLetter";
+import { contactEmailSchema, contactPhoneSchema } from "~/lib/validations/contact";
 
 /** Typed shape of CommitteeMembership.submissionMetadata (leader request context). */
 export type CommitteeMembershipSubmissionMetadata = {
@@ -109,13 +110,8 @@ export const committeeDataSchema = z
     forceAdd: z.boolean().optional(),
     overrideReason: z.string().trim().max(500).optional(),
     // SRS 2.1a — optional contact for this submission; stored in submissionMetadata only
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email format")
-      .optional()
-      .or(z.literal("")),
-    phone: z.string().trim().optional(),
+    email: contactEmailSchema,
+    phone: contactPhoneSchema,
   })
   .strict()
   .transform((data) => ({
@@ -161,13 +157,8 @@ export const committeeRequestDataSchema = z
     forceAdd: z.boolean().optional(),
     overrideReason: z.string().trim().max(500).optional(),
     // SRS 2.1a — optional contact for this submission; stored in submissionMetadata only
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email format")
-      .optional()
-      .or(z.literal("")),
-    phone: z.string().trim().optional(),
+    email: contactEmailSchema,
+    phone: contactPhoneSchema,
   })
   .strict()
   .transform((data) => ({

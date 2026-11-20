@@ -231,6 +231,8 @@ export const bulkLoadCommitteesErrorSchema = z
     success: z.literal(false).optional(),
     /** Present only on the 422 an apply request gets when the plan would overfill a committee. */
     capacityFailures: plannedCapacityFailureSchema.array().optional(),
+    /** On a 422 for an invalid request body: the schema's message per invalid field. */
+    fieldErrors: z.record(z.string(), z.string()).optional(),
   })
   .strict();
 

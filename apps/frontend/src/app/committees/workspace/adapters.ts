@@ -273,8 +273,17 @@ export type ActionOutcome =
   | { ok: true; message: string }
   /** The server's hard stops (`INELIGIBLE`). */
   | { ok: false; kind: "ineligible"; reasons: string[] }
-  /** `letterRejected`: the server refused the staged Resignation Letter and deleted it. */
-  | { ok: false; kind: "error"; message: string; letterRejected?: true };
+  /**
+   * `letterRejected`: the server refused the staged Resignation Letter and deleted it.
+   * `fieldErrors`: the request schema's message per invalid field, when the server sent them.
+   */
+  | {
+      ok: false;
+      kind: "error";
+      message: string;
+      letterRejected?: true;
+      fieldErrors?: Record<string, string>;
+    };
 
 type AddBody = z.input<typeof committeeDataSchema>;
 type RequestAddBody = z.input<typeof committeeRequestDataSchema>;
@@ -663,6 +672,7 @@ async function postJson(
     success?: unknown;
     status?: unknown;
     letterRejected?: unknown;
+    fieldErrors?: unknown;
   } | null;
 
   if (failure?.error === "INELIGIBLE") {
@@ -675,14 +685,27 @@ async function postJson(
     };
   }
   if (!response.ok || failure?.success === false || failure?.status === "error") {
+    const fields = fieldErrorsOf(failure?.fieldErrors);
     return {
       ok: false,
       kind: "error",
-      message: errorMessage(json, `Request failed with status ${response.status}`),
+      // "Invalid request data" alone doesn't say what to fix; the field messages do.
+      message: fields.fieldErrors
+        ? Object.values(fields.fieldErrors).join(" ")
+        : errorMessage(json, `Request failed with status ${response.status}`),
       ...(failure?.letterRejected === true ? { letterRejected: true as const } : {}),
+      ...fields,
     };
   }
   return { ok: true, body: json };
+}
+
+function fieldErrorsOf(value: unknown): { fieldErrors?: Record<string, string> } {
+  if (!value || typeof value !== "object") return {};
+  const entries = Object.entries(value).filter(
+    (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1] !== "",
+  );
+  return entries.length > 0 ? { fieldErrors: Object.fromEntries(entries) } : {};
 }
 
 // --- Resignation Letters (leader-feedback-2026-11 ticket 08) --------------------------
