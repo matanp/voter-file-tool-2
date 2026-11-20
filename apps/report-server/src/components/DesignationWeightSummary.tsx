@@ -119,8 +119,12 @@ export const MAX_ROWS_PER_PAGE = 20;
  * validation harness (apps/report-server/pdf-validation).
  */
 const ROW_PX = 25;
-/** Space for rows and the trailing block between the column header and the footer. */
-const ROW_AREA_PX = 580;
+/**
+ * Space for rows and the trailing block between the column header and the
+ * footer: measured at 580px (20 old 29px rows filled it exactly), less a 5px
+ * safety margin. Twenty rows plus Subtotal and Grand Total (553px) still fit.
+ */
+const ROW_AREA_PX = 575;
 const SUBTOTAL_PX = ROW_PX;
 /** `mt-2` + one text-sm line. */
 const GRAND_TOTAL_PX = 28;
@@ -130,7 +134,9 @@ const NOTE_CHARS_PER_LINE = 110;
 /** Height of the missing-weights notes under the Grand Total, or 0 when there are none. */
 export function missingWeightsNotesHeight(notesText: string | null): number {
   if (!notesText) return 0;
-  const lines = Math.max(1, Math.ceil(notesText.length / NOTE_CHARS_PER_LINE));
+  // The list shares its first line with the "Committees with missing weights: " label.
+  const chars = 'Committees with missing weights: '.length + notesText.length;
+  const lines = Math.max(1, Math.ceil(chars / NOTE_CHARS_PER_LINE));
   // mt-4, the "— indicates" line, mt-1, then the committee list.
   return 16 + 16 + 4 + lines * 16;
 }
@@ -138,8 +144,8 @@ export function missingWeightsNotesHeight(notesText: string | null): number {
 /**
  * Splits rows into pages of MAX_ROWS_PER_PAGE. The last page also carries a
  * trailing block of `trailingPx`; when its rows plus that block don't fit, its
- * last row moves to a new page with the trailing block, so a footer is never
- * pushed onto a sheet of its own. Always returns at least one (maybe empty) page.
+ * last row moves to a new page with the trailing block, so the footer stays on
+ * the page with the table. Always returns at least one (maybe empty) page.
  * Known limit: a trailing block taller than a whole page (missing-weights
  * notes listing hundreds of committees) still overflows.
  */
