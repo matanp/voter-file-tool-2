@@ -18,9 +18,13 @@ off-by-evening edge. A change late on Mar 31 Eastern may be dropped from the Mar
 
 ## Fix direction
 
-Bucket and filter instants by their Eastern calendar day, with one helper that both the filter and the bucketing use.
+Bucket and filter the instants (`activatedAt`, `resignedAt`, `removedAt`, `confirmedAt`) by their Eastern calendar day,
+with one helper that both the filter and the bucketing use. The same loop also lists `petitionPrimaryDate`. That is a
+calendar date stored at UTC midnight, so it must keep its UTC day. Run through the Eastern helper, a Mar 5 primary would
+be listed under Mar 4.
 
 ## Acceptance criteria
 
 - [ ] A change at 21:00 Eastern on Mar 31 appears under Mar 31 in the March report and not in April's.
+- [ ] A petition primary on Mar 5 is still listed under Mar 5.
 - [ ] Tests pin both the bucketing and the range edges.

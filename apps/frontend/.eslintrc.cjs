@@ -1,3 +1,8 @@
+// Date-handling ticket 09 stopgap; see the no-restricted-syntax rule below.
+const CALENDAR_DATE_FIELDS = "/^(DOB|originalRegDate|meetingDate|petitionPrimaryDate)$/";
+const UNZONED_TO_LOCALE_DATE =
+  "CallExpression[callee.property.name='toLocaleDateString']:not(:has(Property[key.name='timeZone'])):not(:has(Property[key.value='timeZone']))";
+
 /** @type {import("eslint").Linter.Config} */
 const config = {
   parser: "@typescript-eslint/parser",
@@ -30,15 +35,16 @@ const config = {
     ],
     "@typescript-eslint/require-await": "off",
     // Stopgap until date-handling ticket 09 settles the real rule. A calendar date stored at
-    // UTC midnight renders a day early in US browsers unless formatted in UTC. Matches the
-    // field formatted directly (`r.DOB.toLocaleDateString()`) or wrapped (`new Date(r.DOB)`).
+    // UTC midnight renders a day early in US browsers unless formatted in UTC. Flags the field
+    // formatted directly (`r.DOB.toLocaleDateString()`) or anywhere inside `new Date(...)`
+    // (`new Date(r.meetingDate ?? "")`). Any `timeZone` option silences it.
     "no-restricted-syntax": [
       "error",
       ...[
-        "CallExpression[callee.property.name='toLocaleDateString'][callee.object.property.name=/^(DOB|originalRegDate|meetingDate|petitionPrimaryDate)$/]",
-        "CallExpression[callee.property.name='toLocaleDateString'][callee.object.type='NewExpression'][callee.object.arguments.0.property.name=/^(DOB|originalRegDate|meetingDate|petitionPrimaryDate)$/]",
-      ].map((call) => ({
-        selector: `${call}:not(:has(Property[key.name='timeZone'])):not(:has(Property[key.value='timeZone']))`,
+        `${UNZONED_TO_LOCALE_DATE}[callee.object.property.name=${CALENDAR_DATE_FIELDS}]`,
+        `${UNZONED_TO_LOCALE_DATE} > MemberExpression.callee > NewExpression.object MemberExpression[property.name=${CALENDAR_DATE_FIELDS}]`,
+      ].map((selector) => ({
+        selector,
         message:
           "Calendar dates render a day early in local time. Use formatCalendarDateNumeric from ~/lib/dateUtils, or pass timeZone: 'UTC'.",
       })),

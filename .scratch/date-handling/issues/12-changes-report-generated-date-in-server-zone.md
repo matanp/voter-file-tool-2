@@ -9,10 +9,11 @@ behind a Clock seam"). It's filed here so it isn't lost. Fix it there, or as a d
 ## Problem
 
 `apps/report-server/src/components/ChangesReport.tsx` builds `generationDate` from `new Date().toLocaleDateString(...)`
-with no `timeZone`, so it renders in the report server's own zone. On a UTC host, a report generated after about 7pm
-Eastern (8pm in winter) is stamped with tomorrow's date. The other report components'
+with no `timeZone`, so it renders in the report server's own zone. On a UTC host, a report generated after about 8pm
+Eastern (7pm in winter) is stamped with tomorrow's date. The other report components'
 `generationDate`/`toLocaleDateString` stamps (`PetitionOutcomesReport`, `VacancyReport`, `DesignationWeightSummary`,
-`CommitteeReport`, `signInSheetHelpers`) look like the same pattern. Check each.
+`CommitteeReport`) look like the same pattern. Check each. `signInSheetHelpers` already formats in
+`America/New_York`.
 
 ## Fix direction
 

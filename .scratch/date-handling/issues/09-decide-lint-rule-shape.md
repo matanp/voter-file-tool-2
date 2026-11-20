@@ -34,6 +34,11 @@ that sets `timeZone`.
 - Widened: the stopgap now also matches the field formatted directly (`r.DOB.toLocaleDateString()`), and a quoted
   `"timeZone"` key counts.
 - Kept: any `timeZone` value silences it, `UTC` or not. Requiring `'UTC'` was rejected as too rigid for a stopgap.
+  The risk: `timeZone: 'America/New_York'` passes lint and still renders the day early. Eastern is the zone people will
+  reach for, since instants ("generated on", ticket 12) should use it. The real rule should take a position.
+- Widened again: the field is matched anywhere inside `new Date(...)`, so `new Date(r.meetingDate ?? "")` and ternaries
+  are caught. `r?.DOB` and `r.DOB!` are caught by this too.
+- CI now runs frontend lint (`.github/workflows/test.yml`). Before, the rule only fired in local lint and `next build`.
 - For this ticket: the stopgap only watches `toLocaleDateString`. These render a UTC-midnight calendar date a day early
   just the same and get through: `toLocaleString`, `toDateString`, `getDate`/`getMonth`/`getFullYear`, and
   `new Intl.DateTimeFormat().format(...)`. The real rule needs a position on each. Covering them by field name in the
