@@ -116,7 +116,7 @@ function changesExpectations(rows: ChangesRowSpec[], dateFrom: string, dateTo: s
     tokens,
     {
       reviewNotes: [
-        'Geometry: Letter landscape; the component lays out an 11in-wide container with no fixed height, so the table should span the page width and the Date column should stay on one line. Report a blank right band, a wrapped date, or a blank trailing page as a defect.',
+        'Geometry: Letter landscape; the container fills the page width with no fixed height, so the table should span the page width and the Date column should stay on one line. Report a blank right band, a wrapped date, clipped or overflowing columns, or a blank trailing page as a defect.',
       ],
     },
   );

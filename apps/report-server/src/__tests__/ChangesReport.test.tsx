@@ -34,14 +34,19 @@ describe('ChangesReport page geometry', () => {
   const html = ReactDOMServer.renderToStaticMarkup(
     <ChangesReport rows={[row]} dateFrom="2026-03-01" dateTo="2026-03-31" reportAuthor="Tester" />,
   );
+  const containerClasses = (/^<div class="([^"]*)"/.exec(html)?.[1] ?? '').split(' ');
 
-  it('sizes the container for Letter landscape with no minimum height', () => {
-    expect(html).toMatch(/^<div class="w-\[11in\] /);
-    expect(html).not.toMatch(/min-h-|h-\[/);
+  it('fills the printable width and sets no fixed or minimum height', () => {
+    expect(containerClasses).toContain('w-full');
+    expect(containerClasses.filter((c) => /^(min-)?[wh]-\[/.test(c) || /^(min-)?h-/.test(c))).toEqual([]);
   });
 
   it('keeps the Date header and cells on one line', () => {
     expect(html).toMatch(/<th class="[^"]*whitespace-nowrap[^"]*">Date<\/th>/);
     expect(html).toMatch(/<td class="[^"]*whitespace-nowrap[^"]*">Mar 5, 2026<\/td>/);
+  });
+
+  it('lets long unbroken names and details wrap instead of widening the table', () => {
+    expect(html).toMatch(/<td class="[^"]*\[overflow-wrap:anywhere\][^"]*">Jane Doe<\/td>/);
   });
 });

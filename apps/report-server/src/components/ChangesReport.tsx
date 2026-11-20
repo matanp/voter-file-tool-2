@@ -28,9 +28,10 @@ function formatDate(iso: string): string {
  * Changes report PDF — table with Date, Member Name, City/Town, LD, ED, Change Type, Details.
  * Grouped by date (descending).
  *
- * Printed on Letter landscape (`useLandscape: true`), so the container is 11in wide and has no
- * fixed height: the browser paginates the table, and a minimum height taller than the 8.5in page
- * would push out a blank trailing page.
+ * Printed on Letter landscape (`useLandscape: true`). The container fills the printable width
+ * (`w-full`, so it still fits if page margins are added) and has no fixed height: the browser
+ * paginates the table, and a minimum height taller than the 8.5in page would push out a blank
+ * trailing page. Long unbroken Member Name / Details values wrap instead of widening the table.
  */
 function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportProps) {
     const byDate = new Map<string, ChangesReportRow[]>();
@@ -51,7 +52,7 @@ function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportPr
     });
 
     return (
-      <div className="w-[11in] p-6 font-sans bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
+      <div className="w-full p-6 font-sans bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
         <h1 className="text-xl font-bold mb-2">Committee Changes</h1>
         <p className="text-sm mb-4">
           {fromFmt} — {toFmt}
@@ -79,12 +80,12 @@ function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportPr
               return dateRows.map((r, i) => (
                 <tr key={`${dateStr}-${r.memberName}-${r.electionDistrict}-${i}`}>
                   <td className="border border-gray-400 px-2 py-1 whitespace-nowrap">{dateFmt}</td>
-                  <td className="border border-gray-400 px-2 py-1">{r.memberName}</td>
+                  <td className="border border-gray-400 px-2 py-1 [overflow-wrap:anywhere]">{r.memberName}</td>
                   <td className="border border-gray-400 px-2 py-1">{r.cityTown}</td>
                   <td className="border border-gray-400 px-2 py-1 text-right">{r.legDistrict}</td>
                   <td className="border border-gray-400 px-2 py-1 text-right">{r.electionDistrict}</td>
                   <td className="border border-gray-400 px-2 py-1">{r.changeType}</td>
-                  <td className="border border-gray-400 px-2 py-1">{r.details}</td>
+                  <td className="border border-gray-400 px-2 py-1 [overflow-wrap:anywhere]">{r.details}</td>
                 </tr>
               ));
             })}
