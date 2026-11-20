@@ -690,13 +690,16 @@ async function postJson(
   }
   if (!response.ok || failure?.success === false || failure?.status === "error") {
     // A validation 422 (`validateRequest`) names its fields; keep the first message of each.
-    const fieldErrors = fieldErrorsSchema.safeParse(failure?.fieldErrors);
+    const parsedFieldErrors = fieldErrorsSchema.safeParse(failure?.fieldErrors);
+    const fieldErrors = parsedFieldErrors.success
+      ? firstFieldMessages(parsedFieldErrors.data)
+      : {};
     return {
       ok: false,
       kind: "error",
       message: errorMessage(json, `Request failed with status ${response.status}`),
       ...(failure?.letterRejected === true ? { letterRejected: true as const } : {}),
-      ...(fieldErrors.success ? { fieldErrors: firstFieldMessages(fieldErrors.data) } : {}),
+      ...(Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {}),
     };
   }
   return { ok: true, body: json };

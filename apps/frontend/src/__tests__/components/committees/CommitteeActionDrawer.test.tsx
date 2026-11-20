@@ -844,6 +844,39 @@ describe("CommitteeActionDrawer: contact details", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("puts a server requestNotes error beside the reviewer notes on a submission", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/requestAdd": [
+        {
+          body: {
+            success: false,
+            error: "Invalid request data",
+            fieldErrors: { requestNotes: ["Notes are too long"] },
+          },
+          status: 422,
+        },
+      ],
+    });
+    renderDrawer({ role: PrivilegeLevel.Leader });
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+    const notesInput = () =>
+      within(drawer()).getByRole("textbox", { name: "Notes for the reviewer" });
+    await userEvent.type(notesInput(), "Please review");
+    await userEvent.click(continueButton());
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Submit candidate" }),
+    );
+
+    await waitFor(() => expect(onDetailsStep()).toBeInTheDocument());
+    expectFieldError(notesInput(), "Notes are too long");
+    await waitFor(() => expect(notesInput()).toHaveFocus());
+    expect(notesInput()).toHaveValue("Please review");
+  });
+
   it("keeps focus in the drawer, on the error alert, after a non-field error", async () => {
     serve({
       "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
