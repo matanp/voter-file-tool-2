@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import PetitionForm from './components/DesignatingPetition';
+import { PETITION_FIT_SCRIPT } from './petitionFit';
 import CommitteeReport from './components/CommitteeReport';
 import puppeteer from 'puppeteer';
 import { uploadFileToR2 } from './s3Utils';
@@ -112,6 +113,7 @@ export const generateHTML = (
         </head>
         <body>
           ${html}
+          <script>${PETITION_FIT_SCRIPT}</script>
         </body>
       </html>`;
 };

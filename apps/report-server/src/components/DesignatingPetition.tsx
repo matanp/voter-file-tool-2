@@ -50,194 +50,219 @@ const PetitionForm = React.forwardRef<
         ref={ref}
         className={`w-[8.5in] h-[14in] p-8 font-sans bg-white`}
         style={{ fontFamily: 'Arial, sans-serif' }}
+        data-petition-sheet=""
       >
-        <div className="flex justify-center gap-1 items-center">
-          <h2 className="text-center text-2xl font-black pt-4">{title}</h2>
-          <p className="text-center text-xs font-semibold pt-6 pl-2">
-            {subtitle}
-          </p>
-        </div>
-        <p className="text-xs leading-snug pb-4 pt-2">{introduction}</p>
-
-        <table className="w-full border-collapse mt-1 text-xs">
-          <thead>
-            <tr className="h-2">
-              <th className="border border-black pl-2 w-1/3 text-left align-top">
-                Name(s) of Candidate(s)
-              </th>
-              <th className="border border-black w-1/3 pl-2 text-left align-top">
-                Public Office or Party Position
-                <br />
-                <span className="text-[9px] font-[400]">
-                  (Include district number, if applicable)
-                </span>
-              </th>
-              <th className="border border-black pl-2 w-1/3 text-left align-top">
-                Residence Address
-                <br />
-                <span className="text-[9px] leading-none font-[400]">
-                  (Also post office address if not identical)
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {candidates.map((candidate) => (
-              <tr key={candidate.name}>
-                <td className="border border-black h-8 p-1">
-                  {candidate.name}
-                </td>
-                <td className="border border-black h-8 p-1">
-                  {candidate.office}
-                </td>
-                <td className="border border-black h-8 p-1 text-[9px]">
-                  {candidate.address}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <p className="text-[11px] my-2">
-          {committeeAppointment} <i>{committeeAppointment2}</i>
-        </p>
-        <div className="border border-black h-16 mt-1 text-[11px] p-1">
-          {vacancyAppointments.map((v) => `${v.name}, ${v.address}`).join('; ')}
-        </div>
-
-        <p className="text-xs mt-2">{witnessStatementIntro}</p>
-
-        <table className="w-full mt-1 text-xs border-2 border-black">
-          <thead>
-            <tr className="border-b-2 border-black text-left align-top">
-              <th className="border border-black w-[12%] pl-2 font-bold">
-                Date
-              </th>
-              <th className="border border-black w-1/3 pl-2 pb-2 font-bold">
-                Name of Signer
-                <br />
-                <span className="text-[9px] font-[400]">
-                  (Signature required. Printed name may be added)
-                </span>
-              </th>
-              <th className="border border-black w-1/3 pl-2 font-bold">
-                Residence
-              </th>
-              <th className="border border-black w-[18%] border-l-2 pl-2 font-bold">
-                Enter Town or City
-                <br />
-                <span className="text-[9px] font-[400]">
-                  (Except in NYC enter county)
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {Array(NUM_SIGNATURES)
-              .fill(0)
-              .map((_, i) => (
-                <React.Fragment key={i}>
-                  <tr className={i % 2 === 1 ? 'border-t-2 border-black' : ''}>
-                    <td className="border border-black h-5 p-1">
-                      {i + 1}. __/__/
-                      {electionDate?.split(',')[1]?.trim() || '____'}
-                    </td>
-                    <td className="border border-black h-8 p-1"></td>
-                    <td
-                      className="border border-black h-16 p-1"
-                      rowSpan={2}
-                    ></td>
-                    <td
-                      className="border border-black h-16 p-1 border-l-2"
-                      rowSpan={2}
-                    ></td>
-                  </tr>
-                  <tr className={i % 2 === 1 ? 'border-b-2 border-black' : ''}>
-                    <td className="border-r border-black h-8 p-1 text-[9px] text-right flex gap-1 items-center justify-end">
-                      {'Printed Name '} <ArrowRight />
-                    </td>
-                  </tr>
-                </React.Fragment>
-              ))}
-          </tbody>
-        </table>
-
-        <h4 className="text-center text-xs mt-3 py-1 border border-black border-b-0 font-bold italic">
-          Complete <u>ONE</u> of the following
-        </h4>
-
-        <div className="border border-black p-2 flex">
-          <p className="text-xs leading-4 pr-1">
-            <b>1. </b>
-          </p>
-          <div>
-            <p className="text-xs leading-4">
-              <b>
-                <u>Statement of Witness:</u>
-              </b>{' '}
-              I <i>(name of witness)</i> {witnessStatement}
+        <div data-petition-content="">
+          <div className="flex justify-center gap-1 items-center">
+            <h2 className="text-center text-2xl font-black pt-4">{title}</h2>
+            <p className="text-center text-xs font-semibold pt-6 pl-2">
+              {subtitle}
             </p>
-            <p className="text-xs leading-5 py-2">{witnessResidence}</p>
-            <p className="text-xs leading-5 py-1">{witnessResidences2}</p>
-            <p className="text-xs leading-5 py-2">{witnessUnderstanding}</p>
-            <div className="flex pt-2 text-xs gap-4">
-              <div>
-                <div>{repeatUnderscore(16)}</div>
-                <div className="italic">Date</div>
-              </div>
-              <div className="pl-8">
-                <div>{repeatUnderscore(48)}</div>
-                <div className="italic">Signature of Witness</div>
-              </div>
-            </div>
-            <div className="text-xs my-2">
-              <p>
-                <b>
-                  <u>{witnessIdHeader}</u>
-                </b>
-                {witnessIdInfo}
-              </p>
-            </div>
-            <div className="flex gap-20 w-full">
-              <div className="text-xs pt-1 pb-2">
-                <div>{repeatUnderscore(32)}</div>
-                <div className="italic">Town or City Where Witness Resides</div>
-              </div>
-              <div className="text-xs pt-1 pb-2 ml-32">
-                <div>{repeatUnderscore(32)}</div>
-                <div className="italic">County Where Witness Resides</div>
-              </div>
-            </div>
           </div>
-        </div>
+          <p className="text-xs leading-snug pb-4 pt-2">{introduction}</p>
 
-        <div className="border border-black p-1 border-t-0 flex">
-          <p className="text-xs leading-5 pr-1">
-            <b>2. </b>
+          <table className="w-full border-collapse mt-1 text-xs">
+            <thead>
+              <tr className="h-2">
+                <th className="border border-black pl-2 w-1/3 text-left align-top">
+                  Name(s) of Candidate(s)
+                </th>
+                <th className="border border-black w-1/3 pl-2 text-left align-top">
+                  Public Office or Party Position
+                  <br />
+                  <span className="text-[9px] font-[400]">
+                    (Include district number, if applicable)
+                  </span>
+                </th>
+                <th className="border border-black pl-2 w-1/3 text-left align-top">
+                  Residence Address
+                  <br />
+                  <span className="text-[9px] leading-none font-[400]">
+                    (Also post office address if not identical)
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {candidates.map((candidate) => (
+                <tr key={candidate.name}>
+                  <td
+                    className="border border-black h-8 p-1"
+                    data-petition-fit=""
+                  >
+                    {candidate.name}
+                  </td>
+                  <td
+                    className="border border-black h-8 p-1"
+                    data-petition-fit=""
+                  >
+                    {candidate.office}
+                  </td>
+                  <td
+                    className="border border-black h-8 p-1 text-[9px]"
+                    data-petition-fit=""
+                  >
+                    {candidate.address}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p className="text-[11px] my-2">
+            {committeeAppointment} <i>{committeeAppointment2}</i>
           </p>
-          <div>
-            <p className="text-xs leading-5">
-              <b>
-                <u>Notary Public or Commissioner of Deeds:</u>
-              </b>{' '}
-              {notaryStatement}
+          <div
+            className="border border-black min-h-16 mt-1 text-[11px] p-1"
+            data-petition-fit=""
+          >
+            {vacancyAppointments
+              .map((v) => `${v.name}, ${v.address}`)
+              .join('; ')}
+          </div>
+
+          <p className="text-xs mt-2">{witnessStatementIntro}</p>
+
+          <table className="w-full mt-1 text-xs border-2 border-black">
+            <thead>
+              <tr className="border-b-2 border-black text-left align-top">
+                <th className="border border-black w-[12%] pl-2 font-bold">
+                  Date
+                </th>
+                <th className="border border-black w-1/3 pl-2 pb-2 font-bold">
+                  Name of Signer
+                  <br />
+                  <span className="text-[9px] font-[400]">
+                    (Signature required. Printed name may be added)
+                  </span>
+                </th>
+                <th className="border border-black w-1/3 pl-2 font-bold">
+                  Residence
+                </th>
+                <th className="border border-black w-[18%] border-l-2 pl-2 font-bold">
+                  Enter Town or City
+                  <br />
+                  <span className="text-[9px] font-[400]">
+                    (Except in NYC enter county)
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array(NUM_SIGNATURES)
+                .fill(0)
+                .map((_, i) => (
+                  <React.Fragment key={i}>
+                    <tr
+                      className={i % 2 === 1 ? 'border-t-2 border-black' : ''}
+                    >
+                      <td className="border border-black h-5 p-1">
+                        {i + 1}. __/__/
+                        {electionDate?.split(',')[1]?.trim() || '____'}
+                      </td>
+                      <td className="border border-black h-8 p-1"></td>
+                      <td
+                        className="border border-black h-16 p-1"
+                        rowSpan={2}
+                      ></td>
+                      <td
+                        className="border border-black h-16 p-1 border-l-2"
+                        rowSpan={2}
+                      ></td>
+                    </tr>
+                    <tr
+                      className={i % 2 === 1 ? 'border-b-2 border-black' : ''}
+                    >
+                      <td className="border-r border-black h-8 p-1 text-[9px] text-right flex gap-1 items-center justify-end">
+                        {'Printed Name '} <ArrowRight />
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                ))}
+            </tbody>
+          </table>
+
+          <h4 className="text-center text-xs mt-3 py-1 border border-black border-b-0 font-bold italic">
+            Complete <u>ONE</u> of the following
+          </h4>
+
+          <div className="border border-black p-2 flex">
+            <p className="text-xs leading-4 pr-1">
+              <b>1. </b>
             </p>
-            <div className="flex mt-3 text-xs gap-4">
-              <div>
-                <div>{repeatUnderscore(16)}</div>
-                <div className="italic">Date</div>
+            <div>
+              <p className="text-xs leading-4">
+                <b>
+                  <u>Statement of Witness:</u>
+                </b>{' '}
+                I <i>(name of witness)</i> {witnessStatement}
+              </p>
+              <p className="text-xs leading-5 py-2">{witnessResidence}</p>
+              <p className="text-xs leading-5 py-1">{witnessResidences2}</p>
+              <p className="text-xs leading-5 py-2">{witnessUnderstanding}</p>
+              <div className="flex pt-2 text-xs gap-4">
+                <div>
+                  <div>{repeatUnderscore(16)}</div>
+                  <div className="italic">Date</div>
+                </div>
+                <div className="pl-8">
+                  <div>{repeatUnderscore(48)}</div>
+                  <div className="italic">Signature of Witness</div>
+                </div>
               </div>
-              <div>
-                <div>{repeatUnderscore(56)}</div>
-                <div className="italic">
-                  Signature and Official Title of Officer Administering Oath
+              <div className="text-xs my-2">
+                <p>
+                  <b>
+                    <u>{witnessIdHeader}</u>
+                  </b>
+                  {witnessIdInfo}
+                </p>
+              </div>
+              <div className="flex gap-20 w-full">
+                <div className="text-xs pt-1 pb-2">
+                  <div>{repeatUnderscore(32)}</div>
+                  <div className="italic">
+                    Town or City Where Witness Resides
+                  </div>
+                </div>
+                <div className="text-xs pt-1 pb-2 ml-32">
+                  <div>{repeatUnderscore(32)}</div>
+                  <div className="italic">County Where Witness Resides</div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <p className="text-[9px] text-right mt-3">{sheetNoText}</p>
+          <div className="border border-black p-1 border-t-0 flex">
+            <p className="text-xs leading-5 pr-1">
+              <b>2. </b>
+            </p>
+            <div>
+              <p className="text-xs leading-5">
+                <b>
+                  <u>Notary Public or Commissioner of Deeds:</u>
+                </b>{' '}
+                {notaryStatement}
+              </p>
+              <div className="flex mt-3 text-xs gap-4">
+                <div>
+                  <div>{repeatUnderscore(16)}</div>
+                  <div className="italic">Date</div>
+                </div>
+                <div>
+                  <div>{repeatUnderscore(56)}</div>
+                  <div className="italic">
+                    Signature and Official Title of Officer Administering Oath
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[9px] text-right mt-3" data-petition-sheet-no="">
+            {sheetNoText}
+          </p>
+        </div>
       </div>
     );
   }
