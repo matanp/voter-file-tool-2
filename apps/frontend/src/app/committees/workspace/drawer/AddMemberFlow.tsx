@@ -60,16 +60,38 @@ const STEPS: Record<Step, { n: number; title: string }> = {
   confirm: { n: 4, title: "Confirm" },
 };
 
-const CONTACT_FIELDS: ContactField[] = ["email", "phone"];
+/** The details step's contact inputs, in display (and focus) order. */
+const CONTACT_INPUTS: ReadonlyArray<{
+  field: ContactField;
+  type: "email" | "tel";
+  placeholder: string;
+}> = [
+  { field: "email", type: "email", placeholder: "Email" },
+  { field: "phone", type: "tel", placeholder: "Phone" },
+];
 
-/** The server's field errors that belong to the details step's contact fields. */
-function serverContactErrors(fieldErrors: Record<string, string> | undefined): ContactErrors {
-  const errors: ContactErrors = {};
-  for (const field of CONTACT_FIELDS) {
-    const message = fieldErrors?.[field];
-    if (message) errors[field] = message;
+/** How the drawer names the other request fields when the server rejects one. */
+const FIELD_LABELS: Record<string, string> = {
+  overrideReason: "Override reason",
+  requestNotes: "Notes for the reviewer",
+  membershipType: "Membership type",
+};
+
+/**
+ * Splits the server's field errors: contact errors go back beside their
+ * fields on the details step; any others become the alert's message.
+ */
+function splitServerFieldErrors(fieldErrors: Record<string, string> | undefined): {
+  contact: ContactErrors;
+  otherMessage: string | null;
+} {
+  const contact: ContactErrors = {};
+  const other: string[] = [];
+  for (const [field, message] of Object.entries(fieldErrors ?? {})) {
+    if (field === "email" || field === "phone") contact[field] = message;
+    else other.push(`${FIELD_LABELS[field] ?? field}: ${message}`);
   }
-  return errors;
+  return { contact, otherMessage: other.length > 0 ? other.join(" ") : null };
 }
 
 const OVERRIDE_REASON_MAX = 500;
@@ -114,21 +136,16 @@ export function AddMemberFlow({
   const [candidate, setCandidate] = useState<CandidateRecord | null>(null);
   const [override, setOverride] = useState(false);
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
-  const { submitting, failure, clearFailure, run } = useActionSubmit(onSuccess);
-  const [contactErrs, setContactErrs] = useState<ContactErrors>({});
+  const { submitting, failure, setFailure, clearFailure, run } = useActionSubmit(onSuccess);
+  const [shownContactErrors, setShownContactErrors] = useState<ContactErrors>({});
   // The contact field to focus once the details step has rendered.
   const [focusField, setFocusField] = useState<ContactField | null>(null);
-  const fieldRefs = {
-    email: useRef<HTMLInputElement>(null),
-    phone: useRef<HTMLInputElement>(null),
-  };
+  const contactInputs = useRef<Partial<Record<ContactField, HTMLInputElement | null>>>({});
   useEffect(() => {
     if (!focusField) return;
-    fieldRefs[focusField].current?.focus();
+    contactInputs.current[focusField]?.focus();
     setFocusField(null);
-    // fieldRefs holds stable refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusField, step]);
+  }, [focusField]);
 
   const eligibility = useCandidateEligibility(action.committee, candidate?.VRCNUM ?? null);
   const existingMemberIds = useMemo(
@@ -161,8 +178,8 @@ export function AddMemberFlow({
 
   /** Shows `errors` beside their fields and focuses the first; false when there are none. */
   const showContactErrors = (errors: ContactErrors) => {
-    setContactErrs(errors);
-    const first = CONTACT_FIELDS.find((f) => errors[f]);
+    setShownContactErrors(errors);
+    const first = CONTACT_INPUTS.find(({ field }) => errors[field])?.field;
     if (first) setFocusField(first);
     return first !== undefined;
   };
@@ -170,9 +187,9 @@ export function AddMemberFlow({
   /** Edits a contact field; once it has an error, the error tracks the value. */
   const setContact = (field: ContactField, value: string) => {
     setDetail({ [field]: value });
-    if (contactErrs[field]) {
+    if (shownContactErrors[field]) {
       const next = contactErrors({ ...details, [field]: value })[field];
-      setContactErrs((prev) => ({ ...prev, [field]: next }));
+      setShownContactErrors((prev) => ({ ...prev, [field]: next }));
     }
   };
 
@@ -189,10 +206,12 @@ export function AddMemberFlow({
     // A rejected contact field goes back to the step that has it. Any other
     // failure stays here, in the alert, which takes focus.
     if (outcome.ok || outcome.kind !== "error") return;
-    const errors = serverContactErrors(outcome.fieldErrors);
-    if (Object.keys(errors).length > 0) {
+    const { contact, otherMessage } = splitServerFieldErrors(outcome.fieldErrors);
+    if (Object.keys(contact).length > 0) {
       goToStep("details");
-      showContactErrors(errors);
+      showContactErrors(contact);
+    } else if (otherMessage) {
+      setFailure({ ...outcome, message: otherMessage });
     }
   };
 
@@ -312,16 +331,18 @@ export function AddMemberFlow({
         )}
         <div className="grid gap-2">
           <ContactInfoLabel memberName={candidateName} />
-          {CONTACT_FIELDS.map((field) => {
-            const error = contactErrs[field];
+          {CONTACT_INPUTS.map(({ field, type, placeholder }) => {
+            const error = shownContactErrors[field];
             const errorId = `${id}-${field}-error`;
             return (
               <div key={field} className="grid gap-1">
                 <Input
-                  ref={fieldRefs[field]}
+                  ref={(el) => {
+                    contactInputs.current[field] = el;
+                  }}
                   id={`${id}-${field}`}
-                  type={field === "email" ? "email" : "tel"}
-                  placeholder={field === "email" ? "Email" : "Phone"}
+                  type={type}
+                  placeholder={placeholder}
                   value={details[field]}
                   onChange={(e) => setContact(field, e.target.value)}
                   aria-label={`Member contact ${field}`}

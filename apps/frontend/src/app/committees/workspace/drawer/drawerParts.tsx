@@ -61,7 +61,7 @@ export function useActionSubmit(onSuccess: (message: string) => void) {
     else setFailure(outcome);
     return outcome;
   };
-  return { submitting, failure, clearFailure: () => setFailure(null), run };
+  return { submitting, failure, setFailure, clearFailure: () => setFailure(null), run };
 }
 
 /**

@@ -752,6 +752,9 @@ describe("CommitteeActionDrawer: Admin add", () => {
 });
 
 describe("CommitteeActionDrawer: contact field errors", () => {
+  /** Focus is somewhere inside the dialog, not dropped to <body>. */
+  const expectFocusInDrawer = () =>
+    expect(drawer().contains(document.activeElement)).toBe(true);
   const emailField = () =>
     within(drawer()).getByRole("textbox", { name: "Member contact email" });
   const phoneField = () =>
@@ -828,7 +831,7 @@ describe("CommitteeActionDrawer: contact field errors", () => {
     expect(phoneField()).toHaveAttribute("aria-invalid", "true");
     expect(phoneField()).toHaveAccessibleDescription("The server says this phone is wrong.");
     await waitFor(() => expect(phoneField()).toHaveFocus());
-    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
+    expectFocusInDrawer();
   });
 
   it("focuses the error alert, inside the drawer, after a non-field failure", async () => {
@@ -851,9 +854,13 @@ describe("CommitteeActionDrawer: contact field errors", () => {
     await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
 
     const alert = await within(drawer()).findByRole("alert");
-    expect(alert).toHaveTextContent("at most 500 character");
+    await waitFor(() =>
+      expect(alert).toHaveTextContent(
+        "Override reason: String must contain at most 500 character(s)",
+      ),
+    );
     expect(alert).toHaveFocus();
-    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
+    expectFocusInDrawer();
   });
 });
 

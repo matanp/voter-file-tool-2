@@ -111,7 +111,9 @@ export function ExitFormLayout({
     <>
       <div className={bodyClassName}>
         {children}
-        {failure && <OutcomeAlert outcome={failure} ineligibleTitle={failureTitle} />}
+        {failure && (
+          <OutcomeAlert outcome={failure} ineligibleTitle={failureTitle} focusOnMount />
+        )}
         {problems.length > 0 && (
           <div id={hintId} data-testid="member-exit-requirements" className="text-sm text-slate-600 dark:text-slate-400">
             <p>To continue:</p>

@@ -24,6 +24,7 @@ import {
   validationTestCases,
   createAuthTestSuite,
   parseJsonResponse,
+  expectValidationFieldErrors,
   type AuthTestConfig,
 } from "../../utils/testUtils";
 import {
@@ -178,14 +179,8 @@ describe("/api/committee/add", () => {
 
       const response = await POST(createMockRequest(createMockCommitteeData(contact, false)));
 
-      expect(response.status).toBe(422);
-      const body = await parseJsonResponse<{
-        error: string;
-        fieldErrors?: Record<string, string>;
-      }>(response);
-      expect(body.error).toBe("Invalid request data");
-      expect(Object.keys(body.fieldErrors ?? {})).toEqual([field]);
-      expect(getMembershipMockTyped(prismaMock).create).not.toHaveBeenCalled();
+      expect(await expectValidationFieldErrors(response)).toEqual([field]);
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should return warnings and persist eligibilityWarnings in submissionMetadata when eligibility has warnings (SRS §2.2)", async () => {

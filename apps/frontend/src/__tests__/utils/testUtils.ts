@@ -12,7 +12,7 @@ import {
   type EligibilityFlag,
 } from "@prisma/client";
 import type { Session } from "next-auth";
-import type { z } from "zod";
+import { z } from "zod";
 import { mockAuthSession, mockHasPermission, prismaMock } from "./mocks";
 import {
   committeeDataSchema,
@@ -785,6 +785,24 @@ export const expectSuccessResponse = async <
     const json = (await response.json()) as unknown as T;
     expect(json).toEqual(expectedData);
   }
+};
+
+/** `validateRequest`'s 422 body: the schema's first message per invalid field. */
+const validationErrorBodySchema = z
+  .object({
+    success: z.literal(false),
+    error: z.literal("Invalid request data"),
+    fieldErrors: z.record(z.string(), z.string()).optional(),
+  })
+  .strict();
+
+/** Asserts a `validateRequest` 422 and returns the fields it named. */
+export const expectValidationFieldErrors = async (
+  response: Response,
+): Promise<string[]> => {
+  expect(response.status).toBe(422);
+  const body = validationErrorBodySchema.parse(await response.json());
+  return Object.keys(body.fieldErrors ?? {});
 };
 
 export const expectErrorResponse = async (

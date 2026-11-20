@@ -685,16 +685,12 @@ async function postJson(
     };
   }
   if (!response.ok || failure?.success === false || failure?.status === "error") {
-    const fields = fieldErrorsOf(failure?.fieldErrors);
     return {
       ok: false,
       kind: "error",
-      // "Invalid request data" alone doesn't say what to fix; the field messages do.
-      message: fields.fieldErrors
-        ? Object.values(fields.fieldErrors).join(" ")
-        : errorMessage(json, `Request failed with status ${response.status}`),
+      message: errorMessage(json, `Request failed with status ${response.status}`),
       ...(failure?.letterRejected === true ? { letterRejected: true as const } : {}),
-      ...fields,
+      ...fieldErrorsOf(failure?.fieldErrors),
     };
   }
   return { ok: true, body: json };
