@@ -1,6 +1,6 @@
 # 13 - Batch the BOE eligibility rescan writes so a prod run finishes in one request
 
-Status: ready-for-human
+Status: resolved
 Type: task
 Blocked by: 11
 
@@ -97,3 +97,5 @@ has no PR.
   - Results: frontend jest 1734/1734, the api config 941/941, `test:pg` 6/6, shared-prisma 38/38,
     report-server 52/52, and `tsc` is clean. ESLint shows no new warnings.
 - **To close:** review, deploy, then confirm on the next prod rescan that it finishes in one request.
+
+**2026-11-19, closed.** Shipped in PR #132 (merged 2026-10-26). Prod audit trail: the first rescan after deploy (2026-11-12 06:13 UTC, System) resolved 26 stale flags, all in the same minute, with one audit row each. It finished in one request. Volume was small, so the 1,500-flag case is unproven in prod; the Postgres integration test covers the SQL.

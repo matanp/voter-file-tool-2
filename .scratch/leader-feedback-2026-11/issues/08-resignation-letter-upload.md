@@ -1,6 +1,6 @@
 # 08 - Resignation letter upload
 
-Status: ready-for-human
+Status: resolved
 
 Blocked by: 01 (resolved, PR #135)
 
@@ -203,3 +203,5 @@ columns themselves (decision 15). No R2 call happens after the transaction.
   attach (`RESIGNATION_LETTER_ATTACHED`, its route and UI); the carry-over checkbox and removal warning. Cleared
   letters now stay under the membership's prefix. Decisions 5, 10, 12, 14 and 15 are updated above. The
   `rejected/` lifecycle rule from 21 is now unused.
+
+**2026-11-19, closed.** Shipped in PR #154 (merged 2026-11-19 06:37 UTC, deployed). The one remaining check, a Leader uploading a letter from the deployed app, is tracked on 23. No letter has been uploaded in prod yet (no resignation audit rows since the deploy). Follow-ups: 22, 24, 25.

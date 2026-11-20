@@ -36,3 +36,5 @@ managed by Terraform, so three settings have to be made by hand in the Cloudflar
   and `http://localhost:3000` (`www.` redirects to the apex). The deployed upload check waits for PR #154 to ship.
 - 2026-11-16: 08 was simplified and no longer moves letters to `rejected/`. That lifecycle rule can be deleted from
   the dashboard; nothing writes there.
+
+- 2026-11-19: PR #154 is deployed. The deployed-upload check is still open: no letter has been uploaded in prod yet. Close this after the first real or test upload from a Leader succeeds.

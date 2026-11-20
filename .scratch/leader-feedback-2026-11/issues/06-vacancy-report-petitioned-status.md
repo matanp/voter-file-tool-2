@@ -1,6 +1,6 @@
 # 06 - Vacancy Report: mark original upload as petitioned
 
-Status: ready-for-agent
+Status: resolved
 
 ## Ask (verbatim)
 
@@ -107,3 +107,5 @@ the "stop clearing petition fields on rows that are already ACTIVE" half of item
 - Open question in the PR: recording a no-winner outcome (all lost, or a tie) still flags the seat petitioned.
 
 Left after merge: run the prod dry run (expect ~1,470 seats / 437 EDs), apply it, then ticket 02.
+
+**2026-11-19, closed.** Shipped in PR #159 (merged 2026-11-19 06:55 UTC). Prod backfill applied 2026-11-18 11:09 PM PT: 1,428 `SEAT_PETITIONED_BACKFILLED` audit rows (expected ~1,470 from the dry-run estimate).

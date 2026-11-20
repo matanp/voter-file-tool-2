@@ -1,6 +1,6 @@
 # 09 - Open the PR for 06 with synthetic-data screenshots
 
-Status: done
+Status: resolved
 
 The user has asked for this PR, which authorizes committing, pushing the branch and opening it. Don't merge.
 
@@ -58,3 +58,5 @@ server.
 `SKILL.md` and `steps/record-search-quick-name.mjs`. The folder didn't exist on `main`, and the
 screenshot steps need the server, session and driver scripts it contains. The other step files are part
 of the same tool. This is on purpose, not a stray change.
+
+**2026-11-19, closed.** PR #151 was opened with screenshots and is merged. Status changed from the nonstandard `done`.

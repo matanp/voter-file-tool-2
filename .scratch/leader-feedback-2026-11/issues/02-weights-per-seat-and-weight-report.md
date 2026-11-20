@@ -1,6 +1,6 @@
 # 02 - Weights: per seat, and missing from the Weight Report
 
-Status: ready-for-agent
+Status: resolved
 
 ## Ask (verbatim)
 
@@ -113,3 +113,5 @@ Branch `weights-per-seat` (6 commits on `aae89526`), PR #160. The Weight Report 
 value and adds a **Base Weight** column (per seat × petitioned seats). There is no migration. After deploy, re-import
 the current weighted table, then run the two read-only checks in the PR for LTED weights that were typed in as
 district totals. Follow-up: `updateLtedWeight` writes no audit row ([26](26-audit-lted-weight-edits.md)).
+
+**2026-11-19, closed.** Shipped in PR #160 (merged 2026-11-19 06:31 UTC, deployed). The weighted table was re-imported in prod after merge (audit: 2026-11-18 10:35 and 10:38 PM PT) and "PR160 check" Weight Summary reports (PDF and XLSX) were generated. Follow-ups: 26 (audit LTED weight edits), 27, and reports-polish/02 (footer-only page).

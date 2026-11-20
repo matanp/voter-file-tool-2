@@ -1,6 +1,6 @@
 # 06 - Cleaner mobile layout, especially name search
 
-Status: ready-for-human
+Status: resolved
 
 ## Ask (verbatim)
 
@@ -184,3 +184,5 @@ jest: 136 suites, 2024 tests passing. `tsc` and `eslint` are clean.
 - **Criteria rows below `sm`:** the field picker and the remove button share the first line, and the
   value inputs are full width under them (Street included). Dropdown and date values keep their
   fixed width.
+
+**2026-11-19, closed.** Shipped in PR #151 (merged 2026-11-17). Checked in prod at phone width: hamburger header, Simple name search, results as cards (table hidden), no horizontal scroll.

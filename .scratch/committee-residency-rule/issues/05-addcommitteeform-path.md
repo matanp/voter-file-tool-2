@@ -1,6 +1,6 @@
 # 05 - Migrate or retire the AddCommitteeForm search filter
 
-Status: done
+Status: resolved
 Type: task
 Blocked by: 03
 
@@ -61,3 +61,5 @@ only.
 Acceptance grep: no other code builds an eligibility filter from city, `L_T` and ED. The only
 leftover is copy in the dev-only mock `_prototype/AddMemberDrawerStub.tsx` ("Registered outside ED
 …"). It filters mock data by a boolean, not by district, so it was left as is.
+
+**2026-11-19, closed.** Shipped in PR #128 (merged 2026-10-26). Status changed from the nonstandard `done`.

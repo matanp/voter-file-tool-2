@@ -1,6 +1,6 @@
 # Committee residency rule: AD only, not LD + ED
 
-Status: needs-triage
+Status: resolved
 
 Written 2026-10-25.
 
@@ -217,3 +217,7 @@ of that work.
 and it's where the rule has already drifted. If it lands first, step 1 of the implementation plan
 becomes "the search filter asks the residency module". It also gives #2 a clean piece to pull in
 later.
+
+## Comments
+
+**2026-11-19, closed.** Tickets 01-13 are resolved. Ticket 14 (bulk-clear stale crosswalk rows) is a follow-up split from 09 with its option still undecided; it stays open on its own and does not block the rule.

@@ -1,6 +1,6 @@
 # 12 - Show the discrepancy in the eligibility flag review dialog
 
-Status: ready-for-agent
+Status: resolved
 Type: bug
 
 ## Why
@@ -41,3 +41,5 @@ on the flag, including `details`, and the membership's `voterRecord.party` and
 - A flag with missing or malformed `details` still opens without crashing.
 
 ## Comments
+
+**2026-11-19, closed.** Shipped in PR #131 (merged 2026-10-26). Checked in prod read-only: Review on a pending possibly-inactive flag shows the voter's latest import against the most recent import. No AD-mismatch flags were pending to open.
