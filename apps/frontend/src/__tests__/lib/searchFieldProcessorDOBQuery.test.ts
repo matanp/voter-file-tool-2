@@ -27,6 +27,18 @@ describe("pickedDayToUtcIso", () => {
     expect(eveningPick.toISOString()).toBe("1960-12-13T02:42:08.000Z");
     expect(pickedDayToUtcIso(eveningPick)).toBe("1960-12-12T00:00:00.000Z");
   });
+
+  it("keeps the day before 1883, when New York ran on local mean time", () => {
+    expect(pickedDayToUtcIso(new Date(1850, 6, 4, 23, 30))).toBe(
+      "1850-07-04T00:00:00.000Z",
+    );
+  });
+
+  it("does not remap two-digit years into the 1900s", () => {
+    const pick = new Date(2000, 5, 1, 21, 0);
+    pick.setFullYear(50);
+    expect(pickedDayToUtcIso(pick)).toBe("0050-06-01T00:00:00.000Z");
+  });
 });
 
 describe("SearchFieldProcessor DOB query", () => {

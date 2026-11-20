@@ -53,9 +53,10 @@ export function parseTermDateRange(
  * carries the current time of day; only its local year, month and day count.
  */
 export function pickedDayToUtcIso(date: Date): string {
-  return new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  ).toISOString();
+  const day = new Date(0);
+  // setUTCFullYear, not Date.UTC, which would remap years 0-99 to 19xx.
+  day.setUTCFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+  return day.toISOString();
 }
 
 /**

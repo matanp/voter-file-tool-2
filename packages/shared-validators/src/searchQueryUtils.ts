@@ -18,11 +18,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Both fall inside the same UTC day, so a search matches the whole UTC day.
  */
 function utcDayStart(iso: string): Date | null {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-  );
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  // Floor to the day in epoch time; Date.UTC would remap years 0-99 to 19xx.
+  return new Date(Math.floor(t / DAY_MS) * DAY_MS);
 }
 
 function nextUtcDayStart(dayStart: Date): Date {

@@ -95,6 +95,47 @@ describe('buildPrismaWhereClause - date fields match whole UTC days', () => {
     });
   });
 
+  it('includes the whole end day when the end carries a time of day', () => {
+    // LATEST_DATE (extend after) is "now + 100 years", time of day included.
+    const searchQuery: SearchQueryField[] = [
+      {
+        field: 'DOB',
+        range: {
+          startDate: '1960-12-12T00:00:00.000Z',
+          endDate: '2126-11-19T21:42:08.123Z',
+        },
+      },
+    ];
+
+    expect(buildPrismaWhereClause(searchQuery)).toEqual({
+      AND: [
+        {
+          AND: [
+            { DOB: { gte: '1960-12-12T00:00:00.000Z' } },
+            { DOB: { lt: '2126-11-20T00:00:00.000Z' } },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('does not remap two-digit years into the 1900s', () => {
+    const searchQuery: SearchQueryField[] = [
+      { field: 'DOB', values: ['0050-06-01T13:00:00.000Z'] },
+    ];
+
+    expect(buildPrismaWhereClause(searchQuery)).toEqual({
+      AND: [
+        {
+          DOB: {
+            gte: '0050-06-01T00:00:00.000Z',
+            lt: '0050-06-02T00:00:00.000Z',
+          },
+        },
+      ],
+    });
+  });
+
   it('treats a one-day range like a single date', () => {
     const searchQuery: SearchQueryField[] = [
       {
