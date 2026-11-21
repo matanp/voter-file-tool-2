@@ -25,6 +25,8 @@ if (typeof window !== "undefined") {
     // PostHogPageView did, so pageview counts stay comparable.
     capture_pageview: { path: true, search: true },
     capture_pageleave: true,
+    // Uncaught errors and unhandled rejections → PostHog Error Tracking.
+    capture_exceptions: true,
     // `loaded` runs before the automatic initial pageview, so that pageview
     // is tagged too.
     loaded: (ph) => {

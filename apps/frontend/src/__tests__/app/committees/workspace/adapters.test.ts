@@ -6,6 +6,12 @@
  */
 import { PrivilegeLevel } from "@prisma/client";
 
+const mockCapture = jest.fn<void, unknown[]>();
+jest.mock("posthog-js", () => ({
+  __esModule: true,
+  default: { capture: (...args: unknown[]) => mockCapture(...args) },
+}));
+
 import {
   canFilterEligibleOnly,
   candidateSearchQuery,
@@ -479,5 +485,49 @@ describe("submitCandidate", () => {
       kind: "error",
       message: "Failed to fetch",
     });
+  });
+});
+
+describe("action_failed analytics", () => {
+  const details = { candidateId: "V-NEW", membershipType: "PETITIONED" as const };
+  beforeEach(() => mockCapture.mockClear());
+
+  it("records a rejected add with its hard-stop codes", async () => {
+    respond({ success: false, error: "INELIGIBLE", reasons: ["CAPACITY"] }, 422);
+    await submitCandidate(ADD, "add", details);
+    expect(mockCapture).toHaveBeenCalledWith("action_failed", {
+      action: "committee/add",
+      error_code: "INELIGIBLE",
+      http_status: 422,
+      reasons: ["CAPACITY"],
+    });
+  });
+
+  it("records free-text failures by status only, never the message", async () => {
+    respond({ success: false, error: "Member not found" }, 404);
+    await submitCandidate(ADD, "add", details);
+    expect(mockCapture).toHaveBeenCalledWith("action_failed", {
+      action: "committee/add",
+      error_code: "http_404",
+      http_status: 404,
+    });
+  });
+
+  it("records network failures", async () => {
+    fetchMock = installFetchMock(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await submitCandidate(ADD, "add", details);
+    expect(mockCapture).toHaveBeenCalledWith("action_failed", {
+      action: "committee/add",
+      error_code: "network_error",
+      http_status: null,
+    });
+  });
+
+  it("records nothing on success", async () => {
+    respond({ success: true, message: "Member added to committee" });
+    await submitCandidate(ADD, "add", details);
+    expect(mockCapture).not.toHaveBeenCalled();
   });
 });
