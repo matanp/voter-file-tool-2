@@ -14,8 +14,10 @@ export function DbConnectionBadge() {
   return (
     <span
       title={`Database host: ${host}`}
-      className={`rounded px-2 py-1 text-xs font-bold uppercase tracking-wide text-white ${
-        isLocal ? "bg-green-700" : "bg-red-600"
+      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+        isLocal
+          ? "bg-success-bg text-success-fg"
+          : "bg-danger-solid text-white"
       }`}
     >
       {isLocal ? "Dev DB" : "Prod DB"}

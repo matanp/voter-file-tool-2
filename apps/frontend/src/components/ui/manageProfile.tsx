@@ -40,22 +40,22 @@ type PendingInvite = {
   }>;
 };
 
-/** The "View Profile" button that opens a `ProfileSheet`. Use inside the sheet's `trigger`. */
+/** The button that opens a `ProfileSheet` ("View Profile" unless given children). Use inside the sheet's `trigger`. */
 export const ViewProfileTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <SheetTrigger asChild>
     <button
       ref={ref}
       type="button"
       className={cn(
-        "bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center",
+        "bg-slate-900 text-slate-50 hover:bg-slate-900/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center",
         className,
       )}
       {...props}
     >
-      View Profile
+      {children ?? "View Profile"}
     </button>
   </SheetTrigger>
 ));
@@ -123,13 +123,13 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
       {trigger}
       <SheetContent onCloseAutoFocus={onCloseAutoFocus}>
         <div className="flex items-center justify-between absolute top-4 left-6 right-16">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+          <h2 className="text-2xl font-bold text-slate-900">
             Open Source Politics
           </h2>
           <Badge
             variant="secondary"
             hoverable={false}
-            className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+            className="bg-blue-100 text-blue-800"
             title="Thank you for trying out our early access version! Your feedback helps us improve the platform."
           >
             BETA

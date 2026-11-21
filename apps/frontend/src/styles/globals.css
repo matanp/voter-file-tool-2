@@ -36,6 +36,9 @@
     --ring: 142.1 76.2% 36.3%;
     --radius: 0.5rem;
 
+    /* Height of the app bar (header.tsx, h-12). Full-height views subtract it. */
+    --app-bar-height: 3rem;
+
     /* Quiet panel fill (slate-50) for forms and toolbars on a white page. */
     --surface-subtle: 210 40% 98%;
 
