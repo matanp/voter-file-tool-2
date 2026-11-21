@@ -10,6 +10,7 @@ import "@fontsource/inter/700.css";
 
 import "~/styles/globals.css";
 import { SessionProvider } from "next-auth/react";
+import { auth } from "~/auth";
 import Header from "./components/header";
 import { GlobalContextProvider } from "~/components/providers/GlobalContext";
 import { VoterSearchProvider } from "~/contexts/VoterSearchContext";
@@ -23,11 +24,15 @@ export const metadata = {
     "A comprehensive platform for political campaigns, committees, and activists to manage voter data, organize committee structures, and generate professional political documents.",
 };
 
-const RootLayout = ({ children }: { children: ReactNode }) => {
+const RootLayout = async ({ children }: { children: ReactNode }) => {
+  // The server's session seeds the client (committees-workspace ticket 29):
+  // the nav and role-gated UI render signed in on first paint, and
+  // SessionProvider doesn't fetch /api/auth/session on mount.
+  const session = await auth();
   return (
     <html lang="en">
       <body className="font-sans">
-        <SessionProvider>
+        <SessionProvider session={session}>
           <CSPostHogProvider>
             <GlobalContextProvider>
               <VoterSearchProvider>

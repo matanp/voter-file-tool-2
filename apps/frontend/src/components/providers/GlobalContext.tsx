@@ -20,8 +20,14 @@ export const GlobalContext = React.createContext<GlobalContextType>({
 export function GlobalContextProvider({ children }: React.PropsWithChildren) {
   const { data: session, status } = useSession();
 
+  // Start from the session's role, which the server passes in (ticket 29), so
+  // role-gated UI is right on first paint instead of appearing a moment
+  // later. A Developer's cached acting role is in localStorage, which only the
+  // effect below can read without a hydration mismatch.
   const [actingPermissions, setActingPermissions] =
-    React.useState<PrivilegeLevel>(PrivilegeLevel.ReadAccess);
+    React.useState<PrivilegeLevel>(
+      () => session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
+    );
 
   React.useEffect(() => {
     const actingPermissionsCached = localStorage.getItem("actingPermissions");
