@@ -115,7 +115,7 @@ export function CommitteeRosterTable({
 
       {/* overflow-visible so sticky th cells stick to the page, not the Table wrapper */}
       <div className="[&>div]:overflow-visible">
-        <Table>
+        <Table density="comfortable">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>ED</TableHead>
@@ -273,7 +273,7 @@ export function CommitteeSeatTable({
   return (
     // `Table` wraps itself in an `overflow-auto` box, so wide content scrolls
     // inside the tab and the page never overflows at 375px.
-    <Table aria-label={label}>
+    <Table aria-label={label} density="comfortable">
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead>Seat</TableHead>

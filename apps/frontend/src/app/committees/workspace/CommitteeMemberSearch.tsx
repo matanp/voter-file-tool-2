@@ -47,7 +47,7 @@ export function MemberSearchInput({
         type="search"
         aria-label="Find a member by name"
         aria-controls={resultsId}
-        className="h-9 pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden"
+        className="pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden"
         placeholder="Find a member by name"
         autoComplete="off"
         maxLength={MEMBER_SEARCH_MAX_LENGTH}

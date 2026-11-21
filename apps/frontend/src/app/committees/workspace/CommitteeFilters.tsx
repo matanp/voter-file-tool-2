@@ -119,7 +119,7 @@ export function CommitteeFilters({
         />
         <Input
           aria-label="Search by ED number or town"
-          className="h-9 pl-8"
+          className="pl-8"
           placeholder="ED number or town"
           value={value.query}
           onChange={(e) => onLocalChange({ query: e.target.value })}

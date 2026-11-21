@@ -211,6 +211,8 @@ export function CommitteeActionDrawer({
     >
       <SheetContent
         side="right"
+        // Phone form: 40px controls instead of the compact 36px default.
+        data-density="comfortable"
         className="flex w-full flex-col gap-0 p-0 sm:max-w-none md:w-[34rem] md:max-w-[34rem]"
         onCloseAutoFocus={(event) => {
           const trigger = shown?.returnFocusTo;

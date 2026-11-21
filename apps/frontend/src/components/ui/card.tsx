@@ -2,6 +2,10 @@ import * as React from "react"
 
 import { cn } from "~/lib/utils"
 
+/**
+ * A bordered surface. Don't nest cards: a list inside a card or section is a
+ * `divide-y` bordered list, not more cards.
+ */
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
