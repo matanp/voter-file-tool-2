@@ -1,6 +1,6 @@
 # 04 - Changes report: portrait-width layout on a landscape page, plus a blank trailing page
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 Source: PR #155 full validation run (2026-11-17), fixtures `changes-quick` and `changes-200`
 
@@ -24,3 +24,7 @@ portrait. Pick one, and make the Date column fit on one line.
 - `changes-quick` renders on 1 page using the full landscape width; dates sit on one line.
 - `changes-200` and `changes-empty` have no blank trailing page.
 - Verify with the PDF validation harness, full mode.
+
+## Comments
+
+**2026-11-21 — resolved.** Shipped in PR #171. Container is `w-full` with no fixed height; Date never wraps; only Details wraps long unbroken values. Production with #172's margins: changes-quick 1 page (was 2), changes-200 18 (was 19), changes-empty 1 (was 2); full width, one-line dates. Accepted as cosmetic: Member Name wraps to two lines while Details has spare width (changes-200 p1). The LLM checklist's item 8 still describes the old portrait container: [report-server-provisioning 22](../../report-server-provisioning/issues/22-update-checklist-changes-geometry.md). Deployed at `1a5d1b62`; production full run `20261121T005219Z-mtc4sy` (Lightsail, chrome): 34 pass, 0 fail after the LLM review (388 none, 1 accepted question) and baseline approval (`b7466865`).

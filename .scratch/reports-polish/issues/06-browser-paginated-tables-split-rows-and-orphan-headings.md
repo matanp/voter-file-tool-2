@@ -1,6 +1,6 @@
 # 06 - Vacancy, Changes and Petition Outcomes: rows split across pages, stranded headings
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 Source: first Lightsail PDF validation full run, `20261120T061300Z-n795ih` (2026-11-20, full Chrome, deployed `45c450dc` code)
 
@@ -32,3 +32,7 @@ keeps rows or headings together. Seen on the box:
 - In the harness full run, `changes-200`, `vacancy-200` and `outcomes-200` have no split rows, no stranded headings, and
   margins on every page; the LLM review reports no pagination defects for them.
 - Their page counts are re-approved (they're browser-paginated, so counts may change).
+
+## Comments
+
+**2026-11-21 — resolved.** Shipped in PR #172. A print stylesheet injected only into the Vacancy, Changes and Petition Outcomes HTML sets 0.5in top/bottom page margins, keeps rows whole, repeats table headers, and keeps headings with their first row and totals with the rows above; Outcomes EDs stay whole with shared column widths. Shared PDF options unchanged; the other 25 fixtures render byte-identical. Production: vacancy-200 10 pages (was 8), outcomes-200 17 (was 13), changes-200 18; no split rows or stranded headings. Deployed at `1a5d1b62`; production full run `20261121T005219Z-mtc4sy` (Lightsail, chrome): 34 pass, 0 fail after the LLM review (388 none, 1 accepted question) and baseline approval (`b7466865`).

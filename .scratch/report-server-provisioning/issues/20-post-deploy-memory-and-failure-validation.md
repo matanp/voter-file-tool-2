@@ -18,6 +18,7 @@ PR #148's memory numbers come from emulated Docker, and its bounded-close fix wa
 - Run with the normal service left running. Record overlapping production work; flag affected memory comparisons for review and repeat those samples if necessary.
 - Exercise post-launch render failure, upload failure, and the no-page close-hang scenario in the isolated worker using the deployed code and real browser. Verify bounded completion, observable original failure, no additional Chrome processes, and a successful subsequent report. Kill only processes created by the harness. Never inject failures into normal production jobs or alter production credentials.
 - For the initial #148 validation, compare full Chrome and headless-shell with identical fixtures, flags, and repeated runs. Establish future memory thresholds from these on-box measurements, not emulated Docker results.
+- Record per-stage timings for every render in the manifest and show them in `summary.md`: worker start to "generating pdf" (Node startup), to "page content set" (Chrome launch + `setContent`), to "started upload" (`page.pdf()`), to "PDF Upload successful" (upload), and worker exit. Today these exist only as `render.log` timestamps that have to be subtracted by hand. Run `20261121T005219Z-mtc4sy` showed `page.pdf()` takes 46–49 s of the 56–64 s on the 800-row rosters; other fixtures take 2.6–4 s in total.
 
 ## Implementation contract
 

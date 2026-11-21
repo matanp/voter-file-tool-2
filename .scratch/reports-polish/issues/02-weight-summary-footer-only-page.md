@@ -1,6 +1,6 @@
 # 02 - Weight Summary: a full last page spills its footer onto an extra page
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 Source: PR #155 full validation run (2026-11-17), fixtures `weights-20` and `weights-200`
 
@@ -26,3 +26,7 @@ Do not change the layout of pages that already fit.
   physical pages. `weights-21` still renders 20 + 1 on 2 pages.
 - A unit test for the chunking covers 19, 20, 21 and 40 rows.
 - Verify with the PDF validation harness (`apps/report-server/pdf-validation/README.md`), full mode.
+
+## Comments
+
+**2026-11-21 — resolved.** Shipped in PR #170. Rows tightened (`py-1` → `py-0.5`, header included) so 20 rows + Subtotal + Grand Total + footer fit one page; one pagination function drives both the chunking and "Page N of M", reserving room for the trailing block and counting extra lines of long Missing Weights lists (lists over 40 chars collapse runs to ranges and break into lines in code; no seat dropped). Unit tests cover 19/20/21/40 rows and the boundaries. Production: weights-20 1 page (was 2), weights-200 10 (was 11), weights-21 2, weights-multi-group 4. Known limit: a missing-weights notes block taller than a whole page still overflows. Deployed at `1a5d1b62`; production full run `20261121T005219Z-mtc4sy` (Lightsail, chrome): 34 pass, 0 fail after the LLM review (388 none, 1 accepted question) and baseline approval (`b7466865`).
