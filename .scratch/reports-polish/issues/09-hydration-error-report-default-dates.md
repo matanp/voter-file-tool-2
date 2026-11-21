@@ -65,7 +65,7 @@ on the other pages may have a different cause.
    from the local calendar day (step 3), and the date helpers take an optional `timeZone` for tests. The jest suite
    is pinned to New York, so `process.env.TZ` can't be switched per test.
 
-   Step 4: the other pages are split out to `10-hydration-errors-other-pages.md`. The `/admin/eligibility-flags`
+   Step 4: the other pages are split out to `11-hydration-errors-other-pages.md`. The `/admin/eligibility-flags`
    date is fetched on the client, so it isn't the cause there.
 
    Not done: the manual `TZ=UTC pnpm dev` browser repro. The `hydrateRoot` test covers the same mismatch.
