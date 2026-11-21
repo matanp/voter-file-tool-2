@@ -63,4 +63,4 @@ Lines starting "Us:" are our replies. Everything else is from the stakeholder.
 - An "Objections" folder of 2026 petition-challenge workbooks, scans and BOE forms. It contains PII, so it's kept
   only in the gitignored `data/petition-objections/`. It's described in [06](issues/06-petition-objection-research.md).
 
-The data-security answer is tracked as [security-audit/20](../security-audit/issues/20-data-classification-policy.md).
+The data-security answer is tracked as [data-classification/01](../data-classification/issues/01-data-classification-policy.md).

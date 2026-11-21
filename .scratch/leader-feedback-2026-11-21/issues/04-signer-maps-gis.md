@@ -19,5 +19,5 @@ A stretch goal: produce maps showing where valid signers live, so collectors kno
   to check signers.
 - Needs geocoded voter addresses. We don't store coordinates today, so check whether the BOE or extended voter
   file has them, or whether we'd need a geocoding service. A service would receive voter addresses: check that
-  against [security-audit/20](../../security-audit/issues/20-data-classification-policy.md) first.
+  against [data-classification/01](../../data-classification/issues/01-data-classification-policy.md) first.
 - Output could be printable walk maps per ED, an interactive map, or both.

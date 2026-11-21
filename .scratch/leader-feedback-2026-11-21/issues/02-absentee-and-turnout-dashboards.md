@@ -100,7 +100,7 @@ results.
   sample of each.
 - Should the app show on-screen dashboards like these, or downloadable reports like the existing absentee XLSX?
 - The cure tracker and early-voter lists are voter-level data with contact details, used to chase ballots.
-  Check them against [security-audit/20](../../security-audit/issues/20-data-classification-policy.md) and decide
+  Check them against [data-classification/01](../../data-classification/issues/01-data-classification-policy.md) and decide
   who can see them: Admins only, or Leaders for their own area?
 - The Chili dashboard is per town. Should towns be chosen by the user or fixed to races marked as close?
 - Year-over-year comparisons need history going back to 2019. Do we load past files once, or start from 2026?
