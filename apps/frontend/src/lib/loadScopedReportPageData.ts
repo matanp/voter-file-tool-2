@@ -6,7 +6,7 @@ import {
   getActiveTermId,
   getUserJurisdictions,
   buildJurisdictionWhere,
-  type JurisdictionScope,
+  type Jurisdiction,
 } from "~/app/api/lib/committeeValidation";
 
 /**
@@ -19,7 +19,7 @@ export type ScopedReportCommitteeList = Pick<
 >;
 
 /** One of a Leader's own committee assignments; `legDistrict: null` is town-wide. */
-export type LeaderAssignment = JurisdictionScope;
+export type LeaderAssignment = Jurisdiction;
 
 const committeeListSelect = { cityTown: true, legDistrict: true } as const;
 
@@ -36,7 +36,7 @@ export interface ScopedReportPageData {
 }
 
 function toSortedAssignments(
-  jurisdictions: JurisdictionScope[],
+  jurisdictions: Jurisdiction[],
 ): LeaderAssignment[] {
   return jurisdictions
     .map(({ cityTown, legDistrict }) => ({ cityTown, legDistrict }))
