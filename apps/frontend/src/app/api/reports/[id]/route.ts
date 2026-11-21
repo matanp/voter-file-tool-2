@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "~/lib/prisma";
 import { z } from "zod";
 import { PrivilegeLevel } from "@prisma/client";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
 
 const updateReportSchema = z.object({
@@ -42,7 +42,7 @@ async function patchReportHandler(
     }
     const validatedData = updateReportSchema.parse(body);
 
-    const isAdmin = hasPermissionFor(
+    const isAdmin = hasPrivilegeFor(
       session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess,
       PrivilegeLevel.Admin,
     );

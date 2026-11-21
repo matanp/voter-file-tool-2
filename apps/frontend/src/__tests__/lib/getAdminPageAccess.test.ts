@@ -3,16 +3,16 @@ import {
   getAdminPageAccess,
   getAuthenticatedPageAccess,
 } from "~/lib/getAdminPageAccess";
-import { hasPermissionFor as realHasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor as realHasPrivilegeFor } from "~/lib/utils";
 import { createMockSession } from "../utils/testUtils";
 import { mockAuthSession } from "../utils/mocks";
 
 describe("getAuthenticatedPageAccess", () => {
   beforeEach(() => {
-    jest.mocked(realHasPermissionFor).mockImplementation(
-      jest.requireActual<{ hasPermissionFor: typeof realHasPermissionFor }>(
+    jest.mocked(realHasPrivilegeFor).mockImplementation(
+      jest.requireActual<{ hasPrivilegeFor: typeof realHasPrivilegeFor }>(
         "~/lib/utils",
-      ).hasPermissionFor,
+      ).hasPrivilegeFor,
     );
   });
 
@@ -75,10 +75,10 @@ describe("getAuthenticatedPageAccess", () => {
 
 describe("getAdminPageAccess", () => {
   beforeEach(() => {
-    jest.mocked(realHasPermissionFor).mockImplementation(
-      jest.requireActual<{ hasPermissionFor: typeof realHasPermissionFor }>(
+    jest.mocked(realHasPrivilegeFor).mockImplementation(
+      jest.requireActual<{ hasPrivilegeFor: typeof realHasPrivilegeFor }>(
         "~/lib/utils",
-      ).hasPermissionFor,
+      ).hasPrivilegeFor,
     );
   });
 

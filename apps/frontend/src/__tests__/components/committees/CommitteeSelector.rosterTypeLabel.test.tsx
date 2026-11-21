@@ -13,8 +13,8 @@ import { createMockCommitteeListRow } from "../../utils/testUtils";
 jest.mock("~/components/providers/GlobalContext", () => {
   return {
     GlobalContext: React.createContext({
-      actingPermissions: PrivilegeLevel.Admin,
-      setActingPermissions: () => undefined,
+      actingPrivilege: PrivilegeLevel.Admin,
+      setActingPrivilege: () => undefined,
     }),
   };
 });

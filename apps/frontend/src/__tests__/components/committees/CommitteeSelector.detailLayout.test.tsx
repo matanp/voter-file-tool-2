@@ -10,8 +10,8 @@ import { mockHasPermission } from "../../utils/mocks";
 // role through the Provider.
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: PrivilegeLevel.ReadAccess,
-    setActingPermissions: () => undefined,
+    actingPrivilege: PrivilegeLevel.ReadAccess,
+    setActingPrivilege: () => undefined,
   }),
 }));
 
@@ -192,7 +192,7 @@ function installFetch() {
 async function openDetail(acting: PrivilegeLevel) {
   render(
     <GlobalContext.Provider
-      value={{ actingPermissions: acting, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: acting, setActingPrivilege: () => undefined }}
     >
       <CommitteeSelector committeeLists={greeceCommitteeLists} />
     </GlobalContext.Provider>,

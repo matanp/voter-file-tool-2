@@ -23,7 +23,7 @@ import {
   mockHasPermission,
   prismaMock,
 } from "../utils/mocks";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { gunzipSync } from "node:zlib";
 
 const MOCK_REPORT_ID = "cltestreportid123456789";
@@ -188,7 +188,7 @@ describe("/api/generateReport", () => {
           user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
         }),
       );
-      jest.mocked(hasPermissionFor).mockImplementation(
+      jest.mocked(hasPrivilegeFor).mockImplementation(
         (_principal, required) => required !== PrivilegeLevel.Admin,
       );
 
@@ -213,7 +213,7 @@ describe("/api/generateReport", () => {
           user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
         }),
       );
-      jest.mocked(hasPermissionFor).mockImplementation(
+      jest.mocked(hasPrivilegeFor).mockImplementation(
         (_principal, required) => required !== PrivilegeLevel.Admin,
       );
 
@@ -254,7 +254,7 @@ describe("/api/generateReport", () => {
           mockAuthSession(
             createMockSession({ user: { id: "user-1", privilegeLevel } }),
           );
-          jest.mocked(hasPermissionFor).mockImplementation(
+          jest.mocked(hasPrivilegeFor).mockImplementation(
             (_principal, required) => required !== PrivilegeLevel.Admin,
           );
 
@@ -286,7 +286,7 @@ describe("/api/generateReport", () => {
           reportId: MOCK_REPORT_ID,
           jobsAhead: 0,
         });
-        expect(jest.mocked(hasPermissionFor)).toHaveBeenCalledWith(
+        expect(jest.mocked(hasPrivilegeFor)).toHaveBeenCalledWith(
           PrivilegeLevel.Admin,
           PrivilegeLevel.Admin,
         );
@@ -300,7 +300,7 @@ describe("/api/generateReport", () => {
             user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
           }),
         );
-        jest.mocked(hasPermissionFor).mockImplementation(
+        jest.mocked(hasPrivilegeFor).mockImplementation(
           (_principal, required) => required !== PrivilegeLevel.Admin,
         );
         (
@@ -397,7 +397,7 @@ describe("/api/generateReport", () => {
             user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
           }),
         );
-        jest.mocked(hasPermissionFor).mockImplementation(
+        jest.mocked(hasPrivilegeFor).mockImplementation(
           (_principal, required) => required !== PrivilegeLevel.Admin,
         );
 
@@ -454,7 +454,7 @@ describe("/api/generateReport", () => {
           user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
         }),
       );
-      jest.mocked(hasPermissionFor).mockImplementation(
+      jest.mocked(hasPrivilegeFor).mockImplementation(
         (_principal, required) => required !== PrivilegeLevel.Admin,
       );
 
@@ -529,7 +529,7 @@ describe("/api/generateReport", () => {
           user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
         }),
       );
-      jest.mocked(hasPermissionFor).mockImplementation(
+      jest.mocked(hasPrivilegeFor).mockImplementation(
         (_principal, required) => required !== PrivilegeLevel.Admin,
       );
       (
@@ -566,7 +566,7 @@ describe("/api/generateReport", () => {
           user: { id: "leader-1", privilegeLevel: PrivilegeLevel.Leader },
         }),
       );
-      jest.mocked(hasPermissionFor).mockImplementation(
+      jest.mocked(hasPrivilegeFor).mockImplementation(
         (_principal, required) => required !== PrivilegeLevel.Admin,
       );
       (
@@ -625,7 +625,7 @@ describe("/api/generateReport", () => {
           user: { id: "user-1", privilegeLevel: PrivilegeLevel.Leader },
         }),
       );
-      jest.mocked(hasPermissionFor).mockImplementation(
+      jest.mocked(hasPrivilegeFor).mockImplementation(
         (_principal, required) => required !== PrivilegeLevel.Admin,
       );
 

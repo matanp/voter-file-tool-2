@@ -8,8 +8,8 @@ import { mockHasPermission } from "../../utils/mocks";
 jest.mock("~/components/providers/GlobalContext", () => {
   return {
     GlobalContext: React.createContext({
-      actingPermissions: PrivilegeLevel.Admin,
-      setActingPermissions: () => undefined,
+      actingPrivilege: PrivilegeLevel.Admin,
+      setActingPrivilege: () => undefined,
     }),
   };
 });

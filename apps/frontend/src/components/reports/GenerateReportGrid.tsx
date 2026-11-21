@@ -10,7 +10,7 @@ import {
   CardDescription,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import {
   SCOPE_REPORT_UI,
@@ -57,10 +57,10 @@ const scopedReportTypes: ReportType[] = SCOPE_REPORT_UI_ORDER.map((type) => {
 });
 
 export default function GenerateReportGrid() {
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
 
-  const isAdminUser = hasPermissionFor(
-    actingPermissions,
+  const isAdminUser = hasPrivilegeFor(
+    actingPrivilege,
     PrivilegeLevel.Admin,
   );
 
@@ -83,7 +83,7 @@ export default function GenerateReportGrid() {
   const visibleReportTypes = reportTypes.filter(
     (report) =>
       !report.minPrivilege ||
-      hasPermissionFor(actingPermissions, report.minPrivilege),
+      hasPrivilegeFor(actingPrivilege, report.minPrivilege),
   );
 
   return (

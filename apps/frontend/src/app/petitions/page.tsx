@@ -6,7 +6,7 @@ import GeneratePetitionForm from "./GeneratePetitionForm";
 import PageSignInRequired from "~/components/ui/PageSignInRequired";
 import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
 import { getAuthenticatedPageAccess } from "~/lib/getAdminPageAccess";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ const PetitionsPage: React.FC = async () => {
 
   // Petition generation is Admin-only (leader-petition-visibility/01), and
   // /api/generateReport rejects designatedPetition below Admin. Gate the page to match.
-  if (!hasPermissionFor(access.privilegeLevel, PrivilegeLevel.Admin)) {
+  if (!hasPrivilegeFor(access.privilegeLevel, PrivilegeLevel.Admin)) {
     return <AdminPageAccessDenied />;
   }
 

@@ -3,13 +3,13 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PrivilegeLevel } from "@prisma/client";
 import { ScopedReportForm } from "~/components/reports/ScopedReportForm";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 
 jest.mock("~/components/providers/GlobalContext", () => {
   return {
     GlobalContext: React.createContext({
-      actingPermissions: "ReadAccess",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "ReadAccess",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -77,19 +77,19 @@ const committeeLists = [
   },
 ];
 
-function renderWithPermissions(actingPermissions: PrivilegeLevel) {
+function renderWithPermissions(actingPrivilege: PrivilegeLevel) {
   return render(
     <GlobalContext.Provider
       value={{
-        actingPermissions,
-        setActingPermissions: jest.fn(),
+        actingPrivilege,
+        setActingPrivilege: jest.fn(),
       }}
     >
       <ScopedReportForm
         type="committeeRoster"
         committeeLists={committeeLists}
         leaderAssignments={[{ cityTown: "ROCHESTER", legDistrict: 1 }]}
-        userPrivilegeLevel={actingPermissions}
+        userPrivilegeLevel={actingPrivilege}
       />
     </GlobalContext.Provider>,
   );
@@ -98,7 +98,7 @@ function renderWithPermissions(actingPermissions: PrivilegeLevel) {
 describe("ScopedReportForm (committeeRoster)", () => {
   beforeEach(() => {
     mutateMock.mockClear();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const order = [
         PrivilegeLevel.Developer,
         PrivilegeLevel.Admin,

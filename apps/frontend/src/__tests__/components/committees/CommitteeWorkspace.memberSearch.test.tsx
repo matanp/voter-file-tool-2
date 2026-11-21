@@ -15,7 +15,7 @@ import {
   filtersToReveal,
 } from "~/app/committees/workspace/gridModel";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import {
   fetchJsonResponse as jsonResponse,
@@ -65,8 +65,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -160,7 +160,7 @@ function renderWorkspace(role: PrivilegeLevel, query = "") {
   mockUrl.reset(query);
   return render(
     <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: role, setActingPrivilege: () => undefined }}
     >
       <CommitteeWorkspace termLabel="2024–2026" initialScope={null} />
     </GlobalContext.Provider>,
@@ -185,9 +185,9 @@ async function waitForGrid() {
 beforeEach(() => {
   jest.clearAllMocks();
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
   Object.defineProperty(window, "matchMedia", {
     configurable: true,

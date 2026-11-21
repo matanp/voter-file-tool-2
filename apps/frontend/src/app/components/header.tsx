@@ -19,7 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "~/components/ui/sheet";
-import { cn, hasPermissionFor } from "~/lib/utils";
+import { cn, hasPrivilegeFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 
 type HeaderProps = {
@@ -130,7 +130,7 @@ const MainNav: React.FC<{
 
 const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   const pathname = usePathname() ?? "";
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -140,10 +140,7 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   const profileFromMenuRef = useRef(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
-  const showAdminTab = hasPermissionFor(
-    actingPermissions,
-    PrivilegeLevel.Admin,
-  );
+  const showAdminTab = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   const navItems = showAdminTab ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
   const activeItem = navItems.find((item) => item.isActive(pathname));
 
