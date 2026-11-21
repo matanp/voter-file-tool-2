@@ -34,6 +34,7 @@ Rage clicks / break-it testing:
 
 Privacy:
 - 06 Mask voter PII in session replays
+- 13 Narrow replay masking to voter-data areas
 
 PostHog setup and tracking:
 - 07 Test-account filter: qa_agent, Developer, DEV identities

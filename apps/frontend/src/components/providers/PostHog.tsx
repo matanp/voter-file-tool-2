@@ -10,6 +10,27 @@ import { useEffect, useRef } from "react";
 // navigations without leaking into the human's other tabs in the same profile.
 export const QA_AGENT_PARAM = "qa_agent";
 
+// Attributes that hold readable text, which can name a voter (e.g. a chip's
+// "Remove MAIN ST" label). Replays mask these like text; layout attributes
+// (class, style, href, data-*) stay so the replay still renders.
+const READABLE_ATTRIBUTES = new Set([
+  "aria-label",
+  "aria-description",
+  "aria-placeholder",
+  "aria-roledescription",
+  "aria-valuetext",
+  "alt",
+  "content",
+  "label",
+  "placeholder",
+  "title",
+  "value",
+]);
+
+export function maskReadableAttribute(name: string, value: string): string {
+  return READABLE_ATTRIBUTES.has(name) ? "*".repeat(value.length) : value;
+}
+
 if (typeof window !== "undefined") {
   posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "", {
     api_host: "/ingest",
@@ -27,6 +48,18 @@ if (typeof window !== "undefined") {
     capture_pageleave: true,
     // Uncaught errors and unhandled rejections → PostHog Error Tracking.
     capture_exceptions: true,
+    // Voter data (names, addresses, DOBs, phones) is on screen almost
+    // everywhere, so nothing on-screen leaves the browser: replays mask all
+    // text and inputs, and autocapture drops element text and attributes
+    // (aria-labels and titles can name voters too). Narrowing this to
+    // voter-data areas is .scratch/posthog-analytics/issues/13.
+    mask_all_text: true,
+    mask_all_element_attributes: true,
+    session_recording: {
+      maskAllInputs: true,
+      maskTextSelector: "*",
+      maskAttributeFn: maskReadableAttribute,
+    },
     // `loaded` runs before the automatic initial pageview, so that pageview
     // is tagged too.
     loaded: (ph) => {

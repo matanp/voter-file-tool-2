@@ -7,8 +7,11 @@ const mockUseSession = jest.fn<unknown, []>();
 
 jest.mock("posthog-js", () => {
   const client = {
+    /** Configs passed to init (it runs at import, before test-scope consts exist). */
+    initConfigs: [] as unknown[],
     // Like the real SDK, run the `loaded` callback during init.
     init: (_key: string, config: { loaded?: (ph: unknown) => void }) => {
+      client.initConfigs.push(config);
       config.loaded?.(client);
     },
     identify: (...args: unknown[]) => {
@@ -32,7 +35,10 @@ jest.mock("next-auth/react", () => ({
   useSession: () => mockUseSession(),
 }));
 
-import { CSPostHogProvider as Provider } from "~/components/providers/PostHog";
+import {
+  CSPostHogProvider as Provider,
+  maskReadableAttribute,
+} from "~/components/providers/PostHog";
 
 // The tagging runs once at module load, so load a fresh copy per URL.
 function loadModuleAt(search: string) {
@@ -112,5 +118,33 @@ describe("CSPostHogProvider", () => {
     mockUseSession.mockReturnValue({ status: "unauthenticated", data: null });
     render(<Provider>x</Provider>);
     expect(mockReset).not.toHaveBeenCalled();
+  });
+
+  it("masks all on-screen text in replays and autocapture", () => {
+    const { default: client } = jest.requireMock<{
+      default: { initConfigs: unknown[] };
+    }>("posthog-js");
+    expect(client.initConfigs[0]).toEqual(
+      expect.objectContaining({
+        mask_all_text: true,
+        mask_all_element_attributes: true,
+        session_recording: expect.objectContaining({
+          maskAllInputs: true,
+          maskTextSelector: "*",
+          maskAttributeFn: maskReadableAttribute,
+        }) as unknown,
+      }),
+    );
+  });
+
+  it("masks readable attributes in replays but keeps layout ones", () => {
+    expect(maskReadableAttribute("aria-label", "Remove MAIN ST")).toBe(
+      "**************",
+    );
+    expect(maskReadableAttribute("title", "Jane")).toBe("****");
+    expect(maskReadableAttribute("class", "flex gap-1")).toBe("flex gap-1");
+    expect(maskReadableAttribute("href", "/committees?town=X")).toBe(
+      "/committees?town=X",
+    );
   });
 });
