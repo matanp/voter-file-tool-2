@@ -45,6 +45,8 @@ pnpm --filter voter-file-tool db_migrate
 pnpm run build:packages
 ```
 
+Give the new `ReportType` a user-facing label in `REPORT_TYPE_LABELS` in [reportUtils.ts](../../apps/frontend/src/components/reports/reportUtils.ts); `tsc` fails until it has one.
+
 ### 2. Core registry (`shared-validators`)
 
 Add one entry to [packages/shared-validators/src/scopeReportRegistry.ts](../../packages/shared-validators/src/scopeReportRegistry.ts):

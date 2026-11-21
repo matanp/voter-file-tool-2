@@ -103,7 +103,7 @@ const MainNav: React.FC<{
                   active ? "bg-muted text-foreground" : MENU_ROW_INACTIVE,
                 )
               : cn(
-                  "flex h-12 items-center border-b-2 px-1 text-sm font-medium transition-colors",
+                  "flex h-[var(--app-bar-height)] items-center border-b-2 px-1 text-sm font-medium transition-colors",
                   active
                     ? "border-foreground text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground",
@@ -185,8 +185,7 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
     : undefined;
 
   return (
-    // h-12 must match --app-bar-height in globals.css.
-    <div className="h-12 border-b bg-white">
+    <div className="h-[var(--app-bar-height)] border-b bg-white">
       <div className="flex h-full items-center gap-6 px-4">
         <Link
           href="/"
