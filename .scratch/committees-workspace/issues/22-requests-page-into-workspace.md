@@ -56,3 +56,7 @@ Acceptance additions:
 
 - [ ] The admin entry point keeps the user in a shell with a way back.
 - [ ] The copy matches what the buttons do; group headers use the workspace's committee label.
+
+### 2026-11-21 — UI makeover review
+
+[ui-makeover/11](../../ui-makeover/issues/11-requests-page-layout.md) is an interim fix for the phone overflow (a fixed `w-96` column) and the card-in-card layout on `/committees/requests`, for use if this ticket isn't scheduled soon. If this ticket lands first, close 11 as superseded.
