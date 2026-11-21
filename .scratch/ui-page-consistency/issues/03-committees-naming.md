@@ -1,7 +1,7 @@
 # 03 - One name for Committees
 
 Status: resolved
-Resolution: nav, Home hero button and two stray strings now say "Committees"; fixed on fix/committees-naming.
+Resolution: nav, Home hero button and two stray strings now say "Committees"; fixed in #184.
 Tier: 3 (polish) · Priority: P3
 Source: [QA sweep 2026-11-18](../../qa-sweep-2026-11-18/README.md), finding I1
 
