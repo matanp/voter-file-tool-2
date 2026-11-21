@@ -8,6 +8,7 @@ import DesignationWeightSummaryReport, {
   chunkRows,
   paginateWeightSummary,
   missingWeightsNotesHeight,
+  formatMissingSeats,
 } from '../components/DesignationWeightSummary';
 import type { DesignationWeightSummary } from '../committeeMappingHelpers';
 
@@ -220,6 +221,25 @@ describe('DesignationWeightSummary', () => {
       expect(formatWeight(group!.subtotalWeight)).toBe('1.64');
     });
   });
+  describe('formatMissingSeats', () => {
+    const list = (n: number) => Array.from({ length: n }, (_, i) => i + 1).join(', ');
+
+    it('keeps a short list as it is, on one line', () => {
+      expect(formatMissingSeats('1, 2, 3, 4')).toEqual({ text: '1, 2, 3, 4', nowrap: true });
+    });
+
+    it('collapses runs in a long list into ranges', () => {
+      expect(formatMissingSeats(list(20))).toEqual({ text: '1–20', nowrap: true });
+      const gappy = [...Array.from({ length: 15 }, (_, i) => i + 1), 17, 18, 20].join(', ');
+      expect(formatMissingSeats(gappy)).toEqual({ text: '1–15, 17, 18, 20', nowrap: true });
+    });
+
+    it('lets a list wrap when even ranges are too long', () => {
+      const odd = Array.from({ length: 20 }, (_, i) => 2 * i + 1).join(', ');
+      expect(formatMissingSeats(odd)).toEqual({ text: odd, nowrap: false });
+    });
+  });
+
   describe('pagination', () => {
     const range = (n: number) => Array.from({ length: n }, (_, i) => i);
     const sizes = (chunks: unknown[][]) => chunks.map((c) => c.length);

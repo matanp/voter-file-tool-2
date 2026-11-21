@@ -113,7 +113,8 @@ export const MAX_ROWS_PER_PAGE = 20;
  * Page geometry, in CSS px, for the fixed 8.5in landscape page. The page has
  * room for the column header, MAX_ROWS_PER_PAGE rows and the footer, plus the
  * space below the rows that the trailing block (Subtotal, Grand Total, notes)
- * needs. Rows are 25px (text-sm 20px line + py-0.5 + 1px border). These are
+ * needs. Rows are 25px (text-sm 20px line + py-0.5 + 1px border) and stay
+ * one line: the Missing Weights cell doesn't wrap (see formatMissingSeats). These are
  * hand-measured: after changing this template's spacing or fonts, re-check
  * the weights-20, weights-200 and weights-multi-group fixtures in the PDF
  * validation harness (apps/report-server/pdf-validation).
@@ -121,8 +122,9 @@ export const MAX_ROWS_PER_PAGE = 20;
 const ROW_PX = 25;
 /**
  * Space for rows and the trailing block between the column header and the
- * footer: measured at 580px (20 old 29px rows filled it exactly), less a 5px
- * safety margin. Twenty rows plus Subtotal and Grand Total (553px) still fit.
+ * footer: measured at 582.5px in Chrome with the py-0.5 column header, less
+ * a 7.5px safety margin. Twenty rows plus Subtotal and Grand Total (553px)
+ * still fit.
  */
 const ROW_AREA_PX = 575;
 const SUBTOTAL_PX = ROW_PX;
@@ -209,6 +211,39 @@ export function paginateWeightSummary(
 export const formatWeight = (weight: number): string =>
   new Prisma.Decimal(weight).toFixed(2);
 
+/**
+ * Longest Missing Weights text kept on one line. Measured: the table stays
+ * within the page up to 53 characters (16 seats); 40 leaves room for wider
+ * numbers in the other columns.
+ */
+const MISSING_SEATS_MAX_CHARS = 40;
+
+/**
+ * The PDF's Missing Weights cell. Short lists print as they are ("1, 2, 4").
+ * A list too long for one line collapses runs of three or more seats into
+ * ranges ("1–20"). Returns `nowrap: false` only if even that is too long, so
+ * the text wraps rather than widening the table off the page.
+ */
+export function formatMissingSeats(missingWeights: string): {
+  text: string;
+  nowrap: boolean;
+} {
+  if (missingWeights.length <= MISSING_SEATS_MAX_CHARS) {
+    return { text: missingWeights, nowrap: true };
+  }
+  const seats = missingWeights.split(',').map((x) => Number(x.trim()));
+  const parts: string[] = [];
+  for (let i = 0; i < seats.length; ) {
+    let j = i;
+    while (j + 1 < seats.length && seats[j + 1] === seats[j] + 1) j++;
+    if (j - i >= 2) parts.push(`${seats[i]}–${seats[j]}`);
+    else parts.push(...seats.slice(i, j + 1).map(String));
+    i = j + 1;
+  }
+  const text = parts.join(', ');
+  return { text, nowrap: text.length <= MISSING_SEATS_MAX_CHARS };
+}
+
 /** The PDF marks a missing weight with a dash; the XLSX leaves the cell blank. */
 const formatOptionalWeight = (weight: number | null) =>
   weight != null ? formatWeight(weight) : '—';
@@ -236,41 +271,53 @@ const DesignationWeightSummaryReport = React.forwardRef<
 
     const headerTitle = `Designation Weight Summary — ${scopeDescription} — ${generationDate}`;
 
+    /**
+     * py-0.5 keeps 20 rows, the Subtotal, the Grand Total and the footer on
+     * one page; the page math in chunkRows assumes single-line 25px rows.
+     */
+    const cell = 'border border-gray-400 px-2 py-0.5';
+
     const colHeader = (
       <tr className="bg-gray-100">
-        <th className="border border-gray-400 px-2 py-1 text-left">ED</th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>ED</th>
+        <th className={`${cell} text-left`}>
           Total Seats
         </th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>
           Petitioned Seats
         </th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>
           Occupied Petitioned
         </th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>
           Vacant Petitioned
         </th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>
           Appointed
         </th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>
           LTED Weight
         </th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>
           Base Weight
         </th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>
           Designation Weight
         </th>
-        <th className="border border-gray-400 px-2 py-1 text-left">
+        <th className={`${cell} text-left`}>
           Missing Weights
         </th>
       </tr>
     );
 
-    /** Body and Subtotal cells: py-0.5 keeps 20 rows, the Subtotal, the Grand Total and the footer on one page. */
-    const cell = 'border border-gray-400 px-2 py-0.5';
+    /** No wrap: a second line would make the row taller than the page math allows. */
+    const renderMissingSeats = (missingWeights: string) => {
+      if (!missingWeights) return <td className={cell}>—</td>;
+      const { text, nowrap } = formatMissingSeats(missingWeights);
+      return (
+        <td className={nowrap ? `${cell} whitespace-nowrap` : cell}>{text}</td>
+      );
+    };
 
     const renderRow = (row: WeightSummaryRow) => (
       <tr key={`${row.cityTown}-${row.legDistrict}-${row.electionDistrict}`}>
@@ -301,9 +348,7 @@ const DesignationWeightSummaryReport = React.forwardRef<
         <td className={`${cell} text-right`}>
           {formatWeight(row.designationWeight)}
         </td>
-        <td className={cell}>
-          {row.missingWeights || '—'}
-        </td>
+        {renderMissingSeats(row.missingWeights)}
       </tr>
     );
 
