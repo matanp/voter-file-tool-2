@@ -347,6 +347,12 @@ export const voterImportMetadataSchema = z.object({
   dropdownsUpdated: z.boolean(),
 });
 
+// Warnings about a report that completed but needs the user's attention
+// (e.g. a designating petition sheet that runs onto a second page).
+export const reportWarningsMetadataSchema = z.object({
+  warnings: z.array(z.string()).min(1),
+});
+
 // Report complete webhook payload schema
 export const reportCompleteWebhookPayloadSchema = z.object({
   success: z.boolean(),
@@ -354,7 +360,9 @@ export const reportCompleteWebhookPayloadSchema = z.object({
   type: z.string().optional(),
   url: z.string().optional(),
   error: z.string().optional(),
-  metadata: voterImportMetadataSchema.optional(),
+  metadata: z
+    .union([voterImportMetadataSchema, reportWarningsMetadataSchema])
+    .optional(),
 });
 
 // API response schemas
@@ -419,6 +427,9 @@ type _EnrichedCoversGenerate = Exclude<
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _assertEnrichedExhaustive: _EnrichedCoversGenerate = true;
 export type VoterImportMetadata = z.infer<typeof voterImportMetadataSchema>;
+export type ReportWarningsMetadata = z.infer<
+  typeof reportWarningsMetadataSchema
+>;
 export type ReportCompleteWebhookPayload = z.infer<
   typeof reportCompleteWebhookPayloadSchema
 >;

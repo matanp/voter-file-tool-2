@@ -2,6 +2,7 @@ import {
   generateReportSchema,
   enrichedReportDataSchema,
   isScopedReportData,
+  reportCompleteWebhookPayloadSchema,
 } from '../../schemas/report';
 
 describe('generateReportSchema - signInSheet', () => {
@@ -383,5 +384,37 @@ describe('isScopedReportData', () => {
   ] as const)('returns false for %s', (_label, raw) => {
     const data = generateReportSchema.parse(raw);
     expect(isScopedReportData(data)).toBe(false);
+  });
+});
+
+describe('reportCompleteWebhookPayloadSchema - metadata', () => {
+  const base = { success: true, jobId: 'cjld2cjxh0000qzrmn831i7rn' };
+
+  it('keeps voter import statistics', () => {
+    const metadata = {
+      recordsProcessed: 3,
+      recordsCreated: 1,
+      recordsUpdated: 2,
+      dropdownsUpdated: true,
+    };
+    expect(
+      reportCompleteWebhookPayloadSchema.parse({ ...base, metadata }).metadata,
+    ).toEqual(metadata);
+  });
+
+  it('keeps report warnings', () => {
+    const metadata = { warnings: ['Sheet 3 runs onto a second page.'] };
+    expect(
+      reportCompleteWebhookPayloadSchema.parse({ ...base, metadata }).metadata,
+    ).toEqual(metadata);
+  });
+
+  it('rejects an empty warnings list', () => {
+    expect(
+      reportCompleteWebhookPayloadSchema.safeParse({
+        ...base,
+        metadata: { warnings: [] },
+      }).success,
+    ).toBe(false);
   });
 });
