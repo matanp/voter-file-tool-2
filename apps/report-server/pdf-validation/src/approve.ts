@@ -8,7 +8,18 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { loadApprovals, saveApprovals, type Acceptance, type Approvals, type BaselineEntry, type ThresholdEntry } from './approvals';
+import {
+  DEFAULT_HEADROOM_PCT,
+  MEMORY_METRICS,
+  loadApprovals,
+  saveApprovals,
+  sameThresholdKey,
+  type Acceptance,
+  type Approvals,
+  type BaselineEntry,
+  type ThresholdEntry,
+} from './approvals';
+import { MAX_TRUSTED_GAP_MS } from './measurementChecks';
 import { CHECKLIST_FILE, baselineKey, readJson, runPrefix, sha256File, type BrowserName } from './common';
 import { isUnavailable } from './diagnostics';
 import { fixtureById } from './fixtures';
@@ -48,7 +59,7 @@ export async function approve(opts: {
   const { runDir, results, manifest } = load(opts.runsDir, opts.runId);
   const approvals = loadApprovals();
   let thresholdChanges = 0;
-  if (opts.thresholds) thresholdChanges = approveThresholds(approvals, results, manifest, { ...opts, headroomPct: opts.headroomPct ?? 10 });
+  if (opts.thresholds) thresholdChanges = approveThresholds(approvals, results, manifest, { ...opts, headroomPct: opts.headroomPct ?? DEFAULT_HEADROOM_PCT });
   if (!opts.baselines && !opts.pageCounts) {
     saveApprovals(approvals);
     console.log(`${thresholdChanges} threshold(s) recorded in baselines/approvals.json; commit it, then verify again.`);
@@ -124,12 +135,13 @@ export async function approve(opts: {
 
 /**
  * Memory thresholds from a verified --measured run: the max sampled peak across repetitions plus
- * headroom. Groups with a failed or interfered repetition are skipped: measure them again.
+ * headroom. Groups that verify would mark for review (a failed or interfered repetition, or a
+ * sampling gap that could hide a peak) are skipped: measure them again.
  */
 export function approveThresholds(
   approvals: Approvals,
-  results: VerifyResults,
-  manifest: RunManifest,
+  results: Pick<VerifyResults, 'memory'>,
+  manifest: Pick<RunManifest, 'deployed' | 'versions' | 'instance'>,
   opts: { runId: string; reviewer: string; headroomPct: number; fixtures: string[] | null; browser: BrowserName | null },
 ): number {
   if (!results.memory?.length) throw new Error(`No memory measurements in ${opts.runId}'s results.json: verify a --measured run first`);
@@ -141,11 +153,12 @@ export function approveThresholds(
     if (opts.fixtures && !opts.fixtures.includes(g.fixtureId)) continue;
     if (opts.browser && g.browser !== opts.browser) continue;
     if (g.fixtureHash !== fixtureById(g.fixtureId).hash) throw new Error(`${g.fixtureId}: measured fixture hash does not match the current definition; measure it again`);
-    if (g.ok < g.repetitions || g.interfered) {
-      console.log(`skip ${g.fixtureId}.${g.browser}: ${g.ok < g.repetitions ? 'a repetition failed' : 'a repetition overlapped production work'}; measure again`);
+    const skip = g.ok < g.repetitions ? 'a repetition failed' : g.interfered ? 'a repetition overlapped production work' : g.maxGapMs > MAX_TRUSTED_GAP_MS ? `a ${g.maxGapMs} ms sampling gap could hide a peak` : null;
+    if (skip) {
+      console.log(`skip ${g.fixtureId}.${g.browser}: ${skip}; measure again`);
       continue;
     }
-    for (const metric of ['chromePeakKb', 'harnessPeakKb'] as const) {
+    for (const metric of MEMORY_METRICS) {
       const p = g.peaks[metric];
       if (p.maxKb === null || p.medianKb === null) {
         console.log(`skip ${g.fixtureId}.${g.browser} ${metric}: not measured`);
@@ -170,8 +183,7 @@ export function approveThresholds(
           instance: `${String(manifest.instance.platform)}, ${String(manifest.instance.cpus)} CPU, ${String(manifest.instance.totalMemMb)} MB`,
         },
       };
-      const same = (t: ThresholdEntry) => t.fixtureId === entry.fixtureId && t.fixtureHash === entry.fixtureHash && t.browser === entry.browser && t.browserBuildId === entry.browserBuildId && t.metric === entry.metric;
-      approvals.thresholds = [...approvals.thresholds.filter((t) => !same(t)), entry];
+      approvals.thresholds = [...approvals.thresholds.filter((t) => !sameThresholdKey(t, entry)), entry];
       console.log(`threshold ${g.fixtureId}.${g.browser} ${metric}: ${Math.round(entry.maxKb / 1024)} MiB (measured max ${Math.round(p.maxKb / 1024)} MiB + ${opts.headroomPct}%)`);
       changed++;
     }

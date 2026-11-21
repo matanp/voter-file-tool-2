@@ -62,7 +62,8 @@ thresholds.
   of each family plus `roster-ed45-split` as an ordinary single report; together they cover every
   job type) `--repetitions` times per browser (default 3). Within a repetition, each fixture's
   browsers run back to back, and which browser goes first alternates between repetitions.
-  `--fixtures` narrows the set.
+  `--fixtures` narrows the set. A measured run replaces the normal fixture plan, so it isn't
+  also ticket 19's full run: run `--mode full` without `--measured` for that.
 - Each repetition gets a 10 s idle baseline (`--idle-ms`) with no worker running, then sampling
   every 100 ms (`--sample-interval-ms`) from fork to worker exit. Downloading and hashing the PDF
   and uploading evidence happen outside that window.
@@ -229,7 +230,9 @@ the run directory, the baseline cache and the compiled harness. Homebrew Poppler
 5. On the box, run `render --mode quick --browser both`, then `--mode full --browser both`.
    Then repeat the measured run (`--mode full --browser both --measured --failure-scenarios`).
    `close-no-page` should now pass with both browsers. This is the on-box check of #148's
-   bounded close. Memory is judged against the thresholds approved in step 4.
+   bounded close. Memory is judged against the thresholds approved in step 4. If the post-#148
+   peaks differ materially from the pre-#148 headless-shell ones, look into it before re-approving
+   thresholds from this run (`approve --thresholds` replaces entries with the same key).
    `both` renders each fixture with identical code, CSS and flags in both browsers and alternates
    which goes first.
 6. On the Mac, `verify` each run. Headless-shell renders are compared with the approved full-Chrome

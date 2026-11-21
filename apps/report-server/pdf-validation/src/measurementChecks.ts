@@ -3,14 +3,12 @@
  * records; this compares measured peaks with approved thresholds and turns scenario results into
  * checks, under the same pass / needs-review / fail precedence as everything else.
  */
-import { findThreshold, type Approvals, type MemoryMetric } from './approvals';
+import { MEMORY_METRICS, findThreshold, type Approvals, type MemoryMetric } from './approvals';
 import { worstStatus, type BrowserName, type Check, type Status } from './common';
 import type { RunManifest } from './manifest';
-import type { MeasuredRender, MeasurementsFile } from './measurements';
+import { MEASUREMENTS_NAME, type MeasuredRender, type MeasurementsFile } from './measurements';
 import { stats } from './memory';
 import type { FailureScenariosFile, ScenarioResult } from './scenarios';
-
-export const MEMORY_METRICS: MemoryMetric[] = ['chromePeakKb', 'harnessPeakKb'];
 
 /** A sampling gap this long could hide a peak, so the comparison needs a look. */
 export const MAX_TRUSTED_GAP_MS = 1_000;
@@ -70,10 +68,10 @@ export function groupMeasurements(m: MeasurementsFile): Omit<MemoryGroup, 'thres
   });
 }
 
-export function memoryChecks(manifest: RunManifest, measurements: MeasurementsFile | null, approvals: Approvals): { checks: Check[]; groups: MemoryGroup[] } {
+export function memoryChecks(manifest: Pick<RunManifest, 'measured' | 'browsers'>, measurements: MeasurementsFile | null, approvals: Approvals): { checks: Check[]; groups: MemoryGroup[] } {
   const plan = manifest.measured;
   if (!plan) return { checks: [], groups: [] };
-  if (!measurements) return { checks: [{ id: 'memory-measurements', status: 'needs-review', detail: `--measured run without a verified ${'measurements.json'}` }], groups: [] };
+  if (!measurements) return { checks: [{ id: 'memory-measurements', status: 'needs-review', detail: `--measured run without a verified ${MEASUREMENTS_NAME}` }], groups: [] };
 
   const checks: Check[] = [];
   const groups: MemoryGroup[] = groupMeasurements(measurements).map((g) => {
@@ -121,7 +119,7 @@ export function memoryChecks(manifest: RunManifest, measurements: MeasurementsFi
   return { checks, groups };
 }
 
-export function scenarioChecks(manifest: RunManifest, file: FailureScenariosFile | null): Check[] {
+export function scenarioChecks(manifest: Pick<RunManifest, 'failureScenarios' | 'browsers'>, file: FailureScenariosFile | null): Check[] {
   const plan = manifest.failureScenarios;
   if (!plan) return [];
   if (!file) return [{ id: 'failure-scenarios', status: 'needs-review', detail: '--failure-scenarios run without a verified failure-scenarios.json' }];

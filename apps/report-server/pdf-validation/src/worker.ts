@@ -33,6 +33,7 @@ export type WorkerMessage =
   | { type: 'launch'; requested: Record<string, unknown>; effective: Record<string, unknown> }
   | { type: 'launched'; pid: number | null; browserVersion: string }
   | { type: 'html'; bytes: number; buildMs: number }
+  | { type: 'scenario-start' }
   | { type: 'scenario-done'; error: string | null; ms: number }
   | { type: 'done'; ok: true; renderMs: number }
   | { type: 'done'; ok: false; error: string };
@@ -129,6 +130,7 @@ async function run(job: WorkerJob): Promise<void> {
     const s3 = requireDeployed('./s3Utils.js') as S3UtilsLike;
     injection = job.scenario.name;
     const restore = injectIntoUpload(s3, job.scenario.name);
+    await send({ type: 'scenario-start' });
     const start = performance.now();
     let error: string | null = null;
     try {

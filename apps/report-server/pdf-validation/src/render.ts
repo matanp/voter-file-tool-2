@@ -230,9 +230,9 @@ export async function render(opts: RenderOptions): Promise<number> {
   async function renderOne(
     step: Step,
     resolved: ResolvedBrowser,
-    opt: { key?: string; kind?: RemoteObject['kind']; measure?: { intervalMs: number; idleMs: number } } = {},
+    caseOpts: { key?: string; kind?: RemoteObject['kind']; measure?: { intervalMs: number; idleMs: number } } = {},
   ): Promise<{ record: RenderRecord; sampler: MemorySampler | null }> {
-    const key = opt.key ?? `${prefix}pdf/${step.browser}/${step.fixture.id}.pdf`;
+    const key = caseOpts.key ?? `${prefix}pdf/${step.browser}/${step.fixture.id}.pdf`;
     journal(key);
     const foreignBefore = foreignChrome(new Set());
     serviceLog.activitySince();
@@ -266,10 +266,11 @@ export async function render(opts: RenderOptions): Promise<number> {
     const caseTmp = fs.mkdtempSync(path.join('/tmp', `vft-pdf-${step.browser}-`));
     // Measured: an idle baseline with no worker, then sampling from fork to worker exit. The PDF
     // download and hashing below happen after the window closes.
-    const sampler = opt.measure ? new MemorySampler({ intervalMs: opt.measure.intervalMs, servicePid, marker: caseTmp }) : null;
-    if (sampler && opt.measure) {
+    const measure = caseOpts.measure;
+    const sampler = measure ? new MemorySampler({ intervalMs: measure.intervalMs, servicePid, marker: caseTmp }) : null;
+    if (sampler && measure) {
       sampler.start('idle');
-      await new Promise((r) => setTimeout(r, opt.measure!.idleMs));
+      await new Promise((r) => setTimeout(r, measure.idleMs));
       sampler.stop();
       sampler.start('render');
     }
@@ -313,7 +314,7 @@ export async function render(opts: RenderOptions): Promise<number> {
         record.bytes = pdf.length;
         record.sha256 = sha256(pdf);
         for (const c of boxChecks(pdf)) record.checks.push(c);
-        manifest.objects.push({ key, kind: opt.kind ?? 'pdf', bytes: pdf.length, sha256: record.sha256 });
+        manifest.objects.push({ key, kind: caseOpts.kind ?? 'pdf', bytes: pdf.length, sha256: record.sha256 });
       } catch (error) {
         record.checks.push({ id: 'downloaded', ok: false, detail: errorMessage(error) });
       }
@@ -407,13 +408,21 @@ export async function render(opts: RenderOptions): Promise<number> {
       current = { child, chromePgid: null };
       let scenarioDone = false;
       let next: { ok: boolean; detail: string } | null = null;
-      // The bound covers only the failing call. A missing close timeout must fail here, not pass
+      // Loading modules, building HTML and launching get the normal case timeout. The bound starts
+      // when the worker starts the failing call. A missing close timeout must fail here, not pass
       // after the harness kills Chrome, so a scenario that runs out of time is never retried.
       let timer = setTimeout(() => {
-        next = { ok: false, detail: 'not run: the failing call did not settle in time' };
+        next = { ok: false, detail: `not run: the worker did not start the failing call within ${opts.caseTimeoutMs} ms` };
         killAll(child);
-      }, timeoutMs);
+      }, opts.caseTimeoutMs);
       child.on('message', (m: WorkerMessage) => {
+        if (m.type === 'scenario-start') {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            next = { ok: false, detail: 'not run: the failing call did not settle in time' };
+            killAll(child);
+          }, timeoutMs);
+        }
         if (m.type === 'launched' && m.pid) {
           result.chromePids.push(m.pid);
           current = { child, chromePgid: m.pid };
@@ -607,7 +616,7 @@ export async function render(opts: RenderOptions): Promise<number> {
       POSTGRES_PRISMA_URL: NO_DATABASE_URL,
       ...config.r2,
     };
-    const failedChecks = (r: RenderRecord) => r.checks.filter((c) => !c.ok).map((c) => `${c.id}: ${c.detail}`).join('; ');
+    const failedChecks = (r: { checks: { id: string; ok: boolean; detail: string }[] }) => r.checks.filter((c) => !c.ok).map((c) => `${c.id}: ${c.detail}`).join('; ');
     if (manifest.measured) {
       const measure = { intervalMs: manifest.measured.intervalMs, idleMs: manifest.measured.idleMs };
       const plan = measuredPlan(selected, opts.browser, manifest.measured.repetitions);
@@ -624,7 +633,7 @@ export async function render(opts: RenderOptions): Promise<number> {
         // Repetition 1's PDF is the run's render record, checked by verify like any other.
         if (first) manifest.renders.push(record);
         const idle = sampler?.phases.find((p) => p.summary.phase === 'idle') ?? null;
-        const window = sampler?.phases.find((p) => p.summary.phase === 'render') ?? null;
+        const renderPhase = sampler?.phases.find((p) => p.summary.phase === 'render') ?? null;
         const caseId = `${step.fixture.id}.${step.browser}.r${step.repetition}`;
         for (const p of sampler?.phases ?? []) sampleLines.push(JSON.stringify({ case: caseId, phase: p.summary.phase, startedAt: p.summary.startedAt, columns: ['t', 'workerKb', 'chromeKb', 'serviceKb', 'availKb', 'swapUsedKb'], rows: p.rows }));
         const measured: MeasuredRender = {
@@ -639,16 +648,16 @@ export async function render(opts: RenderOptions): Promise<number> {
           ...(record.error ? { error: record.error } : {}),
           durationMs: record.durationMs,
           idle: idle?.summary ?? null,
-          render: window?.summary ?? null,
+          render: renderPhase?.summary ?? null,
           processes: sampler?.processPeaks() ?? [],
           leftoverProcesses: record.leftoverProcesses.map((p) => ({ pid: p.pid, command: p.command })),
           serviceActivity: record.interference.serviceActivity,
           interference: [],
         };
         // The sampler's own attribution, sample by sample, not the coarser before/after process check.
-        measured.interference = interferenceReasons(measured, servicePid !== null && [idle, window].some((p) => p && p.summary.serviceMissingSamples > 0));
+        measured.interference = interferenceReasons(measured, servicePid !== null && [idle, renderPhase].some((p) => p && p.summary.serviceMissingSamples > 0));
         measuredRenders.push(measured);
-        const peak = window?.summary.chrome.peakKb;
+        const peak = renderPhase?.summary.chrome.peakKb;
         log.line(`  chrome peak ${peak === null || peak === undefined ? '?' : `${Math.round(peak / 1024)} MiB`}${measured.interference.length ? `; interference: ${measured.interference.join('; ')}` : ''}`);
         if (record.status === 'failed') fail(`measured render ${caseId}: ${failedChecks(record)}`);
         save();
@@ -667,15 +676,14 @@ export async function render(opts: RenderOptions): Promise<number> {
     }
 
     if (manifest.failureScenarios) {
-      for (const resolved of browsers) {
-        for (const name of SCENARIO_NAMES) {
-          if (halt.reason) break;
-          log.line(`failure scenario ${name} with ${resolved.browser}`);
-          const result = await runScenario(name, resolved, manifest.failureScenarios.timeoutMs);
-          scenarioResults.push(result);
-          if (result.status === 'failed') fail(`failure scenario ${name}/${resolved.browser}: ${result.checks.filter((c) => !c.ok).map((c) => `${c.id}: ${c.detail}`).join('; ')}`);
-          save();
-        }
+      const cases = browsers.flatMap((resolved) => SCENARIO_NAMES.map((name) => ({ resolved, name })));
+      for (const { resolved, name } of cases) {
+        if (halt.reason) break;
+        log.line(`failure scenario ${name} with ${resolved.browser}`);
+        const result = await runScenario(name, resolved, manifest.failureScenarios.timeoutMs);
+        scenarioResults.push(result);
+        if (result.status === 'failed') fail(`failure scenario ${name}/${resolved.browser}: ${failedChecks(result)}`);
+        save();
       }
     }
   } catch (error) {

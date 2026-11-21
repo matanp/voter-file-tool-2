@@ -2,6 +2,7 @@ import { approveThresholds } from '../approve';
 import type { Approvals, ThresholdEntry } from '../approvals';
 import { ALL_FIXTURES, fixtureById, jobTypesCovered } from '../fixtures';
 import { PDF_JOB_TYPES } from '../fixtures/types';
+import type { BrowserName } from '../common';
 import type { RunManifest } from '../manifest';
 import { memoryChecks, scenarioChecks, type MemoryGroup } from '../measurementChecks';
 import { MEASURED_FIXTURES, interferenceReasons, type MeasuredRender, type MeasurementsFile } from '../measurements';
@@ -108,14 +109,20 @@ const phase = (chromeKb: number, extra: Partial<PhaseSummary> = {}): PhaseSummar
 function measuredRender(browser: 'chrome' | 'shell', repetition: number, chromeKb: number, extra: Partial<MeasuredRender> = {}): MeasuredRender {
   const f = fixtureById('roster-ed45-split');
   return {
-    fixtureId: f.id, fixtureHash: f.hash, browser, browserBuildId: browser === 'shell' ? '131.0.6778.204' : '131.0.6778.204', browserVersion: 'HeadlessChrome/131', repetition,
+    fixtureId: f.id, fixtureHash: f.hash, browser, browserBuildId: '131.0.6778.204', browserVersion: 'HeadlessChrome/131', repetition,
     key: `pdf-validation/${RUN}/pdf/${browser}/${f.id}.pdf`, status: 'ok', durationMs: 1000, idle: phase(0, { phase: 'idle' }), render: phase(chromeKb), processes: [], leftoverProcesses: [],
     serviceActivity: { receivedRequest: 0 }, interference: [], ...extra,
   };
 }
 
-const manifestWith = (extra: Partial<RunManifest>): RunManifest =>
-  ({ runId: RUN, browsers: ['chrome', 'shell'], measured: { fixtures: ['roster-ed45-split'], repetitions: 3, intervalMs: 100, idleMs: 10_000 }, failureScenarios: null, ...extra }) as RunManifest;
+type CheckedManifest = Pick<RunManifest, 'browsers' | 'measured' | 'failureScenarios'>;
+const BOTH: BrowserName[] = ['chrome', 'shell'];
+const manifestWith = (extra: Partial<CheckedManifest>): CheckedManifest => ({
+  browsers: BOTH,
+  measured: { fixtures: ['roster-ed45-split'], repetitions: 3, intervalMs: 100, idleMs: 10_000 },
+  failureScenarios: null,
+  ...extra,
+});
 
 const measurementsOf = (renders: MeasuredRender[]): MeasurementsFile => ({ version: 1, runId: RUN, repetitions: 3, intervalMs: 100, idleMs: 10_000, approximate: '', samplesFile: '', harnessParentRssKb: 0, renders });
 
@@ -124,7 +131,7 @@ const threeEach = (shellKb: number[], chromeKb = [500_000, 520_000, 510_000]) =>
   ...shellKb.map((kb, i) => measuredRender('shell', i + 1, kb)),
 ];
 
-const threshold = (browser: 'chrome' | 'shell', metric: ThresholdEntry['metric'], maxKb: number): ThresholdEntry => {
+const threshold = (browser: BrowserName, metric: ThresholdEntry['metric'], maxKb: number): ThresholdEntry => {
   const f = fixtureById('roster-ed45-split');
   return { fixtureId: f.id, fixtureHash: f.hash, browser, browserBuildId: '131.0.6778.204', metric, maxKb, measured: { medianKb: 0, maxKb: 0, repetitions: 3 }, headroomPct: 10, sourceRunId: RUN, reviewer: 'r', approvedAt: 'x', versions: { browserVersion: '', puppeteer: '', deployedCommit: '', instance: '' } };
 };
@@ -141,7 +148,7 @@ describe('memory checks', () => {
   });
 
   it('fails a peak over its approved threshold and passes one under it', () => {
-    const all = ['chrome', 'shell'].flatMap((b) => [threshold(b as 'chrome', 'chromePeakKb', 400_000), threshold(b as 'chrome', 'harnessPeakKb', 1_000_000)]);
+    const all = BOTH.flatMap((b) => [threshold(b, 'chromePeakKb', 400_000), threshold(b, 'harnessPeakKb', 1_000_000)]);
     const { groups } = memoryChecks(manifestWith({}), measurementsOf(threeEach([300_000, 320_000, 310_000])), approvalsWith(all));
     expect(groups.find((g) => g.browser === 'shell')!.status).toBe('pass');
     const chrome = groups.find((g) => g.browser === 'chrome')!;
@@ -163,7 +170,7 @@ describe('memory checks', () => {
 
   it('needs review when a sampling gap could hide a peak', () => {
     const renders = threeEach([300_000, 300_000, 300_000]).map((r) => ({ ...r, render: phase(300_000, { gaps: { maxMs: 2_500, overTwiceInterval: 1 } }) }));
-    const { groups } = memoryChecks(manifestWith({}), measurementsOf(renders), approvalsWith(['chrome', 'shell'].flatMap((b) => [threshold(b as 'chrome', 'chromePeakKb', 900_000), threshold(b as 'chrome', 'harnessPeakKb', 900_000)])));
+    const { groups } = memoryChecks(manifestWith({}), measurementsOf(renders), approvalsWith(BOTH.flatMap((b) => [threshold(b, 'chromePeakKb', 900_000), threshold(b, 'harnessPeakKb', 900_000)])));
     expect(groups.every((g) => g.status === 'needs-review')).toBe(true);
   });
 
@@ -178,16 +185,16 @@ describe('memory checks', () => {
 });
 
 describe('failure scenario checks', () => {
-  const result = (scenario: ScenarioResult['scenario'], browser: 'chrome' | 'shell', ok: boolean): ScenarioResult => ({
+  const result = (scenario: ScenarioResult['scenario'], browser: BrowserName, ok: boolean): ScenarioResult => ({
     scenario, browser, browserBuildId: 'b', timeoutMs: 30_000, status: ok ? 'ok' : 'failed', scenarioMs: ok ? 120 : null, error: ok ? 'x' : null, chromePids: [1],
     checks: ok ? [] : [{ id: 'bounded', ok: false, detail: 'failing call did not settle within 30000 ms' }],
     nextReport: { key: 'k', ok, detail: '' }, leftoverProcesses: [],
-  } as ScenarioResult);
+  });
   const file = (results: ScenarioResult[]): FailureScenariosFile => ({ version: 1, runId: RUN, timeoutMs: 30_000, fixture: 'roster-quick', results });
   const manifest = manifestWith({ measured: null, failureScenarios: { scenarios: [...SCENARIO_NAMES], timeoutMs: 30_000, fixture: 'roster-quick' } });
 
   it('passes completed scenarios, fails the close hang with a note, and fails scenarios that never ran', () => {
-    const results = ['chrome', 'shell'].flatMap((b) => SCENARIO_NAMES.map((s) => result(s, b as 'chrome', !(s === 'close-no-page' && b === 'shell'))));
+    const results = BOTH.flatMap((b) => SCENARIO_NAMES.map((s) => result(s, b, !(s === 'close-no-page' && b === 'shell'))));
     const checks = scenarioChecks(manifest, file(results));
     expect(checks.filter((c) => c.status === 'fail').map((c) => c.id)).toEqual(['scenario:close-no-page.shell']);
     expect(checks.find((c) => c.id === 'scenario:close-no-page.shell')!.detail).toMatch(/PR #148/);
@@ -205,11 +212,18 @@ describe('approve --thresholds', () => {
       idleServiceMedianKb: null, minAvailKb: null, maxSwapUsedKb: null, maxGapMs: 100, thresholds: [], status: 'needs-review', notes: [], ...extra,
     };
   };
-  const manifest = { deployed: { revision: { commit: 'abc', commitTime: '', branch: 'main', dirty: [] } }, versions: { puppeteer: '23.11.1' }, instance: { platform: 'linux x64', cpus: 2, totalMemMb: 945 } } as unknown as RunManifest;
+  const manifest: Pick<RunManifest, 'deployed' | 'versions' | 'instance'> = {
+    deployed: {
+      revision: { commit: 'abc', commitTime: '', branch: 'main', dirty: [] },
+      build: { distDir: '', distTree: { unavailable: 'test' }, distBuiltAt: null, sourcesNewerThanDist: [], css: { unavailable: 'test' }, cssSourceSha256: { unavailable: 'test' } },
+    },
+    versions: { node: 'v22', puppeteer: '23.11.1', puppeteerCore: '23.11.1', puppeteerBrowsers: '', pinnedBuilds: {} },
+    instance: { platform: 'linux x64', cpus: 2, totalMemMb: 945 },
+  };
 
-  it('records the measured max plus headroom, and skips interfered groups', () => {
+  it('records the measured max plus headroom, and skips interfered or gappy groups', () => {
     const approvals = approvalsWith([threshold('shell', 'chromePeakKb', 1)]);
-    const results = { memory: [group(), group({ browser: 'chrome', interfered: 1 })] } as VerifyResults;
+    const results: Pick<VerifyResults, 'memory'> = { memory: [group(), group({ browser: 'chrome', interfered: 1 }), group({ fixtureId: 'signin-151', fixtureHash: fixtureById('signin-151').hash, maxGapMs: 5_000 })] };
     const spy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     expect(approveThresholds(approvals, results, manifest, { runId: RUN, reviewer: 'Reviewer', headroomPct: 10, fixtures: null, browser: null })).toBe(2);
     spy.mockRestore();
@@ -218,7 +232,7 @@ describe('approve --thresholds', () => {
       ['shell', 'harnessPeakKb', 440_000],
     ]);
     expect(approvals.thresholds[0]).toMatchObject({ reviewer: 'Reviewer', sourceRunId: RUN, versions: { deployedCommit: 'abc', instance: 'linux x64, 2 CPU, 945 MB' } });
-    expect(() => approveThresholds(approvals, { memory: [] } as unknown as VerifyResults, manifest, { runId: RUN, reviewer: 'R', headroomPct: 10, fixtures: null, browser: null })).toThrow(/verify a --measured run/);
+    expect(() => approveThresholds(approvals, { memory: [] }, manifest, { runId: RUN, reviewer: 'R', headroomPct: 10, fixtures: null, browser: null })).toThrow(/verify a --measured run/);
   });
 });
 

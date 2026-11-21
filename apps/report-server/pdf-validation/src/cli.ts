@@ -11,7 +11,7 @@ import { parseArgs } from 'util';
 import { accept, approve } from './approve';
 import { cleanup } from './cleanup';
 import { BROWSERS, DEFAULT_ENV_FILE, DEFAULT_RUNS_DIR, DEFAULT_TIMEOUTS, EXIT_CODE, SERVER_DIR, assertRunId, errorMessage, type BrowserName } from './common';
-import type { Acceptance } from './approvals';
+import { DEFAULT_HEADROOM_PCT, type Acceptance } from './approvals';
 import { DEFAULT_MEASURE } from './measurements';
 import { render } from './render';
 import { DEFAULT_FAILURE_TIMEOUT_MS } from './scenarios';
@@ -140,7 +140,7 @@ async function main(argv: string[]): Promise<number> {
         baselines: values.baselines ?? false,
         pageCounts: values['page-counts'] ?? false,
         thresholds: values.thresholds ?? false,
-        headroomPct: values['headroom-pct'] === undefined ? 10 : Number(values['headroom-pct']),
+        headroomPct: values['headroom-pct'] === undefined ? DEFAULT_HEADROOM_PCT : Number(values['headroom-pct']),
         fixtures,
         browser: values.browser ? (values.browser as BrowserName) : null,
       });

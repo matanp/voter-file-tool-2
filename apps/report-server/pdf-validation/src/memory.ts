@@ -265,7 +265,7 @@ export class MemorySampler {
       }
     }
     for (const p of procs) {
-      if (!ownedNow.has(p.pid) && !service.has(p.pid) && p.pid !== process.pid && isChromeCommand(p.command) && !p.command.includes('pdf-validation/runs/')) {
+      if (!ownedNow.has(p.pid) && !service.has(p.pid) && p.pid !== process.pid && isChromeCommand(p.command)) {
         this.foreign.set(p.pid, p.command.slice(0, 160));
       }
     }

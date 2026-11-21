@@ -102,8 +102,16 @@ export const saveApprovals = (approvals: Approvals, file = APPROVALS_FILE) => wr
 export const findBaseline = (a: Approvals, fixtureId: string, fixtureHash: string, browser: BrowserName) =>
   a.baselines.find((b) => b.fixtureId === fixtureId && b.fixtureHash === fixtureHash && b.browser === browser) ?? null;
 
-export const findThreshold = (a: Approvals, q: Pick<ThresholdEntry, 'fixtureId' | 'fixtureHash' | 'browser' | 'browserBuildId' | 'metric'>) =>
-  a.thresholds.find((t) => t.fixtureId === q.fixtureId && t.fixtureHash === q.fixtureHash && t.browser === q.browser && t.browserBuildId === q.browserBuildId && t.metric === q.metric) ?? null;
+export const MEMORY_METRICS: readonly MemoryMetric[] = ['chromePeakKb', 'harnessPeakKb'];
+export const DEFAULT_HEADROOM_PCT = 10;
+
+/** What a threshold is keyed by: fixture (and its hash), browser, browser build, metric. */
+export type ThresholdKey = Pick<ThresholdEntry, 'fixtureId' | 'fixtureHash' | 'browser' | 'browserBuildId' | 'metric'>;
+
+export const sameThresholdKey = (a: ThresholdKey, b: ThresholdKey) =>
+  a.fixtureId === b.fixtureId && a.fixtureHash === b.fixtureHash && a.browser === b.browser && a.browserBuildId === b.browserBuildId && a.metric === b.metric;
+
+export const findThreshold = (a: Approvals, q: ThresholdKey) => a.thresholds.find((t) => sameThresholdKey(t, q)) ?? null;
 
 export const findPageCount = (a: Approvals, fixtureId: string, fixtureHash: string) =>
   a.pageCounts.find((p) => p.fixtureId === fixtureId && p.fixtureHash === fixtureHash) ?? null;

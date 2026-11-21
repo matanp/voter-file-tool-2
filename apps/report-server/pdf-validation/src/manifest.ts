@@ -1,4 +1,5 @@
 import type { BrowserName } from './common';
+import type { ScenarioName } from './scenarios';
 import type { CssRequest } from './cssServer';
 import type { DeployedBuild, GitRevision, Maybe, ProcessInfo, ServiceState } from './diagnostics';
 import type { ResolvedBrowser } from './browsers';
@@ -60,7 +61,7 @@ export type RunManifest = {
   /** `--measured` (manifest v2): repeated renders of the measured fixtures with RSS sampling. */
   measured?: { fixtures: string[]; repetitions: number; intervalMs: number; idleMs: number } | null;
   /** `--failure-scenarios` (manifest v2). */
-  failureScenarios?: { scenarios: string[]; timeoutMs: number; fixture: string } | null;
+  failureScenarios?: { scenarios: ScenarioName[]; timeoutMs: number; fixture: string } | null;
   storage: { bucket: string; prefix: string; source: StorageConfig['source'] };
   harness: { revision: Maybe<GitRevision>; srcTree: Maybe<{ sha256: string; files: number }>; distTree: Maybe<{ sha256: string; files: number }>; fixtureManifestVersion: number };
   deployed: { revision: Maybe<GitRevision>; build: DeployedBuild };
