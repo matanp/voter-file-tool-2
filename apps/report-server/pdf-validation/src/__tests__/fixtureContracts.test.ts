@@ -5,7 +5,7 @@
  * becomes a type error.
  */
 import type { DeployedModules } from '../callShapes';
-import type { ChangesReportRow, DesignationWeightSummary, PetitionOutcomeRow, SeatWeightBreakdown, VacancyReportRow } from '../../../src/committeeMappingHelpers';
+import type { ChangesReportRow, CommitteeReportStructure, DesignationWeightSummary, PetitionOutcomeRow, SeatWeightBreakdown, VacancyReportRow } from '../../../src/committeeMappingHelpers';
 import type { CommitteeRosterColumn } from '../../../src/committeeRosterConfig';
 import type * as utils from '../../../src/utils';
 import type { ChangesRowSpec, OutcomeRowSpec, SeatSpec, VacancyRowSpec, WeightSummarySpec } from '../fixtures/types';
@@ -38,6 +38,8 @@ describe('fixture types match the deployed inputs', () => {
     const vacancy: (rows: VacancyReportRow[], author: string) => string = null as unknown as typeof utils.generateVacancyReportHTML;
     const outcomes: (rows: PetitionOutcomeRow[], author: string) => string = null as unknown as typeof utils.generatePetitionOutcomesReportHTML;
     const weights: (s: DesignationWeightSummary[], scope: string, author?: string) => string = null as unknown as typeof utils.generateDesignationWeightSummaryHTML;
-    expect([pdf, petition, changes, vacancy, outcomes, weights].every((f) => f === null)).toBe(true);
+    const committee: (groups: CommitteeReportStructure[], columns?: CommitteeRosterColumn[]) => string[] =
+      null as unknown as typeof utils.generateCommitteeReportHTMLChunks;
+    expect([pdf, petition, changes, vacancy, outcomes, weights, committee].every((f) => f === null)).toBe(true);
   });
 });

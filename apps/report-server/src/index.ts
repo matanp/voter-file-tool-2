@@ -9,7 +9,7 @@ import path from 'path';
 import {
   generateHTML,
   generatePDFAndUpload,
-  generateCommitteeReportHTML,
+  generateCommitteeReportHTMLChunks,
   generateSignInSheetHTML,
   generateDesignationWeightSummaryHTML,
   generateVacancyReportHTML,
@@ -252,7 +252,7 @@ async function processJob(jobData: EnrichedReportData) {
         );
       } else {
         console.log('Processing committee report as PDF...');
-        const html = generateCommitteeReportHTML(
+        const html = generateCommitteeReportHTMLChunks(
           payload,
           rosterConfig?.pdfColumns,
         );
