@@ -158,7 +158,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle as="h2" className="flex items-center space-x-2">
             <CheckCircle className="h-5 w-5 text-green-500" />
             <span>Pending Reports</span>
           </CardTitle>
@@ -178,7 +178,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle as="h2" className="flex items-center space-x-2">
             <Clock className="h-5 w-5 text-yellow-500" />
             <span>Report Jobs</span>
             <Badge variant="secondary" hoverable={false}>

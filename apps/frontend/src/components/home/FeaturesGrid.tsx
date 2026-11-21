@@ -57,7 +57,7 @@ export function FeaturesGrid() {
                 <div className="p-2 bg-primary/10 rounded-lg">
                   <IconComponent className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle>{feature.title}</CardTitle>
+                <CardTitle as="h2">{feature.title}</CardTitle>
               </div>
               <CardDescription>{feature.description}</CardDescription>
             </CardHeader>
