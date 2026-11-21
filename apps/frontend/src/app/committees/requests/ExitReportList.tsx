@@ -1,7 +1,8 @@
 "use client";
 /**
  * One committee's pending Exit Reports on the Admin queue. Reuses the
- * workspace Pending tab's item (confirm exactly as reported, or reject) and
+ * workspace Pending tab's item in its compact row layout, matching the
+ * submissions' rows (confirm exactly as reported, or reject), and
  * refreshes the server-rendered page after a decision. The refresh removes the
  * decided item, so focus moves to the page heading and the outcome is
  * announced with the app-wide toast (a live region that outlives the refresh).
@@ -41,12 +42,13 @@ export function ExitReportList({ reports }: { reports: PendingExitReport[] }) {
   );
 
   return (
-    <ul className="space-y-2 text-sm" aria-label="Reported exits">
+    <ul className="divide-y text-sm" aria-label="Reported exits">
       {reports.map((report) => (
         <PendingExitReportItem
           key={`${report.membershipId}-${report.reportedAt}`}
           report={report}
           canDecide
+          layout="row"
           onDecided={onDecided}
           focusAfterDecision={focusRequestsHeading}
         />
