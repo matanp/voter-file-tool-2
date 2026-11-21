@@ -148,6 +148,8 @@ async function requestAddHandler(req: NextRequest, session: Session) {
     }
 
     // An existing membership is resubmitted below, unless it is still pending.
+    // Accepted race: two simultaneous first submits both find nothing; the
+    // unique key rejects the second create, which returns a 500, not the 409.
     const existing = await prisma.committeeMembership.findUnique({
       where: {
         voterRecordId_committeeListId_termId: {

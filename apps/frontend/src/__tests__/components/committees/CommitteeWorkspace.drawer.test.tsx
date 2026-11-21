@@ -9,13 +9,16 @@
  * stateful server whose `add` fills the committee's next open seat.
  */
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { chooseSelectOption } from "~/__tests__/utils/chooseSelectOption";
 import { PrivilegeLevel } from "@prisma/client";
 
-import { CommitteeWorkspace } from "~/app/committees/workspace/CommitteeWorkspace";
+import {
+  COMPLETION_REFRESH_WAIT_MS,
+  CommitteeWorkspace,
+} from "~/app/committees/workspace/CommitteeWorkspace";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { toast } from "~/components/ui/use-toast";
 import { hasPermissionFor } from "~/lib/utils";
@@ -593,6 +596,74 @@ describe("Action drawer in the workspace", () => {
       expect(within(detailPane()).getByRole("button", { name: "Actions for seat 2" })).toHaveFocus(),
     );
     expect(document.activeElement).toBeInTheDocument();
+  });
+
+  it("closes after a wait when the refresh doesn't answer, and repairs focus once it does", async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    try {
+      const server = newServer();
+      serve(server);
+      renderWorkspace("committee=2&tab=roster");
+      await waitForGrid();
+      await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
+
+      let releaseDetail: () => void = () => undefined;
+      server.detailGate = new Promise<void>((r) => (releaseDetail = r));
+      await openVacantSeatAdd(2);
+      await addJane();
+      await waitFor(() =>
+        expect(within(drawer()).getByRole("button", { name: "Adding…" })).toBeDisabled(),
+      );
+
+      act(() => jest.advanceTimersByTime(COMPLETION_REFRESH_WAIT_MS));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(toast).toHaveBeenCalledTimes(1);
+      expect(within(detailPane()).queryByText("Jane Doe")).not.toBeInTheDocument();
+
+      // The late refresh replaces the seat's Add button; focus follows the seat.
+      server.detailGate = null;
+      releaseDetail();
+      await waitFor(() =>
+        expect(
+          within(detailPane()).getByRole("button", { name: "Actions for seat 2" }),
+        ).toHaveFocus(),
+      );
+      expect(toast).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("doesn't move focus into another committee when the selection changes mid-add", async () => {
+    const server = newServer();
+    server.seats.set(1, [person("V-OLIVE", "Olive", "Other"), null, null, null]);
+    serve(server);
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
+
+    let releaseDetail: () => void = () => undefined;
+    server.detailGate = new Promise<void>((r) => (releaseDetail = r));
+    await openVacantSeatAdd(2);
+    await addJane();
+    await waitFor(() =>
+      expect(within(drawer()).getByRole("button", { name: "Adding…" })).toBeDisabled(),
+    );
+
+    // Browser Back to committee 1: the drawer closes, and the add's toast
+    // shows without waiting for a committee it no longer concerns.
+    act(() => mockUrl.set("/committees?committee=1&tab=roster"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+
+    server.detailGate = null;
+    releaseDetail();
+    await within(detailPane()).findByText("Olive Other");
+    // Let the settled detail's effects run before checking focus.
+    await act(async () => undefined);
+    expect(
+      within(detailPane()).getByRole("button", { name: "Add member for seat 2" }),
+    ).not.toHaveFocus();
   });
 
   it("moves focus to the committee heading when the row it came from is gone", async () => {

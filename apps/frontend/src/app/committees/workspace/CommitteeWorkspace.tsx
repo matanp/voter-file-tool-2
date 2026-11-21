@@ -80,6 +80,8 @@ export type CommitteeWorkspaceProps = {
 
 const COLLAPSE_LIST_ID = "committee-list-collapse";
 const DETAIL_PANE_ID = "committee-detail-pane";
+/** How long a completed action waits for the refreshed detail before closing anyway. */
+export const COMPLETION_REFRESH_WAIT_MS = 12_000;
 
 /** The committee's `h2` (script-focusable): where focus goes when its row is gone. */
 const focusDetailHeading = () =>
@@ -292,8 +294,10 @@ export function CommitteeWorkspace({
   // unassigned member). Focus goes to the seat an Admin add filled, else the
   // trigger, else the same row's new control, else the committee heading.
   const pendingCompletion = useRef<{
+    committeeListId: number | null;
     trigger: HTMLElement | null;
     seatedMemberId?: string;
+    /** Resolves the drawer's wait; only the first call counts. */
     resolve: (focusTarget: HTMLElement | null) => void;
   } | null>(null);
   const completeAction = useCallback(
@@ -302,17 +306,41 @@ export function CommitteeWorkspace({
       refreshDetailAndGrid();
       return new Promise<HTMLElement | null>((resolve) => {
         pendingCompletion.current?.resolve(null);
-        pendingCompletion.current = { trigger, seatedMemberId, resolve };
+        // A refresh that never answers mustn't hold the drawer on "Adding…":
+        // after the wait it toasts and closes, and focus is still repaired
+        // below once the refresh settles.
+        let settled = false;
+        const settle = (focusTarget: HTMLElement | null) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          resolve(focusTarget);
+        };
+        const timer = window.setTimeout(() => settle(null), COMPLETION_REFRESH_WAIT_MS);
+        pendingCompletion.current = {
+          committeeListId: selectedCommitteeId,
+          trigger,
+          seatedMemberId,
+          resolve: settle,
+        };
       });
     },
-    [openAction, refreshDetailAndGrid],
+    [openAction, refreshDetailAndGrid, selectedCommitteeId],
   );
   const detailSettled =
     loadedDetail.status === "error" ||
     (loadedDetail.status === "ready" && !loadedDetail.refreshing);
   useEffect(() => {
     const pending = pendingCompletion.current;
-    if (!pending || !detailSettled) return;
+    if (!pending) return;
+    // The selection moved on (e.g. browser Back): the drawer has closed, and
+    // these rows aren't the committee the action came from.
+    if (pending.committeeListId !== selectedCommitteeId) {
+      pendingCompletion.current = null;
+      pending.resolve(null);
+      return;
+    }
+    if (!detailSettled) return;
     pendingCompletion.current = null;
     const rowControl = (key: string) =>
       document.querySelector<HTMLElement>(
@@ -338,7 +366,7 @@ export function CommitteeWorkspace({
     if (openAction === null && (active === null || active === document.body)) {
       target?.focus();
     }
-  }, [detailSettled, loadedDetail, openAction]);
+  }, [detailSettled, loadedDetail, openAction, selectedCommitteeId]);
 
   // Mobile Back: return to the list and put focus back on the row it came from.
   const returnFocusTo = useRef<number | null>(null);
