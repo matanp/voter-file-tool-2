@@ -1,6 +1,6 @@
 # 07 - Test-account filter: qa_agent, Developer, DEV identities
 
-Status: ready-for-human
+Status: resolved
 
 ## Problem
 
@@ -23,3 +23,19 @@ Add these to the project's test-account filters:
 
 Then check that a trends insight with "Filter out internal and test users" drops them.
 If testers from 05 should also be excluded by default, add `tester` ≠ `true` as well.
+
+## Comments
+
+2026-11-21: Done. The project's test-account filter now has six rules:
+
+1. `$host` not matching localhost / 127.0.0.1
+2. `$host` not matching `*.vercel.app` (previews)
+3. Not in cohort 746194 "Internal team" (the maintainer's emails; add teammates there)
+4. Event property `qa_agent` is not set
+5. Person `privilegeLevel` ≠ `Developer`
+6. Person `devMode` ≠ `true`
+
+Rules 1–4 were added by hand earlier the same day. Rules 5–6 cover one Developer-role person outside the cohort and
+two `DEV -` identities on a non-local host. Checked: 90-day pageviews by `privilegeLevel` with the filter on show
+Admin / Leader / ReadAccess / no-value (anonymous) and no Developer rows. Testers from 05 aren't excluded yet; add
+`tester` ≠ `true` when that property exists.
