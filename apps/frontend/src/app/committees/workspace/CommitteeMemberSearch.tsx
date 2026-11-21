@@ -10,6 +10,7 @@ import React from "react";
 import { ChevronRight, Clock, UserSearch, X } from "lucide-react";
 
 import { Input } from "~/components/ui/input";
+import { StatusBadge } from "~/components/ui/status-badge";
 import {
   MEMBER_SEARCH_LIMIT,
   MEMBER_SEARCH_MAX_LENGTH,
@@ -120,16 +121,19 @@ function statusLine(
   }
 }
 
-function StatusBadge({ status }: { status: MemberSearchHit["status"] }) {
+function MemberStatusBadge({ status }: { status: MemberSearchHit["status"] }) {
   return status === "pending" ? (
-    <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100">
-      <Clock className="h-3 w-3" aria-hidden />
+    <StatusBadge
+      tone="warning"
+      className="shrink-0 gap-0.5 px-1.5 py-0"
+      icon={<Clock className="h-3 w-3" aria-hidden />}
+    >
       Pending
-    </span>
+    </StatusBadge>
   ) : (
-    <span className="shrink-0 rounded bg-emerald-50 px-1 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+    <StatusBadge tone="success" className="shrink-0 px-1.5 py-0">
       Active
-    </span>
+    </StatusBadge>
   );
 }
 
@@ -184,7 +188,7 @@ export function MemberSearchResults({
                         {committeeLabel(hit)}
                       </span>
                     </span>
-                    <StatusBadge status={hit.status} />
+                    <MemberStatusBadge status={hit.status} />
                     <ChevronRight
                       className="h-4 w-4 shrink-0 text-slate-300"
                       aria-hidden

@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
+import { StatusBadge, type StatusTone } from "~/components/ui/status-badge";
 import { Button } from "~/components/ui/button";
 import {
   Clock,
@@ -22,6 +23,14 @@ import { type Report, type JobStatus } from "@prisma/client";
 import { formatReportType } from "./reportUtils";
 import { useApiDelete } from "~/hooks/useApiMutation";
 import { useHasMounted } from "~/hooks/useHasMounted";
+
+const JOB_STATUS_BADGE: Record<JobStatus, { tone: StatusTone; label: string }> =
+  {
+    PENDING: { tone: "warning", label: "Pending" },
+    PROCESSING: { tone: "info", label: "Processing" },
+    COMPLETED: { tone: "success", label: "Completed" },
+    FAILED: { tone: "danger", label: "Failed" },
+  };
 
 interface PendingJobsIndicatorProps {
   initialJobs?: Report[];
@@ -84,30 +93,13 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   const getStatusIcon = (status: JobStatus) => {
     switch (status) {
       case "PENDING":
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        return <Clock className="h-4 w-4 text-warning-solid" />;
       case "PROCESSING":
-        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
+        return <Loader2 className="h-4 w-4 text-info-solid animate-spin" />;
       case "COMPLETED":
-        return <CheckCircle className="h-4 w-4 text-primary" />;
+        return <CheckCircle className="h-4 w-4 text-success-solid" />;
       case "FAILED":
-        return <XCircle className="h-4 w-4 text-destructive" />;
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusColor = (status: JobStatus) => {
-    switch (status) {
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800";
-      case "PROCESSING":
-        return "bg-blue-100 text-blue-800";
-      case "COMPLETED":
-        return "bg-green-100 text-green-800";
-      case "FAILED":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+        return <XCircle className="h-4 w-4 text-danger-solid" />;
     }
   };
 
@@ -179,7 +171,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle as="h2" className="flex items-center space-x-2">
-            <Clock className="h-5 w-5 text-yellow-500" />
+            <Clock className="h-5 w-5 text-warning-solid" />
             <span>Report Jobs</span>
             <Badge variant="secondary" hoverable={false}>
               {pendingJobs.length}
@@ -220,9 +212,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge className={getStatusColor(job.status)} hoverable={false}>
-                {job.status.toLowerCase()}
-              </Badge>
+              <StatusBadge tone={JOB_STATUS_BADGE[job.status].tone}>
+                {JOB_STATUS_BADGE[job.status].label}
+              </StatusBadge>
               {job.status === "FAILED" && (
                 <Button
                   size="sm"

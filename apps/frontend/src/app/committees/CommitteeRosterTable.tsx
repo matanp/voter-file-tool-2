@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
+import { StatusBadge } from "~/components/ui/status-badge";
 import type {
   EdRollup,
   RosterResponse,
@@ -368,9 +369,7 @@ function SeatRow({
           // Still ACTIVE and seated until an Admin confirms the report.
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{name}</span>
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-              Exit reported – pending
-            </span>
+            <StatusBadge tone="warning">Exit reported – pending</StatusBadge>
           </div>
         ) : (
           name

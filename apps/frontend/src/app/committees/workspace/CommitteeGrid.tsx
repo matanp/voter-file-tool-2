@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, Clock } from "lucide-react";
 
 import type { EdRollup } from "~/lib/validations/committee";
+import { StatusBadge } from "~/components/ui/status-badge";
 import {
   formatTownName,
   openSeats,
@@ -131,18 +132,19 @@ function CommitteeGridRow({
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-1">
         {rollup.pendingCount > 0 && (
-          <span
-            className="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100"
+          <StatusBadge
+            tone="warning"
+            className="gap-0.5 px-1.5 py-0"
             title={`${rollup.pendingCount} pending`}
+            icon={<Clock className="h-3 w-3" aria-hidden />}
+            count={rollup.pendingCount}
           >
-            <Clock className="h-3 w-3" aria-hidden />
-            {rollup.pendingCount}
             <span className="sr-only"> pending</span>
-          </span>
+          </StatusBadge>
         )}
         {missingWeight > 0 && (
           <span title="Missing weight" className="inline-flex">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" aria-hidden />
+            <AlertTriangle className="h-3.5 w-3.5 text-warning-solid" aria-hidden />
             <span className="sr-only">Missing weight</span>
           </span>
         )}
