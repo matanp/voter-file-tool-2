@@ -1,17 +1,8 @@
-// app/providers.js
 "use client";
 import { useSession } from "next-auth/react";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 import { useEffect, useRef } from "react";
-
-import dynamic from "next/dynamic";
-
-const PostHogPageView = dynamic(() => import("./PostHogPageView"), {
-  ssr: false,
-});
-
-type PostHogProviderProps = React.ComponentProps<typeof PostHogProvider>;
 
 // Agent-driven QA opens the app with `?qa_agent=1`. Tagging the tab lets the
 // PostHog project's test-account filter drop those events. The tag is
@@ -26,14 +17,24 @@ if (typeof window !== "undefined") {
     // Anonymous visitors (bots, sign-in page bounces) still send events but
     // don't get person profiles, so they don't inflate user counts.
     person_profiles: "identified_only",
-    capture_pageview: false,
+    // Pin the defaults date so SDK upgrades don't silently change behaviour.
+    // 2026-05-30 also stops rage clicks firing on text selection
+    // (triple-click to select a field's value).
+    defaults: "2026-05-30",
+    // Count a pageview on path and query changes, as the old hand-rolled
+    // PostHogPageView did, so pageview counts stay comparable.
+    capture_pageview: { path: true, search: true },
     capture_pageleave: true,
+    // `loaded` runs before the automatic initial pageview, so that pageview
+    // is tagged too.
+    loaded: (ph) => {
+      if (new URLSearchParams(window.location.search).has(QA_AGENT_PARAM)) {
+        ph.register_for_session({ qa_agent: true });
+      }
+    },
   });
-  if (new URLSearchParams(window.location.search).has(QA_AGENT_PARAM)) {
-    posthog.register_for_session({ qa_agent: true });
-  }
 }
-export function CSPostHogProvider({ children }: PostHogProviderProps) {
+export function CSPostHogProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   // NextAuth hands back a new session object on every refetch (e.g. when a
   // background tab regains focus). Re-identifying each time sends a `$set`,
@@ -66,10 +67,5 @@ export function CSPostHogProvider({ children }: PostHogProviderProps) {
     posthog.identify(session.user.id, properties);
   }, [session, status]);
 
-  return (
-    <PostHogProvider client={posthog}>
-      <PostHogPageView />
-      {children}
-    </PostHogProvider>
-  );
+  return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
 }

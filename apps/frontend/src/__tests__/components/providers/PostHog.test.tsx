@@ -5,10 +5,12 @@ const mockRegisterForSession = jest.fn<void, unknown[]>();
 const mockReset = jest.fn<void, []>();
 const mockUseSession = jest.fn<unknown, []>();
 
-jest.mock("posthog-js", () => ({
-  __esModule: true,
-  default: {
-    init: jest.fn(),
+jest.mock("posthog-js", () => {
+  const client = {
+    // Like the real SDK, run the `loaded` callback during init.
+    init: (_key: string, config: { loaded?: (ph: unknown) => void }) => {
+      config.loaded?.(client);
+    },
     identify: (...args: unknown[]) => {
       mockIdentify(...args);
     },
@@ -18,8 +20,9 @@ jest.mock("posthog-js", () => ({
     reset: () => {
       mockReset();
     },
-  },
-}));
+  };
+  return { __esModule: true, default: client };
+});
 jest.mock("posthog-js/react", () => ({
   PostHogProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
@@ -28,7 +31,6 @@ jest.mock("posthog-js/react", () => ({
 jest.mock("next-auth/react", () => ({
   useSession: () => mockUseSession(),
 }));
-jest.mock("next/dynamic", () => () => () => null);
 
 import { CSPostHogProvider as Provider } from "~/components/providers/PostHog";
 
