@@ -26,4 +26,5 @@ On 2026-11-08 there were 221 open Dependabot alerts. Most were one advisory repo
 | [01 – xlsx from the SheetJS CDN](issues/01-xlsx-from-sheetjs-cdn.md) | 9 | npm has no fixed release |
 | [02 – puppeteer major bump](issues/02-puppeteer-major-bump.md) | 4 (+2 no-fix) | Major version; install-time-only code |
 | [03 – lower-priority tier](issues/03-lower-priority-dependency-alerts.md) | ~16 | Major migrations, dev-only, or low impact |
-| [04 – upgrade pnpm 8 → 11 (or 12)](issues/04-upgrade-pnpm.md) | — | Tooling; needs Vercel + report-server cutover (runbook inside) |
+| [04 – upgrade pnpm 8 → 11](issues/04-upgrade-pnpm.md) | — | Tooling; needs Vercel + report-server cutover (runbook inside) |
+| [05 – upgrade pnpm 11 → 12](issues/05-upgrade-pnpm-11-to-12.md) | — | Blocked by 04; pin bump once 12 settles |
