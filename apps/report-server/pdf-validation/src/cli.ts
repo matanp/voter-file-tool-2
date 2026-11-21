@@ -12,14 +12,18 @@ import { accept, approve } from './approve';
 import { cleanup } from './cleanup';
 import { BROWSERS, DEFAULT_ENV_FILE, DEFAULT_RUNS_DIR, DEFAULT_TIMEOUTS, EXIT_CODE, SERVER_DIR, assertRunId, errorMessage, type BrowserName } from './common';
 import type { Acceptance } from './approvals';
+import { DEFAULT_MEASURE } from './measurements';
 import { render } from './render';
+import { DEFAULT_FAILURE_TIMEOUT_MS } from './scenarios';
 import { verify } from './verify';
 
 const USAGE = `usage:
   pdf-validation render  --mode quick|full --browser chrome|shell|both [--fixtures a,b] [--case-timeout-ms N] [--timeout-ms N] [--no-install]
+                         [--measured [--repetitions N] [--sample-interval-ms N] [--idle-ms N]]   (needs --mode full)
+                         [--failure-scenarios [--failure-timeout-ms N]]
   pdf-validation verify  --run-id <id> [--keep-remote] [--platform linux/amd64] [--reinspect] [--download-timeout-ms N]
   pdf-validation cleanup --run-id <id>
-  pdf-validation approve --run-id <id> --reviewer <name> [--baselines] [--page-counts] [--fixtures a,b] [--browser chrome|shell]
+  pdf-validation approve --run-id <id> --reviewer <name> [--baselines] [--page-counts] [--thresholds [--headroom-pct N]] [--fixtures a,b] [--browser chrome|shell]
   pdf-validation accept  --run-id <id> --reviewer <name> --kind visual-change|layout-finding --item <fixture>.<browser> --page <n> --reason <text> [--finding <text>]
 common: [--runs-dir DIR] [--env-file FILE] [--deployed-dist DIR]`;
 
@@ -31,6 +35,14 @@ const options = {
   'timeout-ms': { type: 'string' },
   'download-timeout-ms': { type: 'string' },
   'no-install': { type: 'boolean' },
+  measured: { type: 'boolean' },
+  repetitions: { type: 'string' },
+  'sample-interval-ms': { type: 'string' },
+  'idle-ms': { type: 'string' },
+  'failure-scenarios': { type: 'boolean' },
+  'failure-timeout-ms': { type: 'string' },
+  thresholds: { type: 'boolean' },
+  'headroom-pct': { type: 'string' },
   'run-id': { type: 'string' },
   'keep-remote': { type: 'boolean' },
   platform: { type: 'string' },
@@ -78,7 +90,12 @@ async function main(argv: string[]): Promise<number> {
       if (mode !== 'quick' && mode !== 'full') throw new Error('--mode quick|full is required');
       const browser = values.browser;
       if (browser !== 'both' && !BROWSERS.includes(browser as BrowserName)) throw new Error('--browser chrome|shell|both is required');
-      const overridden = (['case-timeout-ms', 'timeout-ms'] as const).filter((k) => values[k] !== undefined).map((k) => `${k}=${values[k]}`);
+      const measuredFlags = ['repetitions', 'sample-interval-ms', 'idle-ms'] as const;
+      if (!values.measured && measuredFlags.some((k) => values[k] !== undefined)) throw new Error(`${measuredFlags.map((k) => `--${k}`).join(', ')} need --measured`);
+      if (values.measured && mode !== 'full') throw new Error('--measured needs --mode full');
+      if (!values['failure-scenarios'] && values['failure-timeout-ms'] !== undefined) throw new Error('--failure-timeout-ms needs --failure-scenarios');
+      const overridden = (['case-timeout-ms', 'timeout-ms', ...measuredFlags, 'failure-timeout-ms'] as const).filter((k) => values[k] !== undefined).map((k) => `${k}=${values[k]}`);
+      const idleMs = values['idle-ms'] === '0' ? 0 : int(values['idle-ms'], 'idle-ms', DEFAULT_MEASURE.idleMs);
       return render({
         mode,
         browser: browser as BrowserName | 'both',
@@ -86,10 +103,18 @@ async function main(argv: string[]): Promise<number> {
         envFile,
         deployedDistDir: path.resolve(values['deployed-dist'] ?? path.join(SERVER_DIR, 'dist')),
         caseTimeoutMs: int(values['case-timeout-ms'], 'case-timeout-ms', DEFAULT_TIMEOUTS.caseMs),
-        invocationTimeoutMs: int(values['timeout-ms'], 'timeout-ms', DEFAULT_TIMEOUTS.invocationMs),
+        invocationTimeoutMs: int(values['timeout-ms'], 'timeout-ms', values.measured ? DEFAULT_TIMEOUTS.measuredInvocationMs : DEFAULT_TIMEOUTS.invocationMs),
         overridden,
         fixtures,
         allowInstall: !values['no-install'],
+        measured: values.measured
+          ? {
+              repetitions: int(values.repetitions, 'repetitions', DEFAULT_MEASURE.repetitions),
+              intervalMs: int(values['sample-interval-ms'], 'sample-interval-ms', DEFAULT_MEASURE.intervalMs),
+              idleMs,
+            }
+          : null,
+        failureScenarios: values['failure-scenarios'] ? { timeoutMs: int(values['failure-timeout-ms'], 'failure-timeout-ms', DEFAULT_FAILURE_TIMEOUT_MS) } : null,
       });
     }
     case 'verify':
@@ -105,7 +130,8 @@ async function main(argv: string[]): Promise<number> {
     case 'cleanup':
       return cleanup({ runId: runId(), runsDir, envFile });
     case 'approve':
-      if (!values.baselines && !values['page-counts']) throw new Error('approve needs --baselines and/or --page-counts');
+      if (!values.baselines && !values['page-counts'] && !values.thresholds) throw new Error('approve needs --baselines, --page-counts and/or --thresholds');
+      if (!values.thresholds && values['headroom-pct'] !== undefined) throw new Error('--headroom-pct needs --thresholds');
       return approve({
         runId: runId(),
         runsDir,
@@ -113,6 +139,8 @@ async function main(argv: string[]): Promise<number> {
         reviewer: values.reviewer ?? '',
         baselines: values.baselines ?? false,
         pageCounts: values['page-counts'] ?? false,
+        thresholds: values.thresholds ?? false,
+        headroomPct: values['headroom-pct'] === undefined ? 10 : Number(values['headroom-pct']),
         fixtures,
         browser: values.browser ? (values.browser as BrowserName) : null,
       });

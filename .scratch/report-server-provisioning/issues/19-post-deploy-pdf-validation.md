@@ -126,3 +126,7 @@ Remaining, all human on the box:
 3. After #148 is deployed, quick and full runs with `--browser both`.
 
 The full run's report defects are filed as `.scratch/reports-polish/issues/02`–`05`.
+
+### 2026-11-20: ticket 20 adds a pre-#148 measured run
+
+Ticket 20's `render --mode full --browser both --measured --failure-scenarios` now runs before #148 merges (README step 4). Its repetition-1 PDFs go through the same `verify` checks. A plain `--browser shell` run is still diagnostic only. Box runs so far: full Chrome at `1a5d1b62` (#170). Full-Chrome baselines (34), page counts (9) and one acceptance come from run `20261121T005219Z` (`b7466865`).

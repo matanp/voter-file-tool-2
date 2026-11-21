@@ -6,6 +6,7 @@ import type { ItemResult } from './evaluate';
 import { fixtureById } from './fixtures';
 import type { Inspection } from './inspect';
 import type { RunManifest } from './manifest';
+import type { MemoryGroup } from './measurementChecks';
 import type { VerifyResults } from './verify';
 
 const ICON: Record<Status, string> = { pass: 'PASS', fail: 'FAIL', 'needs-review': 'REVIEW' };
@@ -70,14 +71,64 @@ export function writeSummary(runDir: string, manifest: RunManifest, results: Ver
     for (const id of [...new Set(notes.map((n) => n.fixtureId))]) lines.push(`- \`${id}\`: ${notes.find((n) => n.fixtureId === id)!.reviewNotes.join(' ')}`);
     lines.push('');
   }
+  if (results.memory?.length) writeMemorySection(lines, results.memory);
+  if (results.failureScenarios !== undefined && manifest.failureScenarios) {
+    lines.push('## Failure scenarios');
+    lines.push('');
+    if (!results.failureScenarios) lines.push('failure-scenarios.json is missing or failed its hash check.');
+    else {
+      lines.push(`Bound for the failing call: ${manifest.failureScenarios.timeoutMs} ms. After it, the same worker renders \`${manifest.failureScenarios.fixture}\` again.`);
+      lines.push('');
+      lines.push('| Status | Scenario | Browser | Settled | Error | Next report | Leftover |');
+      lines.push('| --- | --- | --- | --- | --- | --- | --- |');
+      for (const r of results.failureScenarios) {
+        lines.push(`| ${r.status === 'ok' ? 'PASS' : 'FAIL'} | ${r.scenario} | ${r.browser} | ${r.scenarioMs === null ? 'no' : `${r.scenarioMs} ms`} | ${cell((r.error ?? '—').split('\n')[0]!.slice(0, 120))} | ${r.nextReport.ok ? 'ok' : cell(r.nextReport.detail.slice(0, 120))} | ${r.leftoverProcesses.length} |`);
+      }
+    }
+    lines.push('');
+  }
   lines.push('## Evidence');
   lines.push('');
   lines.push('- `results.json`: machine-readable checks (same content as this file)');
-  lines.push('- `downloaded/`: manifest, PDFs and render.log from the box');
+  lines.push('- `downloaded/`: manifest, PDFs and render.log from the box, plus `measurements.json`, `measurement-samples.jsonl.gz` and `failure-scenarios.json` for measured / failure-scenario runs');
   lines.push('- `inspect/<fixture>.<browser>/`: `pages/` (144 DPI PNGs), `diff/` (changed pixels in red), `text/` (raw pdftotext), `inspection.json`');
   lines.push('- `llm-review-request.md` → `llm-review.json`');
   lines.push(`- ${inspections.size} PDF(s) inspected`);
   fs.writeFileSync(path.join(runDir, 'summary.md'), `${lines.join('\n')}\n`);
+}
+
+const mib = (kb: number | null | undefined) => (kb === null || kb === undefined ? '?' : String(Math.round(kb / 1024)));
+
+/** Memory: per fixture and browser, then full Chrome vs headless-shell where both were measured. */
+function writeMemorySection(lines: string[], groups: MemoryGroup[]): void {
+  lines.push('## Memory (MiB, sampled RSS)');
+  lines.push('');
+  lines.push('Chrome = the Chrome tree the render launched; harness = that plus the worker Node process. The live service is sampled separately and never added in. Sums are approximate (shared pages count once per process).');
+  lines.push('');
+  lines.push('| Status | Fixture | Browser | Reps ok | Chrome peak median / max | Harness max | Threshold (chrome / harness) | Min available | Notes |');
+  lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+  for (const g of groups) {
+    const t = (m: string) => mib(g.thresholds.find((x) => x.metric === m)?.maxKb ?? null);
+    lines.push(
+      `| ${ICON[g.status]} | ${g.fixtureId} | ${g.browser} | ${g.ok}/${g.repetitions} | ${mib(g.peaks.chromePeakKb.medianKb)} / ${mib(g.peaks.chromePeakKb.maxKb)} | ${mib(g.peaks.harnessPeakKb.maxKb)} | ${t('chromePeakKb')} / ${t('harnessPeakKb')} | ${mib(g.minAvailKb)} | ${cell(g.notes.join('; ')) || '—'} |`,
+    );
+  }
+  lines.push('');
+  const pairs = [...new Set(groups.map((g) => g.fixtureId))]
+    .map((id) => ({ id, chrome: groups.find((g) => g.fixtureId === id && g.browser === 'chrome'), shell: groups.find((g) => g.fixtureId === id && g.browser === 'shell') }))
+    .filter((p) => p.chrome?.peaks.chromePeakKb.medianKb && p.shell?.peaks.chromePeakKb.medianKb);
+  if (pairs.length) {
+    lines.push('**Full Chrome vs headless-shell** (median Chrome peak):');
+    lines.push('');
+    lines.push('| Fixture | Chrome | Shell | Change |');
+    lines.push('| --- | --- | --- | --- |');
+    for (const p of pairs) {
+      const c = p.chrome!.peaks.chromePeakKb.medianKb!;
+      const sh = p.shell!.peaks.chromePeakKb.medianKb!;
+      lines.push(`| ${p.id} | ${mib(c)} | ${mib(sh)} | ${sh >= c ? '+' : ''}${(((sh - c) / c) * 100).toFixed(0)}% |`);
+    }
+    lines.push('');
+  }
 }
 
 /** What the LLM pass should look at, with the checklist and the output schema. */

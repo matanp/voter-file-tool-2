@@ -227,7 +227,20 @@ export function processTable(): ProcessInfo[] {
     .map((m) => ({ pid: Number(m[1]), ppid: Number(m[2]), pgid: Number(m[3]), rssKb: Number(m[4]), command: m[5]! }));
 }
 
-const isChrome = (p: ProcessInfo) => /chrome|headless_shell|Chromium/i.test(p.command) && !/crashpad/i.test(p.command);
+/**
+ * A Chrome process by its executable, not its arguments: the harness's own wrapper
+ * (`pnpm ... render --browser chrome`) mentions "chrome" in its arguments and is not a browser.
+ */
+export function isChromeCommand(command: string): boolean {
+  // macOS ps shows an exited process with no arguments as "(name)"; it holds no memory.
+  if (command.startsWith('(')) return false;
+  // The executable path ends at the first argument (a space then a dash or a quote); paths may contain spaces.
+  const executable = command.split(/\s(?=[-"'])/)[0]!.trim();
+  const base = executable.slice(executable.lastIndexOf('/') + 1);
+  return /chrome|headless_shell|chromium/i.test(base) && !/crashpad/i.test(base);
+}
+
+const isChrome = (p: ProcessInfo) => isChromeCommand(p.command);
 
 /** For the manifest: the command line shortened, since Chrome's runs to kilobytes. */
 export const brief = (p: ProcessInfo): ProcessInfo => ({ ...p, command: p.command.slice(0, 160) });

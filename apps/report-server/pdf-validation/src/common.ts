@@ -110,4 +110,6 @@ export const DEFAULT_TIMEOUTS = {
   caseMs: 180_000,
   /** A whole `render` invocation. */
   invocationMs: 60 * 60_000,
+  /** A whole `render --measured` invocation: 3 repetitions x 2 browsers, 10 s idle each. */
+  measuredInvocationMs: 180 * 60_000,
 };

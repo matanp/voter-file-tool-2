@@ -57,13 +57,35 @@ export type Acceptance = {
   acceptedAt: string;
 };
 
+export type MemoryMetric = 'chromePeakKb' | 'harnessPeakKb';
+
+/**
+ * An approved memory ceiling for one fixture in one browser build (ticket 20). "Build" is the
+ * browser build ID, not the deployed commit: PR #148 changes which browser the service launches,
+ * not the builds Puppeteer pins, so thresholds approved from a pre-#148 measured run still apply
+ * after it. The deployed commit is recorded for provenance.
+ */
+export type ThresholdEntry = {
+  fixtureId: string;
+  fixtureHash: string;
+  browser: BrowserName;
+  browserBuildId: string;
+  metric: MemoryMetric;
+  maxKb: number;
+  measured: { medianKb: number; maxKb: number; repetitions: number };
+  headroomPct: number;
+  sourceRunId: string;
+  reviewer: string;
+  approvedAt: string;
+  versions: { browserVersion: string; puppeteer: string; deployedCommit: string; instance: string };
+};
+
 export type Approvals = {
   version: 1;
   baselines: BaselineEntry[];
   pageCounts: PageCountEntry[];
   acceptances: Acceptance[];
-  /** Memory thresholds: ticket 20. Kept here so the format stays open to other check kinds. */
-  thresholds: unknown[];
+  thresholds: ThresholdEntry[];
 };
 
 export const EMPTY_APPROVALS: Approvals = { version: 1, baselines: [], pageCounts: [], acceptances: [], thresholds: [] };
@@ -79,6 +101,9 @@ export const saveApprovals = (approvals: Approvals, file = APPROVALS_FILE) => wr
 
 export const findBaseline = (a: Approvals, fixtureId: string, fixtureHash: string, browser: BrowserName) =>
   a.baselines.find((b) => b.fixtureId === fixtureId && b.fixtureHash === fixtureHash && b.browser === browser) ?? null;
+
+export const findThreshold = (a: Approvals, q: Pick<ThresholdEntry, 'fixtureId' | 'fixtureHash' | 'browser' | 'browserBuildId' | 'metric'>) =>
+  a.thresholds.find((t) => t.fixtureId === q.fixtureId && t.fixtureHash === q.fixtureHash && t.browser === q.browser && t.browserBuildId === q.browserBuildId && t.metric === q.metric) ?? null;
 
 export const findPageCount = (a: Approvals, fixtureId: string, fixtureHash: string) =>
   a.pageCounts.find((p) => p.fixtureId === fixtureId && p.fixtureHash === fixtureHash) ?? null;

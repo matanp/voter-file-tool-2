@@ -4,9 +4,20 @@ import type { DeployedBuild, GitRevision, Maybe, ProcessInfo, ServiceState } fro
 import type { ResolvedBrowser } from './browsers';
 import type { R2Config, StorageConfig } from './storage';
 
-export const MANIFEST_VERSION = 1;
+/** 2 adds measured mode and failure scenarios (ticket 20). verify reads 1 and 2. */
+export const MANIFEST_VERSION = 2;
+export const READABLE_MANIFEST_VERSIONS = [1, 2];
 
-export type RemoteObject = { key: string; kind: 'pdf' | 'log'; bytes: number; sha256: string };
+export type RemoteObject = {
+  key: string;
+  /**
+   * pdf: a render record's PDF. measured-pdf: a later measured repetition's PDF.
+   * scenario-pdf: the report a failure scenario renders afterwards. The rest are evidence files.
+   */
+  kind: 'pdf' | 'log' | 'measured-pdf' | 'scenario-pdf' | 'measurements' | 'samples' | 'failure-scenarios';
+  bytes: number;
+  sha256: string;
+};
 
 export type RenderRecord = {
   fixtureId: string;
@@ -46,6 +57,10 @@ export type RunManifest = {
   startedAt: string;
   finishedAt?: string;
   timeouts: { caseMs: number; invocationMs: number; overridden: string[] };
+  /** `--measured` (manifest v2): repeated renders of the measured fixtures with RSS sampling. */
+  measured?: { fixtures: string[]; repetitions: number; intervalMs: number; idleMs: number } | null;
+  /** `--failure-scenarios` (manifest v2). */
+  failureScenarios?: { scenarios: string[]; timeoutMs: number; fixture: string } | null;
   storage: { bucket: string; prefix: string; source: StorageConfig['source'] };
   harness: { revision: Maybe<GitRevision>; srcTree: Maybe<{ sha256: string; files: number }>; distTree: Maybe<{ sha256: string; files: number }>; fixtureManifestVersion: number };
   deployed: { revision: Maybe<GitRevision>; build: DeployedBuild };
