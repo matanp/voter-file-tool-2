@@ -3,6 +3,7 @@ import { render } from "@testing-library/react";
 const mockIdentify = jest.fn<void, unknown[]>();
 const mockRegisterForSession = jest.fn<void, unknown[]>();
 const mockReset = jest.fn<void, []>();
+const mockRegister = jest.fn<void, unknown[]>();
 const mockUseSession = jest.fn<unknown, []>();
 
 jest.mock("posthog-js", () => {
@@ -22,6 +23,9 @@ jest.mock("posthog-js", () => {
     },
     reset: () => {
       mockReset();
+    },
+    register: (...args: unknown[]) => {
+      mockRegister(...args);
     },
   };
   return { __esModule: true, default: client };
@@ -78,6 +82,7 @@ describe("CSPostHogProvider", () => {
       "u1",
       expect.objectContaining({ privilegeLevel: "Admin" }),
     );
+    expect(mockRegister).toHaveBeenCalledWith({ role: "Admin" });
   });
 
   it("re-identifies when person properties change", () => {

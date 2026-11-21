@@ -99,6 +99,9 @@ export function CSPostHogProvider({ children }: { children: React.ReactNode }) {
     if (lastIdentified.current === key) return;
     lastIdentified.current = key;
 
+    // Every event carries the role, so insights can break down by it without
+    // a person join. reset() clears it on sign-out.
+    posthog.register({ role: session.privilegeLevel });
     posthog.identify(session.user.id, properties);
   }, [session, status]);
 

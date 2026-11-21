@@ -38,6 +38,7 @@ import { useApiMutation } from "~/hooks/useApiMutation";
 import { ZodError } from "zod";
 import { parseCalendarDate } from "~/lib/dateUtils";
 import { SearchQueryDisplay } from "~/components/search/SearchQueryDisplay";
+import { trackReportRequested } from "~/lib/analytics";
 
 // Utility function to convert API records back to Prisma format for display
 const convertAPIToPrismaRecord = (apiRecord: VoterRecordAPI): VoterRecord => {
@@ -197,7 +198,8 @@ export const VoterListReportForm: React.FC<VoterListReportFormProps> = () => {
     { reportId: string },
     GenerateReportData
   >("/api/generateReport", "POST", {
-    onSuccess: (data) => {
+    onSuccess: (data, payload) => {
+      trackReportRequested(data.reportId, payload);
       setReportId(data.reportId);
       toast({
         title: "Report Generation Started",

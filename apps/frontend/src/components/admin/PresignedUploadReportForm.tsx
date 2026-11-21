@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { useFileUpload } from "~/hooks/useFileUpload";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { trackReportRequested } from "~/lib/analytics";
 
 export type PresignedUploadReportFormSpec = {
   title: string;
@@ -65,10 +66,11 @@ export function PresignedUploadReportForm({
   });
 
   const generateReportMutation = useApiMutation<
-    { jobId?: string },
+    { reportId?: string; jobId?: string },
     Record<string, unknown>
   >("/api/generateReport", "POST", {
-    onSuccess: () => {
+    onSuccess: (data, payload) => {
+      trackReportRequested(data.reportId ?? data.jobId, payload);
       setSuccess(spec.submit.successMessage);
       setName("");
       onSuccessReset?.();

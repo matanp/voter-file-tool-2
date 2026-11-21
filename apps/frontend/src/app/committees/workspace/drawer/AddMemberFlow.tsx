@@ -18,7 +18,7 @@
  * submit, focus moves to the invalid field or the error alert, never out of
  * the drawer.
  */
-import React, { useId, useMemo, useState } from "react";
+import React, { useId, useMemo, useRef, useState } from "react";
 import type { MembershipType } from "@prisma/client";
 
 import { Button } from "~/components/ui/button";
@@ -57,6 +57,7 @@ import {
   useFieldErrors,
 } from "./drawerParts";
 import { useCandidateEligibility } from "./useCandidateEligibility";
+import { outcomeOf, track } from "~/lib/analytics";
 
 type Step = "find" | "review" | "details" | "confirm";
 const STEPS: Record<Step, { n: number; title: string }> = {
@@ -134,6 +135,7 @@ export function AddMemberFlow({
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
   const detailErrors = useFieldErrors(DETAIL_FIELDS);
   const { submitting, failure, clearFailure, run } = useActionSubmit(onSuccess);
+  const openedAt = useRef(Date.now());
 
   const eligibility = useCandidateEligibility(action.committee, candidate?.VRCNUM ?? null);
   const existingMemberIds = useMemo(
@@ -181,6 +183,13 @@ export function AddMemberFlow({
         ...(overriding ? { overrideReason: details.overrideReason } : {}),
       }),
     );
+    track("committee_member_added", {
+      flow: action.kind === "replace-member" ? "replace" : "add",
+      mode,
+      outcome: outcomeOf(submitFailure),
+      override_used: overriding,
+      ms_in_flow: Date.now() - openedAt.current,
+    });
     if (!submitFailure) return;
     // A step-3 field the endpoint rejected goes back to step 3, beside its field.
     const errors =

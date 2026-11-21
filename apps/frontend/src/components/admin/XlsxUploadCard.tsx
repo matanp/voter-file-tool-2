@@ -8,6 +8,7 @@ import { Label } from "~/components/ui/label";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { useToast } from "~/components/ui/use-toast";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { actionName, track } from "~/lib/analytics";
 
 type XlsxUploadCardProps<TResponse> = {
   endpoint: string;
@@ -59,6 +60,7 @@ export function XlsxUploadCard<TResponse>({
   const importMutation = useApiMutation<TResponse, FormData>(endpoint, "POST", {
     timeout,
     onSuccess: (data) => {
+      track("admin_import_run", { import_type: actionName(endpoint), outcome: "success" });
       setResult(data);
       setFile(null);
       formRef.current?.reset();
@@ -66,6 +68,7 @@ export function XlsxUploadCard<TResponse>({
       toast({ title: "Import completed" });
     },
     onError: (error) => {
+      track("admin_import_run", { import_type: actionName(endpoint), outcome: "error" });
       toast({
         title: "Import failed",
         description: error.message,

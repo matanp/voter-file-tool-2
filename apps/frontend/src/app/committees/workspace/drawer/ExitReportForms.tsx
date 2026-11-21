@@ -56,6 +56,7 @@ import {
   ReasonAndNotes,
   ResignationReceivedFields,
 } from "./MemberExitForms";
+import { outcomeOf, track } from "~/lib/analytics";
 
 const KINDS: Array<{ value: ExitReportKind; label: string; hint: string }> = [
   {
@@ -253,6 +254,12 @@ export function ReportExitForm({
       const after = letterAfterSubmit(letter, await submitExitReport(action, input, staged));
       setLetter(after.letter);
       return after.outcome;
+    }).then((submitFailure) => {
+      track("committee_member_removed", {
+        flow: "report",
+        outcome: outcomeOf(submitFailure),
+        reason: input.kind === "RESIGNATION" ? "RESIGNATION" : input.reason,
+      });
     });
   };
   const problems = [
