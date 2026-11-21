@@ -68,7 +68,9 @@ describe("Header", () => {
     expect(voters).toHaveClass("border-foreground", "text-foreground");
     expect(voters.className).not.toMatch(/bg-primary|text-primary\b/);
 
-    const committees = within(barNav()).getByRole("link", { name: "Committees" });
+    const committees = within(barNav()).getByRole("link", {
+      name: "Committees",
+    });
     expect(committees).not.toHaveAttribute("aria-current");
     expect(committees).toHaveClass("text-muted-foreground");
   });
@@ -127,6 +129,37 @@ describe("Header", () => {
       within(adminNav).getByRole("link", { name: "Discrepancies" }),
     ).toHaveAttribute("aria-current", "page");
   });
+
+  it.each([
+    ["/admin/discrepancies", "Discrepancies", "Admin"],
+    ["/committees/requests", "Pending review", "Committees"],
+  ])(
+    "marks only one phone-menu row current on %s",
+    (path, adminLabel, mainLabel) => {
+      mockPathname = path;
+      renderHeader(PrivilegeLevel.Admin);
+
+      // The bar (desktop) still marks the main item.
+      expect(
+        within(barNav()).getByRole("link", { name: mainLabel }),
+      ).toHaveAttribute("aria-current", "page");
+      fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
+      const menu = screen.getByRole("dialog", { name: "Menu" });
+      expect(
+        within(menu).getByRole("link", { name: adminLabel }),
+      ).toHaveAttribute("aria-current", "page");
+      expect(
+        within(
+          within(menu).getByRole("navigation", { name: "Main" }),
+        ).getByRole("link", { name: mainLabel }),
+      ).not.toHaveAttribute("aria-current");
+      expect(
+        within(menu)
+          .getAllByRole("link")
+          .filter((link) => link.getAttribute("aria-current") === "page"),
+      ).toHaveLength(1);
+    },
+  );
 
   it("leaves Admin out of the bar and the menu below Admin", () => {
     renderHeader(PrivilegeLevel.Leader);

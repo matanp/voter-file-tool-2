@@ -37,9 +37,9 @@ const RootLayout = ({ children }: { children: ReactNode }) => {
               enableSystem
               disableTransitionOnChange
             > */}
-                <nav>
+                <header>
                   <Header dbBadge={<DbConnectionBadge />} />
-                </nav>
+                </header>
                 <main className="min-h-screen bg-background font-sans antialiased">
                   {children}
                   <SpeedInsights />

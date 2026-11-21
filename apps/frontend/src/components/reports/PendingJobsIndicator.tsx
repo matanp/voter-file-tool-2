@@ -209,7 +209,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
               {JOB_STATUS_BADGE[job.status].icon}
               <div>
                 <p className="text-sm font-medium">
-                  {`${job.status === "FAILED" ? "Failed" : job.status === "PROCESSING" ? "Processing" : "Pending"} report: ${getJobName(job)}`}
+                  {`${JOB_STATUS_BADGE[job.status].label} report: ${getJobName(job)}`}
                 </p>
                 <p className="text-xs text-gray-500">
                   Started{hasMounted ? ` ${formatDate(job.requestedAt)}` : ""}

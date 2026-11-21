@@ -265,7 +265,6 @@ const ReportCard: React.FC<ReportCardProps> = ({
     }
   };
 
-
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",

@@ -103,7 +103,7 @@ const MainNav: React.FC<{
                   active ? "bg-muted text-foreground" : MENU_ROW_INACTIVE,
                 )
               : cn(
-                  "flex h-12 items-center border-b-2 px-1 text-sm font-medium transition-colors",
+                  "flex h-[var(--app-bar-height)] items-center border-b-2 px-1 text-sm font-medium transition-colors",
                   active
                     ? "border-foreground text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground",
@@ -125,7 +125,9 @@ const MainNav: React.FC<{
 );
 
 /** The Admin section links, for the phone menu (the Admin sidebar is desktop-only). */
-const AdminMenuLinks: React.FC<{ pathname: string }> = ({ pathname }) => (
+const AdminMenuLinks: React.FC<{ activeHref: string | undefined }> = ({
+  activeHref,
+}) => (
   <nav aria-label="Admin" className="border-t p-2">
     {adminSidebarGroups.map((group) => (
       <div key={group.id} className="pb-1">
@@ -135,7 +137,7 @@ const AdminMenuLinks: React.FC<{ pathname: string }> = ({ pathname }) => (
         {group.items
           .filter((item) => item.enabled)
           .map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active = item.href === activeHref;
             return (
               <SheetClose asChild key={item.id}>
                 <Link
@@ -174,10 +176,16 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   const showAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
   const navItems = showAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
   const activeItem = navItems.find((item) => item.isActive(pathname));
+  // The phone menu marks one row: the Admin section when one matches (it's the more specific
+  // link, and "Pending review" lives under /committees), otherwise the main item.
+  const activeAdminHref = showAdmin
+    ? adminSidebarGroups
+        .flatMap((group) => group.items)
+        .find((item) => item.enabled && pathname.startsWith(item.href))?.href
+    : undefined;
 
   return (
-    // h-12 must match --app-bar-height in globals.css.
-    <div className="h-12 border-b bg-white">
+    <div className="h-[var(--app-bar-height)] border-b bg-white">
       <div className="flex h-full items-center gap-6 px-4">
         <Link
           href="/"
@@ -210,9 +218,10 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
                 <ViewProfileTrigger
                   aria-label="Profile"
                   title={session.user?.name ?? "Profile"}
-                  className="grid h-11 w-11 place-items-center rounded-full bg-transparent p-0 text-foreground hover:bg-transparent hover:!shadow-none"
+                  // A 44px hit area around a 32px circle; the circle takes the hover and focus styles.
+                  className="group grid h-11 w-11 place-items-center rounded-full text-foreground focus-visible:outline-none"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-full bg-muted text-xs font-semibold hover:bg-slate-200">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-muted text-xs font-semibold transition-colors group-hover:bg-slate-200 group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-offset-2">
                     {initials(session.user?.name)}
                   </span>
                 </ViewProfileTrigger>
@@ -247,11 +256,11 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
               </div>
               <MainNav
                 items={navItems}
-                activeItem={activeItem}
+                activeItem={activeAdminHref ? undefined : activeItem}
                 variant="menu"
                 className="flex flex-col p-2"
               />
-              {showAdmin && <AdminMenuLinks pathname={pathname} />}
+              {showAdmin && <AdminMenuLinks activeHref={activeAdminHref} />}
             </SheetContent>
           </Sheet>
         </div>

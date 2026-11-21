@@ -1,41 +1,41 @@
-import * as React from "react"
+import * as React from "react";
 
-import { cn } from "~/lib/utils"
+import { cn } from "~/lib/utils";
 
 /**
  * Row density. `compact` (default): 36px header, ~37px rows. `comfortable`: the roomier
- * 48px header and 16px cell padding. A `data-density="comfortable"` ancestor (for example a
- * drawer) switches tables inside it too.
+ * 48px header and 16px cell padding. The `density` prop sets `data-density` on the table's
+ * wrapper, so it also sizes the Buttons, Inputs and Selects in its cells. Without the prop a
+ * table follows its nearest `data-density` ancestor (for example a drawer); `density="compact"`
+ * switches back inside a comfortable one. Sizes come from CSS variables in globals.css, so
+ * caller classes (`h-12`, `px-2`, ...) override them as usual.
  */
-export type TableDensity = "compact" | "comfortable"
+export type TableDensity = "compact" | "comfortable";
 
 interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
-  density?: TableDensity
+  density?: TableDensity;
 }
 
 const Table = React.forwardRef<HTMLTableElement, TableProps>(
   ({ className, density, ...props }, ref) => (
-  <div
-    className="relative w-full overflow-auto"
-    data-density={density === "comfortable" ? "comfortable" : undefined}
-  >
-    <table
-      ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
-      {...props}
-    />
-  </div>
-  )
-)
-Table.displayName = "Table"
+    <div className="relative w-full overflow-auto" data-density={density}>
+      <table
+        ref={ref}
+        className={cn("w-full caption-bottom text-sm", className)}
+        {...props}
+      />
+    </div>
+  ),
+);
+Table.displayName = "Table";
 
 const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
   <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
-))
-TableHeader.displayName = "TableHeader"
+));
+TableHeader.displayName = "TableHeader";
 
 const TableBody = React.forwardRef<
   HTMLTableSectionElement,
@@ -46,8 +46,8 @@ const TableBody = React.forwardRef<
     className={cn("[&_tr:last-child]:border-0", className)}
     {...props}
   />
-))
-TableBody.displayName = "TableBody"
+));
+TableBody.displayName = "TableBody";
 
 const TableFooter = React.forwardRef<
   HTMLTableSectionElement,
@@ -57,12 +57,12 @@ const TableFooter = React.forwardRef<
     ref={ref}
     className={cn(
       "border-t bg-slate-100/50 font-medium [&>tr]:last:border-b-0",
-      className
+      className,
     )}
     {...props}
   />
-))
-TableFooter.displayName = "TableFooter"
+));
+TableFooter.displayName = "TableFooter";
 
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
@@ -72,12 +72,12 @@ const TableRow = React.forwardRef<
     ref={ref}
     className={cn(
       "border-b transition-colors hover:bg-slate-100/50 data-[state=selected]:bg-slate-100",
-      className
+      className,
     )}
     {...props}
   />
-))
-TableRow.displayName = "TableRow"
+));
+TableRow.displayName = "TableRow";
 
 const TableHead = React.forwardRef<
   HTMLTableCellElement,
@@ -86,13 +86,13 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-9 px-3 text-left align-middle font-medium text-slate-500 [&:has([role=checkbox])]:pr-0 [[data-density=comfortable]_&]:h-12 [[data-density=comfortable]_&]:px-4",
-      className
+      "h-[var(--table-head-h)] px-[var(--table-head-px)] text-left align-middle font-medium text-slate-500 [&:has([role=checkbox])]:pr-0",
+      className,
     )}
     {...props}
   />
-))
-TableHead.displayName = "TableHead"
+));
+TableHead.displayName = "TableHead";
 
 const TableCell = React.forwardRef<
   HTMLTableCellElement,
@@ -101,13 +101,13 @@ const TableCell = React.forwardRef<
   <td
     ref={ref}
     className={cn(
-      "px-3 py-2 align-middle [&:has([role=checkbox])]:pr-0 [[data-density=comfortable]_&]:p-4",
-      className
+      "px-[var(--table-cell-px)] py-[var(--table-cell-py)] align-middle [&:has([role=checkbox])]:pr-0",
+      className,
     )}
     {...props}
   />
-))
-TableCell.displayName = "TableCell"
+));
+TableCell.displayName = "TableCell";
 
 const TableCaption = React.forwardRef<
   HTMLTableCaptionElement,
@@ -118,8 +118,8 @@ const TableCaption = React.forwardRef<
     className={cn("mt-4 text-sm text-slate-500", className)}
     {...props}
   />
-))
-TableCaption.displayName = "TableCaption"
+));
+TableCaption.displayName = "TableCaption";
 
 export {
   Table,
@@ -130,4 +130,4 @@ export {
   TableRow,
   TableCell,
   TableCaption,
-}
+};

@@ -4,7 +4,8 @@
 
 @layer base {
   :root {
-    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    --font-sans:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
       "Segoe UI", sans-serif;
 
     /* Shared Colors */
@@ -36,7 +37,7 @@
     --ring: 142.1 76.2% 36.3%;
     --radius: 0.5rem;
 
-    /* Height of the app bar (header.tsx, h-12). Full-height views subtract it. */
+    /* Height of the app bar. The header reads it; full-height views subtract it. */
     --app-bar-height: 3rem;
 
     /* Quiet panel fill (slate-50) for forms and toolbars on a white page. */
@@ -57,6 +58,27 @@
     --info-bg: 214 100% 97%;
     --info-fg: 226 71% 40%;
     --info-solid: 221 83% 53%;
+  }
+
+  /* Density: sizes read by Button (default/icon), Input, SelectTrigger and the
+     Table head/cell primitives. Compact is the default; a data-density
+     attribute switches everything inside it. Callers override with ordinary
+     classes (h-12, px-2, ...). */
+  :root,
+  [data-density="compact"] {
+    --control-h: 2.25rem;
+    --table-head-h: 2.25rem;
+    --table-head-px: 0.75rem;
+    --table-cell-px: 0.75rem;
+    --table-cell-py: 0.5rem;
+  }
+
+  [data-density="comfortable"] {
+    --control-h: 2.5rem;
+    --table-head-h: 3rem;
+    --table-head-px: 1rem;
+    --table-cell-px: 1rem;
+    --table-cell-py: 1rem;
   }
 }
 
