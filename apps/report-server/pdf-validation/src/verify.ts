@@ -34,7 +34,10 @@ import { ALL_FIXTURES, FIXTURE_MANIFEST_VERSION, jobTypesCovered } from './fixtu
 import { PDF_JOB_TYPES } from './fixtures/types';
 import type { InspectItem, InspectJob, Inspection, ToolVersions } from './inspect';
 import { loadReview, type LoadedReview } from './llmReview';
-import { MANIFEST_VERSION, type RemoteObject, type RenderRecord, type RunManifest } from './manifest';
+import { MANIFEST_VERSION, READABLE_MANIFEST_VERSIONS, type RemoteObject, type RenderRecord, type RunManifest } from './manifest';
+import { memoryChecks, scenarioChecks, type MemoryGroup } from './measurementChecks';
+import type { MeasurementsFile } from './measurements';
+import type { FailureScenariosFile, ScenarioResult } from './scenarios';
 import { Storage, loadStorageConfig } from './storage';
 import { writeLlmRequest, writeSummary } from './summary';
 
@@ -61,6 +64,9 @@ export type VerifyResults = {
   llmReview: LoadedReview['state'];
   runChecks: Check[];
   items: ItemResult[];
+  /** `--measured` runs: per fixture and browser, judged against approved thresholds. */
+  memory?: MemoryGroup[];
+  failureScenarios?: ScenarioResult[] | null;
   cleanup: CleanupResult | { skipped: string };
   counts: Record<Status, number>;
 };
@@ -147,7 +153,11 @@ export async function verify(opts: VerifyOptions): Promise<number> {
   }
   const manifest = readJson<RunManifest>(manifestFile);
   if (manifest.runId !== opts.runId) throw new Error(`manifest is for run ${manifest.runId}`);
-  runChecks.push(manifest.manifestVersion === MANIFEST_VERSION ? pass('manifest', `version ${MANIFEST_VERSION}`) : fail('manifest', `version ${manifest.manifestVersion}, this harness reads ${MANIFEST_VERSION}`));
+  runChecks.push(
+    READABLE_MANIFEST_VERSIONS.includes(manifest.manifestVersion)
+      ? pass('manifest', `version ${manifest.manifestVersion}`)
+      : fail('manifest', `version ${manifest.manifestVersion}, this harness reads ${READABLE_MANIFEST_VERSIONS.join(', ')} (writes ${MANIFEST_VERSION})`),
+  );
   runChecks.push(
     manifest.storage.bucket === storage.bucket ? pass('bucket', `${storage.bucket}, ${manifest.storage.source}`) : fail('bucket', `render used ${manifest.storage.bucket}, verify is configured for ${storage.bucket}`),
   );
@@ -253,6 +263,17 @@ export async function verify(opts: VerifyOptions): Promise<number> {
   );
   runChecks.push(...runLevelChecks(manifest, llm));
 
+  // ------------------------------------------------------------ memory and failure scenarios
+  const evidence = <T>(kind: RemoteObject['kind']): T | null => {
+    const object = manifest.objects.find((o) => o.kind === kind);
+    const d = object ? downloaded.get(object.key) : undefined;
+    return d?.ok ? readJson<T>(d.file) : null;
+  };
+  const memory = memoryChecks(manifest, evidence<MeasurementsFile>('measurements'), approvals);
+  runChecks.push(...memory.checks);
+  const scenarios = evidence<FailureScenariosFile>('failure-scenarios');
+  runChecks.push(...scenarioChecks(manifest, scenarios));
+
   // ------------------------------------------------------------ remote cleanup
   const cleanupResult = await cleanupVerifiedRun(storage, {
     runId: opts.runId,
@@ -281,6 +302,8 @@ export async function verify(opts: VerifyOptions): Promise<number> {
     llmReview: llm.state,
     runChecks,
     items: results,
+    memory: memory.groups,
+    failureScenarios: manifest.failureScenarios ? (scenarios?.results ?? null) : null,
     cleanup: cleanupResult,
     counts,
   };

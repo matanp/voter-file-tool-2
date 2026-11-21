@@ -71,3 +71,7 @@ than full Chrome. Local layout runners that launch, call `version()` and close w
 Rebased cleanly onto main (after #155) and force-pushed. Report-server tests pass (269). Still open and not deployed.
 Order: deploy main, run ticket 19's pre-#148 box runs with `--browser chrome`, approve baselines, then merge and deploy
 #148, then 19's post-#148 runs with `--browser both` and ticket 20.
+
+### 2026-11-20: order changed: measure before merging
+
+Ticket 20 now runs the on-box memory comparison (`render --measured --browser both`) on the pre-#148 build, and uses it to decide on #148. The build ships the same browser builds and args, so the numbers carry over. New order: deploy main, run ticket 19's `--browser chrome` runs and ticket 20's measured run, approve baselines and thresholds, then merge and deploy #148, then the post-#148 runs (ticket 19 step 5, ticket 20's repeat). #148 now conflicts with main in `apps/report-server/src/utils.ts` (the `inspectPage` hook from #171), so rebase it first.

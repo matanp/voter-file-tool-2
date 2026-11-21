@@ -57,13 +57,35 @@ export type Acceptance = {
   acceptedAt: string;
 };
 
+export type MemoryMetric = 'chromePeakKb' | 'harnessPeakKb';
+
+/**
+ * An approved memory ceiling for one fixture in one browser build (ticket 20). "Build" is the
+ * browser build ID, not the deployed commit: PR #148 changes which browser the service launches,
+ * not the builds Puppeteer pins, so thresholds approved from a pre-#148 measured run still apply
+ * after it. The deployed commit is recorded for provenance.
+ */
+export type ThresholdEntry = {
+  fixtureId: string;
+  fixtureHash: string;
+  browser: BrowserName;
+  browserBuildId: string;
+  metric: MemoryMetric;
+  maxKb: number;
+  measured: { medianKb: number; maxKb: number; repetitions: number };
+  headroomPct: number;
+  sourceRunId: string;
+  reviewer: string;
+  approvedAt: string;
+  versions: { browserVersion: string; puppeteer: string; deployedCommit: string; instance: string };
+};
+
 export type Approvals = {
   version: 1;
   baselines: BaselineEntry[];
   pageCounts: PageCountEntry[];
   acceptances: Acceptance[];
-  /** Memory thresholds: ticket 20. Kept here so the format stays open to other check kinds. */
-  thresholds: unknown[];
+  thresholds: ThresholdEntry[];
 };
 
 export const EMPTY_APPROVALS: Approvals = { version: 1, baselines: [], pageCounts: [], acceptances: [], thresholds: [] };
@@ -79,6 +101,17 @@ export const saveApprovals = (approvals: Approvals, file = APPROVALS_FILE) => wr
 
 export const findBaseline = (a: Approvals, fixtureId: string, fixtureHash: string, browser: BrowserName) =>
   a.baselines.find((b) => b.fixtureId === fixtureId && b.fixtureHash === fixtureHash && b.browser === browser) ?? null;
+
+export const MEMORY_METRICS: readonly MemoryMetric[] = ['chromePeakKb', 'harnessPeakKb'];
+export const DEFAULT_HEADROOM_PCT = 10;
+
+/** What a threshold is keyed by: fixture (and its hash), browser, browser build, metric. */
+export type ThresholdKey = Pick<ThresholdEntry, 'fixtureId' | 'fixtureHash' | 'browser' | 'browserBuildId' | 'metric'>;
+
+export const sameThresholdKey = (a: ThresholdKey, b: ThresholdKey) =>
+  a.fixtureId === b.fixtureId && a.fixtureHash === b.fixtureHash && a.browser === b.browser && a.browserBuildId === b.browserBuildId && a.metric === b.metric;
+
+export const findThreshold = (a: Approvals, q: ThresholdKey) => a.thresholds.find((t) => sameThresholdKey(t, q)) ?? null;
 
 export const findPageCount = (a: Approvals, fixtureId: string, fixtureHash: string) =>
   a.pageCounts.find((p) => p.fixtureId === fixtureId && p.fixtureHash === fixtureHash) ?? null;

@@ -3,11 +3,24 @@
  * after reading the run's summary, images, diffs and LLM findings; the harness never approves.
  *
  *   approve --run-id <id> --reviewer <name> --baselines [--page-counts] [--fixtures a,b] [--browser chrome]
+ *   approve --run-id <id> --reviewer <name> --thresholds [--headroom-pct 10] [--fixtures a,b] [--browser shell]
  *   accept  --run-id <id> --reviewer <name> --kind visual-change|layout-finding --item <fixture>.<browser> --page <n> --reason <text> [--finding <text>]
  */
 import fs from 'fs';
 import path from 'path';
-import { loadApprovals, saveApprovals, type Acceptance, type BaselineEntry } from './approvals';
+import {
+  DEFAULT_HEADROOM_PCT,
+  MEMORY_METRICS,
+  loadApprovals,
+  saveApprovals,
+  sameThresholdKey,
+  type Acceptance,
+  type Approvals,
+  type BaselineEntry,
+  type ThresholdEntry,
+} from './approvals';
+import { trustProblems } from './measurementChecks';
+import { mib } from './memory';
 import { CHECKLIST_FILE, baselineKey, readJson, runPrefix, sha256File, type BrowserName } from './common';
 import { isUnavailable } from './diagnostics';
 import { fixtureById } from './fixtures';
@@ -38,17 +51,26 @@ export async function approve(opts: {
   reviewer: string;
   baselines: boolean;
   pageCounts: boolean;
+  thresholds?: boolean;
+  headroomPct?: number;
   fixtures: string[] | null;
   browser: BrowserName | null;
 }): Promise<number> {
   if (!opts.reviewer.trim()) throw new Error('--reviewer is required');
   const { runDir, results, manifest } = load(opts.runsDir, opts.runId);
-  if (results.llmReview !== 'ok') throw new Error('The LLM review has not been merged for this run (results.json llmReview is not ok)');
   const approvals = loadApprovals();
+  let thresholdChanges = 0;
+  if (opts.thresholds) thresholdChanges = approveThresholds(approvals, results, manifest, { ...opts, headroomPct: opts.headroomPct ?? DEFAULT_HEADROOM_PCT });
+  if (!opts.baselines && !opts.pageCounts) {
+    saveApprovals(approvals);
+    console.log(`${thresholdChanges} threshold(s) recorded in baselines/approvals.json; commit it, then verify again.`);
+    return 0;
+  }
+  if (results.llmReview !== 'ok') throw new Error('The LLM review has not been merged for this run (results.json llmReview is not ok)');
   const storage = opts.baselines ? new Storage(loadStorageConfig(opts.envFile).r2) : null;
   const now = new Date().toISOString();
   const rev = manifest.deployed.revision;
-  let changed = 0;
+  let changed = thresholdChanges;
 
   for (const item of results.items) {
     if (opts.fixtures && !opts.fixtures.includes(item.fixtureId)) continue;
@@ -110,6 +132,72 @@ export async function approve(opts: {
   saveApprovals(approvals);
   console.log(`${changed} approval(s) recorded in baselines/approvals.json; commit it, then verify again.`);
   return 0;
+}
+
+/**
+ * Memory thresholds from a verified --measured run: the max sampled peak across repetitions plus
+ * headroom. Groups that verify would flag (see trustProblems: missing, failed or interfered
+ * repetitions, or a sampling gap that could hide a peak) are skipped: measure them again.
+ */
+export function approveThresholds(
+  approvals: Approvals,
+  results: Pick<VerifyResults, 'memory'>,
+  manifest: Pick<RunManifest, 'deployed' | 'versions' | 'instance' | 'measured'>,
+  opts: { runId: string; reviewer: string; headroomPct: number; fixtures: string[] | null; browser: BrowserName | null },
+): number {
+  if (!results.memory?.length) throw new Error(`No memory measurements in ${opts.runId}'s results.json: verify a --measured run first`);
+  if (!Number.isFinite(opts.headroomPct) || opts.headroomPct < 0) throw new Error('--headroom-pct must be 0 or more');
+  if (!manifest.measured) throw new Error(`${opts.runId} is not a --measured run`);
+  const planned = manifest.measured.repetitions;
+  const rev = manifest.deployed.revision;
+  const now = new Date().toISOString();
+  let changed = 0;
+  for (const g of results.memory) {
+    if (opts.fixtures && !opts.fixtures.includes(g.fixtureId)) continue;
+    if (opts.browser && g.browser !== opts.browser) continue;
+    if (g.fixtureHash !== fixtureById(g.fixtureId).hash) throw new Error(`${g.fixtureId}: measured fixture hash does not match the current definition; measure it again`);
+    const problems = trustProblems(g, planned);
+    if (problems.length) {
+      console.log(`skip ${g.fixtureId}.${g.browser}: ${problems.map((p) => p.note).join('; ')}; measure again`);
+      continue;
+    }
+    for (const metric of MEMORY_METRICS) {
+      const p = g.peaks[metric];
+      if (p.maxKb === null || p.medianKb === null) {
+        console.log(`skip ${g.fixtureId}.${g.browser} ${metric}: not measured`);
+        continue;
+      }
+      const entry: ThresholdEntry = {
+        fixtureId: g.fixtureId,
+        fixtureHash: g.fixtureHash,
+        browser: g.browser,
+        browserBuildId: g.browserBuildId,
+        metric,
+        maxKb: Math.ceil((p.maxKb * (100 + opts.headroomPct)) / 100),
+        measured: { medianKb: p.medianKb, maxKb: p.maxKb, repetitions: g.repetitions },
+        headroomPct: opts.headroomPct,
+        sourceRunId: opts.runId,
+        reviewer: opts.reviewer,
+        approvedAt: now,
+        versions: {
+          browserVersion: g.browserVersion ?? 'unknown',
+          puppeteer: manifest.versions.puppeteer,
+          deployedCommit: isUnavailable(rev) ? 'unknown' : rev.commit,
+          instance: `${String(manifest.instance.platform)}, ${String(manifest.instance.cpus)} CPU, ${String(manifest.instance.totalMemMb)} MB`,
+        },
+      };
+      const existing = approvals.thresholds.find((t) => sameThresholdKey(t, entry));
+      // Re-approving from a run that went over the old ceiling raises it; say so rather than ratchet silently.
+      if (existing && entry.maxKb > existing.maxKb) {
+        console.log(`raises ${g.fixtureId}.${g.browser} ${metric} from ${mib(existing.maxKb)} to ${mib(entry.maxKb)} MiB (was approved from ${existing.sourceRunId})`);
+      }
+      approvals.thresholds = [...approvals.thresholds.filter((t) => !sameThresholdKey(t, entry)), entry];
+      console.log(`threshold ${g.fixtureId}.${g.browser} ${metric}: ${mib(entry.maxKb)} MiB (measured max ${mib(p.maxKb)} MiB + ${opts.headroomPct}%)`);
+      changed++;
+    }
+  }
+  approvals.thresholds.sort((a, b) => a.fixtureId.localeCompare(b.fixtureId) || a.browser.localeCompare(b.browser) || a.metric.localeCompare(b.metric));
+  return changed;
 }
 
 export function accept(opts: { runId: string; runsDir: string; reviewer: string; kind: Acceptance['kind']; item: string; page: number; reason: string; finding: string | null }): number {

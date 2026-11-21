@@ -227,10 +227,24 @@ export function processTable(): ProcessInfo[] {
     .map((m) => ({ pid: Number(m[1]), ppid: Number(m[2]), pgid: Number(m[3]), rssKb: Number(m[4]), command: m[5]! }));
 }
 
-const isChrome = (p: ProcessInfo) => /chrome|headless_shell|Chromium/i.test(p.command) && !/crashpad/i.test(p.command);
+/**
+ * A Chrome process by its executable, not its arguments: the harness's own wrapper
+ * (`pnpm ... render --browser chrome`) mentions "chrome" in its arguments and is not a browser.
+ */
+export function isChromeCommand(command: string): boolean {
+  // macOS ps shows an exited process with no arguments as "(name)"; it holds no memory.
+  if (command.startsWith('(')) return false;
+  // The executable path ends at the first argument (a space then a dash or a quote); paths may contain spaces.
+  const executable = command.split(/\s(?=[-"'])/)[0]!.trim();
+  const base = executable.slice(executable.lastIndexOf('/') + 1);
+  return /chrome|headless_shell|chromium/i.test(base) && !/crashpad/i.test(base);
+}
+
+const isChrome = (p: ProcessInfo) => isChromeCommand(p.command);
 
 /** For the manifest: the command line shortened, since Chrome's runs to kilobytes. */
-export const brief = (p: ProcessInfo): ProcessInfo => ({ ...p, command: p.command.slice(0, 160) });
+export const briefCommand = (command: string): string => command.slice(0, 160);
+export const brief = (p: ProcessInfo): ProcessInfo => ({ ...p, command: briefCommand(p.command) });
 
 /** Chrome processes that the harness did not start: the live service's, or anything else's. */
 export function foreignChrome(ownedPgids: Set<number>): ProcessInfo[] {
@@ -239,15 +253,16 @@ export function foreignChrome(ownedPgids: Set<number>): ProcessInfo[] {
     .map(brief);
 }
 
-/** Processes still alive in a process group the harness owns (Puppeteer starts Chrome as a group leader). */
-export const processesInGroup = (pgid: number): ProcessInfo[] => processTable().filter((p) => p.pgid === pgid);
-
 /**
- * Processes whose command line mentions `marker`: each render gives its worker its own TMPDIR,
- * Puppeteer puts Chrome's profile there, so this finds the render's Chrome even if the worker
- * died before reporting its pid, and never matches the service's Chrome.
+ * A render's processes still alive in `table`, each once:
+ * - anything in a process group the harness owns (Puppeteer starts Chrome as a group leader);
+ * - anything whose command line mentions `marker`, the render's own TMPDIR. Puppeteer puts
+ *   Chrome's profile there, so this finds the render's Chrome even if it left its group or the
+ *   worker died before reporting its pid, and never matches the service's Chrome.
  */
-export const processesMentioning = (marker: string): ProcessInfo[] => processTable().filter((p) => p.command.includes(marker) && p.pid !== process.pid);
+export function leftoversIn(table: ProcessInfo[], pgids: number[], marker: string, self = process.pid): ProcessInfo[] {
+  return table.filter((p) => p.pid !== self && (pgids.includes(p.pgid) || p.command.includes(marker)));
+}
 
 export async function httpOk(url: string, timeoutMs = 5_000): Promise<Maybe<{ status: number }>> {
   try {
