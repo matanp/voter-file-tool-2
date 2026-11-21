@@ -46,7 +46,7 @@ export function HeroSection() {
         >
           <Link href="/committees">
             <Users className="mr-2 h-5 w-5" />
-            Manage Committees
+            Committees
           </Link>
         </Button>
       </div>

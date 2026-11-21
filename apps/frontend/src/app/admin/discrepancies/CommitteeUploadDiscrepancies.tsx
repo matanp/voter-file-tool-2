@@ -251,7 +251,7 @@ export const CommitteeUploadDiscrepancies: React.FC = () => {
                             paginated={false}
                             seeMoreDetailsText="Saved Voter Record Details"
                             extraHeaders={[
-                              "Discrepancies: Committee List Upload value vs. Voter Record value",
+                              "Discrepancies: Committee Upload value vs. Voter Record value",
                             ]}
                             extraContent={(record: VoterRecord) => {
                               const discrepancies =
