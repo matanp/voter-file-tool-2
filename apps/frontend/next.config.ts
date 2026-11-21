@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
     locales: ["en"],
     defaultLocale: "en",
   },
+  // posthog-js posts to trailing-slash paths (`/ingest/e/`). Without this,
+  // Next 308-redirects them, and beacon / keepalive sends don't survive the
+  // redirect, so batches sent late in a page's life were lost.
+  skipTrailingSlashRedirect: true,
   async rewrites() {
     return [
       {
@@ -31,12 +35,13 @@ const nextConfig: NextConfig = {
         destination: `${POSTHOG_ASSETS_HOST}/static/:path*`,
       },
       {
-        source: "/ingest/:path*",
-        destination: `${POSTHOG_HOST}/:path*`,
+        // Remote config (`/array/<token>/config`) is served from the assets host.
+        source: "/ingest/array/:path*",
+        destination: `${POSTHOG_ASSETS_HOST}/array/:path*`,
       },
       {
-        source: "/ingest/decide",
-        destination: `${POSTHOG_HOST}/decide`,
+        source: "/ingest/:path*",
+        destination: `${POSTHOG_HOST}/:path*`,
       },
     ];
   },

@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "~/components/ui/dialog";
+import { track } from "~/lib/analytics";
 
 type CommitteeListWithSeats = {
   id: number;
@@ -88,12 +89,22 @@ export function PetitionOutcomesClient({
       }>;
     }
   >("/api/admin/petition-outcomes/record", "POST", {
-    onSuccess: () => {
+    onSuccess: (_data, payload) => {
+      track("petition_action", {
+        action: "record_outcome",
+        outcome: "success",
+        candidate_count: payload?.candidates.length ?? 0,
+      });
       toast({ title: "Outcome recorded" });
       setShowConfirm(false);
       setCandidates([]);
     },
     onError: (err: Error) => {
+      track("petition_action", {
+        action: "record_outcome",
+        outcome: "error",
+        candidate_count: candidates.length,
+      });
       toast({
         title: "Error",
         description: err.message,

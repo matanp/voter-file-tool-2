@@ -41,6 +41,20 @@ import {
   type SeatRosterRow,
 } from "~/lib/validations/committee";
 
+const mockCapture = jest.fn<void, unknown[]>();
+jest.mock("posthog-js", () => ({
+  __esModule: true,
+  default: { capture: (...args: unknown[]) => mockCapture(...args) },
+}));
+/** The properties of every `event` captured so far. */
+const captured = (event: string) =>
+  mockCapture.mock.calls.filter(([name]) => name === event).map(([, props]) => props);
+/** The `outcome` of every `event` captured so far. */
+const outcomes = (event: string) =>
+  captured(event).map((props) =>
+    props && typeof props === "object" && "outcome" in props ? props.outcome : undefined,
+  );
+
 jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
@@ -707,6 +721,15 @@ describe("CommitteeActionDrawer: Admin add", () => {
       membershipType: "PETITIONED",
       email: "jane@example.com",
     });
+    expect(captured("committee_member_added")).toEqual([
+      {
+        flow: "add",
+        mode: "add",
+        outcome: "success",
+        override_used: false,
+        ms_in_flow: expect.any(Number) as unknown,
+      },
+    ]);
   });
 
   it("keeps the drawer open with the server's hard stops, then succeeds on retry after an error", async () => {
@@ -750,6 +773,11 @@ describe("CommitteeActionDrawer: Admin add", () => {
     await userEvent.click(add());
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(outcomes("committee_member_added")).toEqual([
+      "ineligible",
+      "error",
+      "success",
+    ]);
   });
 });
 
@@ -1086,6 +1114,9 @@ describe("CommitteeActionDrawer: remove member", () => {
       removalReason: "OTHER",
       removalNotes: "Asked to step down",
     });
+    expect(captured("committee_member_removed")).toEqual([
+      { flow: "remove", outcome: "success", reason: "OTHER" },
+    ]);
   });
 
   it("keeps the drawer open with the server's error", async () => {

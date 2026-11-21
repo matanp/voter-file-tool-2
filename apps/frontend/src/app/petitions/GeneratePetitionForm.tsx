@@ -23,6 +23,7 @@ import {
 } from "~/lib/electionDateUtils";
 import { ReportStatusTracker } from "../components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
+import { trackReportRequested } from "~/lib/analytics";
 
 type GeneratePetitionFormProps = {
   parties: string[];
@@ -77,7 +78,8 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
     { reportId: string },
     GenerateReportData
   >("/api/generateReport", "POST", {
-    onSuccess: (data) => {
+    onSuccess: (data, payload) => {
+      trackReportRequested(data.reportId, payload);
       setReportId(data.reportId);
       toast({
         title: "Report Generation Started",

@@ -31,6 +31,7 @@ import {
 } from "./scopeReportFormSpecs";
 import { SCOPE_REPORT_UI } from "./scopeReportUiRegistry";
 import { formatLeaderAssignmentLabel } from "./leaderAssignmentLabel";
+import { trackReportRequested } from "~/lib/analytics";
 
 interface ScopedReportFormProps {
   type: ScopeReportType;
@@ -154,7 +155,8 @@ export function ScopedReportForm({
     { reportId: string },
     GenerateReportData
   >("/api/generateReport", "POST", {
-    onSuccess: (data) => {
+    onSuccess: (data, payload) => {
+      trackReportRequested(data.reportId, payload);
       setReportId(data.reportId);
       toast({
         title: messages.toastStartedTitle,

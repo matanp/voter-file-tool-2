@@ -18,6 +18,7 @@ import { FieldSelection } from "./components/FieldSelection";
 import { XLSXConfig } from "./components/XLSXConfig";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import type { GenerateReportData } from "@voter-file-tool/shared-validators";
+import { trackReportRequested } from "~/lib/analytics";
 
 export const XLSXConfigForm: React.FC = () => {
   const { toast } = useToast();
@@ -31,7 +32,8 @@ export const XLSXConfigForm: React.FC = () => {
     { reportId: string },
     GenerateReportData
   >("/api/generateReport", "POST", {
-    onSuccess: (data) => {
+    onSuccess: (data, payload) => {
+      trackReportRequested(data.reportId, payload);
       setReportId(data.reportId);
       toast({
         title: "Report Generation Started",

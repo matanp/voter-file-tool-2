@@ -57,6 +57,7 @@ import {
   stagedLetterOf,
   type LetterFieldState,
 } from "./ResignationLetterField";
+import { outcomeOf, track } from "~/lib/analytics";
 
 export const NOTES_MAX = 1000;
 
@@ -261,7 +262,14 @@ export function RemoveMemberForm({
 }: MemberExitFormProps<RemovalAction>) {
   const [input, setInput] = useState<RemovalInput>({ reason: "", notes: "" });
   const { submitting, failure, run } = useActionSubmit(onSuccess);
-  const submit = () => run(() => submitRemoval(action, input));
+  const submit = async () => {
+    const submitFailure = await run(() => submitRemoval(action, input));
+    track("committee_member_removed", {
+      flow: "remove",
+      outcome: outcomeOf(submitFailure),
+      reason: input.reason,
+    });
+  };
 
   return (
     <ExitFormLayout
@@ -308,12 +316,18 @@ export function RecordResignationForm({
   const setField = (patch: Partial<ResignationInput>) =>
     setInput((prev) => ({ ...prev, ...patch }));
   const staged = stagedLetterOf(letter);
-  const submit = () =>
-    run(async () => {
+  const submit = async () => {
+    const submitFailure = await run(async () => {
       const after = letterAfterSubmit(letter, await submitResignation(action, input, staged));
       setLetter(after.letter);
       return after.outcome;
     });
+    track("committee_member_removed", {
+      flow: "resign",
+      outcome: outcomeOf(submitFailure),
+      reason: "RESIGNATION",
+    });
+  };
   const problems = [
     ...resignationProblems(input),
     ...letterFieldProblems(letter),
