@@ -1,6 +1,6 @@
 # 01 - Neutral page surfaces and quiet headings
 
-Status: needs-triage
+Status: ready-for-agent
 
 Part of [ui-makeover](../spec.md).
 
@@ -16,7 +16,7 @@ Part of [ui-makeover](../spec.md).
 3. `CardTitle` default → `text-base font-semibold`.
 4. Add `* { @apply border-border }` to `globals.css`. `border` is used only 3 times today, so borders fall back to Tailwind's default grey.
 
-Settle spec open decision 4 (dark mode) first, or at least don't add new `dark:` work.
+Dark mode is dropped (spec "Decisions"). Write light-only tokens and add no new `dark:` classes.
 
 ## Acceptance
 
@@ -31,3 +31,7 @@ Evidence: reviews/design-system.md §1, reviews/reports.md "Highest-leverage sin
 ### 2026-11-21
 
 Approved in stakeholder review. Brand colour decided: `--primary` stays green, so headings go neutral (this ticket) but primary buttons stay green. Fix `--primary-foreground` (today a pink "text on green") to white while touching the tokens.
+
+### 2026-11-21 - triage
+
+Ready for agent. Dark mode is decided (spec "Decisions"): light-only tokens, no new `dark:` classes. Build order step 2, the first foundation ticket. The prototype diff in the `proto/ui-makeover` worktree (`../vft-ui-proto`, uncommitted) is a reference.

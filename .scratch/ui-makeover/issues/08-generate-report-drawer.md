@@ -1,6 +1,6 @@
 # 08 - Generate a report in a drawer instead of a separate page
 
-Status: needs-triage
+Status: ready-for-agent
 
 Blocked by: 05, 07
 
@@ -33,3 +33,7 @@ Evidence: reviews/reports.md §1B.
 ### 2026-11-21
 
 Prototyped on `proto/ui-makeover` and approved in stakeholder review. No changes requested.
+
+### 2026-11-21 - triage
+
+Ready for agent after 07.

@@ -1,6 +1,6 @@
 # 16 - Eligibility flags and discrepancies as list → detail
 
-Status: needs-triage
+Status: ready-for-agent
 
 Blocked by: 03, 04, 05
 
@@ -29,3 +29,9 @@ Part of [ui-makeover](../spec.md).
 - Review works at 375.
 
 Evidence: reviews/admin.md §1B.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent. M–L: ship eligibility flags and discrepancies as separate PRs.

@@ -1,6 +1,6 @@
 # 14 - Admin upload pages overflow horizontally
 
-Status: needs-triage
+Status: ready-for-agent
 
 Part of [ui-makeover](../spec.md).
 
@@ -18,3 +18,9 @@ Confirm the cause in a browser, then add `relative` to the form or card wrapper.
 - A regression check is added if one is cheap.
 
 Evidence: reviews/admin.md §2 (first row).
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent. A standalone bug with no blockers, so it can start immediately.

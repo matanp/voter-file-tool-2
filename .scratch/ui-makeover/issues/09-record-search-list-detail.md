@@ -1,6 +1,6 @@
 # 09 - Record search results as a dense list with a detail pane
 
-Status: needs-triage
+Status: ready-for-agent
 
 Blocked by: 01, 04, 05
 
@@ -44,3 +44,7 @@ Prototyped on `proto/ui-makeover` and approved in stakeholder review. The review
 ### 2026-11-21 - prototype nit
 
 In the prototype's phone sheet the voter's name appears twice, as the sheet title and again as the detail heading. Keep the name only in the sheet title, and start the content with the party / age / gender line.
+
+### 2026-11-21 - triage
+
+Ready for agent. Don't build record-search-results/03 or the visual part of /04 on their own; this ticket replaces them. Build the Districts section from the voter record's fields now, and leave room for whatever 20 decides.

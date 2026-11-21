@@ -1,6 +1,8 @@
 # 04 - Compact table and control density by default
 
-Status: needs-triage
+Status: ready-for-agent
+
+Blocked by: 01
 
 Part of [ui-makeover](../spec.md).
 
@@ -33,3 +35,7 @@ Prototyped on `proto/ui-makeover` and approved in stakeholder review. No changes
 ### 2026-11-21 - prototype finding
 
 On `proto/ui-makeover`, changing the `Table` defaults globally (header `h-9`, cells `py-2 px-3`) also made the workspace roster rows on `/committees` shorter, because the roster uses the shared `Table` without its own overrides. That breaks the "no visual change to `/committees`" acceptance line. Either give the roster an explicit density or accept and re-check the shorter rows.
+
+### 2026-11-21 - triage
+
+Ready for agent. Build right after 01, before 03, so the three token and primitive tickets land one at a time.

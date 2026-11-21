@@ -1,8 +1,8 @@
 # 13 - Report form consistency: outlier forms and control styling
 
-Status: needs-triage
+Status: ready-for-agent
 
-Blocked by: 01, 04
+Blocked by: 01, 04, 08
 
 Part of [ui-makeover](../spec.md).
 
@@ -30,7 +30,7 @@ Across the forms:
 - Labels always above controls.
 - One styled native `Select` for simple enums; the Radix Select or ComboBox only where search is needed.
 - `Checkbox`/`RadioGroup` components everywhere.
-- One focus ring (the workspace blue-600).
+- One focus ring: blue-600 (spec "Decisions").
 - Full-width primary action at 375.
 - Bring the three outlier forms onto the scoped-form shell's spacing and headings.
 - `/voter-list-reports` empty state gets a "Go to Record Search" action (via 06).
@@ -41,3 +41,9 @@ Across the forms:
 - One focus ring app-wide.
 
 Evidence: reviews/reports.md §1C and §2; reviews/design-system.md §1 "Form controls".
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent. Focus ring decided: blue-600 app-wide, so it stays separate from green primary buttons. Added 08 as a blocker, because both edit `ScopedReportForm` and its mount points.

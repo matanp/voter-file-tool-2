@@ -1,6 +1,6 @@
 # 07 - Reports hub as one dense list
 
-Status: needs-triage
+Status: ready-for-agent
 
 Blocked by: 01, 03, 05
 
@@ -45,3 +45,7 @@ Evidence: reviews/reports.md §1A.
 ### 2026-11-21
 
 Prototyped on `proto/ui-makeover` and approved in stakeholder review. No changes requested.
+
+### 2026-11-21 - triage
+
+Ready for agent. Read reports-polish/01 first: this list is where failed jobs show up.

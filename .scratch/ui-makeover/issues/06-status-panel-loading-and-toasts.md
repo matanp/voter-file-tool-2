@@ -1,6 +1,6 @@
 # 06 - Shared empty/denied/error panel, loading skeletons, and toast refresh
 
-Status: needs-triage
+Status: ready-for-agent
 
 Blocked by: 01
 
@@ -35,3 +35,9 @@ Coordinate with accessibility/02 (toast cut off by focus move).
 - Toasts have a success variant, don't cover the header on phones, and auto-dismiss.
 
 Evidence: reviews/shell.md §1C and §2.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent after 01. It can run in parallel with 05. Read accessibility/02 first and fix it here if it is still open.

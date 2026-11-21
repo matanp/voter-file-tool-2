@@ -1,6 +1,6 @@
 # 19 - Leaders pin features to their home page
 
-Status: needs-triage
+Status: needs-info
 
 Blocked by: 10
 
@@ -28,3 +28,9 @@ From the 2026-11-21 stakeholder review: let Leaders pick the top three features 
 - A Leader can choose up to three pins, and they appear on their home page at 375 and 1280.
 - The choice survives sign-out and works across devices.
 - Pins respect privilege: an option a user can't use is never offered.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Needs info from the stakeholder: the three open questions above (what is pinnable, Admin pins or not, where the setting lives). Can't start before 10 ships anyway.

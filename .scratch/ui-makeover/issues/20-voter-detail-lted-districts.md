@@ -1,6 +1,6 @@
 # 20 - Voter details show every district in the LTED matrix
 
-Status: needs-triage
+Status: needs-info
 
 Part of [ui-makeover](../spec.md). Pairs with [09](09-record-search-list-detail.md).
 
@@ -30,3 +30,9 @@ From the 2026-11-21 stakeholder review: "Make sure all parts of the LTED matrix 
 
 - Record search details and the workspace drawer show every agreed district field, with empty fields hidden.
 - Tests cover a voter whose record and crosswalk agree, and one where they differ.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Needs info from the stakeholder: the two open questions above. Ask before 09's Districts section is finished, so 09 can build the agreed fields.

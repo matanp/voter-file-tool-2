@@ -1,8 +1,8 @@
 # 15 - Admin home and a counted sidebar
 
-Status: needs-triage
+Status: ready-for-agent
 
-Blocked by: 03, 05
+Blocked by: 02, 03, 05
 
 Part of [ui-makeover](../spec.md).
 
@@ -32,3 +32,9 @@ The sidebar has 14 items at about 40px each, and the active item is solid green.
 - No floating admin button on phones.
 
 Evidence: reviews/admin.md §1A and §2.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent. Added 02 as a blocker, because the phone admin links move into 02's ☰ sheet. Share the count queries with 10.

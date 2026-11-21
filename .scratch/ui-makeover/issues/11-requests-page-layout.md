@@ -1,6 +1,6 @@
 # 11 - Requests page: fix phone overflow and card-in-card layout
 
-Status: needs-triage
+Status: ready-for-agent
 
 Part of [ui-makeover](../spec.md).
 
@@ -30,3 +30,7 @@ Evidence: reviews/shell.md §2.
 ### 2026-11-21
 
 Prototyped on `proto/ui-makeover` and approved in stakeholder review. No changes requested.
+
+### 2026-11-21 - triage
+
+Triage decision: ship 11 now as the interim fix. committees-workspace/22 stays a separate, later effort. Not blocked; it can start immediately.

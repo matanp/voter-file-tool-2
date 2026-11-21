@@ -26,3 +26,7 @@ Which actions belong in the popover, and for which roles?
 ### 2026-11-21 — UI makeover review
 
 [ui-makeover/09](../../ui-makeover/issues/09-record-search-list-detail.md) answers this visually: line 1 has name, age, party and a member chip; line 2 has address, town and ED. Review and design notes are in [ui-makeover/reviews/recordsearch.md](../../ui-makeover/reviews/recordsearch.md).
+
+### 2026-11-21
+
+ui-makeover/09 (record search results as a dense list with a detail pane) replaces this ticket's visual parts. Don't build them separately. 09 must keep this ticket's accessibility requirements; if 09 is dropped, this ticket stands again.

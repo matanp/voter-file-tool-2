@@ -1,6 +1,6 @@
 # 17 - Audit trail as a dense, scannable log
 
-Status: needs-triage
+Status: ready-for-agent
 
 Blocked by: 04, 05
 
@@ -26,3 +26,9 @@ Part of [ui-makeover](../spec.md).
 - Duplicates are collapsed.
 
 Evidence: reviews/admin.md §1C.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent after 04 and 05.

@@ -1,6 +1,8 @@
 # 03 - Status colour tokens and a shared StatusBadge
 
-Status: needs-triage
+Status: ready-for-agent
+
+Blocked by: 01, 04
 
 Part of [ui-makeover](../spec.md).
 
@@ -38,3 +40,7 @@ Evidence: reviews/design-system.md §1 and §2.
 ### 2026-11-21
 
 Green primary buttons were kept (spec "Decisions"). Make the `success` tone visibly different from a primary button: a pill with a soft background and label, never a solid green block.
+
+### 2026-11-21 - triage
+
+Ready for agent. Light-only tokens (dark mode dropped). Build after 01 and 04, because all three edit `globals.css`, `tailwind.config.ts` and `components/ui`.

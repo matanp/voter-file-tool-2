@@ -1,6 +1,6 @@
 # 12 - Advanced search criteria as chips
 
-Status: needs-triage
+Status: ready-for-agent
 
 Blocked by: 05, 09
 
@@ -28,3 +28,9 @@ Part of [ui-makeover](../spec.md).
 - One primary action label across both modes.
 
 Evidence: reviews/recordsearch.md §1C.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent after 09. Not prototyped, so take before/after screenshots for review.

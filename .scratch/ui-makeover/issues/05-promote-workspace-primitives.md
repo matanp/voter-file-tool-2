@@ -1,6 +1,6 @@
 # 05 - Promote workspace components to shared primitives
 
-Status: needs-triage
+Status: ready-for-agent
 
 Blocked by: 03, 04
 
@@ -30,3 +30,9 @@ Move these to `components/ui/` (or `components/layout/`), generalised just enoug
 - Each primitive has a short usage comment and a test where it has logic (selection, collapse).
 
 Evidence: reviews/design-system.md §2 "Core primitives"; every lane's §3.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent once 03 and 04 merge. It unblocks every page ticket, so start it first after phase 1.

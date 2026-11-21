@@ -1,8 +1,8 @@
 # 18 - Admin config and import page polish
 
-Status: needs-triage
+Status: ready-for-agent
 
-Blocked by: 01, 04
+Blocked by: 01, 04, 05
 
 Part of [ui-makeover](../spec.md).
 
@@ -33,3 +33,9 @@ Grouped low-priority findings (see reviews/admin.md §2):
 - Users is readable at 375.
 
 Evidence: reviews/admin.md §2.
+
+## Comments
+
+### 2026-11-21 - triage
+
+Ready for agent, but it is a grab bag. Split it into one PR per group (config forms, import pages with `ImportCard`, users, terms). Added 05 as a blocker for the compact `PageHeader`. Lowest priority in the effort.

@@ -1,6 +1,8 @@
 # 02 - Quiet app bar
 
-Status: needs-triage
+Status: ready-for-agent
+
+Blocked by: 01, 04
 
 Part of [ui-makeover](../spec.md).
 
@@ -43,3 +45,7 @@ Evidence: reviews/shell.md §1A.
 ### 2026-11-21
 
 Prototyped on `proto/ui-makeover` and approved in stakeholder review. Decided: green primary actions, "Voters" nav label. The active nav item keeps the neutral underline (foreground colour), not green.
+
+### 2026-11-21 - triage
+
+Ready for agent, with a placeholder product name until spec open decision 2 is settled. Runs in parallel with 03 after 01 and 04; it touches only the header, profile and DB badge files.

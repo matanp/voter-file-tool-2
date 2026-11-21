@@ -1,8 +1,8 @@
 # 10 - Signed-in home as a "today" page
 
-Status: needs-triage
+Status: ready-for-agent
 
-Blocked by: 01, 05
+Blocked by: 01, 05, 06
 
 Part of [ui-makeover](../spec.md).
 
@@ -48,3 +48,7 @@ Evidence: reviews/shell.md §1B.
 ### 2026-11-21
 
 Prototyped on `proto/ui-makeover` and approved in stakeholder review. Follow-up ask: Leaders pick up to three features to pin to this page, changeable in settings. That is [19](19-configurable-home-pins.md); build 10 first with a fixed layout.
+
+### 2026-11-21 - triage
+
+Ready for agent. Added 06 as a blocker, because the acceptance needs its empty state. The Admin "Needs attention" counts overlap with 15, so share the count queries.

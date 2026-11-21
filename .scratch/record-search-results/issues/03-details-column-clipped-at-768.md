@@ -32,3 +32,7 @@ room.
 ### 2026-11-21 — UI makeover review
 
 [ui-makeover/09](../../ui-makeover/issues/09-record-search-list-detail.md) proposes replacing the results table with two-line rows and a detail pane, which removes the details column entirely. Coordinate before fixing this in place.
+
+### 2026-11-21
+
+ui-makeover/09 (record search results as a dense list with a detail pane) replaces this ticket's visual parts. Don't build them separately. 09 must keep this ticket's accessibility requirements; if 09 is dropped, this ticket stands again.

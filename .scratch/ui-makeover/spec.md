@@ -55,21 +55,38 @@ Phase 1 is mostly one-line and token changes. Doing just 01, 02 and 04 would mak
 - **Admin setup and import pages:** written to rarely. They need a clean form layout, not a list → detail split.
 - **`/petitions`, `/committee-reports` and `/voter-list-reports`:** too complex for a drawer, so they stay full pages.
 
+## Principles
+
+From a stakeholder chat on 2026-11-21. Every page ticket checks its design against these.
+
+- **Act where you look.** "People want to see what they want to do the first place they look." Each place that shows a voter, committee, seat, request or report offers the related next step, or a link to where it happens, so a Leader doesn't have to find the same thing again somewhere else. [22](issues/22-cross-link-audit.md) lists the jumps that are missing.
+- **Without getting busy.** Use progressive disclosure: next steps live in the detail pane, the drawer or a ⋯ menu, and appear only when they apply and the user may use them. Don't put a button for every action on every row.
+- **Accessible by default.** The stakeholder named ADA accessibility as a value. No page ticket may regress keyboard use, focus, labels or screen-reader names, and each one keeps the accessibility requirements of the tickets it supersedes. The committed level of support (for example WCAG 2.1 AA) is decided in accessibility/01. It isn't yet known whether there is a compliance requirement behind this.
+
 ## Decisions
 
 - **Direction approved.** A stakeholder review of the prototypes (2026-11-21) liked all of them: app bar and surfaces, reports list, report drawer, record search, home page and requests page.
 - **Brand colour: green primary buttons.** `--primary` stays green. Slate is not used for primary actions. Green also marks "filled/success", so status badges must stay distinguishable from primary buttons (shape and label, not colour alone).
 - **Nav label: "Voters"** replaces "Record Search" in the app bar. The route stays `/recordsearch`.
+- **Dark mode is dropped.** The `ThemeProvider` in `layout.tsx` is commented out, so the existing `dark:` classes never apply. New tokens are light-only, no new `dark:` classes are added, and dead `dark:` classes and `themeToggle.tsx` are removed when their files are touched.
+- **Requests page:** ship 11 now as the interim fix. committees-workspace/22 is a separate, later effort.
+- **Focus ring: blue-600 app-wide** (13), so focus stays distinct from green primary buttons and success badges.
 
 ## Open decisions (for the maintainer)
 
-2. **Product name and branding in the app bar.** There is none today. The home hero says "Political Campaign Tool", and the prototype used "Open Source Politics". Undecided how much MCDC branding to show.
-4. **Dark mode.** There are 144 `dark:` classes and an unused `themeToggle.tsx`. Decide whether to keep or drop them before the token pass in 01/03.
+2. **Product name and branding in the app bar.** There is none today. The home hero says "Political Campaign Tool", and the prototype used "Open Source Politics". Undecided how much MCDC branding to show. 02 ships with a placeholder.
+
+## Build order
+
+The triage, build order and blockers are in [plan.md](plan.md). The critical path is 01 → 04 → 03 → 05 → 07 → 08.
 
 ## Related existing tickets
 
 - ui-makeover/19: Leaders pin features to their home page (follows 10).
 - ui-makeover/20: voter details show every district in the LTED matrix (pairs with 09).
+- ui-makeover/21: Leaders request committee adds and contact updates from voter search (follows 09 and committees-workspace/28).
+- ui-makeover/22: audit of the jumps between where Leaders look and what they do ("Act where you look").
+- accessibility/01: decides the committed accessibility level that the "Accessible by default" principle points to.
 - committees-workspace/22: requests page into the workspace. Ticket 11 is the interim fix.
 - record-search-results/03, /04, /06: details column clipped, details-button names, row disambiguation. Ticket 09 supersedes their visual parts.
 - reports-polish/01: failed jobs and service errors. Ticket 07 gives them a place in the list.
