@@ -71,7 +71,7 @@ type MemberExitFormProps<A> = {
   memberLabel: string;
   onCancel: () => void;
   /** After a successful mutation; `message` is the success toast's text. */
-  onSuccess: (message: string) => void;
+  onSuccess: (message: string) => void | Promise<void>;
   /** Wraps the buttons. Defaults to the drawer's sticky footer. */
   Footer?: React.ComponentType<{ children: React.ReactNode }>;
   /** Classes for the scrolling body. Defaults to the drawer's padding. */

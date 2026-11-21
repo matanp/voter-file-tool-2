@@ -6,7 +6,9 @@
  * town, LD or ED. It adds nothing when `requireAssemblyDistrictMatch` is off,
  * and is disabled when the committee's ED has no crosswalk entry (no AD to
  * match; the ED is not used instead). Existing members of this committee are
- * listed but not selectable; on a full committee (add only) nobody is.
+ * listed but not selectable; on a full committee (add only) nobody is. A voter
+ * already submitted for this committee is marked **Already pending**, and can
+ * be selected only to add directly (Admin), not to submit again.
  */
 import React, { useId, useState } from "react";
 
@@ -51,6 +53,10 @@ export type CandidateSearchStepProps = {
   onSearchChange: (next: CandidateSearchState) => void;
   /** VRCNUMs already on this committee. */
   existingMemberIds: ReadonlySet<string>;
+  /** VRCNUMs with a pending submission for this committee. */
+  pendingCandidateIds: ReadonlySet<string>;
+  /** Whether a pending voter can be selected (an Admin add accepts them directly). */
+  canSelectPending: boolean;
   /** Add to a full committee: nothing is selectable. */
   committeeFull: boolean;
   onSelect: (candidate: CandidateRecord) => void;
@@ -62,6 +68,8 @@ export function CandidateSearchStep({
   search,
   onSearchChange,
   existingMemberIds,
+  pendingCandidateIds,
+  canSelectPending,
   committeeFull,
   onSelect,
 }: CandidateSearchStepProps) {
@@ -199,6 +207,8 @@ export function CandidateSearchStep({
                 {result.candidates.map((candidate) => {
                   const name = personName(candidate) || candidate.VRCNUM;
                   const isMember = existingMemberIds.has(candidate.VRCNUM);
+                  const isPending = !isMember && pendingCandidateIds.has(candidate.VRCNUM);
+                  const selectable = !isMember && (!isPending || canSelectPending);
                   return (
                     <li
                       key={candidate.VRCNUM}
@@ -220,22 +230,25 @@ export function CandidateSearchStep({
                             .join(" · ")}
                         </p>
                       </div>
-                      {isMember ? (
-                        <span className="text-xs text-slate-600 dark:text-slate-400">
-                          Already on this committee
-                        </span>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={committeeFull}
-                          aria-label={`Select ${name}`}
-                          onClick={() => onSelect(candidate)}
-                        >
-                          Select
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {(isMember || isPending) && (
+                          <span className="text-xs text-slate-600 dark:text-slate-400">
+                            {isMember ? "Already on this committee" : "Already pending"}
+                          </span>
+                        )}
+                        {selectable && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={committeeFull}
+                            aria-label={`Select ${name}`}
+                            onClick={() => onSelect(candidate)}
+                          >
+                            Select
+                          </Button>
+                        )}
+                      </div>
                     </li>
                   );
                 })}
