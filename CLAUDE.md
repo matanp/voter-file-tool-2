@@ -4,6 +4,10 @@ Before changing or reviewing authentication, authorization, privileges, or role-
 
 Before adding or extending report types, read [skills/adding-reports/SKILL.md](skills/adding-reports/SKILL.md).
 
+## Browser QA on deployed sites
+
+When driving a browser against production or a Vercel preview, open every new tab's first URL with `?qa_agent=1` (e.g. `https://opensourcepolitics.online/?qa_agent=1`). The flag tags that tab's PostHog events so the project's test-account filter drops them from analytics. It sticks to the tab across navigations, so you don't need it on every URL, only the first one in each new tab.
+
 ## Agent skills
 
 ### Issue tracker
