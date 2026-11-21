@@ -129,7 +129,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
           <div
             key={pageIndex}
             {...hook('page')}
-            className={`w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto shadow${
+            className={`w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto${
               rosterColumns ? ' overflow-hidden break-after-page' : ''
             }`}
             style={{ fontFamily: 'Arial, sans-serif' }}
