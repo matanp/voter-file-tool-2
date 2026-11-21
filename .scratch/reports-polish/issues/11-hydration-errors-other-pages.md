@@ -25,6 +25,9 @@ browser extension changing the DOM before hydration. Extensions are a common sou
 1. Once 09 ships, check whether 7B keeps getting events from these pages. If it doesn't, close this.
 2. If it does, open the events' replays or breadcrumbs for the browser and any extension hints, and look in the
    shared layout for server-rendered output that depends on the clock, time zone, locale or `window`.
+3. PR #187 (session on first paint) changes the shared layout's server HTML on every page: the nav and acting role
+   now come from the server session. Once it ships, recheck 7B on these pages as well. #187 notes that a Developer
+   whose cached acting role (localStorage) is lower still gets one change after hydration.
 
 ## Acceptance
 
