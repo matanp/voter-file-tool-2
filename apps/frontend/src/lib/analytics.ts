@@ -13,7 +13,7 @@ export type ActionOutcomeKind = "success" | "ineligible" | "error";
  * Properties must never carry voter PII: no names, addresses, VRCNUMs, DOBs,
  * phone numbers or search values. Use field names, codes and counts.
  *
- * Every event also carries `role` (the signed-in user's `privilegeLevel`),
+ * Every event also carries `privilege_level` (the signed-in user's Privilege),
  * registered as a super property when the user is identified.
  */
 export interface AnalyticsEvents {

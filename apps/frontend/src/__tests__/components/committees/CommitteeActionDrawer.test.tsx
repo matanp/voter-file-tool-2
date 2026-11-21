@@ -49,6 +49,11 @@ jest.mock("posthog-js", () => ({
 /** The properties of every `event` captured so far. */
 const captured = (event: string) =>
   mockCapture.mock.calls.filter(([name]) => name === event).map(([, props]) => props);
+/** The `outcome` of every `event` captured so far. */
+const outcomes = (event: string) =>
+  captured(event).map((props) =>
+    props && typeof props === "object" && "outcome" in props ? props.outcome : undefined,
+  );
 
 jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
@@ -768,11 +773,11 @@ describe("CommitteeActionDrawer: Admin add", () => {
     await userEvent.click(add());
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(
-      captured("committee_member_added").map(
-        (props) => (props as { outcome: string }).outcome,
-      ),
-    ).toEqual(["ineligible", "error", "success"]);
+    expect(outcomes("committee_member_added")).toEqual([
+      "ineligible",
+      "error",
+      "success",
+    ]);
   });
 });
 

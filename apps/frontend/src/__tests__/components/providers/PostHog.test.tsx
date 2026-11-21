@@ -82,7 +82,7 @@ describe("CSPostHogProvider", () => {
       "u1",
       expect.objectContaining({ privilegeLevel: "Admin" }),
     );
-    expect(mockRegister).toHaveBeenCalledWith({ role: "Admin" });
+    expect(mockRegister).toHaveBeenCalledWith({ privilege_level: "Admin" });
   });
 
   it("re-identifies when person properties change", () => {

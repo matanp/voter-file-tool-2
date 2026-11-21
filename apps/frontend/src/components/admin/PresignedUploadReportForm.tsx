@@ -66,11 +66,11 @@ export function PresignedUploadReportForm({
   });
 
   const generateReportMutation = useApiMutation<
-    { reportId?: string; jobId?: string },
+    { reportId?: string },
     Record<string, unknown>
   >("/api/generateReport", "POST", {
     onSuccess: (data, payload) => {
-      trackReportRequested(data.reportId ?? data.jobId, payload);
+      trackReportRequested(data.reportId, payload);
       setSuccess(spec.submit.successMessage);
       setName("");
       onSuccessReset?.();

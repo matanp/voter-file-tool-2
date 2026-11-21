@@ -38,7 +38,7 @@ run shows the events in PostHog's live events view.
 ## Comments
 
 2026-11-21: Done. Event names and properties are one typed union in `lib/analytics.ts` (`track()`), shared with
-09's `action_failed`. Every event carries `role` (the `privilegeLevel`), registered as a super property at
+09's `action_failed`. Every event carries `privilege_level` (the Privilege), registered as a super property at
 identify time instead of passed per event. No values, names or VRCNUMs are sent, only field names, codes and
 counts.
 
@@ -66,10 +66,15 @@ Differences from the table above:
 - `record_search_performed` covers /recordsearch only, not the embedded search forms (petitions, committees
   legacy, voter-list reports).
 
+- `report_completed` / `report_failed` fire from the requesting form's `ReportStatusTracker`, so a user who
+  leaves the page before the job finishes logs no outcome. Failure rates on the dashboard undercount. Recording
+  the outcome server-side (in `reportComplete`) would fix that; it needs posthog-node.
+- `global-error.tsx` was added in review, so root-layout errors reach PostHog and Sentry as well.
+
 Tests: `__tests__/lib/analytics.test.ts`, `components/recordsearch/RecordsList.analytics.test.tsx`,
 `components/reports/ReportStatusTracker.analytics.test.tsx`, and event assertions in
 `components/committees/CommitteeActionDrawer.test.tsx` (add with ineligible → error → success outcomes, remove).
 
 Checked in local dev against PostHog: a synthetic record search produced `record_search_performed`
-(`["firstName","lastName"]`, 15 results, `role: Developer`, `qa_agent: true`) and `voter_details_opened`. That
+(`["firstName","lastName"]`, 15 results, `qa_agent: true`) and `voter_details_opened`. That
 check found the trailing-slash event loss fixed in 11.

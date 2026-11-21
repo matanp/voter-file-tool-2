@@ -28,8 +28,8 @@ A forced client error in local dev shows up in PostHog Error Tracking, and a rej
 2026-11-21: Done.
 
 - Project setting `autocapture_exceptions_opt_in` is on, and `posthog.init` has `capture_exceptions: true`.
-- `app/error.tsx` (the only boundary; there's no `global-error.tsx`) calls `posthog.captureException(error,
-  { boundary: "app/error" })` next to the existing Sentry call.
+- `app/error.tsx` and a new `app/global-error.tsx` (root-layout errors) call `posthog.captureException`
+  next to Sentry.
 - `lib/analytics.ts` adds the typed `track()` wrapper that 08 extends. `action_failed` is recorded in the
   committee workspace's `postJson`, not in `useActionSubmit`: `postJson` is where every drawer mutation (add,
   request, remove, resign, exit reports) passes through and where the HTTP status is known. Properties:
