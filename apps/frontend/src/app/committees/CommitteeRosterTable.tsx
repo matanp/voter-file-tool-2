@@ -282,7 +282,7 @@ export function CommitteeSeatTable({
           {SHOW_MEMBERSHIP_TYPE ? <TableHead>Type</TableHead> : null}
           {showContact ? <TableHead>Contact</TableHead> : null}
           {showActions ? (
-            <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white dark:bg-slate-950`}>
+            <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white`}>
               <span className="sr-only">Actions</span>
             </TableHead>
           ) : null}
@@ -346,7 +346,7 @@ function SeatRow({
     <TableRow
       className={
         petition.petitionedVacant
-          ? "bg-amber-50 dark:bg-amber-950/30"
+          ? "bg-amber-50"
           : undefined
       }
     >
@@ -394,8 +394,8 @@ function SeatRow({
         <TableCell
           className={`text-right ${ACTIONS_STICKY_CLASS} ${
             petition.petitionedVacant
-              ? "bg-amber-50 dark:bg-amber-950"
-              : "bg-white dark:bg-slate-950"
+              ? "bg-amber-50"
+              : "bg-white"
           }`}
         >
           {actions}

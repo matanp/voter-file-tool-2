@@ -107,6 +107,27 @@ describe("Header", () => {
     ).toBeInTheDocument();
   });
 
+  it("follows the acting privilege: acting as ReadAccess hides Admin navigation", () => {
+    renderHeader(PrivilegeLevel.ReadAccess);
+
+    expect(
+      within(barNav()).queryByRole("link", { name: "Admin" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("marks the current Admin section in the phone menu", () => {
+    mockPathname = "/admin/discrepancies";
+    renderHeader(PrivilegeLevel.Admin);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
+    const adminNav = within(
+      screen.getByRole("dialog", { name: "Menu" }),
+    ).getByRole("navigation", { name: "Admin" });
+    expect(
+      within(adminNav).getByRole("link", { name: "Discrepancies" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
   it("leaves Admin out of the bar and the menu below Admin", () => {
     renderHeader(PrivilegeLevel.Leader);
 

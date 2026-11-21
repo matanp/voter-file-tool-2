@@ -66,7 +66,7 @@ export function MemberSearchInput({
           type="button"
           onClick={() => onChange("")}
           aria-label="Clear member search"
-          className="absolute right-1 top-1 rounded p-1.5 text-slate-400 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:hover:text-slate-200"
+          className="absolute right-1 top-1 rounded p-1.5 text-slate-400 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
@@ -157,7 +157,7 @@ export function MemberSearchResults({
         className={
           line.visible
             ? `p-6 text-center text-sm ${
-                line.error ? "text-red-700 dark:text-red-400" : "text-slate-500"
+                line.error ? "text-red-700" : "text-slate-500"
               }`
             : "sr-only"
         }
@@ -176,8 +176,8 @@ export function MemberSearchResults({
                     type="button"
                     onClick={() => onOpen(hit)}
                     aria-current={current ? "true" : undefined}
-                    className={`flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 dark:border-slate-800 dark:hover:bg-slate-900 ${
-                      current ? "bg-blue-50 dark:bg-blue-950" : ""
+                    className={`flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
+                      current ? "bg-blue-50" : ""
                     }`}
                   >
                     <span className="min-w-0 flex-1">

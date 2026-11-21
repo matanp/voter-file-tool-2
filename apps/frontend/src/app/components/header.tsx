@@ -22,6 +22,7 @@ import {
 import { cn, hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { adminSidebarGroups } from "~/config/adminNav";
+import { PRODUCT_NAME } from "~/lib/branding";
 
 type HeaderProps = {
   /** Rendered in the top-left slot; the layout passes the DB badge here. */
@@ -72,11 +73,10 @@ const ADMIN_NAV_ITEM: NavItem = {
   isActive: (p) => p.startsWith("/admin"),
 };
 
-/** Placeholder product name until the branding decision (ui-makeover spec, open decision 2). */
-const PRODUCT_NAME = "Open Source Politics";
-
 const MENU_ROW_STYLE =
   "flex min-h-11 w-full items-center rounded-md px-3 text-left text-base font-medium";
+const MENU_ROW_INACTIVE =
+  "text-muted-foreground hover:bg-muted hover:text-foreground";
 
 /**
  * The main nav: quiet text links with an underline on the active one (from md), or the phone
@@ -100,9 +100,7 @@ const MainNav: React.FC<{
             variant === "menu"
               ? cn(
                   MENU_ROW_STYLE,
-                  active
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  active ? "bg-muted text-foreground" : MENU_ROW_INACTIVE,
                 )
               : cn(
                   "flex h-12 items-center border-b-2 px-1 text-sm font-medium transition-colors",
@@ -127,7 +125,7 @@ const MainNav: React.FC<{
 );
 
 /** The Admin section links, for the phone menu (the Admin sidebar is desktop-only). */
-const AdminMenuLinks: React.FC = () => (
+const AdminMenuLinks: React.FC<{ pathname: string }> = ({ pathname }) => (
   <nav aria-label="Admin" className="border-t p-2">
     {adminSidebarGroups.map((group) => (
       <div key={group.id} className="pb-1">
@@ -136,19 +134,23 @@ const AdminMenuLinks: React.FC = () => (
         </p>
         {group.items
           .filter((item) => item.enabled)
-          .map((item) => (
-            <SheetClose asChild key={item.id}>
-              <Link
-                href={item.href}
-                className={cn(
-                  MENU_ROW_STYLE,
-                  "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {item.label}
-              </Link>
-            </SheetClose>
-          ))}
+          .map((item) => {
+            const active = pathname.startsWith(item.href);
+            return (
+              <SheetClose asChild key={item.id}>
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    MENU_ROW_STYLE,
+                    active ? "bg-muted text-foreground" : MENU_ROW_INACTIVE,
+                  )}
+                >
+                  {item.label}
+                </Link>
+              </SheetClose>
+            );
+          })}
       </div>
     ))}
   </nav>
@@ -208,9 +210,9 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
                 <ViewProfileTrigger
                   aria-label="Profile"
                   title={session.user?.name ?? "Profile"}
-                  className="grid h-11 w-11 place-items-center rounded-full bg-transparent p-0 text-slate-700 hover:bg-transparent hover:shadow-none"
+                  className="grid h-11 w-11 place-items-center rounded-full bg-transparent p-0 text-foreground hover:bg-transparent hover:!shadow-none"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold hover:bg-slate-200">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-muted text-xs font-semibold hover:bg-slate-200">
                     {initials(session.user?.name)}
                   </span>
                 </ViewProfileTrigger>
@@ -249,7 +251,7 @@ const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
                 variant="menu"
                 className="flex flex-col p-2"
               />
-              {showAdmin && <AdminMenuLinks />}
+              {showAdmin && <AdminMenuLinks pathname={pathname} />}
             </SheetContent>
           </Sheet>
         </div>

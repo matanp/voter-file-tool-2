@@ -365,7 +365,7 @@ export function CommitteeWorkspace({
               aria-expanded={false}
               aria-controls="committee-list-pane"
               title="Show committee list"
-              className="flex h-full w-12 items-start justify-center pt-3 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 dark:hover:bg-slate-900"
+              className="flex h-full w-12 items-start justify-center pt-3 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
             >
               <PanelLeftOpen className="h-5 w-5" aria-hidden />
             </button>
