@@ -43,8 +43,11 @@ export type PendingSubmissionItemProps = {
   onDecided: (submission: PendingMembership, decision: PendingDecision) => void;
 };
 
-export function personName(p: { firstName: string; lastName: string }): string {
-  return `${p.firstName} ${p.lastName}`.trim() || "Unnamed voter";
+export function personName(p: {
+  firstName: string | null;
+  lastName: string | null;
+}): string {
+  return `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim() || "Unnamed voter";
 }
 
 /** `eligibilityWarnings` entries are untyped snapshots; show their message. */

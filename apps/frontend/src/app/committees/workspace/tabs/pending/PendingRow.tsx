@@ -12,8 +12,8 @@ export type PendingRowProps = {
   labelId: string;
   busy: boolean;
   name: string;
-  /** Shown after the name, e.g. "Seat 3". */
-  seat?: string | null;
+  /** Shown after the name as "Seat N"; null shows nothing. */
+  seatNumber: number | null;
   chip: React.ReactNode;
   /** The reported/submitted date line, next to the chip. */
   meta: React.ReactNode;
@@ -28,7 +28,7 @@ export function PendingRow({
   labelId,
   busy,
   name,
-  seat,
+  seatNumber,
   chip,
   meta,
   details,
@@ -41,8 +41,11 @@ export function PendingRow({
         <div className="min-w-0 flex-1 basis-56">
           <p id={labelId} className="break-words font-medium">
             {name}
-            {seat && (
-              <span className="font-normal text-slate-500"> · {seat}</span>
+            {seatNumber !== null && (
+              <span className="font-normal text-slate-500">
+                {" "}
+                · Seat {seatNumber}
+              </span>
             )}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
@@ -57,7 +60,9 @@ export function PendingRow({
         )}
       </div>
       {details && (
-        <div className="mt-1 space-y-0.5 text-xs text-slate-600">{details}</div>
+        <div className="mt-1 space-y-0.5 text-xs text-slate-600 [overflow-wrap:anywhere]">
+          {details}
+        </div>
       )}
       {children}
     </li>

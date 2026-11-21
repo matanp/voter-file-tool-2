@@ -288,7 +288,7 @@ export function PendingExitReportItem({
         labelId={`${ids}-name`}
         busy={busy}
         name={name}
-        seat={report.seatNumber !== null ? `Seat ${report.seatNumber}` : null}
+        seatNumber={report.seatNumber}
         chip={
           <Badge
             variant={report.kind === "REMOVAL" ? "outline" : "secondary"}

@@ -5,6 +5,7 @@ import { hasPermissionFor } from "~/lib/utils";
 import {
   type CommitteeList,
   MembershipStatus,
+  type Prisma,
   PrivilegeLevel,
   type VoterRecord,
 } from "@prisma/client";
@@ -25,12 +26,20 @@ import type { PendingExitReport } from "~/lib/validations/committee";
 
 export const dynamic = "force-dynamic";
 
+// Only the name: the row is a Client Component, so the full voter record
+// (DOB, address, phone) would be sent to the browser.
+const REQUEST_VOTER_SELECT = {
+  firstName: true,
+  lastName: true,
+} as const satisfies Prisma.VoterRecordSelect;
+type RequestVoterFields = Pick<VoterRecord, keyof typeof REQUEST_VOTER_SELECT>;
+
 // Passed to a Client Component, so it carries no CommitteeList (its
 // `ltedWeight` is a Decimal, which cannot cross the boundary); the group has it.
 export type MembershipRequestWithDetails = {
   id: string;
   committeeListId: number;
-  voterRecord: VoterRecord;
+  voterRecord: RequestVoterFields;
   submissionMetadata: unknown;
   seatNumber: number | null;
   submittedAt: Date;
@@ -108,7 +117,7 @@ const CommitteeRequests: React.FC = async () => {
       where: { status: MembershipStatus.SUBMITTED, termId: activeTermId },
       include: {
         committeeList: true,
-        voterRecord: true,
+        voterRecord: { select: REQUEST_VOTER_SELECT },
       },
     }),
     prisma.committeeMembership.findMany({

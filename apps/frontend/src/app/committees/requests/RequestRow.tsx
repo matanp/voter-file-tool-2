@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type SimpleApiResponse } from "@voter-file-tool/shared-validators";
 
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { toast } from "~/components/ui/use-toast";
@@ -16,6 +17,7 @@ import { useApiMutation } from "~/hooks/useApiMutation";
 import { formatInstantDateForDisplay } from "~/lib/dateUtils";
 import type { CommitteeMembershipSubmissionMetadata } from "~/lib/validations/committee";
 import { PendingRow } from "~/app/committees/workspace/tabs/pending/PendingRow";
+import { personName } from "~/app/committees/workspace/tabs/pending/PendingSubmissionItem";
 import type { MembershipRequestWithDetails } from "./page";
 
 type RequestRowProps = {
@@ -83,17 +85,18 @@ export const RequestRow: React.FC<RequestRowProps> = ({ request }) => {
   };
 
   const submissionMeta = getSubmissionMetadata(request.submissionMetadata);
-  const name =
-    `${request.voterRecord.firstName ?? ""} ${request.voterRecord.lastName ?? ""}`.trim() ||
-    "Unnamed voter";
+  const name = personName(request.voterRecord);
+  const notes = submissionMeta?.requestNotes;
+  const replaces = submissionMeta?.removeMemberId;
   const warnings = submissionMeta?.eligibilityWarnings ?? [];
+  const hasDetails = Boolean(notes) || Boolean(replaces) || warnings.length > 0;
 
   return (
     <PendingRow
       labelId={`${ids}-name`}
       busy={handleRequestMutation.loading}
       name={name}
-      seat={request.seatNumber !== null ? `Seat ${request.seatNumber}` : null}
+      seatNumber={request.seatNumber}
       chip={
         <Badge variant="outline" hoverable={false}>
           Submission
@@ -101,27 +104,26 @@ export const RequestRow: React.FC<RequestRowProps> = ({ request }) => {
       }
       meta={`Submitted ${formatInstantDateForDisplay(request.submittedAt)}`}
       details={
-        <>
-          <p>{submissionMeta?.requestNotes ?? "No notes provided"}</p>
-          {submissionMeta?.removeMemberId && (
-            <p>
-              Intended replacement for member ID:{" "}
-              {submissionMeta.removeMemberId}
-            </p>
-          )}
-          {warnings.length > 0 && (
-            <div className="text-amber-900">
-              <p className="font-medium">Eligibility warnings</p>
-              <ul className="list-inside list-disc">
-                {warnings.map((w, i) => (
-                  <li key={typeof w.code === "string" ? w.code : i}>
-                    {typeof w.message === "string" ? w.message : String(w)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
+        hasDetails ? (
+          <>
+            {notes && <p>{notes}</p>}
+            {replaces && <p>Intended replacement for member ID: {replaces}</p>}
+            {warnings.length > 0 && (
+              <Alert variant="warning" className="mt-1 p-3">
+                <AlertTitle>Eligibility warnings</AlertTitle>
+                <AlertDescription>
+                  <ul className="mt-1 list-inside list-disc text-sm">
+                    {warnings.map((w, i) => (
+                      <li key={typeof w.code === "string" ? w.code : i}>
+                        {typeof w.message === "string" ? w.message : String(w)}
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
+        ) : undefined
       }
       actions={
         <>
