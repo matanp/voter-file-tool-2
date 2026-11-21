@@ -189,7 +189,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
+          <CardTitle as="h2">{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -209,7 +209,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle as="h2" className="flex items-center space-x-2">
             <AlertCircle className="h-5 w-5 text-destructive" />
             <span>{title}</span>
           </CardTitle>
@@ -232,7 +232,7 @@ const ReportsList: React.FC<ReportsListProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>{title}</CardTitle>
+            <CardTitle as="h2">{title}</CardTitle>
             <CardDescription>
               {description} • {totalCount} total report
               {totalCount !== 1 ? "s" : ""}
