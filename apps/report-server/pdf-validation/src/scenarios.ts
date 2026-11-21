@@ -50,6 +50,13 @@ export type ScenarioResult = {
   error: string | null;
   chromePids: number[];
   nextReport: { key: string; ok: boolean; detail: string; bytes?: number; sha256?: string };
+  /**
+   * Chrome still running once the failing call returned, checked before the worker went on (and
+   * before Puppeteer's exit handler could kill it). Null when the call never settled. Absent in
+   * results written before this check existed.
+   */
+  leftoversAfterFailure?: { pid: number; command: string }[] | null;
+  /** Chrome still running after the worker exited. */
   leftoverProcesses: { pid: number; command: string }[];
 };
 

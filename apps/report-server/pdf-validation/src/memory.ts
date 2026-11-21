@@ -12,7 +12,7 @@
 import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import { isChromeCommand, processTable } from './diagnostics';
+import { briefCommand, isChromeCommand, processTable } from './diagnostics';
 
 export type ProcEntry = { pid: number; ppid: number; pgid: number; start: string; rssKb: number; command: string };
 export type ProcSource = () => ProcEntry[];
@@ -115,8 +115,6 @@ export type PhaseSummary = {
 
 export type ProcessPeak = { pid: number; start: string; role: 'worker' | 'chrome'; command: string; peakKb: number; firstMs: number; lastMs: number };
 
-type Tracked = { pid: number; start: string; role: 'worker' | 'chrome'; command: string; peakKb: number; firstMs: number; lastMs: number };
-
 export type SamplerOptions = {
   intervalMs: number;
   source?: ProcSource;
@@ -135,7 +133,7 @@ export class MemorySampler {
   private readonly source: ProcSource;
   private readonly system: () => SystemMemory;
   private readonly now: () => number;
-  private readonly owned = new Map<string, Tracked>();
+  private readonly owned = new Map<string, ProcessPeak>();
   private workerPid: number | null = null;
   private chromePgid: number | null = null;
   private phase: Phase | null = null;
@@ -194,7 +192,7 @@ export class MemorySampler {
 
   /** Every process attributed to the harness during this case, with its own peak. */
   processPeaks(): ProcessPeak[] {
-    return [...this.owned.values()].map((p) => ({ ...p, command: p.command.slice(0, 160) }));
+    return [...this.owned.values()].map((p) => ({ ...p, command: briefCommand(p.command) }));
   }
 
   tick() {
@@ -266,7 +264,7 @@ export class MemorySampler {
     }
     for (const p of procs) {
       if (!ownedNow.has(p.pid) && !service.has(p.pid) && p.pid !== process.pid && isChromeCommand(p.command)) {
-        this.foreign.set(p.pid, p.command.slice(0, 160));
+        this.foreign.set(p.pid, briefCommand(p.command));
       }
     }
 
@@ -277,6 +275,9 @@ export class MemorySampler {
 }
 
 // ------------------------------------------------------------------ summaries
+
+/** KB as whole MiB, for logs and the summary; '?' when not measured. */
+export const mib = (kb: number | null | undefined): string => (kb === null || kb === undefined ? '?' : String(Math.round(kb / 1024)));
 
 export function stats(values: (number | null)[]): Stats {
   const v = values.filter((x): x is number => x !== null).sort((a, b) => a - b);

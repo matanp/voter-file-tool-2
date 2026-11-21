@@ -98,10 +98,15 @@ Runs each scenario in `src/scenarios.ts` once per selected browser, in its own w
 | `close-no-page` | `browser.newPage()` rejects, so `generatePDFAndUpload` closes a browser with no page |
 
 Each one passes only if:
-- the failing call settles within 30 s (`--failure-timeout-ms`);
+- the failing call settles within 30 s (`--failure-timeout-ms`). The bound covers the whole
+  `generatePDFAndUpload` call, including Chrome's launch and, for the upload scenarios, the render
+  before the upload. Module loading and HTML building before it are not counted;
 - it reports the original error;
+- no Chrome is still running once the failing call returns (`no-chrome-after-failure`). The worker
+  waits while the harness checks. The check can't wait for the worker to exit, because Puppeteer
+  kills an unclosed browser when its Node process exits, and the long-lived service never does;
 - the same worker then renders the report again successfully;
-- no Chrome is left over.
+- no Chrome is left over after the worker exits.
 
 A scenario that runs out of time fails, even though the harness then kills the worker and Chrome.
 That way the harness timeout can't hide a missing production close timeout. Results go to

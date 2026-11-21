@@ -55,8 +55,9 @@ import {
   type MeasuredRender,
   type MeasurementsFile,
 } from './measurements';
-import { MemorySampler } from './memory';
+import { MemorySampler, mib } from './memory';
 import { SCENARIOS, SCENARIO_FIXTURE, SCENARIO_NAMES, type FailureScenariosFile, type ScenarioName, type ScenarioResult } from './scenarios';
+import { superviseScenario } from './scenarioSupervisor';
 import { Storage, loadStorageConfig } from './storage';
 import type { WorkerJob, WorkerMessage } from './worker';
 
@@ -83,6 +84,9 @@ type MeasuredStep = Step & { repetition: number };
 
 /** A dead database URL for the worker: the PDF paths never query, and nothing can by accident. */
 const NO_DATABASE_URL = 'postgresql://pdf-validation-no-database.invalid:1/none';
+
+/** How long a Chrome killed by the failing call's close may take to disappear before it counts as left behind. */
+const AFTER_FAILURE_GRACE_MS = 2_000;
 
 class Logger {
   constructor(private readonly file: string) {}
@@ -399,76 +403,63 @@ export async function render(opts: RenderOptions): Promise<number> {
       executablePath: resolved.executablePath,
       scenario: { name, nextKey },
     };
-    const killAll = (child: ChildProcess) => {
-      for (const pid of result.chromePids) killGroup(pid);
-      child.kill('SIGKILL');
-    };
-    const outcome = await new Promise<{ scenarioDone: boolean; next: { ok: boolean; detail: string } | null }>((resolve) => {
-      const child = forkWorker(caseTmp);
-      current = { child, chromePgid: null };
-      let scenarioDone = false;
-      let next: { ok: boolean; detail: string } | null = null;
-      // Loading modules, building HTML and launching get the normal case timeout. The bound starts
-      // when the worker starts the failing call. A missing close timeout must fail here, not pass
-      // after the harness kills Chrome, so a scenario that runs out of time is never retried.
-      let timer = setTimeout(() => {
-        next = { ok: false, detail: `not run: the worker did not start the failing call within ${opts.caseTimeoutMs} ms` };
-        killAll(child);
-      }, opts.caseTimeoutMs);
-      child.on('message', (m: WorkerMessage) => {
-        if (m.type === 'scenario-start') {
-          clearTimeout(timer);
-          timer = setTimeout(() => {
-            next = { ok: false, detail: 'not run: the failing call did not settle in time' };
-            killAll(child);
-          }, timeoutMs);
+    const child = forkWorker(caseTmp);
+    current = { child, chromePgid: null };
+    const leftoversNow = (pids: number[]) =>
+      [...pids.flatMap((pid) => processesInGroup(pid)), ...processesMentioning(caseTmp)].filter((p, i, all) => all.findIndex((q) => q.pid === p.pid) === i);
+    const outcome = await superviseScenario(child, job, {
+      caseTimeoutMs: opts.caseTimeoutMs,
+      failureTimeoutMs: timeoutMs,
+      killAll: (pids) => {
+        for (const pid of pids) killGroup(pid);
+        child.kill('SIGKILL');
+      },
+      // Chrome the failing call left behind, while the worker is still alive (see scenarioSupervisor.ts).
+      // A close that kills Chrome can return a moment before the process is gone, so allow a short grace.
+      afterFailure: async (pids) => {
+        let left = leftoversNow(pids);
+        for (const deadline = Date.now() + AFTER_FAILURE_GRACE_MS; left.length && Date.now() < deadline; left = leftoversNow(pids)) {
+          await new Promise((r) => setTimeout(r, 100));
         }
-        if (m.type === 'launched' && m.pid) {
-          result.chromePids.push(m.pid);
-          current = { child, chromePgid: m.pid };
-        }
-        if (m.type === 'scenario-done') {
-          scenarioDone = true;
-          result.scenarioMs = m.ms;
-          result.error = m.error;
-          clearTimeout(timer);
-          timer = setTimeout(() => {
-            next = { ok: false, detail: `timeout after ${opts.caseTimeoutMs} ms` };
-            killAll(child);
-          }, opts.caseTimeoutMs);
-        }
-        if (m.type === 'done') next = m.ok ? { ok: true, detail: `rendered and uploaded in ${m.renderMs} ms` } : { ok: false, detail: m.error };
-      });
-      child.on('exit', (code, signal) => {
-        clearTimeout(timer);
-        if (halt.reason && !next) next = { ok: false, detail: `stopped: ${halt.reason}` };
-        resolve({ scenarioDone, next: next ?? { ok: false, detail: `worker exited (${signal ?? code}) without a result` } });
-      });
-      child.send(job);
+        for (const p of left) killPid(p.pid);
+        return left.map((p) => ({ pid: p.pid, command: brief(p).command }));
+      },
+      onLaunched: (pid) => {
+        current = { child, chromePgid: pid };
+      },
+      haltReason: () => halt.reason,
     });
     current = null;
+    result.chromePids = outcome.chromePids;
+    result.scenarioMs = outcome.settled?.ms ?? null;
+    result.error = outcome.settled?.error ?? null;
+    result.leftoversAfterFailure = outcome.leftoversAfterFailure;
 
     await new Promise((r) => setTimeout(r, 300));
-    const leftovers = [...result.chromePids.flatMap((pid) => processesInGroup(pid)), ...processesMentioning(caseTmp)].filter(
-      (p, i, all) => all.findIndex((q) => q.pid === p.pid) === i,
-    );
+    const leftovers = leftoversNow(result.chromePids);
     for (const p of leftovers) killPid(p.pid);
     result.leftoverProcesses = leftovers.map((p) => ({ pid: p.pid, command: brief(p).command }));
     fs.rmSync(caseTmp, { recursive: true, force: true });
 
     const expected = SCENARIOS[name].expectError;
-    const bounded = outcome.scenarioDone && result.scenarioMs !== null && result.scenarioMs <= timeoutMs;
+    const settled = outcome.settled !== null;
     result.checks.push({
       id: 'bounded',
-      ok: bounded,
-      detail: outcome.scenarioDone ? `failing call settled in ${result.scenarioMs} ms (bound ${timeoutMs} ms)` : `failing call did not settle within ${timeoutMs} ms; the harness killed the worker and Chrome`,
+      ok: settled && result.scenarioMs !== null && result.scenarioMs <= timeoutMs,
+      detail: settled
+        ? `failing call settled in ${result.scenarioMs} ms (bound ${timeoutMs} ms)`
+        : outcome.timedOut === 'failure'
+          ? `failing call did not settle within ${timeoutMs} ms; the harness killed the worker and Chrome`
+          : outcome.started
+            ? `failing call did not settle: ${outcome.next.detail.split('\n')[0]}`
+            : `the worker stopped before the failing call started: ${outcome.next.detail.split('\n')[0]}`,
     });
     result.checks.push({
       id: 'original-error',
       ok: result.error !== null && result.error.includes(expected),
-      detail: result.error === null ? (outcome.scenarioDone ? 'the call succeeded despite the injected failure' : 'no error reported') : `${result.error.split('\n')[0]}${result.error.includes(expected) ? '' : ` (expected it to include ${JSON.stringify(expected)})`}`,
+      detail: result.error === null ? (settled ? 'the call succeeded despite the injected failure' : 'no error reported') : `${result.error.split('\n')[0]}${result.error.includes(expected) ? '' : ` (expected it to include ${JSON.stringify(expected)})`}`,
     });
-    result.nextReport = { key: nextKey, ...(outcome.next ?? { ok: false, detail: 'not run' }) };
+    result.nextReport = { key: nextKey, ...outcome.next };
     if (result.nextReport.ok && storage) {
       try {
         const pdf = await storage.get(nextKey, opts.caseTimeoutMs);
@@ -481,8 +472,13 @@ export async function render(opts: RenderOptions): Promise<number> {
         result.nextReport = { ...result.nextReport, ok: false, detail: `download failed: ${errorMessage(error)}` };
       }
     }
+    // Only once the failing call settled: a hang already fails 'bounded', and the harness then killed Chrome itself.
+    if (result.leftoversAfterFailure) {
+      const n = result.leftoversAfterFailure.length;
+      result.checks.push({ id: 'no-chrome-after-failure', ok: n === 0, detail: n ? `${n} process(es) still running after the failing call returned` : 'none still running after the failing call returned' });
+    }
     result.checks.push({ id: 'next-report', ok: result.nextReport.ok, detail: result.nextReport.detail });
-    result.checks.push({ id: 'no-leftover-chrome', ok: leftovers.length === 0, detail: `${leftovers.length} process(es) left` });
+    result.checks.push({ id: 'no-leftover-chrome', ok: leftovers.length === 0, detail: `${leftovers.length} process(es) left after the worker exited` });
     result.status = result.checks.every((c) => c.ok) ? 'ok' : 'failed';
     log.line(`  ${result.status}: ${result.checks.map((c) => `${c.id} ${c.ok ? 'ok' : 'FAILED'}`).join(', ')}`);
     return result;
@@ -658,7 +654,7 @@ export async function render(opts: RenderOptions): Promise<number> {
         measured.interference = interferenceReasons(measured, servicePid !== null && [idle, renderPhase].some((p) => p && p.summary.serviceMissingSamples > 0));
         measuredRenders.push(measured);
         const peak = renderPhase?.summary.chrome.peakKb;
-        log.line(`  chrome peak ${peak === null || peak === undefined ? '?' : `${Math.round(peak / 1024)} MiB`}${measured.interference.length ? `; interference: ${measured.interference.join('; ')}` : ''}`);
+        log.line(`  chrome peak ${mib(peak)} MiB${measured.interference.length ? `; interference: ${measured.interference.join('; ')}` : ''}`);
         if (record.status === 'failed') fail(`measured render ${caseId}: ${failedChecks(record)}`);
         save();
       }

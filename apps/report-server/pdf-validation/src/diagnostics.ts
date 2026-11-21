@@ -243,7 +243,8 @@ export function isChromeCommand(command: string): boolean {
 const isChrome = (p: ProcessInfo) => isChromeCommand(p.command);
 
 /** For the manifest: the command line shortened, since Chrome's runs to kilobytes. */
-export const brief = (p: ProcessInfo): ProcessInfo => ({ ...p, command: p.command.slice(0, 160) });
+export const briefCommand = (command: string): string => command.slice(0, 160);
+export const brief = (p: ProcessInfo): ProcessInfo => ({ ...p, command: briefCommand(p.command) });
 
 /** Chrome processes that the harness did not start: the live service's, or anything else's. */
 export function foreignChrome(ownedPgids: Set<number>): ProcessInfo[] {

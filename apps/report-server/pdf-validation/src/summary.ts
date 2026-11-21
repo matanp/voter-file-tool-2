@@ -7,6 +7,7 @@ import { fixtureById } from './fixtures';
 import type { Inspection } from './inspect';
 import type { RunManifest } from './manifest';
 import type { MemoryGroup } from './measurementChecks';
+import { mib } from './memory';
 import type { VerifyResults } from './verify';
 
 const ICON: Record<Status, string> = { pass: 'PASS', fail: 'FAIL', 'needs-review': 'REVIEW' };
@@ -97,7 +98,6 @@ export function writeSummary(runDir: string, manifest: RunManifest, results: Ver
   fs.writeFileSync(path.join(runDir, 'summary.md'), `${lines.join('\n')}\n`);
 }
 
-const mib = (kb: number | null | undefined) => (kb === null || kb === undefined ? '?' : String(Math.round(kb / 1024)));
 
 /** Memory: per fixture and browser, then full Chrome vs headless-shell where both were measured. */
 function writeMemorySection(lines: string[], groups: MemoryGroup[]): void {

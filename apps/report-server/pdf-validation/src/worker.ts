@@ -141,7 +141,12 @@ async function run(job: WorkerJob): Promise<void> {
       injection = null;
       restore();
     }
+    // Wait while the harness looks for Chrome the failing call left behind. That check must run
+    // while this process is alive: Puppeteer kills an unclosed browser when Node exits, which
+    // would hide a leak the long-lived service keeps. Listen before sending, so the reply can't be missed.
+    const proceed = new Promise<void>((resolve) => process.once('message', () => resolve()));
     await send({ type: 'scenario-done', error, ms: Math.round(performance.now() - start) });
+    await proceed;
   }
 
   const renderStart = performance.now();

@@ -19,7 +19,8 @@ import {
   type BaselineEntry,
   type ThresholdEntry,
 } from './approvals';
-import { MAX_TRUSTED_GAP_MS } from './measurementChecks';
+import { trustProblems } from './measurementChecks';
+import { mib } from './memory';
 import { CHECKLIST_FILE, baselineKey, readJson, runPrefix, sha256File, type BrowserName } from './common';
 import { isUnavailable } from './diagnostics';
 import { fixtureById } from './fixtures';
@@ -153,9 +154,9 @@ export function approveThresholds(
     if (opts.fixtures && !opts.fixtures.includes(g.fixtureId)) continue;
     if (opts.browser && g.browser !== opts.browser) continue;
     if (g.fixtureHash !== fixtureById(g.fixtureId).hash) throw new Error(`${g.fixtureId}: measured fixture hash does not match the current definition; measure it again`);
-    const skip = g.ok < g.repetitions ? 'a repetition failed' : g.interfered ? 'a repetition overlapped production work' : g.maxGapMs > MAX_TRUSTED_GAP_MS ? `a ${g.maxGapMs} ms sampling gap could hide a peak` : null;
-    if (skip) {
-      console.log(`skip ${g.fixtureId}.${g.browser}: ${skip}; measure again`);
+    const problems = trustProblems(g);
+    if (problems.length) {
+      console.log(`skip ${g.fixtureId}.${g.browser}: ${problems.map((p) => p.note).join('; ')}; measure again`);
       continue;
     }
     for (const metric of MEMORY_METRICS) {
@@ -183,8 +184,13 @@ export function approveThresholds(
           instance: `${String(manifest.instance.platform)}, ${String(manifest.instance.cpus)} CPU, ${String(manifest.instance.totalMemMb)} MB`,
         },
       };
+      const existing = approvals.thresholds.find((t) => sameThresholdKey(t, entry));
+      // Re-approving from a run that went over the old ceiling raises it; say so rather than ratchet silently.
+      if (existing && entry.maxKb > existing.maxKb) {
+        console.log(`raises ${g.fixtureId}.${g.browser} ${metric} from ${mib(existing.maxKb)} to ${mib(entry.maxKb)} MiB (was approved from ${existing.sourceRunId})`);
+      }
       approvals.thresholds = [...approvals.thresholds.filter((t) => !sameThresholdKey(t, entry)), entry];
-      console.log(`threshold ${g.fixtureId}.${g.browser} ${metric}: ${Math.round(entry.maxKb / 1024)} MiB (measured max ${Math.round(p.maxKb / 1024)} MiB + ${opts.headroomPct}%)`);
+      console.log(`threshold ${g.fixtureId}.${g.browser} ${metric}: ${mib(entry.maxKb)} MiB (measured max ${mib(p.maxKb)} MiB + ${opts.headroomPct}%)`);
       changed++;
     }
   }
