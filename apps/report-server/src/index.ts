@@ -26,8 +26,9 @@ import {
 } from './xlsxGenerator';
 import { buildCommitteeRosterReportConfig } from './committeeRosterConfig';
 import { processAbsenteeReport } from './reportProcessors';
+import { processPetitionJob } from './petitionJob';
 import { processVoterImport } from './reportProcessors/voterImportProcessor';
-import { createWebhookSignature } from './webhookUtils';
+import { createWebhookSignature, postReportCallback } from './webhookUtils';
 import {
   formatContactInfoDate,
   resolveSignInSheetTitleScope,
@@ -218,14 +219,7 @@ function extractXLSXConfig(jobData: XLSXReportData) {
 async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName = '';
-    let metadata:
-      | {
-          recordsProcessed: number;
-          recordsCreated: number;
-          recordsUpdated: number;
-          dropdownsUpdated: boolean;
-        }
-      | undefined;
+    let metadata: ReportCompleteWebhookPayload['metadata'];
     const { reportAuthor, jobId } = jobData;
     const shouldSendCallback = jobData.type !== 'boeEligibilityFlagging';
 
@@ -287,17 +281,11 @@ async function processJob(jobData: EnrichedReportData) {
     } else if (jobData.type === 'designatedPetition') {
       fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
       console.log('Processing designated petition form...');
-      const { candidates, vacancyAppointments, party, electionDate, numPages } =
-        jobData.payload;
-
-      const html = generateHTML(
-        candidates,
-        vacancyAppointments,
-        party,
-        electionDate,
-        numPages
-      );
-      await generatePDFAndUpload(html, false, fileName);
+      const petitionResult = await processPetitionJob(jobData.payload, fileName, {
+        generateHTML,
+        generatePDFAndUpload,
+      });
+      metadata = petitionResult.metadata;
     } else if (jobData.type === 'absenteeReport') {
       fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
 
@@ -492,11 +480,7 @@ async function processJob(jobData: EnrichedReportData) {
       }
       console.log('calling callback url for report complete');
 
-      await fetch(CALLBACK_URL, {
-        method: 'POST',
-        headers: callbackHeaders,
-        body: callbackPayload,
-      });
+      await postReportCallback(CALLBACK_URL, callbackHeaders, callbackPayload);
       console.log('done');
     }
   } catch (error) {
@@ -528,11 +512,11 @@ async function processJob(jobData: EnrichedReportData) {
     }
 
     console.log('calling callback url on error: ', errorCallbackPayload);
-    await fetch(CALLBACK_URL, {
-      method: 'POST',
-      headers: errorCallbackHeaders,
-      body: errorCallbackPayload,
-    });
+    await postReportCallback(
+      CALLBACK_URL,
+      errorCallbackHeaders,
+      errorCallbackPayload
+    );
     console.log('done');
   }
 }
