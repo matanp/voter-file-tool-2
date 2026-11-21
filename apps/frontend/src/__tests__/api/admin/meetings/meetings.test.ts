@@ -25,7 +25,7 @@ import {
 } from "../../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../../utils/mocks";
 
@@ -61,7 +61,7 @@ describe("POST /api/admin/meetings", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     getMeetingRecordMock(prismaMock).create.mockResolvedValue(
       createMockMeetingRecord(),
     );
@@ -124,7 +124,7 @@ describe("POST /api/admin/meetings", () => {
         user: { privilegeLevel: PrivilegeLevel.ReadAccess },
       }),
     );
-    mockHasPermission(false);
+    mockHasPrivilege(false);
     const body = { meetingDate: "2024-06-15" };
     const response = await createMeeting(createMockRequest(body));
     await expectErrorResponse(
@@ -145,7 +145,7 @@ describe("GET /api/admin/meetings", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
   });
 
   it("returns paginated meetings with counts", async () => {
@@ -182,7 +182,7 @@ describe("GET /api/admin/meetings/[meetingId]/submissions", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     getMeetingRecordMock(prismaMock).findUnique.mockResolvedValue(
       createMockMeetingRecord(),
     );
@@ -239,7 +239,7 @@ describe("POST /api/admin/meetings/[meetingId]/decisions", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     getMeetingRecordMock(prismaMock).findUnique.mockResolvedValue(
       createMockMeetingRecord(),
     );

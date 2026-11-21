@@ -32,7 +32,7 @@ import { Input } from "~/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { useToast } from "~/components/ui/use-toast";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type {
   CommitteeDetailResponse,
   EdRollup,
@@ -77,9 +77,9 @@ export function VariantB() {
   const pathname = usePathname() ?? "/committees";
   const sp = useSearchParams();
   const { toast } = useToast();
-  const { actingPermissions } = useContext(GlobalContext);
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
-  const canAct = hasPermissionFor(actingPermissions, PrivilegeLevel.RequestAccess);
+  const { actingPrivilege } = useContext(GlobalContext);
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
+  const canAct = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.RequestAccess);
 
   // --- URL state (plan §6): committee + tab + filters --------------------
   const town = sp?.get("town") ?? "";
@@ -218,7 +218,7 @@ export function VariantB() {
           onAction={setAction}
           stub={stub}
         />
-        <AddMemberDrawerStub action={action} role={actingPermissions} onClose={() => setAction(null)} />
+        <AddMemberDrawerStub action={action} role={actingPrivilege} onClose={() => setAction(null)} />
       </div>
     );
   }
@@ -474,7 +474,7 @@ export function VariantB() {
         </ul>
       )}
 
-      <AddMemberDrawerStub action={action} role={actingPermissions} onClose={() => setAction(null)} />
+      <AddMemberDrawerStub action={action} role={actingPrivilege} onClose={() => setAction(null)} />
     </div>
   );
 }

@@ -39,3 +39,12 @@ These are Prisma model names, so this is a **schema migration**, not an identifi
 
 Option 3 is defensible: the cost is real and the confusion is bounded, since the glossary now
 exists to resolve it. Recorded here so the choice is deliberate rather than forgotten.
+
+## Comments
+
+- 2026-11-22 — Related naming leftover, not in this ticket's scope: `lib/loadScopedReportPageData.ts`
+  has `export type LeaderAssignment = Jurisdiction;`. The glossary defines an Assignment as the
+  grant (one jurisdiction for one term), so the alias claims an Assignment *is* a Jurisdiction.
+  The values are the jurisdictions a Leader's assignments cover; a name like
+  `LeaderJurisdiction` (or using `Jurisdiction` directly) would say that. Rename alongside any
+  work here, or on its own.

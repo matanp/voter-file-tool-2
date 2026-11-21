@@ -241,12 +241,12 @@ export async function validateReportJurisdictionAccess(
   userId: string,
   privilegeLevel: PrivilegeLevel,
   reportLabel: string,
-  hasPermissionFor: (
+  hasPrivilegeFor: (
     user: PrivilegeLevel,
     required: PrivilegeLevel,
   ) => boolean,
 ): Promise<ErrorResponse | null> {
-  const isAdmin = hasPermissionFor(privilegeLevel, PrivilegeLevel.Admin);
+  const isAdmin = hasPrivilegeFor(privilegeLevel, PrivilegeLevel.Admin);
 
   if (input.scope === "countywide" && !isAdmin) {
     return {

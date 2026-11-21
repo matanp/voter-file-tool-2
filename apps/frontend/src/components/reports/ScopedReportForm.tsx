@@ -15,7 +15,7 @@ import { useToast } from "~/components/ui/use-toast";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
 import { useApiMutation } from "~/hooks/useApiMutation";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import {
   COMMITTEE_ROSTER_INCLUDE_FIELDS,
@@ -91,10 +91,10 @@ export function ScopedReportForm({
   const formatDef = SCOPE_REPORT_REGISTRY[type].format;
 
   const { toast } = useToast();
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
 
-  const effectivePrivilege = actingPermissions ?? userPrivilegeLevel;
-  const isAdmin = hasPermissionFor(effectivePrivilege, PrivilegeLevel.Admin);
+  const effectivePrivilege = actingPrivilege ?? userPrivilegeLevel;
+  const isAdmin = hasPrivilegeFor(effectivePrivilege, PrivilegeLevel.Admin);
   const isLeaderOnly = !isAdmin;
 
   const defaultRange = last30DaysIsoRange();

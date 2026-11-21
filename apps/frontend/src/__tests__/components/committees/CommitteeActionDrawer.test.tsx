@@ -3,7 +3,7 @@
  * §12.2): candidate search and selection; eligible, warning, hard-stop,
  * retry and full-committee states; role-appropriate labels and endpoints;
  * server rejections keeping the drawer open; success closing it. Roles are
- * simulated through `actingPermissions`. Cross-pane refresh and focus
+ * simulated through `actingPrivilege`. Cross-pane refresh and focus
  * restoration are covered with the workspace in
  * `CommitteeWorkspace.drawer.test.tsx`.
  */
@@ -27,7 +27,7 @@ import type { CommitteeRef } from "~/lib/committees/committeeRef";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { toast } from "~/components/ui/use-toast";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import {
   fetchJsonResponse,
   installFetchMock,
@@ -45,8 +45,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -216,7 +216,7 @@ function renderDrawer({
   const onComplete = jest.fn();
   render(
     <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: role, setActingPrivilege: () => undefined }}
     >
       <CommitteeActionDrawer
         action={action}
@@ -248,9 +248,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   resetExitInstructionsCache();
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 });
 
@@ -1330,8 +1330,8 @@ describe("CommitteeActionDrawer: closing", () => {
     const ui = (action: CommitteeAction | null) => (
       <GlobalContext.Provider
         value={{
-          actingPermissions: PrivilegeLevel.Admin,
-          setActingPermissions: () => undefined,
+          actingPrivilege: PrivilegeLevel.Admin,
+          setActingPrivilege: () => undefined,
         }}
       >
         <CommitteeActionDrawer

@@ -21,7 +21,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -46,7 +46,7 @@ const asAdmin = () => {
   mockAuthSession(
     createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
   );
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 };
 
 describe("single-record election-config audit logging", () => {

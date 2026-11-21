@@ -19,7 +19,7 @@ import { PrivilegeLevel } from "@prisma/client";
 
 import { CommitteeWorkspace } from "~/app/committees/workspace/CommitteeWorkspace";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import { summarizeEdRollups } from "~/lib/summarizeEdRollups";
 import { fetchJsonResponse, installFetchMock } from "../../utils/mocks";
@@ -68,8 +68,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -222,7 +222,7 @@ function renderWorkspace(query: string) {
   mockUrl.reset(query);
   return render(
     <GlobalContext.Provider
-      value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: PrivilegeLevel.Admin, setActingPrivilege: () => undefined }}
     >
       <CommitteeWorkspace termLabel="2024–2026" initialScope={null} />
     </GlobalContext.Provider>,
@@ -272,9 +272,9 @@ async function tabTo(target: () => HTMLElement | null, max = 40) {
 beforeEach(() => {
   jest.clearAllMocks();
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
   Object.defineProperty(window, "matchMedia", {
     configurable: true,

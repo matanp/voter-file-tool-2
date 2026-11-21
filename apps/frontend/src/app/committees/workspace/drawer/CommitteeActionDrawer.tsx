@@ -26,7 +26,7 @@ import {
 } from "~/components/ui/sheet";
 import { toast } from "~/components/ui/use-toast";
 import { committeeLabel } from "~/lib/committees/committeeRef";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import { candidateSubmissionMode, type CandidateSubmissionMode } from "../adapters";
 import type { CommitteeAction } from "../committeeAction";
@@ -81,7 +81,7 @@ export function CommitteeActionDrawer({
   returnFocusTo,
   fallbackFocus,
 }: CommitteeActionDrawerProps) {
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
 
   // Keep rendering the last action (and where to return focus) while the
   // sheet animates closed. `generation` counts openings: it remounts the flow
@@ -122,11 +122,11 @@ export function CommitteeActionDrawer({
   let mode: CandidateSubmissionMode | null = null;
   let flow: React.ReactNode = null;
   if (current) {
-    const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+    const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
     switch (current.kind) {
       case "add-member":
       case "replace-member":
-        mode = candidateSubmissionMode(current, actingPermissions);
+        mode = candidateSubmissionMode(current, actingPrivilege);
         flow = mode ? (
           <AddMemberFlow
             key={generation}
@@ -164,7 +164,7 @@ export function CommitteeActionDrawer({
       // Leader/RequestAccess file a report; Admins exit members directly.
       case "report-exit":
         flow =
-          hasPermissionFor(actingPermissions, PrivilegeLevel.RequestAccess) &&
+          hasPrivilegeFor(actingPrivilege, PrivilegeLevel.RequestAccess) &&
           !isAdmin ? (
             <ReportExitForm
               key={generation}

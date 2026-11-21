@@ -3,13 +3,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import CommitteeSelector from "~/app/committees/CommitteeSelector";
-import { mockHasPermission } from "../../utils/mocks";
+import { mockHasPrivilege } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => {
   return {
     GlobalContext: React.createContext({
-      actingPermissions: PrivilegeLevel.Admin,
-      setActingPermissions: () => undefined,
+      actingPrivilege: PrivilegeLevel.Admin,
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -65,7 +65,7 @@ jest.mock("~/hooks/useApiMutation", () => ({
 describe("CommitteeSelector petition context link-out (SRS 4.4)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.startsWith("/api/committee/roster/")) {

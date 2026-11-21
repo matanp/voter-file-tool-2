@@ -11,7 +11,7 @@ import {
   expectAuditLogCreate,
   getAuditLogMock,
 } from "../../../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../../../utils/mocks";
 
 const crosswalkMock = prismaMock.ltedDistrictCrosswalk as {
   findUnique: jest.Mock;
@@ -30,7 +30,7 @@ describe("DELETE /api/admin/crosswalk/[id]", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     crosswalkMock.findUnique.mockResolvedValue({
       id: CROSSWALK_ID,
       cityTown: "ROCHESTER",

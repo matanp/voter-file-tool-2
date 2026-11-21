@@ -12,7 +12,7 @@ import {
   type ErrorResponseBody,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission } from "../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege } from "../../utils/mocks";
 
 jest.mock("~/app/api/admin/bulkLoadData/bulkLoadUtils", () => ({
   parseCSV: jest.fn().mockResolvedValue(undefined),
@@ -43,7 +43,7 @@ describe("/api/admin/bulkLoadData", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         undefined,
         200,
       );
@@ -57,7 +57,7 @@ describe("/api/admin/bulkLoadData", () => {
       process.env.VERCEL = "1";
       const mockSession = { user: { id: "1", privilegeLevel: PrivilegeLevel.Admin } };
       mockAuthSession(mockSession as never);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({});
       const response = await POST(request);

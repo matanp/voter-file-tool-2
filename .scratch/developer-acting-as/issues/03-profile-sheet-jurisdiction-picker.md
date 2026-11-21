@@ -43,3 +43,13 @@ being the source of truth.
 - Choosing any non-Leader role clears jurisdictions (the schema rejects them otherwise).
 - Reloading the browser keeps the acting state (cookie), and the picker is pre-filled.
 - No consumer reads `localStorage` to decide behaviour.
+
+## Comments
+
+- 2026-11-22 — PR #186 (glossary-alignment 01) renamed the client identifiers to
+  `actingPrivilege` / `setActingPrivilege` / `hasPrivilegeFor`; references to `actingPermissions`
+  above now mean `actingPrivilege`. The storage key stayed `"actingPermissions"`, held in
+  `ACTING_PRIVILEGE_STORAGE_KEY` in `GlobalContext.tsx` and pinned by
+  `__tests__/components/providers/GlobalContext.test.tsx`. When this ticket changes the key, also
+  update `apps/frontend/.claude/skills/run-frontend/steps/record-search-committee-badge.mjs:42`,
+  which writes the literal `'actingPermissions'` instead of using the constant.

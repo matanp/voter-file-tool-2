@@ -23,7 +23,7 @@ import {
 import {
   jurisdictionRow,
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -44,7 +44,7 @@ function lastQuery(): Prisma.CommitteeMembershipFindManyArgs {
 
 function signIn(privilegeLevel: PrivilegeLevel) {
   mockAuthSession(createMockSession({ user: { privilegeLevel } }));
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 }
 
 const request = (q?: string) =>
@@ -79,7 +79,7 @@ describe("GET /api/committee/memberSearch auth", () => {
     },
     GET as (req: Parameters<typeof GET>[0]) => Promise<Response>,
     mockAuthSession,
-    mockHasPermission,
+    mockHasPrivilege,
   );
   for (const { description, runTest } of suite) it(description, runTest);
 
@@ -89,7 +89,7 @@ describe("GET /api/committee/memberSearch auth", () => {
         user: { privilegeLevel: PrivilegeLevel.ReadAccess },
       }),
     );
-    mockHasPermission(false);
+    mockHasPrivilege(false);
     expect((await GET(request("smith"))).status).toBe(403);
     expect(prismaMock.committeeMembership.findMany).not.toHaveBeenCalled();
   });

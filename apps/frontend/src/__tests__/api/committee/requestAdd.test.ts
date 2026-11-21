@@ -30,7 +30,7 @@ import { MEMBER_PHONE_MESSAGE } from "~/lib/validations/committee";
 import { deleteObject } from "~/lib/s3Utils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -77,7 +77,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -113,7 +113,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -143,7 +143,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -170,7 +170,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
       (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
         latestRecordEntryYear: 2024,
@@ -210,7 +210,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -237,7 +237,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -257,7 +257,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -282,7 +282,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await POST(createMockRequest(mockRequestData));
 
@@ -295,7 +295,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       prismaMock.committeeList.findUnique.mockImplementation(
         (args: { where: { id?: number } }) => {
@@ -328,7 +328,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       prismaMock.committeeList.findUnique.mockImplementation(
         (args: { where: { id?: number } }) => {
@@ -363,7 +363,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       prismaMock.committeeList.findUnique.mockImplementation(
         (args: { where: { id?: number } }) => {
@@ -415,7 +415,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       prismaMock.committeeList.findUnique.mockImplementation(
         (args: { where: { id?: number } }) => {
@@ -471,7 +471,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       prismaMock.committeeList.findUnique.mockImplementation(
         (args: { where: { id?: number } }) => {
@@ -522,7 +522,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
       prismaMock.committeeMembership.findUnique.mockResolvedValue(
@@ -555,7 +555,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       prismaMock.committeeList.findUnique.mockImplementation(
         (args: { where: { id?: number } }) => {
@@ -586,7 +586,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({
@@ -626,7 +626,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(null);
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -644,7 +644,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockRejectedValue(
         new Error("Database error"),
       );
@@ -659,7 +659,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
       getMembershipMock(prismaMock).create.mockRejectedValue(
         new Error("FK constraint violation"),
@@ -675,7 +675,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
       getAuditLogMock(prismaMock).create.mockRejectedValue(
         new Error("Audit log write failed"),
@@ -702,7 +702,7 @@ describe("/api/committee/requestAdd", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
         201,
       );
@@ -733,7 +733,7 @@ describe("/api/committee/requestAdd", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(createMockRequest(mockRequestData));
 
@@ -745,7 +745,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Leader } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await POST(
         createMockRequest(createMockRequestData({ phone: "abc" })),
@@ -768,7 +768,7 @@ describe("/api/committee/requestAdd", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(createMockRequest(mockRequestData));
 
@@ -784,7 +784,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await POST(createMockRequest(mockRequestData));
 

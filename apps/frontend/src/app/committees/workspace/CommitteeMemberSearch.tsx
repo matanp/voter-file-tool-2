@@ -4,7 +4,7 @@
  * ticket 07). The input sits in the list pane's filter bar; while it holds a
  * query, the pane shows member hits in place of the committee grid. Picking a
  * hit opens that hit's committee. Shown to Leader and up by acting
- * permissions; the endpoint enforces the real role and scope.
+ * privilege; the endpoint enforces the real role and scope.
  */
 import React from "react";
 import { ChevronRight, Clock, UserSearch, X } from "lucide-react";

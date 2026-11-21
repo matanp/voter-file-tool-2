@@ -19,7 +19,7 @@ import {
   type ErrorResponseBody,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../utils/mocks";
 
 describe("/api/admin/electionDates", () => {
   beforeEach(() => {
@@ -43,7 +43,7 @@ describe("/api/admin/electionDates", () => {
         authConfig,
         GET,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -60,7 +60,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findMany.mockResolvedValue(mockDates as never);
 
       const request = new NextRequest(
@@ -81,7 +81,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findMany.mockRejectedValue(
         new Error("Database error"),
       );
@@ -116,7 +116,7 @@ describe("/api/admin/electionDates", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
         201,
       );
@@ -131,7 +131,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findFirst.mockResolvedValue(null);
       prismaMock.electionDate.create.mockResolvedValue(newDate as never);
 
@@ -149,7 +149,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findFirst.mockResolvedValue({
         id: 1,
         date: new Date("2025-06-15"),
@@ -165,7 +165,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({ date: "not-a-date" });
       const response = await POST(request);
@@ -181,7 +181,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({ date: "2025-06-15T04:00:00.000Z" });
       const response = await POST(request);
@@ -196,7 +196,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({ date: "November 3, 2026" });
       const response = await POST(request);
@@ -209,7 +209,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findFirst.mockResolvedValue(null);
       prismaMock.electionDate.create.mockResolvedValue({
         id: 2,
@@ -229,7 +229,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       // A stray non-midnight row for the same calendar day. An equality precheck would
       // miss it and land a silent duplicate; the day-range query reports it as existing.
       prismaMock.electionDate.findFirst.mockResolvedValue({
@@ -256,7 +256,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findFirst.mockResolvedValue(null);
       prismaMock.electionDate.create.mockResolvedValue({
         id: 3,
@@ -280,7 +280,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findFirst.mockResolvedValue(null);
       prismaMock.electionDate.create.mockResolvedValue({
         id: 3,
@@ -299,7 +299,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findFirst.mockResolvedValue({
         id: 1,
         date: new Date(Date.UTC(2026, 10, 3)),
@@ -315,7 +315,7 @@ describe("/api/admin/electionDates", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.electionDate.findFirst.mockResolvedValue(null);
 
       // Route checks: error && typeof error === "object" && "code" in error && error.code === "P2002"

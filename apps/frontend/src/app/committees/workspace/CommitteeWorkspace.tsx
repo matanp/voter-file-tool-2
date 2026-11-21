@@ -38,7 +38,7 @@ import type {
   MemberSearchHit,
 } from "~/lib/validations/committee";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { CommitteeAction, CommitteeActionHandler } from "./committeeAction";
 import { CommitteeDetailPane } from "./CommitteeDetailPane";
 import { CommitteeActionDrawer } from "./drawer/CommitteeActionDrawer";
@@ -199,11 +199,11 @@ export function CommitteeWorkspace({
     },
     [url.committeeId, writeUrl],
   );
-  // --- Member name search (Leader and up, by acting permissions; the
+  // --- Member name search (Leader and up, by acting privilege; the
   // endpoint enforces the real role and scope) --------------------------------
-  const { actingPermissions } = useContext(GlobalContext);
-  const canSearchMembers = hasPermissionFor(
-    actingPermissions,
+  const { actingPrivilege } = useContext(GlobalContext);
+  const canSearchMembers = hasPrivilegeFor(
+    actingPrivilege,
     PrivilegeLevel.Leader,
   );
   const [memberQuery, setMemberQuery] = useState("");

@@ -29,7 +29,7 @@ import { type RemovalReason } from "@prisma/client";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -64,7 +64,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockCommitteeData));
@@ -93,7 +93,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockCommitteeData));
@@ -112,7 +112,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       const body = createMockRemoveCommitteeData(
         { removalReason: "PARTY_CHANGE" },
         false,
@@ -130,7 +130,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       const body = createMockRemoveCommitteeData(
         { removalReason: "OTHER", removalNotes: undefined },
         false,
@@ -155,7 +155,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         const mockCommitteeData = createMockRemoveCommitteeData({
           removalReason: reason,
           ...(reason === "OTHER" ? { removalNotes: "Other reason note" } : {}),
@@ -184,7 +184,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "ACTIVE", seatNumber: 3 }),
       );
@@ -228,7 +228,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
       getAuditLogMock(prismaMock).create.mockRejectedValue(
         new Error("Audit write failed"),
@@ -249,7 +249,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockCommitteeData));
@@ -278,7 +278,7 @@ describe("/api/committee/remove", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -301,7 +301,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(createMockRequest(mockCommitteeData));
 
@@ -319,7 +319,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(createMockRequest(mockCommitteeData));
 
@@ -337,7 +337,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await POST(createMockRequest(mockCommitteeData));
 
@@ -349,7 +349,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(null);
 
       const response = await POST(createMockRequest(mockCommitteeData));
@@ -362,7 +362,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(
         createMockCommittee(),
       );
@@ -382,7 +382,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(
         createMockCommittee(),
       );
@@ -405,7 +405,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockRejectedValue(
         new Error("Database error"),
       );
@@ -420,7 +420,7 @@ describe("/api/committee/remove", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(
         createMockCommittee(),
       );
@@ -474,7 +474,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupResignHappyPath();
 
         const body = createMockResignBody();
@@ -518,7 +518,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupResignHappyPath();
         prismaMock.committeeMembership.findUnique.mockResolvedValue(
           createMockMembership({
@@ -560,7 +560,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupResignHappyPath();
 
         const body = createMockResignBody({
@@ -593,7 +593,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupResignHappyPath();
         getAuditLogMock(prismaMock).create.mockRejectedValue(
           new Error("Audit write failed"),
@@ -610,7 +610,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.committeeList.findUnique.mockResolvedValue(
           createMockCommittee(),
         );
@@ -632,7 +632,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.committeeList.findUnique.mockResolvedValue(
           createMockCommittee(),
         );
@@ -651,7 +651,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         const body = createMockResignBody();
         const { resignationDateReceived: _date, ...bodyWithoutDate } = body;
 
@@ -669,7 +669,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(
           createMockRequest({
@@ -685,7 +685,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(
           createMockRequest({
@@ -701,7 +701,7 @@ describe("/api/committee/remove", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(
           createMockRequest({

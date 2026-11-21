@@ -1,5 +1,5 @@
 import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import {
@@ -65,7 +65,7 @@ export async function loadScopedReportPageData(
   const privilegeLevel =
     permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess;
 
-  const canAccessPage = hasPermissionFor(
+  const canAccessPage = hasPrivilegeFor(
     privilegeLevel,
     options.minPagePrivilege ?? PrivilegeLevel.Leader,
   );

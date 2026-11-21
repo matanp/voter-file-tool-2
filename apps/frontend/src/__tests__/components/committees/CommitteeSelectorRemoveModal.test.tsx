@@ -19,13 +19,13 @@ import { GlobalContext } from "~/components/providers/GlobalContext";
 import {
   fetchJsonResponse,
   installFetchMock,
-  mockHasPermission,
+  mockHasPrivilege,
 } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: PrivilegeLevel.ReadAccess,
-    setActingPermissions: () => undefined,
+    actingPrivilege: PrivilegeLevel.ReadAccess,
+    setActingPrivilege: () => undefined,
   }),
 }));
 
@@ -136,7 +136,7 @@ const postedBody = (fetchMock: FetchMock, url: string): unknown =>
 async function openAdminDetail() {
   render(
     <GlobalContext.Provider
-      value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: PrivilegeLevel.Admin, setActingPrivilege: () => undefined }}
     >
       <CommitteeSelector committeeLists={committeeLists} />
     </GlobalContext.Provider>,
@@ -149,7 +149,7 @@ async function openAdminDetail() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 });
 
 describe("CommitteeSelector Remove Member dialog (SRS 2.5)", () => {

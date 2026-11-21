@@ -6,7 +6,7 @@
  * - Everyone in scope: the seat summary (filled, open, unassigned), the
  *   designation-weight total, and missing-weight warnings, all spelled out in
  *   text (plan §10).
- * - Acting Admin (`actingPermissions`, client visibility only): the LTED
+ * - Acting Admin (`actingPrivilege`, client visibility only): the LTED
  *   weight editor and the per-seat breakdown. What a Leader sees is
  *   decided in `seats/seatsWeightDisplay.ts` (`seatsWeightVisibility`).
  *
@@ -29,8 +29,8 @@ import {
 import type { CommitteeTabProps } from "./types";
 
 export function SeatsWeightTab({ detail, onRefresh }: CommitteeTabProps) {
-  const { actingPermissions } = useContext(GlobalContext);
-  const { canEditLtedWeight, showPetitionDetail } = seatsWeightVisibility(actingPermissions);
+  const { actingPrivilege } = useContext(GlobalContext);
+  const { canEditLtedWeight, showPetitionDetail } = seatsWeightVisibility(actingPrivilege);
   const [announcement, setAnnouncement] = useState("");
   const breakdownHeadingId = useId();
 
