@@ -152,6 +152,7 @@ export function PresignedUploadReportForm({
                 onChange={handleFileChange}
                 disabled={fileUpload.isUploading}
                 required
+                tabIndex={-1}
                 className="sr-only"
               />
               <Button

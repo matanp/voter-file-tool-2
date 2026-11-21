@@ -39,7 +39,10 @@ describe("PresignedUploadReportForm", () => {
 
     const input = screen.getByLabelText("File");
     expect(input).toHaveAttribute("type", "file");
-    expect(input.className).toBe("sr-only");
+    expect(input).toHaveClass("sr-only");
+    expect(input).not.toHaveClass("w-full");
+    expect(input).not.toHaveClass("px-3");
+    expect(input).not.toHaveClass("border");
     expect(input.parentElement).toHaveClass("relative");
   });
 });
