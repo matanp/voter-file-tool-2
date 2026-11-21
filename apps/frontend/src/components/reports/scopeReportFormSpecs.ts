@@ -82,25 +82,60 @@ export const SCOPE_REPORT_FORM_MESSAGES: Record<
   },
 };
 
-/** Shared long-form date for default report names. */
-export function formatScopedReportDefaultDate(): string {
-  return new Date().toLocaleDateString("en-US", {
+/*
+ * These helpers depend on the clock and the time zone: on the server (UTC on Vercel) they can
+ * return a different day than in the browser. `timeZone` defaults to the runtime's own zone;
+ * tests pass one explicitly. Their results only seed controlled inputs, whose server values
+ * React replaces during hydration; don't render them as text in server-rendered output.
+ */
+
+/** Shared long-form date for default report names, e.g. "November 20, 2026". */
+export function formatScopedReportDefaultDate(
+  now: Date = new Date(),
+  timeZone?: string,
+): string {
+  return now.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone,
   });
 }
 
-export function defaultScopedReportName(prefix: string): string {
-  return `${prefix} - ${formatScopedReportDefaultDate()}`;
+export function defaultScopedReportName(
+  prefix: string,
+  now: Date = new Date(),
+  timeZone?: string,
+): string {
+  return `${prefix} - ${formatScopedReportDefaultDate(now, timeZone)}`;
 }
 
-export function last30DaysIsoRange(): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date();
-  from.setDate(from.getDate() - 30);
-  return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
-  };
+/** The calendar day `now` falls on in `timeZone`. */
+function calendarDayIn(
+  now: Date,
+  timeZone: string | undefined,
+): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    timeZone,
+  }).formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value);
+  return { year: part("year"), month: part("month"), day: part("day") };
+}
+
+/** The 30 days ending today in `timeZone`, as `YYYY-MM-DD` calendar dates. */
+export function last30DaysIsoRange(
+  now: Date = new Date(),
+  timeZone?: string,
+): { from: string; to: string } {
+  const { year, month, day } = calendarDayIn(now, timeZone);
+  // Calendar arithmetic on UTC midnights: no DST or offset can shift the day.
+  const isoDay = (offsetDays: number) =>
+    new Date(Date.UTC(year, month - 1, day + offsetDays))
+      .toISOString()
+      .slice(0, 10);
+  return { from: isoDay(-30), to: isoDay(0) };
 }

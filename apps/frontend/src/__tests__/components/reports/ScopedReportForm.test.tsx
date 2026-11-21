@@ -1,4 +1,7 @@
 import React from "react";
+import { act } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel } from "@prisma/client";
@@ -10,6 +13,7 @@ import {
 import { ScopedReportForm } from "~/components/reports/ScopedReportForm";
 import {
   SCOPE_REPORT_FORM_MESSAGES,
+  defaultScopedReportName,
   last30DaysIsoRange,
 } from "~/components/reports/scopeReportFormSpecs";
 import { GlobalContext } from "~/components/providers/GlobalContext";
@@ -557,5 +561,79 @@ describe("ScopedReportForm committeeRoster field picker", () => {
 
     expect(screen.queryByText("Include")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Mailing Address")).not.toBeInTheDocument();
+  });
+});
+
+describe("ScopedReportForm date-dependent defaults", () => {
+  beforeEach(() => {
+    jest.mocked(hasPermissionFor).mockReturnValue(true);
+  });
+
+  function formElement() {
+    return (
+      <GlobalContext.Provider
+        value={{
+          actingPermissions: PrivilegeLevel.Admin,
+          setActingPermissions: jest.fn(),
+        }}
+      >
+        <ScopedReportForm
+          type="changesReport"
+          committeeLists={committeeLists}
+          leaderAssignments={[]}
+          userPrivilegeLevel={PrivilegeLevel.Admin}
+        />
+      </GlobalContext.Provider>
+    );
+  }
+
+  it("fills the name and 30-day range with the local date after mount", () => {
+    render(formElement());
+    const { from, to } = last30DaysIsoRange();
+
+    expect(screen.getByLabelText("Report Name")).toHaveValue(
+      defaultScopedReportName("Changes Report"),
+    );
+    expect(screen.getByLabelText("Start Date")).toHaveValue(from);
+    expect(screen.getByLabelText("End Date")).toHaveValue(to);
+  });
+
+  it("hydrates without a mismatch when the server and browser are on different days", async () => {
+    jest.useFakeTimers({ doNotFake: ["queueMicrotask", "nextTick"] });
+    try {
+      // Server renders on Nov 21; the browser's clock says Nov 20.
+      jest.setSystemTime(new Date("2026-11-21T15:00:00Z"));
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(formElement());
+      document.body.appendChild(container);
+
+      jest.setSystemTime(new Date("2026-11-20T15:00:00Z"));
+      // React applies the client's value to controlled inputs during hydration, so the
+      // server's (UTC) date in the name and range must neither error nor stick.
+      const consoleError = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      const recoverableErrors: unknown[] = [];
+      await act(async () => {
+        hydrateRoot(container, formElement(), {
+          onRecoverableError: (error) => recoverableErrors.push(error),
+        });
+      });
+
+      expect(recoverableErrors).toEqual([]);
+      expect(
+        consoleError.mock.calls.filter((args) =>
+          String(args[0]).includes("didn't match"),
+        ),
+      ).toEqual([]);
+      consoleError.mockRestore();
+      expect(container.querySelector("#reportName")).toHaveValue(
+        "Changes Report - November 20, 2026",
+      );
+      expect(container.querySelector("#dateTo")).toHaveValue("2026-11-20");
+      container.remove();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
