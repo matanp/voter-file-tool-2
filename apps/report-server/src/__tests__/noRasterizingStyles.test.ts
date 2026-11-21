@@ -9,7 +9,10 @@ import path from 'path';
  * they never need these styles.
  */
 const COMPONENTS_DIR = path.join(__dirname, '..', 'components');
-const RASTERIZING = /(?:^|[\s"'`])(?:[\w-]+:)*(?:drop-)?shadow(?:-[\w[\]/.#-]+)?(?=[\s"'`$]|$)|boxShadow|box-shadow/;
+// A Tailwind shadow token with any variants (`print:`, `[&>*]:`), `!` and suffix (`-md`,
+// `-[0_0_2px_rgba(0,0,0,.5)]`), or a CSS / inline-style box-shadow or text-shadow.
+const RASTERIZING =
+  /(?:^|[\s"'`])(?:[^\s"'`:]+:)*!?(?:drop-)?shadow(?:-[^\s"'`]*)?(?=[\s"'`$]|$)|(?:box|text)Shadow|(?:box|text)-shadow/;
 
 describe('report components', () => {
   const files = fs.readdirSync(COMPONENTS_DIR).filter((f) => f.endsWith('.tsx'));
@@ -20,7 +23,9 @@ describe('report components', () => {
 
   it.each(files)('%s uses no shadow styles that Chrome rasterizes in PDFs', (file) => {
     const source = fs.readFileSync(path.join(COMPONENTS_DIR, file), 'utf8');
-    const hits = source.split('\n').flatMap((line, i) => (RASTERIZING.test(line) ? [`${i + 1}: ${line.trim()}`] : []));
+    const hits = source
+      .split('\n')
+      .flatMap((line, i) => (RASTERIZING.test(line) ? [`${i + 1}: ${line.trim()}`] : []));
     expect(hits).toEqual([]);
   });
 });
