@@ -1,7 +1,7 @@
 # 31 - Exit forms drop focus to `<body>` after a failed submit
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Parent: ../map.md
 Tier: 2 (accessibility batch) · Priority: P2
 Source: follow-up from [24](24-drawer-shows-field-errors.md); same problem as QA sweep 2026-11-18 finding A6
@@ -32,8 +32,12 @@ field the way step 3 of the add flow does. This part is optional; the focus fix 
 
 ## Acceptance criteria
 
-- [ ] After a failed submit in each of the three forms, the error alert has focus and `document.activeElement` is
+- [x] After a failed submit in each of the three forms, the error alert has focus and `document.activeElement` is
       inside the drawer.
-- [ ] A second failure in a row also moves focus to the alert.
-- [ ] Tests in `__tests__/components/committees/CommitteeActionDrawer.test.tsx` (or the exit-form tests) cover a
+- [x] A second failure in a row also moves focus to the alert.
+- [x] Tests in `__tests__/components/committees/CommitteeActionDrawer.test.tsx` (or the exit-form tests) cover a
       500 and a 422 for at least remove and report-exit.
+
+## Resolution
+
+`ExitFormLayout` takes `alertRef`/`focusAlert` from `useFieldErrors` and focuses the `OutcomeAlert` on every new failure, which covers remove, record-resignation and report-exit. The optional per-field errors beside notes were not done. Branch `fix/workspace-drawer-error-focus`.

@@ -812,6 +812,39 @@ describe("CommitteeActionDrawer: contact details", () => {
     });
   });
 
+  it("lets a whitespace-only email and phone pass step 3 and leaves them out of the request (ticket 32)", async () => {
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/requestAdd": [{ body: { success: true, message: "ok" } }],
+    });
+    renderDrawer({ role: PrivilegeLevel.Leader });
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+
+    await userEvent.type(emailInput(), "   ");
+    await userEvent.type(phoneInput(), "  ");
+    await userEvent.click(continueButton());
+
+    expect(
+      within(drawer()).getByRole("heading", { level: 3, name: /Confirm/ }),
+    ).toBeInTheDocument();
+    expect(within(drawer()).getByRole("list", { name: "Summary" })).not.toHaveTextContent(
+      "Contact",
+    );
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Submit candidate" }),
+    );
+
+    await waitFor(() =>
+      expect(callsTo(fetchMock, "/api/committee/requestAdd")).toHaveLength(1),
+    );
+    const body = bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0]);
+    expect(body).not.toHaveProperty("email");
+    expect(body).not.toHaveProperty("phone");
+  });
+
   it("returns to step 3 with the server's field errors and focuses the first invalid field", async () => {
     serve({
       "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
@@ -1186,6 +1219,86 @@ describe("CommitteeActionDrawer: record resignation", () => {
       resignationDateReceived: "2026-10-01",
       resignationMethod: "MAIL",
     });
+  });
+});
+
+describe("CommitteeActionDrawer: exit-form focus after a failed submit (ticket 31)", () => {
+  const SERVER_ERROR: Reply = {
+    status: 500,
+    body: { success: false, error: "Internal server error" },
+  };
+  const VALIDATION_ERROR: Reply = {
+    status: 422,
+    body: {
+      success: false,
+      error: "Invalid request data",
+      fieldErrors: { removalNotes: ["Notes are too long"] },
+    },
+  };
+
+  /** The failure alert has focus, inside the drawer. */
+  async function expectAlertFocused(text: string) {
+    const alert = await within(drawer()).findByRole("alert");
+    expect(alert).toHaveTextContent(text);
+    await waitFor(() => expect(alert).toHaveFocus());
+    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
+  }
+
+  it("focuses the alert after a 500 and again after a following 422 (remove)", async () => {
+    serve({ "/api/committee/remove": [SERVER_ERROR, VALIDATION_ERROR] });
+    renderDrawer({ action: REMOVE });
+    await chooseSelectOption(
+      within(drawer()).getByLabelText(/Reason for removal/),
+      "Deceased",
+    );
+    const remove = within(drawer()).getByRole("button", { name: "Remove member" });
+
+    await userEvent.click(remove);
+    await expectAlertFocused("Internal server error");
+
+    await userEvent.click(remove);
+    await expectAlertFocused("Invalid request data");
+  });
+
+  it("focuses the alert after a failed resignation", async () => {
+    serve({ "/api/committee/remove": [SERVER_ERROR] });
+    renderDrawer({ action: RESIGN });
+    await userEvent.type(
+      within(drawer()).getByLabelText(/Date resignation received/),
+      "2026-10-01",
+    );
+    await userEvent.click(within(drawer()).getByRole("radio", { name: "Mail" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Record resignation" }),
+    );
+
+    await expectAlertFocused("Internal server error");
+  });
+
+  it("focuses the alert after a 500 and again after a following 422 (report exit)", async () => {
+    serve({
+      "/api/committee/exit-instructions": [{ body: { text: null } }],
+      "/api/committee/exitReport": [SERVER_ERROR, VALIDATION_ERROR],
+    });
+    const { onComplete } = renderDrawer({
+      role: PrivilegeLevel.Leader,
+      action: REPORT_EXIT,
+    });
+    const sendAfterInstructions = async () => {
+      const dialog = await screen.findByRole("alertdialog");
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: /send report/i }),
+      );
+    };
+
+    await reportRemoval();
+    await sendAfterInstructions();
+    await expectAlertFocused("Internal server error");
+
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Report" }));
+    await sendAfterInstructions();
+    await expectAlertFocused("Invalid request data");
+    expect(onComplete).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 /** Pieces every drawer flow shares: step headings, the footer, outcome alerts. */
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import {
@@ -120,7 +120,10 @@ type FocusTarget<F> = { to: "field"; field: F } | { to: "alert" };
  * once the next render is on screen; without this, a submit button disabled
  * in flight drops focus to <body>.
  *
- * `fields` is the order the controls appear in.
+ * `fields` is the order the controls appear in; pass a constant. The returned
+ * object and its functions keep their identity until the errors change
+ * (`show`, `clear`, `focusAlert`, `alertRef` and `inputId` never change), so
+ * effects and callbacks can depend on them.
  */
 export function useFieldErrors<F extends string>(fields: readonly F[]) {
   const id = useId();
@@ -136,42 +139,52 @@ export function useFieldErrors<F extends string>(fields: readonly F[]) {
     setPendingFocus(null);
   }, [pendingFocus]);
 
-  const inputId = (field: F) => `${id}-${field}`;
-  const errorId = (field: F) => `${id}-${field}-error`;
-  return {
-    /** Shows `next` and focuses its first invalid field; false if it has none. */
-    show(next: Partial<Record<F, string>>): boolean {
+  const inputId = useCallback((field: F) => `${id}-${field}`, [id]);
+  const errorId = useCallback((field: F) => `${id}-${field}-error`, [id]);
+  const show = useCallback(
+    (next: Partial<Record<F, string>>): boolean => {
       const first = fields.find((field) => next[field]);
       if (first === undefined) return false;
       setErrors(next);
       setPendingFocus({ to: "field", field: first });
       return true;
     },
-    /** Drops the messages for `changed` (the user edited them). */
-    clear(changed: readonly F[]) {
-      if (!changed.some((field) => errors[field])) return;
-      setErrors((prev) => {
-        const next = { ...prev };
-        for (const field of changed) delete next[field];
-        return next;
-      });
-    },
-    focusAlert: () => setPendingFocus({ to: "alert" }),
-    /** For `OutcomeAlert`'s `alertRef`. */
-    alertRef,
-    inputId,
-    /** Props for a control: its id, its ref, and its error wiring. */
-    fieldProps: (field: F) => ({
-      id: inputId(field),
-      ref: (el: HTMLElement | null) => {
-        fieldRefs.current[field] = el;
-      },
-      "aria-invalid": errors[field] ? true : undefined,
-      "aria-describedby": errors[field] ? errorId(field) : undefined,
+    [fields],
+  );
+  const clear = useCallback((changed: readonly F[]) => {
+    setErrors((prev) => {
+      if (!changed.some((field) => prev[field])) return prev;
+      const next = { ...prev };
+      for (const field of changed) delete next[field];
+      return next;
+    });
+  }, []);
+  const focusAlert = useCallback(() => setPendingFocus({ to: "alert" }), []);
+
+  return useMemo(
+    () => ({
+      /** Shows `next` and focuses its first invalid field; false if it has none. */
+      show,
+      /** Drops the messages for `changed` (the user edited them). */
+      clear,
+      focusAlert,
+      /** For `OutcomeAlert`'s `alertRef`. */
+      alertRef,
+      inputId,
+      /** Props for a control: its id, its ref, and its error wiring. */
+      fieldProps: (field: F) => ({
+        id: inputId(field),
+        ref: (el: HTMLElement | null) => {
+          fieldRefs.current[field] = el;
+        },
+        "aria-invalid": errors[field] ? true : undefined,
+        "aria-describedby": errors[field] ? errorId(field) : undefined,
+      }),
+      /** The control's message, if it has one. */
+      fieldError: (field: F) => <FieldError id={errorId(field)} message={errors[field]} />,
     }),
-    /** The control's message, if it has one. */
-    fieldError: (field: F) => <FieldError id={errorId(field)} message={errors[field]} />,
-  };
+    [show, clear, focusAlert, inputId, errorId, errors],
+  );
 }
 
 /** Field-level error text, tied to its control by `id` (`aria-describedby`). */
