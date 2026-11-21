@@ -23,7 +23,9 @@ if (typeof window !== "undefined") {
   posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "", {
     api_host: "/ingest",
     ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-    person_profiles: "always",
+    // Anonymous visitors (bots, sign-in page bounces) still send events but
+    // don't get person profiles, so they don't inflate user counts.
+    person_profiles: "identified_only",
     capture_pageview: false,
     capture_pageleave: true,
   });
@@ -40,6 +42,14 @@ export function CSPostHogProvider({ children }: PostHogProviderProps) {
   const lastIdentified = useRef<string | null>(null);
 
   useEffect(() => {
+    // The session ended without signOutEverywhere (e.g. it expired, or the
+    // sign-out didn't reload the page). Reset so later anonymous events don't
+    // attach to the person who just left, and so the next sign-in identifies.
+    if (status === "unauthenticated" && lastIdentified.current !== null) {
+      lastIdentified.current = null;
+      posthog.reset();
+      return;
+    }
     if (status !== "authenticated" || !session.user?.id) return;
 
     const isDev = process.env.NODE_ENV === "development";

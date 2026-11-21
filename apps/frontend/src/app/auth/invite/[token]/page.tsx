@@ -2,7 +2,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
+import { signOutEverywhere } from "~/lib/signOut";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -163,7 +164,7 @@ export default function InvitePage() {
   };
 
   const handleSignOut = async () => {
-    await signOut({ redirect: false });
+    await signOutEverywhere({ redirect: false });
   };
 
   const sessionEmail = session?.user?.email;

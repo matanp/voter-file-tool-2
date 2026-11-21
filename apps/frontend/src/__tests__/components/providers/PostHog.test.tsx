@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 
 const mockIdentify = jest.fn<void, unknown[]>();
 const mockRegisterForSession = jest.fn<void, unknown[]>();
+const mockReset = jest.fn<void, []>();
 const mockUseSession = jest.fn<unknown, []>();
 
 jest.mock("posthog-js", () => ({
@@ -13,6 +14,9 @@ jest.mock("posthog-js", () => ({
     },
     register_for_session: (...args: unknown[]) => {
       mockRegisterForSession(...args);
+    },
+    reset: () => {
+      mockReset();
     },
   },
 }));
@@ -50,6 +54,7 @@ describe("CSPostHogProvider", () => {
   beforeEach(() => {
     mockIdentify.mockClear();
     mockRegisterForSession.mockClear();
+    mockReset.mockClear();
   });
 
   it("does not re-identify when a refetch returns an equal session", () => {
@@ -85,5 +90,25 @@ describe("CSPostHogProvider", () => {
   it("does not tag ordinary visits", () => {
     loadModuleAt("?q=smith");
     expect(mockRegisterForSession).not.toHaveBeenCalled();
+  });
+
+  it("resets PostHog when an identified session ends", () => {
+    mockUseSession.mockReturnValue(authed());
+    const { rerender } = render(<Provider>x</Provider>);
+
+    mockUseSession.mockReturnValue({ status: "unauthenticated", data: null });
+    rerender(<Provider>x</Provider>);
+    expect(mockReset).toHaveBeenCalledTimes(1);
+
+    // Signing back in identifies again, even as the same user.
+    mockUseSession.mockReturnValue(authed());
+    rerender(<Provider>x</Provider>);
+    expect(mockIdentify).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reset anonymous visitors", () => {
+    mockUseSession.mockReturnValue({ status: "unauthenticated", data: null });
+    render(<Provider>x</Provider>);
+    expect(mockReset).not.toHaveBeenCalled();
   });
 });
