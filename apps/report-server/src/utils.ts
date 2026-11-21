@@ -2,9 +2,11 @@ import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import PetitionForm from './components/DesignatingPetition';
 import { PETITION_FIT_SCRIPT } from './petitionFit';
-import CommitteeReport from './components/CommitteeReport';
+import CommitteeReport, { paginateCommittees } from './components/CommitteeReport';
 import puppeteer, { type Page } from 'puppeteer';
 import { uploadFileToR2 } from './s3Utils';
+import { mergeTaggedPdfs } from './pdfMerge';
+import { PDFDocument } from 'pdf-lib';
 import { Readable } from 'stream';
 import { randomUUID } from 'crypto';
 import {
@@ -123,61 +125,113 @@ export type PDFPageOptions = {
   landscape?: boolean;
 };
 
+const PUPPETEER_LAUNCH_OPTIONS = {
+  headless: true,
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--single-process',
+  ],
+};
+
 /**
  * Generates a PDF from HTML and uploads to storage.
- * @param htmlContent - Rendered HTML
+ * @param htmlContent - Rendered HTML. An array is one report split into consecutive slices
+ *   (see generateCommitteeReportHTMLChunks): each slice prints in its own Chrome, one after
+ *   another, and the PDFs are merged with their accessibility tags. Chrome's memory follows
+ *   the size of what it prints and isn't returned between prints in one browser, so a fresh
+ *   browser per slice is what keeps a large report's peak to one slice's (ticket 24).
  * @param useLandscape - Legacy: true = Letter landscape, false = Legal portrait
  * @param fileName - Output filename
  * @param overrides - Optional: format + landscape (e.g. Legal landscape for sign-in sheets)
  * @param inspectPage - Optional: reads the laid-out page after setContent, before printing
- *   (e.g. which petition sheets still overflow). It must not change the page.
+ *   (e.g. which petition sheets still overflow). It must not change the page. Single HTML only.
  */
 export async function generatePDFAndUpload(
-  htmlContent: string,
+  htmlContent: string | string[],
   useLandscape: boolean,
   fileName: string,
   overrides?: PDFPageOptions,
   inspectPage?: (page: Page) => Promise<void>,
 ): Promise<void> {
-  const puppeteerOptions = {
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--single-process',
-    ],
-  };
+  const slices = typeof htmlContent === 'string' ? [htmlContent] : htmlContent;
+  if (slices.length === 0) throw new Error('generatePDFAndUpload: no HTML to print');
+  if (slices.length > 1 && inspectPage) {
+    throw new Error('generatePDFAndUpload: inspectPage needs the report as one HTML');
+  }
+  const pdfOptions = {
+    format: overrides?.format ?? (useLandscape ? 'Letter' : 'Legal'),
+    landscape: overrides?.landscape ?? useLandscape,
+    printBackground: true,
+  } as const;
 
-  const format = overrides?.format ?? (useLandscape ? 'Letter' : 'Legal');
-  const landscape = overrides?.landscape ?? useLandscape;
+  if (slices.length === 1) {
+    console.log('generating pdf');
+    await withPage(slices[0], async (page) => {
+      if (inspectPage) await inspectPage(page);
+      const pdfStream = (await page.createPDFStream(
+        pdfOptions,
+      )) as unknown as Readable;
+      console.log('started upload via stream');
+      await uploadPdf(pdfStream, fileName);
+    });
+    return;
+  }
 
-  console.log('generating pdf');
-  const browser = await puppeteer.launch(puppeteerOptions);
+  const parts: Uint8Array[] = [];
+  for (const [i, html] of slices.entries()) {
+    console.log(`generating pdf part ${i + 1} of ${slices.length}`);
+    parts.push(await withPage(html, (page) => page.pdf(pdfOptions)));
+  }
+  console.log('merging pdf parts');
+  await uploadPdf(Readable.from([Buffer.from(await mergePdfParts(parts))]), fileName);
+}
+
+/** Launches Chrome, loads `html`, runs `use`, and always closes Chrome. */
+async function withPage<T>(
+  html: string,
+  use: (page: Page) => Promise<T>,
+): Promise<T> {
+  const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
   try {
     const page = await browser.newPage();
-
     page.setDefaultTimeout(120 * 1000);
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-
+    await page.setContent(html, { waitUntil: 'networkidle0' });
     console.log('page content set');
-    if (inspectPage) await inspectPage(page);
-    const pdfStream = (await page.createPDFStream({
-      format,
-      landscape,
-      printBackground: true,
-    })) as unknown as Readable;
-    console.log('started upload via stream');
-
-    const successfulUpload = await uploadFileToR2(pdfStream, fileName, 'pdf');
-
-    if (!successfulUpload) {
-      throw new Error('failed to upload pdf to file storage');
-    }
+    return await use(page);
   } finally {
     // Always close Chrome, or a failed report leaves it running and eats the 1 GB box's memory.
     await browser.close();
+  }
+}
+
+async function uploadPdf(pdf: Readable, fileName: string): Promise<void> {
+  const successfulUpload = await uploadFileToR2(pdf, fileName, 'pdf');
+  if (!successfulUpload) {
+    throw new Error('failed to upload pdf to file storage');
+  }
+}
+
+/**
+ * Merges the parts keeping their tags. If the tag merge refuses the parts' structure (it only
+ * accepts the shape Chrome writes today), the report still goes out: the pages are merged
+ * without tags, as an untagged PDF, and the error is logged.
+ */
+async function mergePdfParts(parts: Uint8Array[]): Promise<Uint8Array> {
+  try {
+    return await mergeTaggedPdfs(parts);
+  } catch (error) {
+    console.error('Tagged PDF merge failed; uploading the report untagged:', error);
+    const merged = await PDFDocument.create();
+    for (const part of parts) {
+      const src = await PDFDocument.load(part);
+      for (const page of await merged.copyPages(src, src.getPageIndices())) {
+        merged.addPage(page);
+      }
+    }
+    return merged.save();
   }
 }
 
@@ -219,16 +273,54 @@ function transformToCommitteeMemberFormat(
 export const generateCommitteeReportHTML = (
   groupedCommittees: CommitteeReportStructure[],
   columns?: CommitteeRosterColumn[],
-) => {
-  const tailwindCSS = tailwindCssLink();
+) => committeeReportHTML(transformToCommitteeMemberFormat(groupedCommittees), columns);
 
-  const processedCommittees =
-    transformToCommitteeMemberFormat(groupedCommittees);
+/**
+ * Pages per PDF slice for committee reports. Chrome's peak follows how many pages it prints at
+ * once: on Linux a 20-page slice peaks at about what a typical small report does (~450-540 MiB
+ * for the whole container), where the 134-page fixtures need ~0.9-1.25 GiB in one print and
+ * swap hard on the 1 GB box (ticket 24). Reports up to this size print in one piece, as before.
+ */
+export const COMMITTEE_REPORT_PAGES_PER_PDF = 20;
+
+/**
+ * The committee report as consecutive HTML documents of at most `pagesPerPdf` pages each, for
+ * generatePDFAndUpload to print one at a time. The pages are the ones generateCommitteeReportHTML
+ * lays out (pagination happens in code, before printing), numbered against the whole report.
+ * A report that fits in one slice comes back as exactly generateCommitteeReportHTML's HTML.
+ */
+export const generateCommitteeReportHTMLChunks = (
+  groupedCommittees: CommitteeReportStructure[],
+  columns?: CommitteeRosterColumn[],
+  pagesPerPdf = COMMITTEE_REPORT_PAGES_PER_PDF,
+): string[] => {
+  const committees = transformToCommitteeMemberFormat(groupedCommittees);
+  const pageCount = paginateCommittees(committees).length;
+  if (pageCount <= pagesPerPdf) return [committeeReportHTML(committees, columns)];
+  const slices: string[] = [];
+  for (let start = 0; start < pageCount; start += pagesPerPdf) {
+    slices.push(
+      committeeReportHTML(committees, columns, {
+        start,
+        end: Math.min(start + pagesPerPdf, pageCount),
+      }),
+    );
+  }
+  return slices;
+};
+
+function committeeReportHTML(
+  committees: CommitteeForReport[],
+  columns?: CommitteeRosterColumn[],
+  pageRange?: { start: number; end: number },
+): string {
+  const tailwindCSS = tailwindCssLink();
 
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(CommitteeReport, {
-      groupedCommittees: processedCommittees,
+      groupedCommittees: committees,
       columns,
+      pageRange,
     }),
   );
   return `<!DOCTYPE html>
@@ -241,7 +333,7 @@ export const generateCommitteeReportHTML = (
           ${html}
         </body>
       </html>`;
-};
+}
 
 export type SignInSheetHTMLOptions = SignInSheetTitleScope & {
   meetingName?: string;
