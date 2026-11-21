@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/committees",
-    label: "Committee List",
+    label: "Committees",
     isActive: (p) => p.startsWith("/committees"),
   },
   {
