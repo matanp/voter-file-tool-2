@@ -17,7 +17,7 @@ const ElectionConfigPage = async () => {
 
   return (
     <div className="w-full p-6">
-      <h1 className="section-header mb-6">Election Config</h1>
+      <h1 className="primary-header mb-6">Election Config</h1>
       <ElectionConfigTab
         electionDates={electionDates}
         officeNames={officeNames}

@@ -22,7 +22,7 @@
     --popover: var(--white);
     --popover-foreground: var(--black);
     --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
+    --primary-foreground: var(--white);
     --secondary: var(--light-gray);
     --secondary-foreground: var(--dark-gray);
     --muted: var(--light-gray);
@@ -35,40 +35,22 @@
     --input: var(--medium-gray);
     --ring: 142.1 76.2% 36.3%;
     --radius: 0.5rem;
-  }
 
-  .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: var(--white);
-    --card: 24 9.8% 10%;
-    --card-foreground: var(--white);
-    --popover: 0 0% 9%;
-    --popover-foreground: var(--white);
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: var(--white);
-    --muted: 0 0% 15%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: var(--white);
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 85.7% 97.3%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 142.4 71.8% 29.2%;
+    /* Quiet panel fill (slate-50) for forms and toolbars on a white page. */
+    --surface-subtle: 210 40% 98%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
   }
 }
 
 @layer utilities {
+  /* Page and section titles. Neutral and compact: the page's colour comes
+     from its primary actions, not its headings. */
   .primary-header {
-    @apply text-2xl text-primary font-bold;
-  }
-
-  /* Page title on the admin surface, which has its own sidebar chrome and a
-     primary-coloured active nav item. Deliberately quieter than
-     .primary-header so the heading does not compete with that chrome. */
-  .section-header {
-    @apply text-2xl font-semibold;
+    @apply text-lg font-semibold text-foreground;
   }
 }

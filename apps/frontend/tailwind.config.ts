@@ -43,6 +43,7 @@ const config = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        "surface-subtle": "hsl(var(--surface-subtle))",
       },
       borderRadius: {
         custom: "var(--radius)",
