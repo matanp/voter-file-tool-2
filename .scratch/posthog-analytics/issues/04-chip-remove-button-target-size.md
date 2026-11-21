@@ -1,6 +1,6 @@
 # 04 - Chip "×" remove buttons are a 16px target
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem
 
@@ -23,3 +23,10 @@ Same markup in two places:
 
 Both components render a ≥24px target, there's a test for the accessible name, and the existing
 `SearchRow` / `FieldRenderer` integration tests still pass.
+
+## Comments
+
+2026-11-21: Done. Both chips now use `components/ui/ChipRemoveButton.tsx`: a 24×24px button with negative margins
+so the chip's height and the visible hover circle don't change. Its accessible name is "Remove <label>". In
+`MultiValueInputBase` that's new; `MultiSelectCombobox` already had one. Test:
+`__tests__/components/ChipRemoveButton.test.tsx`. Not yet checked visually in the running app.
