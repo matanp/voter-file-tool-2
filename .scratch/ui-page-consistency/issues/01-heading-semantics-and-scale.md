@@ -1,6 +1,7 @@
 # 01 - Fix heading semantics and unify the page-title scale
 
-Status: ready-for-agent
+Status: resolved
+Resolution: scope 1–3 landed in #115; Home/Reports heading order fixed on refactor/page-headings-and-container.
 
 Covers findings 3, 4, and 2 from the UI consistency review. These are grouped
 because they all touch the same thing — how a page-level heading is expressed —
@@ -79,4 +80,18 @@ the same files.
 From the [QA sweep 2026-11-18](../../qa-sweep-2026-11-18/README.md): heading order skips from H1 to H3 on Home and
 Reports. Fix those in the same pass.
 
-- [ ] Home and Reports have no skipped heading levels.
+- [x] Home and Reports have no skipped heading levels.
+
+### 2026-11-21 — Resolved
+
+- **Open decision: yes, intentional.** The admin pages' quieter heading is a deliberate variant of
+  the page title, not drift. It lives as `.section-header` beside `.primary-header` in
+  `apps/frontend/src/styles/globals.css` (same `text-2xl` scale, `font-semibold`, no
+  `text-primary`) so it does not compete with the admin sidebar's primary-coloured active item.
+  All admin pages and the two `election-config/` headings reference it by name. This was
+  implemented in #115; this note records the decision.
+- Scope items 1–3 (CommitteeSelector `h2` + real district `Label`, RecordsList `h1`/`h2`, one class
+  per rank) landed in #115.
+- A10 heading order: `CardTitle` gained an `as` prop (default `h3`, unchanged elsewhere). Home's
+  feature-card titles, and Reports' "Report Jobs"/"Pending Reports" and "My Reports"/"Public
+  Reports" card titles, now render as `h2`. Home is H1 → H2; Reports is H1 → H2 → H3 → H4.
