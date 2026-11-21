@@ -51,7 +51,7 @@ Steps run top to bottom. Tickets in the same step can run in parallel.
 
 ## Notes
 
-- **Prototype reference.** The prototype for 01–04 and the rough 07–11 is uncommitted in the `proto/ui-makeover` worktree (`../vft-ui-proto`). Use it as a reference, not a base. Commit it on that branch so it isn't lost.
+- **Prototype reference.** The prototype for 01–04 and the rough 07–11 is commit `158e40bd` on the local `proto/ui-makeover` branch (worktree `../vft-ui-proto`), not pushed. Use it as a reference, not a base.
 - **Overlapping tickets elsewhere.**
   - record-search-results/03 and /04 are `ready-for-agent`, but 09 replaces their visual parts. Don't build them separately; keep /04's accessibility requirements in 09.
   - reports-polish/01 (failed jobs): read it before 07.

@@ -34,4 +34,4 @@ Approved in stakeholder review. Brand colour decided: `--primary` stays green, s
 
 ### 2026-11-21 - triage
 
-Ready for agent. Dark mode is decided (spec "Decisions"): light-only tokens, no new `dark:` classes. Build order step 2, the first foundation ticket. The prototype diff in the `proto/ui-makeover` worktree (`../vft-ui-proto`, uncommitted) is a reference.
+Ready for agent. Dark mode is decided (spec "Decisions"): light-only tokens, no new `dark:` classes. Build order step 2, the first foundation ticket. The prototype commit `158e40bd` on the local `proto/ui-makeover` branch is a reference.
