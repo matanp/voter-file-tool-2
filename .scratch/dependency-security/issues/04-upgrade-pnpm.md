@@ -34,18 +34,35 @@ is a legacy entry point and no longer runs on restart.)
 
 ## Breaking changes and gotchas
 
-1. **Dependency install scripts are blocked by default (pnpm 10+).** This applies only to dependencies.
-   The workspace's own postinstalls (`apps/frontend`, `packages/shared-prisma`) still run. Packages with
-   install/postinstall scripts in our tree:
+1. **Unapproved dependency build scripts fail the install.** pnpm 10 started blocking dependency
+   install scripts. In pnpm 12, an install with an unapproved build fails with
+   `ERR_PNPM_IGNORED_BUILDS` ("Ignored build scripts: …"), CI included (verified with 12.21.0 in a sandbox).
+   This applies only to dependencies. The workspace's own postinstalls (`apps/frontend`,
+   `packages/shared-prisma`) still run. Packages with install/postinstall scripts in our tree:
    `@prisma/client`, `@prisma/engines`, `prisma`, `puppeteer`, `sharp`, `esbuild`, `@sentry/cli`,
    `@parcel/watcher`, `unrs-resolver`, `@vercel/speed-insights`, `core-js`.
-   Without an allow-list, Prisma engines and the puppeteer Chrome download are skipped. pnpm prints an
-   "ignored build scripts" warning, which is easy to miss, and the report server then fails at runtime, not at
-   install. Allow at least `@prisma/client`, `@prisma/engines`, `prisma`, `puppeteer`, `sharp`, `esbuild`,
-   `@sentry/cli`. Leave `core-js` (a funding banner) and `@vercel/speed-insights` out unless something breaks.
-   The setting's name and location changed between majors (`pnpm.onlyBuiltDependencies` in 10, and possibly a
-   different key in `pnpm-workspace.yaml` later), and a later major may make unapproved builds a hard error.
-   Use whatever the target major's docs say.
+   Every one of them needs an explicit decision. The setting is `allowBuilds` in `pnpm-workspace.yaml`.
+   pnpm 11 replaced `onlyBuiltDependencies`, `neverBuiltDependencies`, and `ignoredBuiltDependencies` with it,
+   and pnpm 12 ignores the old keys. Starting point:
+
+   ```yaml
+   allowBuilds:
+     '@prisma/client': true
+     '@prisma/engines': true
+     prisma: true
+     puppeteer: true
+     sharp: true
+     esbuild: true
+     '@sentry/cli': true
+     '@parcel/watcher': true
+     unrs-resolver: true
+     core-js: false                  # funding banner
+     '@vercel/speed-insights': false
+   ```
+
+   Run `pnpm approve-builds` interactively to see the exact list pnpm wants, since the tree may have changed.
+   Interactive installs add `set this to true or false` placeholders. Those still block the build, so replace
+   them all.
 2. **Lockfile format changes** (v6 → v9). Expect one large, purely mechanical `pnpm-lock.yaml` diff.
    Keep it in its own commit with no dependency changes. pnpm 8 cannot read a v9 lockfile, and with
    `--frozen-lockfile` it fails loudly instead of guessing. That's the safety net on the instance.
@@ -53,19 +70,36 @@ is a legacy entry point and no longer runs on restart.)
    `00-setup-all.sh` would capture `12.x.y+sha512.<hash>` as the version, so `npm install -g` and the version
    check in `01-install-dependencies.sh` both fail on the next provisioning. Write a plain `pnpm@12.x.y` by hand,
    or make the sed stop at `+`.
-4. **The store path changes** with the major version (`pnpm store path` ends in a new `v<N>` directory).
-   On the instance, an existing `node_modules` built from the old store makes `check-pnpm-store.sh` (correctly)
-   refuse the deploy, so the cutover deletes `node_modules` first. The script's `storeDir` parsing may need
-   updating for the new `.modules.yaml` format.
-5. **Settings moved.** Defaults changed across 9/10/11/12 (e.g. `dedupe-peer-dependents`, `resolution-mode`,
-   hoisting of `eslint`/`prettier`), and `pnpm.*` settings move from `package.json` into `pnpm-workspace.yaml`.
-   This repo's settings are `pnpm.overrides` in the root `package.json`: the two security overrides from #147
-   (`next>postcss`, `@sentry/nextjs>rollup`) plus the `@types/react*` pins.
-6. **Vercel must run the same major.** If Vercel builds with an older pnpm than the repo, it may not read
-   settings that moved to `pnpm-workspace.yaml`. The overrides then silently don't apply, or the frozen install
-   fails. Check Vercel's supported pnpm versions at upgrade time. Have Vercel run exactly the pinned version,
-   either by enabling Corepack (`ENABLE_EXPERIMENTAL_COREPACK=1` in project env vars, which honors
-   `packageManager`) or by choosing the newest major Vercel supports instead of 12.
+4. **The store path and `.modules.yaml` format change.** pnpm 12's store is `<pnpm home>/store/v11` (pnpm 8's
+   is `…/store/v3`). On the instance, an existing `node_modules` built from the old store makes
+   `check-pnpm-store.sh` (correctly) refuse the deploy, so the cutover deletes `node_modules` first.
+   **The script must change.** pnpm 12 writes `node_modules/.modules.yaml` as JSON
+   (`  "storeDir": "/home/…/store/v11",`). The script's sed only matches YAML `storeDir: …`, so it reads an
+   empty value and fails closed. Without a fix, every deploy after the upgrade refuses to install
+   (verified: the current sed returns empty on a pnpm 12 file). Make it accept both forms, e.g. try the YAML sed,
+   then fall back to `sed -n -E 's/^ *"storeDir": *"([^"]*)",? *$/\1/p'`, still failing closed when both are
+   empty.
+5. **The `pnpm` field in `package.json` is no longer read.** pnpm 12 prints
+   `[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored:
+   "pnpm.overrides"` and installs **without the overrides** (verified in a sandbox). For this repo that means the
+   two security overrides from #147 (`next>postcss`, `@sentry/nextjs>rollup`) and the `@types/react*` pins
+   silently stop applying. Move them to a top-level `overrides:` key in `pnpm-workspace.yaml` and remove the
+   `pnpm` field from `package.json`. pnpm 12 also fails on any key in `pnpm-workspace.yaml` it doesn't recognize
+   (`ERR_PNPM_UNRECOGNIZED_WORKSPACE_SETTINGS`), so a typo there is caught. Other defaults changed across 9-12
+   (e.g. `dedupe-peer-dependents`, `resolution-mode`, hoisting of `eslint`/`prettier`). Skim each major's notes,
+   and expect version drift in the lockfile conversion.
+6. **Vercel must run the same major.** An older pnpm on Vercel won't read `allowBuilds` or the workspace-file
+   overrides: the overrides silently don't apply, or the frozen install fails. Vercel's supported pnpm versions
+   were **not verified** when this was written (no web access in that session). Check Vercel's package-manager
+   docs first. Have Vercel run exactly the pinned version, either by enabling Corepack
+   (`ENABLE_EXPERIMENTAL_COREPACK=1` in project env vars, which honors `packageManager`) or by choosing the newest
+   major Vercel supports instead of 12. Note that pnpm 11 also moved settings out of `package.json`, so even
+   falling back to 11 needs the same settings move.
+7. **pnpm 12 switches to the pinned version itself.** A global pnpm 12 run inside a project whose
+   `packageManager` pins another version runs that version. For example, `pnpm --version` in this repo while
+   it's still pinned to 8.15.7 prints `8.15.7`. So check the global version from outside the repo
+   (`cd ~ && pnpm --version`). This also makes the cutover safer: pnpm 12 can be installed globally on the box
+   **before** merge, and deploys keep running 8.15.7 until the pin changes.
 
 ## Runbook
 
@@ -77,21 +111,25 @@ Work in a branch off `main`. Run commands from the repo root.
 2. **Pin it.** Edit `"packageManager"` in `package.json` and `apps/report-server/package.json` to the same plain
    `pnpm@12.x.y`, with no `+sha512` suffix (gotcha 3). Check the provisioning sed still parses it:
    `sed -n 's/.*"packageManager": *"pnpm@\([^"]*\)".*/\1/p' package.json` prints exactly `12.x.y`.
-3. **Move settings, then convert the lockfile.** Move `pnpm.overrides` (and anything else under `pnpm`) to where
-   the new major reads it (gotcha 5). Delete all `node_modules` (`rm -rf node_modules apps/*/node_modules
+3. **Move settings, then convert the lockfile.** Move `pnpm.overrides` to `overrides:` in `pnpm-workspace.yaml`
+   and delete the `pnpm` field from `package.json` (gotcha 5). Delete all `node_modules` (`rm -rf node_modules apps/*/node_modules
    packages/*/node_modules`), then `pnpm install`. Commit the `packageManager`, settings, and
    `pnpm-lock.yaml` changes with no dependency changes: `chore(deps): upgrade pnpm 8.15.7 -> 12.x.y`.
    Check `head -1 pnpm-lock.yaml` shows `lockfileVersion: '9.0'`.
-4. **Allow-list builds** (gotcha 1). Add the build allow-list, delete `node_modules` again, reinstall, and
-   confirm there's no "ignored build scripts" warning for the allowed packages. Then check:
+   The install fails with `ERR_PNPM_IGNORED_BUILDS` until step 4 is done, so do 3 and 4 together and commit
+   once the install succeeds.
+4. **Allow-list builds** (gotcha 1). Add `allowBuilds` to `pnpm-workspace.yaml` (or run `pnpm approve-builds`
+   and review what it writes), delete `node_modules` again, and confirm `CI=true pnpm install --frozen-lockfile`
+   succeeds. Then check:
    - Prisma: `apps/frontend/node_modules/.prisma/client` exists (frontend postinstall ran `prisma generate`).
    - Chrome: `cd apps/report-server && npx puppeteer browsers list` shows a Chrome build.
    - sharp: `node -e "require('sharp')"` from `apps/frontend` exits 0.
 5. **Overrides still apply.** `pnpm why -r postcss` and `pnpm why -r rollup` show only the overridden versions,
    and `@types/react` resolves to the pinned version. Rerun the Dependabot range check from the #147 PR.
 6. **Store check script.** Run `pnpm install` once more so `node_modules/.modules.yaml` exists, then
-   `bash scripts/check-pnpm-store.sh` must exit 0. If the new `.modules.yaml` format breaks the `storeDir` sed,
-   fix it (it must still fail closed on missing or unrecognized metadata). Update the "pnpm 8" comment.
+   `bash scripts/check-pnpm-store.sh` must exit 0. It won't until the `storeDir` parsing handles the JSON form
+   (gotcha 4). Keep the YAML form too, since the box runs it once under pnpm 8 metadata, and keep it failing closed
+   on missing or unrecognized metadata. Update the "pnpm 8" comment.
 7. **Full verification:** `pnpm test`, `test:pg`, `tsc` for both apps, lint, `next build`, report-server build
    (`pnpm run build:packages && pnpm --filter node-pdf-generation run build`), `pnpm dev` smoke, and one local
    PDF generation.
@@ -99,8 +137,9 @@ Work in a branch off `main`. Run commands from the repo root.
    below, and replace "pnpm 8" in its store-mismatch troubleshooting entry. Update any `docs/LOCAL_DEVELOPMENT.md`
    pnpm version mention.
 9. Open the PR. CI on the new pnpm is the first external check. **Don't merge until Parts B and C are ready**,
-   because the next deploy after merge breaks on an un-upgraded instance (it fails before stopping the service,
-   so the old build keeps serving, but nothing ships until the cutover).
+   because a deploy on an un-upgraded instance fails. pnpm 8 refuses the v9 lockfile
+   (`Ignoring not compatible lockfile` → `ERR_PNPM_NO_LOCKFILE`), but only after `deploy-lightsail.sh` has
+   stopped the service, so its abort trap restarts the old build. Nothing ships until the cutover.
 
 ### Part B: Vercel (human, before merge)
 
@@ -109,35 +148,43 @@ Work in a branch off `main`. Run commands from the repo root.
    preview (gotcha 6). If Vercel can't run pnpm 12, go back to Part A and target the newest major it supports.
 3. Smoke the preview: sign in, load a committee page, request a report.
 
-### Part C: report server cutover (human, on the instance, right after merge)
+### Part C: report server cutover (human, on the instance)
 
-Expect about 10-20 minutes of report-server downtime, mostly the cold install. Run everything inside `tmux` as
-the SSH user, from `/opt/voter-file-tool`.
+Run everything inside `tmux` as the SSH user, from `/opt/voter-file-tool`.
+
+**Before merge (no downtime).** Install pnpm 12 globally now. While `main` still pins 8.15.7, pnpm 12 runs
+8.15.7 for this repo (gotcha 7), so deploys keep working unchanged.
+
+1. `npm install -g pnpm@<version from the PR's package.json>` under the SSH user's nvm.
+2. `cd ~ && pnpm --version` prints the new version. `cd /opt/voter-file-tool && pnpm --version` still prints
+   `8.15.7`, and `pnpm store path` still ends in `/v3`.
+3. Optional confidence check: run a normal `bash scripts/deploy-lightsail.sh` and confirm it behaves as before.
+
+**After merge (about 10-20 minutes of report-server downtime, mostly the cold install).**
 
 1. **Preflight.** `free -m` shows swap is on (the cold install needs it), `df -h /` has room for a second store
-   (the old one is removed in step 7), and `pm2 status report-server` is online. Note the current commit:
+   (the old one is removed in step 6), and `pm2 status report-server` is online. Note the current commit:
    `git rev-parse HEAD`.
 2. **Stop the service:** `pm2 stop report-server`.
-3. **Install the new pnpm** under the SSH user's nvm:
-   `npm install -g pnpm@<version from package.json>`, then `pnpm --version` matches.
-4. **Remove the old install:** `rm -rf node_modules apps/*/node_modules packages/*/node_modules`. With no
+3. **Remove the old install:** `rm -rf node_modules apps/*/node_modules packages/*/node_modules`. With no
    `.modules.yaml`, `check-pnpm-store.sh` passes.
-5. **Deploy as usual:** `bash scripts/deploy-lightsail.sh`. It pulls `main`, does a cold install through
-   `pnpm-install-low-memory.sh`, builds, and re-registers PM2.
-6. **Verify:** `pm2 status report-server` is online with no climbing `↺`, `pm2 logs report-server --lines 50`
+4. **Deploy as usual:** `bash scripts/deploy-lightsail.sh`. It pulls `main` (now pinned to 12), does a cold
+   install through `pnpm-install-low-memory.sh`, builds, and re-registers PM2. Afterwards, `pnpm --version` in the
+   repo prints the new version and `pnpm store path` ends in `/v11`.
+5. **Verify:** `pm2 status report-server` is online with no climbing `↺`, `pm2 logs report-server --lines 50`
    is clean, `cd apps/report-server && npx puppeteer browsers list` shows Chrome, and one PDF generates from the
-   production frontend.
-7. **Clean up** once verified: remove the old pnpm 8 store directory (the old `pnpm store path`, a `v3`
-   directory under `~/.local/share/pnpm/store`) to reclaim disk.
+   production frontend. Then run `bash scripts/check-pnpm-store.sh` and confirm it exits 0 on the new metadata.
+6. **Clean up** once verified: remove the old `…/store/v3` directory under `~/.local/share/pnpm/store` to
+   reclaim disk.
 
-**Rollback** (if step 5 or 6 fails and can't be fixed quickly): `pm2 stop report-server`,
-`npm install -g pnpm@8.15.7`, `git checkout <commit from step 1>`, remove `node_modules` as in step 4,
-`bash scripts/pnpm-install-low-memory.sh`, `pnpm run build:packages`,
+**Rollback** (if step 4 or 5 fails and can't be fixed quickly): `pm2 stop report-server`,
+`git checkout <commit from step 1>` (pinned to 8.15.7, so the global pnpm 12 runs 8.15.7), remove `node_modules`
+as in step 3, `bash scripts/pnpm-install-low-memory.sh`, `pnpm run build:packages`,
 `pnpm --filter node-pdf-generation run build`, `pm2 start apps/report-server/ecosystem.config.js`.
 Don't rerun `deploy-lightsail.sh` for this, since it pulls `main` again. Then revert the upgrade PR on `main`
 (and Vercel's Corepack env var) before the next deploy.
 
-**Alternative:** `pnpm terraform:recreate` instead of steps 2-6. Provisioning installs the pinned version, but
+**Alternative:** `pnpm terraform:recreate` instead of the after-merge steps 2-5. Provisioning installs the pinned version, but
 it destroys the disk and takes longer, and it changes nothing else about the box.
 
 ## Acceptance
