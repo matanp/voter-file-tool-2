@@ -84,7 +84,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
   trigger,
   onCloseAutoFocus,
 }) => {
-  const { actingPermissions, setActingPermissions } =
+  const { actingPrivilege, setActingPrivilege } =
     React.useContext(GlobalContext);
   const [pendingInvite, setPendingInvite] =
     React.useState<PendingInvite | null>(null);
@@ -149,7 +149,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
             <>
               <h1 className={textStyles}>
                 <span className="font-light">Acting Privilege Level:</span>{" "}
-                {actingPermissions}
+                {actingPrivilege}
               </h1>
               <ComboboxDropdown
                 items={Object.values(PrivilegeLevel).map((privilege) => {
@@ -157,7 +157,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
                 })}
                 displayLabel={"Choose role"}
                 onSelect={(privilege) => {
-                  setActingPermissions(privilege as PrivilegeLevel);
+                  setActingPrivilege(privilege as PrivilegeLevel);
                 }}
               />
             </>

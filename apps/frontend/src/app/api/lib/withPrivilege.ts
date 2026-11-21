@@ -2,7 +2,7 @@ import type { Session } from "next-auth";
 import type { PrivilegeLevel } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 
 /** Privilege level or "Authenticated" (any valid session, no privilege check). */
 export type AuthLevel = PrivilegeLevel | "Authenticated";
@@ -50,7 +50,7 @@ export function withPrivilege<T extends NextRequest = NextRequest>(
       );
     }
 
-    if (!hasPermissionFor(session.user.privilegeLevel, requiredLevel)) {
+    if (!hasPrivilegeFor(session.user.privilegeLevel, requiredLevel)) {
       return NextResponse.json(
         { error: "User does not have sufficient privilege" },
         { status: 403 },

@@ -7,6 +7,6 @@ Nothing here changes behaviour. Each issue is independent.
 
 | Issue | Scope | Status |
 | --- | --- | --- |
-| [01-acting-privilege-rename](./01-acting-privilege-rename.md) | TypeScript + a localStorage key | ready-for-agent |
-| [02-jurisdiction-scope-type-rename](./02-jurisdiction-scope-type-rename.md) | TypeScript only | ready-for-agent |
+| [01-acting-privilege-rename](./01-acting-privilege-rename.md) | TypeScript + a localStorage key | resolved |
+| [02-jurisdiction-scope-type-rename](./02-jurisdiction-scope-type-rename.md) | TypeScript only | resolved |
 | [03-jurisdiction-model-rename](./03-jurisdiction-model-rename.md) | Prisma models + migration | needs-triage |

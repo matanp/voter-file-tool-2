@@ -11,8 +11,8 @@ import { mockHasPermission } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: PrivilegeLevel.Leader,
-    setActingPermissions: () => undefined,
+    actingPrivilege: PrivilegeLevel.Leader,
+    setActingPrivilege: () => undefined,
   }),
 }));
 

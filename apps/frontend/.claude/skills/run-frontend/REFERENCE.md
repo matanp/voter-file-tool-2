@@ -24,7 +24,7 @@ the production architecture.
   `authjs.session-token` cookie is a full login. `Session."updatedAt"` has no DB default, so inserts
   must set it.
 - **Real roles differ from the Developer's acting role.** `session.sh Leader` uses a real Leader's
-  server privileges and jurisdiction. A Developer's `actingPermissions` only changes the client UI; the
+  server privileges and jurisdiction. A Developer's `actingPrivilege` only changes the client UI; the
   server still treats them as a Developer. See
   [auth-check-patterns](../../../../../skills/auth-check-patterns/SKILL.md) when reviewing role-gated
   behavior.

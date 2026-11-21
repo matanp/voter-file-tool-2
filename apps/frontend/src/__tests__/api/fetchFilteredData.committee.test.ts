@@ -7,7 +7,7 @@
  * absent and no membership query runs). The same rules run against a real
  * database in fetchFilteredData.committee.pg.integration.test.ts.
  *
- * There is no acting-as case: `actingPermissions` lives only in the browser
+ * There is no acting-as case: `actingPrivilege` lives only in the browser
  * and no request carries it, so the route sees the real role whatever the
  * Developer is acting as. RecordsList.committeeBadge.test.tsx covers the
  * page hiding the badge.

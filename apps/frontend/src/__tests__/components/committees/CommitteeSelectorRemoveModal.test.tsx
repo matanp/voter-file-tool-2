@@ -24,8 +24,8 @@ import {
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: PrivilegeLevel.ReadAccess,
-    setActingPermissions: () => undefined,
+    actingPrivilege: PrivilegeLevel.ReadAccess,
+    setActingPrivilege: () => undefined,
   }),
 }));
 
@@ -136,7 +136,7 @@ const postedBody = (fetchMock: FetchMock, url: string): unknown =>
 async function openAdminDetail() {
   render(
     <GlobalContext.Provider
-      value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: PrivilegeLevel.Admin, setActingPrivilege: () => undefined }}
     >
       <CommitteeSelector committeeLists={committeeLists} />
     </GlobalContext.Provider>,

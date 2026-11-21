@@ -1,6 +1,6 @@
 import { PrivilegeLevel } from "@prisma/client";
 
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { SeatRosterRow } from "~/lib/validations/committee";
 import type { CandidateCommitteeRef, CommitteeAction } from "../../committeeAction";
 
@@ -34,11 +34,11 @@ export type RosterRowActionItem = {
 export function rosterRowActions(
   row: SeatRosterRow,
   committee: CandidateCommitteeRef,
-  actingPermissions: PrivilegeLevel,
+  actingPrivilege: PrivilegeLevel,
 ): RosterRowActionItem[] {
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
-  const canSubmit = hasPermissionFor(
-    actingPermissions,
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
+  const canSubmit = hasPrivilegeFor(
+    actingPrivilege,
     PrivilegeLevel.RequestAccess,
   );
   if (!canSubmit) return [];

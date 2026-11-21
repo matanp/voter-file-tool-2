@@ -3,7 +3,7 @@ import prisma from "~/lib/prisma";
 import { getPresignedReadUrl, getFileMetadata } from "~/lib/s3Utils";
 import { JobStatus } from "@prisma/client";
 import { withPrivilege, type SessionWithUser } from "~/app/api/lib/withPrivilege";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { PrivilegeLevel } from "@prisma/client";
 
 async function getReportsHandler(req: NextRequest, session: SessionWithUser) {
@@ -11,7 +11,7 @@ async function getReportsHandler(req: NextRequest, session: SessionWithUser) {
     const url = new URL(req.url);
     const type = url.searchParams.get("type"); // "public", "my-reports", or "all"
 
-    const isAdmin = hasPermissionFor(
+    const isAdmin = hasPrivilegeFor(
       session.user.privilegeLevel ?? PrivilegeLevel.ReadAccess,
       PrivilegeLevel.Admin,
     );

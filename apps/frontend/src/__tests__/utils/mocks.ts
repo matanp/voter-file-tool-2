@@ -1,6 +1,6 @@
 import type { UserJurisdiction } from "@prisma/client";
 import type { Session } from "next-auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import { DEFAULT_ACTIVE_TERM_ID } from "./testUtils";
 
@@ -33,41 +33,41 @@ export function mockAuthSession(session: Session | null) {
 }
 
 export function mockHasPermission(granted: boolean) {
-  if (!globalThis.mockHasPermissionFor) {
+  if (!globalThis.mockHasPrivilegeFor) {
     if (!globalThis.jest?.fn) {
       throw new Error(
         "Jest is not available in global scope. Ensure test setup runs before using mockHasPermission().",
       );
     }
-    globalThis.mockHasPermissionFor =
+    globalThis.mockHasPrivilegeFor =
       globalThis.jest.fn() as jest.MockedFunction<
         (...args: unknown[]) => boolean
       >;
   }
 
   // Type guard to ensure we have a proper mock
-  const mockHasPermissionFor = globalThis.mockHasPermissionFor as
+  const mockHasPrivilegeFor = globalThis.mockHasPrivilegeFor as
     | jest.MockedFunction<(...args: unknown[]) => boolean>
     | undefined;
 
-  if (!mockHasPermissionFor) {
+  if (!mockHasPrivilegeFor) {
     throw new Error(
-      "globalThis.mockHasPermissionFor must be a Jest mock. Ensure test setup runs before using mockHasPermission().",
+      "globalThis.mockHasPrivilegeFor must be a Jest mock. Ensure test setup runs before using mockHasPermission().",
     );
   }
-  mockHasPermissionFor.mockReturnValue(granted);
+  mockHasPrivilegeFor.mockReturnValue(granted);
 }
 
 /**
- * Restores the real privilege hierarchy behind the global `hasPermissionFor`
+ * Restores the real privilege hierarchy behind the global `hasPrivilegeFor`
  * mock, for code that checks a role inside a route (not just `withPrivilege`),
  * so a ReadAccess session really is below Leader.
  */
 export function mockRealPermissionHierarchy() {
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 }
 

@@ -9,22 +9,22 @@
  *   `detail.history.events`. `petition_outcome` events appear in it only for
  *   an acting Admin.
  *
- * The server already omits Admin-only data for Leaders; the `actingPermissions`
+ * The server already omits Admin-only data for Leaders; the `actingPrivilege`
  * gate is defence in depth and keeps a Developer's acting-as view faithful.
  */
 import React, { useContext } from "react";
 import { PrivilegeLevel } from "@prisma/client";
 
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { CommitteeTabProps } from "./types";
 import { CommitteeHistoryTimeline } from "./history/CommitteeHistoryTimeline";
 import { ElectionOutcomes } from "./history/ElectionOutcomes";
 import { timelineEvents } from "./history/historyModel";
 
 export function HistoryTab({ committeeId, detail }: CommitteeTabProps) {
-  const { actingPermissions } = useContext(GlobalContext);
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const { actingPrivilege } = useContext(GlobalContext);
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   const events = timelineEvents(detail.history.events, isAdmin);
 
   return (

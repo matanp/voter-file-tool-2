@@ -4,7 +4,7 @@ import { useContext } from "react";
 import { useSession } from "next-auth/react";
 import { SignInButton } from "./signInButton";
 import type { PrivilegeLevel } from "@prisma/client";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 
 /** Client-only gate on acting privilege (Developer role simulation). Not authorization — use `getAdminPageAccess` / `getAuthenticatedPageAccess` in Server Components before fetching data. */
@@ -16,13 +16,10 @@ export default function AuthCheck({
   privilegeLevel?: PrivilegeLevel;
 }) {
   const { status } = useSession();
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
 
   if (status === "authenticated") {
-    if (
-      privilegeLevel &&
-      !hasPermissionFor(actingPermissions, privilegeLevel)
-    ) {
+    if (privilegeLevel && !hasPrivilegeFor(actingPrivilege, privilegeLevel)) {
       return (
         <div className="w-full flex flex-col items-center">
           <h1>

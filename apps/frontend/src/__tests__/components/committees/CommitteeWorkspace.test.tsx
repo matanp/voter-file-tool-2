@@ -15,7 +15,7 @@ import { PrivilegeLevel } from "@prisma/client";
 
 import { CommitteeWorkspace } from "~/app/committees/workspace/CommitteeWorkspace";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import { summarizeEdRollups } from "~/lib/summarizeEdRollups";
 import type {
@@ -64,8 +64,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -254,7 +254,7 @@ function renderWorkspace({
   mockUrl.reset(query);
   return render(
     <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: role, setActingPrivilege: () => undefined }}
     >
       <CommitteeWorkspace termLabel="2024–2026" initialScope={initialScope} />
     </GlobalContext.Provider>,
@@ -309,9 +309,9 @@ function setViewport(desktop: boolean) {
 beforeEach(() => {
   jest.clearAllMocks();
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
   setViewport(true);
 });
@@ -713,7 +713,7 @@ describe("CommitteeWorkspace roles", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Committees" })).toBeInTheDocument();
   });
 
-  it("follows actingPermissions in the UI but never sends it with the detail request", async () => {
+  it("follows actingPrivilege in the UI but never sends it with the detail request", async () => {
     const fetchMock = serveRoster(pagesOf(ALL, 500));
     // e.g. a Developer acting as a Leader.
     const { unmount } = renderWorkspace({ query: "committee=1", role: PrivilegeLevel.Leader });

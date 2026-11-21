@@ -67,13 +67,13 @@ const MEMBER: RecordSearchResult = {
 const SPOKEN =
   "Committee member: GREECE, Legislative District 1, Election District 5";
 
-async function searchActingAs(actingPermissions: PrivilegeLevel) {
+async function searchActingAs(actingPrivilege: PrivilegeLevel) {
   const fetchMock = installFetchMock(async () =>
     fetchJsonResponse({ data: [MEMBER], totalRecords: 1 }),
   );
   renderWithVoterSearchProvider(
     <GlobalContext.Provider
-      value={{ actingPermissions, setActingPermissions: jest.fn() }}
+      value={{ actingPrivilege, setActingPrivilege: jest.fn() }}
     >
       <RecordsList dropdownList={createMockDropdownLists()} />
     </GlobalContext.Provider>,

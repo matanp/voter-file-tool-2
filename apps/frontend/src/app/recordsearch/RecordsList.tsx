@@ -25,7 +25,7 @@ import { useApiMutation } from "~/hooks/useApiMutation";
 import { useContext } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { PrivilegeLevel } from "@prisma/client";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { useSearchModePreference } from "~/lib/useSearchModePreference";
 
 const LOADING_SECTION_ID = "loading-section";
@@ -40,7 +40,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
   const router = useRouter();
   const { toast } = useToast();
   const { status, data: session } = useSession();
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
   const {
     setSearchQuery: setContextSearchQuery,
     fieldsList: contextFieldsList,
@@ -108,18 +108,18 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     return createSmartFieldsList(contextFieldsList);
   }, [contextFieldsList]);
 
-  const canExport = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const canExport = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   // The server sends committee membership by the real role; this only hides it
   // when a Developer is acting as a role that couldn't see rosters. It can't
   // narrow it: a Developer acting as Leader sees badges for every committee
   // (their real scope), not just one Leader's assignments.
-  const showCommitteeMembership = hasPermissionFor(
-    actingPermissions,
+  const showCommitteeMembership = hasPrivilegeFor(
+    actingPrivilege,
     PrivilegeLevel.Leader,
   );
   // Ask for membership only when the real role could get it; the server
   // decides scope either way and returns nothing below Leader.
-  const includeCommittee = hasPermissionFor(
+  const includeCommittee = hasPrivilegeFor(
     session?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
     PrivilegeLevel.Leader,
   );

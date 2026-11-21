@@ -13,13 +13,13 @@ import {
   last30DaysIsoRange,
 } from "~/components/reports/scopeReportFormSpecs";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { firstCallArg } from "../../utils/testUtils";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: "ReadAccess",
-    setActingPermissions: () => undefined,
+    actingPrivilege: "ReadAccess",
+    setActingPrivilege: () => undefined,
   }),
 }));
 
@@ -148,11 +148,11 @@ function adminCountywidePayload(type: ScopeReportType): Record<string, unknown> 
 }
 
 function renderWithPermissions(
-  actingPermissions: PrivilegeLevel,
+  actingPrivilege: PrivilegeLevel,
   type: ScopeReportType,
   {
     leaderAssignments = [],
-    userPrivilegeLevel = actingPermissions,
+    userPrivilegeLevel = actingPrivilege,
   }: {
     leaderAssignments?: Assignment[];
     userPrivilegeLevel?: PrivilegeLevel;
@@ -161,8 +161,8 @@ function renderWithPermissions(
   return render(
     <GlobalContext.Provider
       value={{
-        actingPermissions,
-        setActingPermissions: jest.fn(),
+        actingPrivilege,
+        setActingPrivilege: jest.fn(),
       }}
     >
       <ScopedReportForm
@@ -180,7 +180,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
 
   beforeEach(() => {
     mutateMock.mockClear();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const order = [
         PrivilegeLevel.Developer,
         PrivilegeLevel.Admin,
@@ -328,7 +328,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
 describe("ScopedReportForm type-specific fields", () => {
   beforeEach(() => {
     mutateMock.mockClear();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const order = [
         PrivilegeLevel.Developer,
         PrivilegeLevel.Admin,
@@ -406,7 +406,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
 
   beforeEach(() => {
     mutateMock.mockClear();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const order = [
         PrivilegeLevel.Developer,
         PrivilegeLevel.Admin,

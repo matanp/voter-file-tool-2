@@ -74,7 +74,7 @@ describe("/api/admin/weightedTable/import", () => {
 
   describe("authorization", () => {
     // The shared generator also emits Developer, which only fails here because
-    // hasPermissionFor is mocked; Developer outranks Admin, so it is left out.
+    // hasPrivilegeFor is mocked; Developer outranks Admin, so it is left out.
     const deniedCases = [
       createUnauthenticatedTestCase(),
       ...createInsufficientPrivilegeTestCases(PrivilegeLevel.Admin).filter(
