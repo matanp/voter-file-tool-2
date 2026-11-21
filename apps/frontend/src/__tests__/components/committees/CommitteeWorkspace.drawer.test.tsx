@@ -144,6 +144,8 @@ type Server = {
   removeGate: Promise<void> | null;
   /** While true, the detail endpoint fails. */
   failDetail: boolean;
+  /** While set, the detail endpoint waits on it. */
+  detailGate: Promise<void> | null;
 };
 
 const person = (VRCNUM: string, firstName: string, lastName: string): Occupant => ({
@@ -164,6 +166,7 @@ function newServer(): Server {
     unassigned: new Map(),
     removeGate: null,
     failDetail: false,
+    detailGate: null,
   };
 }
 
@@ -316,6 +319,7 @@ function serve(server: Server) {
     const url = new URL(String(input), "http://localhost");
     const detail = /^\/api\/committee\/(\d+)\/detail$/.exec(url.pathname);
     if (detail) {
+      if (server.detailGate) await server.detailGate;
       if (server.failDetail) return fetchJsonResponse({ error: "Detail unavailable" }, 500);
       const r = server.rollups.find((x) => x.committeeListId === Number(detail[1]));
       return r ? fetchJsonResponse(detailFor(server, r)) : fetchJsonResponse({ error: "nope" }, 404);
@@ -540,6 +544,55 @@ describe("Action drawer in the workspace", () => {
     await waitFor(() =>
       expect(within(detailPane()).getByRole("button", { name: "Actions for seat 2" })).toHaveFocus(),
     );
+  });
+
+  it("shows the success toast only once the roster shows the new member (ticket 27)", async () => {
+    const server = newServer();
+    serve(server);
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
+
+    let releaseDetail: () => void = () => undefined;
+    server.detailGate = new Promise<void>((r) => (releaseDetail = r));
+    await openVacantSeatAdd(2);
+    await addJane();
+
+    // The add succeeded, but the refreshed detail hasn't arrived.
+    await waitFor(() =>
+      expect(within(drawer()).getByRole("button", { name: "Adding…" })).toBeDisabled(),
+    );
+    // The open sheet hides the page from the accessibility tree.
+    const paneBehindSheet = () =>
+      screen.getByRole("region", { name: "Committee detail", hidden: true });
+    expect(toast).not.toHaveBeenCalled();
+    expect(within(paneBehindSheet()).queryByText("Jane Doe")).not.toBeInTheDocument();
+
+    server.detailGate = null;
+    releaseDetail();
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(within(paneBehindSheet()).getByText("Jane Doe")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      within(detailPane()).getByRole("button", { name: "Actions for seat 2" }),
+    ).toHaveFocus();
+  });
+
+  it("focuses the seat an add filled when it isn't the seat the add came from (ticket 27)", async () => {
+    serve(newServer());
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    // Seats 2-4 are vacant; an add fills the next open seat, 2.
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 4" });
+
+    await openVacantSeatAdd(4);
+    await addJane();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(detailPane()).getByRole("button", { name: "Actions for seat 2" })).toHaveFocus(),
+    );
+    expect(document.activeElement).toBeInTheDocument();
   });
 
   it("moves focus to the committee heading when the row it came from is gone", async () => {

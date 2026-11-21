@@ -47,9 +47,11 @@ export type ActionFailure = Extract<ActionOutcome, { ok: false }>;
 
 /**
  * Runs one drawer mutation: tracks the in-flight state, keeps a failure for
- * display, and hands the success message on.
+ * display, and hands the success message on. The action stays in flight until
+ * `onSuccess` settles, so a caller that waits for the refreshed roster keeps
+ * the primary button busy until then.
  */
-export function useActionSubmit(onSuccess: (message: string) => void) {
+export function useActionSubmit(onSuccess: (message: string) => void | Promise<void>) {
   const [submitting, setSubmitting] = useState(false);
   const [failure, setFailure] = useState<ActionFailure | null>(null);
   /** Resolves to the failure, or null on success. */
@@ -59,11 +61,12 @@ export function useActionSubmit(onSuccess: (message: string) => void) {
     setSubmitting(true);
     setFailure(null);
     const outcome = await mutation();
-    setSubmitting(false);
     if (outcome.ok) {
-      onSuccess(outcome.message);
+      await onSuccess(outcome.message);
+      setSubmitting(false);
       return null;
     }
+    setSubmitting(false);
     setFailure(outcome);
     return outcome;
   };

@@ -233,7 +233,7 @@ export function ReportExitForm({
   action: ExitReportAction;
   memberLabel: string;
   onCancel: () => void;
-  onSuccess: (message: string) => void;
+  onSuccess: (message: string) => void | Promise<void>;
 }) {
   const id = useId();
   const [input, setInput] = useState<ExitReportInput>(EMPTY_REPORT);

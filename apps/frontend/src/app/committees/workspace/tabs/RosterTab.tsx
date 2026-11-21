@@ -10,7 +10,7 @@ import { CommitteeSeatTable } from "../../CommitteeRosterTable";
 import { RosterRowActionMenu } from "./roster/RosterRowActionMenu";
 import { VacantSeatButton } from "./roster/VacantSeatButton";
 import { committeeRefFrom } from "../committeeAction";
-import { rosterRowActions } from "./roster/rowActions";
+import { rosterRowActions, rosterRowKey as rowKey } from "./roster/rowActions";
 import type { CommitteeTabProps } from "./types";
 
 /** Only when rendered outside `CommitteeTabs` (which always passes `onAction`). */
@@ -23,13 +23,6 @@ function rowActionLabel(row: SeatRosterRow, action: string): string {
     ? `${row.occupant.firstName} ${row.occupant.lastName}`.trim()
     : "unassigned member";
   return `${action} for ${name}`;
-}
-
-/** e.g. "seat-2", "member-V1": matches a row's control across refreshes. */
-function rowKey(row: SeatRosterRow): string {
-  return row.seatNumber !== null
-    ? `seat-${row.seatNumber}`
-    : `member-${row.occupant?.VRCNUM ?? ""}`;
 }
 
 export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {

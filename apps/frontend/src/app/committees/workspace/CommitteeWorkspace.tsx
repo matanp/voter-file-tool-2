@@ -57,6 +57,7 @@ import {
 import { useCommitteeDetail } from "./useCommitteeDetail";
 import { useCommitteeGridData } from "./useCommitteeGridData";
 import { useGridRefresh } from "./useGridRefresh";
+import { rosterRowKey } from "./tabs/roster/rowActions";
 import { useHeightBelowNav } from "./useHeightBelowNav";
 import { useIsDesktop } from "./useIsDesktop";
 import { useMemberSearch } from "./useMemberSearch";
@@ -284,34 +285,60 @@ export function CommitteeWorkspace({
     if (openAction !== null && !actionMatchesSelection) setOpenAction(null);
   }, [openAction, actionMatchesSelection]);
 
-  // After a completed action, focus is back on the row's trigger, but the
-  // refreshed detail can replace it (a seat filled or vacated swaps its menu
-  // for an add button or back) or remove the row (removing an unassigned
-  // member). Once the refresh settles, a focus that fell to <body> goes to the
-  // same row's new control, else to the committee heading.
-  const focusAfterRefresh = useRef<HTMLElement | null>(null);
-  const completeAction = useCallback(() => {
-    focusAfterRefresh.current = openAction?.returnFocusTo ?? null;
-    refreshDetailAndGrid();
-  }, [openAction, refreshDetailAndGrid]);
+  // A completed action waits for the refreshed detail (ticket 27), so the
+  // drawer's toast, close and focus move happen once the roster is updated.
+  // The refresh can replace the row's trigger (a seat filled or vacated swaps
+  // its menu for an add button or back) or remove the row (removing an
+  // unassigned member). Focus goes to the seat an Admin add filled, else the
+  // trigger, else the same row's new control, else the committee heading.
+  const pendingCompletion = useRef<{
+    trigger: HTMLElement | null;
+    seatedMemberId?: string;
+    resolve: (focusTarget: HTMLElement | null) => void;
+  } | null>(null);
+  const completeAction = useCallback(
+    (seatedMemberId?: string) => {
+      const trigger = openAction?.returnFocusTo ?? null;
+      refreshDetailAndGrid();
+      return new Promise<HTMLElement | null>((resolve) => {
+        pendingCompletion.current?.resolve(null);
+        pendingCompletion.current = { trigger, seatedMemberId, resolve };
+      });
+    },
+    [openAction, refreshDetailAndGrid],
+  );
   const detailSettled =
     loadedDetail.status === "error" ||
     (loadedDetail.status === "ready" && !loadedDetail.refreshing);
   useEffect(() => {
-    const trigger = focusAfterRefresh.current;
-    if (!trigger || !detailSettled) return;
-    focusAfterRefresh.current = null;
-    const active = document.activeElement;
-    if (!trigger.isConnected && (active === null || active === document.body)) {
-      const rowKey = trigger.dataset.rowAction;
-      const sameRow = rowKey
-        ? document.querySelector<HTMLElement>(
-            `#${DETAIL_PANE_ID} [data-row-action="${CSS.escape(rowKey)}"]`,
+    const pending = pendingCompletion.current;
+    if (!pending || !detailSettled) return;
+    pendingCompletion.current = null;
+    const rowControl = (key: string) =>
+      document.querySelector<HTMLElement>(
+        `#${DETAIL_PANE_ID} [data-row-action="${CSS.escape(key)}"]`,
+      );
+    const seatedRow =
+      pending.seatedMemberId && loadedDetail.status === "ready"
+        ? loadedDetail.detail.rows.find(
+            (r) => r.occupant?.VRCNUM === pending.seatedMemberId,
           )
-        : null;
-      (sameRow ?? focusDetailHeading())?.focus();
+        : undefined;
+    const triggerKey = pending.trigger?.dataset.rowAction;
+    const target =
+      (seatedRow ? rowControl(rosterRowKey(seatedRow)) : null) ??
+      (pending.trigger?.isConnected ? pending.trigger : null) ??
+      (triggerKey ? rowControl(triggerKey) : null) ??
+      focusDetailHeading();
+    pending.resolve(target);
+    // An open drawer moves focus itself as it closes. If it was closed
+    // mid-flight, focus went back to the trigger; if the refresh then removed
+    // it, focus fell to <body>.
+    const active = document.activeElement;
+    if (openAction === null && (active === null || active === document.body)) {
+      target?.focus();
     }
-  }, [detailSettled, loadedDetail]);
+  }, [detailSettled, loadedDetail, openAction]);
 
   // Mobile Back: return to the list and put focus back on the row it came from.
   const returnFocusTo = useRef<number | null>(null);

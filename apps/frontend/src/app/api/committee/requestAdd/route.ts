@@ -14,6 +14,7 @@ import type { Session } from "next-auth";
 import { logAuditEventOrThrow } from "~/lib/auditLog";
 import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 import { validateEligibility } from "~/lib/eligibility";
+import { formatCalendarDateForDisplay } from "~/lib/dateUtils";
 import {
   buildMembershipAuditSubject,
   mergeAuditMetadata,
@@ -146,6 +147,32 @@ async function requestAddHandler(req: NextRequest, session: Session) {
       }
     }
 
+    // An existing membership is resubmitted below, unless it is still pending.
+    const existing = await prisma.committeeMembership.findUnique({
+      where: {
+        voterRecordId_committeeListId_termId: {
+          voterRecordId: sanitizedAddMemberId,
+          committeeListId: committeeRequested.id,
+          termId: activeTermId,
+        },
+      },
+    });
+
+    // A duplicate is a conflict, not a success: nothing new is stored. Checked
+    // before eligibility so the caller hears about the existing request.
+    if (existing?.status === "SUBMITTED") {
+      // Same date the Pending tab shows for this submission.
+      const submitted = formatCalendarDateForDisplay(existing.submittedAt);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Already pending for this committee: submitted ${submitted}, waiting for an Admin to review it.`,
+          membershipId: existing.id,
+        },
+        { status: 409 },
+      );
+    }
+
     const eligibility = await validateEligibility(
       sanitizedAddMemberId,
       committeeRequested.id,
@@ -188,24 +215,6 @@ async function requestAddHandler(req: NextRequest, session: Session) {
           }
         : {}),
     } as Prisma.InputJsonValue;
-
-    // Check for existing membership (idempotent/transition)
-    const existing = await prisma.committeeMembership.findUnique({
-      where: {
-        voterRecordId_committeeListId_termId: {
-          voterRecordId: sanitizedAddMemberId,
-          committeeListId: committeeRequested.id,
-          termId: activeTermId,
-        },
-      },
-    });
-
-    if (existing?.status === "SUBMITTED") {
-      return NextResponse.json(
-        { success: true, message: "Request already submitted" },
-        { status: 200 },
-      );
-    }
 
     if (existing?.status === "ACTIVE") {
       return NextResponse.json(

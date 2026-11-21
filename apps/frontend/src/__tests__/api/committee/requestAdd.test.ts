@@ -290,7 +290,7 @@ describe("/api/committee/requestAdd", () => {
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });
 
-    it("should return 200 when request already SUBMITTED (idempotent)", async () => {
+    it("should return 409 naming the existing request when already SUBMITTED", async () => {
       const mockRequestData = createMockRequestData();
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
@@ -310,16 +310,44 @@ describe("/api/committee/requestAdd", () => {
         },
       );
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
-        createMockMembership({ status: "SUBMITTED" }),
+        createMockMembership({
+          id: "membership-pending-1",
+          status: "SUBMITTED",
+          submittedAt: new Date("2026-11-18T15:00:00Z"),
+        }),
       );
 
       const response = await POST(createMockRequest(mockRequestData));
 
-      await expectSuccessResponse(
-        response,
-        { success: true, message: "Request already submitted" },
-        200,
+      expect(response.status).toBe(409);
+      const body = await parseJsonResponse(response);
+      expect(body).toEqual({
+        success: false,
+        error:
+          "Already pending for this committee: submitted Nov 18, 2026, waiting for an Admin to review it.",
+        membershipId: "membership-pending-1",
+      });
+      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
+      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+    });
+
+    it("should report the duplicate before eligibility (409, not INELIGIBLE)", async () => {
+      mockAuthSession(
+        createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
+      mockHasPermission(true);
+      // No eligibility mocks: reaching validateEligibility would not return 409.
+      prismaMock.committeeList.findUnique.mockResolvedValue(
+        createMockCommittee() as never,
+      );
+      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+        createMockMembership({ status: "SUBMITTED" }),
+      );
+
+      const response = await POST(createMockRequest(createMockRequestData()));
+
+      expect(response.status).toBe(409);
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
     });
 

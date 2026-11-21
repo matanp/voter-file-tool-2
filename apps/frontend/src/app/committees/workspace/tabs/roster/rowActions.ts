@@ -5,6 +5,16 @@ import type { SeatRosterRow } from "~/lib/validations/committee";
 import type { CandidateCommitteeRef, CommitteeAction } from "../../committeeAction";
 
 /**
+ * A row's `data-row-action` key, e.g. "seat-2", "member-V1": it matches the
+ * row's control across refreshes, so focus can find it again.
+ */
+export function rosterRowKey(row: SeatRosterRow): string {
+  return row.seatNumber !== null
+    ? `seat-${row.seatNumber}`
+    : `member-${row.occupant?.VRCNUM ?? ""}`;
+}
+
+/**
  * A row menu item. The Roster tab only *dispatches* its action (plan §8's
  * `CommitteeAction`); it never opens anything itself.
  */

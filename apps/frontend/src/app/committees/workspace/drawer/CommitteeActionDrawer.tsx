@@ -11,6 +11,10 @@
  * row's menu trigger, which outlives the menu item that opened the drawer).
  * Each new action mounts a fresh flow, so nothing carries over between
  * openings. The drawer closes on success (no "Add another member" in v1).
+ *
+ * On success the drawer waits for `onComplete` (the caller's refresh) before
+ * the toast and the close, so the toast and the updated roster appear
+ * together and focus goes to a control that exists.
  */
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { PrivilegeLevel } from "@prisma/client";
@@ -42,8 +46,13 @@ export type CommitteeActionDrawerProps = {
   /** The action's committee, loaded. */
   detail: CommitteeDetailResponse;
   onClose: () => void;
-  /** After a successful mutation (the drawer then closes itself via `onClose`). */
-  onComplete: () => void;
+  /**
+   * After a successful mutation. Resolves once the caller's data is refreshed,
+   * with where focus should go when the drawer closes (null: `returnFocusTo`,
+   * else `fallbackFocus`). `seatedMemberId` is the voter an Admin add seated.
+   * The drawer then toasts and closes itself via `onClose`.
+   */
+  onComplete: (seatedMemberId?: string) => Promise<HTMLElement | null> | void;
   /** Where focus goes when the drawer closes. */
   returnFocusTo?: HTMLElement | null;
   /**
@@ -110,13 +119,19 @@ export function CommitteeActionDrawer({
     live.current = { open: action !== null, generation };
   });
 
+  // Set by a completed mutation, read once when the sheet finishes closing.
+  const focusOnClose = useRef<HTMLElement | null>(null);
+
   // The data changed either way, so always refresh. Close only the opening
   // this mutation came from: if the user closed it mid-flight and opened
   // another action, leave that one alone.
-  const handleSuccess = (message: string) => {
+  const handleSuccess = async (message: string, seatedMemberId?: string) => {
+    const focusTarget = (await onComplete(seatedMemberId)) ?? null;
     toast({ title: "Success", description: message });
-    onComplete();
-    if (live.current.open && live.current.generation === generation) onClose();
+    if (live.current.open && live.current.generation === generation) {
+      focusOnClose.current = focusTarget;
+      onClose();
+    }
   };
 
   let mode: CandidateSubmissionMode | null = null;
@@ -213,8 +228,14 @@ export function CommitteeActionDrawer({
         side="right"
         className="flex w-full flex-col gap-0 p-0 sm:max-w-none md:w-[34rem] md:max-w-[34rem]"
         onCloseAutoFocus={(event) => {
+          const completed = focusOnClose.current;
+          focusOnClose.current = null;
           const trigger = shown?.returnFocusTo;
-          const target = trigger?.isConnected ? trigger : fallbackFocus?.();
+          const target = completed?.isConnected
+            ? completed
+            : trigger?.isConnected
+              ? trigger
+              : fallbackFocus?.();
           if (target) {
             event.preventDefault();
             target.focus();
