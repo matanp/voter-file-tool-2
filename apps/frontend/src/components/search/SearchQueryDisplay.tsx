@@ -45,8 +45,8 @@ export const SearchQueryDisplay: React.FC<SearchQueryDisplayProps> = ({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Please go to the Voters page to search for voter records
-            first, then return here to export them.
+            Please go to the Voters page to search for voter records first, then
+            return here to export them.
           </p>
         </CardContent>
       </Card>
