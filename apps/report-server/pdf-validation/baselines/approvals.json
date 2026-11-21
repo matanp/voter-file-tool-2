@@ -1,7 +1,866 @@
 {
   "version": 1,
-  "baselines": [],
-  "pageCounts": [],
-  "acceptances": [],
+  "baselines": [
+    {
+      "fixtureId": "changes-200",
+      "fixtureHash": "d68af90938aa714c073e68e33ad5c5cc526709841a2c72e1e2959b147bf3e1cc",
+      "browser": "chrome",
+      "pdfSha256": "1b9a4782e03e8fba6b2c320a9850f72860ba22ae06ab19e6e729ff4f3bd93367",
+      "key": "pdf-validation/baselines/1b9a4782e03e8fba6b2c320a9850f72860ba22ae06ab19e6e729ff4f3bd93367.pdf",
+      "pages": 18,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "changes-empty",
+      "fixtureHash": "fbf558128821b63816dd3e1584022d7cc057aa5ed60a94fea87e4f2e778eda36",
+      "browser": "chrome",
+      "pdfSha256": "218e61f76ce134a8b3a5b06bd29247a93d956986725aec128450c352e45c8c72",
+      "key": "pdf-validation/baselines/218e61f76ce134a8b3a5b06bd29247a93d956986725aec128450c352e45c8c72.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "changes-quick",
+      "fixtureHash": "33146922b7d1bdedb0fd9ef19a04d7478958c1c5e6a364f415234396c244f352",
+      "browser": "chrome",
+      "pdfSha256": "dbc2efcf0a683abf078aa663279068ef7adb6e881b287da2fb853003bcf579c0",
+      "key": "pdf-validation/baselines/dbc2efcf0a683abf078aa663279068ef7adb6e881b287da2fb853003bcf579c0.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "legacy-large-800x4",
+      "fixtureHash": "c39b62da306c266f5f039d69d17a8e93308d7fcc37d0ef6b63591d7015cc1453",
+      "browser": "chrome",
+      "pdfSha256": "726cec41f763353a7603269071d2b5f3e06d0d74006279b54cbf1e96e44d6e8a",
+      "key": "pdf-validation/baselines/726cec41f763353a7603269071d2b5f3e06d0d74006279b54cbf1e96e44d6e8a.pdf",
+      "pages": 134,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "legacy-quick",
+      "fixtureHash": "c082b1715ca05f86373629099533e45d0ed29198bb97dc157a1a7a040a8d0351",
+      "browser": "chrome",
+      "pdfSha256": "be5db099b659d84e2bbf0b46d3fceaa1f2a3d656b4a174028e11215fdccd5fc5",
+      "key": "pdf-validation/baselines/be5db099b659d84e2bbf0b46d3fceaa1f2a3d656b4a174028e11215fdccd5fc5.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "outcomes-200",
+      "fixtureHash": "717d62a4e037076eee043db7a3e31ee436e1df7b5490090b1554e5526bb0cb59",
+      "browser": "chrome",
+      "pdfSha256": "4b1e2acb82a7746483ac96e874aecd8521fd6dd2fbd9d911c3ab968d30de35f2",
+      "key": "pdf-validation/baselines/4b1e2acb82a7746483ac96e874aecd8521fd6dd2fbd9d911c3ab968d30de35f2.pdf",
+      "pages": 17,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "outcomes-empty",
+      "fixtureHash": "6027ae00cc9497780e8cb059889effa21bf309e2c68c5de5c872e70114f9c83b",
+      "browser": "chrome",
+      "pdfSha256": "d5569cf5f24bf497cf7d6b29c3923f5f3b0bb838c8289855eb6fa6ee19099bdc",
+      "key": "pdf-validation/baselines/d5569cf5f24bf497cf7d6b29c3923f5f3b0bb838c8289855eb6fa6ee19099bdc.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "outcomes-quick",
+      "fixtureHash": "5ade6b66bc4f519f4130fd0e46bbef43c8078824cbeaef1cf9f58301fa2cf49f",
+      "browser": "chrome",
+      "pdfSha256": "ca3e678b1141ecaee0457212289dc34b579a31841e2b1f71ff3e6e005408a84f",
+      "key": "pdf-validation/baselines/ca3e678b1141ecaee0457212289dc34b579a31841e2b1f71ff3e6e005408a84f.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "petition-10-long",
+      "fixtureHash": "18fc4d6e801fb991eb1ba84eabb6d454a479f77af6336e2531bce332f03bf310",
+      "browser": "chrome",
+      "pdfSha256": "efb228d3911ea70567868ec2f9e96717474a6e4d73c16b7057eed11e1c8c82dd",
+      "key": "pdf-validation/baselines/efb228d3911ea70567868ec2f9e96717474a6e4d73c16b7057eed11e1c8c82dd.pdf",
+      "pages": 10,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans",
+          "CAAAAA+LiberationSans-Italic",
+          "DAAAAA+LiberationSans-BoldItalic"
+        ]
+      }
+    },
+    {
+      "fixtureId": "petition-quick",
+      "fixtureHash": "81f9362f4ac482d3528dc90f8583794428d25f5a9be63e90212515ca535436e3",
+      "browser": "chrome",
+      "pdfSha256": "f9f142e75dbe51bfd6d214010dda31fd1b56a859293bc9d6df8b9695107bf6e7",
+      "key": "pdf-validation/baselines/f9f142e75dbe51bfd6d214010dda31fd1b56a859293bc9d6df8b9695107bf6e7.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans",
+          "CAAAAA+LiberationSans-Italic",
+          "DAAAAA+LiberationSans-BoldItalic"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-cols-all",
+      "fixtureHash": "9f8e402f484361c32b582bfb09bfdf75abe64873ab858480e1c05b5e7e736f82",
+      "browser": "chrome",
+      "pdfSha256": "2100189c1eafc0b8a8390d0f337528d1546bf1717be5e80556cc253496538e19",
+      "key": "pdf-validation/baselines/2100189c1eafc0b8a8390d0f337528d1546bf1717be5e80556cc253496538e19.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-cols-default",
+      "fixtureHash": "a1cc1e2f3b3fae81862481fda0c89cfea72058d1157808fabd019c885d1cbb07",
+      "browser": "chrome",
+      "pdfSha256": "1cd7e541c425ba4d1a52d06be78915eb3e7ed517d9fdf46907c31633c5b20447",
+      "key": "pdf-validation/baselines/1cd7e541c425ba4d1a52d06be78915eb3e7ed517d9fdf46907c31633c5b20447.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-cols-min",
+      "fixtureHash": "c7f74ba0eafd2cfbeb025e546d0baeb085283fac325e36f77c50ea461b2f5a03",
+      "browser": "chrome",
+      "pdfSha256": "03a938beab2e0d6039a73b2310c768ca0c2777f363e9927cb960e0d96ce7f15a",
+      "key": "pdf-validation/baselines/03a938beab2e0d6039a73b2310c768ca0c2777f363e9927cb960e0d96ce7f15a.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-ed29",
+      "fixtureHash": "dec3df07824f0d7efa1e8048821c50dedfb7adce949c175498f44101be468e48",
+      "browser": "chrome",
+      "pdfSha256": "dc2173080ba81db56686755d4658f9f69cde720d4502b0d3182034e3e672b0fb",
+      "key": "pdf-validation/baselines/dc2173080ba81db56686755d4658f9f69cde720d4502b0d3182034e3e672b0fb.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-ed45-split",
+      "fixtureHash": "b67083ef6aa04a66c1d21df3d9117a2430cb968b365bd13af53f6cfff6d2e426",
+      "browser": "chrome",
+      "pdfSha256": "5c3af5bdc412761c8792b92f79b9e3811bc91a5230e29e0997fbb4e2fa55f62b",
+      "key": "pdf-validation/baselines/5c3af5bdc412761c8792b92f79b9e3811bc91a5230e29e0997fbb4e2fa55f62b.pdf",
+      "pages": 2,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-large-800x4",
+      "fixtureHash": "c586ccb50701a0768a3746980b5f7db68eb4dbba401b8d27374d200025bd5d6b",
+      "browser": "chrome",
+      "pdfSha256": "afb112f569265c86e2196238b93263b6d3a29b26196f6b050106d14a2c048a75",
+      "key": "pdf-validation/baselines/afb112f569265c86e2196238b93263b6d3a29b26196f6b050106d14a2c048a75.pdf",
+      "pages": 134,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-long-values",
+      "fixtureHash": "3430e99cc9a054e2d41a881bc2cf098001d10d89b95170989715fc3e383ab02e",
+      "browser": "chrome",
+      "pdfSha256": "3a0cf1f93843065aa26b9311d3bb3ab0345ad9b71b84c5a95edce99d1f540124",
+      "key": "pdf-validation/baselines/3a0cf1f93843065aa26b9311d3bb3ab0345ad9b71b84c5a95edce99d1f540124.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-missing-contacts",
+      "fixtureHash": "41cd5958d1d1e316cee3e4cbb7bcb5ad6e07a7b5f2ee68e19212108988c93a8e",
+      "browser": "chrome",
+      "pdfSha256": "c70dfb6d933548290cc66357e302a90b323b6919b1d94b0fde8a8ed9160891f2",
+      "key": "pdf-validation/baselines/c70dfb6d933548290cc66357e302a90b323b6919b1d94b0fde8a8ed9160891f2.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "roster-quick",
+      "fixtureHash": "e8e2334956df8d087c8f955bbefa68170ffdcb9e5529f5615329ad642430b56b",
+      "browser": "chrome",
+      "pdfSha256": "f695b4890a69776b01e84a89447612ebeb7e0a2155234ffe606c6949743b4393",
+      "key": "pdf-validation/baselines/f695b4890a69776b01e84a89447612ebeb7e0a2155234ffe606c6949743b4393.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "signin-0",
+      "fixtureHash": "bb4b34480f2ee5f3394ac81ff16686a810cc025c2d995752f25617ad58135178",
+      "browser": "chrome",
+      "pdfSha256": "61eff25abd83d79d93141c5a304d718362bc58837652f00ee492c129d4e991df",
+      "key": "pdf-validation/baselines/61eff25abd83d79d93141c5a304d718362bc58837652f00ee492c129d4e991df.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "signin-151",
+      "fixtureHash": "3736e80905c4b663f4967ca22093018f722cd4e9dc731b56277a8ead25be9a0c",
+      "browser": "chrome",
+      "pdfSha256": "2c863d641341339e06759075b3206c176082c79453c321dc2374ea123f379aa8",
+      "key": "pdf-validation/baselines/2c863d641341339e06759075b3206c176082c79453c321dc2374ea123f379aa8.pdf",
+      "pages": 19,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "signin-17",
+      "fixtureHash": "5695809de915f57a762ace5c7834e8c1b992b0ff119b44aca62889a58271f96f",
+      "browser": "chrome",
+      "pdfSha256": "c0e40b7c901c01eea6aa93e7bbb343daafe89a9ae54f870bc15dc0c365921248",
+      "key": "pdf-validation/baselines/c0e40b7c901c01eea6aa93e7bbb343daafe89a9ae54f870bc15dc0c365921248.pdf",
+      "pages": 3,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "signin-8-missing-contacts",
+      "fixtureHash": "c11b8f9a7dbcd21b7dcc3c9590dd4aae96114fddb9c2edfc061e0e8adf90e492",
+      "browser": "chrome",
+      "pdfSha256": "1759f89e6b6c05d39aeeeff50cb098002304be420727b5db07b6cd814fedab14",
+      "key": "pdf-validation/baselines/1759f89e6b6c05d39aeeeff50cb098002304be420727b5db07b6cd814fedab14.pdf",
+      "pages": 2,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans",
+          "CAAAAA+LiberationSans-Italic"
+        ]
+      }
+    },
+    {
+      "fixtureId": "signin-multi-jurisdiction",
+      "fixtureHash": "11749c37d5c57f3a62c385dbf1c2274b4f4f77f202395c96e1cb26b01d7cb3f4",
+      "browser": "chrome",
+      "pdfSha256": "2597b4328fd575b62d1bbd07f2fac65f254b19c917af77e4469724537eda60f0",
+      "key": "pdf-validation/baselines/2597b4328fd575b62d1bbd07f2fac65f254b19c917af77e4469724537eda60f0.pdf",
+      "pages": 4,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "signin-quick",
+      "fixtureHash": "e6e61e691c1ac11cd9ac6de4bfa6c185a66c632bd4f79afd243d06e13d9bf824",
+      "browser": "chrome",
+      "pdfSha256": "921d3add5f6d5a93e9304a743b2b00d169be6dae5898d9e5353b7136e9b0df1f",
+      "key": "pdf-validation/baselines/921d3add5f6d5a93e9304a743b2b00d169be6dae5898d9e5353b7136e9b0df1f.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "signin-wrap",
+      "fixtureHash": "6e9eb0676ed8d36d662b81020aae9b7b9d788f5a0615ea8bcbe08bc0dd169d3a",
+      "browser": "chrome",
+      "pdfSha256": "e74e45fe1483cbf107e30761481935f9e9070d595847212eefbedc51d1a502a9",
+      "key": "pdf-validation/baselines/e74e45fe1483cbf107e30761481935f9e9070d595847212eefbedc51d1a502a9.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "vacancy-200",
+      "fixtureHash": "6dccb49aa7ef88613f1583c7eb7c1b5c2578b8c21c4b065e2ff40c87afcf55a3",
+      "browser": "chrome",
+      "pdfSha256": "43dd0f8c64cb2c1ae7ec8f0bfaa67c8f7df2ad20cfa849d22e1ea97a071673b9",
+      "key": "pdf-validation/baselines/43dd0f8c64cb2c1ae7ec8f0bfaa67c8f7df2ad20cfa849d22e1ea97a071673b9.pdf",
+      "pages": 10,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "vacancy-empty",
+      "fixtureHash": "1d1896a09dd7b8f840ce967feee15d13b36f655fb103092e1fc6e8345d9768ae",
+      "browser": "chrome",
+      "pdfSha256": "8682c33a5ef0f8c4b71a927795652da3e2b691c49b7cd0d0c42af8457839ae0a",
+      "key": "pdf-validation/baselines/8682c33a5ef0f8c4b71a927795652da3e2b691c49b7cd0d0c42af8457839ae0a.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "vacancy-quick",
+      "fixtureHash": "df0a159fff7973b8f851a5ca2e82e55c3330a3b53b51ce29e414ad41304c701b",
+      "browser": "chrome",
+      "pdfSha256": "8734b5a8ea7437db6095a0efbad437d11510910ec09efb8a318370749fdd27f2",
+      "key": "pdf-validation/baselines/8734b5a8ea7437db6095a0efbad437d11510910ec09efb8a318370749fdd27f2.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "weights-20",
+      "fixtureHash": "0cf907f38fad8302d40f5315cdd395a05c69205e650d4ae6c084cf502f2adab7",
+      "browser": "chrome",
+      "pdfSha256": "b3a8174d398004502bdef852337f33304af23cb82f28422ac6646f417a397e14",
+      "key": "pdf-validation/baselines/b3a8174d398004502bdef852337f33304af23cb82f28422ac6646f417a397e14.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "weights-200",
+      "fixtureHash": "84fc059084e78c66d1f87c526b8fa47a423a99713b90eb1981ef6de07768f28c",
+      "browser": "chrome",
+      "pdfSha256": "77c170989c1ed31c7b9bbdc314d2db373778278f962f787f4207b2cd79e1521b",
+      "key": "pdf-validation/baselines/77c170989c1ed31c7b9bbdc314d2db373778278f962f787f4207b2cd79e1521b.pdf",
+      "pages": 10,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "weights-21",
+      "fixtureHash": "2f537361e4c1ef68d09367c3569479336b666ba85a9bd1716b8d91652677835f",
+      "browser": "chrome",
+      "pdfSha256": "3e966412f49d8d810d0aa20209ae3c1af22a3d6839941504a6bfc5cb8b25ddd2",
+      "key": "pdf-validation/baselines/3e966412f49d8d810d0aa20209ae3c1af22a3d6839941504a6bfc5cb8b25ddd2.pdf",
+      "pages": 2,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "weights-multi-group",
+      "fixtureHash": "c8cd9eb8227ed04fb48dc185eb6981e5cb5e9eac185d4b1fab1854ebefdbf5a2",
+      "browser": "chrome",
+      "pdfSha256": "299e5310648115c42a9e2d5920e604227429561fb4aa517d8b507d42468f12fa",
+      "key": "pdf-validation/baselines/299e5310648115c42a9e2d5920e604227429561fb4aa517d8b507d42468f12fa.pdf",
+      "pages": 4,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    },
+    {
+      "fixtureId": "weights-quick",
+      "fixtureHash": "a09ec8f09f3e1e5af4ac3b3e70784d64288b16f7cf7dcbb3433a0d1124cec617",
+      "browser": "chrome",
+      "pdfSha256": "76a4f151de5b9a27994367b60bc3f04119d02739ffe18f3eadb07e4788052765",
+      "key": "pdf-validation/baselines/76a4f151de5b9a27994367b60bc3f04119d02739ffe18f3eadb07e4788052765.pdf",
+      "pages": 1,
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1a5d1b6238fb3f9a318539a9f8fd9fdc1b470b2f",
+        "comparisonImage": "sha256:0234db51493129fd7012d03485293d1a688cf2817e9b1017f9fe1fd77c2f6e56",
+        "poppler": "22.12.0 (22.12.0-2+deb12u1)",
+        "fonts": [
+          "AAAAAA+LiberationSans-Bold",
+          "BAAAAA+LiberationSans"
+        ]
+      }
+    }
+  ],
+  "pageCounts": [
+    {
+      "fixtureId": "changes-200",
+      "fixtureHash": "d68af90938aa714c073e68e33ad5c5cc526709841a2c72e1e2959b147bf3e1cc",
+      "pages": 18,
+      "browser": "chrome",
+      "pdfSha256": "1b9a4782e03e8fba6b2c320a9850f72860ba22ae06ab19e6e729ff4f3bd93367",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    },
+    {
+      "fixtureId": "changes-empty",
+      "fixtureHash": "fbf558128821b63816dd3e1584022d7cc057aa5ed60a94fea87e4f2e778eda36",
+      "pages": 1,
+      "browser": "chrome",
+      "pdfSha256": "218e61f76ce134a8b3a5b06bd29247a93d956986725aec128450c352e45c8c72",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    },
+    {
+      "fixtureId": "changes-quick",
+      "fixtureHash": "33146922b7d1bdedb0fd9ef19a04d7478958c1c5e6a364f415234396c244f352",
+      "pages": 1,
+      "browser": "chrome",
+      "pdfSha256": "dbc2efcf0a683abf078aa663279068ef7adb6e881b287da2fb853003bcf579c0",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    },
+    {
+      "fixtureId": "outcomes-200",
+      "fixtureHash": "717d62a4e037076eee043db7a3e31ee436e1df7b5490090b1554e5526bb0cb59",
+      "pages": 17,
+      "browser": "chrome",
+      "pdfSha256": "4b1e2acb82a7746483ac96e874aecd8521fd6dd2fbd9d911c3ab968d30de35f2",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    },
+    {
+      "fixtureId": "outcomes-empty",
+      "fixtureHash": "6027ae00cc9497780e8cb059889effa21bf309e2c68c5de5c872e70114f9c83b",
+      "pages": 1,
+      "browser": "chrome",
+      "pdfSha256": "d5569cf5f24bf497cf7d6b29c3923f5f3b0bb838c8289855eb6fa6ee19099bdc",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    },
+    {
+      "fixtureId": "outcomes-quick",
+      "fixtureHash": "5ade6b66bc4f519f4130fd0e46bbef43c8078824cbeaef1cf9f58301fa2cf49f",
+      "pages": 1,
+      "browser": "chrome",
+      "pdfSha256": "ca3e678b1141ecaee0457212289dc34b579a31841e2b1f71ff3e6e005408a84f",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    },
+    {
+      "fixtureId": "vacancy-200",
+      "fixtureHash": "6dccb49aa7ef88613f1583c7eb7c1b5c2578b8c21c4b065e2ff40c87afcf55a3",
+      "pages": 10,
+      "browser": "chrome",
+      "pdfSha256": "43dd0f8c64cb2c1ae7ec8f0bfaa67c8f7df2ad20cfa849d22e1ea97a071673b9",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    },
+    {
+      "fixtureId": "vacancy-empty",
+      "fixtureHash": "1d1896a09dd7b8f840ce967feee15d13b36f655fb103092e1fc6e8345d9768ae",
+      "pages": 1,
+      "browser": "chrome",
+      "pdfSha256": "8682c33a5ef0f8c4b71a927795652da3e2b691c49b7cd0d0c42af8457839ae0a",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    },
+    {
+      "fixtureId": "vacancy-quick",
+      "fixtureHash": "df0a159fff7973b8f851a5ca2e82e55c3330a3b53b51ce29e414ad41304c701b",
+      "pages": 1,
+      "browser": "chrome",
+      "pdfSha256": "8734b5a8ea7437db6095a0efbad437d11510910ec09efb8a318370749fdd27f2",
+      "sourceRunId": "20261121T005219Z-mtc4sy",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-21T01:12:40.729Z"
+    }
+  ],
+  "acceptances": [
+    {
+      "kind": "layout-finding",
+      "fixtureId": "changes-200",
+      "browser": "chrome",
+      "page": 1,
+      "candidateSha256": "1b9a4782e03e8fba6b2c320a9850f72860ba22ae06ab19e6e729ff4f3bd93367",
+      "referenceSha256": null,
+      "finding": "Full-width table, Date on one line, top margin ok; Member Name wraps to 2 lines in every row while Details column has large empty space (column allocation cosmetic, no clipping). Rows not split.",
+      "reason": "cosmetic column split; no clipping",
+      "reviewer": "Matan",
+      "runId": "20261121T005219Z-mtc4sy",
+      "acceptedAt": "2026-11-21T01:10:50.357Z"
+    }
+  ],
   "thresholds": []
 }
