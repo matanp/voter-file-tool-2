@@ -1,7 +1,9 @@
 "use client";
 
-import { type IneligibilityReason } from "@prisma/client";
+import { IneligibilityReason } from "@prisma/client";
 import { useEffect, useMemo, useState } from "react";
+import { z } from "zod";
+import { fieldErrorsSchema } from "@voter-file-tool/shared-validators";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import {
   AlertDialog,
@@ -22,33 +24,41 @@ import { useToast } from "~/components/ui/use-toast";
 import { useApiQuery } from "~/hooks/useApiQuery";
 import { EXIT_REPORT_INSTRUCTIONS_MAX } from "~/lib/validations/governanceConfig";
 
-type GovernanceConfigApiPayload = {
-  requiredPartyCode: string;
-  maxSeatsPerLted: number;
-  requireAssemblyDistrictMatch: boolean;
-  nonOverridableIneligibilityReasons: IneligibilityReason[];
+const governanceConfigApiPayloadSchema = z.object({
+  requiredPartyCode: z.string(),
+  maxSeatsPerLted: z.number(),
+  requireAssemblyDistrictMatch: z.boolean(),
+  nonOverridableIneligibilityReasons: z.array(z.nativeEnum(IneligibilityReason)),
   /** Shown to Leaders before they report a resignation or removal. */
-  exitReportInstructions: string | null;
-  updatedAt: string;
-};
+  exitReportInstructions: z.string().nullable(),
+  updatedAt: z.string(),
+});
+type GovernanceConfigApiPayload = z.infer<typeof governanceConfigApiPayloadSchema>;
 
-type GovernanceConfigResponse = {
-  config: GovernanceConfigApiPayload;
-  partyOptions: string[];
-  guardrails: {
-    minMaxSeatsPerLted: number;
-    maxMaxSeatsPerLted: number;
-  };
-};
+/** The GET and successful PATCH body. */
+const governanceConfigResponseSchema = z.object({
+  config: governanceConfigApiPayloadSchema,
+  partyOptions: z.array(z.string()),
+  guardrails: z.object({
+    minMaxSeatsPerLted: z.number(),
+    maxMaxSeatsPerLted: z.number(),
+  }),
+});
+type GovernanceConfigResponse = z.infer<typeof governanceConfigResponseSchema>;
+
+/**
+ * A failed save. Only `error` and a 422's `fieldErrors` are read, so extra
+ * keys (a 409's `conflict`) are fine; this is why the strict shared
+ * `validationErrorResponseSchema` isn't used. Malformed parts are dropped.
+ */
+const saveFailureSchema = z.object({
+  error: z.string().optional().catch(undefined),
+  fieldErrors: fieldErrorsSchema.optional().catch(undefined),
+});
 
 type GovernanceConfigUpdatePayload = Omit<GovernanceConfigApiPayload, "updatedAt">;
 
 type FieldErrors = Partial<Record<keyof GovernanceConfigUpdatePayload, string[]>>;
-
-type ValidationFailureBody = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-};
 
 const INELIGIBILITY_REASON_LABELS: Record<IneligibilityReason, string> = {
   NOT_REGISTERED: "Not registered",
@@ -206,24 +216,20 @@ export function GovernanceConfigClient() {
         },
         body: JSON.stringify(draft),
       });
-      const body = (await response.json()) as
-        | GovernanceConfigResponse
-        | ValidationFailureBody;
+      const body: unknown = await response.json();
 
       if (!response.ok) {
+        const failure = saveFailureSchema.safeParse(body);
+        const { error, fieldErrors: serverFieldErrors } = failure.success ? failure.data : {};
         if (response.status === 422) {
-          const validationBody = body as ValidationFailureBody;
-          setFieldErrors(validationBody.fieldErrors ?? {});
-          setSaveError(validationBody.error ?? "Validation failed");
+          setFieldErrors(serverFieldErrors ?? {});
+          setSaveError(error ?? "Validation failed");
           return;
         }
-        throw new Error(
-          (body as ValidationFailureBody).error ??
-            `Save failed with status ${String(response.status)}`,
-        );
+        throw new Error(error ?? `Save failed with status ${String(response.status)}`);
       }
 
-      const successBody = body as GovernanceConfigResponse;
+      const successBody = governanceConfigResponseSchema.parse(body);
       setOriginal(successBody.config);
       setDraft(draftFrom(successBody.config));
       setShowConfirm(false);
