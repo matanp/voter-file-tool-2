@@ -5,6 +5,11 @@ import DesignationWeightSummaryReport, {
   summaryToRow,
   groupWeightSummaries,
   sumWeights,
+  chunkRows,
+  paginateWeightSummary,
+  missingWeightsNotesHeight,
+  formatMissingSeats,
+  weightSummaryRowPx,
 } from '../components/DesignationWeightSummary';
 import type { DesignationWeightSummary } from '../committeeMappingHelpers';
 
@@ -215,6 +220,140 @@ describe('DesignationWeightSummary', () => {
         { ...committee({ ltedWeight: null, petitioned: 0, electionDistrict: 2 }), totalWeight: 1.134 },
       ]);
       expect(formatWeight(group!.subtotalWeight)).toBe('1.64');
+    });
+  });
+  describe('formatMissingSeats', () => {
+    const list = (n: number) => Array.from({ length: n }, (_, i) => i + 1).join(', ');
+    /** Every other seat from 1: no runs, so nothing collapses. */
+    const gappy = (n: number) => Array.from({ length: n }, (_, i) => 2 * i + 1).join(', ');
+
+    it('keeps a short list as it is, on one line', () => {
+      expect(formatMissingSeats('1, 2, 3, 4')).toEqual(['1, 2, 3, 4']);
+    });
+
+    it('keeps a 40-character list on one line and breaks a 41-character one', () => {
+      const forty = `${gappy(9)}, 100, 3000`; // 40 characters, no runs
+      expect(forty).toHaveLength(40);
+      expect(formatMissingSeats(forty)).toEqual([forty]);
+      const fortyOne = `${forty}0`;
+      expect(fortyOne).toHaveLength(41);
+      expect(formatMissingSeats(fortyOne)).toEqual([`${gappy(9)}, 100,`, '30000']);
+    });
+
+    it('collapses runs of three or more in a long list, not runs of two', () => {
+      expect(formatMissingSeats(list(20))).toEqual(['1–20']);
+      const mixed = [...Array.from({ length: 15 }, (_, i) => i + 1), 17, 18, 20].join(', ');
+      expect(formatMissingSeats(mixed)).toEqual(['1–15, 17, 18, 20']);
+      // Over 40 characters either way: the 3-run collapses, the 2-run stays.
+      const pad = gappy(9); // "1, 3, ..., 17", 29 characters
+      expect(formatMissingSeats(`${pad}, 30, 31, 32`)).toEqual([`${pad}, 30–32`]);
+      expect(formatMissingSeats(`${pad}, 30, 31, 40`)).toEqual([`${pad}, 30, 31,`, '40']);
+    });
+
+    it('breaks a long gappy list into lines of at most 40 characters without dropping seats', () => {
+      const text = gappy(20);
+      const lines = formatMissingSeats(text);
+      expect(lines.length).toBeGreaterThan(1);
+      for (const line of lines) expect(line.length).toBeLessThanOrEqual(40);
+      expect(lines.join(' ')).toBe(text);
+      expect(weightSummaryRowPx({ missingWeights: text })).toBe(25 + (lines.length - 1) * 20);
+      expect(weightSummaryRowPx({ missingWeights: '1, 2' })).toBe(25);
+    });
+  });
+
+  describe('pagination', () => {
+    const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+    const sizes = (chunks: unknown[][]) => chunks.map((c) => c.length);
+    /** Subtotal + Grand Total, the trailing block on a one-group report without notes. */
+    const finalTrailingPx = 25 + 28;
+
+    it.each([
+      [19, [19]],
+      [20, [20]],
+      [21, [20, 1]],
+      [40, [20, 20]],
+    ])('keeps %i rows with their subtotal and grand total as %j', (n, expected) => {
+      expect(sizes(chunkRows(range(n), finalTrailingPx))).toEqual(expected);
+    });
+
+    it('returns one empty page when there are no rows', () => {
+      expect(chunkRows([], finalTrailingPx)).toEqual([[]]);
+    });
+
+    it('carries the last row over when a full last page has no room for the trailing block', () => {
+      const tallNotes = 'X'.repeat(110 * 3);
+      const trailingPx = finalTrailingPx + missingWeightsNotesHeight(tallNotes);
+      expect(sizes(chunkRows(range(20), trailingPx))).toEqual([19, 1]);
+      expect(sizes(chunkRows(range(40), trailingPx))).toEqual([20, 19, 1]);
+      // A short last page that still fits is left alone.
+      expect(sizes(chunkRows(range(25), trailingPx))).toEqual([20, 5]);
+    });
+
+    it('counts broken Missing Weights rows so the last page keeps its footer', () => {
+      const tall = Array.from({ length: 30 }, (_, i) => 2 * i + 1).join(', ');
+      const rowPx = (r: string) => weightSummaryRowPx({ missingWeights: r });
+      // 20 one-line rows + Subtotal + Grand Total fit (553px of 575).
+      expect(sizes(chunkRows(Array(20).fill(''), finalTrailingPx, rowPx))).toEqual([20]);
+      // One 3-line row adds 40px: 593px no longer fits, so the last row carries over.
+      const rows = [...Array(19).fill(''), tall];
+      expect(rowPx(tall)).toBe(65);
+      expect(sizes(chunkRows(rows, finalTrailingPx, rowPx))).toEqual([19, 1]);
+      // Tall rows also shorten full pages: 5 * 65 + 10 * 25 fills 575px.
+      const many = [...Array(5).fill(tall), ...Array(20).fill('')];
+      expect(sizes(chunkRows(many, finalTrailingPx, rowPx))).toEqual([15, 10]);
+    });
+
+    it('numbers pages across groups from the same chunks it renders', () => {
+      const group = (n: number) => ({ rows: range(n).map(() => ({}) as never) });
+      const pages = paginateWeightSummary([group(20), group(40), group(3)], null);
+      expect(pages.map((p) => [p.groupIndex, p.rows.length, p.isGroupEnd, p.isReportEnd])).toEqual([
+        [0, 20, true, false],
+        [1, 20, false, false],
+        [1, 20, true, false],
+        [2, 3, true, true],
+      ]);
+    });
+
+    it('prints "Page N of M" matching the pages it renders', () => {
+      const rows = Array.from({ length: 20 }, (_, i) =>
+        committee({ ltedWeight: 1, petitioned: 2, electionDistrict: i + 1 }),
+      );
+      const html = ReactDOMServer.renderToStaticMarkup(
+        <DesignationWeightSummaryReport
+          groups={groupWeightSummaries(rows)}
+          grandTotalWeight={40}
+          scopeDescription="ROCHESTER"
+          reportAuthor="Test"
+          committeesWithMissingWeights={[]}
+        />,
+      );
+      expect(html.match(/Page \d+ of \d+/g)).toEqual(['Page 1 of 1']);
+      expect(html).toContain('Subtotal');
+      expect(html).toContain('Grand Total: 40.00');
+    });
+
+    it('numbers pages across groups in the rendered footer', () => {
+      const rows = [
+        ...Array.from({ length: 20 }, (_, i) =>
+          committee({ ltedWeight: 1, petitioned: 2, electionDistrict: i + 1 }),
+        ),
+        ...Array.from({ length: 3 }, (_, i) => ({
+          ...committee({ ltedWeight: 1, petitioned: 2, electionDistrict: i + 1 }),
+          legDistrict: 18,
+        })),
+      ];
+      const html = ReactDOMServer.renderToStaticMarkup(
+        <DesignationWeightSummaryReport
+          groups={groupWeightSummaries(rows)}
+          grandTotalWeight={46}
+          scopeDescription="ROCHESTER"
+          reportAuthor="Test"
+          committeesWithMissingWeights={[]}
+        />,
+      );
+      expect(html.match(/Page \d+ of \d+/g)).toEqual(['Page 1 of 2', 'Page 2 of 2']);
+      expect(html.match(/Subtotal/g)).toHaveLength(2);
+      expect(html.match(/Grand Total/g)).toHaveLength(1);
     });
   });
   describe('report', () => {
