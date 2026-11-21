@@ -31,7 +31,9 @@ function formatDate(iso: string): string {
  * Printed on Letter landscape (`useLandscape: true`). The container fills the printable width
  * (`w-full`, so it still fits if page margins are added) and has no fixed height: the browser
  * paginates the table, and a minimum height taller than the 8.5in page would push out a blank
- * trailing page. Long unbroken Member Name / Details values wrap instead of widening the table.
+ * trailing page. Long unbroken Details values wrap instead of widening the table. Member Name
+ * keeps normal wrapping: with `anywhere` there too, a long Details value would let Chrome squeeze
+ * the name column until names break mid-token.
  */
 function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportProps) {
     const byDate = new Map<string, ChangesReportRow[]>();
@@ -80,7 +82,7 @@ function ChangesReport({ rows, dateFrom, dateTo, reportAuthor }: ChangesReportPr
               return dateRows.map((r, i) => (
                 <tr key={`${dateStr}-${r.memberName}-${r.electionDistrict}-${i}`}>
                   <td className="border border-gray-400 px-2 py-1 whitespace-nowrap">{dateFmt}</td>
-                  <td className="border border-gray-400 px-2 py-1 [overflow-wrap:anywhere]">{r.memberName}</td>
+                  <td className="border border-gray-400 px-2 py-1">{r.memberName}</td>
                   <td className="border border-gray-400 px-2 py-1">{r.cityTown}</td>
                   <td className="border border-gray-400 px-2 py-1 text-right">{r.legDistrict}</td>
                   <td className="border border-gray-400 px-2 py-1 text-right">{r.electionDistrict}</td>

@@ -46,7 +46,19 @@ describe('ChangesReport page geometry', () => {
     expect(html).toMatch(/<td class="[^"]*whitespace-nowrap[^"]*">Mar 5, 2026<\/td>/);
   });
 
-  it('lets long unbroken names and details wrap instead of widening the table', () => {
-    expect(html).toMatch(/<td class="[^"]*\[overflow-wrap:anywhere\][^"]*">Jane Doe<\/td>/);
+  it('lets long unbroken Details wrap, but not Member Name', () => {
+    const longDetail = 'X'.repeat(400);
+    const longHtml = ReactDOMServer.renderToStaticMarkup(
+      <ChangesReport
+        rows={[{ ...row, details: longDetail }]}
+        dateFrom="2026-03-01"
+        dateTo="2026-03-31"
+        reportAuthor="Tester"
+      />,
+    );
+    expect(longHtml).toMatch(new RegExp(`<td class="[^"]*\\[overflow-wrap:anywhere\\][^"]*">${longDetail}</td>`));
+    const nameCell = /<td class="([^"]*)">Jane Doe<\/td>/.exec(longHtml);
+    expect(nameCell).not.toBeNull();
+    expect(nameCell![1]).not.toContain('overflow-wrap');
   });
 });
