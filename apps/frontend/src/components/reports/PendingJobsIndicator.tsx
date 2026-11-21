@@ -21,6 +21,7 @@ import {
 import { type Report, type JobStatus } from "@prisma/client";
 import { formatReportType } from "./reportUtils";
 import { useApiDelete } from "~/hooks/useApiMutation";
+import { useHasMounted } from "~/hooks/useHasMounted";
 
 interface PendingJobsIndicatorProps {
   initialJobs?: Report[];
@@ -33,6 +34,9 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(false);
+  // Start times are formatted in the browser's time zone, which the server (UTC) doesn't know,
+  // so they're left out of the server HTML and filled in after hydration.
+  const hasMounted = useHasMounted();
 
   const deleteJobMutation = useApiDelete<{ success: boolean }, { id: string }>(
     "/api/reports",
@@ -211,7 +215,7 @@ const PendingJobsIndicator: React.FC<PendingJobsIndicatorProps> = ({
                   {`${job.status === "FAILED" ? "Failed" : job.status === "PROCESSING" ? "Processing" : "Pending"} report: ${getJobName(job)}`}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Started {formatDate(job.requestedAt)}
+                  Started{hasMounted ? ` ${formatDate(job.requestedAt)}` : ""}
                 </p>
               </div>
             </div>
