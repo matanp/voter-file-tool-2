@@ -1,7 +1,7 @@
 # 02 - Extract PageContainer / PageHeader and fix the reports dashboard width
 
 Status: resolved
-Resolution: implemented in #116; resolved on refactor/page-headings-and-container with a regression test for the width variants.
+Resolution: implemented in #116; resolved in #182 with a regression test for the width variants.
 
 Blocked by: 01
 

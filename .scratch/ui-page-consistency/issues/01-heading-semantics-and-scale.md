@@ -1,7 +1,7 @@
 # 01 - Fix heading semantics and unify the page-title scale
 
 Status: resolved
-Resolution: scope 1–3 landed in #115; Home/Reports heading order fixed on refactor/page-headings-and-container.
+Resolution: scope 1–3 landed in #115; Home/Reports heading order fixed in #182.
 
 Covers findings 3, 4, and 2 from the UI consistency review. These are grouped
 because they all touch the same thing — how a page-level heading is expressed —
