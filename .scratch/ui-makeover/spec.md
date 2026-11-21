@@ -55,16 +55,32 @@ Phase 1 is mostly one-line and token changes. Doing just 01, 02 and 04 would mak
 - **Admin setup and import pages:** written to rarely. They need a clean form layout, not a list → detail split.
 - **`/petitions`, `/committee-reports` and `/voter-list-reports`:** too complex for a drawer, so they stay full pages.
 
+## Decisions
+
+- **Direction approved.** A stakeholder review of the prototypes (2026-11-21) liked all of them: app bar and surfaces, reports list, report drawer, record search, home page and requests page.
+- **Brand colour: green primary buttons.** `--primary` stays green. Slate is not used for primary actions. Green also marks "filled/success", so status badges must stay distinguishable from primary buttons (shape and label, not colour alone).
+- **Nav label: "Voters"** replaces "Record Search" in the app bar. The route stays `/recordsearch`.
+
 ## Open decisions (for the maintainer)
 
-1. **Brand colour.** The proposal keeps green only as `--brand` (logo or wordmark, and maybe the active nav), uses slate-900 for primary actions, and reserves green elsewhere for "filled/success". The alternative is to keep green primary buttons.
-2. **Product name in the app bar.** There is none today. The home hero says "Political Campaign Tool".
-3. **Nav labels.** Should "Record Search" become "Voters"?
+2. **Product name and branding in the app bar.** There is none today. The home hero says "Political Campaign Tool", and the prototype used "Open Source Politics". Undecided how much MCDC branding to show.
 4. **Dark mode.** There are 144 `dark:` classes and an unused `themeToggle.tsx`. Decide whether to keep or drop them before the token pass in 01/03.
 
 ## Related existing tickets
 
+- ui-makeover/19: Leaders pin features to their home page (follows 10).
+- ui-makeover/20: voter details show every district in the LTED matrix (pairs with 09).
 - committees-workspace/22: requests page into the workspace. Ticket 11 is the interim fix.
 - record-search-results/03, /04, /06: details column clipped, details-button names, row disambiguation. Ticket 09 supersedes their visual parts.
 - reports-polish/01: failed jobs and service errors. Ticket 07 gives them a place in the list.
 - accessibility/02: toast cut off by focus move. Ticket 06 touches toasts.
+
+## Comments
+
+### 2026-11-21 - stakeholder review of the prototypes
+
+Prototype branch `proto/ui-makeover` (local, base `b284c5b1`) implemented 01–04 and rough versions of 07–11, shot on an anonymized DB copy. A stakeholder reviewed them on a vote page: liked all updates, chose green primary buttons, said yes to renaming "Record Search" to "Voters", and is undecided on MCDC branding. New asks from the same review became ui-makeover/19, ui-makeover/20, leader-feedback-2026-11/29 and /30, and a comment on committees-workspace/28.
+
+- Before/after page (private Claude artifact): https://claude.ai/artifact/BumQdqZz4W75DbaJtykmtL
+- Stakeholder vote page, with saved answers (private Claude artifact): https://claude.ai/artifact/39gG8K3aC4CM1sNj5Y7cCE
+- Screenshots, both pages' HTML and the shooting scripts are in the gitignored `data/proto/`. The shots come from `vft_demo`, a local anonymized copy of the dev DB (fake voter and user names, phones, emails and streets).

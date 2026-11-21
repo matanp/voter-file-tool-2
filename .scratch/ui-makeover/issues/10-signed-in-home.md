@@ -42,3 +42,9 @@ Recent reports                             Reports ›
 - Tests cover Leader vs Admin content.
 
 Evidence: reviews/shell.md §1B.
+
+## Comments
+
+### 2026-11-21
+
+Prototyped on `proto/ui-makeover` and approved in stakeholder review. Follow-up ask: Leaders pick up to three features to pin to this page, changeable in settings. That is [19](19-configurable-home-pins.md); build 10 first with a fixed layout.

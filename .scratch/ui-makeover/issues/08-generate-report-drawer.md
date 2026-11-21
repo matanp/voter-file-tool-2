@@ -27,3 +27,9 @@ Read `skills/adding-reports/SKILL.md` first.
 - Old URLs still work.
 
 Evidence: reviews/reports.md §1B.
+
+## Comments
+
+### 2026-11-21
+
+Prototyped on `proto/ui-makeover` and approved in stakeholder review. No changes requested.

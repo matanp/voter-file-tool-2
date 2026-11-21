@@ -43,6 +43,7 @@ Lock the architecture decisions for a general-purpose email-sending capability i
 ## Not yet specified
 
 - Leader-role meeting-notification emails: no trigger, data source, or template designed yet. Anticipated but not scoped.
+- **Daily committee-changes digest** to Leaders (and maybe Admins): one email the next morning listing the previous day's requests and changes. Requested in stakeholder review on 2026-11-21. Tracked in [leader-feedback-2026-11/30](../leader-feedback-2026-11/issues/30-daily-committee-changes-email.md); it needs a scheduled job and per-recipient jurisdiction scoping.
 - Attachment support for report emails (PDF attached directly instead of link-back) — deferred, may never be needed.
 - Visual branding/design system for React Email templates (colors, logo, layout) — decided per-template when each is actually built.
 - A **global admin email-log view** (as opposed to per-target status at the calling site) — plausible later want, deliberately not built now.

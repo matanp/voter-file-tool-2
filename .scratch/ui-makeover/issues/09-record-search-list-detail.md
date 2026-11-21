@@ -34,3 +34,13 @@ Supersedes the visual parts of record-search-results/03, /04 and /06. Read them 
 - Verify with `run-frontend` `steps/record-search-synthetic.mjs` (synthetic voters only, for any shot that leaves the machine).
 
 Evidence: reviews/recordsearch.md §1A and §1B.
+
+## Comments
+
+### 2026-11-21
+
+Prototyped on `proto/ui-makeover` and approved in stakeholder review. The reviewer asked that the detail pane show every part of the LTED matrix; that is [20](20-voter-detail-lted-districts.md). Build the Districts section to hold those fields.
+
+### 2026-11-21 - prototype nit
+
+In the prototype's phone sheet the voter's name appears twice, as the sheet title and again as the detail heading. Keep the name only in the sheet title, and start the content with the party / age / gender line.

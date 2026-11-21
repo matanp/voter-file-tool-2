@@ -39,3 +39,9 @@ Reports                                            [+ New report ▾]
 - Leader and Admin views were both checked at 375 and 1280.
 
 Evidence: reviews/reports.md §1A.
+
+## Comments
+
+### 2026-11-21
+
+Prototyped on `proto/ui-makeover` and approved in stakeholder review. No changes requested.

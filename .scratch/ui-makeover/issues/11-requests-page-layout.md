@@ -24,3 +24,9 @@ If 22 is picked up first, close this ticket as superseded.
 - One row style for requests and exits.
 
 Evidence: reviews/shell.md §2.
+
+## Comments
+
+### 2026-11-21
+
+Prototyped on `proto/ui-makeover` and approved in stakeholder review. No changes requested.

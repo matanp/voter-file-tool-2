@@ -15,7 +15,7 @@ On phones, Admin adds a second floating menu button at the bottom-left (`AdminSi
 Keep a top bar; don't add a global side rail. There are only 3–4 sections, Leaders are mostly on phones, and the workspace needs the width for its own split.
 
 ```
-1280 │ ◧ <Product>   Search  Committees  Reports  Admin        [DEV DB] (MP)▾ │ 48px, white, border-b
+1280 │ ◧ <Product>   Voters  Committees  Reports  Admin        [DEV DB] (MP)▾ │ 48px, white, border-b
                                ─────────                                      active = 2px underline
 375  │ ◧ <Product>                                         (MP) ☰ │
 ```
@@ -28,7 +28,7 @@ Keep a top bar; don't add a global side rail. There are only 3–4 sections, Lea
 - A fixed bar height lets `useHeightBelowNav` become a CSS variable.
 - While in there: replace `p.includes("record")` with a `startsWith` check for the active state.
 
-Needs spec open decisions 1–3 (brand colour, product name, labels). Work with placeholder values if they are still open.
+Brand colour and nav labels are decided (spec "Decisions"): keep green primary, and label the first item "Voters". The product name and branding are still open (spec open decision 2); use a placeholder until then.
 
 ## Acceptance
 
@@ -37,3 +37,9 @@ Needs spec open decisions 1–3 (brand colour, product name, labels). Work with 
 - `run-frontend` screenshots at 375/768/1280 show no overflow. Existing header tests are updated, not deleted.
 
 Evidence: reviews/shell.md §1A.
+
+## Comments
+
+### 2026-11-21
+
+Prototyped on `proto/ui-makeover` and approved in stakeholder review. Decided: green primary actions, "Voters" nav label. The active nav item keeps the neutral underline (foreground colour), not green.

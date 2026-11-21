@@ -23,3 +23,13 @@ Record search, admin users, admin discrepancies and the roster tables all show h
 - Tap targets in phone menus and drawers stay ≥44px.
 
 Evidence: reviews/design-system.md §1 "Density".
+
+## Comments
+
+### 2026-11-21
+
+Prototyped on `proto/ui-makeover` and approved in stakeholder review. No changes requested.
+
+### 2026-11-21 - prototype finding
+
+On `proto/ui-makeover`, changing the `Table` defaults globally (header `h-9`, cells `py-2 px-3`) also made the workspace roster rows on `/committees` shorter, because the roster uses the shared `Table` without its own overrides. That breaks the "no visual change to `/committees`" acceptance line. Either give the roster an explicit density or accept and re-check the shorter rows.

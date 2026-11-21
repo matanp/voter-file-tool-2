@@ -25,3 +25,9 @@ Settle spec open decision 4 (dark mode) first, or at least don't add new `dark:`
 - Existing heading-semantics tests (ui-page-consistency 01) still pass.
 
 Evidence: reviews/design-system.md §1, reviews/reports.md "Highest-leverage single finding".
+
+## Comments
+
+### 2026-11-21
+
+Approved in stakeholder review. Brand colour decided: `--primary` stays green, so headings go neutral (this ticket) but primary buttons stay green. Fix `--primary-foreground` (today a pink "text on green") to white while touching the tokens.

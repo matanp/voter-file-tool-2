@@ -32,3 +32,9 @@ Some badges print raw enums or DB type names: `RESOLVED_BY_RESCAN`, and "Committ
 - No raw enum or DB type name is visible in a badge.
 
 Evidence: reviews/design-system.md §1 and §2.
+
+## Comments
+
+### 2026-11-21
+
+Green primary buttons were kept (spec "Decisions"). Make the `success` tone visibly different from a primary button: a pill with a soft background and label, never a solid green block.
