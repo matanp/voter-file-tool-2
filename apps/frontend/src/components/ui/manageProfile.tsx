@@ -16,7 +16,8 @@ import { SignOutButton } from "./signInButton";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import Link from "next/link";
-import { jurisdictionLabel } from "~/lib/invites/display";
+import { jurisdictionLabel, privilegeLabel } from "~/lib/invites/display";
+import { PRODUCT_NAME } from "~/lib/branding";
 import { cn } from "~/lib/utils";
 
 type ProfileSheetProps = {
@@ -25,8 +26,6 @@ type ProfileSheetProps = {
   onOpenChange: (open: boolean) => void;
   /** A `ViewProfileTrigger` (in any wrapper) that opens the sheet. */
   trigger?: React.ReactNode;
-  /** Overrides where focus goes on close, which is the trigger by default. */
-  onCloseAutoFocus?: (event: Event) => void;
 };
 
 type PendingInvite = {
@@ -40,22 +39,22 @@ type PendingInvite = {
   }>;
 };
 
-/** The "View Profile" button that opens a `ProfileSheet`. Use inside the sheet's `trigger`. */
+/** The button that opens a `ProfileSheet` ("View Profile" unless given children). Use inside the sheet's `trigger`. */
 export const ViewProfileTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <SheetTrigger asChild>
     <button
       ref={ref}
       type="button"
       className={cn(
-        "bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center",
+        "bg-slate-900 text-slate-50 hover:bg-slate-900/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center",
         className,
       )}
       {...props}
     >
-      View Profile
+      {children ?? "View Profile"}
     </button>
   </SheetTrigger>
 ));
@@ -82,7 +81,6 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
   open,
   onOpenChange,
   trigger,
-  onCloseAutoFocus,
 }) => {
   const { actingPermissions, setActingPermissions } =
     React.useContext(GlobalContext);
@@ -121,15 +119,15 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {trigger}
-      <SheetContent onCloseAutoFocus={onCloseAutoFocus}>
+      <SheetContent>
         <div className="flex items-center justify-between absolute top-4 left-6 right-16">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
-            Open Source Politics
+          <h2 className="text-lg font-semibold text-foreground">
+            {PRODUCT_NAME}
           </h2>
           <Badge
             variant="secondary"
             hoverable={false}
-            className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+            className="bg-blue-100 text-blue-800"
             title="Thank you for trying out our early access version! Your feedback helps us improve the platform."
           >
             BETA
@@ -143,17 +141,17 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
           </h1>
           <h1 className={textStyles}>
             <span className="font-light">Privilege Level:</span>{" "}
-            {session.privilegeLevel}
+            {privilegeLabel(session.privilegeLevel)}
           </h1>
           {session.privilegeLevel === "Developer" && (
             <>
               <h1 className={textStyles}>
                 <span className="font-light">Acting Privilege Level:</span>{" "}
-                {actingPermissions}
+                {privilegeLabel(actingPermissions)}
               </h1>
               <ComboboxDropdown
                 items={Object.values(PrivilegeLevel).map((privilege) => {
-                  return { label: privilege, value: privilege };
+                  return { label: privilegeLabel(privilege), value: privilege };
                 })}
                 displayLabel={"Choose role"}
                 onSelect={(privilege) => {
@@ -168,7 +166,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="font-medium">Pending invite</span>
                   <Badge variant="outline" hoverable={false}>
-                    {pendingInvite.privilegeLevel}
+                    {privilegeLabel(pendingInvite.privilegeLevel)}
                   </Badge>
                 </div>
                 {pendingInvite.jurisdictions.length > 0 && (

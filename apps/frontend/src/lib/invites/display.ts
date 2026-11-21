@@ -18,22 +18,20 @@ export function jurisdictionLabel(
     : `${cityTown} (all districts)`;
 }
 
-/** Returns Tailwind badge classes for a privilege level. */
-export function getPrivilegeColor(level: PrivilegeLevel): string {
-  switch (level) {
-    case PrivilegeLevel.Developer:
-      return "bg-purple-100 text-purple-800";
-    case PrivilegeLevel.Admin:
-      return "bg-red-100 text-red-800";
-    case PrivilegeLevel.Leader:
-      return "bg-blue-100 text-blue-800";
-    case PrivilegeLevel.RequestAccess:
-      return "bg-yellow-100 text-yellow-800";
-    case PrivilegeLevel.ReadAccess:
-      return "bg-green-100 text-green-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
+const PRIVILEGE_LABELS: Record<PrivilegeLevel, string> = {
+  [PrivilegeLevel.Developer]: "Developer",
+  [PrivilegeLevel.Admin]: "Admin",
+  [PrivilegeLevel.Leader]: "Leader",
+  [PrivilegeLevel.RequestAccess]: "Request Access",
+  [PrivilegeLevel.ReadAccess]: "Read Access",
+};
+
+/**
+ * The user-facing name of a privilege level. Privileges render as neutral tags
+ * (`<StatusBadge tone="neutral">`): a privilege is not a status.
+ */
+export function privilegeLabel(level: PrivilegeLevel): string {
+  return PRIVILEGE_LABELS[level];
 }
 
 /** Formats an invite date/time string for display. */

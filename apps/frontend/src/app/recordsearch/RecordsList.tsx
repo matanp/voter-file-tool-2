@@ -187,7 +187,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
 
   return (
     <div>
-      <div className="bg-primary-foreground pt-2">
+      <div className="bg-surface-subtle pt-2">
         <div className="w-full flex justify-center">
           <h1 className="primary-header">Record Search</h1>
         </div>

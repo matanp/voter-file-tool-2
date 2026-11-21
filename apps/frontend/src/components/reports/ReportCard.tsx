@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
+import { StatusBadge } from "~/components/ui/status-badge";
 import { Button } from "~/components/ui/button";
 import {
   Download,
@@ -264,16 +265,6 @@ const ReportCard: React.FC<ReportCardProps> = ({
     }
   };
 
-  const getReportTypeColor = (type: ReportType) => {
-    switch (type) {
-      case ReportType.CommitteeReport:
-        return "bg-blue-100 text-blue-800";
-      case ReportType.DesignatedPetition:
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -318,12 +309,9 @@ const ReportCard: React.FC<ReportCardProps> = ({
             )}
           </div>
           <div className="flex items-center space-x-2 ml-4">
-            <Badge
-              className={getReportTypeColor(report.ReportType)}
-              hoverable={false}
-            >
+            <StatusBadge tone="neutral">
               {formatReportType(report.ReportType)}
-            </Badge>
+            </StatusBadge>
             {canTogglePublic && (
               <Button
                 size="sm"

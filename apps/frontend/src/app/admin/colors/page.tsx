@@ -32,6 +32,7 @@ const colors = [
     name: "destructive-foreground",
     className: "bg-destructive-foreground text-destructive",
   },
+  { name: "surface-subtle", className: "bg-surface-subtle text-foreground" },
   { name: "border", className: "border border-border" },
   { name: "input", className: "border border-input" },
   { name: "ring", className: "ring ring-ring" },

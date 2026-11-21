@@ -6,6 +6,7 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
+import { StatusBadge } from "~/components/ui/status-badge";
 import {
   Loader2,
   Mail,
@@ -19,7 +20,7 @@ import { authEmailsEqual } from "@voter-file-tool/shared-validators";
 import { useApiMutation } from "~/hooks/useApiMutation";
 import {
   formatInviteDate,
-  getPrivilegeColor,
+  privilegeLabel,
   jurisdictionLabel,
   type SerializedInviteJurisdiction,
 } from "~/lib/invites/display";
@@ -339,9 +340,9 @@ export default function InvitePage() {
               <span className="text-sm text-muted-foreground">
                 Access Level:
               </span>
-              <Badge className={getPrivilegeColor(invite.privilegeLevel)}>
-                {invite.privilegeLevel.replace(/([A-Z])/g, " $1").trim()}
-              </Badge>
+              <StatusBadge tone="neutral">
+                {privilegeLabel(invite.privilegeLevel)}
+              </StatusBadge>
             </div>
 
             {invite.privilegeLevel === PrivilegeLevel.Leader &&

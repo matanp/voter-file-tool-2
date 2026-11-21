@@ -190,7 +190,7 @@ export function CommitteeActionDrawer({
     }
     flow ??= (
       <>
-        <p className="flex-1 px-4 py-4 text-sm text-slate-600 dark:text-slate-400">
+        <p className="flex-1 px-4 py-4 text-sm text-slate-600">
           Your role can&apos;t change this committee.
         </p>
         <DrawerFooter>
@@ -211,6 +211,8 @@ export function CommitteeActionDrawer({
     >
       <SheetContent
         side="right"
+        // A form people fill in on phones: 40px controls (at every width) instead of the compact 36px default.
+        data-density="comfortable"
         className="flex w-full flex-col gap-0 p-0 sm:max-w-none md:w-[34rem] md:max-w-[34rem]"
         onCloseAutoFocus={(event) => {
           const trigger = shown?.returnFocusTo;

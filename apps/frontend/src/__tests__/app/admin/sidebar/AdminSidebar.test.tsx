@@ -11,22 +11,26 @@ jest.mock("next/navigation", () => ({
 describe("AdminSidebar", () => {
   beforeEach(() => mockPrefetch.mockClear());
 
-  it("prefetches only /admin routes", () => {
-    render(<AdminSidebar countsPromise={new Promise(() => undefined)} />);
+  it("prefetches only /admin routes", async () => {
+    await act(async () => {
+      render(<AdminSidebar countsPromise={new Promise(() => undefined)} />);
+    });
 
     expect(mockPrefetch).toHaveBeenCalledWith("/admin/discrepancies");
     expect(mockPrefetch).not.toHaveBeenCalledWith("/committees/requests");
   });
 
   it("links to the pending review queue with its count", async () => {
-    render(
-      <AdminSidebar countsPromise={Promise.resolve({ pendingReview: 4 })} />,
-    );
+    await act(async () => {
+      render(
+        <AdminSidebar countsPromise={Promise.resolve({ pendingReview: 4 })} />,
+      );
+    });
 
     const link = await screen.findByRole("link", {
       name: "Pending review (4)",
     });
-    // The mobile sheet renders its nav only when opened.
+    // The sidebar is the only nav here; phones use the app bar's menu.
     expect(screen.getByRole("complementary")).toContainElement(link);
     expect(link).toHaveAttribute("href", "/committees/requests");
     // Items without a countKey keep their bare label.

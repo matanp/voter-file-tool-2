@@ -697,7 +697,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           showNoCommitteesEmptyState ? "pointer-events-none opacity-60" : ""
         }
       >
-        <Card className="bg-primary-foreground p-2 flex flex-wrap items-end gap-4">
+        <Card className="bg-surface-subtle p-2 flex flex-wrap items-end gap-4">
         {initialScope ? (
           <div className="flex flex-col">
             <label className="font-extralight text-sm pl-1">Committee</label>

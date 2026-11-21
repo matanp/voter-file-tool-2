@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, Clock } from "lucide-react";
 
 import type { EdRollup } from "~/lib/validations/committee";
+import { StatusBadge } from "~/components/ui/status-badge";
 import {
   formatTownName,
   openSeats,
@@ -49,7 +50,7 @@ export function CommitteeGrid({
               aria-expanded={!collapsed}
               aria-controls={listId}
               onClick={() => toggleTown(group.town)}
-              className="sticky top-0 z-10 flex w-full items-center justify-between gap-2 border-b bg-slate-50 px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-900 dark:text-slate-300"
+              className="sticky top-0 z-10 flex w-full items-center justify-between gap-2 border-b bg-slate-50 px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
             >
               <span className="flex items-center gap-1">
                 {collapsed ? (
@@ -105,9 +106,9 @@ function CommitteeGridRow({
       onClick={() => onSelect(rollup.committeeListId)}
       aria-current={selected ? "true" : undefined}
       data-committee-id={rollup.committeeListId}
-      className={`flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 dark:border-slate-800 dark:hover:bg-slate-900 ${
+      className={`flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
         selected
-          ? "bg-blue-50 shadow-[inset_3px_0_0_0_#2563eb] dark:bg-blue-950"
+          ? "bg-blue-50 shadow-[inset_3px_0_0_0_#2563eb]"
           : ""
       }`}
     >
@@ -123,7 +124,7 @@ function CommitteeGridRow({
       <SeatDots filled={rollup.filled} total={rollup.totalSeats} />
       <span
         className={`shrink-0 tabular-nums ${
-          open ? "text-slate-700 dark:text-slate-200" : "text-slate-400"
+          open ? "text-slate-700" : "text-slate-400"
         }`}
       >
         {rollup.filled}/{rollup.totalSeats}
@@ -131,18 +132,19 @@ function CommitteeGridRow({
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-1">
         {rollup.pendingCount > 0 && (
-          <span
-            className="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100"
+          <StatusBadge
+            tone="warning"
+            className="gap-0.5 px-1.5 py-0"
             title={`${rollup.pendingCount} pending`}
+            icon={<Clock className="h-3 w-3" aria-hidden />}
+            count={rollup.pendingCount}
           >
-            <Clock className="h-3 w-3" aria-hidden />
-            {rollup.pendingCount}
             <span className="sr-only"> pending</span>
-          </span>
+          </StatusBadge>
         )}
         {missingWeight > 0 && (
           <span title="Missing weight" className="inline-flex">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" aria-hidden />
+            <AlertTriangle className="h-3.5 w-3.5 text-warning-solid" aria-hidden />
             <span className="sr-only">Missing weight</span>
           </span>
         )}

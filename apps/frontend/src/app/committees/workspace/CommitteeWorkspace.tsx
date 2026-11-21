@@ -57,7 +57,6 @@ import {
 import { useCommitteeDetail } from "./useCommitteeDetail";
 import { useCommitteeGridData } from "./useCommitteeGridData";
 import { useGridRefresh } from "./useGridRefresh";
-import { useHeightBelowNav } from "./useHeightBelowNav";
 import { useIsDesktop } from "./useIsDesktop";
 import { useMemberSearch } from "./useMemberSearch";
 import {
@@ -98,7 +97,6 @@ export function CommitteeWorkspace({
   const pathname = usePathname() ?? "/committees";
   const searchParams = useSearchParams();
   const isDesktop = useIsDesktop();
-  const height = useHeightBelowNav();
   const rawGrid = useCommitteeGridData();
 
   const url = parseWorkspaceUrlState(searchParams);
@@ -346,7 +344,7 @@ export function CommitteeWorkspace({
 
   if (gridComplete && grid.rollups.length === 0) {
     return (
-      <div className="flex w-full flex-col overflow-hidden" style={{ height }}>
+      <div className="flex h-[calc(100dvh-var(--app-bar-height))] w-full flex-col overflow-hidden">
         <CommitteeWorkspaceHeader termLabel={termLabel} summary={grid.summary} />
         <CommitteeEmptyScope termLabel={termLabel} />
       </div>
@@ -354,7 +352,7 @@ export function CommitteeWorkspace({
   }
 
   return (
-    <div className="flex w-full flex-col overflow-hidden" style={{ height }}>
+    <div className="flex h-[calc(100dvh-var(--app-bar-height))] w-full flex-col overflow-hidden">
       <CommitteeWorkspaceHeader termLabel={termLabel} summary={grid.summary} />
       <div className="flex min-h-0 flex-1">
         {listCollapsed && (
@@ -367,7 +365,7 @@ export function CommitteeWorkspace({
               aria-expanded={false}
               aria-controls="committee-list-pane"
               title="Show committee list"
-              className="flex h-full w-12 items-start justify-center pt-3 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 dark:hover:bg-slate-900"
+              className="flex h-full w-12 items-start justify-center pt-3 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
             >
               <PanelLeftOpen className="h-5 w-5" aria-hidden />
             </button>

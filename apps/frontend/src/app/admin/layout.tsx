@@ -22,7 +22,7 @@ export default function AdminLayout({
 
   return (
     <AuthCheck privilegeLevel={PrivilegeLevel.Admin}>
-      <div className="flex min-h-[calc(100vh-4.5rem)]">
+      <div className="flex min-h-[calc(100dvh-var(--app-bar-height))]">
         <AdminSidebar countsPromise={countsPromise} />
         <div className="flex-1 min-w-0">{children}</div>
       </div>
