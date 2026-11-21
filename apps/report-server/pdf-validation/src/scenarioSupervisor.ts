@@ -56,6 +56,20 @@ export type SupervisedScenario = {
   next: { ok: boolean; detail: string };
 };
 
+/**
+ * Polls `find` until it returns nothing or `graceMs` runs out, and returns what is still running.
+ * A close that kills Chrome can return a moment before the process is gone.
+ */
+export async function stillRunningAfter<T>(find: () => T[], graceMs: number, pollMs = 100): Promise<T[]> {
+  const deadline = Date.now() + graceMs;
+  let left = find();
+  while (left.length && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, pollMs));
+    left = find();
+  }
+  return left;
+}
+
 export function superviseScenario(child: ScenarioChild, job: WorkerJob, opts: SuperviseOptions): Promise<SupervisedScenario> {
   return new Promise((resolve) => {
     const result: SupervisedScenario = { started: false, timedOut: null, settled: null, chromePids: [], leftoversAfterFailure: null, next: { ok: false, detail: 'not run' } };
@@ -97,7 +111,13 @@ export function superviseScenario(child: ScenarioChild, job: WorkerJob, opts: Su
             result.leftoversAfterFailure = leftovers;
             // A halt kills the worker, and its channel can close before 'exit' fires. Sending on a
             // closed channel raises 'error' on the child, so check first and route errors to the callback.
-            if (exited || !child.connected || opts.haltReason?.()) return;
+            if (exited || opts.haltReason?.()) return; // a halt kills the worker itself
+            if (!child.connected) {
+              // The worker is alive but can't be told to go on: don't wait forever for it.
+              next ??= { ok: false, detail: 'not run: the worker disconnected during the after-failure check' };
+              opts.killAll(result.chromePids);
+              return;
+            }
             arm('next', opts.caseTimeoutMs, `timeout after ${opts.caseTimeoutMs} ms`);
             child.send(CONTINUE_MESSAGE, () => undefined); // a failed send shows up as the worker's exit
           });

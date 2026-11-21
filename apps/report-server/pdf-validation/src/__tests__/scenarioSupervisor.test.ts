@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
-import { CONTINUE_MESSAGE, superviseScenario, type LeftoverProcess, type ScenarioChild, type SuperviseOptions } from '../scenarioSupervisor';
+import { leftoversIn, type ProcessInfo } from '../diagnostics';
+import { CONTINUE_MESSAGE, stillRunningAfter, superviseScenario, type LeftoverProcess, type ScenarioChild, type SuperviseOptions } from '../scenarioSupervisor';
 import type { WorkerJob, WorkerMessage } from '../worker';
 
 const CASE_MS = 180_000;
@@ -188,5 +189,55 @@ describe('superviseScenario', () => {
     expect(killAll).not.toHaveBeenCalled();
     worker.exit(null, 'SIGKILL');
     expect(await result).toMatchObject({ timedOut: null, next: { ok: false, detail: 'stopped: SIGINT' } });
+  });
+
+  it('kills a worker whose channel closed during the check instead of waiting for it forever', async () => {
+    const check = deferred<LeftoverProcess[]>();
+    const { worker, killAll, result } = setup(() => check.promise);
+    worker.message({ type: 'scenario-start' });
+    worker.message({ type: 'launched', pid: 11, browserVersion: 'v' });
+    worker.message({ type: 'scenario-done', error: 'injected: setContent', ms: 10 });
+    worker.connected = false;
+    check.resolve([]);
+    await flush();
+    expect(killAll).toHaveBeenCalledWith([11]);
+    expect(worker.sent).toEqual([JOB]);
+    await jest.advanceTimersByTimeAsync(CASE_MS); // and no next-stage timer was armed
+    expect(killAll).toHaveBeenCalledTimes(1);
+    worker.exit(null, 'SIGKILL');
+    expect(await result).toMatchObject({ timedOut: null, next: { ok: false, detail: 'not run: the worker disconnected during the after-failure check' } });
+  });
+});
+
+describe('finding Chrome a scenario left behind', () => {
+  const MARKER = '/tmp/vft-pdf-shell-Ab12Cd';
+  const proc = (pid: number, pgid: number, command: string): ProcessInfo => ({ pid, ppid: 1, pgid, rssKb: 1000, command });
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it("finds the render's Chrome by group or TMPDIR, once each, and nothing else", () => {
+    const table = [
+      proc(11, 11, '/opt/chrome-headless-shell --single-process'), // the failing call's Chrome, group leader
+      proc(12, 11, `/opt/chrome-headless-shell --type=renderer --user-data-dir=${MARKER}/profile`), // in the group and marked
+      proc(13, 40, `/opt/chrome-headless-shell --user-data-dir=${MARKER}/profile`), // left the group, still marked
+      proc(20, 20, '/opt/chrome-headless-shell --user-data-dir=/tmp/puppeteer_dev_profile-x'), // the service's Chrome
+      proc(30, 30, `node pdf-validation/dist/cli.js render ${MARKER}`), // the harness itself
+    ];
+    expect(leftoversIn(table, [11], MARKER, 30).map((p) => p.pid)).toEqual([11, 12, 13]);
+    expect(leftoversIn(table, [], MARKER, 30).map((p) => p.pid)).toEqual([12, 13]);
+    expect(leftoversIn(table.slice(3), [11], MARKER, 30)).toEqual([]);
+  });
+
+  it('gives a killed Chrome a grace period to disappear, then reports what is still running', async () => {
+    const tables = [[1], [1], []];
+    const vanishing = stillRunningAfter(() => tables.shift() ?? [], 2_000);
+    await jest.advanceTimersByTimeAsync(200);
+    await expect(vanishing).resolves.toEqual([]);
+
+    const find = jest.fn(() => [1]);
+    const stuck = stillRunningAfter(find, 2_000);
+    await jest.advanceTimersByTimeAsync(2_100);
+    await expect(stuck).resolves.toEqual([1]);
+    expect(find.mock.calls.length).toBeGreaterThan(10);
   });
 });

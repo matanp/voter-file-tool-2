@@ -71,8 +71,9 @@ export function groupMeasurements(m: MeasurementsFile): Omit<MemoryGroup, 'thres
  * Why a group's numbers can't be trusted as they stand: verify reports these, and `approve
  * --thresholds` refuses to approve from a group that has any. One rule, so the two can't drift.
  */
-export function trustProblems(g: Pick<MemoryGroup, 'ok' | 'repetitions' | 'interfered' | 'maxGapMs'>): { status: Status; note: string }[] {
+export function trustProblems(g: Pick<MemoryGroup, 'ok' | 'repetitions' | 'interfered' | 'maxGapMs'>, plannedRepetitions: number): { status: Status; note: string }[] {
   const problems: { status: Status; note: string }[] = [];
+  if (g.repetitions < plannedRepetitions) problems.push({ status: 'fail', note: `only ${g.repetitions} of ${plannedRepetitions} planned repetition(s) ran` });
   if (g.ok < g.repetitions) problems.push({ status: 'fail', note: `${g.repetitions - g.ok} of ${g.repetitions} repetition(s) failed` });
   if (g.interfered) problems.push({ status: 'needs-review', note: `${g.interfered} repetition(s) overlapped production work; repeat them if the numbers matter` });
   if (g.maxGapMs > MAX_TRUSTED_GAP_MS) problems.push({ status: 'needs-review', note: `a ${g.maxGapMs} ms sampling gap could hide a peak` });
@@ -86,7 +87,7 @@ export function memoryChecks(manifest: Pick<RunManifest, 'measured' | 'browsers'
 
   const checks: Check[] = [];
   const groups: MemoryGroup[] = groupMeasurements(measurements).map((g) => {
-    const problems = trustProblems(g);
+    const problems = trustProblems(g, plan.repetitions);
     const notes: string[] = problems.map((p) => p.note);
     const statuses: Status[] = problems.map((p) => p.status);
     const thresholds = MEMORY_METRICS.map((metric) => {

@@ -122,8 +122,9 @@ about 10 s, #148's close timeout. Checked locally on macOS against main and the 
 
 `approve --thresholds` records, per fixture, browser and **browser build ID**, the max sampled peak
 across repetitions plus `--headroom-pct` (default 10). It does this for two metrics: `chromePeakKb`
-(the Chrome tree) and `harnessPeakKb` (worker plus Chrome). Fixture/browser pairs with a failed or
-interfered repetition are skipped. Thresholds are keyed by browser build, not deployed commit:
+(the Chrome tree) and `harnessPeakKb` (worker plus Chrome). It skips any fixture/browser pair that
+verify would flag: fewer repetitions than planned (an interrupted run), a failed or interfered
+repetition, or a sampling gap over 1 s. Thresholds are keyed by browser build, not deployed commit:
 #148 changes which browser the service launches, not the builds Puppeteer pins. So thresholds
 approved from a pre-#148 measured run still apply afterwards. The deployed commit, Puppeteer
 version and instance are recorded with each threshold.

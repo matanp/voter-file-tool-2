@@ -166,6 +166,9 @@ describe('memory checks', () => {
     expect(chrome.notes.join()).toMatch(/1 of 3 repetition\(s\) failed.*overlapped production work/);
     expect(chrome.peaks.chromePeakKb.perRepetition).toEqual([500_000, null, 510_000]);
     expect(checks.find((c) => c.id === 'memory-complete')).toMatchObject({ status: 'fail', detail: expect.stringContaining('roster-ed45-split.shell') });
+    const shell = groups.find((g) => g.browser === 'shell')!;
+    expect(shell).toMatchObject({ repetitions: 2, status: 'fail' });
+    expect(shell.notes.join()).toMatch(/only 2 of 3 planned repetition\(s\) ran/);
   });
 
   it('needs review when a sampling gap could hide a peak', () => {
@@ -212,7 +215,8 @@ describe('approve --thresholds', () => {
       idleServiceMedianKb: null, minAvailKb: null, maxSwapUsedKb: null, maxGapMs: 100, thresholds: [], status: 'needs-review', notes: [], ...extra,
     };
   };
-  const manifest: Pick<RunManifest, 'deployed' | 'versions' | 'instance'> = {
+  const manifest: Pick<RunManifest, 'deployed' | 'versions' | 'instance' | 'measured'> = {
+    measured: { fixtures: ['roster-ed45-split', 'signin-151'], repetitions: 3, intervalMs: 100, idleMs: 10_000 },
     deployed: {
       revision: { commit: 'abc', commitTime: '', branch: 'main', dirty: [] },
       build: { distDir: '', distTree: { unavailable: 'test' }, distBuiltAt: null, sourcesNewerThanDist: [], css: { unavailable: 'test' }, cssSourceSha256: { unavailable: 'test' } },
@@ -232,6 +236,10 @@ describe('approve --thresholds', () => {
       ['shell', 'harnessPeakKb', 440_000],
     ]);
     expect(approvals.thresholds[0]).toMatchObject({ reviewer: 'Reviewer', sourceRunId: RUN, versions: { deployedCommit: 'abc', instance: 'linux x64, 2 CPU, 945 MB' } });
+    const interrupted = approvalsWith([]);
+    expect(approveThresholds(interrupted, { memory: [group({ repetitions: 1, ok: 1 })] }, manifest, { runId: RUN, reviewer: 'R', headroomPct: 10, fixtures: null, browser: null })).toBe(0);
+    expect(interrupted.thresholds).toEqual([]);
+    expect(() => approveThresholds(approvals, { memory: [group()] }, { ...manifest, measured: null }, { runId: RUN, reviewer: 'R', headroomPct: 10, fixtures: null, browser: null })).toThrow(/not a --measured run/);
     expect(() => approveThresholds(approvals, { memory: [] }, manifest, { runId: RUN, reviewer: 'R', headroomPct: 10, fixtures: null, browser: null })).toThrow(/verify a --measured run/);
   });
 });

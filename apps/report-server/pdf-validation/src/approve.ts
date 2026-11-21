@@ -136,17 +136,19 @@ export async function approve(opts: {
 
 /**
  * Memory thresholds from a verified --measured run: the max sampled peak across repetitions plus
- * headroom. Groups that verify would mark for review (a failed or interfered repetition, or a
- * sampling gap that could hide a peak) are skipped: measure them again.
+ * headroom. Groups that verify would flag (see trustProblems: missing, failed or interfered
+ * repetitions, or a sampling gap that could hide a peak) are skipped: measure them again.
  */
 export function approveThresholds(
   approvals: Approvals,
   results: Pick<VerifyResults, 'memory'>,
-  manifest: Pick<RunManifest, 'deployed' | 'versions' | 'instance'>,
+  manifest: Pick<RunManifest, 'deployed' | 'versions' | 'instance' | 'measured'>,
   opts: { runId: string; reviewer: string; headroomPct: number; fixtures: string[] | null; browser: BrowserName | null },
 ): number {
   if (!results.memory?.length) throw new Error(`No memory measurements in ${opts.runId}'s results.json: verify a --measured run first`);
   if (!Number.isFinite(opts.headroomPct) || opts.headroomPct < 0) throw new Error('--headroom-pct must be 0 or more');
+  if (!manifest.measured) throw new Error(`${opts.runId} is not a --measured run`);
+  const planned = manifest.measured.repetitions;
   const rev = manifest.deployed.revision;
   const now = new Date().toISOString();
   let changed = 0;
@@ -154,7 +156,7 @@ export function approveThresholds(
     if (opts.fixtures && !opts.fixtures.includes(g.fixtureId)) continue;
     if (opts.browser && g.browser !== opts.browser) continue;
     if (g.fixtureHash !== fixtureById(g.fixtureId).hash) throw new Error(`${g.fixtureId}: measured fixture hash does not match the current definition; measure it again`);
-    const problems = trustProblems(g);
+    const problems = trustProblems(g, planned);
     if (problems.length) {
       console.log(`skip ${g.fixtureId}.${g.browser}: ${problems.map((p) => p.note).join('; ')}; measure again`);
       continue;

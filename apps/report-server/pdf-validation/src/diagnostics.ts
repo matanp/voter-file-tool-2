@@ -253,15 +253,16 @@ export function foreignChrome(ownedPgids: Set<number>): ProcessInfo[] {
     .map(brief);
 }
 
-/** Processes still alive in a process group the harness owns (Puppeteer starts Chrome as a group leader). */
-export const processesInGroup = (pgid: number): ProcessInfo[] => processTable().filter((p) => p.pgid === pgid);
-
 /**
- * Processes whose command line mentions `marker`: each render gives its worker its own TMPDIR,
- * Puppeteer puts Chrome's profile there, so this finds the render's Chrome even if the worker
- * died before reporting its pid, and never matches the service's Chrome.
+ * A render's processes still alive in `table`, each once:
+ * - anything in a process group the harness owns (Puppeteer starts Chrome as a group leader);
+ * - anything whose command line mentions `marker`, the render's own TMPDIR. Puppeteer puts
+ *   Chrome's profile there, so this finds the render's Chrome even if it left its group or the
+ *   worker died before reporting its pid, and never matches the service's Chrome.
  */
-export const processesMentioning = (marker: string): ProcessInfo[] => processTable().filter((p) => p.command.includes(marker) && p.pid !== process.pid);
+export function leftoversIn(table: ProcessInfo[], pgids: number[], marker: string, self = process.pid): ProcessInfo[] {
+  return table.filter((p) => p.pid !== self && (pgids.includes(p.pgid) || p.command.includes(marker)));
+}
 
 export async function httpOk(url: string, timeoutMs = 5_000): Promise<Maybe<{ status: number }>> {
   try {

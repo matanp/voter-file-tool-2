@@ -38,8 +38,8 @@ import {
   isUnavailable,
   oomEvents,
   brief,
-  processesInGroup,
-  processesMentioning,
+  leftoversIn,
+  processTable,
   serviceState,
   treeHash,
 } from './diagnostics';
@@ -57,7 +57,7 @@ import {
 } from './measurements';
 import { MemorySampler, mib } from './memory';
 import { SCENARIOS, SCENARIO_FIXTURE, SCENARIO_NAMES, type FailureScenariosFile, type ScenarioName, type ScenarioResult } from './scenarios';
-import { superviseScenario } from './scenarioSupervisor';
+import { stillRunningAfter, superviseScenario } from './scenarioSupervisor';
 import { Storage, loadStorageConfig } from './storage';
 import type { WorkerJob, WorkerMessage } from './worker';
 
@@ -297,9 +297,7 @@ export async function render(opts: RenderOptions): Promise<number> {
     // Ours after the worker exits: anything still in Chrome's process group, and anything whose
     // command line mentions this render's TMPDIR (where Puppeteer put Chrome's profile).
     await new Promise((r) => setTimeout(r, 300));
-    const leftovers = [...(record.chromePid ? processesInGroup(record.chromePid) : []), ...processesMentioning(caseTmp)].filter(
-      (p, i, all) => all.findIndex((q) => q.pid === p.pid) === i,
-    );
+    const leftovers = leftoversIn(processTable(), record.chromePid ? [record.chromePid] : [], caseTmp);
     for (const p of leftovers) killPid(p.pid);
     record.leftoverProcesses = leftovers.map(brief);
     fs.rmSync(caseTmp, { recursive: true, force: true });
@@ -405,8 +403,7 @@ export async function render(opts: RenderOptions): Promise<number> {
     };
     const child = forkWorker(caseTmp);
     current = { child, chromePgid: null };
-    const leftoversNow = (pids: number[]) =>
-      [...pids.flatMap((pid) => processesInGroup(pid)), ...processesMentioning(caseTmp)].filter((p, i, all) => all.findIndex((q) => q.pid === p.pid) === i);
+    const leftoversNow = (pids: number[]) => leftoversIn(processTable(), pids, caseTmp);
     const outcome = await superviseScenario(child, job, {
       caseTimeoutMs: opts.caseTimeoutMs,
       failureTimeoutMs: timeoutMs,
@@ -417,10 +414,7 @@ export async function render(opts: RenderOptions): Promise<number> {
       // Chrome the failing call left behind, while the worker is still alive (see scenarioSupervisor.ts).
       // A close that kills Chrome can return a moment before the process is gone, so allow a short grace.
       afterFailure: async (pids) => {
-        let left = leftoversNow(pids);
-        for (const deadline = Date.now() + AFTER_FAILURE_GRACE_MS; left.length && Date.now() < deadline; left = leftoversNow(pids)) {
-          await new Promise((r) => setTimeout(r, 100));
-        }
+        const left = await stillRunningAfter(() => leftoversNow(pids), AFTER_FAILURE_GRACE_MS);
         for (const p of left) killPid(p.pid);
         return left.map((p) => ({ pid: p.pid, command: brief(p).command }));
       },
