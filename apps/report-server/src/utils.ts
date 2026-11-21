@@ -322,6 +322,25 @@ export const generateDesignationWeightSummaryHTML = (
       </html>`;
 };
 
+/**
+ * Print rules for the reports the browser paginates: Vacancy, Changes and Petition Outcomes.
+ * The other PDFs paginate in code with fixed-height pages and print with zero margins, so these
+ * rules go only into these three documents, never into the shared PDF options.
+ * - `@page` margin: continuation pages get space above the repeated header and below the last row.
+ *   Left/right stay 0; the report containers' own padding is the side margin.
+ * - Rows never split across a page; the table header repeats on each page.
+ * - `.print-keep-with-next` keeps a group heading with what follows it;
+ *   `.print-keep-with-previous` keeps a Subtotal row with the group's last row.
+ */
+export const BROWSER_PAGINATED_PRINT_CSS = `<style>
+          @page { margin: 0.5in 0; }
+          thead { display: table-header-group; }
+          tr { break-inside: avoid; }
+          .print-keep-with-next { break-after: avoid; }
+          .print-keep-with-previous { break-before: avoid; }
+          .print-keep-together { break-inside: avoid; }
+        </style>`;
+
 export const generateVacancyReportHTML = (
   rows: VacancyReportRow[],
   reportAuthor: string,
@@ -335,6 +354,7 @@ export const generateVacancyReportHTML = (
         <head>
           <title>Vacancy Report</title>
           ${tailwindCSS}
+          ${BROWSER_PAGINATED_PRINT_CSS}
         </head>
         <body>
           ${html}
@@ -362,6 +382,7 @@ export const generateChangesReportHTML = (
         <head>
           <title>Committee Changes</title>
           ${tailwindCSS}
+          ${BROWSER_PAGINATED_PRINT_CSS}
         </head>
         <body>
           ${html}
@@ -385,6 +406,7 @@ export const generatePetitionOutcomesReportHTML = (
         <head>
           <title>Petition Outcomes Report</title>
           ${tailwindCSS}
+          ${BROWSER_PAGINATED_PRINT_CSS}
         </head>
         <body>
           ${html}

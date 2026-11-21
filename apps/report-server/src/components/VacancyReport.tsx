@@ -55,7 +55,7 @@ function VacancyReport({ rows, reportAuthor }: VacancyReportProps) {
     }
 
     return (
-      <div className="w-[11in] h-[8.5in] p-6 font-sans bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
+      <div className="w-[11in] p-6 font-sans bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
         <h1 className="text-xl font-bold mb-4">Vacancy Report</h1>
         <table className="w-full text-sm border-collapse">
           <thead>
@@ -87,7 +87,7 @@ function VacancyReport({ rows, reportAuthor }: VacancyReportProps) {
               }
               return (
                 <React.Fragment key={`${g.cityTown}-${g.legDistrict}`}>
-                  <tr className="bg-gray-50 font-medium">
+                  <tr className="bg-gray-50 font-medium print-keep-with-next">
                     <td colSpan={7} className="border border-gray-400 px-2 py-1">
                       {g.cityTown}, LD {g.legDistrict}
                     </td>
@@ -105,7 +105,7 @@ function VacancyReport({ rows, reportAuthor }: VacancyReportProps) {
                       <td className="border border-gray-400 px-2 py-1 text-right">{r.nonPetitionedSeats}</td>
                     </tr>
                   ))}
-                  <tr className="bg-gray-100 font-medium">
+                  <tr className="bg-gray-100 font-medium print-keep-with-previous">
                     <td className="border border-gray-400 px-2 py-1">Subtotal</td>
                     <td className="border border-gray-400 px-2 py-1 text-right">{subTotal}</td>
                     <td className="border border-gray-400 px-2 py-1 text-right">{subFilled}</td>
@@ -119,7 +119,7 @@ function VacancyReport({ rows, reportAuthor }: VacancyReportProps) {
                 </React.Fragment>
               );
             })}
-            <tr className="bg-gray-200 font-bold">
+            <tr className="bg-gray-200 font-bold print-keep-with-previous">
               <td className="border border-gray-400 px-2 py-1">Grand Total</td>
               <td className="border border-gray-400 px-2 py-1 text-right">{grandTotalSeats}</td>
               <td className="border border-gray-400 px-2 py-1 text-right">{grandFilled}</td>
@@ -132,7 +132,7 @@ function VacancyReport({ rows, reportAuthor }: VacancyReportProps) {
             </tr>
           </tbody>
         </table>
-        <div className="mt-4 flex justify-between text-xs">
+        <div className="mt-4 flex justify-between text-xs print-keep-with-previous">
           <span>{generationDate}</span>
           <span>{reportAuthor}</span>
         </div>
