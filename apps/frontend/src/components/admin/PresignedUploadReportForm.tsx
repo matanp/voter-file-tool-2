@@ -141,8 +141,11 @@ export function PresignedUploadReportForm({
 
           <div className="space-y-2">
             <Label htmlFor={spec.fileField.id}>{spec.fileField.label}</Label>
-            <div className="space-y-2">
-              <Input
+            <div className="relative space-y-2">
+              {/* A plain <input>, not <Input>: Input's w-full/px/border classes
+                  beat sr-only's 1px box, and the absolute input then spans the
+                  viewport and overflows the page. `relative` keeps it inside. */}
+              <input
                 id={spec.fileField.id}
                 type="file"
                 accept={spec.fileField.accept}
