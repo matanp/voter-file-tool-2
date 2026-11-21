@@ -14,11 +14,10 @@ import { ComboboxDropdown } from "./ComboBox";
 import { PrivilegeLevel } from "@prisma/client";
 import { SignOutButton } from "./signInButton";
 import { Badge } from "./badge";
-import { Button } from "./button";
+import { Button, buttonVariants } from "./button";
 import Link from "next/link";
 import { jurisdictionLabel, privilegeLabel } from "~/lib/invites/display";
 import { PRODUCT_NAME } from "~/lib/branding";
-import { cn } from "~/lib/utils";
 
 type ProfileSheetProps = {
   session: Session;
@@ -39,21 +38,16 @@ type PendingInvite = {
   }>;
 };
 
-/** The button that opens a `ProfileSheet` ("View Profile" unless given children). Use inside the sheet's `trigger`. */
+/**
+ * The unstyled button that opens a `ProfileSheet`. Use inside the sheet's `trigger` and style
+ * it with `className` (it has no look of its own); it reads "View Profile" unless given children.
+ */
 export const ViewProfileTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, children, ...props }, ref) => (
+>(({ children, ...props }, ref) => (
   <SheetTrigger asChild>
-    <button
-      ref={ref}
-      type="button"
-      className={cn(
-        "bg-slate-900 text-slate-50 hover:bg-slate-900/90 hover:shadow-button-select h-9 rounded-md px-3 flex items-center",
-        className,
-      )}
-      {...props}
-    >
+    <button ref={ref} type="button" {...props}>
       {children ?? "View Profile"}
     </button>
   </SheetTrigger>
@@ -70,7 +64,9 @@ export const ManageProfileButton: React.FC<{ session: Session }> = ({
       session={session}
       open={open}
       onOpenChange={setOpen}
-      trigger={<ViewProfileTrigger />}
+      trigger={
+        <ViewProfileTrigger className={buttonVariants({ size: "sm" })} />
+      }
     />
   );
 };

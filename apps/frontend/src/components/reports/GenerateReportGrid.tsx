@@ -29,10 +29,10 @@ interface ReportType {
 const NON_SCOPE_REPORT_TYPES: ReportType[] = [
   {
     title: "Voter List",
-    description: "Export voter list from Record Search results",
+    description: "Export a voter list from your Voters search results",
     href: "/voter-list-reports",
     enabled: true,
-    note: "Requires search from Record Search first",
+    note: "Requires a search on Voters first",
     minPrivilege: PrivilegeLevel.Admin,
   },
   {

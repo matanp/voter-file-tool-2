@@ -33,7 +33,7 @@ Across the forms:
 - One focus ring: blue-600 (spec "Decisions").
 - Full-width primary action at 375.
 - Bring the three outlier forms onto the scoped-form shell's spacing and headings.
-- `/voter-list-reports` empty state gets a "Go to Record Search" action (via 06).
+- `/voter-list-reports` empty state gets a "Go to Voters" action (via 06).
 
 ## Acceptance
 

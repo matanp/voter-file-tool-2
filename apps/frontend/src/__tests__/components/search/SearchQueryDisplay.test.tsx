@@ -57,7 +57,7 @@ describe("SearchQueryDisplay", () => {
 
       expect(screen.getByText("No Search Query")).toBeInTheDocument();
       expect(
-        screen.getByText(/Please go to the Record Search page/),
+        screen.getByText(/Please go to the Voters page/),
       ).toBeInTheDocument();
     });
   });
