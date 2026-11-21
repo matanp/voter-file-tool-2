@@ -100,9 +100,15 @@ export const PETITION_FIT_SCRIPT = `(function () {
   }
 })();`;
 
-/** The slice of a Puppeteer page used to read the fit result. */
+/** The part of a sheet element the overflow reader uses (a DOM Element satisfies it). */
+export type PetitionOverflowElement = { hasAttribute(name: string): boolean };
+
+/** The slice of a Puppeteer page used to read the fit result (Page satisfies it). */
 export type PetitionOverflowPage = {
-  $$eval<T>(selector: string, fn: (elements: Element[]) => T): Promise<T>;
+  $$eval<T>(
+    selector: string,
+    fn: (elements: PetitionOverflowElement[]) => T,
+  ): Promise<T>;
 };
 
 /** 1-based numbers of the sheets the fit script could not keep on one page. */

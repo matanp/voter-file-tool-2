@@ -1,4 +1,4 @@
-import { createWebhookSignature } from "../webhookUtils";
+import { createWebhookSignature, postReportCallback } from "../webhookUtils";
 
 /**
  * Tests for webhookUtils.
@@ -43,5 +43,38 @@ describe("createWebhookSignature", () => {
     const payload = Buffer.from('{"test":true}', "utf8");
     const sig = createWebhookSignature(payload, secret);
     expect(sig).toMatch(/^sha256=[a-f0-9]{64}$/);
+  });
+});
+
+describe("postReportCallback", () => {
+  const fakeFetch = (response: Response) =>
+    jest.fn<Promise<Response>, Parameters<typeof fetch>>(async () => response);
+
+  it("POSTs the payload and logs nothing on 2xx", async () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+    const fetchImpl = fakeFetch(new Response("{}", { status: 200 }));
+    await postReportCallback("http://cb.invalid/x", { a: "b" }, "{}", fetchImpl);
+    expect(fetchImpl).toHaveBeenCalledWith("http://cb.invalid/x", {
+      method: "POST",
+      headers: { a: "b" },
+      body: "{}",
+    });
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("logs a non-2xx response without throwing", async () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+    const fetchImpl = fakeFetch(
+      new Response('{"error":"Invalid payload"}', { status: 400 })
+    );
+    await expect(
+      postReportCallback("http://cb.invalid/x", {}, "{}", fetchImpl)
+    ).resolves.toBeUndefined();
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("returned 400")
+    );
+    expect(error.mock.calls[0]?.[0]).toContain("Invalid payload");
+    error.mockRestore();
   });
 });

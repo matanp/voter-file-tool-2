@@ -1,8 +1,8 @@
-import type { Page } from 'puppeteer';
 import type { ReportWarningsMetadata } from '@voter-file-tool/shared-validators';
 import {
   petitionOverflowWarnings,
   readPetitionOverflowSheets,
+  type PetitionOverflowPage,
 } from './petitionFit';
 
 type Candidate = { name: string; address: string; office: string };
@@ -29,14 +29,15 @@ export type PetitionJobDeps = {
     useLandscape: boolean,
     fileName: string,
     overrides: undefined,
-    inspectPage: (page: Page) => Promise<void>,
+    inspectPage: (page: PetitionOverflowPage) => Promise<void>,
   ) => Promise<void>;
 };
 
 /**
  * Renders and uploads a designating petition. A sheet the fit script can't keep on one
  * page is still printed (failing would leave the user with nothing); it is logged and
- * returned as a warning for the report's metadata.
+ * returned as a warning for the report's metadata. If reading the overflow fails, the
+ * PDF is still uploaded, with no warning.
  */
 export async function processPetitionJob(
   input: PetitionJobInput,
@@ -57,7 +58,15 @@ export async function processPetitionJob(
     fileName,
     undefined,
     async (page) => {
-      overflowSheets = await readPetitionOverflowSheets(page);
+      // Reading the warning must never fail the job: on error, print without one.
+      try {
+        overflowSheets = await readPetitionOverflowSheets(page);
+      } catch (error) {
+        console.error(
+          `designated petition ${fileName}: could not read sheet overflow; continuing without a warning`,
+          error,
+        );
+      }
     },
   );
   const warnings = petitionOverflowWarnings(overflowSheets, input.numPages);

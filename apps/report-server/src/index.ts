@@ -28,7 +28,7 @@ import { buildCommitteeRosterReportConfig } from './committeeRosterConfig';
 import { processAbsenteeReport } from './reportProcessors';
 import { processPetitionJob } from './petitionJob';
 import { processVoterImport } from './reportProcessors/voterImportProcessor';
-import { createWebhookSignature } from './webhookUtils';
+import { createWebhookSignature, postReportCallback } from './webhookUtils';
 import {
   formatContactInfoDate,
   resolveSignInSheetTitleScope,
@@ -480,11 +480,7 @@ async function processJob(jobData: EnrichedReportData) {
       }
       console.log('calling callback url for report complete');
 
-      await fetch(CALLBACK_URL, {
-        method: 'POST',
-        headers: callbackHeaders,
-        body: callbackPayload,
-      });
+      await postReportCallback(CALLBACK_URL, callbackHeaders, callbackPayload);
       console.log('done');
     }
   } catch (error) {
@@ -516,11 +512,11 @@ async function processJob(jobData: EnrichedReportData) {
     }
 
     console.log('calling callback url on error: ', errorCallbackPayload);
-    await fetch(CALLBACK_URL, {
-      method: 'POST',
-      headers: errorCallbackHeaders,
-      body: errorCallbackPayload,
-    });
+    await postReportCallback(
+      CALLBACK_URL,
+      errorCallbackHeaders,
+      errorCallbackPayload
+    );
     console.log('done');
   }
 }

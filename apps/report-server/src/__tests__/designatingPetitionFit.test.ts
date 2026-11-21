@@ -5,6 +5,7 @@ import {
   PETITION_MIN_VARIABLE_PX,
   petitionOverflowWarnings,
   readPetitionOverflowSheets,
+  type PetitionOverflowElement,
 } from '../petitionFit';
 
 const SHEET_HEIGHT = 1344; // 14in at 96px/in
@@ -134,7 +135,12 @@ describe('petition fit script', () => {
       height: 'auto',
     });
     // The vacancies box keeps its minimum height until the last level.
-    expect(r.cells[3]!.style.minHeight).toBe('');
+    expect(r.cells[3]!.style).toMatchObject({
+      lineHeight: '1.2',
+      paddingTop: '2px',
+      paddingBottom: '2px',
+      minHeight: '',
+    });
     expect(r.cells.every((c) => !c.style.fontSize)).toBe(true);
     expect(r.zoom).toBe(1);
   });
@@ -211,9 +217,12 @@ describe('petition overflow warnings', () => {
     const sheets = [fakeElement(), fakeElement(), fakeElement()];
     sheets[1]!.setAttribute('data-petition-overflow');
     const page = {
-      $$eval: async <T>(selector: string, fn: (els: Element[]) => T) => {
+      $$eval: async <T>(
+        selector: string,
+        fn: (els: PetitionOverflowElement[]) => T,
+      ) => {
         expect(selector).toBe('[data-petition-sheet]');
-        return fn(sheets as unknown as Element[]);
+        return fn(sheets);
       },
     };
     await expect(readPetitionOverflowSheets(page)).resolves.toEqual([2]);
