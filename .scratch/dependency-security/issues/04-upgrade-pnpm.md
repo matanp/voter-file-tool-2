@@ -1,4 +1,4 @@
-# 04 - Upgrade pnpm 8.15.7 to the current major (12.x)
+# 04 - Upgrade pnpm 8.15.7 to a current major (11.x recommended, or 12.x)
 
 Status: ready-for-agent
 Type: task
@@ -17,6 +17,50 @@ Branch from current `main`. #147 (security bumps) has merged, so the lockfile co
 This is not a quick bump. The code change is small. The work is in the two deploy targets (the report server on
 Lightsail and the frontend on Vercel), which each choose their own pnpm. 8.15.7 → 8.15.9 is a safe same-major patch
 but doesn't fix the transitive-update problem, so skip it.
+
+## Target: 11 or 12
+
+**pnpm 12 is a rewrite in Rust.** The npm package is a thin wrapper that installs a native binary per platform
+(`@pnpm/<platform>` optional dependencies, linked by a postinstall). 12.0.0 shipped on 2026-08-26, and there have
+been 39 releases in under three months. Recent changelog entries include many `--frozen-lockfile` and
+lockfile-format fixes, plus a security fix (12.19.0: an offline install error printed registry credentials).
+pnpm 11 (11.0.0, 2026-04-28) is the last TypeScript major. It's still maintained (11.28.13 on 2026-11-17), and
+even 10.x had a release on 2026-10-25.
+
+Verified in a sandbox on 2026-11-20 with 11.28.13 and 12.21.0: **the migration is identical.** Both versions:
+
+- use lockfile v9, the `…/store/v11` store, and JSON `.modules.yaml` (layout version 5)
+- ignore the `package.json` `pnpm` field (with a warning) and read `overrides` / `allowBuilds` from
+  `pnpm-workspace.yaml`
+- fail the install on unapproved builds (`ERR_PNPM_IGNORED_BUILDS`)
+- run the pinned `packageManager` version when installed globally (gotcha 7)
+
+**11 → 12 later is a pin bump, not a cutover.** pnpm 12 ran `install --frozen-lockfile` on pnpm 11's
+`node_modules` and reused it in place, with no reinstall and no store change, so `check-pnpm-store.sh` passes.
+
+| | pnpm 11 | pnpm 12 |
+| --- | --- | --- |
+| Repo migration and box cutover | Same | Same |
+| Maturity | ~7 months, TypeScript codebase that pnpm 8 users know | ~3 months, new Rust codebase, high churn |
+| Where fixes land | Maintenance releases | Main line |
+| Vercel | More likely supported (still unverified) | Unverified |
+| Node | Requires `>=22.13` | Native binary; wrapper says `>=18` |
+| Later step to 12 | Pin bump plus a normal deploy | n/a |
+
+**Recommendation: target 11 now and bump to 12 as a separate small ticket** once 12 has settled (a few months
+with no frozen-lockfile fixes in its changelog) and Vercel supports it. The expensive part, the settings move and
+the box cutover, is the same either way and only happens once. 11 gets it done on the more proven code, and the
+follow-up to 12 costs almost nothing. Go straight to 12 only if Part B shows Vercel runs 12 and you'd rather not
+touch this again.
+
+If targeting 11, read `12.x.y` below as `11.x.y`. Every step applies unchanged, and the gotchas hold for 11
+except where they say "Rust" or "native binary". Add a Node check to the before-merge preflight:
+`node --version` on the box must be `>=22.13` (provisioning runs `nvm install 22`, which installs the latest
+22.x, but an old box may have an older 22).
+
+Not verified for either version: whether `pnpm update -r --depth Infinity <pkg>` now re-resolves locked
+transitive versions (the motivating limitation above). Check it during Part A, e.g. on a package an override
+currently pins.
 
 ## Where pnpm is pinned or invoked
 
