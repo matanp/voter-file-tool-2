@@ -65,6 +65,9 @@ export function buildPdfCall(input: FixtureInput, d: DeployedModules): PdfCall {
       return { html: d.utils.generateCommitteeReportHTML(payload, rosterConfig?.pdfColumns), useLandscape: true };
     }
     case 'designatedPetition':
+      // processJob (via processPetitionJob) also passes an inspectPage hook that only reads
+      // which sheets overflow, for the report's warning metadata. It doesn't change the PDF,
+      // so it isn't mirrored; the page-count and "Sheet No." checks catch an overflow here.
       return {
         html: d.utils.generateHTML(input.candidates, input.vacancyAppointments, input.party, input.electionDate, input.numPages),
         useLandscape: false,

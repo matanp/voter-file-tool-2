@@ -3,7 +3,7 @@ import ReactDOMServer from 'react-dom/server';
 import PetitionForm from './components/DesignatingPetition';
 import { PETITION_FIT_SCRIPT } from './petitionFit';
 import CommitteeReport from './components/CommitteeReport';
-import puppeteer from 'puppeteer';
+import puppeteer, { type Page } from 'puppeteer';
 import { uploadFileToR2 } from './s3Utils';
 import { Readable } from 'stream';
 import { randomUUID } from 'crypto';
@@ -129,12 +129,15 @@ export type PDFPageOptions = {
  * @param useLandscape - Legacy: true = Letter landscape, false = Legal portrait
  * @param fileName - Output filename
  * @param overrides - Optional: format + landscape (e.g. Legal landscape for sign-in sheets)
+ * @param inspectPage - Optional: reads the laid-out page after setContent, before printing
+ *   (e.g. which petition sheets still overflow). It must not change the page.
  */
 export async function generatePDFAndUpload(
   htmlContent: string,
   useLandscape: boolean,
   fileName: string,
   overrides?: PDFPageOptions,
+  inspectPage?: (page: Page) => Promise<void>,
 ): Promise<void> {
   const puppeteerOptions = {
     headless: true,
@@ -159,6 +162,7 @@ export async function generatePDFAndUpload(
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
     console.log('page content set');
+    if (inspectPage) await inspectPage(page);
     const pdfStream = (await page.createPDFStream({
       format,
       landscape,

@@ -26,6 +26,7 @@ import {
 } from './xlsxGenerator';
 import { buildCommitteeRosterReportConfig } from './committeeRosterConfig';
 import { processAbsenteeReport } from './reportProcessors';
+import { processPetitionJob } from './petitionJob';
 import { processVoterImport } from './reportProcessors/voterImportProcessor';
 import { createWebhookSignature } from './webhookUtils';
 import {
@@ -218,14 +219,7 @@ function extractXLSXConfig(jobData: XLSXReportData) {
 async function processJob(jobData: EnrichedReportData) {
   try {
     let fileName = '';
-    let metadata:
-      | {
-          recordsProcessed: number;
-          recordsCreated: number;
-          recordsUpdated: number;
-          dropdownsUpdated: boolean;
-        }
-      | undefined;
+    let metadata: ReportCompleteWebhookPayload['metadata'];
     const { reportAuthor, jobId } = jobData;
     const shouldSendCallback = jobData.type !== 'boeEligibilityFlagging';
 
@@ -287,17 +281,11 @@ async function processJob(jobData: EnrichedReportData) {
     } else if (jobData.type === 'designatedPetition') {
       fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
       console.log('Processing designated petition form...');
-      const { candidates, vacancyAppointments, party, electionDate, numPages } =
-        jobData.payload;
-
-      const html = generateHTML(
-        candidates,
-        vacancyAppointments,
-        party,
-        electionDate,
-        numPages
-      );
-      await generatePDFAndUpload(html, false, fileName);
+      const petitionResult = await processPetitionJob(jobData.payload, fileName, {
+        generateHTML,
+        generatePDFAndUpload,
+      });
+      metadata = petitionResult.metadata;
     } else if (jobData.type === 'absenteeReport') {
       fileName = generateReportFilename(jobData.name, jobData.type, jobData.format, reportAuthor);
 
