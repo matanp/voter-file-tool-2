@@ -113,13 +113,16 @@ export const MAX_ROWS_PER_PAGE = 20;
  * Page geometry, in CSS px, for the fixed 8.5in landscape page. The page has
  * room for the column header, MAX_ROWS_PER_PAGE rows and the footer, plus the
  * space below the rows that the trailing block (Subtotal, Grand Total, notes)
- * needs. Rows are 25px (text-sm 20px line + py-0.5 + 1px border) and stay
- * one line: the Missing Weights cell doesn't wrap (see formatMissingSeats). These are
- * hand-measured: after changing this template's spacing or fonts, re-check
+ * needs. Rows are 25px (text-sm 20px line + py-0.5 + 1px border). A
+ * Missing Weights list too long for one line breaks onto extra 20px lines at
+ * points the code picks (see formatMissingSeats), so every row's height is
+ * known. These are hand-measured: after changing this template's spacing or fonts, re-check
  * the weights-20, weights-200 and weights-multi-group fixtures in the PDF
  * validation harness (apps/report-server/pdf-validation).
  */
 const ROW_PX = 25;
+/** Each extra line of a broken Missing Weights cell (text-sm line height). */
+const EXTRA_LINE_PX = 20;
 /**
  * Space for rows and the trailing block between the column header and the
  * footer: measured at 582.5px in Chrome with the py-0.5 column header, less
@@ -144,31 +147,52 @@ export function missingWeightsNotesHeight(notesText: string | null): number {
 }
 
 /**
- * Splits rows into pages of MAX_ROWS_PER_PAGE. The last page also carries a
+ * Splits rows into pages of at most MAX_ROWS_PER_PAGE rows and ROW_AREA_PX of
+ * height (`rowPx` gives each row's height; one-line rows are ROW_PX, so
+ * pages of them hold exactly MAX_ROWS_PER_PAGE). The last page also carries a
  * trailing block of `trailingPx`; when its rows plus that block don't fit, its
  * last row moves to a new page with the trailing block, so the footer stays on
  * the page with the table. Always returns at least one (maybe empty) page.
  * Known limit: a trailing block taller than a whole page (missing-weights
  * notes listing hundreds of committees) still overflows.
  */
-export function chunkRows<T>(rows: T[], trailingPx: number): T[][] {
+export function chunkRows<T>(
+  rows: T[],
+  trailingPx: number,
+  rowPx: (row: T) => number = () => ROW_PX,
+): T[][] {
   const chunks: T[][] = [];
-  for (let i = 0; i < rows.length; i += MAX_ROWS_PER_PAGE) {
-    chunks.push(rows.slice(i, i + MAX_ROWS_PER_PAGE));
+  let current: T[] = [];
+  let currentPx = 0;
+  for (const row of rows) {
+    const px = rowPx(row);
+    if (
+      current.length > 0 &&
+      (current.length >= MAX_ROWS_PER_PAGE || currentPx + px > ROW_AREA_PX)
+    ) {
+      chunks.push(current);
+      current = [];
+      currentPx = 0;
+    }
+    current.push(row);
+    currentPx += px;
   }
-  if (chunks.length === 0) return [[]];
+  if (current.length === 0) return chunks.length ? chunks : [[]];
+  chunks.push(current);
 
-  const lastChunkMaxRows = Math.max(
-    0,
-    Math.floor((ROW_AREA_PX - trailingPx) / ROW_PX),
-  );
-  const last = chunks[chunks.length - 1];
-  if (last.length > lastChunkMaxRows) {
-    const carried = Math.min(1, lastChunkMaxRows);
-    chunks[chunks.length - 1] = last.slice(0, last.length - carried);
-    chunks.push(last.slice(last.length - carried));
+  if (currentPx + trailingPx > ROW_AREA_PX) {
+    const lastRow = current[current.length - 1];
+    const carried = rowPx(lastRow) + trailingPx <= ROW_AREA_PX ? 1 : 0;
+    chunks[chunks.length - 1] = current.slice(0, current.length - carried);
+    chunks.push(current.slice(current.length - carried));
   }
   return chunks;
+}
+
+/** A row's printed height: one line, plus 20px per extra Missing Weights line. */
+export function weightSummaryRowPx(row: Pick<WeightSummaryRow, 'missingWeights'>): number {
+  const lines = row.missingWeights ? formatMissingSeats(row.missingWeights).length : 1;
+  return ROW_PX + (lines - 1) * EXTRA_LINE_PX;
 }
 
 export type WeightSummaryPage = {
@@ -193,7 +217,7 @@ export function paginateWeightSummary(
     const trailingPx =
       SUBTOTAL_PX +
       (isLastGroup ? GRAND_TOTAL_PX + missingWeightsNotesHeight(notesText) : 0);
-    const chunks = chunkRows(group.rows, trailingPx);
+    const chunks = chunkRows(group.rows, trailingPx, weightSummaryRowPx);
     return chunks.map((rows, i) => ({
       groupIndex,
       rows,
@@ -212,24 +236,22 @@ export const formatWeight = (weight: number): string =>
   new Prisma.Decimal(weight).toFixed(2);
 
 /**
- * Longest Missing Weights text kept on one line. Measured: the table stays
- * within the page up to 53 characters (16 seats); 40 leaves room for wider
- * numbers in the other columns.
+ * Longest Missing Weights line. Measured: the table stays within the page up
+ * to 53 characters (16 seats); 40 leaves room for wider numbers in the other
+ * columns.
  */
 const MISSING_SEATS_MAX_CHARS = 40;
 
 /**
- * The PDF's Missing Weights cell. Short lists print as they are ("1, 2, 4").
- * A list too long for one line collapses runs of three or more seats into
- * ranges ("1–20"). Returns `nowrap: false` only if even that is too long, so
- * the text wraps rather than widening the table off the page.
+ * The PDF's Missing Weights cell, as the lines it prints (the cell never wraps
+ * on its own, so the row height is known). Short lists print as they are
+ * ("1, 2, 4"). A list too long for one line collapses runs of three or more
+ * seats into ranges ("1–20"); if that is still too long, it breaks after a
+ * comma into lines of at most MISSING_SEATS_MAX_CHARS. No seat is dropped.
  */
-export function formatMissingSeats(missingWeights: string): {
-  text: string;
-  nowrap: boolean;
-} {
+export function formatMissingSeats(missingWeights: string): string[] {
   if (missingWeights.length <= MISSING_SEATS_MAX_CHARS) {
-    return { text: missingWeights, nowrap: true };
+    return [missingWeights];
   }
   const seats = missingWeights.split(',').map((x) => Number(x.trim()));
   const parts: string[] = [];
@@ -240,8 +262,20 @@ export function formatMissingSeats(missingWeights: string): {
     else parts.push(...seats.slice(i, j + 1).map(String));
     i = j + 1;
   }
-  const text = parts.join(', ');
-  return { text, nowrap: text.length <= MISSING_SEATS_MAX_CHARS };
+  const lines: string[] = [];
+  let line = '';
+  parts.forEach((part, k) => {
+    const piece = k < parts.length - 1 ? `${part},` : part;
+    const next = line ? `${line} ${piece}` : piece;
+    if (line && next.length > MISSING_SEATS_MAX_CHARS) {
+      lines.push(line);
+      line = piece;
+    } else {
+      line = next;
+    }
+  });
+  lines.push(line);
+  return lines;
 }
 
 /** The PDF marks a missing weight with a dash; the XLSX leaves the cell blank. */
@@ -310,12 +344,22 @@ const DesignationWeightSummaryReport = React.forwardRef<
       </tr>
     );
 
-    /** No wrap: a second line would make the row taller than the page math allows. */
+    /**
+     * Never wraps on its own: long lists break only where formatMissingSeats
+     * says, so the row is as tall as weightSummaryRowPx counts.
+     */
     const renderMissingSeats = (missingWeights: string) => {
       if (!missingWeights) return <td className={cell}>—</td>;
-      const { text, nowrap } = formatMissingSeats(missingWeights);
+      const lines = formatMissingSeats(missingWeights);
       return (
-        <td className={nowrap ? `${cell} whitespace-nowrap` : cell}>{text}</td>
+        <td className={`${cell} whitespace-nowrap`}>
+          {lines.map((line, k) => (
+            <React.Fragment key={k}>
+              {k > 0 && <br />}
+              {line}
+            </React.Fragment>
+          ))}
+        </td>
       );
     };
 
