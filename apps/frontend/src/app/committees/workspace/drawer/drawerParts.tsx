@@ -60,15 +60,19 @@ export function useActionSubmit(onSuccess: (message: string) => void | Promise<v
   ): Promise<ActionFailure | null> => {
     setSubmitting(true);
     setFailure(null);
-    const outcome = await mutation();
-    if (outcome.ok) {
-      await onSuccess(outcome.message);
+    // `finally`: a rejected mutation or `onSuccess` must not leave the
+    // primary button stuck busy.
+    try {
+      const outcome = await mutation();
+      if (outcome.ok) {
+        await onSuccess(outcome.message);
+        return null;
+      }
+      setFailure(outcome);
+      return outcome;
+    } finally {
       setSubmitting(false);
-      return null;
     }
-    setSubmitting(false);
-    setFailure(outcome);
-    return outcome;
   };
   return { submitting, failure, clearFailure: () => setFailure(null), run };
 }

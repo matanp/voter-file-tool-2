@@ -338,9 +338,7 @@ describe("/api/committee/requestAdd", () => {
       );
       mockHasPermission(true);
       // No eligibility mocks: reaching validateEligibility would not return 409.
-      prismaMock.committeeList.findUnique.mockResolvedValue(
-        createMockCommittee() as never,
-      );
+      prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
