@@ -38,3 +38,7 @@ Evidence: reviews/admin.md §1A and §2.
 ### 2026-11-21 - triage
 
 Ready for agent. Added 02 as a blocker, because the phone admin links move into 02's ☰ sheet. Share the count queries with 10.
+
+### 2026-11-21
+
+02 shipped in PR 190: the Admin sections are in the app bar's ☰ sheet, and the floating phone button is gone, so the "No floating admin button" acceptance line is already met. The ☰ sheet's Admin section has no counts; the sidebar shows "Pending review (N)". When the sidebar gets count pills, give the sheet the same ones from the shared count queries. The sheet's links come from `adminSidebarGroups` (`config/adminNav.ts`) in `header.tsx`.

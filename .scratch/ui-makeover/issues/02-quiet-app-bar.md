@@ -1,6 +1,6 @@
 # 02 - Quiet app bar
 
-Status: ready-for-agent
+Status: resolved
 
 Blocked by: 01, 04
 
@@ -49,3 +49,21 @@ Prototyped on `proto/ui-makeover` and approved in stakeholder review. Decided: g
 ### 2026-11-21 - triage
 
 Ready for agent, with a placeholder product name until spec open decision 2 is settled. Runs in parallel with 03 after 01 and 04; it touches only the header, profile and DB badge files.
+
+### 2026-11-21 - resolved
+
+Shipped in PR 190, with follow-ups in PR 191.
+- **Profile:** the initials button opens the existing profile sheet, not a dropdown. The sheet shows name, privilege, acting-as, pending invite and sign out. This matches the approved prototype, and a dropdown would have meant rebuilding the acting-as and invite UI.
+- **`ViewProfileTrigger`** has no look of its own; callers style it. The initials button's focus ring uses `ring-ring` (green), and 13 moves it to blue-600.
+- **Product name:** the placeholder is `PRODUCT_NAME` in `lib/branding.ts` ("Open Source Politics"). Spec open decision 2 is still open.
+- **DB badge:**
+  - Prod DB is solid red, which is deliberately alarming.
+  - From md up it sits next to the profile. Below md it appears only inside the ☰ sheet.
+  - Dev builds only.
+- **Phone ☰ sheet:**
+  - It holds the main nav plus, for Admins (acting privilege), the Admin sections.
+  - It marks one current row: the Admin section when one matches, including Pending review at `/committees/requests`; otherwise the main item.
+  - It has no counts (see 15).
+  - The floating Admin button is gone.
+- **Bar height:** `--app-bar-height` (3rem) sets both the bar and the full-height views; `useHeightBelowNav` is deleted. The root layout wraps the header in `<header>`, not `<nav>`.
+- **Nav label:** "Voters", active on `startsWith("/recordsearch")`. The record search h1 and the related copy say Voters too.

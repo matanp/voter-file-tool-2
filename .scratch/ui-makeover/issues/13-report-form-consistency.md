@@ -47,3 +47,7 @@ Evidence: reviews/reports.md §1C and §2; reviews/design-system.md §1 "Form co
 ### 2026-11-21 - triage
 
 Ready for agent. Focus ring decided: blue-600 app-wide, so it stays separate from green primary buttons. Added 08 as a blocker, because both edit `ScopedReportForm` and its mount points.
+
+### 2026-11-21
+
+The blue-600 focus ring also covers the app bar's initials button, from 02. It uses `ring-ring`, and `--ring` (`globals.css`) is green today. Setting `--ring` to blue-600 and having every control use `ring-ring` gives one ring in one place. Today `Button` and `Select` use `ring-slate-950`, and `Input` uses `ring-primary`.

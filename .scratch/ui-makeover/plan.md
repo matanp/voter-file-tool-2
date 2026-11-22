@@ -13,8 +13,9 @@ Triaged 2026-11-21. Part of [ui-makeover](spec.md). The `Blocked by:` lines in t
 
 | Status | Tickets |
 |---|---|
-| `ready-for-agent` | 01–18, 22 (research: cross-link audit) |
-| `needs-triage` | 21 (requests from voter search) |
+| `resolved` | 01–04 (phase 1, PRs 190 and 191) |
+| `ready-for-agent` | 05–18, 22 (research: cross-link audit) |
+| `needs-triage` | 21 (requests from voter search), 23 (root `<main>` extra scroll) |
 | `needs-info` | 19 (stakeholder: what is pinnable, Admin pins or not, where the setting lives), 20 (stakeholder: which LTED fields, who sees mismatches) |
 
 ## Build order

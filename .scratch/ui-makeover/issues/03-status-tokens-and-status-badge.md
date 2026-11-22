@@ -1,6 +1,6 @@
 # 03 - Status colour tokens and a shared StatusBadge
 
-Status: ready-for-agent
+Status: resolved
 
 Blocked by: 01, 04
 
@@ -44,3 +44,13 @@ Green primary buttons were kept (spec "Decisions"). Make the `success` tone visi
 ### 2026-11-21 - triage
 
 Ready for agent. Light-only tokens (dark mode dropped). Build after 01 and 04, because all three edit `globals.css`, `tailwind.config.ts` and `components/ui`.
+
+### 2026-11-21 - resolved
+
+Shipped in PR 190, with follow-ups in PR 191.
+- **Tokens:** `--success`, `--warning`, `--danger` and `--info`, each with `-bg`, `-fg` and `-solid`, used through `components/ui/status-badge.tsx`.
+- **`StatusBadge`:** `tone` (one of the four, plus `neutral`), an optional `icon` and an optional `count`.
+- **Six maps replaced:** all six private maps are gone. The roster and member-search pending chips use `StatusBadge` too.
+- **Privileges** are neutral tags with `privilegeLabel()` (`lib/invites/display.ts`).
+- **Report types:** `formatReportType` is an exhaustive `REPORT_TYPE_LABELS` map, so a new `ReportType` fails tsc until it has a label. CommitteeReport shows as "Committee Roster".
+- **Eligibility flags:** `RESOLVED_BY_RESCAN` shows as "Auto-resolved".
