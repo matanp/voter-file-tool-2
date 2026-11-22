@@ -119,11 +119,11 @@ details. In short:
   800x4 PDFs have an identical structure tree (elements, MCIDs, header associations), identical text, identical
   pixels, and identical veraPDF PDF/UA-1 results (3 failures, all from Chrome itself).
 - **Cost:** slower locally (5 s → 12–14 s, ~1.4 s per launch plus a 1.2–1.9 s merge). Node heap during the merge
-  is 124 MiB for legacy 134 pages (cap 384 MB). Box timing is not measured yet.
-- **Next:** after deploy, run `pdf-validation render --mode full` and a `--measured` run for the two 800x4
-  fixtures on the box. Options 2 (size-aware concurrency) and 6 (cgroup limit) are still worth doing as guard
-  rails. Question 1 (real report sizes) is still open, but slicing only applies above 20 pages, so the answer
-  doesn't change it.
+  is 124 MiB for legacy 134 pages (cap 384 MB). For box timing, see "Findings: on the box after #178 and #179"
+  below.
+- **After deploy (done 2026-11-22):** the full and `--measured` runs on the box are in "Findings: on the box
+  after #178 and #179" below. Question 1 (real report sizes) is answered in "Findings: real report sizes and the
+  merge limit". Options 2 (size-aware concurrency) and 6 (cgroup limit) are still worth doing as guard rails.
 
 ### Without `--single-process` (2026-11-21)
 
@@ -172,7 +172,7 @@ production launch args and PDF options. Compare the deltas; macOS absolutes run 
   lose header-aware table navigation, which the maintainer wants to keep (2026-11-20). Tagged printing also got
   5.5–11x slower (roster 1.6 → 9.0 s, legacy 2.4 → 26.3 s). Rejected.
 - Removing nodes doesn't track memory: the `::before` variant has 6.4k fewer nodes than divs and uses ~50 MiB *more*.
-- Unverified lead: with tagging on, the experiment's Node process reading the PDF stream peaked at 300–430 MiB
+- Lead, checked on the box 2026-11-22 (see "Findings: on the box after #178 and #179"): with tagging on, the experiment's Node process reading the PDF stream peaked at 300–430 MiB
   (~96 MiB untagged). Production streams to R2 through `@aws-sdk/lib-storage` `Upload`, which should buffer only
   small parts, so this may be an artifact of the experiment's harness. Check the report server's own Node RSS during a
   large render on the box before relying on it.
@@ -277,9 +277,10 @@ Columns are "roster / legacy":
   service restarts. The LLM review of `hz8u5x` found nothing on any of its 389 pages; after it, all 34 renders
   pass. On both 800x4 fixtures, every slice boundary (20/21 … 120/121) continues the ED and member sequence
   and the "Page N of 134" numbering, and each slice-start page has its table header. `pdftotext` confirms it.
-  The only open run item is the box's untracked `apps/report-server/logs/`.
+  The only open run item is the box's untracked `apps/report-server/logs/` (ticket 23).
+- **Memory thresholds** for all 9 measured fixtures were approved from `zrq5wq` (max + 10%) and merged in
+  PR #193. `verify` on `zrq5wq` passes every memory check.
 - **Still open:**
-  - No memory thresholds have been approved yet. `zrq5wq` is the candidate (`approve --thresholds`).
   - Options 2 (size-aware concurrency) and 6 (cgroup limit) are still worth doing as guard rails. Two sliced
     reports at once have not been measured.
 
