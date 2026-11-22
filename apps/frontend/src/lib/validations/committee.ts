@@ -512,8 +512,7 @@ export type CommitteeRequestResponse =
       /** SRS §2.2 — Non-blocking warnings. */
       warnings?: EligibilityWarning[];
     }
-  /** A 409 for a voter already pending here carries that submission's `membershipId`. */
-  | { success: false; error: string; membershipId?: string };
+  | { success: false; error: string };
 
 // --- Exit Reports (leader-feedback-2026-11 ticket 01) ---------------------------
 

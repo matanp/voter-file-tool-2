@@ -1114,7 +1114,7 @@ describe("CommitteeActionDrawer: already pending (ticket 26)", () => {
       "/api/committee/eligibility": [{ body: preflight() }],
       // The roster hadn't caught up with the earlier submission yet.
       "/api/committee/requestAdd": [
-        { status: 409, body: { success: false, error: message, membershipId: "m-pending" } },
+        { status: 409, body: { success: false, error: message } },
       ],
     });
     const { onComplete, onClose } = renderDrawer({ role: PrivilegeLevel.Leader });

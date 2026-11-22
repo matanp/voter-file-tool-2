@@ -311,7 +311,6 @@ describe("/api/committee/requestAdd", () => {
       );
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({
-          id: "membership-pending-1",
           status: "SUBMITTED",
           submittedAt: new Date("2026-11-18T15:00:00Z"),
         }),
@@ -325,7 +324,6 @@ describe("/api/committee/requestAdd", () => {
         success: false,
         error:
           "Already pending for this committee: submitted Nov 18, 2026, waiting for an Admin to review it.",
-        membershipId: "membership-pending-1",
       });
       expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
       expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();

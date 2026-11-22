@@ -32,3 +32,11 @@ Parts 1 and 2 are the bug. Part 3 can split into its own ticket if it grows.
 ## Resolution
 
 `requestAdd` now answers a duplicate with 409 "Already pending for this committee: submitted <date>, waiting for an Admin to review it." (checked before eligibility); the drawer shows it as an error and search and step 2 mark the voter "Already pending" (not selectable for a submission; an Admin can still add them). Part 3 split to [33](33-vacant-rows-show-pending-candidates.md). Branch `fix/workspace-add-flow`.
+
+Decided in the PR #183 review:
+
+- An Admin can still select an already-pending voter in an add, with a warning. Blocking them would only send them
+  to the Pending tab to accept the same row: `/api/committee/add` activates the existing SUBMITTED row.
+- The 409 carries the submission date but no membership ID. `requestAdd` is open to RequestAccess with no committee
+  scope, and the old 200 already said the voter was pending, so the date adds little; the ID had no reader.
+- The date is formatted in UTC, like the Pending tab; [34](34-pending-submitted-date-uses-utc.md) fixes all three.

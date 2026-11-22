@@ -169,7 +169,6 @@ async function requestAddHandler(req: NextRequest, session: Session) {
         {
           success: false,
           error: `Already pending for this committee: submitted ${submitted}, waiting for an Admin to review it.`,
-          membershipId: existing.id,
         },
         { status: 409 },
       );
