@@ -280,10 +280,20 @@ Columns are "roster / legacy":
   The only open run item is the box's untracked `apps/report-server/logs/`.
 - **Still open:**
   - No memory thresholds have been approved yet. `zrq5wq` is the candidate (`approve --thresholds`).
-  - Production smoke test: a countywide `ldCommittees` and roster PDF. The logs should show `generating pdf part i
-    of N` and `merging pdf parts`, with no `Tagged PDF merge failed`.
   - Options 2 (size-aware concurrency) and 6 (cgroup limit) are still worth doing as guard rails. Two sliced
     reports at once have not been measured.
+
+**Production smoke test (2026-11-22).** A countywide roster PDF and a countywide `ldCommittees` PDF were
+generated in production, one after the other.
+
+- Each printed in 4 slices and merged. The logs show `generating pdf part 1 of 4` through `4 of 4`, then
+  `merging pdf parts`, with no `Tagged PDF merge failed`. Each job took 11–13 s from request to upload.
+- Both PDFs: 80 pages, Letter landscape, `Tagged: yes`. Every slice boundary (20/21, 40/41, 60/61) continues the
+  committees and the "Page N of 80" numbering, and each page repeats the table header. The last page has the
+  final subtotal.
+- A small single-jurisdiction report still took the single-print path (`started upload via stream`).
+- Separate from slicing: 7 of the 80 `ldCommittees` pages overflow onto the next page, because legacy rows wrap
+  and pagination counts rows. This is reports-polish ticket 12. The roster PDF had no overflow.
 
 ## Comments
 
