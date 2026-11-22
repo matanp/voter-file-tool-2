@@ -284,6 +284,17 @@ export const generateCommitteeReportHTML = (
 export const COMMITTEE_REPORT_PAGES_PER_PDF = 20;
 
 /**
+ * Largest committee report printed as a PDF. Slicing bounds Chrome, but the merge builds the
+ * whole PDF in node's heap: on the box, under the service's `--max-old-space-size=384`, it ran
+ * out of heap between 560 and 600 pages, and slowed down from GC pressure from ~500 (ticket 24).
+ * At 300 it used 237 MiB of heap, which leaves room for the service's own heap, and the box kept
+ * ~300 MiB available with no new swap. Real reports are far smaller: at most 4 seats per ED, so
+ * a fully seated county is ~110-120 pages.
+ * Above the limit the job fails before Chrome starts, rather than node dying mid-merge.
+ */
+export const COMMITTEE_REPORT_MAX_PAGES = 300;
+
+/**
  * The committee report as consecutive HTML documents of at most `pagesPerPdf` pages each, for
  * generatePDFAndUpload to print one at a time. The pages are the ones generateCommitteeReportHTML
  * lays out (pagination happens in code, before printing), numbered against the whole report.
@@ -296,6 +307,12 @@ export const generateCommitteeReportHTMLChunks = (
 ): string[] => {
   const committees = transformToCommitteeMemberFormat(groupedCommittees);
   const pageCount = paginateCommittees(committees).length;
+  if (pageCount > COMMITTEE_REPORT_MAX_PAGES) {
+    throw new Error(
+      `This committee report would be ${pageCount} pages, over the ${COMMITTEE_REPORT_MAX_PAGES}-page limit for a PDF. ` +
+        'Download it as XLSX instead, or narrow the roster to one jurisdiction.',
+    );
+  }
   if (pageCount <= pagesPerPdf) return [committeeReportHTML(committees, columns)];
   const slices: string[] = [];
   for (let start = 0; start < pageCount; start += pagesPerPdf) {

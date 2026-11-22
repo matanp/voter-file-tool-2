@@ -1,5 +1,6 @@
 import { COMMITTEE_ROSTER_COLUMN_ORDER } from '../committeeRosterConfig';
 import {
+  COMMITTEE_REPORT_MAX_PAGES,
   COMMITTEE_REPORT_PAGES_PER_PDF,
   generateCommitteeReportHTML,
   generateCommitteeReportHTMLChunks,
@@ -54,6 +55,15 @@ describe('generateCommitteeReportHTMLChunks', () => {
     const report = syntheticCommittees(COMMITTEE_REPORT_PAGES_PER_PDF, 1, 1);
     expect(generateCommitteeReportHTMLChunks(report)).toEqual([generateCommitteeReportHTML(report)]);
     expect(generateCommitteeReportHTMLChunks([])).toEqual([generateCommitteeReportHTML([])]);
+  });
+
+  it('refuses a report over the page limit, and prints one at the limit', () => {
+    expect(generateCommitteeReportHTMLChunks(syntheticCommittees(COMMITTEE_REPORT_MAX_PAGES, 1, 1))).toHaveLength(
+      Math.ceil(COMMITTEE_REPORT_MAX_PAGES / COMMITTEE_REPORT_PAGES_PER_PDF),
+    );
+    expect(() => generateCommitteeReportHTMLChunks(syntheticCommittees(COMMITTEE_REPORT_MAX_PAGES + 1, 1, 1))).toThrow(
+      `This committee report would be ${COMMITTEE_REPORT_MAX_PAGES + 1} pages, over the ${COMMITTEE_REPORT_MAX_PAGES}-page limit`,
+    );
   });
 
   it('splits at the production slice size by default', () => {
