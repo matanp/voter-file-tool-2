@@ -28,10 +28,14 @@ all with test accounts filtered out:
 3. Pageviews by section (first path segment)
 4. Rage clicks by section (open a bar → View recordings)
 5. Report jobs by type: requested / completed / failed / downloaded
-6. Committee member adds by outcome
+6. Committee changes by outcome (Admin adds and removals, Submissions, Exit Reports)
 7. Record searches and % with no results
 8. Exceptions and failed actions per week
 9. Signed-in user lifecycle
 
 Tiles 5–8 stay empty until the 08/09 events reach production (after deploy). Not done: a saved replay playlist
 for rage clicks. Make one during the next break-it session (05) so its recordings outlive retention.
+
+2026-11-22: Tile 6 renamed to "Committee changes by outcome". It now has four series, `committee_member_added`,
+`submission_created`, `committee_member_removed` and `exit_report_submitted`, after 08's events were split by
+domain term.

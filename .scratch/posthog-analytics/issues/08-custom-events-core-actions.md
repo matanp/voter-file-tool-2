@@ -92,4 +92,4 @@ check found the trailing-slash event loss fixed in 11.
 2026-11-22: Review of PR #181. Split the committee events by domain term (see the table above): Submissions and
 Exit Reports no longer count as adds and removals. Event properties now use `RemovalReason` / `ExitReportKind`
 types. Added `format` to `report_downloaded`. `petition_action` is tracked at the one submit point. The
-"App usage" dashboard's committee tile (12) counts only Admin adds now; it needs a Submissions series.
+"App usage" dashboard's committee tile (12) shows all four committee events.
