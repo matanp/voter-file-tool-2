@@ -35,7 +35,8 @@ import PDFObjectCopier from 'pdf-lib/cjs/core/PDFObjectCopier';
  * It also assumes, without checking, more of what Chrome writes today: each element's attribute
  * dicts are its own (a shared one would get its /Headers prefixed twice); element IDs are plain
  * ASCII (the prefixed strings are written unescaped); the Document element's /Lang is a direct
- * value; and every slice has /ParentTreeNextKey. After a Chrome upgrade, regenerate the test
+ * value; and a slice without /ParentTreeNextKey has keys only below its page count (the next
+ * slice's keys start after it). After a Chrome upgrade, regenerate the test
  * fixtures so pdfMerge.test.ts compares the merge with what the new Chrome writes.
  */
 export async function mergeTaggedPdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
