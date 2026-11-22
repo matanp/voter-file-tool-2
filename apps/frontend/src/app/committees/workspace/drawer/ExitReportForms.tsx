@@ -250,15 +250,18 @@ export function ReportExitForm({
   const staged = isResignation ? stagedLetterOf(letter) : null;
   const send = () => {
     setConfirming(false);
+    const { kind } = input;
     void run(async () => {
       const after = letterAfterSubmit(letter, await submitExitReport(action, input, staged));
       setLetter(after.letter);
       return after.outcome;
     }).then((submitFailure) => {
-      track("committee_member_removed", {
-        flow: "report",
+      // Sending is blocked until a kind is chosen (exitReportProblems).
+      if (kind === "") return;
+      track("exit_report_submitted", {
+        kind,
         outcome: outcomeOf(submitFailure),
-        reason: input.kind === "RESIGNATION" ? "RESIGNATION" : input.reason,
+        reason: kind === "REMOVAL" && input.reason !== "" ? input.reason : null,
       });
     });
   };

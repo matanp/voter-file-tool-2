@@ -6,6 +6,9 @@ const mockReset = jest.fn<void, []>();
 const mockRegister = jest.fn<void, unknown[]>();
 const mockUseSession = jest.fn<unknown, []>();
 
+/** PostHog's persisted `$user_state`, which survives reloads. */
+let mockUserState: "anonymous" | "identified" = "anonymous";
+
 jest.mock("posthog-js", () => {
   const client = {
     /** Configs passed to init (it runs at import, before test-scope consts exist). */
@@ -16,12 +19,16 @@ jest.mock("posthog-js", () => {
       config.loaded?.(client);
     },
     identify: (...args: unknown[]) => {
+      mockUserState = "identified";
       mockIdentify(...args);
     },
+    get_property: (name: string) =>
+      name === "$user_state" ? mockUserState : undefined,
     register_for_session: (...args: unknown[]) => {
       mockRegisterForSession(...args);
     },
     reset: () => {
+      mockUserState = "anonymous";
       mockReset();
     },
     register: (...args: unknown[]) => {
@@ -67,6 +74,7 @@ describe("CSPostHogProvider", () => {
     mockIdentify.mockClear();
     mockRegisterForSession.mockClear();
     mockReset.mockClear();
+    mockUserState = "anonymous";
   });
 
   it("does not re-identify when a refetch returns an equal session", () => {
@@ -117,6 +125,28 @@ describe("CSPostHogProvider", () => {
     mockUseSession.mockReturnValue(authed());
     rerender(<Provider>x</Provider>);
     expect(mockIdentify).toHaveBeenCalledTimes(2);
+  });
+
+  it("resets a person whose session expired between visits", () => {
+    // Identified on an earlier visit; the session expired before this load.
+    mockUserState = "identified";
+    mockUseSession.mockReturnValue({ status: "unauthenticated", data: null });
+    const { rerender } = render(<Provider>x</Provider>);
+    expect(mockReset).toHaveBeenCalledTimes(1);
+
+    rerender(<Provider>x</Provider>);
+    expect(mockReset).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reset again after signOutEverywhere already did", () => {
+    mockUseSession.mockReturnValue(authed());
+    const { rerender } = render(<Provider>x</Provider>);
+
+    // signOutEverywhere({ redirect: false }) resets, then the session ends.
+    jest.requireMock<{ default: { reset: () => void } }>("posthog-js").default.reset();
+    mockUseSession.mockReturnValue({ status: "unauthenticated", data: null });
+    rerender(<Provider>x</Provider>);
+    expect(mockReset).toHaveBeenCalledTimes(1);
   });
 
   it("does not reset anonymous visitors", () => {

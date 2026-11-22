@@ -723,8 +723,6 @@ describe("CommitteeActionDrawer: Admin add", () => {
     });
     expect(captured("committee_member_added")).toEqual([
       {
-        flow: "add",
-        mode: "add",
         outcome: "success",
         override_used: false,
         ms_in_flow: expect.any(Number) as unknown,
@@ -984,6 +982,15 @@ describe("CommitteeActionDrawer: submission roles", () => {
       title: "Success",
       description: "Submitted your request for approval",
     });
+    // A Submission is not a member yet.
+    expect(captured("committee_member_added")).toEqual([]);
+    expect(captured("submission_created")).toEqual([
+      {
+        replacement: false,
+        outcome: "success",
+        ms_in_flow: expect.any(Number) as unknown,
+      },
+    ]);
   });
 
   it("submits a replacement with the occupant as the target, even on a full committee", async () => {
@@ -1028,6 +1035,9 @@ describe("CommitteeActionDrawer: submission roles", () => {
       addMemberId: "V-JANE",
       removeMemberId: "V-SEATED",
     });
+    expect(captured("submission_created")).toEqual([
+      expect.objectContaining({ replacement: true, outcome: "success" }),
+    ]);
   });
 
   it("offers no action to ReadAccess", () => {
@@ -1217,6 +1227,9 @@ describe("CommitteeActionDrawer: record resignation", () => {
       resignationDateReceived: "2026-10-01",
       resignationMethod: "MAIL",
     });
+    expect(captured("committee_member_removed")).toEqual([
+      { flow: "resign", outcome: "success", reason: "RESIGNATION" },
+    ]);
   });
 });
 
@@ -1537,6 +1550,11 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
       resignationDateReceived: "2026-10-29",
       resignationMethod: "EMAIL",
     });
+    // The member stays ACTIVE until an Admin confirms the Exit Report.
+    expect(captured("committee_member_removed")).toEqual([]);
+    expect(captured("exit_report_submitted")).toEqual([
+      { kind: "RESIGNATION", outcome: "success", reason: null },
+    ]);
   });
 
   it("asks for a reason again when the Leader switches from resignation to removal", async () => {
@@ -1621,6 +1639,9 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
       kind: "REMOVAL",
       removalReason: "DECEASED",
     });
+    expect(captured("exit_report_submitted")).toEqual([
+      { kind: "REMOVAL", outcome: "success", reason: "DECEASED" },
+    ]);
   });
 
   it("keeps submission blocked when the current instructions cannot be loaded", async () => {

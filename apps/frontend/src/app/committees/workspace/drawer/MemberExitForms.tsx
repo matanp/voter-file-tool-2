@@ -267,7 +267,7 @@ export function RemoveMemberForm({
     track("committee_member_removed", {
       flow: "remove",
       outcome: outcomeOf(submitFailure),
-      reason: input.reason,
+      reason: input.reason === "" ? null : input.reason,
     });
   };
 

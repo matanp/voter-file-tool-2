@@ -1,3 +1,4 @@
+import type { ExitReportKind, RemovalReason } from "@prisma/client";
 import posthog from "posthog-js";
 import {
   getPrismaReportType,
@@ -41,22 +42,41 @@ export interface AnalyticsEvents {
     /** Top-level page, e.g. `recordsearch`, `petitions`. */
     from: string;
   };
-  /** The committee workspace's add / replace / submit-candidate flow finished. */
+  /** An Admin's direct add to a committee resolved. */
   committee_member_added: {
-    flow: "add" | "replace";
-    /** `add`: an Admin adds directly. `submit`: a request for approval. */
-    mode: "add" | "submit";
     outcome: ActionOutcomeKind;
     override_used: boolean;
     /** From opening the flow to the server's answer. */
     ms_in_flow: number;
   };
-  /** A removal, resignation or Leader exit report was submitted. */
-  committee_member_removed: {
-    flow: "remove" | "resign" | "report";
+  /**
+   * A Submission was sent for an Admin to accept or reject. The candidate is
+   * not a member yet, so this is not `committee_member_added`.
+   */
+  submission_created: {
+    /** True when the Submission names a member to replace. */
+    replacement: boolean;
     outcome: ActionOutcomeKind;
-    /** The removal reason / report kind code. */
-    reason: string;
+    /** From opening the flow to the server's answer. */
+    ms_in_flow: number;
+  };
+  /** An Admin removed a member or recorded their resignation. */
+  committee_member_removed: {
+    flow: "remove" | "resign";
+    outcome: ActionOutcomeKind;
+    /** The removal reason, or `RESIGNATION`. Null only if none was chosen. */
+    reason: RemovalReason | "RESIGNATION" | null;
+  };
+  /**
+   * A Leader's Exit Report was sent for an Admin to confirm or reject. The
+   * member stays ACTIVE until confirmed, so this is not
+   * `committee_member_removed`.
+   */
+  exit_report_submitted: {
+    kind: ExitReportKind;
+    outcome: ActionOutcomeKind;
+    /** The removal reason, for a `REMOVAL` report. */
+    reason: RemovalReason | null;
   };
   report_requested: ReportProps;
   report_completed: ReportProps & { ms_since_request: number | null };
@@ -64,6 +84,9 @@ export interface AnalyticsEvents {
   /** A finished report was downloaded or opened from /reports. */
   report_downloaded: {
     report_type: string;
+    /** The file's extension, e.g. `pdf`, `xlsx`. */
+    format: string | null;
+    /** Saved to disk, or opened in a new tab. */
     via: "download" | "view";
     ms_since_request: number | null;
   };

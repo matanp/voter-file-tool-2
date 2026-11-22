@@ -46,3 +46,8 @@ developer email: one per local database reset. The test-account filter (07) excl
 
 Not yet checked against the live PostHog project. After deploy, check that new anonymous visitors don't appear
 in Persons.
+
+2026-11-22: Review of PR #181 found that the provider reset relied on an in-memory ref, so a session that expired
+between visits (reload while signed out) kept the old distinct id. The provider now resets whenever the session
+is `unauthenticated` and PostHog's persisted `$user_state` is `identified`. That also stops a second reset after
+`signOutEverywhere({ redirect: false })`. Two new cases in `PostHog.test.tsx`.

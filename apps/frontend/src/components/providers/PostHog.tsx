@@ -78,12 +78,17 @@ export function CSPostHogProvider({ children }: { children: React.ReactNode }) {
   const lastIdentified = useRef<string | null>(null);
 
   useEffect(() => {
-    // The session ended without signOutEverywhere (e.g. it expired, or the
-    // sign-out didn't reload the page). Reset so later anonymous events don't
-    // attach to the person who just left, and so the next sign-in identifies.
-    if (status === "unauthenticated" && lastIdentified.current !== null) {
+    if (status === "unauthenticated") {
+      // So the next sign-in identifies, even as the same user.
       lastIdentified.current = null;
-      posthog.reset();
+      // The session ended without signOutEverywhere, e.g. it expired between
+      // visits. Reset so later anonymous events don't attach to the person
+      // who left. Ask PostHog rather than a ref: its identified state
+      // persists across reloads, and after signOutEverywhere it is already
+      // anonymous, so this doesn't reset twice.
+      if (posthog.get_property("$user_state") === "identified") {
+        posthog.reset();
+      }
       return;
     }
     if (status !== "authenticated" || !session.user?.id) return;

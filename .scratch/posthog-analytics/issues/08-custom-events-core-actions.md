@@ -46,21 +46,28 @@ counts.
 |---|---|---|
 | `record_search_performed` | `RecordsList` (main search) | `mode`, `criteria_fields`, `result_count`, `duration_ms`, `outcome` |
 | `voter_details_opened` | `VoterRecordTable` popover | `from` (first path segment) |
-| `committee_member_added` | `AddMemberFlow` | `flow` (add/replace), `mode` (add/submit), `outcome`, `override_used`, `ms_in_flow` |
-| `committee_member_removed` | Remove / resignation / Leader exit report forms | `flow` (remove/resign/report), `outcome`, `reason` |
+| `committee_member_added` | `AddMemberFlow`, Admin direct add | `outcome`, `override_used`, `ms_in_flow` |
+| `submission_created` | `AddMemberFlow`, Submission (add or replace) | `replacement`, `outcome`, `ms_in_flow` |
+| `committee_member_removed` | Admin remove / record resignation forms | `flow` (remove/resign), `outcome`, `reason` |
+| `exit_report_submitted` | Leader Exit Report form | `kind` (RESIGNATION/REMOVAL), `outcome`, `reason` (removals only) |
 | `report_requested` | All 5 generateReport forms | `report_type` (Prisma `ReportType`), `report_key`, `format` |
 | `report_completed` / `report_failed` | `ReportStatusTracker` (once per job) | same + `ms_since_request` |
-| `report_downloaded` | `ReportCard` download / view on /reports | `report_type`, `via`, `ms_since_request` |
+| `report_downloaded` | `ReportCard` download / view on /reports | `report_type`, `format`, `via`, `ms_since_request` |
 | `petition_action` | Petition outcomes record | `action`, `outcome`, `candidate_count` |
 | `admin_import_run` | `XlsxUploadCard` (weighted table, crosswalk) | `import_type`, `outcome` |
 
 Differences from the table above:
 
-- `flow` + `mode` replace the `add/replace/candidate` flow values, because a replacement is always a submission.
+- A Submission's candidate isn't a member and an Exit Report's member stays ACTIVE until an Admin acts
+  (CONTEXT.md), so they get their own events, `submission_created` and `exit_report_submitted`, instead of
+  `committee_member_added` / `committee_member_removed`. A replacement is always a Submission.
 - `committee_member_added` has no `error_code`. `action_failed` (09) has the code for each failure.
 - `report_completed` is added, so request → complete/fail is a funnel.
+- `report_failed` has no `error_code`: a failed job sends only a free-text message, which can quote voter data.
+- `report_downloaded` adds `via` (download / view in a new tab) beside `format`.
 - `report_downloaded` covers /reports only. Form links and auto-downloads after generation count as
   `report_completed`.
+- `petition_action`'s `candidate_count` counts candidates with a Voter ID, the ones sent.
 - `admin_import_run` has no `row_count`, because the import responses don't share a shape. Voter import is a
   report job, so it shows as `report_requested` with `report_key: voterImport`.
 - `record_search_performed` covers /recordsearch only, not the embedded search forms (petitions, committees
@@ -72,9 +79,17 @@ Differences from the table above:
 - `global-error.tsx` was added in review, so root-layout errors reach PostHog and Sentry as well.
 
 Tests: `__tests__/lib/analytics.test.ts`, `components/recordsearch/RecordsList.analytics.test.tsx`,
-`components/reports/ReportStatusTracker.analytics.test.tsx`, and event assertions in
-`components/committees/CommitteeActionDrawer.test.tsx` (add with ineligible → error → success outcomes, remove).
+`components/reports/ReportStatusTracker.analytics.test.tsx`, `components/reports/ReportCard.analytics.test.tsx`,
+`components/admin/XlsxUploadCard.analytics.test.tsx`, petition cases in
+`components/admin/petition-outcomes/PetitionOutcomesClient.test.tsx`, and event assertions in
+`components/committees/CommitteeActionDrawer.test.tsx` (Admin add with ineligible → error → success, Submission,
+replacement, remove, record resignation, both Exit Report kinds).
 
 Checked in local dev against PostHog: a synthetic record search produced `record_search_performed`
 (`["firstName","lastName"]`, 15 results, `qa_agent: true`) and `voter_details_opened`. That
 check found the trailing-slash event loss fixed in 11.
+
+2026-11-22: Review of PR #181. Split the committee events by domain term (see the table above): Submissions and
+Exit Reports no longer count as adds and removals. Event properties now use `RemovalReason` / `ExitReportKind`
+types. Added `format` to `report_downloaded`. `petition_action` is tracked at the one submit point. The
+"App usage" dashboard's committee tile (12) counts only Admin adds now; it needs a Submissions series.

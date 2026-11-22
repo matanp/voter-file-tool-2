@@ -89,22 +89,12 @@ export function PetitionOutcomesClient({
       }>;
     }
   >("/api/admin/petition-outcomes/record", "POST", {
-    onSuccess: (_data, payload) => {
-      track("petition_action", {
-        action: "record_outcome",
-        outcome: "success",
-        candidate_count: payload?.candidates.length ?? 0,
-      });
+    onSuccess: () => {
       toast({ title: "Outcome recorded" });
       setShowConfirm(false);
       setCandidates([]);
     },
     onError: (err: Error) => {
-      track("petition_action", {
-        action: "record_outcome",
-        outcome: "error",
-        candidate_count: candidates.length,
-      });
       toast({
         title: "Error",
         description: err.message,
@@ -206,17 +196,29 @@ export function PetitionOutcomesClient({
     ) {
       return;
     }
-    void recordMutation.mutate({
-      committeeListId,
-      termId: activeTermId,
-      seatNumber,
-      primaryDate: primaryDate.trim(),
-      candidates: filled.map((c) => ({
-        voterRecordId: c.voterRecordId.trim(),
-        voteCount: c.voteCount,
-        outcome: c.outcome,
-      })),
-    });
+    const trackOutcome = (outcome: "success" | "error") =>
+      track("petition_action", {
+        action: "record_outcome",
+        outcome,
+        candidate_count: filled.length,
+      });
+    recordMutation
+      .mutate({
+        committeeListId,
+        termId: activeTermId,
+        seatNumber,
+        primaryDate: primaryDate.trim(),
+        candidates: filled.map((c) => ({
+          voterRecordId: c.voterRecordId.trim(),
+          voteCount: c.voteCount,
+          outcome: c.outcome,
+        })),
+      })
+      .then(
+        () => trackOutcome("success"),
+        // onError already told the user.
+        () => trackOutcome("error"),
+      );
   }, [
     candidates,
     committeeListId,

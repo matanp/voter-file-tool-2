@@ -164,6 +164,8 @@ const ReportCard: React.FC<ReportCardProps> = ({
   const trackOpened = (via: "download" | "view") => {
     track("report_downloaded", {
       report_type: report.ReportType,
+      // Lowercase, as report_requested's format is.
+      format: getFileType(report).toLowerCase(),
       via,
       ms_since_request: report.requestedAt
         ? Date.now() - new Date(report.requestedAt).getTime()

@@ -183,13 +183,21 @@ export function AddMemberFlow({
         ...(overriding ? { overrideReason: details.overrideReason } : {}),
       }),
     );
-    track("committee_member_added", {
-      flow: action.kind === "replace-member" ? "replace" : "add",
-      mode,
-      outcome: outcomeOf(submitFailure),
-      override_used: overriding,
-      ms_in_flow: Date.now() - openedAt.current,
-    });
+    const outcome = outcomeOf(submitFailure);
+    const msInFlow = Date.now() - openedAt.current;
+    if (isAdd) {
+      track("committee_member_added", {
+        outcome,
+        override_used: overriding,
+        ms_in_flow: msInFlow,
+      });
+    } else {
+      track("submission_created", {
+        replacement: action.kind === "replace-member",
+        outcome,
+        ms_in_flow: msInFlow,
+      });
+    }
     if (!submitFailure) return;
     // A step-3 field the endpoint rejected goes back to step 3, beside its field.
     const errors =

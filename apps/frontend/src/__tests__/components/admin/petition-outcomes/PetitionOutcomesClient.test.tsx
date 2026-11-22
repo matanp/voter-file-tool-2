@@ -1,9 +1,15 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PetitionOutcomesClient } from "~/app/admin/petition-outcomes/PetitionOutcomesClient";
 
 const mutateMock = jest.fn().mockResolvedValue(undefined);
+
+const mockCapture = jest.fn<void, unknown[]>();
+jest.mock("posthog-js", () => ({
+  __esModule: true,
+  default: { capture: (...args: unknown[]) => mockCapture(...args) },
+}));
 
 jest.mock("~/hooks/useApiMutation", () => ({
   useApiMutation: () => ({
@@ -209,5 +215,61 @@ describe("PetitionOutcomesClient seat picker (SRS P1 revision)", () => {
     );
 
     expect(screen.getByRole("button", { name: "Record outcome" })).toBeDisabled();
+  });
+});
+
+describe("PetitionOutcomesClient analytics", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  /** Fills one candidate plus a blank row, and confirms. */
+  async function recordOutcome() {
+    render(
+      <PetitionOutcomesClient
+        activeTermId="term-1"
+        termLabel="2024–2026"
+        committeeLists={buildCommitteeList([
+          { id: "seat-1", seatNumber: 1, petitionOutcomeRecordedAt: null },
+        ])}
+      />,
+    );
+    await userEvent.selectOptions(screen.getByLabelText("Committee"), "1");
+    await userEvent.selectOptions(screen.getByLabelText("Seat"), "1");
+    await userEvent.type(screen.getByLabelText("Primary date"), "2026-06-23");
+    const addCandidate = screen.getByRole("button", { name: "Add candidate" });
+    await userEvent.click(addCandidate);
+    await userEvent.click(addCandidate);
+    await userEvent.type(screen.getAllByPlaceholderText("VRCNUM")[0]!, "TEST000001");
+    await userEvent.selectOptions(
+      screen.getAllByDisplayValue("Lost primary")[0]!,
+      "WON_PRIMARY",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Record outcome" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record outcome" }));
+  }
+
+  it("records a successful outcome with the filled candidate count", async () => {
+    await recordOutcome();
+    await waitFor(() =>
+      expect(mockCapture).toHaveBeenCalledWith("petition_action", {
+        action: "record_outcome",
+        outcome: "success",
+        candidate_count: 1,
+      }),
+    );
+  });
+
+  it("records a failed outcome with the same count", async () => {
+    mutateMock.mockRejectedValueOnce(new Error("Seat already recorded"));
+    await recordOutcome();
+    await waitFor(() =>
+      expect(mockCapture).toHaveBeenCalledWith("petition_action", {
+        action: "record_outcome",
+        outcome: "error",
+        candidate_count: 1,
+      }),
+    );
   });
 });
