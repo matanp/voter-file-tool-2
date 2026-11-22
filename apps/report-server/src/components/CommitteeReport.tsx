@@ -99,10 +99,16 @@ interface CommitteeReportProps {
    * When omitted (ldCommittees), the legacy columns render unchanged.
    */
   columns?: CommitteeRosterColumn[];
+  /**
+   * Render only pages [start, end) of the paginated report, still numbered
+   * "Page N of M" against the whole report. Lets a large report be printed in
+   * several smaller PDFs (see generateCommitteeReportHTMLChunks).
+   */
+  pageRange?: { start: number; end: number };
 }
 
 const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
-  ({ groupedCommittees, columns }, ref) => {
+  ({ groupedCommittees, columns, pageRange }, ref) => {
     const pages = paginateCommittees(groupedCommittees);
     const rosterColumns = columns
       ? COMMITTEE_ROSTER_COLUMN_ORDER.filter((column) => columns.includes(column))
@@ -122,12 +128,16 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
       rosterColumns ? { [`data-committee-${name}`]: '' } : {};
 
     const numPages = pages.length;
+    const firstPage = pageRange?.start ?? 0;
+    const shownPages = pageRange
+      ? pages.slice(pageRange.start, pageRange.end)
+      : pages;
 
     return (
       <div ref={ref}>
-        {pages.map((page, pageIndex) => (
+        {shownPages.map((page, i) => (
           <div
-            key={pageIndex}
+            key={firstPage + i}
             {...hook('page')}
             className={`w-[11in] h-[8.5in] p-8 font-sans bg-white mx-auto${
               rosterColumns ? ' overflow-hidden break-after-page' : ''
@@ -277,7 +287,7 @@ const CommitteeReport = React.forwardRef<HTMLDivElement, CommitteeReportProps>(
                   })}
                 </p>
                 <p {...hook('page-number')} className="ml-auto mr-4">
-                  Page {pageIndex + 1} of {numPages}
+                  Page {firstPage + i + 1} of {numPages}
                 </p>
               </div>
             </div>

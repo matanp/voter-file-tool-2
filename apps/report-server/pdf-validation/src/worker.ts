@@ -123,7 +123,7 @@ async function run(job: WorkerJob): Promise<void> {
   const fixture = fixtureById(job.fixtureId);
   const buildStart = performance.now();
   const call = withFrozenClock(RENDER_CONTEXT.now, () => buildPdfCall(fixture.input, d));
-  await send({ type: 'html', bytes: Buffer.byteLength(call.html), buildMs: Math.round(performance.now() - buildStart) });
+  await send({ type: 'html', bytes: [call.html].flat().reduce((sum, html) => sum + Buffer.byteLength(html), 0), buildMs: Math.round(performance.now() - buildStart) });
 
   if (job.scenario) {
     // The same module instance dist/utils calls at call time: `(0, s3Utils_1.uploadFileToR2)(...)`.
