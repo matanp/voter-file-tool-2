@@ -862,5 +862,420 @@
       "acceptedAt": "2026-11-21T01:10:50.357Z"
     }
   ],
-  "thresholds": []
+  "thresholds": [
+    {
+      "fixtureId": "changes-200",
+      "fixtureHash": "d68af90938aa714c073e68e33ad5c5cc526709841a2c72e1e2959b147bf3e1cc",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 451726,
+      "measured": {
+        "medianKb": 409940,
+        "maxKb": 410660,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "changes-200",
+      "fixtureHash": "d68af90938aa714c073e68e33ad5c5cc526709841a2c72e1e2959b147bf3e1cc",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 601102,
+      "measured": {
+        "medianKb": 536612,
+        "maxKb": 546456,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "legacy-large-800x4",
+      "fixtureHash": "c39b62da306c266f5f039d69d17a8e93308d7fcc37d0ef6b63591d7015cc1453",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 522940,
+      "measured": {
+        "medianKb": 471780,
+        "maxKb": 475400,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "legacy-large-800x4",
+      "fixtureHash": "c39b62da306c266f5f039d69d17a8e93308d7fcc37d0ef6b63591d7015cc1453",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 712396,
+      "measured": {
+        "medianKb": 639336,
+        "maxKb": 647632,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "outcomes-200",
+      "fixtureHash": "717d62a4e037076eee043db7a3e31ee436e1df7b5490090b1554e5526bb0cb59",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 439719,
+      "measured": {
+        "medianKb": 399600,
+        "maxKb": 399744,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "outcomes-200",
+      "fixtureHash": "717d62a4e037076eee043db7a3e31ee436e1df7b5490090b1554e5526bb0cb59",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 593006,
+      "measured": {
+        "medianKb": 533148,
+        "maxKb": 539096,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "petition-10-long",
+      "fixtureHash": "18fc4d6e801fb991eb1ba84eabb6d454a479f77af6336e2531bce332f03bf310",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 421749,
+      "measured": {
+        "medianKb": 380264,
+        "maxKb": 383408,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "petition-10-long",
+      "fixtureHash": "18fc4d6e801fb991eb1ba84eabb6d454a479f77af6336e2531bce332f03bf310",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 557005,
+      "measured": {
+        "medianKb": 505604,
+        "maxKb": 506368,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "roster-ed45-split",
+      "fixtureHash": "b67083ef6aa04a66c1d21df3d9117a2430cb968b365bd13af53f6cfff6d2e426",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 399512,
+      "measured": {
+        "medianKb": 361300,
+        "maxKb": 363192,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "roster-ed45-split",
+      "fixtureHash": "b67083ef6aa04a66c1d21df3d9117a2430cb968b365bd13af53f6cfff6d2e426",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 533219,
+      "measured": {
+        "medianKb": 478168,
+        "maxKb": 484744,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "roster-large-800x4",
+      "fixtureHash": "c586ccb50701a0768a3746980b5f7db68eb4dbba401b8d27374d200025bd5d6b",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 484502,
+      "measured": {
+        "medianKb": 436848,
+        "maxKb": 440456,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "roster-large-800x4",
+      "fixtureHash": "c586ccb50701a0768a3746980b5f7db68eb4dbba401b8d27374d200025bd5d6b",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 656564,
+      "measured": {
+        "medianKb": 587008,
+        "maxKb": 596876,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "signin-151",
+      "fixtureHash": "3736e80905c4b663f4967ca22093018f722cd4e9dc731b56277a8ead25be9a0c",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 432173,
+      "measured": {
+        "medianKb": 390504,
+        "maxKb": 392884,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "signin-151",
+      "fixtureHash": "3736e80905c4b663f4967ca22093018f722cd4e9dc731b56277a8ead25be9a0c",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 578244,
+      "measured": {
+        "medianKb": 523480,
+        "maxKb": 525676,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "vacancy-200",
+      "fixtureHash": "6dccb49aa7ef88613f1583c7eb7c1b5c2578b8c21c4b065e2ff40c87afcf55a3",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 436392,
+      "measured": {
+        "medianKb": 393736,
+        "maxKb": 396720,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "vacancy-200",
+      "fixtureHash": "6dccb49aa7ef88613f1583c7eb7c1b5c2578b8c21c4b065e2ff40c87afcf55a3",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 582490,
+      "measured": {
+        "medianKb": 524392,
+        "maxKb": 529536,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "weights-200",
+      "fixtureHash": "84fc059084e78c66d1f87c526b8fa47a423a99713b90eb1981ef6de07768f28c",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "chromePeakKb",
+      "maxKb": 464918,
+      "measured": {
+        "medianKb": 421460,
+        "maxKb": 422652,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    },
+    {
+      "fixtureId": "weights-200",
+      "fixtureHash": "84fc059084e78c66d1f87c526b8fa47a423a99713b90eb1981ef6de07768f28c",
+      "browser": "chrome",
+      "browserBuildId": "131.0.6778.204",
+      "metric": "harnessPeakKb",
+      "maxKb": 617972,
+      "measured": {
+        "medianKb": 560744,
+        "maxKb": 561792,
+        "repetitions": 3
+      },
+      "headroomPct": 10,
+      "sourceRunId": "20261122T042305Z-zrq5wq",
+      "reviewer": "Matan",
+      "approvedAt": "2026-11-22T05:57:33.745Z",
+      "versions": {
+        "browserVersion": "Chrome/131.0.6778.204",
+        "puppeteer": "23.11.1",
+        "deployedCommit": "1d53745ffc72f035532f8a1f8fe1b49aab72582e",
+        "instance": "linux x64, 2 CPU, 945 MB"
+      }
+    }
+  ]
 }
