@@ -12,7 +12,7 @@ row count: 30 units, one per member plus one per ED header. It assumes every row
 
 Real data wraps often:
 - addresses with an apartment number, or a ZIP+4, take two lines;
-- phone numbers break in the narrow Phone column ("(585)232-" / "3934");
+- phone numbers break in the narrow Phone column ("(585)555-" / "0123");
 - names take two lines.
 
 A page with enough wrapped rows is taller than the paper. Its bottom (member rows, the stray table header, "Committee
