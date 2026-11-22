@@ -1,6 +1,6 @@
 # 01 - Neutral page surfaces and quiet headings
 
-Status: ready-for-agent
+Status: resolved
 
 Part of [ui-makeover](../spec.md).
 
@@ -35,3 +35,11 @@ Approved in stakeholder review. Brand colour decided: `--primary` stays green, s
 ### 2026-11-21 - triage
 
 Ready for agent. Dark mode is decided (spec "Decisions"): light-only tokens, no new `dark:` classes. Build order step 2, the first foundation ticket. The prototype commit `158e40bd` on the local `proto/ui-makeover` branch is a reference.
+
+### 2026-11-21 - resolved
+
+Shipped in PR 190, with follow-ups in PR 191.
+- `PageContainer` is `bg-background`. The old `bg-primary-foreground` panel fills use a new `--surface-subtle` token (slate-50, `bg-surface-subtle`).
+- `.section-header` is gone. Its admin uses now use `.primary-header` (`text-lg font-semibold text-foreground`).
+- `CardTitle` defaults to `text-base`. The oversized h2s on `/reports` and `/petitions` match it.
+- `* { border-border }` is in `globals.css`. `--primary-foreground` is white. The dead `.dark` tokens and the `dark:` classes in touched files are removed.

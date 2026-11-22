@@ -1,6 +1,6 @@
 # 04 - Compact table and control density by default
 
-Status: ready-for-agent
+Status: resolved
 
 Blocked by: 01
 
@@ -39,3 +39,17 @@ On `proto/ui-makeover`, changing the `Table` defaults globally (header `h-9`, ce
 ### 2026-11-21 - triage
 
 Ready for agent. Build right after 01, before 03, so the three token and primitive tickets land one at a time.
+
+### 2026-11-21 - resolved
+
+Shipped in PR 190. PR 191 rebuilt it on CSS variables.
+- **Density variables:** `globals.css` holds `--control-h`, `--table-head-h`, `--table-head-px`, `--table-cell-px` and `--table-cell-py`.
+  - Compact values are on `:root, [data-density="compact"]`; comfortable values are on `[data-density="comfortable"]`.
+  - Button (default and icon), Input, SelectTrigger, TableHead and TableCell read them.
+  - Caller classes override them as usual.
+- **Opting in:** either a `data-density` ancestor or `<Table density>`, which sets the attribute on its wrapper. That also sizes the Buttons and Inputs in its cells.
+  - The committee action drawer and the roster tables use comfortable.
+  - A nested `density="compact"` switches back.
+- **Unchanged pixel sizes:** a local browser measured 36/40px controls and 36/48px table headers.
+- **Default vs `sm`:** the default Button and `size="sm"` are both `h-9` now, so they differ only in padding.
+- **Card rule:** "No card in a card" is documented on `Card`.
