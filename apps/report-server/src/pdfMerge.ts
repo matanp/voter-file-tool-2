@@ -31,6 +31,12 @@ import PDFObjectCopier from 'pdf-lib/cjs/core/PDFObjectCopier';
  * It refuses (throws) shapes it doesn't handle rather than writing a wrong tree: a slice
  * without a structure tree, a root that isn't a single Document element, or an object-level
  * /StructParent (links, form fields). Chrome writes none of those for the committee reports.
+ *
+ * It also assumes, without checking, more of what Chrome writes today: each element's attribute
+ * dicts are its own (a shared one would get its /Headers prefixed twice); element IDs are plain
+ * ASCII (the prefixed strings are written unescaped); the Document element's /Lang is a direct
+ * value; and every slice has /ParentTreeNextKey. After a Chrome upgrade, regenerate the test
+ * fixtures so pdfMerge.test.ts compares the merge with what the new Chrome writes.
  */
 export async function mergeTaggedPdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
   if (pdfs.length === 0) throw new Error('mergeTaggedPdfs: no PDFs to merge');

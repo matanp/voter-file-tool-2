@@ -5,15 +5,17 @@
  *   pnpm --filter node-pdf-generation run build:css
  *   cd apps/report-server && npx ts-node src/__tests__/fixtures/tagged-pdf-parts/generate.ts
  *
- * It prints a synthetic 5-page legacy committee report twice, with the production launch and
- * PDF options: whole.pdf in one browser, and part-0..2.pdf as generateCommitteeReportHTMLChunks
+ * It prints a synthetic 5-page committee report twice, with the production launch and PDF
+ * options: whole.pdf in one browser, and part-0..2.pdf as generateCommitteeReportHTMLChunks
  * slices of 2 pages, each in a fresh browser (so, like production, the parts reuse Chrome's
- * element IDs).
+ * element IDs). It does this for the legacy layout and for the roster with every column
+ * (files prefixed `roster-`).
  */
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import puppeteer from 'puppeteer';
+import { COMMITTEE_ROSTER_COLUMN_ORDER } from '../../../committeeRosterConfig';
 import { syntheticCommittees } from '../../helpers/syntheticCommittees';
 
 const PORT = 8798;
@@ -41,8 +43,15 @@ async function main() {
     }
   } as DateConstructor;
   const report = syntheticCommittees(5, 2, 2);
-  const whole = generateCommitteeReportHTML(report);
-  const parts = generateCommitteeReportHTMLChunks(report, undefined, 2);
+  // Legacy (no columns) keeps the original file names; roster (every column) gets a prefix.
+  const modes = [
+    { prefix: '', columns: undefined },
+    { prefix: 'roster-', columns: [...COMMITTEE_ROSTER_COLUMN_ORDER] },
+  ].map(({ prefix, columns }) => ({
+    prefix,
+    whole: generateCommitteeReportHTML(report, columns),
+    parts: generateCommitteeReportHTMLChunks(report, columns, 2),
+  }));
   globalThis.Date = RealDate;
 
   const print = async (html: string) => {
@@ -58,8 +67,12 @@ async function main() {
       await browser.close();
     }
   };
-  fs.writeFileSync(path.join(__dirname, 'whole.pdf'), await print(whole));
-  for (const [i, html] of parts.entries()) fs.writeFileSync(path.join(__dirname, `part-${i}.pdf`), await print(html));
+  for (const { prefix, whole, parts } of modes) {
+    fs.writeFileSync(path.join(__dirname, `${prefix}whole.pdf`), await print(whole));
+    for (const [i, html] of parts.entries()) {
+      fs.writeFileSync(path.join(__dirname, `${prefix}part-${i}.pdf`), await print(html));
+    }
+  }
   server.close();
 }
 

@@ -186,7 +186,12 @@ export async function generatePDFAndUpload(
     parts.push(await withPage(html, (page) => page.pdf(pdfOptions)));
   }
   console.log('merging pdf parts');
-  await uploadPdf(Readable.from([Buffer.from(await mergePdfParts(parts))]), fileName);
+  const merged = await mergePdfParts(parts);
+  // A view over the merged bytes, not a copy: a big report's PDF is already held once.
+  await uploadPdf(
+    Readable.from([Buffer.from(merged.buffer, merged.byteOffset, merged.byteLength)]),
+    fileName,
+  );
 }
 
 /** Launches Chrome, loads `html`, runs `use`, and always closes Chrome. */
