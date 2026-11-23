@@ -30,7 +30,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -322,7 +322,7 @@ function adminSession() {
       user: { id: ADMIN_USER_ID, privilegeLevel: PrivilegeLevel.Admin },
     }),
   );
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 }
 
 function leaderSession() {
@@ -331,7 +331,7 @@ function leaderSession() {
       user: { id: LEADER_USER_ID, privilegeLevel: PrivilegeLevel.Leader },
     }),
   );
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 }
 
 function leaderJurisdictions(
@@ -450,7 +450,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
       },
       (req) => GET(req, routeContext("1")),
       mockAuthSession,
-      mockHasPermission,
+      mockHasPrivilege,
       () => {
         mockCommitteeWithMemberships(mockCommittee({}), []);
         leaderJurisdictions([{ cityTown: "Test City", legDistrict: 1 }]);
@@ -472,7 +472,7 @@ describe("GET /api/committee/[committeeListId]/detail", () => {
       "returns 403 for %s before touching the database",
       async (privilegeLevel) => {
         mockAuthSession(createMockSession({ user: { privilegeLevel } }));
-        mockHasPermission(false);
+        mockHasPrivilege(false);
         const response = await GET(detailRequest(), routeContext("1"));
         await expectErrorResponse(
           response,

@@ -19,7 +19,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "~/components/ui/sheet";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { useToast } from "~/components/ui/use-toast";
 import type { EdRollup } from "~/lib/validations/committee";
 import { capitalize, mockCandidates } from "./mockData";
@@ -58,7 +58,7 @@ export function AddMemberDrawerStub({
     setCandidate(null);
   };
 
-  const isAdmin = hasPermissionFor(role, PrivilegeLevel.Admin);
+  const isAdmin = hasPrivilegeFor(role, PrivilegeLevel.Admin);
   const primaryLabel = isAdmin ? "Add member" : "Submit candidate";
   const c = action?.committee;
   const vacant = c ? c.totalSeats - c.filled : 0;

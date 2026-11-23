@@ -247,7 +247,7 @@ export const XLSXConfigForm: React.FC = () => {
 
       {/* Status Display */}
       {generateReportMutation.loading && (
-        <div className="bg-primary-foreground p-4 rounded-lg">
+        <div className="bg-surface-subtle p-4 rounded-lg">
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
             <span>Generating document...</span>

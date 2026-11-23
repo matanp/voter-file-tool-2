@@ -31,7 +31,7 @@ import type {
   CommitteeAction,
 } from "~/app/committees/workspace/committeeAction";
 import type { CommitteeRef } from "~/lib/committees/committeeRef";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { fetchJsonResponse, installFetchMock } from "../../../utils/mocks";
 import type * as UtilsModule from "~/lib/utils";
 import {
@@ -77,9 +77,9 @@ function sent(): { url: string; body: unknown } {
 
 beforeEach(() => {
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 });
 
@@ -467,6 +467,36 @@ describe("submitCandidate", () => {
       kind: "ineligible",
       reasons: ["CAPACITY"],
     });
+  });
+
+  it("passes a 422's field errors on, first message per field", async () => {
+    respond(
+      {
+        success: false,
+        error: "Invalid request data",
+        fieldErrors: { phone: ["Bad phone", "Second message"], email: ["Bad email"] },
+      },
+      422,
+    );
+    await expect(submitCandidate(ADD, "add", details)).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "Invalid request data",
+      fieldErrors: { phone: "Bad phone", email: "Bad email" },
+    });
+  });
+
+  it.each([
+    ["a field's messages are a string, not an array", { phone: "Bad phone" }],
+    ["fieldErrors is not an object", "phone is bad"],
+    ["fieldErrors is an array", [["phone", "Bad phone"]]],
+    ["fieldErrors is empty", {}],
+    ["every field has no messages", { phone: [] }],
+  ])("returns no fieldErrors when %s", async (_case, fieldErrors) => {
+    respond({ success: false, error: "Invalid request data", fieldErrors }, 422);
+    const outcome = await submitCandidate(ADD, "add", details);
+    expect(outcome).toEqual({ ok: false, kind: "error", message: "Invalid request data" });
+    expect(outcome).not.toHaveProperty("fieldErrors");
   });
 
   it("returns any other failure as an error with the server's message", async () => {

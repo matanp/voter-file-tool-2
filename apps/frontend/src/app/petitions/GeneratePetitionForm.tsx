@@ -194,7 +194,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
       <h1 className="primary-header py-2">Generate Designated Petition</h1>
       <form onSubmit={handleSubmit}>
         <div className="py-2">
-          <h2 className="text-xl py-2">Candidates for the Petition</h2>
+          <h2 className="text-base font-semibold py-2">Candidates for the Petition</h2>
           {candidates.length > 0 && (
             <VoterRecordTable
               records={candidates}
@@ -289,7 +289,7 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
           <p className="text-destructive">{errors.candidates}</p>
         )}
         <div className="py-2">
-          <h2 className="text-xl py-2">Vacancy Appointments</h2>
+          <h2 className="text-base font-semibold py-2">Vacancy Appointments</h2>
           {vacancyAppointments.length > 0 && (
             <VoterRecordTable
               records={vacancyAppointments}

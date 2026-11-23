@@ -10,7 +10,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -22,7 +22,7 @@ describe("/api/committee/eligibility", () => {
         user: { privilegeLevel: PrivilegeLevel.RequestAccess },
       }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     (
       prismaMock as { committeeList: { findUnique: jest.Mock } }
     ).committeeList.findUnique.mockResolvedValue({

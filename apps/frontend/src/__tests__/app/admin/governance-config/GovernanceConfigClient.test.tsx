@@ -4,6 +4,11 @@ import { GovernanceConfigClient } from "~/app/admin/governance-config/Governance
 import { mockJsonResponse } from "../../../utils/testUtils";
 import { installFetchMock } from "../../../utils/mocks";
 
+const toastMock = jest.fn();
+jest.mock("~/components/ui/use-toast", () => ({
+  useToast: () => ({ toast: toastMock }),
+}));
+
 const initialResponse = {
   config: {
     requiredPartyCode: "DEM",
@@ -205,5 +210,96 @@ describe("GovernanceConfigClient", () => {
         screen.getByText("maxSeatsPerLted must be at least 1"),
       ).toBeInTheDocument();
     });
+  });
+  it("treats a successful save with an unreadable body as saved and reloads the settings", async () => {
+    const saved = {
+      ...initialResponse,
+      config: { ...initialResponse.config, maxSeatsPerLted: 6 },
+    };
+    let gets = 0;
+    installFetchMock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (String(input) !== "/api/admin/governance-config") {
+        throw new Error(`Unexpected fetch call: ${method} ${String(input)}`);
+      }
+      if (method === "PATCH") {
+        // A response shape the client doesn't know (e.g. a new enum value).
+        return mockJsonResponse({
+          ...saved,
+          config: { ...saved.config, nonOverridableIneligibilityReasons: ["SOMETHING_NEW"] },
+        });
+      }
+      gets += 1;
+      return mockJsonResponse(gets === 1 ? initialResponse : saved);
+    });
+
+    const user = userEvent.setup();
+    render(<GovernanceConfigClient />);
+
+    const maxSeatsInput = await screen.findByLabelText(/Max seats per LTED/i);
+    await user.clear(maxSeatsInput);
+    await user.type(maxSeatsInput, "6");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm save" }));
+
+    await waitFor(() => expect(gets).toBe(2));
+    await waitFor(() => {
+      expect(screen.getByText("No pending changes.")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText(/Max seats per LTED/i)).toHaveValue(6);
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Governance config saved" }),
+    );
+    expect(toastMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Save failed" }),
+    );
+  });
+  it("shows the load error instead of the form when the settings can't be read", async () => {
+    installFetchMock(async () =>
+      mockJsonResponse({ ...initialResponse, guardrails: undefined }),
+    );
+    render(<GovernanceConfigClient />);
+    expect(
+      await screen.findByText("Could not read the governance settings"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Max seats per LTED/i)).not.toBeInTheDocument();
+  });
+  it("drops the form, not just warns, when a save and the reload after it are both unreadable", async () => {
+    // A value the client doesn't know, as a newer server might send.
+    const unreadable = {
+      ...initialResponse,
+      config: {
+        ...initialResponse.config,
+        maxSeatsPerLted: 6,
+        nonOverridableIneligibilityReasons: ["SOMETHING_NEW"],
+      },
+    };
+    let gets = 0;
+    installFetchMock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "PATCH") return mockJsonResponse(unreadable);
+      gets += 1;
+      return mockJsonResponse(gets === 1 ? initialResponse : unreadable);
+    });
+
+    const user = userEvent.setup();
+    render(<GovernanceConfigClient />);
+
+    const maxSeatsInput = await screen.findByLabelText(/Max seats per LTED/i);
+    await user.clear(maxSeatsInput);
+    await user.type(maxSeatsInput, "6");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm save" }));
+
+    expect(
+      await screen.findByText("Could not read the governance settings"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Max seats per LTED/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Governance config saved" }),
+    );
+    expect(toastMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Save failed" }),
+    );
   });
 });

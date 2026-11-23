@@ -2,7 +2,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { getAdminNavCounts } from "~/app/admin/adminNavCounts";
 import { getActiveTermId } from "~/app/api/lib/committeeValidation";
 import { pendingItemsWhere } from "~/app/api/lib/pendingExitReports";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { mockAuthSession, prismaMock } from "../../../utils/mocks";
 import { createMockSession } from "../../../utils/testUtils";
 
@@ -23,11 +23,11 @@ describe("getAdminNavCounts", () => {
   beforeEach(() => {
     // Real privilege check, so these tests exercise getAdminPageAccess too.
     jest
-      .mocked(hasPermissionFor)
+      .mocked(hasPrivilegeFor)
       .mockImplementation(
-        jest.requireActual<{ hasPermissionFor: typeof hasPermissionFor }>(
+        jest.requireActual<{ hasPrivilegeFor: typeof hasPrivilegeFor }>(
           "~/lib/utils",
-        ).hasPermissionFor,
+        ).hasPrivilegeFor,
       );
     mockActiveTermId.mockReset();
     mockActiveTermId.mockResolvedValue("term-1");

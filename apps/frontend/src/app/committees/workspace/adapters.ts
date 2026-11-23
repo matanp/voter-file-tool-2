@@ -39,7 +39,7 @@ import {
   type StagedLetter,
 } from "~/lib/resignationLetter";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import {
   exitInstructionsResponseSchema,
   type committeeDataSchema,
@@ -74,12 +74,12 @@ export type CandidateSubmissionMode = "add" | "submit";
  */
 export function candidateSubmissionMode(
   action: CandidateAction,
-  actingPermissions: PrivilegeLevel,
+  actingPrivilege: PrivilegeLevel,
 ): CandidateSubmissionMode | null {
-  if (!hasPermissionFor(actingPermissions, PrivilegeLevel.RequestAccess)) {
+  if (!hasPrivilegeFor(actingPrivilege, PrivilegeLevel.RequestAccess)) {
     return null;
   }
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   if (action.kind === "replace-member") return isAdmin ? null : "submit";
   return isAdmin ? "add" : "submit";
 }

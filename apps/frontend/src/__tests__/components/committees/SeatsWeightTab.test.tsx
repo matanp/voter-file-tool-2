@@ -12,7 +12,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { SeatsWeightTab } from "~/app/committees/workspace/tabs/SeatsWeightTab";
 import { parseLtedWeightInput } from "~/app/committees/workspace/tabs/seats/seatsWeightDisplay";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import type { CommitteeDetailResponse } from "~/lib/validations/committee";
 import { mockJsonResponse } from "../../utils/testUtils";
@@ -21,8 +21,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -136,12 +136,12 @@ function deferred<T>() {
 
 function renderTab(
   detail: CommitteeDetailResponse,
-  actingPermissions: PrivilegeLevel = PrivilegeLevel.Admin,
+  actingPrivilege: PrivilegeLevel = PrivilegeLevel.Admin,
 ) {
   const onRefresh = jest.fn();
   const ui = (d: CommitteeDetailResponse) => (
     <GlobalContext.Provider
-      value={{ actingPermissions, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege, setActingPrivilege: () => undefined }}
     >
       <SeatsWeightTab committeeId={2} detail={d} onRefresh={onRefresh} />
     </GlobalContext.Provider>
@@ -162,9 +162,9 @@ let fetchMock: jest.Mock<Promise<FetchResponse>, [string, RequestInit]>;
 beforeEach(() => {
   jest.clearAllMocks();
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
   fetchMock = jest.fn(async (_input: string, _init: RequestInit) =>
     mockJsonResponse({ success: true }),
@@ -301,7 +301,7 @@ describe("SeatsWeightTab for Admins", () => {
 
 describe("SeatsWeightTab for Leaders", () => {
   it("shows the summary read-only, with no editor or per-seat breakdown", () => {
-    // `actingPermissions` decides, so this also covers a Developer acting as a Leader.
+    // `actingPrivilege` decides, so this also covers a Developer acting as a Leader.
     renderTab(detailWith(), PrivilegeLevel.Leader);
     expect(summary()).toHaveTextContent("Designation weight —");
     expect(summary()).not.toHaveTextContent("LTED weight");

@@ -17,7 +17,7 @@ import { createMockVoterRecord } from "../../utils/testUtils";
 import {
   fetchJsonResponse,
   installFetchMock,
-  mockRealPermissionHierarchy,
+  mockRealPrivilegeHierarchy,
   type FetchMockImpl,
 } from "../../utils/mocks";
 
@@ -89,8 +89,8 @@ async function search(response: FetchMockImpl) {
   renderWithVoterSearchProvider(
     <GlobalContext.Provider
       value={{
-        actingPermissions: PrivilegeLevel.Admin,
-        setActingPermissions: jest.fn(),
+        actingPrivilege: PrivilegeLevel.Admin,
+        setActingPrivilege: jest.fn(),
       }}
     >
       <RecordsList dropdownList={createMockDropdownLists()} />
@@ -101,7 +101,7 @@ async function search(response: FetchMockImpl) {
 
 beforeEach(() => {
   mockCapture.mockClear();
-  mockRealPermissionHierarchy();
+  mockRealPrivilegeHierarchy();
   window.localStorage.clear();
 });
 
@@ -153,8 +153,8 @@ describe("RecordsList analytics", () => {
     renderWithVoterSearchProvider(
       <GlobalContext.Provider
         value={{
-          actingPermissions: PrivilegeLevel.Admin,
-          setActingPermissions: jest.fn(),
+          actingPrivilege: PrivilegeLevel.Admin,
+          setActingPrivilege: jest.fn(),
         }}
       >
         <RecordsList dropdownList={createMockDropdownLists()} />

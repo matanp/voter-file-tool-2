@@ -13,8 +13,7 @@ Source: [QA sweep 2026-11-18](../../qa-sweep-2026-11-18/README.md), findings I10
 
 ## Fix
 
-- "Edit contact info" in the seat menu (Admin; decide whether Leaders get it for their own committees). Writes an
-  audit row.
+- "Edit contact info" in the seat menu, for Admins and for Leaders on their own committees. Writes an audit row.
 - "Withdraw" on the Leader's Pending tab for their own SUBMITTED rows.
 
 ## Open questions
@@ -26,3 +25,9 @@ Source: [QA sweep 2026-11-18](../../qa-sweep-2026-11-18/README.md), findings I10
 
 - [ ] Contact info is editable in place and audited.
 - [ ] A Leader can withdraw their own pending submission.
+
+## Comments
+
+### 2026-11-21
+
+Stakeholder review answered part of the first open question: Leaders must be able to update a member's contact information. Still open: whether a Leader's edit applies directly or waits for Admin approval.

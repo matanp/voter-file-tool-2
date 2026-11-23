@@ -3,7 +3,7 @@
  *
  * Record search is open to ReadAccess, but a voter's committee seat is roster
  * data: only someone who could see that committee's roster may learn it. The
- * scope comes from the caller's real session role (never `actingPermissions`):
+ * scope comes from the caller's real session role (never `actingPrivilege`):
  *
  * - Admin / Developer: every committee.
  * - Leader: committees in their active-term assignments (a null LD covers
@@ -13,7 +13,7 @@
  * Only ACTIVE memberships in the active term count. A voter holds at most one
  * of those (partial unique index), so each record maps to one committee.
  *
- * Developer acting-as never reaches this code: `actingPermissions` is client
+ * Developer acting-as never reaches this code: `actingPrivilege` is client
  * state (GlobalContext/localStorage) and no request carries it, so a Developer
  * acting as ReadAccess still gets every committee here and the page hides the
  * badge. The reverse holds too: a Developer acting as Leader gets every
@@ -28,7 +28,7 @@ import {
   findActiveTerm,
   getUserJurisdictions,
 } from "~/app/api/lib/committeeValidation";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { RecordSearchCommittee } from "~/lib/recordSearch";
 
 /** What the lookup reads from each membership. */
@@ -62,7 +62,7 @@ export async function activeCommitteesForRecords(
   if (
     voterRecordIds.length === 0 ||
     privilegeLevel === undefined ||
-    !hasPermissionFor(privilegeLevel, PrivilegeLevel.Leader)
+    !hasPrivilegeFor(privilegeLevel, PrivilegeLevel.Leader)
   ) {
     return result;
   }

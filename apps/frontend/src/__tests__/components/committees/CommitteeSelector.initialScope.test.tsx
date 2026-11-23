@@ -7,12 +7,12 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import CommitteeSelector from "~/app/committees/CommitteeSelector";
 import { singleCommitteeScope } from "~/app/committees/committeeScope";
-import { mockHasPermission } from "../../utils/mocks";
+import { mockHasPrivilege } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: PrivilegeLevel.Leader,
-    setActingPermissions: () => undefined,
+    actingPrivilege: PrivilegeLevel.Leader,
+    setActingPrivilege: () => undefined,
   }),
 }));
 
@@ -141,7 +141,7 @@ describe("singleCommitteeScope", () => {
 describe("CommitteeSelector initialScope", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockHasPermission(false);
+    mockHasPrivilege(false);
   });
 
   it("opens straight on the town roster with no city picker", async () => {

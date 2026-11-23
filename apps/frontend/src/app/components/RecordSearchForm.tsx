@@ -123,7 +123,7 @@ const RecordSearchForm: React.FC<RecordSearchProps> = ({
     <>
       {headerText && <h1 className="primary-header">{headerText}</h1>}
       <ContainerElement
-        className="w-full max-w-full bg-primary-foreground p-4 sm:w-4/5 lg:w-max"
+        className="w-full max-w-full bg-surface-subtle p-4 sm:w-4/5 lg:w-max"
         {...containerProps}
       >
         {/* Stacked below sm; one row from sm up. */}

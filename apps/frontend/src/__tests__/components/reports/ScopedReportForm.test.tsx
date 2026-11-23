@@ -1,4 +1,7 @@
 import React from "react";
+import { act } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel } from "@prisma/client";
@@ -10,16 +13,17 @@ import {
 import { ScopedReportForm } from "~/components/reports/ScopedReportForm";
 import {
   SCOPE_REPORT_FORM_MESSAGES,
+  defaultScopedReportName,
   last30DaysIsoRange,
 } from "~/components/reports/scopeReportFormSpecs";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { firstCallArg } from "../../utils/testUtils";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: "ReadAccess",
-    setActingPermissions: () => undefined,
+    actingPrivilege: "ReadAccess",
+    setActingPrivilege: () => undefined,
   }),
 }));
 
@@ -147,12 +151,12 @@ function adminCountywidePayload(type: ScopeReportType): Record<string, unknown> 
   }
 }
 
-function renderWithPermissions(
-  actingPermissions: PrivilegeLevel,
+function renderWithActingPrivilege(
+  actingPrivilege: PrivilegeLevel,
   type: ScopeReportType,
   {
     leaderAssignments = [],
-    userPrivilegeLevel = actingPermissions,
+    userPrivilegeLevel = actingPrivilege,
   }: {
     leaderAssignments?: Assignment[];
     userPrivilegeLevel?: PrivilegeLevel;
@@ -161,8 +165,8 @@ function renderWithPermissions(
   return render(
     <GlobalContext.Provider
       value={{
-        actingPermissions,
-        setActingPermissions: jest.fn(),
+        actingPrivilege,
+        setActingPrivilege: jest.fn(),
       }}
     >
       <ScopedReportForm
@@ -180,7 +184,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
 
   beforeEach(() => {
     mutateMock.mockClear();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const order = [
         PrivilegeLevel.Developer,
         PrivilegeLevel.Admin,
@@ -193,7 +197,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
   });
 
   it("leader with one LD assignment submits it without choosing anything", async () => {
-    renderWithPermissions(PrivilegeLevel.Leader, type, {
+    renderWithActingPrivilege(PrivilegeLevel.Leader, type, {
       leaderAssignments: [ROCHESTER_LD_22],
     });
 
@@ -216,7 +220,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
 
   it("leader with several assignments picks one from a dropdown of exactly those", async () => {
     const user = userEvent.setup();
-    renderWithPermissions(PrivilegeLevel.Leader, type, {
+    renderWithActingPrivilege(PrivilegeLevel.Leader, type, {
       leaderAssignments: [ROCHESTER_LD_22, ROCHESTER_LD_23],
     });
 
@@ -247,7 +251,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
   });
 
   it("town-wide leader sends cityTown and no legDistrict", async () => {
-    renderWithPermissions(PrivilegeLevel.Leader, type, {
+    renderWithActingPrivilege(PrivilegeLevel.Leader, type, {
       leaderAssignments: [BRIGHTON_TOWN_WIDE],
     });
 
@@ -265,7 +269,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
   });
 
   it("leader with no assignments sees a message and cannot submit", () => {
-    renderWithPermissions(PrivilegeLevel.Leader, type, {
+    renderWithActingPrivilege(PrivilegeLevel.Leader, type, {
       leaderAssignments: [],
     });
 
@@ -279,7 +283,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
   });
 
   it("developer acting as leader gets the leader form, not admin controls", async () => {
-    renderWithPermissions(PrivilegeLevel.Leader, type, {
+    renderWithActingPrivilege(PrivilegeLevel.Leader, type, {
       userPrivilegeLevel: PrivilegeLevel.Developer,
       leaderAssignments: [ROCHESTER_LD_22],
     });
@@ -298,7 +302,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
   });
 
   it("admin can submit countywide report", async () => {
-    renderWithPermissions(PrivilegeLevel.Admin, type);
+    renderWithActingPrivilege(PrivilegeLevel.Admin, type);
 
     expect(screen.getByText("Countywide")).toBeInTheDocument();
 
@@ -313,7 +317,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
 
   it("requires cityTown when admin selects jurisdiction scope", async () => {
     const user = userEvent.setup();
-    renderWithPermissions(PrivilegeLevel.Admin, type);
+    renderWithActingPrivilege(PrivilegeLevel.Admin, type);
 
     await user.click(screen.getByText("By Jurisdiction"));
     await user.click(screen.getByRole("button", { name: submitLabel }));
@@ -328,7 +332,7 @@ describe.each(SCOPE_REPORT_TYPES)("ScopedReportForm (%s)", (type) => {
 describe("ScopedReportForm type-specific fields", () => {
   beforeEach(() => {
     mutateMock.mockClear();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const order = [
         PrivilegeLevel.Developer,
         PrivilegeLevel.Admin,
@@ -341,7 +345,7 @@ describe("ScopedReportForm type-specific fields", () => {
   });
 
   it("vacancyReport sends vacancyFilter=all when selected", async () => {
-    renderWithPermissions(PrivilegeLevel.Admin, "vacancyReport");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "vacancyReport");
 
     fireEvent.click(screen.getByText("Show all"));
     fireEvent.click(screen.getByRole("button", { name: "Generate Report" }));
@@ -359,7 +363,7 @@ describe("ScopedReportForm type-specific fields", () => {
 
   it("changesReport requires date range before submit", async () => {
     const user = userEvent.setup();
-    renderWithPermissions(PrivilegeLevel.Admin, "changesReport");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "changesReport");
 
     await user.clear(screen.getByLabelText("Start Date"));
     await user.clear(screen.getByLabelText("End Date"));
@@ -371,7 +375,7 @@ describe("ScopedReportForm type-specific fields", () => {
   });
 
   it("signInSheet shows optional meeting name and date fields", () => {
-    renderWithPermissions(PrivilegeLevel.Admin, "signInSheet");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "signInSheet");
 
     expect(
       screen.getByLabelText("Meeting Name (optional)"),
@@ -382,7 +386,7 @@ describe("ScopedReportForm type-specific fields", () => {
   });
 
   it("designationWeightSummary shows format selector defaulting to xlsx", () => {
-    renderWithPermissions(PrivilegeLevel.Admin, "designationWeightSummary");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "designationWeightSummary");
 
     expect(screen.getByLabelText("Format")).toHaveValue("xlsx");
     expect(screen.getByLabelText("Report Name")).toHaveDisplayValue(
@@ -391,7 +395,7 @@ describe("ScopedReportForm type-specific fields", () => {
   });
 
   it("petitionOutcomesReport shows format selector defaulting to xlsx", () => {
-    renderWithPermissions(PrivilegeLevel.Admin, "petitionOutcomesReport");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "petitionOutcomesReport");
 
     expect(screen.getByLabelText("Format")).toHaveValue("xlsx");
     expect(screen.getByLabelText("Report Name")).toHaveDisplayValue(
@@ -406,7 +410,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
 
   beforeEach(() => {
     mutateMock.mockClear();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const order = [
         PrivilegeLevel.Developer,
         PrivilegeLevel.Admin,
@@ -426,7 +430,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
   }
 
   it("shows Name checked and disabled with the XLSX defaults", () => {
-    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "committeeRoster");
 
     expect(screen.getByLabelText("Format")).toHaveValue("xlsx");
     const nameBox = screen.getByLabelText("Name");
@@ -439,7 +443,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
   });
 
   it("sends the XLSX default selection", async () => {
-    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "committeeRoster");
 
     const payload = await submitAndGetPayload();
     expect(payload).toMatchObject({
@@ -453,7 +457,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
 
   it("sends the PDF default selection with Phone checked", async () => {
     const user = userEvent.setup();
-    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "committeeRoster");
 
     await user.selectOptions(screen.getByLabelText("Format"), "pdf");
     expect(screen.getByLabelText("Phone")).toBeChecked();
@@ -468,7 +472,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
 
   it("sends every field in order when all are checked", async () => {
     const user = userEvent.setup();
-    renderWithPermissions(PrivilegeLevel.Leader, "committeeRoster", {
+    renderWithActingPrivilege(PrivilegeLevel.Leader, "committeeRoster", {
       leaderAssignments: [ROCHESTER_LD_22],
     });
 
@@ -492,7 +496,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
 
   it("sends address: false when Address is unchecked", async () => {
     const user = userEvent.setup();
-    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "committeeRoster");
 
     await user.click(screen.getByLabelText("Address"));
 
@@ -510,7 +514,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
 
   it("resets Phone to the format's default when the format changes", async () => {
     const user = userEvent.setup();
-    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "committeeRoster");
     const format = screen.getByLabelText("Format");
     const phone = screen.getByLabelText("Phone");
 
@@ -532,7 +536,7 @@ describe("ScopedReportForm committeeRoster field picker", () => {
 
   it("shows the PDF cut-off note only for PDF with Mailing Address or Email", async () => {
     const user = userEvent.setup();
-    renderWithPermissions(PrivilegeLevel.Admin, "committeeRoster");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "committeeRoster");
     const format = screen.getByLabelText("Format");
 
     await user.click(screen.getByLabelText("Email"));
@@ -553,9 +557,83 @@ describe("ScopedReportForm committeeRoster field picker", () => {
   });
 
   it("does not show the picker on other report types", () => {
-    renderWithPermissions(PrivilegeLevel.Admin, "vacancyReport");
+    renderWithActingPrivilege(PrivilegeLevel.Admin, "vacancyReport");
 
     expect(screen.queryByText("Include")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Mailing Address")).not.toBeInTheDocument();
+  });
+});
+
+describe("ScopedReportForm date-dependent defaults", () => {
+  beforeEach(() => {
+    jest.mocked(hasPrivilegeFor).mockReturnValue(true);
+  });
+
+  function formElement() {
+    return (
+      <GlobalContext.Provider
+        value={{
+          actingPrivilege: PrivilegeLevel.Admin,
+          setActingPrivilege: jest.fn(),
+        }}
+      >
+        <ScopedReportForm
+          type="changesReport"
+          committeeLists={committeeLists}
+          leaderAssignments={[]}
+          userPrivilegeLevel={PrivilegeLevel.Admin}
+        />
+      </GlobalContext.Provider>
+    );
+  }
+
+  it("fills the name and 30-day range with the local date after mount", () => {
+    render(formElement());
+    const { from, to } = last30DaysIsoRange();
+
+    expect(screen.getByLabelText("Report Name")).toHaveValue(
+      defaultScopedReportName("Changes Report"),
+    );
+    expect(screen.getByLabelText("Start Date")).toHaveValue(from);
+    expect(screen.getByLabelText("End Date")).toHaveValue(to);
+  });
+
+  it("hydrates without a mismatch when the server and browser are on different days", async () => {
+    jest.useFakeTimers({ doNotFake: ["queueMicrotask", "nextTick"] });
+    try {
+      // Server renders on Nov 21; the browser's clock says Nov 20.
+      jest.setSystemTime(new Date("2026-11-21T15:00:00Z"));
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(formElement());
+      document.body.appendChild(container);
+
+      jest.setSystemTime(new Date("2026-11-20T15:00:00Z"));
+      // React applies the client's value to controlled inputs during hydration, so the
+      // server's (UTC) date in the name and range must neither error nor stick.
+      const consoleError = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      const recoverableErrors: unknown[] = [];
+      await act(async () => {
+        hydrateRoot(container, formElement(), {
+          onRecoverableError: (error) => recoverableErrors.push(error),
+        });
+      });
+
+      expect(recoverableErrors).toEqual([]);
+      expect(
+        consoleError.mock.calls.filter((args) =>
+          String(args[0]).includes("didn't match"),
+        ),
+      ).toEqual([]);
+      consoleError.mockRestore();
+      expect(container.querySelector("#reportName")).toHaveValue(
+        "Changes Report - November 20, 2026",
+      );
+      expect(container.querySelector("#dateTo")).toHaveValue("2026-11-20");
+      container.remove();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

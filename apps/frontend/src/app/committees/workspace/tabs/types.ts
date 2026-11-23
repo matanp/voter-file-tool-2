@@ -10,7 +10,7 @@ import type { CommitteeActionHandler } from "../committeeAction";
  * Tickets 09–12 each replace only their own tab file and keep its export name;
  * none of them edits the registry, `CommitteeTabs`, or this type.
  *
- * - Role-gated controls inside a tab read `actingPermissions` from
+ * - Role-gated controls inside a tab read `actingPrivilege` from
  *   `GlobalContext` (client visibility only; see skills/auth-check-patterns).
  *   What the caller may *see* is already decided by the server: Admin-only
  *   keys are absent from `detail` for Leaders.

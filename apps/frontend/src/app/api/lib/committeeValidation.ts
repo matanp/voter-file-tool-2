@@ -144,8 +144,11 @@ export async function getUserJurisdictions(
   });
 }
 
-/** Minimal shape used for jurisdiction scope matching (cityTown + legDistrict). */
-export type JurisdictionScope = Pick<UserJurisdiction, "cityTown" | "legDistrict">;
+/**
+ * A Jurisdiction (CONTEXT.md): a city or town, optionally narrowed to one legislative district.
+ * legDistrict null means the whole cityTown.
+ */
+export type Jurisdiction = Pick<UserJurisdiction, "cityTown" | "legDistrict">;
 
 /** cityTown + legDistrict + termId for CommitteeList existence checks. */
 export type JurisdictionPairInput = {
@@ -154,9 +157,9 @@ export type JurisdictionPairInput = {
   termId: string;
 };
 
-/** Formats a user-facing error when no CommitteeList row matches the scope. */
+/** Formats a user-facing error when no CommitteeList row matches the jurisdiction. */
 export function formatJurisdictionNotFoundMessage(
-  input: Pick<JurisdictionPairInput, "cityTown" | "legDistrict">,
+  input: Jurisdiction,
   termLabel: "active term" | "this term" = "this term",
 ): string {
   const scope =
@@ -196,7 +199,7 @@ export async function jurisdictionExistsInCommitteeList(
 export function committeeMatchesJurisdictions(
   cityTown: string,
   legDistrict: number,
-  jurisdictions: JurisdictionScope[],
+  jurisdictions: Jurisdiction[],
 ): boolean {
   return jurisdictions.some(
     (j) =>
@@ -215,7 +218,7 @@ export function committeeMatchesJurisdictions(
  * correct empty result for a Leader with no assignments.
  */
 export function buildJurisdictionWhere(
-  jurisdictions: JurisdictionScope[],
+  jurisdictions: Jurisdiction[],
 ): Prisma.CommitteeListWhereInput {
   return {
     OR: jurisdictions.map((j) => ({
@@ -241,12 +244,12 @@ export async function validateReportJurisdictionAccess(
   userId: string,
   privilegeLevel: PrivilegeLevel,
   reportLabel: string,
-  hasPermissionFor: (
+  hasPrivilegeFor: (
     user: PrivilegeLevel,
     required: PrivilegeLevel,
   ) => boolean,
 ): Promise<ErrorResponse | null> {
-  const isAdmin = hasPermissionFor(privilegeLevel, PrivilegeLevel.Admin);
+  const isAdmin = hasPrivilegeFor(privilegeLevel, PrivilegeLevel.Admin);
 
   if (input.scope === "countywide" && !isAdmin) {
     return {

@@ -11,7 +11,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
   rawQueryMock,
   rawQueryValues,
@@ -68,13 +68,13 @@ describe("/api/admin/weightedTable/import", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     auditCreateMock.mockResolvedValue({} as never);
   });
 
   describe("authorization", () => {
     // The shared generator also emits Developer, which only fails here because
-    // hasPermissionFor is mocked; Developer outranks Admin, so it is left out.
+    // hasPrivilegeFor is mocked; Developer outranks Admin, so it is left out.
     const deniedCases = [
       createUnauthenticatedTestCase(),
       ...createInsufficientPrivilegeTestCases(PrivilegeLevel.Admin).filter(
@@ -89,7 +89,7 @@ describe("/api/admin/weightedTable/import", () => {
         POST,
         createFormDataRequest({ weightedTable: createUploadFile() }),
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
       );
 
       expect(prismaMock.committeeList.findMany).not.toHaveBeenCalled();

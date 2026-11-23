@@ -3,7 +3,7 @@ import React, { useContext } from "react";
 import { PrivilegeLevel } from "@prisma/client";
 
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 
 export type CommitteeEmptyScopeProps = {
   termLabel: string;
@@ -13,11 +13,11 @@ export type CommitteeEmptyScopeProps = {
  * Shown in place of the split pane when the caller's whole scope has no
  * committees: an empty term (Admin) or a Leader with no jurisdiction in the
  * active term. The server already decided the scope; the wording follows
- * `actingPermissions` like any other client-only presentation.
+ * `actingPrivilege` like any other client-only presentation.
  */
 export function CommitteeEmptyScope({ termLabel }: CommitteeEmptyScopeProps) {
-  const { actingPermissions } = useContext(GlobalContext);
-  const countywide = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const { actingPrivilege } = useContext(GlobalContext);
+  const countywide = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
 
   return (
     <div className="m-auto max-w-md space-y-2 p-6 text-center" role="status">

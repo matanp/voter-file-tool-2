@@ -1,6 +1,7 @@
 # 02 - Extract PageContainer / PageHeader and fix the reports dashboard width
 
-Status: ready-for-agent
+Status: resolved
+Resolution: implemented in #116; resolved in #182 with a regression test for the width variants.
 
 Blocked by: 01
 
@@ -70,3 +71,14 @@ right now.
   why they differ.
 - Finding 8 (`QuickActionCard`). One extracted component for one call site is a
   net loss. Revisit if a second usage appears.
+
+## Comments
+
+### 2026-11-21 — Resolved
+
+All three scope items were implemented in #116 and are on `main`:
+`components/layout/PageContainer.tsx` (`width="default" | "wide"`, `max-w-6xl` / `max-w-screen-2xl`)
+and `PageHeader.tsx`; `ScopedReportPageShell`, `committee-reports/page.tsx` and
+`voter-list-reports/page.tsx` compose them; no `PageSubtitle`. `reports/page.tsx` opts into
+`wide`, not `max-w-6xl`, per the warning above. Added
+`__tests__/components/layout/PageContainer.test.tsx` to pin both caps.

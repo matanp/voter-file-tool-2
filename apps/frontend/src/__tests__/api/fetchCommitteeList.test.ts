@@ -18,7 +18,7 @@ import {
   type AuthTestConfig,
   type CommitteeListWithMembers,
 } from "../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../utils/mocks";
 import { LEG_DISTRICT_SENTINEL } from "@voter-file-tool/shared-validators";
 
 // Global mocks are available from jest.setup.js
@@ -73,7 +73,7 @@ describe("/api/fetchCommitteeList", () => {
         authConfig,
         GET,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -90,7 +90,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
@@ -123,7 +123,7 @@ describe("/api/fetchCommitteeList", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
       const request = new NextRequest(
@@ -152,7 +152,7 @@ describe("/api/fetchCommitteeList", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
@@ -177,7 +177,7 @@ describe("/api/fetchCommitteeList", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.committeeList.findUnique.mockResolvedValue(
           createMockCommittee(),
         );
@@ -241,7 +241,7 @@ describe("/api/fetchCommitteeList", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       prismaMock.committeeList.findUnique.mockResolvedValue({
         ...createMockCommittee(),
@@ -296,7 +296,7 @@ describe("/api/fetchCommitteeList", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       prismaMock.committeeList.findUnique.mockResolvedValue({
         ...createMockCommittee(),
@@ -321,7 +321,7 @@ describe("/api/fetchCommitteeList", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       prismaMock.committeeList.findUnique.mockResolvedValue({
         ...createMockCommittee(),
@@ -399,7 +399,7 @@ describe("/api/fetchCommitteeList", () => {
           });
 
           mockAuthSession(mockSession);
-          mockHasPermission(true);
+          mockHasPrivilege(true);
 
           const request = new NextRequest(url);
 
@@ -420,7 +420,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(null);
 
       const request = new NextRequest(
@@ -441,7 +441,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockRejectedValue(
         new Error("Database error"),
       );
@@ -465,7 +465,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
       const request = new NextRequest(
@@ -498,7 +498,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
       // Simulate duplicate parameters (URLSearchParams.get() returns first value)
@@ -532,7 +532,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
       // Test with whitespace around the electionDistrict
@@ -565,7 +565,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1a&cityTown=Test%20City&legDistrict=1",
@@ -585,7 +585,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=%20%20&cityTown=Test%20City&legDistrict=1",
@@ -606,7 +606,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
       // Test with whitespace around the legDistrict
@@ -639,7 +639,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(null);
 
       const request = new NextRequest(
@@ -661,7 +661,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=invalid",
@@ -682,7 +682,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=-5",
@@ -702,7 +702,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1.5",
@@ -743,7 +743,7 @@ describe("/api/fetchCommitteeList", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
         const request = new NextRequest(
@@ -799,7 +799,7 @@ describe("/api/fetchCommitteeList", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
         const request = new NextRequest(url);
@@ -826,7 +826,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = new NextRequest(
         "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1&legDistrict=invalid",
@@ -847,7 +847,7 @@ describe("/api/fetchCommitteeList", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeList.findUnique.mockResolvedValue(null);
 
       const request = new NextRequest(
@@ -886,7 +886,7 @@ describe("/api/fetchCommitteeList", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
         const request = new NextRequest(
@@ -925,7 +925,7 @@ describe("/api/fetchCommitteeList", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.committeeList.findUnique.mockResolvedValue(mockCommittee);
 
         const request = new NextRequest(
@@ -959,7 +959,7 @@ describe("/api/fetchCommitteeList", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         // Mock database connection failure
         prismaMock.committeeList.findUnique.mockRejectedValue(
@@ -990,7 +990,7 @@ describe("/api/fetchCommitteeList", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(false); // Explicitly deny permission
+        mockHasPrivilege(false); // Explicitly deny the privilege check
 
         const request = new NextRequest(
           "http://localhost:3000/api/fetchCommitteeList?electionDistrict=1&cityTown=Test%20City&legDistrict=1",
@@ -1019,7 +1019,7 @@ describe("/api/fetchCommitteeList", () => {
 
         // Mock session becoming invalid between auth check and database call
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         // Simulate session becoming invalid (this would be handled by the auth middleware)
         // For this test, we're verifying the endpoint behavior with valid session

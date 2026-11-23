@@ -31,7 +31,7 @@ export function PageContainer({
   className,
 }: PageContainerProps) {
   return (
-    <div className="w-full min-h-screen bg-primary-foreground">
+    <div className="w-full min-h-screen bg-background">
       <div className={cn(pageContainerVariants({ width }), className)}>
         {children}
       </div>

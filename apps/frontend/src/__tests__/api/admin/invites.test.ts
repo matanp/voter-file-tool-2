@@ -10,7 +10,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -51,7 +51,7 @@ function body(overrides: Record<string, unknown> = {}) {
 describe("POST /api/admin/invites", () => {
   beforeEach(() => {
     mockAuthSession(adminSession());
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     userMock.findUnique.mockResolvedValue(null);
     inviteMock.updateMany.mockResolvedValue({ count: 0 });
     inviteMock.findFirst.mockResolvedValue(null);
@@ -84,7 +84,7 @@ describe("POST /api/admin/invites", () => {
         privilegeLevel: PrivilegeLevel.ReadAccess,
       }),
     );
-    mockHasPermission(false);
+    mockHasPrivilege(false);
 
     const response = await POST(createMockRequest(body()));
 

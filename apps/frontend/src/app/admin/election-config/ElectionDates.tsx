@@ -229,7 +229,7 @@ export const ElectionDates = ({
 
   return (
     <div className="p-4 max-w-xl mx-auto">
-      <h2 className="section-header mb-4">Election Dates</h2>
+      <h2 className="primary-header mb-4">Election Dates</h2>
 
       <ul className="mb-4">
         {electionDates.map((ed) => (

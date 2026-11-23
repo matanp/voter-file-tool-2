@@ -10,7 +10,7 @@ import {
   CardDescription,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import {
   SCOPE_REPORT_UI,
@@ -29,10 +29,10 @@ interface ReportType {
 const NON_SCOPE_REPORT_TYPES: ReportType[] = [
   {
     title: "Voter List",
-    description: "Export voter list from Record Search results",
+    description: "Export a voter list from your voter search results",
     href: "/voter-list-reports",
     enabled: true,
-    note: "Requires search from Record Search first",
+    note: "Requires a voter search first",
     minPrivilege: PrivilegeLevel.Admin,
   },
   {
@@ -57,10 +57,10 @@ const scopedReportTypes: ReportType[] = SCOPE_REPORT_UI_ORDER.map((type) => {
 });
 
 export default function GenerateReportGrid() {
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
 
-  const isAdminUser = hasPermissionFor(
-    actingPermissions,
+  const isAdminUser = hasPrivilegeFor(
+    actingPrivilege,
     PrivilegeLevel.Admin,
   );
 
@@ -83,12 +83,12 @@ export default function GenerateReportGrid() {
   const visibleReportTypes = reportTypes.filter(
     (report) =>
       !report.minPrivilege ||
-      hasPermissionFor(actingPermissions, report.minPrivilege),
+      hasPrivilegeFor(actingPrivilege, report.minPrivilege),
   );
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-3">Generate Report</h2>
+      <h2 className="text-base font-semibold mb-3">Generate Report</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {visibleReportTypes.map((report) =>
           report.enabled ? (

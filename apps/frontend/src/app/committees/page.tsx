@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 
 import prisma from "~/lib/prisma";
 import { countPendingItems } from "~/app/api/lib/pendingExitReports";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
 import { Button } from "~/components/ui/button";
@@ -38,7 +38,7 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
     return <CommitteesPrototype variant={variant} />;
   }
 
-  const isAdminUser = hasPermissionFor(
+  const isAdminUser = hasPrivilegeFor(
     permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
     PrivilegeLevel.Admin,
   );
@@ -79,7 +79,7 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
       : null;
 
   // Committees workspace (plan §6): a server-side switch, never derived from
-  // actingPermissions. A top-level branch — the workspace does not wrap
+  // actingPrivilege. A top-level branch — the workspace does not wrap
   // CommitteeSelector. Ticket 16 makes it unconditional and deletes the flag.
   if (process.env.COMMITTEES_WORKSPACE === "1") {
     return (
@@ -102,7 +102,7 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
   }
 
   if (!committeeLists || !dropdownLists) {
-    return <div>Committee Lists not found</div>;
+    return <div>Committees not found</div>;
   }
 
   return (

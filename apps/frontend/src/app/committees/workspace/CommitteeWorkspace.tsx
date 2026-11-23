@@ -38,7 +38,7 @@ import type {
   MemberSearchHit,
 } from "~/lib/validations/committee";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { CommitteeAction, CommitteeActionHandler } from "./committeeAction";
 import { CommitteeDetailPane } from "./CommitteeDetailPane";
 import { CommitteeActionDrawer } from "./drawer/CommitteeActionDrawer";
@@ -57,7 +57,7 @@ import {
 import { useCommitteeDetail } from "./useCommitteeDetail";
 import { useCommitteeGridData } from "./useCommitteeGridData";
 import { useGridRefresh } from "./useGridRefresh";
-import { useHeightBelowNav } from "./useHeightBelowNav";
+import { rosterRowKey } from "./tabs/roster/rowActions";
 import { useIsDesktop } from "./useIsDesktop";
 import { useMemberSearch } from "./useMemberSearch";
 import {
@@ -79,6 +79,8 @@ export type CommitteeWorkspaceProps = {
 
 const COLLAPSE_LIST_ID = "committee-list-collapse";
 const DETAIL_PANE_ID = "committee-detail-pane";
+/** How long a completed action waits for the refreshed detail before closing anyway. */
+export const COMPLETION_REFRESH_WAIT_MS = 12_000;
 
 /** The committee's `h2` (script-focusable): where focus goes when its row is gone. */
 const focusDetailHeading = () =>
@@ -98,7 +100,6 @@ export function CommitteeWorkspace({
   const pathname = usePathname() ?? "/committees";
   const searchParams = useSearchParams();
   const isDesktop = useIsDesktop();
-  const height = useHeightBelowNav();
   const rawGrid = useCommitteeGridData();
 
   const url = parseWorkspaceUrlState(searchParams);
@@ -201,11 +202,11 @@ export function CommitteeWorkspace({
     },
     [url.committeeId, writeUrl],
   );
-  // --- Member name search (Leader and up, by acting permissions; the
+  // --- Member name search (Leader and up, by acting privilege; the
   // endpoint enforces the real role and scope) --------------------------------
-  const { actingPermissions } = useContext(GlobalContext);
-  const canSearchMembers = hasPermissionFor(
-    actingPermissions,
+  const { actingPrivilege } = useContext(GlobalContext);
+  const canSearchMembers = hasPrivilegeFor(
+    actingPrivilege,
     PrivilegeLevel.Leader,
   );
   const [memberQuery, setMemberQuery] = useState("");
@@ -284,34 +285,86 @@ export function CommitteeWorkspace({
     if (openAction !== null && !actionMatchesSelection) setOpenAction(null);
   }, [openAction, actionMatchesSelection]);
 
-  // After a completed action, focus is back on the row's trigger, but the
-  // refreshed detail can replace it (a seat filled or vacated swaps its menu
-  // for an add button or back) or remove the row (removing an unassigned
-  // member). Once the refresh settles, a focus that fell to <body> goes to the
-  // same row's new control, else to the committee heading.
-  const focusAfterRefresh = useRef<HTMLElement | null>(null);
-  const completeAction = useCallback(() => {
-    focusAfterRefresh.current = openAction?.returnFocusTo ?? null;
-    refreshDetailAndGrid();
-  }, [openAction, refreshDetailAndGrid]);
+  // A completed action waits for the refreshed detail (ticket 27), so the
+  // drawer's toast, close and focus move happen once the roster is updated.
+  // The refresh can replace the row's trigger (a seat filled or vacated swaps
+  // its menu for an add button or back) or remove the row (removing an
+  // unassigned member). Focus goes to the seat an Admin add filled, else the
+  // trigger, else the same row's new control, else the committee heading.
+  const pendingCompletion = useRef<{
+    committeeListId: number | null;
+    trigger: HTMLElement | null;
+    seatedMemberId?: string;
+    /** Resolves the drawer's wait; only the first call counts. */
+    resolve: (focusTarget: HTMLElement | null) => void;
+  } | null>(null);
+  const completeAction = useCallback(
+    (seatedMemberId?: string) => {
+      const trigger = openAction?.returnFocusTo ?? null;
+      refreshDetailAndGrid();
+      return new Promise<HTMLElement | null>((resolve) => {
+        pendingCompletion.current?.resolve(null);
+        // A refresh that never answers mustn't hold the drawer on "Adding…":
+        // after the wait it toasts and closes, and focus is still repaired
+        // below once the refresh settles.
+        let settled = false;
+        const settle = (focusTarget: HTMLElement | null) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          resolve(focusTarget);
+        };
+        const timer = window.setTimeout(() => settle(null), COMPLETION_REFRESH_WAIT_MS);
+        pendingCompletion.current = {
+          committeeListId: selectedCommitteeId,
+          trigger,
+          seatedMemberId,
+          resolve: settle,
+        };
+      });
+    },
+    [openAction, refreshDetailAndGrid, selectedCommitteeId],
+  );
   const detailSettled =
     loadedDetail.status === "error" ||
     (loadedDetail.status === "ready" && !loadedDetail.refreshing);
   useEffect(() => {
-    const trigger = focusAfterRefresh.current;
-    if (!trigger || !detailSettled) return;
-    focusAfterRefresh.current = null;
-    const active = document.activeElement;
-    if (!trigger.isConnected && (active === null || active === document.body)) {
-      const rowKey = trigger.dataset.rowAction;
-      const sameRow = rowKey
-        ? document.querySelector<HTMLElement>(
-            `#${DETAIL_PANE_ID} [data-row-action="${CSS.escape(rowKey)}"]`,
-          )
-        : null;
-      (sameRow ?? focusDetailHeading())?.focus();
+    const pending = pendingCompletion.current;
+    if (!pending) return;
+    // The selection moved on (e.g. browser Back): the drawer has closed, and
+    // these rows aren't the committee the action came from.
+    if (pending.committeeListId !== selectedCommitteeId) {
+      pendingCompletion.current = null;
+      pending.resolve(null);
+      return;
     }
-  }, [detailSettled, loadedDetail]);
+    if (!detailSettled) return;
+    pendingCompletion.current = null;
+    const rowControl = (key: string) =>
+      document.querySelector<HTMLElement>(
+        `#${DETAIL_PANE_ID} [data-row-action="${CSS.escape(key)}"]`,
+      );
+    const seatedRow =
+      pending.seatedMemberId && loadedDetail.status === "ready"
+        ? loadedDetail.detail.rows.find(
+            (r) => r.occupant?.VRCNUM === pending.seatedMemberId,
+          )
+        : undefined;
+    const triggerKey = pending.trigger?.dataset.rowAction;
+    const target =
+      (seatedRow ? rowControl(rosterRowKey(seatedRow)) : null) ??
+      (pending.trigger?.isConnected ? pending.trigger : null) ??
+      (triggerKey ? rowControl(triggerKey) : null) ??
+      focusDetailHeading();
+    pending.resolve(target);
+    // An open drawer moves focus itself as it closes. If it was closed
+    // mid-flight, focus went back to the trigger; if the refresh then removed
+    // it, focus fell to <body>.
+    const active = document.activeElement;
+    if (openAction === null && (active === null || active === document.body)) {
+      target?.focus();
+    }
+  }, [detailSettled, loadedDetail, openAction, selectedCommitteeId]);
 
   // Mobile Back: return to the list and put focus back on the row it came from.
   const returnFocusTo = useRef<number | null>(null);
@@ -346,7 +399,7 @@ export function CommitteeWorkspace({
 
   if (gridComplete && grid.rollups.length === 0) {
     return (
-      <div className="flex w-full flex-col overflow-hidden" style={{ height }}>
+      <div className="flex h-[calc(100dvh-var(--app-bar-height))] w-full flex-col overflow-hidden">
         <CommitteeWorkspaceHeader termLabel={termLabel} summary={grid.summary} />
         <CommitteeEmptyScope termLabel={termLabel} />
       </div>
@@ -354,7 +407,7 @@ export function CommitteeWorkspace({
   }
 
   return (
-    <div className="flex w-full flex-col overflow-hidden" style={{ height }}>
+    <div className="flex h-[calc(100dvh-var(--app-bar-height))] w-full flex-col overflow-hidden">
       <CommitteeWorkspaceHeader termLabel={termLabel} summary={grid.summary} />
       <div className="flex min-h-0 flex-1">
         {listCollapsed && (
@@ -367,7 +420,7 @@ export function CommitteeWorkspace({
               aria-expanded={false}
               aria-controls="committee-list-pane"
               title="Show committee list"
-              className="flex h-full w-12 items-start justify-center pt-3 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 dark:hover:bg-slate-900"
+              className="flex h-full w-12 items-start justify-center pt-3 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
             >
               <PanelLeftOpen className="h-5 w-5" aria-hidden />
             </button>

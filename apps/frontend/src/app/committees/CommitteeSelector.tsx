@@ -17,7 +17,7 @@ import { Button } from "~/components/ui/button";
 import { VoterCard } from "~/app/recordsearch/VoterCard";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { formatCalendarDateNumeric } from "~/lib/dateUtils";
 import CommitteeRequestForm from "./CommitteeRequestForm";
 import { AddCommitteeForm } from "./AddCommitteeForm";
@@ -94,7 +94,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   committeeLists,
   initialScope = null,
 }) => {
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
   const { toast } = useToast();
   const [selectedCity, setSelectedCity] = useState<string>(
     initialScope?.cityTown ?? "",
@@ -156,10 +156,10 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
   const userJurisdictionsQuery = useApiQuery<
     Array<{ cityTown: string; legDistrict: number | null }>
   >("/api/user/jurisdictions", {
-    enabled: actingPermissions === PrivilegeLevel.Leader,
+    enabled: actingPrivilege === PrivilegeLevel.Leader,
   });
   const userJurisdictions = userJurisdictionsQuery.data;
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
 
   const handleSaveLtedWeight = () => {
     if (selectedCommitteeId == null) return;
@@ -618,7 +618,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
       return "Select a committee to view members.";
     }
 
-    if (!hasPermissionFor(actingPermissions, PrivilegeLevel.Admin)) {
+    if (!hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin)) {
       return "You don't have permission to view committee member details. Contact an administrator for access.";
     }
 
@@ -647,7 +647,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   // SRS 3.1 — Empty state: Leader with no jurisdictions assigned
   if (
-    actingPermissions === PrivilegeLevel.Leader &&
+    actingPrivilege === PrivilegeLevel.Leader &&
     userJurisdictions !== null &&
     userJurisdictions.length === 0
   ) {
@@ -666,7 +666,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
 
   // SRS 3.1 — Empty state: Leader with jurisdictions but no committees in those areas
   if (
-    actingPermissions === PrivilegeLevel.Leader &&
+    actingPrivilege === PrivilegeLevel.Leader &&
     userJurisdictions !== null &&
     userJurisdictions.length > 0 &&
     committeeLists.length === 0
@@ -697,7 +697,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
           showNoCommitteesEmptyState ? "pointer-events-none opacity-60" : ""
         }
       >
-        <Card className="bg-primary-foreground p-2 flex flex-wrap items-end gap-4">
+        <Card className="bg-surface-subtle p-2 flex flex-wrap items-end gap-4">
         {initialScope ? (
           <div className="flex flex-col">
             <label className="font-extralight text-sm pl-1">Committee</label>
@@ -854,7 +854,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
               />
             )}
           {selectedCommitteeId != null &&
-            actingPermissions !== PrivilegeLevel.ReadAccess && (
+            actingPrivilege !== PrivilegeLevel.ReadAccess && (
               <section className="space-y-4">
                 <Button
                   type="button"
@@ -964,8 +964,8 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                           />
                         </CardContent>
                         <CardFooter className="h-full">
-                          {hasPermissionFor(
-                            actingPermissions,
+                          {hasPrivilegeFor(
+                            actingPrivilege,
                             PrivilegeLevel.Admin,
                           ) && (
                             <div className="h-full flex flex-wrap gap-2">
@@ -991,7 +991,7 @@ const CommitteeSelector: React.FC<CommitteeSelectorProps> = ({
                               </Button>
                             </div>
                           )}
-                          {actingPermissions === PrivilegeLevel.RequestAccess && (
+                          {actingPrivilege === PrivilegeLevel.RequestAccess && (
                             <Button
                               onClick={(e) =>
                                 handleRequestRemove(e, voterRecord)

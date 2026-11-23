@@ -17,7 +17,7 @@
  * Without one, a letter on the member's pending resignation report is kept;
  * the Admin's own upload replaces it.
  */
-import React, { useId, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import type { ResignationMethod } from "@prisma/client";
 
 import { Button } from "~/components/ui/button";
@@ -72,7 +72,7 @@ type MemberExitFormProps<A> = {
   memberLabel: string;
   onCancel: () => void;
   /** After a successful mutation; `message` is the success toast's text. */
-  onSuccess: (message: string) => void;
+  onSuccess: (message: string) => void | Promise<void>;
   /** Wraps the buttons. Defaults to the drawer's sticky footer. */
   Footer?: React.ComponentType<{ children: React.ReactNode }>;
   /** Classes for the scrolling body. Defaults to the drawer's padding. */
@@ -81,7 +81,11 @@ type MemberExitFormProps<A> = {
 
 const DRAWER_BODY = "flex-1 space-y-4 overflow-y-auto px-4 py-4";
 
-/** Shared layout: body, failure alert, requirements hint, and footer buttons. */
+/**
+ * Shared layout: body, failure alert, requirements hint, and footer buttons.
+ * Each new failure moves focus to its alert, so focus never drops to <body>
+ * when the in-flight submit button re-enables.
+ */
 export function ExitFormLayout({
   children,
   problems,
@@ -108,11 +112,19 @@ export function ExitFormLayout({
   bodyClassName?: string;
 }) {
   const hintId = useId();
+  const alertRef = useRef<HTMLDivElement | null>(null);
+  // The alert is on screen by the time this runs. `failure` is a new object
+  // for every failed submit, so a repeat failure moves focus again.
+  useEffect(() => {
+    if (failure) alertRef.current?.focus();
+  }, [failure]);
   return (
     <>
       <div className={bodyClassName}>
         {children}
-        {failure && <OutcomeAlert outcome={failure} ineligibleTitle={failureTitle} />}
+        {failure && (
+          <OutcomeAlert alertRef={alertRef} outcome={failure} ineligibleTitle={failureTitle} />
+        )}
         {problems.length > 0 && (
           <div id={hintId} data-testid="member-exit-requirements" className="text-sm text-slate-600 dark:text-slate-400">
             <p>To continue:</p>

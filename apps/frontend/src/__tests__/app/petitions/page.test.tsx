@@ -8,7 +8,7 @@ import PetitionsPage from "~/app/petitions/page";
 import AdminPageAccessDenied from "~/components/admin/AdminPageAccessDenied";
 import PageSignInRequired from "~/components/ui/PageSignInRequired";
 import { getAuthenticatedPageAccess } from "~/lib/getAdminPageAccess";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { prismaMock } from "../../utils/mocks";
 
 jest.mock("~/lib/getAdminPageAccess", () => ({
@@ -42,7 +42,7 @@ async function renderPage(): Promise<React.ReactElement> {
 describe("PetitionsPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const userIdx = PRIVILEGE_ORDER.indexOf(user);
       const requiredIdx = PRIVILEGE_ORDER.indexOf(required);
       if (userIdx === -1 || requiredIdx === -1) return false;

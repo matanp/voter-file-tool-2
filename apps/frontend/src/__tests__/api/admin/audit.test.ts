@@ -10,7 +10,7 @@ import {
   getAuditLogMock,
   getMockCallArgs,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../utils/mocks";
 
 const mockUser = { id: "user-1", name: "Admin User", email: "admin@test.org" };
 const mockAuditEntry = {
@@ -41,7 +41,7 @@ describe("/api/admin/audit", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
   });
 
   describe("GET /api/admin/audit (list)", () => {
@@ -126,7 +126,7 @@ describe("/api/admin/audit", () => {
     });
 
     it("returns 403 when user is not Admin", async () => {
-      mockHasPermission(false);
+      mockHasPrivilege(false);
 
       const res = await listAudit(createListRequest());
 
@@ -215,7 +215,7 @@ describe("/api/admin/audit", () => {
     });
 
     it("returns 403 when user is not Admin", async () => {
-      mockHasPermission(false);
+      mockHasPrivilege(false);
 
       const res = await exportAudit(
         createListRequest({ format: "csv" }),

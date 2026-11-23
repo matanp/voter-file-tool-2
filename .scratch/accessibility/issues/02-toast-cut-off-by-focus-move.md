@@ -29,3 +29,9 @@ after focusing, or defer the toast with `requestAnimationFrame`/`setTimeout`.
   line. Polite updates queue behind focus speech instead of being cut off.
 - The requests page may be folded into the workspace (`.scratch/committees-workspace/issues/22-requests-page-into-workspace.md`).
   If so, this goes away.
+
+## Comments
+
+### 2026-11-21 — UI makeover review
+
+[ui-makeover/06](../../ui-makeover/issues/06-status-panel-loading-and-toasts.md) restyles toasts: compact, a success variant, bottom-centre on phones, and auto-dismiss. Keep this ticket's announcement fix in mind when touching toast timing or placement.

@@ -10,7 +10,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -20,7 +20,7 @@ describe("/api/committee/updateLtedWeight", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
   });
 
   it("updates LTED weight and recomputes seat weights atomically", async () => {

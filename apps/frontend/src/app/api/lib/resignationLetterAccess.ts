@@ -14,10 +14,10 @@ import {
 } from "@prisma/client";
 import { canAccessCommittee } from "~/app/api/lib/committeeRead";
 import { ACTIVE_MEMBERSHIP_STATUS } from "~/app/api/lib/committeeValidation";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 
 export function isActualAdmin(level: PrivilegeLevel): boolean {
-  return hasPermissionFor(level, PrivilegeLevel.Admin);
+  return hasPrivilegeFor(level, PrivilegeLevel.Admin);
 }
 
 export type LetterViewDecision = "allowed" | "forbidden";

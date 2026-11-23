@@ -11,7 +11,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { PendingTab } from "~/app/committees/workspace/tabs/PendingTab";
 import { MEETINGS_URL } from "~/app/committees/workspace/tabs/pending/useMeetingOptions";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import type {
   CommitteeDetailResponse,
@@ -24,8 +24,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -192,7 +192,7 @@ const decisionBodies = (fetchMock: jest.Mock) =>
 function renderTab(pending: PendingMembership[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
   const onRefresh = jest.fn();
   render(
-    <GlobalContext.Provider value={{ actingPermissions: role, setActingPermissions: () => undefined }}>
+    <GlobalContext.Provider value={{ actingPrivilege: role, setActingPrivilege: () => undefined }}>
       <PendingTab committeeId={2} detail={detailWith(pending)} onRefresh={onRefresh} />
     </GlobalContext.Provider>,
   );
@@ -204,8 +204,8 @@ const item = (name: string) => screen.getByRole("listitem", { name: new RegExp(n
 beforeEach(() => {
   jest.clearAllMocks();
   jest
-    .mocked(hasPermissionFor)
-    .mockImplementation(jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor);
+    .mocked(hasPrivilegeFor)
+    .mockImplementation(jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor);
 });
 
 // --- Admin -----------------------------------------------------------------------
@@ -375,7 +375,7 @@ describe("PendingTab (Leader)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("follows actingPermissions: a Developer acting as Leader gets no controls or Admin context", () => {
+  it("follows actingPrivilege: a Developer acting as Leader gets no controls or Admin context", () => {
     serve();
     // The server sent Admin-only keys (real privilege), but the UI acts as Leader.
     renderTab([ADMIN_SUBMISSION], PrivilegeLevel.Leader);
@@ -425,7 +425,7 @@ const LEADER_EXIT_REPORT: PendingExitReport = {
 function renderWithExitReports(reports: PendingExitReport[], role: PrivilegeLevel = PrivilegeLevel.Admin) {
   const onRefresh = jest.fn();
   render(
-    <GlobalContext.Provider value={{ actingPermissions: role, setActingPermissions: () => undefined }}>
+    <GlobalContext.Provider value={{ actingPrivilege: role, setActingPrivilege: () => undefined }}>
       <PendingTab
         committeeId={2}
         detail={{ ...detailWith([]), pendingExitReports: reports }}

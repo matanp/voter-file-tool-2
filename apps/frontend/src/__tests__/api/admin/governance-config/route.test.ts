@@ -16,7 +16,7 @@ import {
 } from "../../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../../utils/mocks";
 
@@ -112,7 +112,7 @@ describe("/api/admin/governance-config", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
 
     const currentConfig = createMockGovernanceConfig();
     governanceConfigMock.findFirst.mockResolvedValue(currentConfig);

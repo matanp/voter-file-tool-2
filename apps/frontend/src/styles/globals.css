@@ -4,7 +4,8 @@
 
 @layer base {
   :root {
-    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    --font-sans:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
       "Segoe UI", sans-serif;
 
     /* Shared Colors */
@@ -22,7 +23,7 @@
     --popover: var(--white);
     --popover-foreground: var(--black);
     --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
+    --primary-foreground: var(--white);
     --secondary: var(--light-gray);
     --secondary-foreground: var(--dark-gray);
     --muted: var(--light-gray);
@@ -35,40 +36,62 @@
     --input: var(--medium-gray);
     --ring: 142.1 76.2% 36.3%;
     --radius: 0.5rem;
+
+    /* Height of the app bar. The header reads it; full-height views subtract it. */
+    --app-bar-height: 3rem;
+
+    /* Quiet panel fill (slate-50) for forms and toolbars on a white page. */
+    --surface-subtle: 210 40% 98%;
+
+    /* Status tones, used through StatusBadge. Amber always means pending or
+       needs attention; red always means failed or destructive. -bg/-fg are
+       the soft pill pair, -solid is for icons and dots. */
+    --success-bg: 152 81% 96%;
+    --success-fg: 163 88% 20%;
+    --success-solid: 161 94% 30%;
+    --warning-bg: 48 96% 89%;
+    --warning-fg: 22 78% 26%;
+    --warning-solid: 38 92% 50%;
+    --danger-bg: 0 86% 97%;
+    --danger-fg: 0 70% 35%;
+    --danger-solid: 0 72% 51%;
+    --info-bg: 214 100% 97%;
+    --info-fg: 226 71% 40%;
+    --info-solid: 221 83% 53%;
   }
 
-  .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: var(--white);
-    --card: 24 9.8% 10%;
-    --card-foreground: var(--white);
-    --popover: 0 0% 9%;
-    --popover-foreground: var(--white);
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: var(--white);
-    --muted: 0 0% 15%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: var(--white);
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 85.7% 97.3%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 142.4 71.8% 29.2%;
+  /* Density: sizes read by Button (default/icon), Input, SelectTrigger and the
+     Table head/cell primitives. Compact is the default; a data-density
+     attribute switches everything inside it. Callers override with ordinary
+     classes (h-12, px-2, ...). */
+  :root,
+  [data-density="compact"] {
+    --control-h: 2.25rem;
+    --table-head-h: 2.25rem;
+    --table-head-px: 0.75rem;
+    --table-cell-px: 0.75rem;
+    --table-cell-py: 0.5rem;
+  }
+
+  [data-density="comfortable"] {
+    --control-h: 2.5rem;
+    --table-head-h: 3rem;
+    --table-head-px: 1rem;
+    --table-cell-px: 1rem;
+    --table-cell-py: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
   }
 }
 
 @layer utilities {
+  /* Page and section titles. Neutral and compact: the page's colour comes
+     from its primary actions, not its headings. */
   .primary-header {
-    @apply text-2xl text-primary font-bold;
-  }
-
-  /* Page title on the admin surface, which has its own sidebar chrome and a
-     primary-coloured active nav item. Deliberately quieter than
-     .primary-header so the heading does not compete with that chrome. */
-  .section-header {
-    @apply text-2xl font-semibold;
+    @apply text-lg font-semibold text-foreground;
   }
 }

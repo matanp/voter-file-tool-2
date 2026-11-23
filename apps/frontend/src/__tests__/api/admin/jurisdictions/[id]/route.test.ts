@@ -12,7 +12,7 @@ import {
   getAuditLogMock,
   DEFAULT_ACTIVE_TERM_ID,
 } from "../../../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../../../utils/mocks";
 
 const userJurisdictionMock = prismaMock.userJurisdiction as {
   findUnique: jest.Mock;
@@ -31,7 +31,7 @@ describe("DELETE /api/admin/jurisdictions/[id]", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     userJurisdictionMock.findUnique.mockResolvedValue({
       id: JURISDICTION_ID,
       userId: "leader-1",

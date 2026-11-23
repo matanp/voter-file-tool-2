@@ -1,6 +1,6 @@
 /**
  * History tab (ticket 12, plan §7.4): the **Committee history** timeline and
- * the Admin-only **Election outcomes** section, gated by `actingPermissions`
+ * the Admin-only **Election outcomes** section, gated by `actingPrivilege`
  * on top of the server's own omission (skills/auth-check-patterns).
  */
 import React from "react";
@@ -13,7 +13,7 @@ import {
   electionOutcomeRows,
 } from "~/app/committees/workspace/tabs/history/historyModel";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import {
   committeeDetailResponseSchema,
@@ -26,18 +26,18 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "ReadAccess",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "ReadAccess",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
 
-// jest.setup stubs hasPermissionFor; the gate under test needs the real one.
+// jest.setup stubs hasPrivilegeFor; the gate under test needs the real one.
 beforeEach(() => {
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 });
 
@@ -231,7 +231,7 @@ const LEADER_DETAIL = detail({
 function renderTab(role: PrivilegeLevel, body: CommitteeDetailResponse) {
   return render(
     <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: role, setActingPrivilege: () => undefined }}
     >
       <HistoryTab
         committeeId={body.committee.committeeListId}
@@ -376,7 +376,7 @@ describe("HistoryTab", () => {
   describe("Developer acting as another role", () => {
     it("acting as Leader: the server sent Developer data, the UI shows the Leader view", () => {
       // The endpoint authorizes on the real session (Developer) and sends the
-      // Admin body; only actingPermissions says Leader.
+      // Admin body; only actingPrivilege says Leader.
       renderTab(PrivilegeLevel.Leader, ADMIN_DETAIL);
       expectAdminDataHidden();
     });

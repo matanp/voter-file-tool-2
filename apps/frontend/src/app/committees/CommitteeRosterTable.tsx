@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
+import { StatusBadge } from "~/components/ui/status-badge";
 import type {
   EdRollup,
   RosterResponse,
@@ -115,7 +116,7 @@ export function CommitteeRosterTable({
 
       {/* overflow-visible so sticky th cells stick to the page, not the Table wrapper */}
       <div className="[&>div]:overflow-visible">
-        <Table>
+        <Table density="comfortable">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className={STICKY_COLUMN_HEAD_CLASS}>ED</TableHead>
@@ -273,7 +274,7 @@ export function CommitteeSeatTable({
   return (
     // `Table` wraps itself in an `overflow-auto` box, so wide content scrolls
     // inside the tab and the page never overflows at 375px.
-    <Table aria-label={label}>
+    <Table aria-label={label} density="comfortable">
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead>Seat</TableHead>
@@ -281,7 +282,7 @@ export function CommitteeSeatTable({
           {SHOW_MEMBERSHIP_TYPE ? <TableHead>Type</TableHead> : null}
           {showContact ? <TableHead>Contact</TableHead> : null}
           {showActions ? (
-            <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white dark:bg-slate-950`}>
+            <TableHead className={`w-12 ${ACTIONS_STICKY_CLASS} bg-white`}>
               <span className="sr-only">Actions</span>
             </TableHead>
           ) : null}
@@ -345,7 +346,7 @@ function SeatRow({
     <TableRow
       className={
         petition.petitionedVacant
-          ? "bg-amber-50 dark:bg-amber-950/30"
+          ? "bg-amber-50"
           : undefined
       }
     >
@@ -368,9 +369,7 @@ function SeatRow({
           // Still ACTIVE and seated until an Admin confirms the report.
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{name}</span>
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-              Exit reported – pending
-            </span>
+            <StatusBadge tone="warning">Exit reported – pending</StatusBadge>
           </div>
         ) : (
           name
@@ -395,8 +394,8 @@ function SeatRow({
         <TableCell
           className={`text-right ${ACTIONS_STICKY_CLASS} ${
             petition.petitionedVacant
-              ? "bg-amber-50 dark:bg-amber-950"
-              : "bg-white dark:bg-slate-950"
+              ? "bg-amber-50"
+              : "bg-white"
           }`}
         >
           {actions}

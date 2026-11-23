@@ -6,15 +6,15 @@ import CommitteeSelector from "~/app/committees/CommitteeSelector";
 import {
   fetchJsonResponse,
   installFetchMock,
-  mockHasPermission,
+  mockHasPrivilege,
 } from "../../utils/mocks";
 import { createMockCommitteeListRow } from "../../utils/testUtils";
 
 jest.mock("~/components/providers/GlobalContext", () => {
   return {
     GlobalContext: React.createContext({
-      actingPermissions: PrivilegeLevel.Admin,
-      setActingPermissions: () => undefined,
+      actingPrivilege: PrivilegeLevel.Admin,
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -112,7 +112,7 @@ const committeeDetail = {
 describe("CommitteeSelector seat roster Type column", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     installFetchMock(async (input) => {
       const url = String(input);
       if (url.startsWith("/api/committee/roster/")) {

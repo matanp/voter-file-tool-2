@@ -3,7 +3,7 @@
  * §12.2): candidate search and selection; eligible, warning, hard-stop,
  * retry and full-committee states; role-appropriate labels and endpoints;
  * server rejections keeping the drawer open; success closing it. Roles are
- * simulated through `actingPermissions`. Cross-pane refresh and focus
+ * simulated through `actingPrivilege`. Cross-pane refresh and focus
  * restoration are covered with the workspace in
  * `CommitteeWorkspace.drawer.test.tsx`.
  */
@@ -27,7 +27,7 @@ import type { CommitteeRef } from "~/lib/committees/committeeRef";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { toast } from "~/components/ui/use-toast";
 import type { EligibilityPreflightResponse } from "~/lib/eligibilityPreflight";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import {
   fetchJsonResponse,
   installFetchMock,
@@ -59,8 +59,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -230,7 +230,7 @@ function renderDrawer({
   const onComplete = jest.fn();
   render(
     <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: role, setActingPrivilege: () => undefined }}
     >
       <CommitteeActionDrawer
         action={action}
@@ -262,9 +262,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   resetExitInstructionsCache();
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 });
 
@@ -838,6 +838,39 @@ describe("CommitteeActionDrawer: contact details", () => {
     });
   });
 
+  it("lets a whitespace-only email and phone pass step 3 and leaves them out of the request", async () => {
+    const fetchMock = serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/requestAdd": [{ body: { success: true, message: "ok" } }],
+    });
+    renderDrawer({ role: PrivilegeLevel.Leader });
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+
+    await userEvent.type(emailInput(), "   ");
+    await userEvent.type(phoneInput(), "  ");
+    await userEvent.click(continueButton());
+
+    expect(
+      within(drawer()).getByRole("heading", { level: 3, name: /Confirm/ }),
+    ).toBeInTheDocument();
+    expect(within(drawer()).getByRole("list", { name: "Summary" })).not.toHaveTextContent(
+      "Contact",
+    );
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Submit candidate" }),
+    );
+
+    await waitFor(() =>
+      expect(callsTo(fetchMock, "/api/committee/requestAdd")).toHaveLength(1),
+    );
+    const body = bodyOf(callsTo(fetchMock, "/api/committee/requestAdd")[0]);
+    expect(body).not.toHaveProperty("email");
+    expect(body).not.toHaveProperty("phone");
+  });
+
   it("returns to step 3 with the server's field errors and focuses the first invalid field", async () => {
     serve({
       "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
@@ -1066,6 +1099,165 @@ const RESIGN: CommitteeAction = {
 };
 const hint = () => within(drawer()).getByTestId("member-exit-requirements");
 
+describe("CommitteeActionDrawer: already pending (ticket 26)", () => {
+  const PENDING_JANE = {
+    voterRecordId: "V-JANE",
+    firstName: "Jane",
+    lastName: "Doe",
+    membershipId: "m-pending",
+    submittedAt: "2026-11-18T15:00:00.000Z",
+    isOwnSubmission: true,
+    replacementFor: null,
+  };
+  const withPendingJane = () => ({ ...detail(), pending: [PENDING_JANE] });
+
+  async function searchForJane() {
+    await userEvent.type(within(drawer()).getByLabelText("Last name"), "Doe");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Search" }));
+    const results = await within(drawer()).findByRole("list", { name: "Candidates" });
+    return within(results).getByRole("listitem", { name: /Jane Doe/ });
+  }
+
+  it("marks a pending voter in search and doesn't let a Leader submit them again", async () => {
+    serve({ "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }] });
+    renderDrawer({ role: PrivilegeLevel.Leader, committeeDetail: withPendingJane() });
+
+    const jane = await searchForJane();
+    expect(jane).toHaveTextContent("Already pending");
+    expect(within(jane).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("lets an Admin pick a pending voter to add directly, marked at step 2", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+    });
+    renderDrawer({ committeeDetail: withPendingJane() });
+
+    const jane = await searchForJane();
+    expect(jane).toHaveTextContent("Already pending");
+    await userEvent.click(within(jane).getByRole("button", { name: "Select Jane Doe" }));
+    await within(drawer()).findByText("Eligibility Snapshot");
+
+    expect(drawer()).toHaveTextContent(
+      "Jane Doe was submitted for this committee on Nov 18, 2026.",
+    );
+    expect(drawer()).toHaveTextContent("Adding them here makes them a member");
+    expect(continueButton()).toBeEnabled();
+  });
+
+  it("marks step 2 and blocks Continue when a submission arrives for the selected voter", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+    });
+    const action: CommitteeAction = { kind: "add-member", committee: REF, seatNumber: 2 };
+    const ui = (committeeDetail: CommitteeDetailResponse) => (
+      <GlobalContext.Provider
+        value={{ actingPrivilege: PrivilegeLevel.Leader, setActingPrivilege: () => undefined }}
+      >
+        <CommitteeActionDrawer
+          action={action}
+          detail={committeeDetail}
+          onClose={jest.fn()}
+          onComplete={jest.fn()}
+        />
+      </GlobalContext.Provider>
+    );
+    const { rerender } = render(ui(detail()));
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    expect(continueButton()).toBeEnabled();
+
+    // A background refresh shows someone else already submitted Jane.
+    rerender(ui(withPendingJane()));
+
+    expect(within(drawer()).getByText("Already pending")).toBeInTheDocument();
+    expect(drawer()).toHaveTextContent("can't be submitted again");
+    expect(continueButton()).toBeDisabled();
+  });
+
+  it("shows a duplicate submission's 409 as an error naming the pending request, with no success toast", async () => {
+    const message =
+      "Already pending for this committee: submitted Nov 18, 2026, waiting for an Admin to review it.";
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      // The roster hadn't caught up with the earlier submission yet.
+      "/api/committee/requestAdd": [
+        { status: 409, body: { success: false, error: message } },
+      ],
+    });
+    const { onComplete, onClose } = renderDrawer({ role: PrivilegeLevel.Leader });
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+    await userEvent.click(continueButton());
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Submit candidate" }));
+
+    const alert = await within(drawer()).findByRole("alert");
+    expect(alert).toHaveTextContent(message);
+    await waitFor(() => expect(alert).toHaveFocus());
+    expect(toast).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("CommitteeActionDrawer: completion (ticket 27)", () => {
+  it("waits for the caller's refresh before the toast and the close, then focuses what it returns", async () => {
+    serve({
+      "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
+      "/api/committee/eligibility": [{ body: preflight() }],
+      "/api/committee/add": [{ body: { success: true, message: "Member added" } }],
+    });
+    let finishRefresh: (target: HTMLElement | null) => void = () => undefined;
+    const onComplete = jest.fn(
+      () => new Promise<HTMLElement | null>((r) => (finishRefresh = r)),
+    );
+    function Harness() {
+      const [action, setAction] = React.useState<CommitteeAction | null>({
+        kind: "add-member",
+        committee: REF,
+        seatNumber: 2,
+      });
+      return (
+        <GlobalContext.Provider
+          value={{ actingPrivilege: PrivilegeLevel.Admin, setActingPrivilege: () => undefined }}
+        >
+          <button type="button">New seat actions</button>
+          <CommitteeActionDrawer
+            action={action}
+            detail={detail()}
+            onClose={() => setAction(null)}
+            onComplete={onComplete}
+          />
+        </GlobalContext.Provider>
+      );
+    }
+    render(<Harness />);
+    await searchAndSelect();
+    await within(drawer()).findByText("Eligibility Snapshot");
+    await userEvent.click(continueButton());
+    await userEvent.click(continueButton());
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Add member" }));
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledWith("V-JANE"));
+    expect(within(drawer()).getByRole("button", { name: "Adding…" })).toBeDisabled();
+    expect(toast).not.toHaveBeenCalled();
+
+    const newSeat = screen.getByRole("button", { name: "New seat actions", hidden: true });
+    act(() => finishRefresh(newSeat));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(toast).toHaveBeenCalledWith({
+      title: "Success",
+      description: "Committee member added successfully",
+    });
+    await waitFor(() => expect(newSeat).toHaveFocus());
+  });
+});
+
 describe("CommitteeActionDrawer: remove member", () => {
   it("requires a reason, and notes for Other, then removes and completes", async () => {
     const fetchMock = serve({
@@ -1233,6 +1425,85 @@ describe("CommitteeActionDrawer: record resignation", () => {
   });
 });
 
+describe("CommitteeActionDrawer: exit-form focus after a failed submit", () => {
+  const SERVER_ERROR: Reply = {
+    status: 500,
+    body: { success: false, error: "Internal server error" },
+  };
+  const VALIDATION_ERROR: Reply = {
+    status: 422,
+    body: {
+      success: false,
+      error: "Invalid request data",
+      fieldErrors: { removalNotes: ["Notes are too long"] },
+    },
+  };
+
+  /** The failure alert has focus, inside the drawer. */
+  async function expectAlertFocused(text: string) {
+    const alert = await within(drawer()).findByRole("alert");
+    expect(alert).toHaveTextContent(text);
+    await waitFor(() => expect(alert).toHaveFocus());
+  }
+
+  it("focuses the alert after a 500 and again after a following 422 (remove)", async () => {
+    serve({ "/api/committee/remove": [SERVER_ERROR, VALIDATION_ERROR] });
+    renderDrawer({ action: REMOVE });
+    await chooseSelectOption(
+      within(drawer()).getByLabelText(/Reason for removal/),
+      "Deceased",
+    );
+    const remove = within(drawer()).getByRole("button", { name: "Remove member" });
+
+    await userEvent.click(remove);
+    await expectAlertFocused("Internal server error");
+
+    await userEvent.click(remove);
+    await expectAlertFocused("Invalid request data");
+  });
+
+  it("focuses the alert after a failed resignation", async () => {
+    serve({ "/api/committee/remove": [SERVER_ERROR] });
+    renderDrawer({ action: RESIGN });
+    await userEvent.type(
+      within(drawer()).getByLabelText(/Date resignation received/),
+      "2026-10-01",
+    );
+    await userEvent.click(within(drawer()).getByRole("radio", { name: "Mail" }));
+    await userEvent.click(
+      within(drawer()).getByRole("button", { name: "Record resignation" }),
+    );
+
+    await expectAlertFocused("Internal server error");
+  });
+
+  it("focuses the alert after a 500 and again after a following 422 (report exit)", async () => {
+    serve({
+      "/api/committee/exit-instructions": [{ body: { text: null } }],
+      "/api/committee/exitReport": [SERVER_ERROR, VALIDATION_ERROR],
+    });
+    const { onComplete } = renderDrawer({
+      role: PrivilegeLevel.Leader,
+      action: REPORT_EXIT,
+    });
+    const sendAfterInstructions = async () => {
+      const dialog = await screen.findByRole("alertdialog");
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: /send report/i }),
+      );
+    };
+
+    await reportRemoval();
+    await sendAfterInstructions();
+    await expectAlertFocused("Internal server error");
+
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Report" }));
+    await sendAfterInstructions();
+    await expectAlertFocused("Invalid request data");
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+});
+
 describe("CommitteeActionDrawer: closing", () => {
   it("closes on Escape and Cancel without completing", async () => {
     serve({});
@@ -1262,8 +1533,8 @@ describe("CommitteeActionDrawer: closing", () => {
     const ui = (action: CommitteeAction | null) => (
       <GlobalContext.Provider
         value={{
-          actingPermissions: PrivilegeLevel.Admin,
-          setActingPermissions: () => undefined,
+          actingPrivilege: PrivilegeLevel.Admin,
+          setActingPrivilege: () => undefined,
         }}
       >
         <CommitteeActionDrawer

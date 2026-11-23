@@ -7,14 +7,14 @@ import type { Session } from "next-auth";
 
 // Infer types of value exports without importing them as values
 import type { auth } from "~/auth";
-import type { hasPermissionFor } from "~/lib/utils";
+import type { hasPrivilegeFor } from "~/lib/utils";
 type AuthFn = typeof auth;
-type HasPermissionForFn = typeof hasPermissionFor;
+type HasPrivilegeForFn = typeof hasPrivilegeFor;
 
 declare global {
   var mockPrisma: DeepMockProxy<PrismaClient>;
   var mockAuth: MockedFunction<() => Promise<Session | null>>;
-  var mockHasPermissionFor: MockedFunction<HasPermissionForFn>;
+  var mockHasPrivilegeFor: MockedFunction<HasPrivilegeForFn>;
 }
 
 export {};

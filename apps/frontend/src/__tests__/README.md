@@ -81,7 +81,7 @@ jest.mock("~/auth", () => ({
 
 ```typescript
 jest.mock("~/lib/utils", () => ({
-  hasPermissionFor: jest.fn(),
+  hasPrivilegeFor: jest.fn(),
 }));
 ```
 
@@ -209,7 +209,7 @@ describe("Authentication tests", () => {
     authConfig,
     yourHandler,
     mockAuthSession,
-    mockHasPermission,
+    mockHasPrivilege,
     setupMocks,
   );
 

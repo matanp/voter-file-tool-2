@@ -15,7 +15,7 @@ import {
 } from "../../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
   rawQueryMock,
   rawQueryValues,
@@ -66,7 +66,7 @@ describe("/api/admin/crosswalk/import", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     (prismaMock.ltedDistrictCrosswalk.findMany as jest.Mock).mockResolvedValue([]);
     (prismaMock.ltedDistrictCrosswalk.createMany as jest.Mock).mockResolvedValue({ count: 0 });
     (prismaMock.auditLog as { create: jest.Mock }).create.mockResolvedValue({});
@@ -74,7 +74,7 @@ describe("/api/admin/crosswalk/import", () => {
 
   describe("authorization", () => {
     // The shared generator also emits Developer, which only fails here because
-    // hasPermissionFor is mocked; Developer outranks Admin, so it is left out.
+    // hasPrivilegeFor is mocked; Developer outranks Admin, so it is left out.
     const deniedCases = [
       createUnauthenticatedTestCase(),
       ...createInsufficientPrivilegeTestCases(PrivilegeLevel.Admin).filter(
@@ -89,7 +89,7 @@ describe("/api/admin/crosswalk/import", () => {
         POST,
         createFormDataRequest(createUploadFile()),
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
       );
 
       expect(prismaMock.ltedDistrictCrosswalk.findMany).not.toHaveBeenCalled();
