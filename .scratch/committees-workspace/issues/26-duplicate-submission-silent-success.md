@@ -38,5 +38,6 @@ Decided in the PR #183 review:
 - An Admin can still select an already-pending voter in an add, with a warning. Blocking them would only send them
   to the Pending tab to accept the same row: `/api/committee/add` activates the existing SUBMITTED row.
 - The 409 carries the submission date but no membership ID. `requestAdd` is open to RequestAccess with no committee
-  scope, and the old 200 already said the voter was pending, so the date adds little; the ID had no reader.
+  scope. The old 200 already told any caller that the voter was pending, so showing the date exposes little more.
+  The ID had no reader, so it was dropped.
 - The date is formatted in UTC, like the Pending tab; [34](34-pending-submitted-date-uses-utc.md) fixes all three.

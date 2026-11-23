@@ -309,7 +309,7 @@ describe("/api/committee/requestAdd", () => {
           return Promise.resolve(createMockCommittee()) as never;
         },
       );
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({
           status: "SUBMITTED",
           submittedAt: new Date("2026-11-18T15:00:00Z"),
@@ -325,9 +325,9 @@ describe("/api/committee/requestAdd", () => {
         error:
           "Already pending for this committee: submitted Nov 18, 2026, waiting for an Admin to review it.",
       });
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
-      expect(getMembershipMock(prismaMock).update).not.toHaveBeenCalled();
-      expect(getAuditLogMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.update).not.toHaveBeenCalled();
+      expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
     });
 
     it("should report the duplicate before eligibility (409, not INELIGIBLE)", async () => {
@@ -337,14 +337,14 @@ describe("/api/committee/requestAdd", () => {
       mockHasPermission(true);
       // No eligibility mocks: reaching validateEligibility would not return 409.
       prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
-      getMembershipMock(prismaMock).findUnique.mockResolvedValue(
+      prismaMock.committeeMembership.findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
 
       const response = await POST(createMockRequest(createMockRequestData()));
 
       expect(response.status).toBe(409);
-      expect(getMembershipMock(prismaMock).create).not.toHaveBeenCalled();
+      expect(prismaMock.committeeMembership.create).not.toHaveBeenCalled();
     });
 
     it("should return 400 when member is already ACTIVE in this committee", async () => {
