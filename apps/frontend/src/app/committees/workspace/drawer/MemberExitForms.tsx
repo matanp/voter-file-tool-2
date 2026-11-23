@@ -87,7 +87,7 @@ const NO_FIELDS: readonly never[] = [];
 /**
  * Shared layout: body, failure alert, requirements hint, and footer buttons.
  * Each new failure moves focus to its alert, so focus never drops to <body>
- * when the in-flight submit button re-enables (ticket 31).
+ * when the in-flight submit button re-enables.
  */
 export function ExitFormLayout({
   children,

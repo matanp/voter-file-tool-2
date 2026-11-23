@@ -812,7 +812,7 @@ describe("CommitteeActionDrawer: contact details", () => {
     });
   });
 
-  it("lets a whitespace-only email and phone pass step 3 and leaves them out of the request (ticket 32)", async () => {
+  it("lets a whitespace-only email and phone pass step 3 and leaves them out of the request", async () => {
     const fetchMock = serve({
       "/api/fetchFilteredData": [{ body: { data: [JANE], totalRecords: 1 } }],
       "/api/committee/eligibility": [{ body: preflight() }],
@@ -1222,7 +1222,7 @@ describe("CommitteeActionDrawer: record resignation", () => {
   });
 });
 
-describe("CommitteeActionDrawer: exit-form focus after a failed submit (ticket 31)", () => {
+describe("CommitteeActionDrawer: exit-form focus after a failed submit", () => {
   const SERVER_ERROR: Reply = {
     status: 500,
     body: { success: false, error: "Internal server error" },
@@ -1241,7 +1241,6 @@ describe("CommitteeActionDrawer: exit-form focus after a failed submit (ticket 3
     const alert = await within(drawer()).findByRole("alert");
     expect(alert).toHaveTextContent(text);
     await waitFor(() => expect(alert).toHaveFocus());
-    expect(drawer()).toContainElement(document.activeElement as HTMLElement);
   }
 
   it("focuses the alert after a 500 and again after a following 422 (remove)", async () => {

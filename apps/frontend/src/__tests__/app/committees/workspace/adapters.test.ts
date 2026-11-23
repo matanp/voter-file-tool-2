@@ -486,7 +486,7 @@ describe("submitCandidate", () => {
     ["fieldErrors is an array", [["phone", "Bad phone"]]],
     ["fieldErrors is empty", {}],
     ["every field has no messages", { phone: [] }],
-  ])("returns no fieldErrors when %s (ticket 32)", async (_case, fieldErrors) => {
+  ])("returns no fieldErrors when %s", async (_case, fieldErrors) => {
     respond({ success: false, error: "Invalid request data", fieldErrors }, 422);
     const outcome = await submitCandidate(ADD, "add", details);
     expect(outcome).toEqual({ ok: false, kind: "error", message: "Invalid request data" });

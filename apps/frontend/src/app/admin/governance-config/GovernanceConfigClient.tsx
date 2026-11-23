@@ -58,7 +58,7 @@ const saveFailureSchema = z.object({
 
 type GovernanceConfigUpdatePayload = Omit<GovernanceConfigApiPayload, "updatedAt">;
 
-type FieldErrors = Partial<Record<keyof GovernanceConfigUpdatePayload, string[]>>;
+type ConfigFieldErrors = Partial<Record<keyof GovernanceConfigUpdatePayload, string[]>>;
 
 const INELIGIBILITY_REASON_LABELS: Record<IneligibilityReason, string> = {
   NOT_REGISTERED: "Not registered",
@@ -162,7 +162,7 @@ export function GovernanceConfigClient() {
   const { toast } = useToast();
   const [draft, setDraft] = useState<GovernanceConfigUpdatePayload | null>(null);
   const [original, setOriginal] = useState<GovernanceConfigApiPayload | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [fieldErrors, setFieldErrors] = useState<ConfigFieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -229,10 +229,20 @@ export function GovernanceConfigClient() {
         throw new Error(error ?? `Save failed with status ${String(response.status)}`);
       }
 
-      const successBody = governanceConfigResponseSchema.parse(body);
-      setOriginal(successBody.config);
-      setDraft(draftFrom(successBody.config));
       setShowConfirm(false);
+      // The save has already happened, so an unreadable body is not a failure:
+      // say so and reload the settings rather than reporting "Save failed".
+      const success = governanceConfigResponseSchema.safeParse(body);
+      if (!success.success) {
+        toast({
+          title: "Governance config saved",
+          description: "Reloading the current settings.",
+        });
+        void query.refetch().catch(() => undefined);
+        return;
+      }
+      setOriginal(success.data.config);
+      setDraft(draftFrom(success.data.config));
       toast({ title: "Governance config saved" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save config";

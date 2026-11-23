@@ -206,4 +206,42 @@ describe("GovernanceConfigClient", () => {
       ).toBeInTheDocument();
     });
   });
+  it("treats a successful save with an unreadable body as saved and reloads the settings", async () => {
+    const saved = {
+      ...initialResponse,
+      config: { ...initialResponse.config, maxSeatsPerLted: 6 },
+    };
+    let gets = 0;
+    installFetchMock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (String(input) !== "/api/admin/governance-config") {
+        throw new Error(`Unexpected fetch call: ${method} ${String(input)}`);
+      }
+      if (method === "PATCH") {
+        // A response shape the client doesn't know (e.g. a new enum value).
+        return mockJsonResponse({
+          ...saved,
+          config: { ...saved.config, nonOverridableIneligibilityReasons: ["SOMETHING_NEW"] },
+        });
+      }
+      gets += 1;
+      return mockJsonResponse(gets === 1 ? initialResponse : saved);
+    });
+
+    const user = userEvent.setup();
+    render(<GovernanceConfigClient />);
+
+    const maxSeatsInput = await screen.findByLabelText(/Max seats per LTED/i);
+    await user.clear(maxSeatsInput);
+    await user.type(maxSeatsInput, "6");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm save" }));
+
+    await waitFor(() => expect(gets).toBe(2));
+    await waitFor(() => {
+      expect(screen.getByText("No pending changes.")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText(/Max seats per LTED/i)).toHaveValue(6);
+    expect(screen.queryByText(/Save failed/)).not.toBeInTheDocument();
+  });
 });
