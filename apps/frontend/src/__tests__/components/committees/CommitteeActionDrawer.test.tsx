@@ -1116,7 +1116,7 @@ describe("CommitteeActionDrawer: already pending (ticket 26)", () => {
     const action: CommitteeAction = { kind: "add-member", committee: REF, seatNumber: 2 };
     const ui = (committeeDetail: CommitteeDetailResponse) => (
       <GlobalContext.Provider
-        value={{ actingPermissions: PrivilegeLevel.Leader, setActingPermissions: () => undefined }}
+        value={{ actingPrivilege: PrivilegeLevel.Leader, setActingPrivilege: () => undefined }}
       >
         <CommitteeActionDrawer
           action={action}
@@ -1185,7 +1185,7 @@ describe("CommitteeActionDrawer: completion (ticket 27)", () => {
       });
       return (
         <GlobalContext.Provider
-          value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+          value={{ actingPrivilege: PrivilegeLevel.Admin, setActingPrivilege: () => undefined }}
         >
           <button type="button">New seat actions</button>
           <CommitteeActionDrawer
