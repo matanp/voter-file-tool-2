@@ -14,6 +14,8 @@ When driving a browser against production or a Vercel preview, open every new ta
 
 Issues and specs live as markdown files under `.scratch/<feature-slug>/`: one live, untracked copy shared by every worktree, with its own git repo. See `docs/agents/issue-tracker.md`.
 
+Commit every tracker edit as you make it: `git -C .scratch add <your files> && git -C .scratch commit -m "<effort> NN: <summary>"`. No branch or PR, and don't push. Never check out, restore, stash, reset or clean tracker files you didn't write.
+
 ### Triage labels
 
 The five canonical triage roles, used as-is (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded as a `Status:` line in each issue file. See `docs/agents/triage-labels.md`.

@@ -7,9 +7,12 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - **One live copy.** `.scratch` is in the main checkout and is ignored by this repo. In every other worktree,
   `.scratch` is a symlink to that copy, so all agents read and write the same files.
 - **Edits take effect immediately.** They aren't tied to a branch or a PR. Never `git add` `.scratch` to this repo.
-- **`.scratch` is its own git repo** (private, `origin` is `opensource-politics-docs`). Commit your tracker edits
-  there directly, with no branch or PR: `git -C .scratch add <your files> && git -C .scratch commit -m "<summary>"`.
-  Add only your own files; other sessions may have edits in progress.
+- **`.scratch` is its own git repo** (private, `origin` is `opensource-politics-docs`).
+- **Commit every tracker edit as you make it**, directly, with no branch, PR or approval:
+  `git -C .scratch add <your files> && git -C .scratch commit -m "<effort> NN: <summary>"`. Add your own files by
+  path, never `-A`: other sessions may have edits in progress. Don't push; the user does.
+- **Never discard tracker files you didn't write.** No `checkout`, `restore`, `stash`, `reset` or `clean` on another
+  session's changes. Leave them for that session, or for wrap-up to report.
 - **Setup on a new machine or fresh clone:** in the main checkout, `git clone <private tracker repo> .scratch`
   (needs access) and `cp scripts/git-hooks/post-checkout .git/hooks/`.
 - **Missing symlink?** Run `scripts/link-scratch.sh` from the worktree. With the hook installed, a new worktree
@@ -24,8 +27,8 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
   For the same reason, never run `git clean -x` or `-X` in the main checkout.
 - **Search it by path.** `.scratch` is gitignored, so repo-wide `rg` and the Grep tool skip it. Search
   `.scratch/` explicitly.
-- **Voter data** (screenshots, exports, run output) goes in a `data/` folder, which the tracker repo ignores. Keep
-  voter PII out of ticket text.
+- **Large local output** (screenshots, exports, run output) goes in a `data/` folder, which the tracker repo
+  ignores. The tracker repo is private, so voter data in it is fine; keep it out of this public repo.
 
 ## Conventions
 
@@ -37,7 +40,12 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
+Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed), then commit it in `.scratch`.
+
+## When a skill says a PR closes a ticket
+
+A PR can't close a ticket here. After the PR merges and passes its production check, set the ticket's
+`Status: resolved` and commit it in `.scratch`. Until then, a built but unmerged ticket is `ready-for-human`.
 
 ## When a skill says "fetch the relevant ticket"
 
