@@ -50,7 +50,7 @@ with names, because the local data has no filled seats. Check one in production 
 Existing recordings were not deleted. They age out by about 2026-12-21 (30-day retention). 02's replays will
 still show text until then.
 
-Still open: **console log capture is on** (`capture_console_log_opt_in`). Replays include console output, and
+Resolved 2026-11-22 (see the comment below): **console log capture was on** (`capture_console_log_opt_in`). Replays include console output, and
 any `console.log`/`console.error` that prints a voter record would reach PostHog. Decide whether to turn it off
 or audit what the app logs.
 
