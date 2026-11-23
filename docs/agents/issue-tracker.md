@@ -22,6 +22,10 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
   the script.
 - **Remote agents** (cloud sessions, remote-isolation subagents) don't get the tracker. Paste the ticket into their
   prompt.
+- **Worktree-isolated agents** (`isolation: "worktree"` subagents) can read the tracker through the symlink but
+  can't write or commit it: Claude Code's isolation guard resolves the symlink to the main checkout and refuses.
+  Have them report ticket changes back to the parent session, which writes and commits them. Their worktree may
+  also lack the symlink; they can run `scripts/link-scratch.sh` to read tickets.
 - **Don't check out a pre-untrack branch in the main checkout.** Git overwrites ignored files when it switches
   branches, so it would replace the live tracker with that branch's copy, and switching back deletes it. Use a
   worktree for old branches. To update `main` there, run `git fetch` then `git checkout -B main origin/main`.
