@@ -14,7 +14,7 @@ When driving a browser against production or a Vercel preview, open every new ta
 
 Issues and specs live as markdown files under `.scratch/<feature-slug>/`: one live, untracked copy shared by every worktree, with its own git repo. See `docs/agents/issue-tracker.md`.
 
-Commit every tracker edit as you make it: `git -C .scratch add <your files> && git -C .scratch commit -m "<effort> NN: <summary>"`. No branch or PR, and don't push (the user's pushes push it). Never check out, restore, stash, reset or clean tracker files you didn't write.
+Commit every tracker edit as you make it: `git -C .scratch add <your files> && git -C .scratch commit -m "<effort> NN: <summary>"`. No branch or PR, and don't push (the user's pushes push it). Never check out, restore, stash, reset or clean tracker files you didn't write. Worktree-isolated subagents can't write the tracker; they report ticket changes to the parent session instead.
 
 ### Triage labels
 

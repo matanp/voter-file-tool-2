@@ -9,13 +9,16 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - **Edits take effect immediately.** They aren't tied to a branch or a PR. Never `git add` `.scratch` to this repo.
 - **`.scratch` is its own git repo** (private, `origin` is `opensource-politics-docs`).
 - **Commit every tracker edit as you make it**, directly, with no branch, PR or approval:
-  `git -C .scratch add <your files> && git -C .scratch commit -m "<effort> NN: <summary>"`. Add your own files by
+  `git -C .scratch add <your files> && git -C .scratch commit -m "<effort> NN: <summary>"` (for a spec, map or new
+  effort with no ticket number, use `<effort>: <summary>`). Add your own files by
   path, never `-A`: other sessions may have edits in progress. Don't push: the `pre-push` hook pushes the tracker
-  whenever the user pushes this repo.
+  whenever the user pushes this repo to `origin`. If `.git/hooks/pre-push` is missing in the main checkout, tell the
+  user to install it (see setup below).
 - **Never discard tracker files you didn't write.** No `checkout`, `restore`, `stash`, `reset` or `clean` on another
   session's changes. Leave them for that session, or for wrap-up to report.
-- **Setup on a new machine or fresh clone:** in the main checkout, `git clone <private tracker repo> .scratch`
-  (needs access) and `cp scripts/git-hooks/post-checkout scripts/git-hooks/pre-push .git/hooks/`.
+- **Hooks (every machine, once):** in the main checkout, `cp scripts/git-hooks/post-checkout
+  scripts/git-hooks/pre-push .git/hooks/`. Git shares them with every worktree. Re-copy after either file changes.
+- **Fresh clone:** also `git clone <private tracker repo> .scratch` in the main checkout (needs access).
 - **Missing symlink?** Run `scripts/link-scratch.sh` from the worktree. With the hook installed, a new worktree
   gets it automatically. A real `.scratch` folder in a worktree means its branch predates the untrack and its copy is
   stale. Don't trust it; rebase the branch onto `main`, resolve `.scratch` delete conflicts with `git rm`, then run
@@ -32,8 +35,8 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
   For the same reason, never run `git clean -x` or `-X` in the main checkout.
 - **Search it by path.** `.scratch` is gitignored, so repo-wide `rg` and the Grep tool skip it. Search
   `.scratch/` explicitly.
-- **Large local output** (screenshots, exports, run output) goes in a `data/` folder, which the tracker repo
-  ignores. The tracker repo is private, so voter data in it is fine; keep it out of this public repo.
+- **Voter data.** The tracker repo is private, so tickets may quote voter data; keep it out of this public repo.
+  Large local output (screenshots, exports, run output) goes in a `data/` folder, which the tracker repo ignores.
 
 ## Conventions
 
@@ -65,4 +68,4 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
 - **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
 - **Claim**: set `Status: claimed`, save, and commit it in `.scratch` before any work.
-- **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
+- **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`, then commit both files in `.scratch`.

@@ -18,8 +18,9 @@ fi
 if [ "$top" = "$main" ] && [ -n "$(git ls-tree -d HEAD .scratch)" ]; then
   echo "" >&2
   echo "WARNING: this branch still tracks .scratch, so git may have overwritten the live tracker." >&2
-  echo "Switch back to a branch without .scratch, then check: git -C .scratch status" >&2
-  echo "Restore with: git -C .scratch checkout -- . (uncommitted tracker edits may be lost)" >&2
+  echo "Agents: stop and tell the user. Don't restore tracker files yourself." >&2
+  echo "User: switch back to a branch without .scratch, then compare git -C .scratch status with the" >&2
+  echo "branch's copies; restore only the overwritten files (git -C .scratch checkout -- <file>)." >&2
   echo "" >&2
 fi
 exit 0
