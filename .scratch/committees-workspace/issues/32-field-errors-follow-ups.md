@@ -1,7 +1,7 @@
 # 32 - Field-error follow-ups from PR #163 review
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Parent: ../map.md
 Tier: 3 (polish) · Priority: P3
 Source: reviews of PR #163 ([24](24-drawer-shows-field-errors.md))
@@ -32,6 +32,10 @@ one-line note on the hook and close this item.
 
 ## Acceptance criteria
 
-- [ ] `GovernanceConfigClient` has no casts on the save response; its existing tests pass.
-- [ ] The adapter and drawer tests above exist and pass.
-- [ ] `useFieldErrors` is either memoized or documented as returning new identities each render.
+- [x] `GovernanceConfigClient` has no casts on the save response; its existing tests pass.
+- [x] The adapter and drawer tests above exist and pass.
+- [x] `useFieldErrors` is either memoized or documented as returning new identities each render.
+
+## Resolution
+
+`GovernanceConfigClient` parses the GET and save responses with zod. A failed save is read with `fieldErrorsSchema`, not the strict `validationErrorResponseSchema`, so extra keys such as a 409's `conflict` are fine. A successful save whose body can't be read is reported as saved, and the settings reload; if the reload can't be read either, the load error shows instead of the form. The adapter and drawer tests are added. `useFieldErrors` is memoized, so effects and callbacks can depend on what it returns. Branch `fix/workspace-drawer-error-focus`.
