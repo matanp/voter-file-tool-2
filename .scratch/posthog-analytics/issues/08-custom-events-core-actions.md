@@ -50,10 +50,10 @@ counts.
 | `submission_created` | `AddMemberFlow`, Submission (add or replace) | `replacement`, `outcome`, `ms_in_flow` |
 | `committee_member_removed` | Admin remove / record resignation forms | `flow` (remove/resign), `outcome`, `reason` |
 | `exit_report_submitted` | Leader Exit Report form | `kind` (RESIGNATION/REMOVAL), `outcome`, `reason` (removals only) |
-| `report_requested` | All 5 generateReport forms | `report_type` (Prisma `ReportType`), `report_key`, `format` |
+| `report_requested` | `useGenerateReport`, which all 5 generateReport forms use | `report_type` (Prisma `ReportType`), `report_key`, `format` |
 | `report_completed` / `report_failed` | `ReportStatusTracker` (once per job) | same + `ms_since_request` |
 | `report_downloaded` | `ReportCard` download / view on /reports | `report_type`, `format`, `via`, `ms_since_request` |
-| `petition_action` | Petition outcomes record | `action`, `outcome`, `candidate_count` |
+| `petition_outcome_recorded` | Petition outcomes record | `outcome`, `candidate_count` |
 | `admin_import_run` | `XlsxUploadCard` (weighted table, crosswalk) | `import_type`, `outcome` |
 
 Differences from the table above:
@@ -67,7 +67,8 @@ Differences from the table above:
 - `report_downloaded` adds `via` (download / view in a new tab) beside `format`.
 - `report_downloaded` covers /reports only. Form links and auto-downloads after generation count as
   `report_completed`.
-- `petition_action`'s `candidate_count` counts candidates with a Voter ID, the ones sent.
+- `petition_action` became `petition_outcome_recorded`, since recording an outcome is its only action.
+  `candidate_count` counts candidates with a Voter ID, the ones sent.
 - `admin_import_run` has no `row_count`, because the import responses don't share a shape. Voter import is a
   report job, so it shows as `report_requested` with `report_key: voterImport`.
 - `record_search_performed` covers /recordsearch only, not the embedded search forms (petitions, committees
@@ -93,3 +94,9 @@ check found the trailing-slash event loss fixed in 11.
 Exit Reports no longer count as adds and removals. Event properties now use `RemovalReason` / `ExitReportKind`
 types. Added `format` to `report_downloaded`. `petition_action` is tracked at the one submit point. The
 "App usage" dashboard's committee tile (12) shows all four committee events.
+
+2026-11-22: Second review of PR #181. `petition_action` renamed to `petition_outcome_recorded` (no `action`
+property). `record_search_performed.mode` is now the mode the search was sent in. The five report forms request
+jobs through `hooks/useGenerateReport.ts`, which records `report_requested`. `useGenerateReport.test.ts`
+tests it and fails if any other code posts to `/api/generateReport`. Follow-ups: 14 (server-side report
+outcomes), 15 (`row_count`, `action_failed` beyond the workspace), 16 (type cleanup).

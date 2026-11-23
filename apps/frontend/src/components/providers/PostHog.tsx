@@ -55,6 +55,10 @@ if (typeof window !== "undefined") {
     // voter-data areas is .scratch/posthog-analytics/issues/13.
     mask_all_text: true,
     mask_all_element_attributes: true,
+    // Replays would otherwise include console output whenever the project
+    // setting allows it, and a console.error can print a voter record. This
+    // client-side false overrides the project setting.
+    enable_recording_console_log: false,
     session_recording: {
       maskAllInputs: true,
       maskTextSelector: "*",

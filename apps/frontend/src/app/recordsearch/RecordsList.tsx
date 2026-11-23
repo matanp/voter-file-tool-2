@@ -88,6 +88,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
 
   // The search in flight, for record_search_performed. Field names only.
   const pendingSearch = React.useRef<{
+    mode: typeof searchMode;
     fields: string[];
     startedAt: number;
   } | null>(null);
@@ -99,7 +100,8 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
     if (!pending) return;
     pendingSearch.current = null;
     track("record_search_performed", {
-      mode: searchMode,
+      // The mode the search was sent in, even if the user switched since.
+      mode: pending.mode,
       criteria_fields: pending.fields,
       result_count: resultCount,
       duration_ms: Date.now() - pending.startedAt,
@@ -159,6 +161,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
       setSearchQuery(flattenedQuery);
 
       pendingSearch.current = {
+        mode: searchMode,
         fields: [...new Set(flattenedQuery.map((q) => q.field))].sort(),
         startedAt: Date.now(),
       };
@@ -175,7 +178,7 @@ export const RecordsList: React.FC<RecordsListProps> = ({ dropdownList }) => {
         scrollToElement(LOADING_SECTION_ID);
       }, 100);
     },
-    [searchMutation, setContextSearchQuery, includeCommittee],
+    [searchMutation, setContextSearchQuery, includeCommittee, searchMode],
   );
 
   const handleLoadMore = React.useCallback(async () => {

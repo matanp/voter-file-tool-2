@@ -197,8 +197,7 @@ export function PetitionOutcomesClient({
       return;
     }
     const trackOutcome = (outcome: "success" | "error") =>
-      track("petition_action", {
-        action: "record_outcome",
+      track("petition_outcome_recorded", {
         outcome,
         candidate_count: filled.length,
       });

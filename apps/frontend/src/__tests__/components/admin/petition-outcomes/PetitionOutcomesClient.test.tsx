@@ -253,8 +253,7 @@ describe("PetitionOutcomesClient analytics", () => {
   it("records a successful outcome with the filled candidate count", async () => {
     await recordOutcome();
     await waitFor(() =>
-      expect(mockCapture).toHaveBeenCalledWith("petition_action", {
-        action: "record_outcome",
+      expect(mockCapture).toHaveBeenCalledWith("petition_outcome_recorded", {
         outcome: "success",
         candidate_count: 1,
       }),
@@ -265,8 +264,7 @@ describe("PetitionOutcomesClient analytics", () => {
     mutateMock.mockRejectedValueOnce(new Error("Seat already recorded"));
     await recordOutcome();
     await waitFor(() =>
-      expect(mockCapture).toHaveBeenCalledWith("petition_action", {
-        action: "record_outcome",
+      expect(mockCapture).toHaveBeenCalledWith("petition_outcome_recorded", {
         outcome: "error",
         candidate_count: 1,
       }),

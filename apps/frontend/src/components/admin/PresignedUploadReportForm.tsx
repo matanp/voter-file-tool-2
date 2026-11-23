@@ -8,8 +8,7 @@ import { Label } from "~/components/ui/label";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { useFileUpload } from "~/hooks/useFileUpload";
-import { useApiMutation } from "~/hooks/useApiMutation";
-import { trackReportRequested } from "~/lib/analytics";
+import { useGenerateReport } from "~/hooks/useGenerateReport";
 
 export type PresignedUploadReportFormSpec = {
   title: string;
@@ -65,12 +64,11 @@ export function PresignedUploadReportForm({
     maxSize: spec.upload.maxSize,
   });
 
-  const generateReportMutation = useApiMutation<
-    { reportId?: string },
-    Record<string, unknown>
-  >("/api/generateReport", "POST", {
-    onSuccess: (data, payload) => {
-      trackReportRequested(data.reportId, payload);
+  const generateReportMutation = useGenerateReport<
+    Record<string, unknown>,
+    { reportId?: string }
+  >({
+    onSuccess: () => {
       setSuccess(spec.submit.successMessage);
       setName("");
       onSuccessReset?.();

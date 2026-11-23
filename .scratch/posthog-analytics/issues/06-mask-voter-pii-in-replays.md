@@ -53,3 +53,7 @@ still show text until then.
 Still open: **console log capture is on** (`capture_console_log_opt_in`). Replays include console output, and
 any `console.log`/`console.error` that prints a voter record would reach PostHog. Decide whether to turn it off
 or audit what the app logs.
+
+2026-11-22: Console logs are off in code: `enable_recording_console_log: false` in `PostHog.tsx` overrides the
+project setting (posthog-js reads the client value first), so replays carry no console output. Asserted in
+`PostHog.test.tsx`.

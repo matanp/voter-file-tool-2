@@ -163,6 +163,7 @@ describe("CSPostHogProvider", () => {
       expect.objectContaining({
         mask_all_text: true,
         mask_all_element_attributes: true,
+        enable_recording_console_log: false,
         session_recording: expect.objectContaining({
           maskAllInputs: true,
           maskTextSelector: "*",

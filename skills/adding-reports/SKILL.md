@@ -204,7 +204,7 @@ flowchart LR
 - Request body: `generateReportSchema`
 - Worker payload: `enrichedReportDataSchema` (+ `reportAuthor`, `jobId`)
 - Filename: `generateReportFilename()` + `getFilenameReportType()`
-- Analytics: a new form's generateReport `onSuccess` calls `trackReportRequested(data.reportId, payload)` (`~/lib/analytics`), and its status display uses `ReportStatusTracker`, which records `report_completed` / `report_failed`. Without the call the report is missing from PostHog's report tiles.
+- Analytics: a new form requests its job with `useGenerateReport` (`~/hooks/useGenerateReport`), not `useApiMutation`, so the job records `report_requested`. Its status display uses `ReportStatusTracker`, which records `report_completed` / `report_failed`. `useGenerateReport.test.ts` fails if any other code posts to `/api/generateReport`.
 
 ---
 

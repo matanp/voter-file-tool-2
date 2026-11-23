@@ -90,9 +90,10 @@ export interface AnalyticsEvents {
     via: "download" | "view";
     ms_since_request: number | null;
   };
-  petition_action: {
-    action: "record_outcome";
+  /** An Admin recorded a seat's petition outcome on /admin/petition-outcomes. */
+  petition_outcome_recorded: {
     outcome: "success" | "error";
+    /** Candidates with a Voter ID, the ones sent. */
     candidate_count: number;
   };
   /** A synchronous admin upload (weighted table, LTED crosswalk) finished. */

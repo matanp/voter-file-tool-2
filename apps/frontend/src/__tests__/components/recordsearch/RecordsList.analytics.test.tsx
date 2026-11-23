@@ -3,7 +3,7 @@
  * values) and `voter_details_opened` for PostHog.
  */
 import React from "react";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { PrivilegeLevel } from "@prisma/client";
@@ -35,38 +35,46 @@ jest.mock("next-auth/react", () => ({
     data: { user: { privilegeLevel: "Admin" } },
   }),
 }));
-// The search form isn't under test: a button that submits a street search.
+// The search form isn't under test: a button that submits a street search,
+// and one that switches to advanced mode.
 jest.mock("~/app/recordsearch/VoterRecordSearch", () => ({
   __esModule: true,
   default: function VoterRecordSearchStub({
     handleSubmit,
+    onModeChange,
   }: {
     handleSubmit: (rows: unknown[]) => Promise<void>;
+    onModeChange: (mode: "simple" | "advanced") => void;
   }) {
     return (
-      <button
-        type="button"
-        onClick={() =>
-          void handleSubmit([
-            {
-              name: "street",
-              displayName: "Street",
-              type: "Street",
-              value: "MAIN ST",
-              compoundType: false,
-            },
-            {
-              name: "lastName",
-              displayName: "Last Name",
-              type: "String",
-              value: "SAMPLE",
-              compoundType: false,
-            },
-          ])
-        }
-      >
-        Search
-      </button>
+      <>
+        <button type="button" onClick={() => onModeChange("advanced")}>
+          Advanced
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            void handleSubmit([
+              {
+                name: "street",
+                displayName: "Street",
+                type: "Street",
+                value: "MAIN ST",
+                compoundType: false,
+              },
+              {
+                name: "lastName",
+                displayName: "Last Name",
+                type: "String",
+                value: "SAMPLE",
+                compoundType: false,
+              },
+            ])
+          }
+        >
+          Search
+        </button>
+      </>
     );
   },
 }));
@@ -116,6 +124,51 @@ describe("RecordsList analytics", () => {
       outcome: "success",
     });
     expect(JSON.stringify(props)).not.toMatch(/MAIN ST|SAMPLE/);
+  });
+
+  it("records the mode the search was sent in, not one switched to mid-search", async () => {
+    let respond: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => (respond = resolve));
+    await search(async () => {
+      await answered;
+      return fetchJsonResponse({ data: [], totalRecords: 0 });
+    });
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Advanced" }));
+    respond();
+
+    await waitFor(() =>
+      expect(captured("record_search_performed")).toHaveLength(1),
+    );
+    expect(captured("record_search_performed")).toEqual([
+      expect.objectContaining({ mode: "simple", result_count: 0 }),
+    ]);
+  });
+
+  it("records advanced mode when the search is sent in it", async () => {
+    installFetchMock(async () =>
+      fetchJsonResponse({ data: [], totalRecords: 0 }),
+    );
+    renderWithVoterSearchProvider(
+      <GlobalContext.Provider
+        value={{
+          actingPermissions: PrivilegeLevel.Admin,
+          setActingPermissions: jest.fn(),
+        }}
+      >
+        <RecordsList dropdownList={createMockDropdownLists()} />
+      </GlobalContext.Provider>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    await waitFor(() =>
+      expect(captured("record_search_performed")).toEqual([
+        expect.objectContaining({ mode: "advanced" }),
+      ]),
+    );
   });
 
   it("records opening a voter's details", async () => {

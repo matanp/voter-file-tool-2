@@ -14,7 +14,6 @@ import { Label } from "~/components/ui/label";
 import { useToast } from "~/components/ui/use-toast";
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { ReportStatusTracker } from "~/app/components/ReportStatusTracker";
-import { useApiMutation } from "~/hooks/useApiMutation";
 import { hasPermissionFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import {
@@ -31,7 +30,7 @@ import {
 } from "./scopeReportFormSpecs";
 import { SCOPE_REPORT_UI } from "./scopeReportUiRegistry";
 import { formatLeaderAssignmentLabel } from "./leaderAssignmentLabel";
-import { trackReportRequested } from "~/lib/analytics";
+import { useGenerateReport } from "~/hooks/useGenerateReport";
 
 interface ScopedReportFormProps {
   type: ScopeReportType;
@@ -151,12 +150,10 @@ export function ScopedReportForm({
     leaderAssignments[assignmentIndex];
   const leaderHasNoAssignment = isLeaderOnly && !selectedAssignment;
 
-  const generateReportMutation = useApiMutation<
-    { reportId: string },
+  const generateReportMutation = useGenerateReport<
     GenerateReportData
-  >("/api/generateReport", "POST", {
-    onSuccess: (data, payload) => {
-      trackReportRequested(data.reportId, payload);
+  >({
+    onSuccess: (data) => {
       setReportId(data.reportId);
       toast({
         title: messages.toastStartedTitle,
