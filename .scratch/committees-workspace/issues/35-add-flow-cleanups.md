@@ -31,6 +31,14 @@ promise on unmount (today an unmounted workspace's timer still fires and resolve
   `has` on it.
 - `canSelectPending={isAdd}`: a boolean flag prop. Consider passing the mode.
 - `RosterTab.tsx` imports `rosterRowKey as rowKey`; use the exported name.
+- The focus fallback order is written twice: the workspace's completion effect (filled seat, trigger, same row's
+  control, heading) and the drawer's `onCloseAutoFocus` (completed target, trigger, `fallbackFocus`). Give it one
+  owner.
+- `onComplete`'s return type `Promise<HTMLElement | null> | void` keeps `| void` only for the tests' `jest.fn()`
+  mocks; the one production caller always returns a Promise.
+- `requestAdd`: two simultaneous first submits both pass the duplicate check, and the unique key turns the second
+  into a 500, not the 409 (documented in the route as accepted). Catching the unique-key error (P2002) and
+  answering 409 would close it.
 
 ## 5. Browser QA findings (2026-11-22)
 
