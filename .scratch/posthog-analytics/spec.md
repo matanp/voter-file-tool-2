@@ -43,3 +43,6 @@ PostHog setup and tracking:
 - 10 Identity hygiene: reset on sign-out, stop anonymous person profiles
 - 11 Upgrade posthog-js
 - 12 Usage dashboard
+- 14 Record report outcomes on the server
+- 15 Fill the analytics coverage gaps from 08 and 09
+- 16 Tighten analytics types and the drawer's tracking
