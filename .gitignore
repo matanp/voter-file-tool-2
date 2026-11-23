@@ -45,3 +45,7 @@ __pycache__/
 # Local crosswalk one-offs (data dump and script)
 apps/frontend/crosswalk-backup.csv
 apps/frontend/scripts/createCrosswalkOnlyCommittees.mjs
+
+# Issue tracker: one live untracked copy in the main checkout, symlinked into worktrees
+# (no trailing slash, so the symlinks are ignored too). See docs/agents/issue-tracker.md.
+.scratch

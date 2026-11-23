@@ -12,7 +12,7 @@ When driving a browser against production or a Vercel preview, open every new ta
 
 ### Issue tracker
 
-Issues and specs live as markdown files under `.scratch/<feature-slug>/` in this repo (committed to git). See `docs/agents/issue-tracker.md`.
+Issues and specs live as markdown files under `.scratch/<feature-slug>/`: one live, untracked copy shared by every worktree, with its own git repo. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
