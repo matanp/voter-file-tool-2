@@ -31,7 +31,7 @@ Parts 1 and 2 are the bug. Part 3 can split into its own ticket if it grows.
 
 ## Resolution
 
-`requestAdd` now answers a duplicate with 409 "Already pending for this committee: submitted <date>, waiting for an Admin to review it." (checked before eligibility); the drawer shows it as an error and search and step 2 mark the voter "Already pending" (not selectable for a submission; an Admin can still add them). Part 3 split to [33](33-vacant-rows-show-pending-candidates.md). Branch `fix/workspace-add-flow`.
+`requestAdd` now answers a duplicate with 409 "Already pending for this committee: submitted <date>, waiting for an Admin to review it." (checked before eligibility); the drawer shows it as an error and search and step 2 mark the voter "Already pending" (not selectable for a submission; an Admin can still add them). Part 3 split to [33](33-vacant-rows-show-pending-candidates.md). Merged in PR #183 (`0313e4d7`).
 
 Decided in the PR #183 review:
 
@@ -41,3 +41,11 @@ Decided in the PR #183 review:
   scope. The old 200 already told any caller that the voter was pending, so showing the date exposes little more.
   The ID had no reader, so it was dropped.
 - The date is formatted in UTC, like the Pending tab; [34](34-pending-submitted-date-uses-utc.md) fixes all three.
+
+## Comments
+
+### 2026-11-22
+
+Merged in PR #183 (`0313e4d7`). A production check of the add flow (Admin view of a pending voter, the 409, the
+toast/roster timing and focus) is handed to a separate Claude in Chrome session run by the maintainer; record its
+results here.
