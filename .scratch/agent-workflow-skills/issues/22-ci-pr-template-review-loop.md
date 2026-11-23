@@ -37,3 +37,16 @@ check, or any browser check. There's no PR template and there are no git hooks.
 
 - Any of this in pre-commit or pre-push hooks instead of CI, or CI only? (Hooks slow down agent commits.)
 - Is report-server code covered by CI at all today?
+
+## Comments
+
+- 2026-11-22 — Main broke even though every PR passed CI. #186 renamed `mockHasPermission` →
+  `mockHasPrivilege` and the `GlobalContext` fields `actingPermissions`/`setActingPermissions` →
+  `actingPrivilege`/`setActingPrivilege`. #183 added tests that still used the old names. The two were
+  merged a minute apart with no textual conflict. The production build of `0313e4d7` then failed
+  `next lint` (`no-unsafe-call` at `requestAdd.test.ts:337`). The drawer-test leftover was a type
+  error that lint alone doesn't catch. The #181 merge (`9742792b`) fixed both, so #196, an identical
+  fix, merged as a no-op. Cause: `main` has no branch protection, and `test.yml` only runs on
+  `pull_request`, against each PR's own older base. Options for part 1: require branches to be
+  up to date before merging, or a merge queue (needs a `merge_group:` trigger in `test.yml`).
+  Either way, make `tsc --noEmit` a required check.
