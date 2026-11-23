@@ -2,6 +2,24 @@
 
 Issues and specs for this repo live as markdown files in `.scratch/`.
 
+## Where the tracker lives
+
+- **One live copy.** `.scratch` is in the main checkout and is ignored by this repo. In every other worktree,
+  `.scratch` is a symlink to that copy, so all agents read and write the same files.
+- **Edits take effect immediately.** They aren't tied to a branch or a PR. Never `git add` `.scratch` to this repo.
+- **`.scratch` is its own git repo** (private, `origin` is `opensource-politics-docs`). Commit your tracker edits
+  there directly, with no branch or PR: `git -C .scratch add <your files> && git -C .scratch commit -m "<summary>"`.
+  Add only your own files; other sessions may have edits in progress.
+- **Missing symlink?** Run `scripts/link-scratch.sh` from the worktree. A new worktree gets it from the
+  `post-checkout` hook. A real `.scratch` folder in a worktree means its branch predates the untrack and its copy is
+  stale. Don't trust it; rebase the branch onto `main`, resolve `.scratch` delete conflicts with `git rm`, then run
+  the script.
+- **Remote agents** (cloud sessions, remote-isolation subagents) don't get the tracker. Paste the ticket into their
+  prompt.
+- **Don't check out a pre-untrack branch in the main checkout.** Git overwrites ignored files when it switches
+  branches, so it would replace the live tracker with that branch's copy, and switching back deletes it. Use a
+  worktree for old branches. To update `main` there, run `git fetch` then `git checkout -B main origin/main`.
+
 ## Conventions
 
 - One feature per directory: `.scratch/<feature-slug>/`

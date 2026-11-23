@@ -8,7 +8,7 @@ Before adding or extending report types, read [skills/adding-reports/SKILL.md](s
 
 ### Issue tracker
 
-Issues and specs live as markdown files under `.scratch/<feature-slug>/` in this repo (committed to git). See `docs/agents/issue-tracker.md`.
+Issues and specs live as markdown files under `.scratch/<feature-slug>/` : one live, untracked copy shared by every worktree, with its own git repo. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
