@@ -34,8 +34,8 @@ import type { DeepMockProxy } from "jest-mock-extended";
 import type { PrismaClient } from "@prisma/client";
 import {
   mockAuthSession,
-  mockHasPermission,
-  mockRealPermissionHierarchy,
+  mockHasPrivilege,
+  mockRealPrivilegeHierarchy,
   prismaMock,
 } from "../utils/mocks";
 import {
@@ -50,7 +50,7 @@ const setupAuthenticatedTest = (privilegeLevel = PrivilegeLevel.ReadAccess) => {
   const mockSession = createMockSession({ user: { privilegeLevel } });
   mockAuthSession(mockSession);
   // The route checks the role again for committee data (ReadAccess gets none).
-  mockRealPermissionHierarchy();
+  mockRealPrivilegeHierarchy();
   return mockSession;
 };
 
@@ -79,7 +79,7 @@ describe("/api/fetchFilteredData", () => {
 
     // Setup mocks for successful authentication tests
     const setupSuccessMocks = () => {
-      mockRealPermissionHierarchy();
+      mockRealPrivilegeHierarchy();
       // Use actual records from the shared dataset that match the search criteria
       const johnRecords = SHARED_MOCK_VOTER_RECORDS.filter(
         (record) => record.firstName === "John",
@@ -93,7 +93,7 @@ describe("/api/fetchFilteredData", () => {
       authTestConfig,
       POST,
       mockAuthSession,
-      mockHasPermission,
+      mockHasPrivilege,
       setupSuccessMocks,
     );
 

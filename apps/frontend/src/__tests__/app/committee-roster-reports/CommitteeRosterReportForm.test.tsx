@@ -3,13 +3,13 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PrivilegeLevel } from "@prisma/client";
 import { ScopedReportForm } from "~/components/reports/ScopedReportForm";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 
 jest.mock("~/components/providers/GlobalContext", () => {
   return {
     GlobalContext: React.createContext({
-      actingPermissions: "ReadAccess",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "ReadAccess",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -77,19 +77,19 @@ const committeeLists = [
   },
 ];
 
-function renderWithPermissions(actingPermissions: PrivilegeLevel) {
+function renderWithActingPrivilege(actingPrivilege: PrivilegeLevel) {
   return render(
     <GlobalContext.Provider
       value={{
-        actingPermissions,
-        setActingPermissions: jest.fn(),
+        actingPrivilege,
+        setActingPrivilege: jest.fn(),
       }}
     >
       <ScopedReportForm
         type="committeeRoster"
         committeeLists={committeeLists}
         leaderAssignments={[{ cityTown: "ROCHESTER", legDistrict: 1 }]}
-        userPrivilegeLevel={actingPermissions}
+        userPrivilegeLevel={actingPrivilege}
       />
     </GlobalContext.Provider>,
   );
@@ -98,7 +98,7 @@ function renderWithPermissions(actingPermissions: PrivilegeLevel) {
 describe("ScopedReportForm (committeeRoster)", () => {
   beforeEach(() => {
     mutateMock.mockClear();
-    jest.mocked(hasPermissionFor).mockImplementation((user, required) => {
+    jest.mocked(hasPrivilegeFor).mockImplementation((user, required) => {
       const order = [
         PrivilegeLevel.Developer,
         PrivilegeLevel.Admin,
@@ -111,7 +111,7 @@ describe("ScopedReportForm (committeeRoster)", () => {
   });
 
   it("leader flow is jurisdiction-scoped and does not expose countywide", () => {
-    renderWithPermissions(PrivilegeLevel.Leader);
+    renderWithActingPrivilege(PrivilegeLevel.Leader);
 
     expect(screen.queryByText("Countywide")).not.toBeInTheDocument();
     expect(screen.queryByText("City/Town")).not.toBeInTheDocument();
@@ -119,7 +119,7 @@ describe("ScopedReportForm (committeeRoster)", () => {
   });
 
   it("leader can submit jurisdiction roster report", async () => {
-    renderWithPermissions(PrivilegeLevel.Leader);
+    renderWithActingPrivilege(PrivilegeLevel.Leader);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Generate Report" }),
@@ -146,7 +146,7 @@ describe("ScopedReportForm (committeeRoster)", () => {
   });
 
   it("admin can submit countywide roster report", async () => {
-    renderWithPermissions(PrivilegeLevel.Admin);
+    renderWithActingPrivilege(PrivilegeLevel.Admin);
 
     expect(screen.getByText("Countywide")).toBeInTheDocument();
 

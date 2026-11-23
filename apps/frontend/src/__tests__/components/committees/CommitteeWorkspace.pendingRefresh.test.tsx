@@ -5,7 +5,7 @@
  * selected committee stays listed even when a quick filter would now hide it.
  *
  * The harness follows `CommitteeWorkspace.test.tsx` (in-memory URL router,
- * GlobalContext with `actingPermissions`), with a small stateful server:
+ * GlobalContext with `actingPrivilege`), with a small stateful server:
  * `handleRequest` removes the submission and lowers the row's `pendingCount`.
  */
 import React from "react";
@@ -16,7 +16,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { CommitteeWorkspace } from "~/app/committees/workspace/CommitteeWorkspace";
 import { keepRowVisible } from "~/app/committees/workspace/useGridRefresh";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import { summarizeEdRollups } from "~/lib/summarizeEdRollups";
 import type {
@@ -64,8 +64,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -239,7 +239,7 @@ function renderWorkspace(query: string) {
   mockUrl.reset(query);
   return render(
     <GlobalContext.Provider
-      value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: PrivilegeLevel.Admin, setActingPrivilege: () => undefined }}
     >
       <CommitteeWorkspace termLabel="2024–2026" initialScope={null} />
     </GlobalContext.Provider>,
@@ -266,9 +266,9 @@ async function waitForGrid() {
 beforeEach(() => {
   jest.clearAllMocks();
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
   Object.defineProperty(window, "matchMedia", {
     configurable: true,

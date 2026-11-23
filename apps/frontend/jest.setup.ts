@@ -7,7 +7,7 @@ import type { PrismaClient } from "@prisma/client";
 import type * as PrismaClientModule from "@prisma/client";
 import type { Session } from "next-auth";
 import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 
 // Mock Next.js modules
@@ -255,7 +255,7 @@ jest.mock("~/lib/utils", () => {
     jest.requireActual("~/lib/utils");
   return {
     ...actual,
-    hasPermissionFor: jest.fn(),
+    hasPrivilegeFor: jest.fn(),
   };
 });
 
@@ -284,8 +284,8 @@ const mockedAuth = jest.mocked(auth) as unknown as jest.MockedFunction<
   () => Promise<Session | null>
 >;
 globalThis.mockAuth = mockedAuth;
-const mockedHasPermissionFor = jest.mocked(hasPermissionFor);
-globalThis.mockHasPermissionFor = mockedHasPermissionFor;
+const mockedHasPrivilegeFor = jest.mocked(hasPrivilegeFor);
+globalThis.mockHasPrivilegeFor = mockedHasPrivilegeFor;
 
 // Default active term for committee tests (SRS §5.1)
 const DEFAULT_ACTIVE_TERM = {
@@ -301,7 +301,7 @@ const DEFAULT_ACTIVE_TERM = {
 beforeEach(() => {
   mockReset(prismaMock);
   mockedAuth.mockReset();
-  mockedHasPermissionFor.mockReset();
+  mockedHasPrivilegeFor.mockReset();
   // Mock active term for routes that call getActiveTermId()
   (prismaMock.committeeTerm as { findFirst: jest.Mock }).findFirst =
     jest.fn().mockResolvedValue(DEFAULT_ACTIVE_TERM);

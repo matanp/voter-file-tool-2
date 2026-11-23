@@ -15,7 +15,7 @@ import {
 import {
   jurisdictionRow,
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -101,7 +101,7 @@ describe("GET /api/committee/designationWeight", () => {
       },
       GET as (req: Parameters<typeof GET>[0]) => Promise<Response>,
       mockAuthSession,
-      mockHasPermission,
+      mockHasPrivilege,
       setupMocks,
     );
 
@@ -118,7 +118,7 @@ describe("GET /api/committee/designationWeight", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await GET(createMockRequest({}, {}, { method: "GET" }));
 
@@ -129,7 +129,7 @@ describe("GET /api/committee/designationWeight", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await GET(
         createMockRequest({}, { committeeListId: "-1" }, { method: "GET" }),
@@ -147,7 +147,7 @@ describe("GET /api/committee/designationWeight", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       getSeatMock().findMany.mockResolvedValue([
         mockSeat({ seatNumber: 1, isPetitioned: true, weight: 0.25 }),
@@ -185,7 +185,7 @@ describe("GET /api/committee/designationWeight", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Leader } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       getCommitteeListMock().findUnique.mockResolvedValue({
         id: 1,
@@ -217,7 +217,7 @@ describe("GET /api/committee/designationWeight", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       getSeatMock().findMany.mockResolvedValue([]);
       getMembershipMock().findMany.mockResolvedValue([]);
@@ -244,7 +244,7 @@ describe("GET /api/committee/designationWeight", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Leader } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       getCommitteeListMock().findUnique.mockResolvedValue({
         id: 1,
@@ -277,7 +277,7 @@ describe("GET /api/committee/designationWeight", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       getSeatMock().findMany.mockResolvedValue([
         mockSeat({ seatNumber: 1, isPetitioned: true, weight: 0.25 }),
@@ -307,7 +307,7 @@ describe("GET /api/committee/designationWeight", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       getSeatMock().findMany.mockRejectedValue(new Error("DB connection lost"));
 

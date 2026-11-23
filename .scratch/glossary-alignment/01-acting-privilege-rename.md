@@ -1,6 +1,7 @@
 # Rename acting-permission identifiers to acting-privilege
 
-Status: ready-for-agent
+Status: resolved
+Resolution: identifiers renamed; localStorage key kept as "actingPermissions" (option 1); done on refactor/glossary-privilege-jurisdiction.
 
 ## Why
 
@@ -58,3 +59,26 @@ Pick one deliberately; don't rename the key by find-and-replace.
   localStorage payload from a bare enum string to a JSON `ActingState`, so if you choose option 2
   above (rename the key with a one-time fallback read), coordinate the key name with that ticket
   (`actingPrivilege`) rather than picking independently.
+- 2026-11-21 — Resolved. Renamed `actingPermissions` → `actingPrivilege`, `setActingPermissions` →
+  `setActingPrivilege`, `hasPermissionFor` → `hasPrivilegeFor`, `HasPermissionForFn` →
+  `HasPrivilegeForFn` across `apps/frontend/src`, plus the derived names that embed them
+  (`mockHasPrivilegeFor` global, `realHasPrivilegeFor`, `mockActingPrivilege`,
+  `cachedActingPrivilege`, `handleSetActingPrivilege`) and `hasPrivilegeFor`'s parameters.
+  **localStorage: option 1.** The key stays `"actingPermissions"`, held in
+  `ACTING_PRIVILEGE_STORAGE_KEY` in `GlobalContext.tsx` with a one-line comment saying why;
+  `__tests__/components/providers/GlobalContext.test.tsx` pins it. If
+  `.scratch/developer-acting-as/` ticket 03 later changes the payload to JSON, that is the moment
+  to move to a new key with a fallback read. Updated `skills/auth-check-patterns/SKILL.md` (samples
+  and prose, and it now names the legacy key), `skills/adding-reports/SKILL.md`,
+  `scripts/review/run-scans.sh`, `jest.setup.ts`, `__tests__/README.md` and the run-frontend
+  REFERENCE. Left as-is: historical docs and `.scratch` records, and test helpers outside the
+  rename table (`mockHasPermission`, `renderWithPermissions`, `mockRealPermissionHierarchy`).
+- 2026-11-22 — Rebased onto main (conflicts in `header.tsx` and `manageProfile.tsx`; new
+  `Header.test.tsx` and `ScopedReportForm.test.tsx` code from main renamed too). Test helpers now
+  renamed as well: `mockHasPermission` → `mockHasPrivilege`, `mockRealPermissionHierarchy` →
+  `mockRealPrivilegeHierarchy`, `renderWithPermissions` → `renderWithActingPrivilege`,
+  `AuthTestCase.hasPermission` → `hasPrivilege`, and "acting permissions" in comments and test
+  names. Dropped the rename history from the SKILL.md storage-key note. Remaining "permission"
+  in `apps/frontend/src` is the storage key, user-facing copy ("You do not have permission"), and
+  `const permissions = await auth()` session variables. tsc clean, lint 0 errors, jest 167
+  suites / 2336 tests pass.

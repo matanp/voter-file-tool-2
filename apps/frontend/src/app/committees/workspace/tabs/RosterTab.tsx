@@ -4,7 +4,7 @@ import React, { useContext, useMemo } from "react";
 import { PrivilegeLevel } from "@prisma/client";
 
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { SeatRosterRow } from "~/lib/validations/committee";
 import { CommitteeSeatTable } from "../../CommitteeRosterTable";
 import { RosterRowActionMenu } from "./roster/RosterRowActionMenu";
@@ -36,8 +36,8 @@ export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {
   // Client visibility only (skills/auth-check-patterns). Contact is already
   // absent from `detail` below Admin; the acting privilege additionally hides
   // it from a Developer simulating a lower role.
-  const { actingPermissions } = useContext(GlobalContext);
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const { actingPrivilege } = useContext(GlobalContext);
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   const committee = useMemo(
     () => committeeRefFrom(detail.committee),
     [detail.committee],
@@ -47,7 +47,7 @@ export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {
   // column holds only occupied rows' menus, so it stays icon-wide on phones.
   const renderVacancyAction = (row: SeatRosterRow) => {
     if (row.occupant !== null) return null;
-    const [item] = rosterRowActions(row, committee, actingPermissions);
+    const [item] = rosterRowActions(row, committee, actingPrivilege);
     if (!item) return null;
     return (
       <VacantSeatButton
@@ -61,7 +61,7 @@ export function RosterTab({ detail, onAction = noop }: CommitteeTabProps) {
 
   const renderRowActions = (row: SeatRosterRow) => {
     if (row.occupant === null) return null;
-    const items = rosterRowActions(row, committee, actingPermissions);
+    const items = rosterRowActions(row, committee, actingPrivilege);
     if (items.length === 0) return null;
     return (
       <RosterRowActionMenu

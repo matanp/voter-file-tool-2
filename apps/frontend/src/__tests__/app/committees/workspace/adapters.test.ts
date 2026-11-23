@@ -25,7 +25,7 @@ import type {
   CommitteeAction,
 } from "~/app/committees/workspace/committeeAction";
 import type { CommitteeRef } from "~/lib/committees/committeeRef";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { fetchJsonResponse, installFetchMock } from "../../../utils/mocks";
 import type * as UtilsModule from "~/lib/utils";
 import {
@@ -71,9 +71,9 @@ function sent(): { url: string; body: unknown } {
 
 beforeEach(() => {
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 });
 

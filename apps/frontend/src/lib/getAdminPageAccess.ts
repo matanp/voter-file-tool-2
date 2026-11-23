@@ -1,6 +1,6 @@
 import { PrivilegeLevel } from "@prisma/client";
 import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 
 export type PageAccessOk = {
   ok: true;
@@ -35,7 +35,7 @@ export async function getAdminPageAccess(): Promise<PageAccessResult> {
     return { ok: false };
   }
 
-  if (!hasPermissionFor(access.privilegeLevel, PrivilegeLevel.Admin)) {
+  if (!hasPrivilegeFor(access.privilegeLevel, PrivilegeLevel.Admin)) {
     return { ok: false };
   }
 

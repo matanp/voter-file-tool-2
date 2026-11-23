@@ -11,7 +11,7 @@ import {
   expectSuccessResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../utils/mocks";
 
 describe("/api/admin/loadAdmin", () => {
   beforeEach(() => {
@@ -34,7 +34,7 @@ describe("/api/admin/loadAdmin", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -48,7 +48,7 @@ describe("/api/admin/loadAdmin", () => {
         user: { id: "1", privilegeLevel: PrivilegeLevel.Developer },
       };
       mockAuthSession(mockSession as never);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.user.findUnique.mockResolvedValue(null);
 
       const request = createMockRequest({});

@@ -3,12 +3,12 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import CommitteeSelector from "~/app/committees/CommitteeSelector";
-import { mockHasPermission } from "../../utils/mocks";
+import { mockHasPrivilege } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: PrivilegeLevel.Admin,
-    setActingPermissions: () => undefined,
+    actingPrivilege: PrivilegeLevel.Admin,
+    setActingPrivilege: () => undefined,
   }),
 }));
 
@@ -159,7 +159,7 @@ function detailResponse(id: number) {
 describe("CommitteeSelector roster-first navigation", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockHasPermission(true);
+    mockHasPrivilege(true);
   });
 
   it("auto-fetches roster when city scope is complete", async () => {

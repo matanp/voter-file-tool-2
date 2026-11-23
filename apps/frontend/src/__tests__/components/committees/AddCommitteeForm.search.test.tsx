@@ -6,8 +6,8 @@ import { fetchJsonResponse, installFetchMock } from "../../utils/mocks";
 
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: PrivilegeLevel.Admin,
-    setActingPermissions: () => undefined,
+    actingPrivilege: PrivilegeLevel.Admin,
+    setActingPrivilege: () => undefined,
   }),
 }));
 

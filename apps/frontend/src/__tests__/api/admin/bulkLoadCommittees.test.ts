@@ -31,7 +31,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 import { DEFAULT_ACTIVE_TERM_ID } from "../../utils/testUtils";
@@ -280,7 +280,7 @@ describe("/api/admin/bulkLoadCommittees", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 

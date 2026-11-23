@@ -22,7 +22,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   namedRawQueryValues,
   prismaMock,
   rawQueryMock,
@@ -71,7 +71,7 @@ describe("/api/admin/eligibility-flags", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     getAuditLogMock(prismaMock).create.mockResolvedValue({});
   });
 

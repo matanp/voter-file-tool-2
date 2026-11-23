@@ -5,7 +5,7 @@
 import { PrivilegeLevel } from "@prisma/client";
 import { POST, GET } from "~/app/api/admin/crosswalk/route";
 import { createMockSession, createMockRequest, parseJsonResponse } from "../../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../../utils/mocks";
 
 const crosswalkMock = prismaMock.ltedDistrictCrosswalk as {
   upsert: jest.Mock;
@@ -17,7 +17,7 @@ describe("POST /api/admin/crosswalk", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     crosswalkMock.upsert.mockResolvedValue({
       id: "x1",
       cityTown: "ROCHESTER",
@@ -62,7 +62,7 @@ describe("GET /api/admin/crosswalk", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     crosswalkMock.findMany.mockResolvedValue([
       {
         id: "x1",

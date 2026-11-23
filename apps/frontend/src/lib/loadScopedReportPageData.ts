@@ -1,12 +1,12 @@
 import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import {
   getActiveTermId,
   getUserJurisdictions,
   buildJurisdictionWhere,
-  type JurisdictionScope,
+  type Jurisdiction,
 } from "~/app/api/lib/committeeValidation";
 
 /**
@@ -19,7 +19,7 @@ export type ScopedReportCommitteeList = Pick<
 >;
 
 /** One of a Leader's own committee assignments; `legDistrict: null` is town-wide. */
-export type LeaderAssignment = JurisdictionScope;
+export type LeaderAssignment = Jurisdiction;
 
 const committeeListSelect = { cityTown: true, legDistrict: true } as const;
 
@@ -36,7 +36,7 @@ export interface ScopedReportPageData {
 }
 
 function toSortedAssignments(
-  jurisdictions: JurisdictionScope[],
+  jurisdictions: Jurisdiction[],
 ): LeaderAssignment[] {
   return jurisdictions
     .map(({ cityTown, legDistrict }) => ({ cityTown, legDistrict }))
@@ -65,7 +65,7 @@ export async function loadScopedReportPageData(
   const privilegeLevel =
     permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess;
 
-  const canAccessPage = hasPermissionFor(
+  const canAccessPage = hasPrivilegeFor(
     privilegeLevel,
     options.minPagePrivilege ?? PrivilegeLevel.Leader,
   );

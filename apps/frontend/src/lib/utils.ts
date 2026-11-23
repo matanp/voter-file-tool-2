@@ -28,12 +28,12 @@ const PRIVILEGE_ORDER: readonly PrivilegeLevel[] = [
 ] as const;
 
 /** Returns true iff the user's privilege level meets or exceeds the required level. */
-export function hasPermissionFor(
-  userPermission: PrivilegeLevel,
-  permissionCheckLevel: PrivilegeLevel,
+export function hasPrivilegeFor(
+  userPrivilege: PrivilegeLevel,
+  requiredPrivilege: PrivilegeLevel,
 ): boolean {
-  const userIdx = PRIVILEGE_ORDER.indexOf(userPermission);
-  const requiredIdx = PRIVILEGE_ORDER.indexOf(permissionCheckLevel);
+  const userIdx = PRIVILEGE_ORDER.indexOf(userPrivilege);
+  const requiredIdx = PRIVILEGE_ORDER.indexOf(requiredPrivilege);
 
   // Unknown roles have no privileges; unknown required levels deny (fail closed).
   if (userIdx === -1 || requiredIdx === -1) return false;

@@ -10,7 +10,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
   rawQueryMock,
 } from "../../utils/mocks";
@@ -23,7 +23,7 @@ describe("/api/admin/committees/missing authorization", () => {
   });
 
   // The shared generator also emits Developer, which only fails here because
-  // hasPermissionFor is mocked; Developer outranks Admin, so it is left out.
+  // hasPrivilegeFor is mocked; Developer outranks Admin, so it is left out.
   const deniedCases = [
     createUnauthenticatedTestCase(),
     ...createInsufficientPrivilegeTestCases(PrivilegeLevel.Admin).filter(
@@ -40,7 +40,7 @@ describe("/api/admin/committees/missing authorization", () => {
         GET,
         {} as NextRequest,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
       );
       expect(queryRawMock).not.toHaveBeenCalled();
     },
@@ -54,7 +54,7 @@ describe("/api/admin/committees/missing authorization", () => {
         POST,
         {} as NextRequest,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
       );
       expect(prismaMock.$transaction).not.toHaveBeenCalled();
       expect(prismaMock.committeeList.createMany).not.toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe("missing-committee preview validation", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
   });
 
   it.each([{}, { termId: "" }, { termId: 42 }])(

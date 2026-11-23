@@ -14,7 +14,7 @@ import {
   type ErrorResponseBody,
   type AuthTestConfig,
 } from "../utils/testUtils";
-import { mockAuthSession, mockHasPermission } from "../utils/mocks";
+import { mockAuthSession, mockHasPrivilege } from "../utils/mocks";
 
 type CsvUploadSuccessResponse = { uploadUrl: string; fileKey: string };
 
@@ -55,7 +55,7 @@ describe("/api/getCsvUploadUrl", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -68,7 +68,7 @@ describe("/api/getCsvUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({
         fileName: "data.csv",
@@ -86,7 +86,7 @@ describe("/api/getCsvUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({
         fileName: "data.txt",
@@ -106,7 +106,7 @@ describe("/api/getCsvUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({
         fileName: "data.csv",
@@ -124,7 +124,7 @@ describe("/api/getCsvUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({
         fileName: "data.csv",
@@ -144,7 +144,7 @@ describe("/api/getCsvUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       mockGetPresignedUploadUrl.mockResolvedValue(
         "https://presigned.example/upload",
       );
@@ -168,7 +168,7 @@ describe("/api/getCsvUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       mockGetPresignedUploadUrl.mockResolvedValue(
         "https://presigned.example/upload",
       );
@@ -193,7 +193,7 @@ describe("/api/getCsvUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       mockGetPresignedUploadUrl.mockRejectedValue(new Error("S3 error"));
 
       const request = createMockRequest({

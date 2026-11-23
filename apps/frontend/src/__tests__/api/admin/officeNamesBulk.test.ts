@@ -24,7 +24,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -41,7 +41,7 @@ const asAdmin = () => {
   mockAuthSession(
     createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
   );
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 };
 
 describe("POST /api/admin/officeNames/bulk", () => {
@@ -67,7 +67,7 @@ describe("POST /api/admin/officeNames/bulk", () => {
       authConfig,
       POST,
       mockAuthSession,
-      mockHasPermission,
+      mockHasPrivilege,
       setupMocks,
       201,
     );

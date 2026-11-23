@@ -1,7 +1,7 @@
 import React from "react";
 
 import prisma from "~/lib/prisma";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import {
   type CommitteeList,
   MembershipStatus,
@@ -60,7 +60,7 @@ const CommitteeRequests: React.FC = async () => {
 
   if (
     !permissions?.user?.privilegeLevel ||
-    !hasPermissionFor(permissions?.user?.privilegeLevel, PrivilegeLevel.Admin)
+    !hasPrivilegeFor(permissions?.user?.privilegeLevel, PrivilegeLevel.Admin)
   ) {
     return <div>You do not have permission to view this page</div>;
   }

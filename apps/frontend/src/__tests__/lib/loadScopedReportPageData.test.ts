@@ -1,6 +1,6 @@
 import { PrivilegeLevel } from "@prisma/client";
 import { loadScopedReportPageData } from "~/lib/loadScopedReportPageData";
-import { hasPermissionFor as realHasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor as realHasPrivilegeFor } from "~/lib/utils";
 import {
   createMockSession,
   DEFAULT_ACTIVE_TERM_ID,
@@ -16,10 +16,10 @@ function getUserJurisdictionMock(): UserJurisdictionMock {
 
 describe("loadScopedReportPageData", () => {
   beforeEach(() => {
-    jest.mocked(realHasPermissionFor).mockImplementation(
-      jest.requireActual<{ hasPermissionFor: typeof realHasPermissionFor }>(
+    jest.mocked(realHasPrivilegeFor).mockImplementation(
+      jest.requireActual<{ hasPrivilegeFor: typeof realHasPrivilegeFor }>(
         "~/lib/utils",
-      ).hasPermissionFor,
+      ).hasPrivilegeFor,
     );
   });
 

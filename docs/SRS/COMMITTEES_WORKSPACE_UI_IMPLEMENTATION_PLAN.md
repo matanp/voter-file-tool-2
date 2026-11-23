@@ -48,7 +48,7 @@ full-screen.
 7. The UI initially calls existing mutation endpoints through narrow adapters;
    command-service consolidation is not a prerequisite for this redesign.
 8. Actual server privilege determines authorization, data scope, PII, and audit
-   identity. `GlobalContext.actingPermissions` controls client-only visibility
+   identity. `GlobalContext.actingPrivilege` controls client-only visibility
    and role simulation.
 9. This plan inverts the specification's rollout order: the spec's Phase A
    (transition engine consolidation) is deferred and the UI ships first on
@@ -156,7 +156,7 @@ Requirements:
 - Scope every response using the user's actual server-side privilege and
   jurisdiction.
 - Omit PII fields for users who cannot access them.
-- Never treat client capability flags or `actingPermissions` as authorization.
+- Never treat client capability flags or `actingPrivilege` as authorization.
 - Do not fetch detail for every committee when loading the grid.
 - Return already-computed row summaries to avoid client-side N+1 requests.
 - Use `withPrivilege`, `withBackendCheck`, or the appropriate authenticated
@@ -174,7 +174,7 @@ without exposing a half-built page. Gate the workspace behind a single
 server-side switch in `committees/page.tsx`:
 
 - Environment flag `COMMITTEES_WORKSPACE=1` (read on the server; never derived
-  from `actingPermissions`).
+  from `actingPrivilege`).
 - Flag off: render the existing `CommitteeSelector` unchanged.
 - Flag on: render `CommitteeWorkspace`.
 
@@ -485,7 +485,7 @@ Cover:
 - Filtering and invalid-selection recovery.
 - Loading and failed-detail states.
 - Switching committees during a pending request.
-- Role-specific controls using `actingPermissions`.
+- Role-specific controls using `actingPrivilege`.
 - Candidate search and selection.
 - Eligible, warning, hard-stop, retry, and full-committee states.
 - Successful add refreshing both panes.

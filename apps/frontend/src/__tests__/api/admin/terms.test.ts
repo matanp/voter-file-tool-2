@@ -19,7 +19,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -82,7 +82,7 @@ describe("/api/admin/terms", () => {
         authConfig,
         GET,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -95,7 +95,7 @@ describe("/api/admin/terms", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       const terms = [createMockTerm()];
       committeeTermMock.findMany.mockResolvedValue(terms);
 
@@ -127,7 +127,7 @@ describe("/api/admin/terms", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
         201,
       );
@@ -141,7 +141,7 @@ describe("/api/admin/terms", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       committeeTermMock.findUnique.mockResolvedValue(null);
       committeeTermMock.create.mockResolvedValue(createMockTerm());
 
@@ -168,7 +168,7 @@ describe("/api/admin/terms", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       committeeTermMock.findUnique.mockResolvedValue(createMockTerm());
 
       const response = await POST(createMockRequest(validPayload));
@@ -183,7 +183,7 @@ describe("/api/admin/terms", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       committeeTermMock.findUnique.mockResolvedValue(null);
       committeeTermMock.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
@@ -204,7 +204,7 @@ describe("/api/admin/terms", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await POST(
         createMockRequest({
@@ -224,7 +224,7 @@ describe("/api/admin/terms", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       committeeTermMock.findUnique.mockResolvedValue(null);
       committeeTermMock.create.mockResolvedValue(createMockTerm());
       getAuditLogMock(prismaMock).create.mockRejectedValue(
@@ -239,7 +239,7 @@ describe("/api/admin/terms", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await POST(createMockRequest({ label: "" }));
       await expectErrorResponse(response, 422, "Invalid request data");
@@ -253,7 +253,7 @@ describe("/api/admin/terms/[id]", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     getAuditLogMock(prismaMock).create.mockResolvedValue({});
   });
 
@@ -281,7 +281,7 @@ describe("/api/admin/terms/[id]", () => {
         authConfig,
         (req) => PATCH(req, routeContext(TERM_ID)),
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -398,7 +398,7 @@ describe("/api/admin/terms/[id]", () => {
         authConfig,
         (req) => PUT(req, routeContext(TERM_ID)),
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 

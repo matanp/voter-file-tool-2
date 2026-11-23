@@ -1,6 +1,6 @@
 import { PrivilegeLevel } from "@prisma/client";
 
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import {
   updateLtedWeightSchema,
   type DesignationWeightSummary,
@@ -34,11 +34,11 @@ export type SeatsWeightVisibility = {
   showPetitionDetail: boolean;
 };
 
-/** Client visibility only (skills/auth-check-patterns): pass `actingPermissions`. */
+/** Client visibility only (skills/auth-check-patterns): pass `actingPrivilege`. */
 export function seatsWeightVisibility(
-  actingPermissions: PrivilegeLevel,
+  actingPrivilege: PrivilegeLevel,
 ): SeatsWeightVisibility {
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   return { canEditLtedWeight: isAdmin, showPetitionDetail: isAdmin };
 }
 

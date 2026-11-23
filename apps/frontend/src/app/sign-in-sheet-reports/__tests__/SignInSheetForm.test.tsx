@@ -3,25 +3,25 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel } from "@prisma/client";
 import { mockJsonResponse } from "../../../__tests__/utils/testUtils";
-import { hasPermissionFor as realHasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor as realHasPrivilegeFor } from "~/lib/utils";
 
 // Mock GlobalContext module to avoid next-auth/react ESM import error
-let mockActingPermissions: PrivilegeLevel = PrivilegeLevel.Admin;
+let mockActingPrivilege: PrivilegeLevel = PrivilegeLevel.Admin;
 jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<{ createContext: typeof React.createContext }>("react");
   const GlobalContext = createContext({
-    actingPermissions: PrivilegeLevel.Admin,
-    setActingPermissions: jest.fn(),
+    actingPrivilege: PrivilegeLevel.Admin,
+    setActingPrivilege: jest.fn(),
   });
   // Override useContext behavior by making the context default value dynamic
-  // via a proxy so each test can set mockActingPermissions
+  // via a proxy so each test can set mockActingPrivilege
   return {
     GlobalContext: new Proxy(GlobalContext, {
       get(target, prop) {
         if (prop === "_currentValue" || prop === "_currentValue2") {
           return {
-            actingPermissions: mockActingPermissions,
-            setActingPermissions: jest.fn(),
+            actingPrivilege: mockActingPrivilege,
+            setActingPrivilege: jest.fn(),
           };
         }
         return Reflect.get(target, prop) as unknown;
@@ -77,20 +77,20 @@ const MOCK_COMMITTEE_LISTS = [
   },
 ];
 
-const mockedHasPermissionFor = jest.mocked(
-  realHasPermissionFor,
-) as jest.MockedFunction<typeof realHasPermissionFor>;
+const mockedHasPrivilegeFor = jest.mocked(
+  realHasPrivilegeFor,
+) as jest.MockedFunction<typeof realHasPrivilegeFor>;
 
 describe("ScopedReportForm (signInSheet)", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockActingPermissions = PrivilegeLevel.Admin;
-    // Use real implementation of hasPermissionFor
-    mockedHasPermissionFor.mockImplementation(
-      jest.requireActual<{ hasPermissionFor: typeof realHasPermissionFor }>("~/lib/utils")
-        .hasPermissionFor,
+    mockActingPrivilege = PrivilegeLevel.Admin;
+    // Use real implementation of hasPrivilegeFor
+    mockedHasPrivilegeFor.mockImplementation(
+      jest.requireActual<{ hasPrivilegeFor: typeof realHasPrivilegeFor }>("~/lib/utils")
+        .hasPrivilegeFor,
     );
     global.fetch = jest.fn().mockResolvedValue(
       mockJsonResponse({ reportId: "report-123" }),
@@ -131,7 +131,7 @@ describe("ScopedReportForm (signInSheet)", () => {
   });
 
   it("hides scope selector for Leader users", () => {
-    mockActingPermissions = PrivilegeLevel.Leader;
+    mockActingPrivilege = PrivilegeLevel.Leader;
     render(
       <ScopedReportForm
         type="signInSheet"
@@ -292,7 +292,7 @@ describe("ScopedReportForm (signInSheet)", () => {
   });
 
   it("shows the Leader's own committee instead of a City/Town dropdown", () => {
-    mockActingPermissions = PrivilegeLevel.Leader;
+    mockActingPrivilege = PrivilegeLevel.Leader;
     render(
       <ScopedReportForm
         type="signInSheet"

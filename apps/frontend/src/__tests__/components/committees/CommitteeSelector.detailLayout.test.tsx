@@ -4,14 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { PrivilegeLevel, type CommitteeList } from "@prisma/client";
 import CommitteeSelector from "~/app/committees/CommitteeSelector";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { mockHasPermission } from "../../utils/mocks";
+import { mockHasPrivilege } from "../../utils/mocks";
 
 // Plain context (the real module pulls in next-auth); tests supply the acting
 // role through the Provider.
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: PrivilegeLevel.ReadAccess,
-    setActingPermissions: () => undefined,
+    actingPrivilege: PrivilegeLevel.ReadAccess,
+    setActingPrivilege: () => undefined,
   }),
 }));
 
@@ -192,7 +192,7 @@ function installFetch() {
 async function openDetail(acting: PrivilegeLevel) {
   render(
     <GlobalContext.Provider
-      value={{ actingPermissions: acting, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: acting, setActingPrivilege: () => undefined }}
     >
       <CommitteeSelector committeeLists={greeceCommitteeLists} />
     </GlobalContext.Provider>,
@@ -214,7 +214,7 @@ describe("CommitteeSelector detail interim layout", () => {
   });
 
   it("titles the detail with the committee identity and leads with the summary", async () => {
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     installFetch();
     await openDetail(PrivilegeLevel.Admin);
 
@@ -245,7 +245,7 @@ describe("CommitteeSelector detail interim layout", () => {
   });
 
   it("keeps the add-member form closed until the disclosure is opened", async () => {
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     installFetch();
     await openDetail(PrivilegeLevel.Admin);
 
@@ -267,7 +267,7 @@ describe("CommitteeSelector detail interim layout", () => {
   });
 
   it("closes the disclosure and refreshes the committee after a successful add", async () => {
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     const fetchMock = installFetch();
     await openDetail(PrivilegeLevel.Admin);
 
@@ -297,7 +297,7 @@ describe("CommitteeSelector detail interim layout", () => {
   });
 
   it("passes the committee's AD and the AD-match setting to the add-member form", async () => {
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     installFetch();
     await openDetail(PrivilegeLevel.Admin);
 
@@ -307,7 +307,7 @@ describe("CommitteeSelector detail interim layout", () => {
   });
 
   it("hides add-member and settings controls from ReadAccess users", async () => {
-    mockHasPermission(false);
+    mockHasPrivilege(false);
     installFetch();
     await openDetail(PrivilegeLevel.ReadAccess);
 
@@ -322,7 +322,7 @@ describe("CommitteeSelector detail interim layout", () => {
   });
 
   it("shows the add-member disclosure but not settings to RequestAccess users", async () => {
-    mockHasPermission(false);
+    mockHasPrivilege(false);
     installFetch();
     await openDetail(PrivilegeLevel.RequestAccess);
 

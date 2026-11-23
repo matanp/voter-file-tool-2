@@ -19,7 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "~/components/ui/sheet";
-import { cn, hasPermissionFor } from "~/lib/utils";
+import { cn, hasPrivilegeFor } from "~/lib/utils";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { adminSidebarGroups } from "~/config/adminNav";
 import { PRODUCT_NAME } from "~/lib/branding";
@@ -168,12 +168,12 @@ function initials(name: string | null | undefined): string {
 
 const Header: React.FC<HeaderProps> = ({ dbBadge }) => {
   const pathname = usePathname() ?? "";
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const showAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const showAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   const navItems = showAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
   const activeItem = navItems.find((item) => item.isActive(pathname));
   // The phone menu marks one row: the Admin section when one matches (it's the more specific

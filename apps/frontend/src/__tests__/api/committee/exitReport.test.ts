@@ -18,7 +18,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 import { exitInstructionsResponseSchema } from "~/lib/validations/committee";
@@ -38,7 +38,7 @@ const reportBody = (overrides: Record<string, unknown> = {}) => ({
 
 function signIn(privilegeLevel: PrivilegeLevel, granted = true) {
   mockAuthSession(createMockSession({ user: { privilegeLevel } }));
-  mockHasPermission(granted);
+  mockHasPrivilege(granted);
 }
 
 function leaderJurisdictions(

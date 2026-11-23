@@ -4,7 +4,7 @@
  * oldest first (as `detail.pending` arrives), then its pending Exit Reports
  * (a Leader's report that a member resigned or should be removed).
  *
- * - Acting Admin (`actingPermissions`, client visibility only): submitter,
+ * - Acting Admin (`actingPrivilege`, client visibility only): submitter,
  *   notes, eligibility status and warnings, and one-off accept/reject through
  *   the existing `handleRequest` endpoint, plus a link to the bulk queue at
  *   `/committees/requests` (an Admin-only page).
@@ -22,7 +22,7 @@ import Link from "next/link";
 import { PrivilegeLevel } from "@prisma/client";
 
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type {
   PendingExitReport,
   PendingMembership,
@@ -37,8 +37,8 @@ import { useMeetingOptions } from "./pending/useMeetingOptions";
 import type { CommitteeTabProps } from "./types";
 
 export function PendingTab({ detail, onRefresh }: CommitteeTabProps) {
-  const { actingPermissions } = useContext(GlobalContext);
-  const canDecide = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const { actingPrivilege } = useContext(GlobalContext);
+  const canDecide = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   const meetings = useMeetingOptions();
   const [announcement, setAnnouncement] = useState("");
   // Exit Report decisions land focus on the section heading: it outlives the

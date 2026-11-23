@@ -10,7 +10,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import Header from "~/app/components/header";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { createMockSession } from "~/__tests__/utils/testUtils";
-import { mockRealPermissionHierarchy } from "~/__tests__/utils/mocks";
+import { mockRealPrivilegeHierarchy } from "~/__tests__/utils/mocks";
 
 let mockPathname = "/recordsearch";
 jest.mock("next/navigation", () => ({
@@ -34,15 +34,15 @@ jest.mock("next-auth/react", () => ({
 // The real module pulls in next-auth; a bare context is enough here.
 jest.mock("~/components/providers/GlobalContext", () => ({
   GlobalContext: React.createContext({
-    actingPermissions: "ReadAccess",
-    setActingPermissions: () => undefined,
+    actingPrivilege: "ReadAccess",
+    setActingPrivilege: () => undefined,
   }),
 }));
 
-function renderHeader(actingPermissions: PrivilegeLevel) {
+function renderHeader(actingPrivilege: PrivilegeLevel) {
   return render(
     <GlobalContext.Provider
-      value={{ actingPermissions, setActingPermissions: jest.fn() }}
+      value={{ actingPrivilege, setActingPrivilege: jest.fn() }}
     >
       <Header />
     </GlobalContext.Provider>,
@@ -56,7 +56,7 @@ function barNav() {
 
 describe("Header", () => {
   beforeEach(() => {
-    mockRealPermissionHierarchy();
+    mockRealPrivilegeHierarchy();
     mockPathname = "/recordsearch";
   });
 

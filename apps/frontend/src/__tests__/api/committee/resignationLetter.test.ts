@@ -31,7 +31,7 @@ import {
   selectedRow,
 } from "../../utils/testUtils";
 import { mockAuthSession, prismaMock } from "../../utils/mocks";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 
 const REPORTED_AT = new Date("2026-10-30T15:04:05.678Z");
@@ -60,9 +60,9 @@ const memberKey = {
 function signIn(privilegeLevel: PrivilegeLevel) {
   mockAuthSession(createMockSession({ user: { privilegeLevel } }));
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 }
 
