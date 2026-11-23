@@ -38,4 +38,21 @@ one-line note on the hook and close this item.
 
 ## Resolution
 
-`GovernanceConfigClient` parses the GET and save responses with zod. A failed save is read with `fieldErrorsSchema`, not the strict `validationErrorResponseSchema`, so extra keys such as a 409's `conflict` are fine. A successful save whose body can't be read is reported as saved, and the settings reload; if the reload can't be read either, the load error shows instead of the form. The adapter and drawer tests are added. `useFieldErrors` is memoized, so effects and callbacks can depend on what it returns. Branch `fix/workspace-drawer-error-focus`.
+`GovernanceConfigClient` parses the GET and save responses with zod. A failed save is read with `fieldErrorsSchema`, not the strict `validationErrorResponseSchema`, so extra keys such as a 409's `conflict` are fine. A successful save whose body can't be read is reported as saved, and the settings reload; if the reload can't be read either, the load error shows instead of the form. The adapter and drawer tests are added. `useFieldErrors` is memoized, so effects and callbacks can depend on what it returns. Merged in PR #185.
+
+## Comments
+
+### 2026-11-22 - production check and leftovers from the PR #185 reviews
+
+- **Production, as Admin** (deploy `ccf8e1dd`): `/admin/governance-config` loads with the real config, so the
+  strict GET schema accepts production data. Nothing was saved.
+- **Ticketed:** a successful save whose reply isn't JSON still shows "Save failed", because `response.json()`
+  runs before the status check. This predates PR #185. See [36](36-governance-save-non-json-reply.md).
+- **Decided not to ticket:**
+  - The strict `z.nativeEnum(IneligibilityReason)` means an enum value the client doesn't know replaces the page
+    with the load error. Accepted, because the client and server ship together from one Prisma schema.
+  - Memoizing `useFieldErrors` was the heavier of the two options this ticket allowed. No current caller needs
+    stable identities.
+  - `ExitFormLayout` focuses its alert with its own ref and effect, separate from `useFieldErrors`. See 31's
+    Resolution.
+  - The governance tests repeat the edit-and-save steps; too small to extract.
