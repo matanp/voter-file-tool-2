@@ -241,8 +241,13 @@ export function GovernanceConfigClient() {
       setShowConfirm(false);
       // The save has already happened, so an unreadable body is not a failure:
       // say so and reload the settings rather than reporting "Save failed".
+      // The form is dropped until the reload lands, so the pre-save values
+      // can't show as pending or be sent again; if the reload can't be read
+      // either, only the load error (with Retry) shows.
       const success = governanceConfigResponseSchema.safeParse(body);
       if (!success.success) {
+        setOriginal(null);
+        setDraft(null);
         toast({
           title: "Governance config saved",
           description: "Reloading the current settings.",

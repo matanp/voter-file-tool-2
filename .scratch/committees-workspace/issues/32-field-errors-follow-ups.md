@@ -38,4 +38,4 @@ one-line note on the hook and close this item.
 
 ## Resolution
 
-`GovernanceConfigClient` parses the GET and save responses with zod (an unreadable successful save is reported as saved and the settings reload) (`fieldErrorsSchema` for the failure body, not the strict `validationErrorResponseSchema`, so extra keys like a 409's `conflict` are fine); adapter and drawer tests added; `useFieldErrors` is memoized. Branch `fix/workspace-drawer-error-focus`.
+`GovernanceConfigClient` parses the GET and save responses with zod. A failed save is read with `fieldErrorsSchema`, not the strict `validationErrorResponseSchema`, so extra keys such as a 409's `conflict` are fine. A successful save whose body can't be read is reported as saved, and the settings reload; if the reload can't be read either, the load error shows instead of the form. The adapter and drawer tests are added. `useFieldErrors` is memoized, so effects and callbacks can depend on what it returns. Branch `fix/workspace-drawer-error-focus`.

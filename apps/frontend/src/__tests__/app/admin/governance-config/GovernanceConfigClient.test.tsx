@@ -254,4 +254,37 @@ describe("GovernanceConfigClient", () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/Max seats per LTED/i)).not.toBeInTheDocument();
   });
+  it("drops the form, not just warns, when a save and the reload after it are both unreadable", async () => {
+    // A value the client doesn't know, as a newer server might send.
+    const unreadable = {
+      ...initialResponse,
+      config: {
+        ...initialResponse.config,
+        maxSeatsPerLted: 6,
+        nonOverridableIneligibilityReasons: ["SOMETHING_NEW"],
+      },
+    };
+    let gets = 0;
+    installFetchMock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "PATCH") return mockJsonResponse(unreadable);
+      gets += 1;
+      return mockJsonResponse(gets === 1 ? initialResponse : unreadable);
+    });
+
+    const user = userEvent.setup();
+    render(<GovernanceConfigClient />);
+
+    const maxSeatsInput = await screen.findByLabelText(/Max seats per LTED/i);
+    await user.clear(maxSeatsInput);
+    await user.type(maxSeatsInput, "6");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm save" }));
+
+    expect(
+      await screen.findByText("Could not read the governance settings"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Max seats per LTED/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Save failed/)).not.toBeInTheDocument();
+  });
 });
