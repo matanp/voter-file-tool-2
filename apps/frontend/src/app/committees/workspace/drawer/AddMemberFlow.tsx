@@ -12,6 +12,10 @@
  * server would say, and the mutation endpoint has the final word (its hard
  * stops come back into the confirm step, and the drawer stays open).
  *
+ * A voter already submitted for this committee is marked **Already pending**
+ * in step 1 and step 2. Submitting them again is blocked (the endpoint answers
+ * 409); an Admin can still add them directly.
+ *
  * Contact email and phone are checked at step 3 with the endpoints' own rules
  * (`memberContactErrors`). If the endpoint still rejects a step-3 field, the
  * flow goes back to step 3 with the message beside it. After any failed
@@ -21,6 +25,7 @@
 import React, { useId, useMemo, useState } from "react";
 import type { MembershipType } from "@prisma/client";
 
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
@@ -28,6 +33,7 @@ import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioOption } from "~/components/ui/radio-group";
 import { Textarea } from "~/components/ui/textarea";
 import { committeeLabel } from "~/lib/committees/committeeRef";
+import { formatCalendarDateForDisplay } from "~/lib/dateUtils";
 import {
   memberContactErrors,
   type CommitteeDetailResponse,
@@ -114,8 +120,11 @@ export type AddMemberFlowProps = {
   mode: CandidateSubmissionMode;
   detail: CommitteeDetailResponse;
   onCancel: () => void;
-  /** After a successful mutation; `message` is the success toast's text. */
-  onSuccess: (message: string) => void;
+  /**
+   * After a successful mutation; `message` is the success toast's text, and
+   * `seatedMemberId` the voter an Admin add just put on the roster.
+   */
+  onSuccess: (message: string, seatedMemberId?: string) => void | Promise<void>;
 };
 
 export function AddMemberFlow({
@@ -133,7 +142,11 @@ export function AddMemberFlow({
   const [override, setOverride] = useState(false);
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
   const detailErrors = useFieldErrors(DETAIL_FIELDS);
-  const { submitting, failure, clearFailure, run } = useActionSubmit(onSuccess);
+  const isAdd = mode === "add";
+  // The submit button shows the selected candidate, so `candidate` is who was sent.
+  const { submitting, failure, clearFailure, run } = useActionSubmit((message) =>
+    onSuccess(message, isAdd ? candidate?.VRCNUM : undefined),
+  );
 
   const eligibility = useCandidateEligibility(action.committee, candidate?.VRCNUM ?? null);
   const existingMemberIds = useMemo(
@@ -143,6 +156,15 @@ export function AddMemberFlow({
       ),
     [detail.rows],
   );
+  // Pending submissions for this committee: VRCNUM -> when it was submitted.
+  const pendingSubmittedAt = useMemo(
+    () => new Map(detail.pending.map((p) => [p.voterRecordId, p.submittedAt])),
+    [detail.pending],
+  );
+  const pendingCandidateIds = useMemo(
+    () => new Set(pendingSubmittedAt.keys()),
+    [pendingSubmittedAt],
+  );
   // Server counts: occupied seats plus unassigned active members.
   const committeeFull =
     action.kind === "add-member" &&
@@ -150,7 +172,6 @@ export function AddMemberFlow({
   const target =
     action.kind === "replace-member" ? occupantLabel(detail, action.memberId) : null;
 
-  const isAdd = mode === "add";
   const primaryLabel = isAdd ? "Add member" : "Submit candidate";
   const hardStops =
     eligibility.status === "ready" ? eligibility.preflight.hardStops : [];
@@ -211,6 +232,8 @@ export function AddMemberFlow({
         search={search}
         onSearchChange={setSearch}
         existingMemberIds={existingMemberIds}
+        pendingCandidateIds={pendingCandidateIds}
+        canSelectPending={isAdd}
         committeeFull={committeeFull}
         onSelect={(c) => {
           if (c.VRCNUM !== candidate?.VRCNUM) {
@@ -228,8 +251,13 @@ export function AddMemberFlow({
       </Button>
     );
   } else if (step === "review") {
+    const pendingSince = pendingSubmittedAt.get(candidate.VRCNUM);
+    // Submitting a pending voter again would only be refused.
+    const blockedAsPending = pendingSince !== undefined && !isAdd;
     const canContinue =
-      eligibility.status === "ready" && (hardStops.length === 0 || overriding);
+      !blockedAsPending &&
+      eligibility.status === "ready" &&
+      (hardStops.length === 0 || overriding);
     body = (
       <div className="space-y-3">
         <div className="text-sm">
@@ -238,6 +266,18 @@ export function AddMemberFlow({
             {[`ID ${candidate.VRCNUM}`, candidateAddress(candidate)].filter(Boolean).join(" · ")}
           </p>
         </div>
+        {pendingSince !== undefined && (
+          <Alert variant={isAdd ? "warning" : "destructive"}>
+            <AlertTitle>Already pending</AlertTitle>
+            <AlertDescription>
+              {candidateName} was submitted for this committee on{" "}
+              {formatCalendarDateForDisplay(pendingSince)}.{" "}
+              {isAdd
+                ? "Adding them here makes them a member and takes the submission off the Pending tab."
+                : "An Admin has not reviewed it yet, so it can't be submitted again."}
+            </AlertDescription>
+          </Alert>
+        )}
         <EligibilitySnapshotPanel
           preflight={eligibility.status === "ready" ? eligibility.preflight : null}
           loading={eligibility.status === "loading"}

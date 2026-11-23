@@ -9,13 +9,16 @@
  * stateful server whose `add` fills the committee's next open seat.
  */
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { chooseSelectOption } from "~/__tests__/utils/chooseSelectOption";
 import { PrivilegeLevel } from "@prisma/client";
 
-import { CommitteeWorkspace } from "~/app/committees/workspace/CommitteeWorkspace";
+import {
+  COMPLETION_REFRESH_WAIT_MS,
+  CommitteeWorkspace,
+} from "~/app/committees/workspace/CommitteeWorkspace";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { toast } from "~/components/ui/use-toast";
 import { hasPrivilegeFor } from "~/lib/utils";
@@ -144,6 +147,8 @@ type Server = {
   removeGate: Promise<void> | null;
   /** While true, the detail endpoint fails. */
   failDetail: boolean;
+  /** While set, the detail endpoint waits on it. */
+  detailGate: Promise<void> | null;
 };
 
 const person = (VRCNUM: string, firstName: string, lastName: string): Occupant => ({
@@ -164,6 +169,7 @@ function newServer(): Server {
     unassigned: new Map(),
     removeGate: null,
     failDetail: false,
+    detailGate: null,
   };
 }
 
@@ -316,6 +322,7 @@ function serve(server: Server) {
     const url = new URL(String(input), "http://localhost");
     const detail = /^\/api\/committee\/(\d+)\/detail$/.exec(url.pathname);
     if (detail) {
+      if (server.detailGate) await server.detailGate;
       if (server.failDetail) return fetchJsonResponse({ error: "Detail unavailable" }, 500);
       const r = server.rollups.find((x) => x.committeeListId === Number(detail[1]));
       return r ? fetchJsonResponse(detailFor(server, r)) : fetchJsonResponse({ error: "nope" }, 404);
@@ -540,6 +547,123 @@ describe("Action drawer in the workspace", () => {
     await waitFor(() =>
       expect(within(detailPane()).getByRole("button", { name: "Actions for seat 2" })).toHaveFocus(),
     );
+  });
+
+  it("shows the success toast only once the roster shows the new member (ticket 27)", async () => {
+    const server = newServer();
+    serve(server);
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
+
+    let releaseDetail: () => void = () => undefined;
+    server.detailGate = new Promise<void>((r) => (releaseDetail = r));
+    await openVacantSeatAdd(2);
+    await addJane();
+
+    // The add succeeded, but the refreshed detail hasn't arrived.
+    await waitFor(() =>
+      expect(within(drawer()).getByRole("button", { name: "Adding…" })).toBeDisabled(),
+    );
+    // The open sheet hides the page from the accessibility tree.
+    const paneBehindSheet = () =>
+      screen.getByRole("region", { name: "Committee detail", hidden: true });
+    expect(toast).not.toHaveBeenCalled();
+    expect(within(paneBehindSheet()).queryByText("Jane Doe")).not.toBeInTheDocument();
+
+    server.detailGate = null;
+    releaseDetail();
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(within(paneBehindSheet()).getByText("Jane Doe")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      within(detailPane()).getByRole("button", { name: "Actions for seat 2" }),
+    ).toHaveFocus();
+  });
+
+  it("focuses the seat an add filled when it isn't the seat the add came from (ticket 27)", async () => {
+    serve(newServer());
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    // Seats 2-4 are vacant; an add fills the next open seat, 2.
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 4" });
+
+    await openVacantSeatAdd(4);
+    await addJane();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(detailPane()).getByRole("button", { name: "Actions for seat 2" })).toHaveFocus(),
+    );
+    expect(document.activeElement).toBeInTheDocument();
+  });
+
+  it("closes after a wait when the refresh doesn't answer, and repairs focus once it does", async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    try {
+      const server = newServer();
+      serve(server);
+      renderWorkspace("committee=2&tab=roster");
+      await waitForGrid();
+      await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
+
+      let releaseDetail: () => void = () => undefined;
+      server.detailGate = new Promise<void>((r) => (releaseDetail = r));
+      await openVacantSeatAdd(2);
+      await addJane();
+      await waitFor(() =>
+        expect(within(drawer()).getByRole("button", { name: "Adding…" })).toBeDisabled(),
+      );
+
+      act(() => jest.advanceTimersByTime(COMPLETION_REFRESH_WAIT_MS));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(toast).toHaveBeenCalledTimes(1);
+      expect(within(detailPane()).queryByText("Jane Doe")).not.toBeInTheDocument();
+
+      // The late refresh replaces the seat's Add button; focus follows the seat.
+      server.detailGate = null;
+      releaseDetail();
+      await waitFor(() =>
+        expect(
+          within(detailPane()).getByRole("button", { name: "Actions for seat 2" }),
+        ).toHaveFocus(),
+      );
+      expect(toast).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("doesn't move focus into another committee when the selection changes mid-add", async () => {
+    const server = newServer();
+    server.seats.set(1, [person("V-OLIVE", "Olive", "Other"), null, null, null]);
+    serve(server);
+    renderWorkspace("committee=2&tab=roster");
+    await waitForGrid();
+    await within(detailPane()).findByRole("button", { name: "Add member for seat 2" });
+
+    let releaseDetail: () => void = () => undefined;
+    server.detailGate = new Promise<void>((r) => (releaseDetail = r));
+    await openVacantSeatAdd(2);
+    await addJane();
+    await waitFor(() =>
+      expect(within(drawer()).getByRole("button", { name: "Adding…" })).toBeDisabled(),
+    );
+
+    // Browser Back to committee 1: the drawer closes, and the add's toast
+    // shows without waiting for a committee it no longer concerns.
+    act(() => mockUrl.set("/committees?committee=1&tab=roster"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+
+    server.detailGate = null;
+    releaseDetail();
+    await within(detailPane()).findByText("Olive Other");
+    // Let the settled detail's effects run before checking focus.
+    await act(async () => undefined);
+    expect(
+      within(detailPane()).getByRole("button", { name: "Add member for seat 2" }),
+    ).not.toHaveFocus();
   });
 
   it("moves focus to the committee heading when the row it came from is gone", async () => {
