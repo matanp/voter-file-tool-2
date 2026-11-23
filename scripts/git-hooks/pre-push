@@ -1,0 +1,28 @@
+#!/bin/sh
+# Install: cp scripts/git-hooks/pre-push .git/hooks/ (git shares hooks across all worktrees).
+# When you push this repo, also push the issue tracker repo (.scratch in the main checkout) if it has unpushed
+# commits. Never blocks or fails the code push. TRACKER_PUSH_DRY=1 prints what it would do instead.
+# See docs/agents/issue-tracker.md.
+
+# Git sets these for hooks; clear them so the git calls below act on the tracker repo, not this one.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+
+main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)") || exit 0
+live="$main/.scratch"
+[ -d "$live/.git" ] || exit 0
+
+ahead=$(git -C "$live" rev-list --count '@{u}..HEAD' 2>/dev/null) || {
+  echo "tracker: no upstream set in $live; not pushed" >&2; exit 0; }
+[ "$ahead" -gt 0 ] || exit 0
+
+if [ -n "${TRACKER_PUSH_DRY:-}" ]; then
+  echo "tracker: would push $ahead commit(s) from $live" >&2
+  exit 0
+fi
+
+if git -C "$live" push -q 2>/dev/null; then
+  echo "tracker: pushed $ahead commit(s)" >&2
+else
+  echo "tracker: push failed; run git -C .scratch push" >&2
+fi
+exit 0

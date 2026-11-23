@@ -10,11 +10,12 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - **`.scratch` is its own git repo** (private, `origin` is `opensource-politics-docs`).
 - **Commit every tracker edit as you make it**, directly, with no branch, PR or approval:
   `git -C .scratch add <your files> && git -C .scratch commit -m "<effort> NN: <summary>"`. Add your own files by
-  path, never `-A`: other sessions may have edits in progress. Don't push; the user does.
+  path, never `-A`: other sessions may have edits in progress. Don't push: the `pre-push` hook pushes the tracker
+  whenever the user pushes this repo.
 - **Never discard tracker files you didn't write.** No `checkout`, `restore`, `stash`, `reset` or `clean` on another
   session's changes. Leave them for that session, or for wrap-up to report.
 - **Setup on a new machine or fresh clone:** in the main checkout, `git clone <private tracker repo> .scratch`
-  (needs access) and `cp scripts/git-hooks/post-checkout .git/hooks/`.
+  (needs access) and `cp scripts/git-hooks/post-checkout scripts/git-hooks/pre-push .git/hooks/`.
 - **Missing symlink?** Run `scripts/link-scratch.sh` from the worktree. With the hook installed, a new worktree
   gets it automatically. A real `.scratch` folder in a worktree means its branch predates the untrack and its copy is
   stale. Don't trust it; rebase the branch onto `main`, resolve `.scratch` delete conflicts with `git rm`, then run
