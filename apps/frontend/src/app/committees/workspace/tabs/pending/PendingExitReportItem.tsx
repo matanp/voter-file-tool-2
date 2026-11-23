@@ -45,6 +45,7 @@ import type { PendingExitReport } from "~/lib/validations/committee";
 import { confirmExitReport, rejectExitReport } from "../../adapters";
 import { ViewLetterLink } from "../../drawer/ResignationLetterField";
 import { personName, type PendingDecision } from "./PendingSubmissionItem";
+import { PendingRow } from "./PendingRow";
 
 export type PendingExitReportItemProps = {
   report: PendingExitReport;
@@ -60,6 +61,11 @@ export type PendingExitReportItemProps = {
    * line.
    */
   focusAfterDecision?: () => HTMLElement | null;
+  /**
+   * "card" (default) is the workspace Pending tab's bordered item; "row" is
+   * the compact `PendingRow` the Admin requests page lists it in.
+   */
+  layout?: "card" | "row";
 };
 
 function reportedByText(
@@ -79,6 +85,7 @@ export function PendingExitReportItem({
   canDecide,
   onDecided,
   focusAfterDecision,
+  layout = "card",
 }: PendingExitReportItemProps) {
   const ids = useId();
   const name = personName(report);
@@ -123,6 +130,194 @@ export function PendingExitReportItem({
 
   const dialogStep = step === "idle" ? null : step;
 
+  const letterLine = report.kind === "RESIGNATION" && (
+    <p data-testid="pending-exit-letter">
+      {report.letter ? (
+        <>
+          <span className="font-medium">Letter:</span> {report.letter.fileName}{" "}
+          <ViewLetterLink
+            membershipId={report.membershipId}
+            fileName={report.letter.fileName}
+          />
+        </>
+      ) : (
+        <span className="text-slate-600">No letter attached</span>
+      )}
+    </p>
+  );
+
+  const adminDetails = canDecide && (
+    <div className="space-y-0.5">
+      {report.removalReason && (
+        <p>
+          <span className="font-medium">Reason:</span>{" "}
+          {REMOVAL_REASON_LABELS[report.removalReason]}
+        </p>
+      )}
+      {report.removalNotes && (
+        <p>
+          <span className="font-medium">Notes:</span> {report.removalNotes}
+        </p>
+      )}
+      {report.kind === "RESIGNATION" &&
+        (report.resignationDateReceived != null ||
+          report.resignationMethod != null) && (
+          <p>
+            <span className="font-medium">Received:</span>{" "}
+            {report.resignationDateReceived
+              ? formatCalendarDateForDisplay(report.resignationDateReceived)
+              : "date not given"}
+            {report.resignationMethod
+              ? ` by ${METHOD_LABELS[report.resignationMethod]}`
+              : ""}
+          </p>
+        )}
+    </div>
+  );
+
+  const decidedLine = (
+    <p ref={decidedLineRef} tabIndex={-1} className="font-medium outline-none">
+      {decided === "accept" ? "Confirmed" : "Rejected"}. Updating…
+    </p>
+  );
+
+  const decisionButtons = (
+    <>
+      <Button
+        size="sm"
+        onClick={(e) => openDecision("accept", e.currentTarget)}
+        aria-label={`Confirm ${kindWord} of ${name}`}
+      >
+        Confirm
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={(e) => openDecision("reject", e.currentTarget)}
+        aria-label={`Reject ${kindWord} report for ${name}`}
+      >
+        Reject
+      </Button>
+    </>
+  );
+
+  const dialog = (
+    <AlertDialog
+      open={canDecide && !decided && dialogStep !== null}
+      onOpenChange={(next) => {
+        if (!next && !busy) setStep("idle");
+      }}
+    >
+      <AlertDialogContent
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          const target = decided
+            ? (focusAfterDecision?.() ?? decidedLineRef.current)
+            : openerRef.current;
+          target?.focus();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {dialogStep === "reject"
+              ? `Reject ${kindWord} report for ${name}?`
+              : `Confirm ${kindWord} of ${name}?`}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {dialogStep === "reject"
+              ? `The member stays on the committee and the Leader can report the ${kindWord} again.`
+              : `Record this ${kindWord} exactly as reported? To change anything, reject it so the Leader can report it again.`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {report.kind === "RESIGNATION" && (
+          <p className="text-sm">
+            {report.letter ? (
+              <>
+                {dialogStep === "reject"
+                  ? "The attached letter is removed with the report: "
+                  : "Letter attached: "}
+                <span className="font-medium">{report.letter.fileName}</span>{" "}
+                <ViewLetterLink
+                  membershipId={report.membershipId}
+                  fileName={report.letter.fileName}
+                />
+              </>
+            ) : (
+              "No letter attached."
+            )}
+          </p>
+        )}
+        <div className="grid gap-1">
+          <Label htmlFor={`${ids}-note`}>Note (optional)</Label>
+          <Textarea
+            id={`${ids}-note`}
+            rows={2}
+            maxLength={1000}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            disabled={busy}
+          />
+        </div>
+        {error && (
+          <p role="alert" className="text-red-700">
+            {error}
+          </p>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <Button
+            onClick={() => dialogStep && void decide(dialogStep)}
+            disabled={busy}
+          >
+            {dialogStep === "reject"
+              ? busy
+                ? "Rejecting…"
+                : "Yes, reject report"
+              : busy
+                ? "Confirming…"
+                : `Confirm ${kindWord}`}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  if (layout === "row") {
+    return (
+      <PendingRow
+        labelId={`${ids}-name`}
+        busy={busy}
+        name={name}
+        seatNumber={report.seatNumber}
+        chip={
+          <Badge
+            variant={report.kind === "REMOVAL" ? "outline" : "secondary"}
+            hoverable={false}
+          >
+            {kindLabel}
+          </Badge>
+        }
+        meta={
+          <>
+            Reported {formatInstantDateForDisplay(report.reportedAt)}
+            {reportedByText(report, canDecide)}
+          </>
+        }
+        details={
+          <>
+            {letterLine}
+            {adminDetails}
+          </>
+        }
+        actions={
+          canDecide ? (decided ? decidedLine : decisionButtons) : undefined
+        }
+      >
+        {dialog}
+      </PendingRow>
+    );
+  }
+
   return (
     <li
       className="space-y-2 rounded-md border p-3"
@@ -136,7 +331,7 @@ export function PendingExitReportItem({
             <span className="font-normal text-slate-500"> · Seat {report.seatNumber}</span>
           )}
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-600 dark:text-slate-400">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-600">
           <Badge
             variant={report.kind === "REMOVAL" ? "outline" : "secondary"}
             hoverable={false}
@@ -150,155 +345,17 @@ export function PendingExitReportItem({
         </div>
       </div>
 
-      {report.kind === "RESIGNATION" && (
-        <p data-testid="pending-exit-letter">
-          {report.letter ? (
-            <>
-              <span className="font-medium">Letter:</span> {report.letter.fileName}{" "}
-              <ViewLetterLink
-                membershipId={report.membershipId}
-                fileName={report.letter.fileName}
-              />
-            </>
-          ) : (
-            <span className="text-slate-600 dark:text-slate-400">No letter attached</span>
-          )}
-        </p>
-      )}
+      {letterLine}
 
-      {canDecide && (
-        <div className="space-y-0.5">
-          {report.removalReason && (
-            <p>
-              <span className="font-medium">Reason:</span>{" "}
-              {REMOVAL_REASON_LABELS[report.removalReason]}
-            </p>
-          )}
-          {report.removalNotes && (
-            <p>
-              <span className="font-medium">Notes:</span> {report.removalNotes}
-            </p>
-          )}
-          {report.kind === "RESIGNATION" &&
-            (report.resignationDateReceived != null ||
-              report.resignationMethod != null) && (
-              <p>
-                <span className="font-medium">Received:</span>{" "}
-                {report.resignationDateReceived
-                  ? formatCalendarDateForDisplay(report.resignationDateReceived)
-                  : "date not given"}
-                {report.resignationMethod
-                  ? ` by ${METHOD_LABELS[report.resignationMethod]}`
-                  : ""}
-              </p>
-            )}
-        </div>
-      )}
+      {adminDetails}
 
-      {canDecide && decided && (
-        <p ref={decidedLineRef} tabIndex={-1} className="font-medium outline-none">
-          {decided === "accept" ? "Confirmed" : "Rejected"}. Updating…
-        </p>
-      )}
+      {canDecide && decided && decidedLine}
 
       {canDecide && !decided && (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            onClick={(e) => openDecision("accept", e.currentTarget)}
-            aria-label={`Confirm ${kindWord} of ${name}`}
-          >
-            Confirm
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => openDecision("reject", e.currentTarget)}
-            aria-label={`Reject ${kindWord} report for ${name}`}
-          >
-            Reject
-          </Button>
-        </div>
+        <div className="flex flex-wrap gap-2">{decisionButtons}</div>
       )}
 
-      <AlertDialog
-        open={canDecide && !decided && dialogStep !== null}
-        onOpenChange={(next) => {
-          if (!next && !busy) setStep("idle");
-        }}
-      >
-        <AlertDialogContent
-          onCloseAutoFocus={(e) => {
-            e.preventDefault();
-            const target = decided
-              ? (focusAfterDecision?.() ?? decidedLineRef.current)
-              : openerRef.current;
-            target?.focus();
-          }}
-        >
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {dialogStep === "reject"
-                ? `Reject ${kindWord} report for ${name}?`
-                : `Confirm ${kindWord} of ${name}?`}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {dialogStep === "reject"
-                ? `The member stays on the committee and the Leader can report the ${kindWord} again.`
-                : `Record this ${kindWord} exactly as reported? To change anything, reject it so the Leader can report it again.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {report.kind === "RESIGNATION" && (
-            <p className="text-sm">
-              {report.letter ? (
-                <>
-                  {dialogStep === "reject"
-                    ? "The attached letter is removed with the report: "
-                    : "Letter attached: "}
-                  <span className="font-medium">{report.letter.fileName}</span>{" "}
-                  <ViewLetterLink
-                    membershipId={report.membershipId}
-                    fileName={report.letter.fileName}
-                  />
-                </>
-              ) : (
-                "No letter attached."
-              )}
-            </p>
-          )}
-          <div className="grid gap-1">
-            <Label htmlFor={`${ids}-note`}>Note (optional)</Label>
-            <Textarea
-              id={`${ids}-note`}
-              rows={2}
-              maxLength={1000}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              disabled={busy}
-            />
-          </div>
-          {error && (
-            <p role="alert" className="text-red-700 dark:text-red-400">
-              {error}
-            </p>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <Button
-              onClick={() => dialogStep && void decide(dialogStep)}
-              disabled={busy}
-            >
-              {dialogStep === "reject"
-                ? busy
-                  ? "Rejecting…"
-                  : "Yes, reject report"
-                : busy
-                  ? "Confirming…"
-                  : `Confirm ${kindWord}`}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </li>
   );
 }
