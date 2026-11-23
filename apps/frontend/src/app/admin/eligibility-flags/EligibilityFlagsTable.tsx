@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { StatusBadge, type StatusTone } from "~/components/ui/status-badge";
 import {
   Select,
   SelectContent,
@@ -62,11 +62,14 @@ type ReasonFilter =
   | "VOTER_NOT_FOUND"
   | "POSSIBLY_INACTIVE";
 
-const STATUS_VARIANTS: Record<EligibilityFlagListItem["status"], string> = {
-  PENDING: "bg-amber-100 text-amber-900",
-  CONFIRMED: "bg-red-100 text-red-900",
-  DISMISSED: "bg-emerald-100 text-emerald-900",
-  RESOLVED_BY_RESCAN: "bg-slate-100 text-slate-900",
+const STATUS_BADGE: Record<
+  EligibilityFlagListItem["status"],
+  { tone: StatusTone; label: string }
+> = {
+  PENDING: { tone: "warning", label: "Pending" },
+  CONFIRMED: { tone: "danger", label: "Confirmed" },
+  DISMISSED: { tone: "success", label: "Dismissed" },
+  RESOLVED_BY_RESCAN: { tone: "neutral", label: "Auto-resolved" },
 };
 
 const REASON_LABELS: Record<EligibilityFlagListItem["reason"], string> = {
@@ -271,12 +274,9 @@ export function EligibilityFlagsTable({
                   {new Date(flag.createdAt).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    hoverable={false}
-                    className={STATUS_VARIANTS[flag.status]}
-                  >
-                    {flag.status}
-                  </Badge>
+                  <StatusBadge tone={STATUS_BADGE[flag.status].tone}>
+                    {STATUS_BADGE[flag.status].label}
+                  </StatusBadge>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button

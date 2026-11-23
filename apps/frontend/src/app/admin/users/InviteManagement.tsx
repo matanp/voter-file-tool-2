@@ -16,6 +16,7 @@ import {
 import { ComboboxDropdown } from "~/components/ui/ComboBox";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
+import { StatusBadge } from "~/components/ui/status-badge";
 import { type Invite } from "@prisma/client";
 import { z } from "zod";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
@@ -26,7 +27,7 @@ import { CopyButton } from "~/components/ui/CopyButton";
 import { useApiMutation, useApiDelete } from "~/hooks/useApiMutation";
 import {
   formatInviteDate,
-  getPrivilegeColor,
+  privilegeLabel,
   jurisdictionLabel,
   type SerializedInviteJurisdiction,
 } from "~/lib/invites/display";
@@ -652,12 +653,9 @@ export function InviteManagement({
                     <div className="flex items-center space-x-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">{invite.email}</span>
-                      <Badge
-                        className={getPrivilegeColor(invite.privilegeLevel)}
-                        hoverable={false}
-                      >
-                        {invite.privilegeLevel}
-                      </Badge>
+                      <StatusBadge tone="neutral">
+                        {privilegeLabel(invite.privilegeLevel)}
+                      </StatusBadge>
                       {invite.usedAt ? (
                         <Badge variant="secondary" hoverable={false}>
                           Used

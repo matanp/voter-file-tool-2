@@ -102,7 +102,7 @@ const CommitteeLists = async ({ searchParams }: CommitteeListsProps) => {
   }
 
   if (!committeeLists || !dropdownLists) {
-    return <div>Committee Lists not found</div>;
+    return <div>Committees not found</div>;
   }
 
   return (

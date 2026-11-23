@@ -43,6 +43,27 @@ const config = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        "surface-subtle": "hsl(var(--surface-subtle))",
+        success: {
+          bg: "hsl(var(--success-bg))",
+          fg: "hsl(var(--success-fg))",
+          solid: "hsl(var(--success-solid))",
+        },
+        warning: {
+          bg: "hsl(var(--warning-bg))",
+          fg: "hsl(var(--warning-fg))",
+          solid: "hsl(var(--warning-solid))",
+        },
+        danger: {
+          bg: "hsl(var(--danger-bg))",
+          fg: "hsl(var(--danger-fg))",
+          solid: "hsl(var(--danger-solid))",
+        },
+        info: {
+          bg: "hsl(var(--info-bg))",
+          fg: "hsl(var(--info-fg))",
+          solid: "hsl(var(--info-solid))",
+        },
       },
       borderRadius: {
         custom: "var(--radius)",

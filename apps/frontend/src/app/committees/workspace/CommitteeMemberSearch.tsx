@@ -10,6 +10,7 @@ import React from "react";
 import { ChevronRight, Clock, UserSearch, X } from "lucide-react";
 
 import { Input } from "~/components/ui/input";
+import { StatusBadge } from "~/components/ui/status-badge";
 import {
   MEMBER_SEARCH_LIMIT,
   MEMBER_SEARCH_MAX_LENGTH,
@@ -47,7 +48,7 @@ export function MemberSearchInput({
         type="search"
         aria-label="Find a member by name"
         aria-controls={resultsId}
-        className="h-9 pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden"
+        className="pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden"
         placeholder="Find a member by name"
         autoComplete="off"
         maxLength={MEMBER_SEARCH_MAX_LENGTH}
@@ -65,7 +66,7 @@ export function MemberSearchInput({
           type="button"
           onClick={() => onChange("")}
           aria-label="Clear member search"
-          className="absolute right-1 top-1 rounded p-1.5 text-slate-400 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:hover:text-slate-200"
+          className="absolute right-1 top-1 rounded p-1.5 text-slate-400 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
@@ -120,16 +121,19 @@ function statusLine(
   }
 }
 
-function StatusBadge({ status }: { status: MemberSearchHit["status"] }) {
+function MemberStatusBadge({ status }: { status: MemberSearchHit["status"] }) {
   return status === "pending" ? (
-    <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100">
-      <Clock className="h-3 w-3" aria-hidden />
+    <StatusBadge
+      tone="warning"
+      className="shrink-0 gap-0.5 px-1.5 py-0"
+      icon={<Clock className="h-3 w-3" aria-hidden />}
+    >
       Pending
-    </span>
+    </StatusBadge>
   ) : (
-    <span className="shrink-0 rounded bg-emerald-50 px-1 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+    <StatusBadge tone="success" className="shrink-0 px-1.5 py-0">
       Active
-    </span>
+    </StatusBadge>
   );
 }
 
@@ -153,7 +157,7 @@ export function MemberSearchResults({
         className={
           line.visible
             ? `p-6 text-center text-sm ${
-                line.error ? "text-red-700 dark:text-red-400" : "text-slate-500"
+                line.error ? "text-red-700" : "text-slate-500"
               }`
             : "sr-only"
         }
@@ -172,8 +176,8 @@ export function MemberSearchResults({
                     type="button"
                     onClick={() => onOpen(hit)}
                     aria-current={current ? "true" : undefined}
-                    className={`flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 dark:border-slate-800 dark:hover:bg-slate-900 ${
-                      current ? "bg-blue-50 dark:bg-blue-950" : ""
+                    className={`flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
+                      current ? "bg-blue-50" : ""
                     }`}
                   >
                     <span className="min-w-0 flex-1">
@@ -184,7 +188,7 @@ export function MemberSearchResults({
                         {committeeLabel(hit)}
                       </span>
                     </span>
-                    <StatusBadge status={hit.status} />
+                    <MemberStatusBadge status={hit.status} />
                     <ChevronRight
                       className="h-4 w-4 shrink-0 text-slate-300"
                       aria-hidden

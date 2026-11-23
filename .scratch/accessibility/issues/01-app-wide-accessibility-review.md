@@ -41,3 +41,9 @@ Look into accessibility support and issues across the whole app, and decide what
 - `.scratch/ui-page-consistency/issues/01-heading-semantics-and-scale.md`.
 - `CommitteeWorkspace.a11y.test.tsx` already covers the workspace's heading outline, a keyboard path, the
   drawer's focus trap, and statuses not shown by color alone. It's a model for other areas.
+
+## Comments
+
+### 2026-11-21
+
+A stakeholder named "ADA accessibility" as a value for the app, in the chat behind ui-makeover's principles. The maintainer reads it as a general value; it isn't known whether a county, party or legal requirement is behind it. Ask before choosing the support level, because a compliance driver would make this a formal audit with a target standard. The ui-makeover spec now requires page tickets not to regress accessibility.

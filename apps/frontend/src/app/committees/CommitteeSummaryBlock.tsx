@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Card, CardContent } from "~/components/ui/card";
+import { StatusBadge, type StatusTone } from "~/components/ui/status-badge";
 
 // NOTE: This block must be preserved in future table-based CommitteeSelector redesign (see SRS_UI_PLANNING_GAPS §15)
 
@@ -15,23 +16,17 @@ export interface CommitteeSummaryBlockProps {
 function getVacancyBadge(
   vacancyCount: number,
   totalSeats: number,
-): { text: string; className: string } {
+): { text: string; tone: StatusTone } {
   if (vacancyCount === 0) {
-    return { text: "Full", className: "bg-green-100 text-green-800" };
+    return { text: "Full", tone: "success" };
   }
   if (vacancyCount === totalSeats) {
-    return {
-      text: `All ${totalSeats} seats vacant`,
-      className: "bg-red-100 text-red-800",
-    };
+    return { text: `All ${totalSeats} seats vacant`, tone: "danger" };
   }
   if (vacancyCount === 1) {
-    return { text: "1 open seat", className: "bg-amber-100 text-amber-800" };
+    return { text: "1 open seat", tone: "warning" };
   }
-  return {
-    text: `${vacancyCount} open seats`,
-    className: "bg-amber-100 text-amber-800",
-  };
+  return { text: `${vacancyCount} open seats`, tone: "warning" };
 }
 
 /**
@@ -63,11 +58,9 @@ export function CommitteeSummaryBlock({
       <CardContent className="flex flex-wrap gap-6 p-0">
         <div className="flex flex-col gap-1">
           <span className="text-sm text-muted-foreground">Vacancy</span>
-          <span
-            className={`inline-flex w-fit rounded px-2 py-0.5 text-sm font-medium ${vacancyBadge.className}`}
-          >
+          <StatusBadge tone={vacancyBadge.tone} className="text-sm">
             {vacancyBadge.text}
-          </span>
+          </StatusBadge>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-sm text-muted-foreground">

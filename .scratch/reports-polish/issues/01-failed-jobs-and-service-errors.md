@@ -30,3 +30,9 @@ Merge or keep the two roster reports? Needs a product call.
 - [ ] Failed jobs show a reason and can be retried.
 - [ ] No native `confirm()` left in the app.
 - [ ] Report server down gives the plain message.
+
+## Comments
+
+### 2026-11-21 — UI makeover review
+
+[ui-makeover/07](../../ui-makeover/issues/07-reports-hub-dense-list.md) redesigns `/reports` as one dense list, with running and failed jobs at the top and Retry in the row. That gives this ticket's failed-job reason and retry a home.

@@ -169,7 +169,7 @@ export function CandidateSearchStep({
           </Button>
         </div>
         {!eligibleOnlyAvailable && (
-          <p id={`${id}-no-ad`} className="text-xs text-slate-600 dark:text-slate-400">
+          <p id={`${id}-no-ad`} className="text-xs text-slate-600">
             Only eligible candidates is unavailable: this committee&apos;s ED has no
             crosswalk entry, so its assembly district is unknown.
           </p>
@@ -217,7 +217,7 @@ export function CandidateSearchStep({
                     >
                       <div className="min-w-0">
                         <p className="font-medium">{name}</p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                        <p className="text-xs text-slate-600">
                           {[
                             `ID ${candidate.VRCNUM}`,
                             candidateAddress(candidate),
@@ -232,7 +232,7 @@ export function CandidateSearchStep({
                       </div>
                       <div className="flex items-center gap-2">
                         {(isMember || isPending) && (
-                          <span className="text-xs text-slate-600 dark:text-slate-400">
+                          <span className="text-xs text-slate-600">
                             {isMember ? "Already on this committee" : "Already pending"}
                           </span>
                         )}

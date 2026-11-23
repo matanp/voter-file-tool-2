@@ -25,7 +25,7 @@ Behavior reference: [docs/SRS/REPORT_PARAMETER_MATRIX.md](../../docs/SRS/REPORT_
 Use when the report has `scope: "jurisdiction" | "countywide"` and Leader jurisdiction enforcement.
 
 ```
-- [ ] 1. Prisma ReportType enum + migration
+- [ ] 1. Prisma ReportType enum + migration + REPORT_TYPE_LABELS label
 - [ ] 2. Core registry (shared-validators)
 - [ ] 3. Zod schema variant
 - [ ] 4. Frontend UI registry + form messages
@@ -176,7 +176,7 @@ Before merge, run the illegible-bug checklist in [AGENTS.md](../../AGENTS.md).
 Use when the report does **not** use jurisdiction scope (search-based, file upload, payload form, admin-only legacy, etc.).
 
 ```
-- [ ] 1. Prisma ReportType enum + migration (if new DB type)
+- [ ] 1. Prisma ReportType enum + migration + REPORT_TYPE_LABELS label (if new DB type)
 - [ ] 2. Zod variant in generateReportVariants
 - [ ] 3. REPORT_TYPE_MAPPINGS entry in reportTypeMapping.ts (non-scope section)
 - [ ] 4. Dedicated form/page (no ScopedReportForm)
@@ -221,6 +221,8 @@ Leaders with no jurisdictions or missing `user.id` → fail closed (empty commit
 ---
 
 ## Compile-time guards
+
+Every new Prisma `ReportType`, scoped or not, needs a user-facing label in `REPORT_TYPE_LABELS` in [reportUtils.ts](../../apps/frontend/src/components/reports/reportUtils.ts); `tsc` fails until it has one.
 
 After adding a scoped schema with `scopeFieldsBase`, TypeScript `_ScopeExhaustive` in [report.ts](../../packages/shared-validators/src/schemas/report.ts) errors if the new type is missing from `SCOPE_REPORT_REGISTRY` / `SCOPE_REPORT_TYPES`.
 

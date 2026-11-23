@@ -2,17 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, use, useEffect, useState } from "react";
-import { Menu } from "lucide-react";
-import { Button } from "~/components/ui/button";
+import { Suspense, use, useEffect } from "react";
 import { Badge } from "~/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "~/components/ui/sheet";
 import {
   adminSidebarConfig,
   adminSidebarGroups,
@@ -41,10 +32,8 @@ function NavItemCount({
 
 function SidebarNav({
   countsPromise,
-  onNavigate,
 }: {
   countsPromise?: Promise<AdminNavCounts>;
-  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
 
@@ -61,7 +50,6 @@ function SidebarNav({
                 <Link
                   key={item.id}
                   href={item.href}
-                  onClick={onNavigate}
                   className={cn(
                     "px-3 py-2 rounded-md text-sm font-medium transition-colors",
                     isActive(item, pathname)
@@ -111,13 +99,7 @@ export function AdminSidebar({
 }: {
   countsPromise?: Promise<AdminNavCounts>;
 }) {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
   const router = useRouter();
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   // Eager prefetch all admin routes when sidebar mounts so navigation feels instant.
   // Only /admin routes: router.prefetch() is a full prefetch that Next reuses for
@@ -131,35 +113,11 @@ export function AdminSidebar({
     }
   }, [router]);
 
+  // Desktop only. On phones, the app bar's menu lists the Admin sections.
   return (
-    <>
-      {/* Mobile hamburger */}
-      <div className="md:hidden fixed bottom-4 left-4 z-40">
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button size="icon" variant="outline" aria-label="Open admin menu">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64">
-            <SheetHeader>
-              <SheetTitle>Admin</SheetTitle>
-            </SheetHeader>
-            <div className="mt-4">
-              <SidebarNav
-                countsPromise={countsPromise}
-                onNavigate={() => setOpen(false)}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30 p-4 overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-4">Admin</h2>
-        <SidebarNav countsPromise={countsPromise} />
-      </aside>
-    </>
+    <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30 p-4 overflow-y-auto">
+      <h2 className="text-lg font-semibold mb-4">Admin</h2>
+      <SidebarNav countsPromise={countsPromise} />
+    </aside>
   );
 }

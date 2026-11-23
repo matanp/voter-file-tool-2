@@ -29,10 +29,10 @@ interface ReportType {
 const NON_SCOPE_REPORT_TYPES: ReportType[] = [
   {
     title: "Voter List",
-    description: "Export voter list from Record Search results",
+    description: "Export a voter list from your voter search results",
     href: "/voter-list-reports",
     enabled: true,
-    note: "Requires search from Record Search first",
+    note: "Requires a voter search first",
     minPrivilege: PrivilegeLevel.Admin,
   },
   {
@@ -88,7 +88,7 @@ export default function GenerateReportGrid() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-3">Generate Report</h2>
+      <h2 className="text-base font-semibold mb-3">Generate Report</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {visibleReportTypes.map((report) =>
           report.enabled ? (

@@ -614,7 +614,7 @@ export function ScopedReportForm({
       </div>
 
       {generateReportMutation.loading && (
-        <div className="bg-primary-foreground p-4 rounded-lg flex items-center gap-2">
+        <div className="bg-surface-subtle p-4 rounded-lg flex items-center gap-2">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
           <span>{messages.loadingMessage}</span>
         </div>

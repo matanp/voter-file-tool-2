@@ -134,7 +134,7 @@ export function VariantA() {
   // rest of the viewport and scroll independently.
   const [navH, setNavH] = useState(64);
   useEffect(() => {
-    const measure = () => setNavH(document.querySelector("nav")?.getBoundingClientRect().height ?? 64);
+    const measure = () => setNavH(document.querySelector("header")?.getBoundingClientRect().height ?? 64);
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);

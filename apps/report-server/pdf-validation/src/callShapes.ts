@@ -13,13 +13,13 @@ import type { CommitteeSpec, FixtureInput } from './fixtures/types';
 export type DeployedModules = {
   utils: {
     generateHTML: (...args: unknown[]) => string;
-    generateCommitteeReportHTML: (...args: unknown[]) => string;
+    generateCommitteeReportHTMLChunks: (...args: unknown[]) => string[];
     generateSignInSheetHTML: (...args: unknown[]) => string;
     generateDesignationWeightSummaryHTML: (...args: unknown[]) => string;
     generateVacancyReportHTML: (...args: unknown[]) => string;
     generateChangesReportHTML: (...args: unknown[]) => string;
     generatePetitionOutcomesReportHTML: (...args: unknown[]) => string;
-    generatePDFAndUpload: (html: string, useLandscape: boolean, fileName: string, overrides?: { format?: 'Letter' | 'Legal'; landscape?: boolean }) => Promise<void>;
+    generatePDFAndUpload: (html: string | string[], useLandscape: boolean, fileName: string, overrides?: { format?: 'Letter' | 'Legal'; landscape?: boolean }) => Promise<void>;
   };
   committeeMappingHelpers: { mapCommitteesToReportShape: (committees: unknown[]) => unknown[] };
   committeeRosterConfig: { buildCommitteeRosterReportConfig: (jobData: unknown) => { pdfColumns: unknown } };
@@ -30,7 +30,8 @@ export type DeployedModules = {
 };
 
 export type PdfCall = {
-  html: string;
+  /** One HTML document, or a large committee report's slices, printed one per browser. */
+  html: string | string[];
   useLandscape: boolean;
   overrides?: { format?: 'Letter' | 'Legal'; landscape?: boolean };
 };
@@ -62,7 +63,7 @@ export function buildPdfCall(input: FixtureInput, d: DeployedModules): PdfCall {
               xlsxConfig: { includeCompoundFields: input.includeCompoundFields },
             })
           : undefined;
-      return { html: d.utils.generateCommitteeReportHTML(payload, rosterConfig?.pdfColumns), useLandscape: true };
+      return { html: d.utils.generateCommitteeReportHTMLChunks(payload, rosterConfig?.pdfColumns), useLandscape: true };
     }
     case 'designatedPetition':
       // processJob (via processPetitionJob) also passes an inspectPage hook that only reads

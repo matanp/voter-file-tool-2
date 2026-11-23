@@ -212,7 +212,7 @@ export const ElectionOffices = ({
 
   return (
     <div className="p-4 max-w-xl mx-auto">
-      <h2 className="section-header mb-4">Election Offices</h2>
+      <h2 className="primary-header mb-4">Election Offices</h2>
 
       <ul className="mb-4">
         {officeNames.map((office) => (
