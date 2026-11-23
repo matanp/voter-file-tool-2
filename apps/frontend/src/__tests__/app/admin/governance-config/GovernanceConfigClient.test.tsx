@@ -4,6 +4,11 @@ import { GovernanceConfigClient } from "~/app/admin/governance-config/Governance
 import { mockJsonResponse } from "../../../utils/testUtils";
 import { installFetchMock } from "../../../utils/mocks";
 
+const toastMock = jest.fn();
+jest.mock("~/components/ui/use-toast", () => ({
+  useToast: () => ({ toast: toastMock }),
+}));
+
 const initialResponse = {
   config: {
     requiredPartyCode: "DEM",
@@ -242,7 +247,12 @@ describe("GovernanceConfigClient", () => {
       expect(screen.getByText("No pending changes.")).toBeInTheDocument();
     });
     expect(screen.getByLabelText(/Max seats per LTED/i)).toHaveValue(6);
-    expect(screen.queryByText(/Save failed/)).not.toBeInTheDocument();
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Governance config saved" }),
+    );
+    expect(toastMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Save failed" }),
+    );
   });
   it("shows the load error instead of the form when the settings can't be read", async () => {
     installFetchMock(async () =>
@@ -285,6 +295,11 @@ describe("GovernanceConfigClient", () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/Max seats per LTED/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Save failed/)).not.toBeInTheDocument();
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Governance config saved" }),
+    );
+    expect(toastMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Save failed" }),
+    );
   });
 });

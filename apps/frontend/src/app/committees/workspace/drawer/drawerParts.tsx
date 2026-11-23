@@ -120,10 +120,11 @@ type FocusTarget<F> = { to: "field"; field: F } | { to: "alert" };
  * once the next render is on screen; without this, a submit button disabled
  * in flight drops focus to <body>.
  *
- * `fields` is the order the controls appear in; pass a constant. The returned
- * object and its functions keep their identity until the errors change
- * (`show`, `clear`, `focusAlert`, `alertRef` and `inputId` never change), so
- * effects and callbacks can depend on them.
+ * `fields` is the order the controls appear in. Given a constant `fields`,
+ * the returned object and its functions keep their identity until the errors
+ * change (`show`, `clear`, `focusAlert`, `alertRef` and `inputId` never
+ * change), so effects and callbacks can depend on them; a new `fields` array
+ * each render gives a new `show` each render.
  */
 export function useFieldErrors<F extends string>(fields: readonly F[]) {
   const id = useId();
