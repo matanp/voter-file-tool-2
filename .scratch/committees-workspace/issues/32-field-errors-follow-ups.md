@@ -38,4 +38,4 @@ one-line note on the hook and close this item.
 
 ## Resolution
 
-`GovernanceConfigClient` parses the save response with zod (`fieldErrorsSchema` for the failure body, not the strict `validationErrorResponseSchema`, so extra keys like a 409's `conflict` are fine); adapter and drawer tests added; `useFieldErrors` is memoized (ticket 31's effect depends on `focusAlert`). Branch `fix/workspace-drawer-error-focus`.
+`GovernanceConfigClient` parses the GET and save responses with zod (an unreadable successful save is reported as saved and the settings reload) (`fieldErrorsSchema` for the failure body, not the strict `validationErrorResponseSchema`, so extra keys like a 409's `conflict` are fine); adapter and drawer tests added; `useFieldErrors` is memoized. Branch `fix/workspace-drawer-error-focus`.

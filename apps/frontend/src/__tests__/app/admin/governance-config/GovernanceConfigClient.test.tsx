@@ -244,4 +244,14 @@ describe("GovernanceConfigClient", () => {
     expect(screen.getByLabelText(/Max seats per LTED/i)).toHaveValue(6);
     expect(screen.queryByText(/Save failed/)).not.toBeInTheDocument();
   });
+  it("shows the load error instead of the form when the settings can't be read", async () => {
+    installFetchMock(async () =>
+      mockJsonResponse({ ...initialResponse, guardrails: undefined }),
+    );
+    render(<GovernanceConfigClient />);
+    expect(
+      await screen.findByText("Could not read the governance settings"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Max seats per LTED/i)).not.toBeInTheDocument();
+  });
 });

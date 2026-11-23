@@ -40,4 +40,4 @@ field the way step 3 of the add flow does. This part is optional; the focus fix 
 
 ## Resolution
 
-`ExitFormLayout` takes `alertRef`/`focusAlert` from `useFieldErrors` and focuses the `OutcomeAlert` on every new failure, which covers remove, record-resignation and report-exit. The optional per-field errors beside notes were not done. Branch `fix/workspace-drawer-error-focus`.
+`ExitFormLayout` focuses the `OutcomeAlert` (its own ref and effect) on every new failure, which covers remove, record-resignation and report-exit. The optional per-field errors beside notes were not done. Branch `fix/workspace-drawer-error-focus`.

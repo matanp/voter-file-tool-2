@@ -46,6 +46,13 @@ const governanceConfigResponseSchema = z.object({
 });
 type GovernanceConfigResponse = z.infer<typeof governanceConfigResponseSchema>;
 
+/** For the GET: an unreadable body shows the load error (with Retry), not raw zod output. */
+function parseConfigResponse(raw: unknown): GovernanceConfigResponse {
+  const parsed = governanceConfigResponseSchema.safeParse(raw);
+  if (!parsed.success) throw new Error("Could not read the governance settings");
+  return parsed.data;
+}
+
 /**
  * A failed save. Only `error` and a 422's `fieldErrors` are read, so extra
  * keys (a 409's `conflict`) are fine; this is why the strict shared
@@ -167,7 +174,9 @@ export function GovernanceConfigClient() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const query = useApiQuery<GovernanceConfigResponse>("/api/admin/governance-config");
+  const query = useApiQuery<GovernanceConfigResponse>("/api/admin/governance-config", {
+    parseResponse: parseConfigResponse,
+  });
 
   useEffect(() => {
     if (!query.data) return;
