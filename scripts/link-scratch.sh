@@ -3,7 +3,7 @@
 # See docs/agents/issue-tracker.md.
 #
 # Usage: scripts/link-scratch.sh   (run from anywhere inside the worktree)
-# The local post-checkout hook (.git/hooks/post-checkout, not versioned) runs it when a
+# The post-checkout hook (scripts/git-hooks/post-checkout, installed into .git/hooks) runs it when a
 # worktree is created.
 #
 # - In the main checkout it does nothing: that .scratch is the live copy.

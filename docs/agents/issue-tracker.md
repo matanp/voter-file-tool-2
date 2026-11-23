@@ -10,8 +10,10 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - **`.scratch` is its own git repo** (private, `origin` is `opensource-politics-docs`). Commit your tracker edits
   there directly, with no branch or PR: `git -C .scratch add <your files> && git -C .scratch commit -m "<summary>"`.
   Add only your own files; other sessions may have edits in progress.
-- **Missing symlink?** Run `scripts/link-scratch.sh` from the worktree. A new worktree gets it from the
-  `post-checkout` hook. A real `.scratch` folder in a worktree means its branch predates the untrack and its copy is
+- **Setup on a new machine or fresh clone:** in the main checkout, `git clone <private tracker repo> .scratch`
+  (needs access) and `cp scripts/git-hooks/post-checkout .git/hooks/`.
+- **Missing symlink?** Run `scripts/link-scratch.sh` from the worktree. With the hook installed, a new worktree
+  gets it automatically. A real `.scratch` folder in a worktree means its branch predates the untrack and its copy is
   stale. Don't trust it; rebase the branch onto `main`, resolve `.scratch` delete conflicts with `git rm`, then run
   the script.
 - **Remote agents** (cloud sessions, remote-isolation subagents) don't get the tracker. Paste the ticket into their
@@ -19,6 +21,11 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - **Don't check out a pre-untrack branch in the main checkout.** Git overwrites ignored files when it switches
   branches, so it would replace the live tracker with that branch's copy, and switching back deletes it. Use a
   worktree for old branches. To update `main` there, run `git fetch` then `git checkout -B main origin/main`.
+  For the same reason, never run `git clean -x` or `-X` in the main checkout.
+- **Search it by path.** `.scratch` is gitignored, so repo-wide `rg` and the Grep tool skip it. Search
+  `.scratch/` explicitly.
+- **Voter data** (screenshots, exports, run output) goes in a `data/` folder, which the tracker repo ignores. Keep
+  voter PII out of ticket text.
 
 ## Conventions
 
@@ -44,5 +51,5 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
 - **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
 - **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
-- **Claim**: set `Status: claimed` and save before any work.
+- **Claim**: set `Status: claimed`, save, and commit it in `.scratch` before any work.
 - **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
