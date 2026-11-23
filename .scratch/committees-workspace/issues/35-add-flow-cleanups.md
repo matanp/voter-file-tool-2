@@ -32,7 +32,19 @@ promise on unmount (today an unmounted workspace's timer still fires and resolve
 - `canSelectPending={isAdd}`: a boolean flag prop. Consider passing the mode.
 - `RosterTab.tsx` imports `rosterRowKey as rowKey`; use the exported name.
 
+## 5. Browser QA findings (2026-11-22)
+
+- **409 alert title.** A duplicate submit shows "Something went wrong" above "Already pending for this
+  committee…". The title should say what happened, e.g. "Already pending". Fits [30](30-leader-facing-jargon.md)'s
+  wording pass if that lands first.
+- **Stale counts after a 409.** A 409 means the committee changed under the drawer (someone else submitted), but
+  the drawer doesn't refresh, so the list and header kept "2 pending" when there were 3. Refresh the detail and
+  grid on a 409 as well.
+- **Admin search row wraps.** With both "Already pending" and Select, the pair drops below the voter line in
+  `CandidateSearchStep` instead of sitting at the right like "Already on this committee" does. Keep the row on one
+  line (`shrink-0` on the action group, or the label under the name).
+
 ## Acceptance criteria
 
-- [ ] Items 1–4 done or each explicitly declined in this ticket.
+- [ ] Items 1–5 done or each explicitly declined in this ticket.
 - [ ] Existing drawer and workspace tests still pass; item 3's unmount case has a test.
