@@ -1,16 +1,16 @@
 import { PrivilegeLevel } from "@prisma/client";
 
 /**
- * Tests use the real hasPermissionFor implementation (not the global mock).
+ * Tests use the real hasPrivilegeFor implementation (not the global mock).
  */
-const realHasPermissionFor =
-  jest.requireActual<{ hasPermissionFor: (userRole: PrivilegeLevel, requiredLevel: PrivilegeLevel) => boolean }>(
+const realHasPrivilegeFor =
+  jest.requireActual<{ hasPrivilegeFor: (userRole: PrivilegeLevel, requiredLevel: PrivilegeLevel) => boolean }>(
     "~/lib/utils",
-  ).hasPermissionFor;
+  ).hasPrivilegeFor;
 
-describe("hasPermissionFor", () => {
+describe("hasPrivilegeFor", () => {
   // Use real implementation (bypass global mock)
-  const check = realHasPermissionFor;
+  const check = realHasPrivilegeFor;
 
   describe("privilege hierarchy: Developer > Admin > Leader > RequestAccess > ReadAccess", () => {
     it("grants Admin to Developer", () => {

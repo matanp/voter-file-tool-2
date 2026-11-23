@@ -1,6 +1,6 @@
 import React from "react";
 import { auth } from "~/auth";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { PrivilegeLevel } from "@prisma/client";
 import { XLSXConfigForm } from "./XLSXConfigForm";
 import { Card, CardContent } from "~/components/ui/card";
@@ -10,7 +10,7 @@ import { PageHeader } from "~/components/layout/PageHeader";
 const XLSXConfigPage = async () => {
   const permissions = await auth();
 
-  const isAdminUser = hasPermissionFor(
+  const isAdminUser = hasPrivilegeFor(
     permissions?.user?.privilegeLevel ?? PrivilegeLevel.ReadAccess,
     PrivilegeLevel.Admin,
   );

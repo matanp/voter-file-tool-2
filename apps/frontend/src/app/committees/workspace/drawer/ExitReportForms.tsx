@@ -56,6 +56,7 @@ import {
   ReasonAndNotes,
   ResignationReceivedFields,
 } from "./MemberExitForms";
+import { outcomeOf, track } from "~/lib/analytics";
 
 const KINDS: Array<{ value: ExitReportKind; label: string; hint: string }> = [
   {
@@ -233,7 +234,7 @@ export function ReportExitForm({
   action: ExitReportAction;
   memberLabel: string;
   onCancel: () => void;
-  onSuccess: (message: string) => void;
+  onSuccess: (message: string) => void | Promise<void>;
 }) {
   const id = useId();
   const [input, setInput] = useState<ExitReportInput>(EMPTY_REPORT);
@@ -249,10 +250,19 @@ export function ReportExitForm({
   const staged = isResignation ? stagedLetterOf(letter) : null;
   const send = () => {
     setConfirming(false);
+    const { kind } = input;
     void run(async () => {
       const after = letterAfterSubmit(letter, await submitExitReport(action, input, staged));
       setLetter(after.letter);
       return after.outcome;
+    }).then((submitFailure) => {
+      // Sending is blocked until a kind is chosen (exitReportProblems).
+      if (kind === "") return;
+      track("exit_report_submitted", {
+        kind,
+        outcome: outcomeOf(submitFailure),
+        reason: kind === "REMOVAL" && input.reason !== "" ? input.reason : null,
+      });
     });
   };
   const problems = [

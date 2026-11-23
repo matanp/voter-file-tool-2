@@ -17,7 +17,7 @@ import type { Session } from "next-auth";
 import { gzipSync } from "node:zlib";
 import { createWebhookSignature } from "~/lib/webhookUtils";
 import { getUserDisplayName } from "@voter-file-tool/shared-validators";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { validateReportJurisdictionAccess } from "~/app/api/lib/committeeValidation";
 
 const PDF_API_BASE = process.env.PDF_SERVER_URL
@@ -66,7 +66,7 @@ export const POST = withPrivilege(
       // 4.7 hardening: legacy ldCommittees is admin-only.
       if (
         reportData.type === "ldCommittees" &&
-        !hasPermissionFor(userPrivilege, PrivilegeLevel.Admin)
+        !hasPrivilegeFor(userPrivilege, PrivilegeLevel.Admin)
       ) {
         return NextResponse.json(
           {
@@ -80,7 +80,7 @@ export const POST = withPrivilege(
       // Petition reports are Admin-only (leader-petition-visibility/01).
       if (
         ADMIN_ONLY_PETITION_REPORT_TYPES.has(reportData.type) &&
-        !hasPermissionFor(userPrivilege, PrivilegeLevel.Admin)
+        !hasPrivilegeFor(userPrivilege, PrivilegeLevel.Admin)
       ) {
         return NextResponse.json(
           {
@@ -98,7 +98,7 @@ export const POST = withPrivilege(
           session.user.id,
           userPrivilege,
           reportLabel,
-          hasPermissionFor,
+          hasPrivilegeFor,
         );
         if (validationError) {
           return NextResponse.json(validationError, { status: 403 });
@@ -136,7 +136,7 @@ export const POST = withPrivilege(
         enrichedBase.type === "changesReport"
           ? {
               ...enrichedBase,
-              includePetitionOutcomes: hasPermissionFor(
+              includePetitionOutcomes: hasPrivilegeFor(
                 userPrivilege,
                 PrivilegeLevel.Admin,
               ),

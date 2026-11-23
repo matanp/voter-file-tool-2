@@ -33,7 +33,7 @@ import {
 } from "~/lib/validations/committee";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -68,7 +68,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockCommitteeData));
@@ -104,7 +104,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockCommitteeData));
@@ -149,7 +149,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
 
       const response = await POST(createMockRequest(mockCommitteeData));
@@ -178,7 +178,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupHappyPath();
       (prismaMock.voterRecord.findFirst as jest.Mock).mockResolvedValue({
         latestRecordEntryYear: 2024,
@@ -220,7 +220,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -255,7 +255,7 @@ describe("/api/committee/add", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -296,7 +296,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -328,7 +328,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -361,7 +361,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 4 }),
       );
@@ -383,7 +383,7 @@ describe("/api/committee/add", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
@@ -504,7 +504,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -526,7 +526,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -563,7 +563,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -592,7 +592,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -612,7 +612,7 @@ describe("/api/committee/add", () => {
       });
 
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig(),
       );
@@ -637,7 +637,7 @@ describe("/api/committee/add", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupHappyPath();
 
         await POST(createMockRequest(mockCommitteeData));
@@ -668,7 +668,7 @@ describe("/api/committee/add", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
           createMockGovernanceConfig(),
         );
@@ -689,7 +689,7 @@ describe("/api/committee/add", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupHappyPath();
         getAuditLogMock(prismaMock).create.mockRejectedValue(
           new Error("Audit log write failed"),
@@ -712,7 +712,7 @@ describe("/api/committee/add", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(
           createMockRequest(createMockCommitteeData({ [field]: value }, false)),
@@ -746,7 +746,7 @@ describe("/api/committee/add", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(createMockRequest(mockCommitteeData));
 
@@ -767,7 +767,7 @@ describe("/api/committee/add", () => {
         });
 
         mockAuthSession(mockSession);
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(createMockRequest(mockCommitteeData));
 
@@ -802,7 +802,7 @@ describe("/api/committee/add", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
         200,
       );

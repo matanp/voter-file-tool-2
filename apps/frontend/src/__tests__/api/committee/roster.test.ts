@@ -22,7 +22,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -171,14 +171,14 @@ function adminSession() {
   mockAuthSession(
     createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
   );
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 }
 
 function leaderSession() {
   mockAuthSession(
     createMockSession({ user: { privilegeLevel: PrivilegeLevel.Leader } }),
   );
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 }
 
 function rosterRequest(params: Record<string, string>) {
@@ -226,7 +226,7 @@ describe("GET /api/committee/roster", () => {
       },
       GET as (req: Parameters<typeof GET>[0]) => Promise<Response>,
       mockAuthSession,
-      mockHasPermission,
+      mockHasPrivilege,
       () => {
         mockCommittees([]);
         getUserJurisdictionMock().findMany.mockResolvedValue([
@@ -252,7 +252,7 @@ describe("GET /api/committee/roster", () => {
           user: { privilegeLevel: PrivilegeLevel.ReadAccess },
         }),
       );
-      mockHasPermission(false);
+      mockHasPrivilege(false);
       const response = await GET(rosterRequest({}));
       expect(response.status).toBe(403);
       expect(getCommitteeListMock().findMany).not.toHaveBeenCalled();

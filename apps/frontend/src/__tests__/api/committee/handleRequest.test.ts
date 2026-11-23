@@ -23,7 +23,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -50,7 +50,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
@@ -93,7 +93,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupMembershipAuditSubjectMocks(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
@@ -141,7 +141,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique
         .mockResolvedValueOnce(submittedMembership)
@@ -199,7 +199,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique
         .mockResolvedValueOnce(submittedMembership)
@@ -249,7 +249,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique
         .mockResolvedValueOnce(submittedMembership)
@@ -295,7 +295,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).count
         .mockResolvedValueOnce(3) // validateEligibility: under capacity
@@ -344,7 +344,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(null);
 
       const response = await POST(createMockRequest(mockRequestData));
@@ -364,7 +364,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "ACTIVE" }),
       );
@@ -386,7 +386,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
@@ -410,7 +410,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
@@ -443,7 +443,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
@@ -466,7 +466,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       setupEligibilityPass(prismaMock);
       prismaMock.committeeGovernanceConfig.findFirst.mockResolvedValue(
         createMockGovernanceConfig({ maxSeatsPerLted: 2 }),
@@ -619,7 +619,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       getMembershipMock(prismaMock).findUnique.mockRejectedValue(
         new Error("Database error"),
       );
@@ -636,7 +636,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await POST(createMockRequest(mockRequestData));
 
@@ -648,7 +648,7 @@ describe("/api/committee/handleRequest", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       getMembershipMock(prismaMock).findUnique.mockResolvedValue(
         createMockMembership({ status: "SUBMITTED" }),
       );
@@ -668,7 +668,7 @@ describe("/api/committee/handleRequest", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupEligibilityPass(prismaMock);
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
@@ -705,7 +705,7 @@ describe("/api/committee/handleRequest", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupMembershipAuditSubjectMocks(prismaMock);
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
@@ -732,7 +732,7 @@ describe("/api/committee/handleRequest", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         setupEligibilityPass(prismaMock);
         getMembershipMock(prismaMock).findUnique.mockResolvedValue(
           createMockMembership({ status: "SUBMITTED" }),
@@ -773,7 +773,7 @@ describe("/api/committee/handleRequest", () => {
         mockAuthSession(
           createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
         );
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const response = await POST(createMockRequest(mockRequestData));
 
@@ -805,7 +805,7 @@ describe("/api/committee/handleRequest", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
         200,
       );

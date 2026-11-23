@@ -7,7 +7,7 @@
  * absent and no membership query runs). The same rules run against a real
  * database in fetchFilteredData.committee.pg.integration.test.ts.
  *
- * There is no acting-as case: `actingPermissions` lives only in the browser
+ * There is no acting-as case: `actingPrivilege` lives only in the browser
  * and no request carries it, so the route sees the real role whatever the
  * Developer is acting as. RecordsList.committeeBadge.test.tsx covers the
  * page hiding the badge.
@@ -30,7 +30,7 @@ import {
 import {
   jurisdictionRow,
   mockAuthSession,
-  mockRealPermissionHierarchy,
+  mockRealPrivilegeHierarchy,
   prismaMock,
 } from "../utils/mocks";
 
@@ -109,7 +109,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   // The real hierarchy: withPrivilege admits ReadAccess and up, and the
   // committee lookup runs only for Leader and up.
-  mockRealPermissionHierarchy();
+  mockRealPrivilegeHierarchy();
   prismaMock.voterRecord.findMany.mockResolvedValue(RECORDS);
   prismaMock.voterRecord.count.mockResolvedValue(RECORDS.length);
   prismaMock.userJurisdiction.findMany.mockResolvedValue([]);

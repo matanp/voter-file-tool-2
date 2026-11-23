@@ -13,7 +13,7 @@ import {
 } from "@prisma/client";
 import type { Session } from "next-auth";
 import type { z } from "zod";
-import { mockAuthSession, mockHasPermission, prismaMock } from "./mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "./mocks";
 import {
   committeeDataSchema,
   type CommitteeData,
@@ -304,14 +304,14 @@ export const getDiscrepancyMock = (mock: unknown): MockDiscrepancyModel =>
   (mock as { committeeUploadDiscrepancy: MockDiscrepancyModel })
     .committeeUploadDiscrepancy;
 
-/** Signs the current test in as an Admin whose permission checks all pass. */
+/** Signs the current test in as an Admin whose privilege checks all pass. */
 export const authenticateAsAdmin = (userId = "test-user-id"): void => {
   mockAuthSession(
     createMockSession({
       user: { id: userId, privilegeLevel: PrivilegeLevel.Admin },
     }),
   );
-  mockHasPermission(true);
+  mockHasPrivilege(true);
 };
 
 /** Wraps expect.objectContaining so the result is typed as unknown (avoids no-unsafe-assignment). */
@@ -1042,7 +1042,7 @@ export interface AuthTestConfig {
 export interface AuthTestCase {
   description: string;
   session: Session | null;
-  hasPermission: boolean;
+  hasPrivilege: boolean;
   expectedStatus: number;
   expectedError: string;
 }
@@ -1051,7 +1051,7 @@ export interface AuthTestCase {
 export const createUnauthenticatedTestCase = (): AuthTestCase => ({
   description: "should return 401 when user is not authenticated",
   session: null,
-  hasPermission: false,
+  hasPrivilege: false,
   expectedStatus: 401,
   expectedError: "Please log in",
 });
@@ -1066,7 +1066,7 @@ export const createInsufficientPrivilegeTestCases = (
   return insufficientLevels.map((privilegeLevel) => ({
     description: `should return 403 when user has ${privilegeLevel} privileges but needs ${requiredPrivilege}`,
     session: createMockSession({ user: { privilegeLevel } }),
-    hasPermission: false,
+    hasPrivilege: false,
     expectedStatus: 403,
     expectedError: "User does not have sufficient privilege",
   }));
@@ -1078,7 +1078,7 @@ export const createAuthenticatedTestCase = (
 ): AuthTestCase => ({
   description: `should succeed when user has ${privilegeLevel} privileges`,
   session: createMockSession({ user: { privilegeLevel } }),
-  hasPermission: true,
+  hasPrivilege: true,
   expectedStatus: successStatus,
   expectedError: "",
 });
@@ -1089,12 +1089,12 @@ export const runAuthTest = async (
   handler: (request: NextRequest) => Promise<Response>,
   mockRequest: NextRequest,
   mockAuthSession: (session: Session | null) => void,
-  mockHasPermission: (granted: boolean) => void,
+  mockHasPrivilege: (granted: boolean) => void,
   setupMocks?: () => void,
 ): Promise<void> => {
   // Arrange
   mockAuthSession(testCase.session);
-  mockHasPermission(testCase.hasPermission);
+  mockHasPrivilege(testCase.hasPrivilege);
 
   // Setup additional mocks for successful cases if provided
   if (
@@ -1125,7 +1125,7 @@ export const createAuthTestSuite = (
   config: AuthTestConfig,
   handler: (request: NextRequest) => Promise<Response>,
   mockAuthSession: (session: Session | null) => void,
-  mockHasPermission: (granted: boolean) => void,
+  mockHasPrivilege: (granted: boolean) => void,
   setupMocks?: () => void,
   successStatus = 200,
 ): Array<{
@@ -1156,7 +1156,7 @@ export const createAuthTestSuite = (
         handler,
         config.mockRequest(),
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       ),
   }));

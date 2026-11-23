@@ -22,7 +22,7 @@ import {
   sortElectionDates,
 } from "~/lib/electionDateUtils";
 import { ReportStatusTracker } from "../components/ReportStatusTracker";
-import { useApiMutation } from "~/hooks/useApiMutation";
+import { useGenerateReport } from "~/hooks/useGenerateReport";
 
 type GeneratePetitionFormProps = {
   parties: string[];
@@ -73,10 +73,9 @@ export const GeneratePetitionForm: React.FC<GeneratePetitionFormProps> = ({
   const [generationError, setGenerationError] = useState<string | null>(null);
 
   // API mutation hook
-  const generateReportMutation = useApiMutation<
-    { reportId: string },
+  const generateReportMutation = useGenerateReport<
     GenerateReportData
-  >("/api/generateReport", "POST", {
+  >({
     onSuccess: (data) => {
       setReportId(data.reportId);
       toast({

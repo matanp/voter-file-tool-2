@@ -13,7 +13,7 @@ import {
   parseJsonResponse,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../utils/mocks";
 
 type FetchLoadedResponse = {
   success: boolean;
@@ -44,7 +44,7 @@ describe("/api/committee/fetchLoaded", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -57,7 +57,7 @@ describe("/api/committee/fetchLoaded", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findMany.mockResolvedValue([]);
 
       const request = createMockRequest({});
@@ -92,7 +92,7 @@ describe("/api/committee/fetchLoaded", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findMany.mockResolvedValue(
         mockDiscrepancies as never,
       );
@@ -143,7 +143,7 @@ describe("/api/committee/fetchLoaded", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findMany.mockResolvedValue(
         mockDiscrepancies as never,
       );
@@ -182,7 +182,7 @@ describe("/api/committee/fetchLoaded", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findMany.mockResolvedValue(
         mockDiscrepancies as never,
       );
@@ -202,7 +202,7 @@ describe("/api/committee/fetchLoaded", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findMany.mockRejectedValue(
         new Error("Database error"),
       );

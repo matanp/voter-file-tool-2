@@ -14,7 +14,7 @@ import {
   type ErrorResponseBody,
   type AuthTestConfig,
 } from "../utils/testUtils";
-import { mockAuthSession, mockHasPermission } from "../utils/mocks";
+import { mockAuthSession, mockHasPrivilege } from "../utils/mocks";
 
 type VoterFileUploadSuccessResponse = { uploadUrl: string; fileKey: string };
 
@@ -55,7 +55,7 @@ describe("/api/getVoterFileUploadUrl", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -68,7 +68,7 @@ describe("/api/getVoterFileUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({
         fileName: "voters.txt",
@@ -87,7 +87,7 @@ describe("/api/getVoterFileUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({
         fileName: "voters.csv",
@@ -107,7 +107,7 @@ describe("/api/getVoterFileUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({
         fileName: "voters.txt",
@@ -125,7 +125,7 @@ describe("/api/getVoterFileUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const request = createMockRequest({
         fileName: "voters.txt",
@@ -145,7 +145,7 @@ describe("/api/getVoterFileUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       mockGetPresignedUploadUrl.mockResolvedValue(
         "https://presigned.example/upload",
       );
@@ -169,7 +169,7 @@ describe("/api/getVoterFileUploadUrl", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       mockGetPresignedUploadUrl.mockRejectedValue(new Error("S3 error"));
 
       const request = createMockRequest({

@@ -18,7 +18,7 @@ import {
   DEFAULT_ACTIVE_TERM_ID,
   type AuthTestConfig,
 } from "../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../utils/mocks";
 import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 
 const createMockDiscrepancy = (overrides: Record<string, unknown> = {}) => ({
@@ -94,7 +94,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
         authConfig,
         POST,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -105,7 +105,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("returns 422 when VRCNUM is missing", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
 
       const response = await POST(
         createMockRequest({ accept: true, takeAddress: "" }),
@@ -116,7 +116,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("returns 404 when discrepancy is not found", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(null);
 
       const response = await POST(
@@ -130,7 +130,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("accept resolution: activates voter membership and soft-resolves discrepancy", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -186,7 +186,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
     it("accept with existing non-ACTIVE membership: reactivates and logs audits", async () => {
       const existingMembershipId = "existing-membership-id";
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -232,7 +232,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
     it("accept with a RESIGNED membership: clears its Resignation Letter columns (ticket 08 decision 15)", async () => {
       const existingMembershipId = "existing-membership-id";
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -269,7 +269,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("reject resolution: soft-resolves with DISCREPANCY_REJECTED audit", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -296,7 +296,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("audit resolvedAt matches persisted resolvedAt", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -332,7 +332,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("returns 400 on P2002 active-per-term conflict during membership create", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -359,7 +359,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("returns 400 when accept would exceed committee capacity", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -382,7 +382,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("returns 400 when voter is ACTIVE in another committee for the term", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -410,7 +410,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("returns 400 when reject includes takeAddress", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -434,7 +434,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("takeAddress: updates voterRecord.addressForCommittee and sets ACCEPTED_WITH_ADDRESS", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -475,7 +475,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("takeAddress preserves exact stored value without trimming", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );
@@ -519,7 +519,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("already-resolved discrepancy: second call returns 409 already_resolved", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique
         .mockResolvedValueOnce(createMockDiscrepancy() as never)
         .mockResolvedValueOnce(createMockDiscrepancy() as never)
@@ -548,7 +548,7 @@ describe("/api/admin/handleCommitteeDiscrepancy", () => {
 
     it("rolls back resolve when audit write fails", async () => {
       mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.committeeUploadDiscrepancy.findUnique.mockResolvedValue(
         createMockDiscrepancy() as never,
       );

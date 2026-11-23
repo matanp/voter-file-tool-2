@@ -6,7 +6,7 @@ import {
 import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
 import { useToast } from "~/components/ui/use-toast";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import RecordSearchForm from "../components/RecordSearchForm";
 import { VoterRecordTable } from "../recordsearch/VoterRecordTable";
 import { Button } from "~/components/ui/button";
@@ -65,7 +65,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
   onAdd,
 }) => {
   const { toast } = useToast();
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
   const [records, setRecords] = useState<VoterRecord[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [showConfirm, setShowConfirm] = useState<boolean>(false);
@@ -91,7 +91,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     useState<EligibilityPreflightResponse | null>(null);
   const [preflightRefreshKey, setPreflightRefreshKey] = useState<number>(0);
 
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
   const validCommittee =
     city !== "" && legDistrict !== "" && electionDistrict > 0;
 
@@ -266,7 +266,7 @@ export const AddCommitteeForm: React.FC<AddCommitteeFormProps> = ({
     }
   };
 
-  if (actingPermissions === PrivilegeLevel.ReadAccess) {
+  if (actingPrivilege === PrivilegeLevel.ReadAccess) {
     return null;
   }
 

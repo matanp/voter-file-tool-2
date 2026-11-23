@@ -6,7 +6,7 @@ import { Button } from "~/components/ui/button";
 import Link from "next/link";
 import { Search, Users, FileText, BarChart3 } from "lucide-react";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 
 /**
  * Quick action buttons data structure. `minPrivilege` is display-only (acting
@@ -51,11 +51,11 @@ const quickActions: Array<{
  * Quick actions section component
  */
 export function QuickActions() {
-  const { actingPermissions } = useContext(GlobalContext);
+  const { actingPrivilege } = useContext(GlobalContext);
   const visibleActions = quickActions.filter(
     (action) =>
       !action.minPrivilege ||
-      hasPermissionFor(actingPermissions, action.minPrivilege),
+      hasPrivilegeFor(actingPrivilege, action.minPrivilege),
   );
 
   return (

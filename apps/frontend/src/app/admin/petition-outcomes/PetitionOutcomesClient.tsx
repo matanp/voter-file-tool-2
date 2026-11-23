@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "~/components/ui/dialog";
+import { track } from "~/lib/analytics";
 
 type CommitteeListWithSeats = {
   id: number;
@@ -195,17 +196,28 @@ export function PetitionOutcomesClient({
     ) {
       return;
     }
-    void recordMutation.mutate({
-      committeeListId,
-      termId: activeTermId,
-      seatNumber,
-      primaryDate: primaryDate.trim(),
-      candidates: filled.map((c) => ({
-        voterRecordId: c.voterRecordId.trim(),
-        voteCount: c.voteCount,
-        outcome: c.outcome,
-      })),
-    });
+    const trackOutcome = (outcome: "success" | "error") =>
+      track("petition_outcome_recorded", {
+        outcome,
+        candidate_count: filled.length,
+      });
+    recordMutation
+      .mutate({
+        committeeListId,
+        termId: activeTermId,
+        seatNumber,
+        primaryDate: primaryDate.trim(),
+        candidates: filled.map((c) => ({
+          voterRecordId: c.voterRecordId.trim(),
+          voteCount: c.voteCount,
+          outcome: c.outcome,
+        })),
+      })
+      .then(
+        () => trackOutcome("success"),
+        // onError already told the user.
+        () => trackOutcome("error"),
+      );
   }, [
     candidates,
     committeeListId,

@@ -29,6 +29,7 @@ import {
   isVoterImportMetadata,
   type VoterImportMetadata,
 } from "~/types/reportMetadata";
+import { track } from "~/lib/analytics";
 
 // Utility function to format file sizes in human-readable format
 const formatFileSize = (bytes: number | null): string => {
@@ -161,11 +162,24 @@ const ReportCard: React.FC<ReportCardProps> = ({
 
     return newTitle !== originalTitle || newDescription !== originalDescription;
   }, [report.title, report.description, editTitle, editDescription]);
+  const trackOpened = (via: "download" | "view") => {
+    track("report_downloaded", {
+      report_type: report.ReportType,
+      // Lowercase, as report_requested's format is.
+      format: getFileType(report).toLowerCase(),
+      via,
+      ms_since_request: report.requestedAt
+        ? Date.now() - new Date(report.requestedAt).getTime()
+        : null,
+    });
+  };
+
   const handleDownload = () => {
     if (!report.presignedUrl) {
       console.error("No presigned URL available for download");
       return;
     }
+    trackOpened("download");
 
     // Extract file extension from presignedUrl, fallback to "pdf"
     const getFileExtension = (url: string): string => {
@@ -195,6 +209,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
       console.error("No presigned URL available for viewing");
       return;
     }
+    trackOpened("view");
 
     window.open(report.presignedUrl, "_blank");
   };

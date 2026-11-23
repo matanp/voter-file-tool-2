@@ -20,6 +20,7 @@ import { fields, type FieldName } from "./fieldsConfig";
 import { ResultsPager } from "./ResultsPager";
 import { CommitteeMembershipBadge } from "./CommitteeMembershipBadge";
 import { type RecordSearchResult } from "~/lib/recordSearch";
+import { currentPage, track } from "~/lib/analytics";
 
 interface BaseVoterRecordTableProps {
   records: RecordSearchResult[];
@@ -125,7 +126,13 @@ export const VoterRecordTable: React.FC<VoterRecordTableProps> = ({
                 })}
                 {extraContent && <TableCell>{extraContent(record)}</TableCell>}
                 <TableCell className="text-right">
-                  <Popover>
+                  <Popover
+                    onOpenChange={(open) => {
+                      if (open) {
+                        track("voter_details_opened", { from: currentPage() });
+                      }
+                    }}
+                  >
                     <PopoverTrigger asChild>
                       {compactView ? (
                         <Button variant={"outline"}>

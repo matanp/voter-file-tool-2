@@ -6,6 +6,12 @@
  */
 import { PrivilegeLevel } from "@prisma/client";
 
+const mockCapture = jest.fn<void, unknown[]>();
+jest.mock("posthog-js", () => ({
+  __esModule: true,
+  default: { capture: (...args: unknown[]) => mockCapture(...args) },
+}));
+
 import {
   canFilterEligibleOnly,
   candidateSearchQuery,
@@ -25,7 +31,7 @@ import type {
   CommitteeAction,
 } from "~/app/committees/workspace/committeeAction";
 import type { CommitteeRef } from "~/lib/committees/committeeRef";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import { fetchJsonResponse, installFetchMock } from "../../../utils/mocks";
 import type * as UtilsModule from "~/lib/utils";
 import {
@@ -71,9 +77,9 @@ function sent(): { url: string; body: unknown } {
 
 beforeEach(() => {
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 });
 
@@ -463,6 +469,36 @@ describe("submitCandidate", () => {
     });
   });
 
+  it("passes a 422's field errors on, first message per field", async () => {
+    respond(
+      {
+        success: false,
+        error: "Invalid request data",
+        fieldErrors: { phone: ["Bad phone", "Second message"], email: ["Bad email"] },
+      },
+      422,
+    );
+    await expect(submitCandidate(ADD, "add", details)).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "Invalid request data",
+      fieldErrors: { phone: "Bad phone", email: "Bad email" },
+    });
+  });
+
+  it.each([
+    ["a field's messages are a string, not an array", { phone: "Bad phone" }],
+    ["fieldErrors is not an object", "phone is bad"],
+    ["fieldErrors is an array", [["phone", "Bad phone"]]],
+    ["fieldErrors is empty", {}],
+    ["every field has no messages", { phone: [] }],
+  ])("returns no fieldErrors when %s", async (_case, fieldErrors) => {
+    respond({ success: false, error: "Invalid request data", fieldErrors }, 422);
+    const outcome = await submitCandidate(ADD, "add", details);
+    expect(outcome).toEqual({ ok: false, kind: "error", message: "Invalid request data" });
+    expect(outcome).not.toHaveProperty("fieldErrors");
+  });
+
   it("returns any other failure as an error with the server's message", async () => {
     respond({ success: false, error: "You do not have jurisdiction access for this committee" }, 403);
     await expect(submitCandidate(ADD, "submit", details)).resolves.toEqual({
@@ -479,5 +515,49 @@ describe("submitCandidate", () => {
       kind: "error",
       message: "Failed to fetch",
     });
+  });
+});
+
+describe("action_failed analytics", () => {
+  const details = { candidateId: "V-NEW", membershipType: "PETITIONED" as const };
+  beforeEach(() => mockCapture.mockClear());
+
+  it("records a rejected add with its hard-stop codes", async () => {
+    respond({ success: false, error: "INELIGIBLE", reasons: ["CAPACITY"] }, 422);
+    await submitCandidate(ADD, "add", details);
+    expect(mockCapture).toHaveBeenCalledWith("action_failed", {
+      action: "committee/add",
+      error_code: "INELIGIBLE",
+      http_status: 422,
+      reasons: ["CAPACITY"],
+    });
+  });
+
+  it("records free-text failures by status only, never the message", async () => {
+    respond({ success: false, error: "Member not found" }, 404);
+    await submitCandidate(ADD, "add", details);
+    expect(mockCapture).toHaveBeenCalledWith("action_failed", {
+      action: "committee/add",
+      error_code: "http_404",
+      http_status: 404,
+    });
+  });
+
+  it("records network failures", async () => {
+    fetchMock = installFetchMock(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await submitCandidate(ADD, "add", details);
+    expect(mockCapture).toHaveBeenCalledWith("action_failed", {
+      action: "committee/add",
+      error_code: "network_error",
+      http_status: null,
+    });
+  });
+
+  it("records nothing on success", async () => {
+    respond({ success: true, message: "Member added to committee" });
+    await submitCandidate(ADD, "add", details);
+    expect(mockCapture).not.toHaveBeenCalled();
   });
 });

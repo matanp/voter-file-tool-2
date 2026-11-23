@@ -1,8 +1,18 @@
 import { PrivilegeLevel } from "@prisma/client";
 
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { SeatRosterRow } from "~/lib/validations/committee";
 import type { CandidateCommitteeRef, CommitteeAction } from "../../committeeAction";
+
+/**
+ * A row's `data-row-action` key, e.g. "seat-2", "member-V1": it matches the
+ * row's control across refreshes, so focus can find it again.
+ */
+export function rosterRowKey(row: SeatRosterRow): string {
+  return row.seatNumber !== null
+    ? `seat-${row.seatNumber}`
+    : `member-${row.occupant?.VRCNUM ?? ""}`;
+}
 
 /**
  * A row menu item. The Roster tab only *dispatches* its action (plan §8's
@@ -34,11 +44,11 @@ export type RosterRowActionItem = {
 export function rosterRowActions(
   row: SeatRosterRow,
   committee: CandidateCommitteeRef,
-  actingPermissions: PrivilegeLevel,
+  actingPrivilege: PrivilegeLevel,
 ): RosterRowActionItem[] {
-  const isAdmin = hasPermissionFor(actingPermissions, PrivilegeLevel.Admin);
-  const canSubmit = hasPermissionFor(
-    actingPermissions,
+  const isAdmin = hasPrivilegeFor(actingPrivilege, PrivilegeLevel.Admin);
+  const canSubmit = hasPrivilegeFor(
+    actingPrivilege,
     PrivilegeLevel.RequestAccess,
   );
   if (!canSubmit) return [];

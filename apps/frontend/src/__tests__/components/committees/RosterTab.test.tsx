@@ -2,7 +2,7 @@
  * Workspace Roster tab (ticket 09, plan §7.1): the seat table, the Admin-only
  * contact column, the petitioned-vacancy distinction, and the role-gated row
  * action menu that dispatches plan §8 action objects without opening anything.
- * Roles are simulated through `actingPermissions`, as in the workspace test.
+ * Roles are simulated through `actingPrivilege`, as in the workspace test.
  */
 import React from "react";
 import { render, screen, within } from "@testing-library/react";
@@ -12,7 +12,7 @@ import { PrivilegeLevel } from "@prisma/client";
 import { RosterTab } from "~/app/committees/workspace/tabs/RosterTab";
 import type { CommitteeActionHandler } from "~/app/committees/workspace/committeeAction";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type * as UtilsModule from "~/lib/utils";
 import type {
   CommitteeDetailResponse,
@@ -23,8 +23,8 @@ jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
     GlobalContext: createContext({
-      actingPermissions: "Admin",
-      setActingPermissions: () => undefined,
+      actingPrivilege: "Admin",
+      setActingPrivilege: () => undefined,
     }),
   };
 });
@@ -132,7 +132,7 @@ function renderRoster({
 }) {
   return render(
     <GlobalContext.Provider
-      value={{ actingPermissions: role, setActingPermissions: () => undefined }}
+      value={{ actingPrivilege: role, setActingPrivilege: () => undefined }}
     >
       <RosterTab
         committeeId={KEY.committeeListId}
@@ -174,9 +174,9 @@ const REF = {
 beforeEach(() => {
   jest.clearAllMocks();
   jest
-    .mocked(hasPermissionFor)
+    .mocked(hasPrivilegeFor)
     .mockImplementation(
-      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPermissionFor,
+      jest.requireActual<typeof UtilsModule>("~/lib/utils").hasPrivilegeFor,
     );
 });
 

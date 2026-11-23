@@ -21,7 +21,7 @@ import {
   getAuditLogMock,
   firstCallArg,
 } from "../../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../../utils/mocks";
 import { CLEARED_LETTER_FIELDS } from "~/lib/resignationLetter";
 
 const SEAT_ID = "seat-1";
@@ -88,7 +88,7 @@ describe("POST /api/admin/petition-outcomes/record", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthSession(createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }));
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     setupSeatAndNoHolder();
     setupNoExistingMemberships();
     setupTransactionMocks();

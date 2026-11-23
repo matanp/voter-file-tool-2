@@ -19,7 +19,7 @@ import {
 } from "../../utils/testUtils";
 import {
   mockAuthSession,
-  mockHasPermission,
+  mockHasPrivilege,
   prismaMock,
 } from "../../utils/mocks";
 
@@ -34,7 +34,7 @@ function adminWithReportedMember() {
   mockAuthSession(
     createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
   );
-  mockHasPermission(true);
+  mockHasPrivilege(true);
   prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
   prismaMock.voterRecord.findUnique.mockResolvedValue(createMockVoterRecord());
   const reported = {

@@ -14,7 +14,7 @@ import {
   getMockCallArgs,
   DEFAULT_ACTIVE_TERM_ID,
 } from "../../../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../../../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../../../utils/mocks";
 
 const userMock = prismaMock.user as { findUnique: jest.Mock };
 const committeeTermMock = prismaMock.committeeTerm as { findUnique: jest.Mock };
@@ -32,7 +32,7 @@ describe("POST /api/admin/jurisdictions", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     userMock.findUnique.mockResolvedValue({
       id: "leader-1",
       privilegeLevel: PrivilegeLevel.Leader,
@@ -219,7 +219,7 @@ describe("GET /api/admin/jurisdictions", () => {
     mockAuthSession(
       createMockSession({ user: { privilegeLevel: PrivilegeLevel.Admin } }),
     );
-    mockHasPermission(true);
+    mockHasPrivilege(true);
     userJurisdictionMock.findMany.mockResolvedValue([]);
   });
 

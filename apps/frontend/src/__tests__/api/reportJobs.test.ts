@@ -14,7 +14,7 @@ import {
   parseJsonResponse,
   type AuthTestConfig,
 } from "../utils/testUtils";
-import { mockAuthSession, mockHasPermission, prismaMock } from "../utils/mocks";
+import { mockAuthSession, mockHasPrivilege, prismaMock } from "../utils/mocks";
 
 type ReportJobsErrorResponse = { error: string; provided: string };
 type ReportJobsSuccessResponse = {
@@ -47,7 +47,7 @@ describe("/api/reportJobs", () => {
         authConfig,
         GET,
         mockAuthSession,
-        mockHasPermission,
+        mockHasPrivilege,
         setupMocks,
       );
 
@@ -59,7 +59,7 @@ describe("/api/reportJobs", () => {
     it("should return report jobs for authenticated user", async () => {
       const mockSession = createMockSession();
       mockAuthSession(mockSession);
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       prismaMock.report.count.mockResolvedValue(0);
       prismaMock.report.findMany.mockResolvedValue([]);
 
@@ -82,7 +82,7 @@ describe("/api/reportJobs", () => {
     describe("Status filtering", () => {
       it("should filter by status=COMPLETED", async () => {
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockResolvedValue(0);
         prismaMock.report.findMany.mockResolvedValue([]);
 
@@ -104,7 +104,7 @@ describe("/api/reportJobs", () => {
 
       it("should filter by multiple statuses", async () => {
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockResolvedValue(0);
         prismaMock.report.findMany.mockResolvedValue([]);
 
@@ -124,7 +124,7 @@ describe("/api/reportJobs", () => {
 
       it("should not filter by status when status=all", async () => {
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockResolvedValue(5);
         prismaMock.report.findMany.mockResolvedValue([]);
 
@@ -140,7 +140,7 @@ describe("/api/reportJobs", () => {
 
       it("should return 400 for invalid status", async () => {
         mockAuthSession(createMockSession());
-        mockHasPermission(true);
+        mockHasPrivilege(true);
 
         const request = new NextRequest(
           "http://localhost:3000/api/reportJobs?status=invalid",
@@ -158,7 +158,7 @@ describe("/api/reportJobs", () => {
     describe("Pagination", () => {
       it("should apply pagination params", async () => {
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockResolvedValue(50);
         prismaMock.report.findMany.mockResolvedValue([]);
 
@@ -184,7 +184,7 @@ describe("/api/reportJobs", () => {
 
       it("should clamp pageSize to max 100", async () => {
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockResolvedValue(0);
         prismaMock.report.findMany.mockResolvedValue([]);
 
@@ -200,7 +200,7 @@ describe("/api/reportJobs", () => {
 
       it("should clamp page to maxPage when exceeding total", async () => {
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockResolvedValue(5);
         prismaMock.report.findMany.mockResolvedValue([]);
 
@@ -231,7 +231,7 @@ describe("/api/reportJobs", () => {
           },
         ];
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockResolvedValue(1);
         prismaMock.report.findMany.mockResolvedValue(mockReports as never);
 
@@ -256,7 +256,7 @@ describe("/api/reportJobs", () => {
     describe("Database error handling", () => {
       it("should return 500 when findMany fails", async () => {
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockResolvedValue(0);
         prismaMock.report.findMany.mockRejectedValue(
           new Error("Database error"),
@@ -272,7 +272,7 @@ describe("/api/reportJobs", () => {
 
       it("should return 500 when count fails", async () => {
         mockAuthSession(createMockSession({ user: { id: "u1", privilegeLevel: PrivilegeLevel.Admin } }));
-        mockHasPermission(true);
+        mockHasPrivilege(true);
         prismaMock.report.count.mockRejectedValue(
           new Error("Database count error"),
         );

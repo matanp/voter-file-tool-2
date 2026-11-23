@@ -65,7 +65,7 @@ scan_def() {
     migration-data)     printf '%s\t%s' 'enum |ReportType|MembershipStatus|PrivilegeLevel|@default|@@unique|@@index|backfill|legacy|deprecated' '' ;;
     operations)         printf '%s\t%s' 'process\.env|env\.|NEXT_PUBLIC|Sentry|console\.(error|warn)|logger|health|timeout|retry|fallback' '' ;;
     data-lifecycle)     printf '%s\t%s' 'expiresIn|expiresAt|expir|presigned|uploadUrl|reportUrl|fileUrl|getSignedUrl|deleteObject|DeleteObject|cleanup|retention|archive|purge|stale|inviteToken|token.*expir|ReportJob|reportComplete' '' ;;
-    frontend-state)     printf '%s\t%s' 'isLoading|isSubmitting|isPending|useOptimistic|startTransition|window\.confirm|AlertDialog|disabled=\{|minPrivilege|hasPermissionFor' '' ;;
+    frontend-state)     printf '%s\t%s' 'isLoading|isSubmitting|isPending|useOptimistic|startTransition|window\.confirm|AlertDialog|disabled=\{|minPrivilege|hasPrivilegeFor' '' ;;
     accessibility)      printf '%s\t%s' 'aria-[a-z]+=|role=|DialogDescription|DialogTitle|VisuallyHidden|htmlFor=|alt=|flex-wrap|w-max|overflow-x-auto' '' ;;
     dev-experience)     printf '%s\t%s' 'DATABASE_URL|\.env\.(local|example)|docker-compose|setup-dev-db|db:seed|seed-lted-crosswalk|testcontainers|TEST_DATABASE_URL|beforeAll\(|afterAll\(|process\.env\.[A-Z_]+ \?\?|require.*localhost' '' ;;
     *) return 1 ;;

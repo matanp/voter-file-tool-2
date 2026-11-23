@@ -5,7 +5,7 @@ import { PrivilegeLevel } from "@prisma/client";
 
 import { Button } from "~/components/ui/button";
 import { GlobalContext } from "~/components/providers/GlobalContext";
-import { hasPermissionFor } from "~/lib/utils";
+import { hasPrivilegeFor } from "~/lib/utils";
 import type { RosterSummary } from "~/lib/validations/committee";
 
 export type CommitteeWorkspaceHeaderProps = {
@@ -17,16 +17,16 @@ export type CommitteeWorkspaceHeaderProps = {
 
 /**
  * Page title, scope-wide counts, and Admin-only shortcuts. The shortcuts are
- * client visibility only, so they follow `actingPermissions` (see
+ * client visibility only, so they follow `actingPrivilege` (see
  * skills/auth-check-patterns); the pages they link to enforce real privilege.
  */
 export function CommitteeWorkspaceHeader({
   termLabel,
   summary,
 }: CommitteeWorkspaceHeaderProps) {
-  const { actingPermissions } = useContext(GlobalContext);
-  const showAdminControls = hasPermissionFor(
-    actingPermissions,
+  const { actingPrivilege } = useContext(GlobalContext);
+  const showAdminControls = hasPrivilegeFor(
+    actingPrivilege,
     PrivilegeLevel.Admin,
   );
 
