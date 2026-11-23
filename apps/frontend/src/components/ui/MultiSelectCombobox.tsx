@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Cross2Icon } from "@radix-ui/react-icons";
+import { ChipRemoveButton } from "~/components/ui/ChipRemoveButton";
 
 import {
   SEARCH_DROPDOWN_MIN_HEIGHT,
@@ -108,15 +108,10 @@ export function MultiSelectCombobox({
                 className="text-xs px-2 py-1"
               >
                 {label}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveValue(value)}
-                  className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
-                  aria-label={`Remove ${label}`}
-                  title={`Remove ${label}`}
-                >
-                  <Cross2Icon className="h-3 w-3" aria-hidden="true" />
-                </button>
+                <ChipRemoveButton
+                  label={label}
+                  onRemove={() => handleRemoveValue(value)}
+                />
               </Badge>
             );
           })}

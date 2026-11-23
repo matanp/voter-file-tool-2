@@ -18,6 +18,7 @@ import {
   type VoterRecord,
 } from "@prisma/client";
 import { z } from "zod";
+import { actionName, errorCode, track } from "~/lib/analytics";
 // The client-safe entry point: the package root also exports PrismaClient.
 import { committeeResidencySearchFilter } from "@voter-file-tool/shared-prisma/committeeResidency";
 import {
@@ -663,6 +664,7 @@ async function postJson(
       body: JSON.stringify(body),
     });
   } catch (err) {
+    track("action_failed", { action: actionName(url), error_code: "network_error", http_status: null });
     return {
       ok: false,
       kind: "error",
@@ -680,15 +682,23 @@ async function postJson(
   } | null;
 
   if (failure?.error === "INELIGIBLE") {
-    return {
-      ok: false,
-      kind: "ineligible",
-      reasons: Array.isArray(failure.reasons)
-        ? failure.reasons.filter((r): r is string => typeof r === "string")
-        : [],
-    };
+    const reasons = Array.isArray(failure.reasons)
+      ? failure.reasons.filter((r): r is string => typeof r === "string")
+      : [];
+    track("action_failed", {
+      action: actionName(url),
+      error_code: "INELIGIBLE",
+      http_status: response.status,
+      reasons,
+    });
+    return { ok: false, kind: "ineligible", reasons };
   }
   if (!response.ok || failure?.success === false || failure?.status === "error") {
+    track("action_failed", {
+      action: actionName(url),
+      error_code: errorCode(failure?.error, response.status),
+      http_status: response.status,
+    });
     // A validation 422 (`validateRequest`) names its fields; keep the first message of each.
     const parsedFieldErrors = fieldErrorsSchema.safeParse(failure?.fieldErrors);
     const fieldErrors = parsedFieldErrors.success

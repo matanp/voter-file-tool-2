@@ -16,8 +16,8 @@ import { ErrorDisplay } from "~/components/ErrorDisplay";
 import { ReportInfo } from "./components/ReportInfo";
 import { FieldSelection } from "./components/FieldSelection";
 import { XLSXConfig } from "./components/XLSXConfig";
-import { useApiMutation } from "~/hooks/useApiMutation";
 import type { GenerateReportData } from "@voter-file-tool/shared-validators";
+import { useGenerateReport } from "~/hooks/useGenerateReport";
 
 export const XLSXConfigForm: React.FC = () => {
   const { toast } = useToast();
@@ -27,10 +27,9 @@ export const XLSXConfigForm: React.FC = () => {
   const [reportUrl, setReportUrl] = useState<string | null>(null);
 
   // API mutation hook
-  const generateReportMutation = useApiMutation<
-    { reportId: string },
+  const generateReportMutation = useGenerateReport<
     GenerateReportData
-  >("/api/generateReport", "POST", {
+  >({
     onSuccess: (data) => {
       setReportId(data.reportId);
       toast({

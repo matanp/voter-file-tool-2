@@ -1,6 +1,7 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
+import { signOutEverywhere } from "~/lib/signOut";
 import { Button } from "./button";
 import { ManageProfileButton } from "./manageProfile";
 
@@ -19,5 +20,5 @@ export function SignInButton() {
 }
 
 export function SignOutButton() {
-  return <Button onClick={() => signOut()}>Sign Out</Button>;
+  return <Button onClick={() => signOutEverywhere()}>Sign Out</Button>;
 }

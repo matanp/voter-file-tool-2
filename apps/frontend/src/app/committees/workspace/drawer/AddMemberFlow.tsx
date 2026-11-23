@@ -22,7 +22,7 @@
  * submit, focus moves to the invalid field or the error alert, never out of
  * the drawer.
  */
-import React, { useId, useMemo, useState } from "react";
+import React, { useId, useMemo, useRef, useState } from "react";
 import type { MembershipType } from "@prisma/client";
 
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
@@ -63,6 +63,7 @@ import {
   useFieldErrors,
 } from "./drawerParts";
 import { useCandidateEligibility } from "./useCandidateEligibility";
+import { outcomeOf, track } from "~/lib/analytics";
 
 type Step = "find" | "review" | "details" | "confirm";
 const STEPS: Record<Step, { n: number; title: string }> = {
@@ -147,6 +148,7 @@ export function AddMemberFlow({
   const { submitting, failure, clearFailure, run } = useActionSubmit((message) =>
     onSuccess(message, isAdd ? candidate?.VRCNUM : undefined),
   );
+  const openedAt = useRef(Date.now());
 
   const eligibility = useCandidateEligibility(action.committee, candidate?.VRCNUM ?? null);
   const existingMemberIds = useMemo(
@@ -202,6 +204,21 @@ export function AddMemberFlow({
         ...(overriding ? { overrideReason: details.overrideReason } : {}),
       }),
     );
+    const outcome = outcomeOf(submitFailure);
+    const msInFlow = Date.now() - openedAt.current;
+    if (isAdd) {
+      track("committee_member_added", {
+        outcome,
+        override_used: overriding,
+        ms_in_flow: msInFlow,
+      });
+    } else {
+      track("submission_created", {
+        replacement: action.kind === "replace-member",
+        outcome,
+        ms_in_flow: msInFlow,
+      });
+    }
     if (!submitFailure) return;
     // A step-3 field the endpoint rejected goes back to step 3, beside its field.
     const errors =

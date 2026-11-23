@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
-import { Cross2Icon } from "@radix-ui/react-icons";
+import { ChipRemoveButton } from "~/components/ui/ChipRemoveButton";
 import { cn } from "~/lib/utils";
 import {
   SEARCH_INPUT_MIN_WIDTH,
@@ -189,13 +189,10 @@ export const MultiValueInputBase = React.forwardRef<
                 className="text-xs px-2 py-1"
               >
                 {value}
-                <button
-                  type="button"
-                  onClick={() => removeValue(value)}
-                  className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
-                >
-                  <Cross2Icon className="h-3 w-3" />
-                </button>
+                <ChipRemoveButton
+                  label={value}
+                  onRemove={() => removeValue(value)}
+                />
               </Badge>
             ))}
           </div>

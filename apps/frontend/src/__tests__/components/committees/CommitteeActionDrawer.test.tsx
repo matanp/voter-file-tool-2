@@ -41,6 +41,20 @@ import {
   type SeatRosterRow,
 } from "~/lib/validations/committee";
 
+const mockCapture = jest.fn<void, unknown[]>();
+jest.mock("posthog-js", () => ({
+  __esModule: true,
+  default: { capture: (...args: unknown[]) => mockCapture(...args) },
+}));
+/** The properties of every `event` captured so far. */
+const captured = (event: string) =>
+  mockCapture.mock.calls.filter(([name]) => name === event).map(([, props]) => props);
+/** The `outcome` of every `event` captured so far. */
+const outcomes = (event: string) =>
+  captured(event).map((props) =>
+    props && typeof props === "object" && "outcome" in props ? props.outcome : undefined,
+  );
+
 jest.mock("~/components/providers/GlobalContext", () => {
   const { createContext } = jest.requireActual<typeof React>("react");
   return {
@@ -707,6 +721,13 @@ describe("CommitteeActionDrawer: Admin add", () => {
       membershipType: "PETITIONED",
       email: "jane@example.com",
     });
+    expect(captured("committee_member_added")).toEqual([
+      {
+        outcome: "success",
+        override_used: false,
+        ms_in_flow: expect.any(Number) as unknown,
+      },
+    ]);
   });
 
   it("keeps the drawer open with the server's hard stops, then succeeds on retry after an error", async () => {
@@ -750,6 +771,11 @@ describe("CommitteeActionDrawer: Admin add", () => {
     await userEvent.click(add());
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(outcomes("committee_member_added")).toEqual([
+      "ineligible",
+      "error",
+      "success",
+    ]);
   });
 });
 
@@ -989,6 +1015,15 @@ describe("CommitteeActionDrawer: submission roles", () => {
       title: "Success",
       description: "Submitted your request for approval",
     });
+    // A Submission is not a member yet.
+    expect(captured("committee_member_added")).toEqual([]);
+    expect(captured("submission_created")).toEqual([
+      {
+        replacement: false,
+        outcome: "success",
+        ms_in_flow: expect.any(Number) as unknown,
+      },
+    ]);
   });
 
   it("submits a replacement with the occupant as the target, even on a full committee", async () => {
@@ -1033,6 +1068,9 @@ describe("CommitteeActionDrawer: submission roles", () => {
       addMemberId: "V-JANE",
       removeMemberId: "V-SEATED",
     });
+    expect(captured("submission_created")).toEqual([
+      expect.objectContaining({ replacement: true, outcome: "success" }),
+    ]);
   });
 
   it("offers no action to ReadAccess", () => {
@@ -1116,7 +1154,7 @@ describe("CommitteeActionDrawer: already pending (ticket 26)", () => {
     const action: CommitteeAction = { kind: "add-member", committee: REF, seatNumber: 2 };
     const ui = (committeeDetail: CommitteeDetailResponse) => (
       <GlobalContext.Provider
-        value={{ actingPermissions: PrivilegeLevel.Leader, setActingPermissions: () => undefined }}
+        value={{ actingPrivilege: PrivilegeLevel.Leader, setActingPrivilege: () => undefined }}
       >
         <CommitteeActionDrawer
           action={action}
@@ -1185,7 +1223,7 @@ describe("CommitteeActionDrawer: completion (ticket 27)", () => {
       });
       return (
         <GlobalContext.Provider
-          value={{ actingPermissions: PrivilegeLevel.Admin, setActingPermissions: () => undefined }}
+          value={{ actingPrivilege: PrivilegeLevel.Admin, setActingPrivilege: () => undefined }}
         >
           <button type="button">New seat actions</button>
           <CommitteeActionDrawer
@@ -1278,6 +1316,9 @@ describe("CommitteeActionDrawer: remove member", () => {
       removalReason: "OTHER",
       removalNotes: "Asked to step down",
     });
+    expect(captured("committee_member_removed")).toEqual([
+      { flow: "remove", outcome: "success", reason: "OTHER" },
+    ]);
   });
 
   it("keeps the drawer open with the server's error", async () => {
@@ -1378,6 +1419,9 @@ describe("CommitteeActionDrawer: record resignation", () => {
       resignationDateReceived: "2026-10-01",
       resignationMethod: "MAIL",
     });
+    expect(captured("committee_member_removed")).toEqual([
+      { flow: "resign", outcome: "success", reason: "RESIGNATION" },
+    ]);
   });
 });
 
@@ -1777,6 +1821,11 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
       resignationDateReceived: "2026-10-29",
       resignationMethod: "EMAIL",
     });
+    // The member stays ACTIVE until an Admin confirms the Exit Report.
+    expect(captured("committee_member_removed")).toEqual([]);
+    expect(captured("exit_report_submitted")).toEqual([
+      { kind: "RESIGNATION", outcome: "success", reason: null },
+    ]);
   });
 
   it("asks for a reason again when the Leader switches from resignation to removal", async () => {
@@ -1861,6 +1910,9 @@ describe("CommitteeActionDrawer: report an exit (Leader)", () => {
       kind: "REMOVAL",
       removalReason: "DECEASED",
     });
+    expect(captured("exit_report_submitted")).toEqual([
+      { kind: "REMOVAL", outcome: "success", reason: "DECEASED" },
+    ]);
   });
 
   it("keeps submission blocked when the current instructions cannot be loaded", async () => {

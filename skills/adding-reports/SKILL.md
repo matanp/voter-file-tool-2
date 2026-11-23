@@ -204,6 +204,7 @@ flowchart LR
 - Request body: `generateReportSchema`
 - Worker payload: `enrichedReportDataSchema` (+ `reportAuthor`, `jobId`)
 - Filename: `generateReportFilename()` + `getFilenameReportType()`
+- Analytics: a new form requests its job with `useGenerateReport` (`~/hooks/useGenerateReport`), not `useApiMutation`, so the job records `report_requested`. Its status display uses `ReportStatusTracker`, which records `report_completed` / `report_failed`. `useGenerateReport.test.ts` fails if any other code posts to `/api/generateReport`.
 
 ---
 

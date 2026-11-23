@@ -334,7 +334,7 @@ describe("/api/committee/requestAdd", () => {
       mockAuthSession(
         createMockSession({ user: { privilegeLevel: PrivilegeLevel.RequestAccess } }),
       );
-      mockHasPermission(true);
+      mockHasPrivilege(true);
       // No eligibility mocks: reaching validateEligibility would not return 409.
       prismaMock.committeeList.findUnique.mockResolvedValue(createMockCommittee());
       prismaMock.committeeMembership.findUnique.mockResolvedValue(
