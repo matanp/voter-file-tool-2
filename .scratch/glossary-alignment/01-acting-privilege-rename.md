@@ -82,3 +82,17 @@ Pick one deliberately; don't rename the key by find-and-replace.
   in `apps/frontend/src` is the storage key, user-facing copy ("You do not have permission"), and
   `const permissions = await auth()` session variables. tsc clean, lint 0 errors, jest 167
   suites / 2336 tests pass.
+- 2026-11-22 — Merged as #186 (`ccf8e1dd`) after a second rebase onto main (#185 had landed;
+  jest 167 suites / 2349 tests). #183 merged 49 seconds later; it had branched before this rename
+  and added test code using the old names (`actingPermissions` / `setActingPermissions` in
+  `CommitteeActionDrawer.test.tsx`, `mockHasPermission` in `requestAdd.test.ts`). Git merged it
+  cleanly, but tsc fails on those names and `next build` typechecks the tests (`tsconfig.json`
+  includes `**/*.ts(x)`). The production deploy of `0313e4d7` failed; the Vercel logs weren't
+  read, so the cause is inferred. #196 fixed the names. Lesson for future renames: after merging,
+  re-grep main for the old names if other PRs merged alongside.
+  Prod QA on deploy 7988255539 (`0e01dd49`), as a Developer, read-only: setting acting privilege
+  to ReadAccess hides the Admin tab and persists under the `actingPermissions` key across a reload;
+  Admin and Leader behave as expected; the original state (no saved key) was restored. Home,
+  committees workspace, record search, six admin pages and the reports hub render with no console
+  errors; no new Sentry or PostHog issues since the deploy. One Committee Roster report (CLARKSON,
+  XLSX) was generated for QA and left in My Reports for the maintainer to delete.
